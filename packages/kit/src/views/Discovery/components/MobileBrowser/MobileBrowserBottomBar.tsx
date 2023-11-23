@@ -9,6 +9,7 @@ import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAr
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { openUrlExternal } from '../../../../utils/openUrl';
+import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
@@ -112,7 +113,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   }, [tab?.url, handleShareUrl]);
 
   return (
-    <Stack bg="$bgApp" h={54} zIndex={1} display="flex">
+    <Stack bg="$bgApp" h={BROWSER_BOTTOM_BAR_HEIGHT} zIndex={1} display="flex">
       <Stack
         flex={1}
         flexDirection="row"

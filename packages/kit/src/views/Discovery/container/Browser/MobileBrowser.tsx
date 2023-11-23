@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
-import { Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,6 +17,14 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
+import {
+  BROWSER_BOTTOM_BAR_HEIGHT,
+  DISPLAY_BOTTOM_BAR_DURATION,
+  IGNORE_INITIAL_EVENT_COUNT,
+  MAX_OPACITY_BOTTOM_BAR,
+  THROTTLE_TIME,
+  THROTTLE_TIME_WHEN_REACH_BOTTOM,
+} from '../../config/Animation.constants';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
@@ -72,34 +79,55 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, [navigationCore]);
 
-  const toolbarHeight = useSharedValue(52);
-  const toolbarOpacity = useSharedValue(1);
+  const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
+  const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
   const lastScrollY = useRef(0); // Keep track of the last scroll position
+  const lastScrollEventTimeRef = useRef(0);
+  const initialEventsCounterRef = useRef(0);
+
   const handleScroll = useCallback(
     ({ nativeEvent }: WebViewScrollEvent) => {
       const { contentSize, contentOffset, layoutMeasurement } = nativeEvent;
       const contentOffsetY = contentOffset.y;
+      let throttleTime = THROTTLE_TIME;
 
-      // console.log('device height: ', Dimensions.get('window').height);
-      // console.log('onScroll ====>: ', nativeEvent);
       // Reached bottom of the page
       if (
         contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - 52
+        contentSize.height - BROWSER_BOTTOM_BAR_HEIGHT
       ) {
-        // console.log('Reached bottom of the page');
-        toolbarHeight.value = withTiming(52, { duration: 100 });
-        toolbarOpacity.value = withTiming(1, { duration: 100 });
-        return;
+        throttleTime = THROTTLE_TIME_WHEN_REACH_BOTTOM;
       }
+
+      const now = Date.now();
+      if (now - lastScrollEventTimeRef.current < throttleTime) {
+        if (initialEventsCounterRef.current > IGNORE_INITIAL_EVENT_COUNT) {
+          return;
+        }
+        initialEventsCounterRef.current += 1;
+      }
+
+      lastScrollEventTimeRef.current = now;
 
       // console.log('Common Scroll Logic');
       // Determine the direction of the scroll
       const isScrollingDown = contentOffsetY < lastScrollY.current;
       lastScrollY.current = contentOffsetY;
-      const height = isScrollingDown ? 52 : Math.max(0, 52 - contentOffsetY);
-      toolbarHeight.value = withTiming(height, { duration: 100 }); // No gradual animation
-      toolbarOpacity.value = withTiming(height / 52, { duration: 100 }); // No gradual animation
+
+      const height = isScrollingDown
+        ? BROWSER_BOTTOM_BAR_HEIGHT
+        : Math.min(
+            BROWSER_BOTTOM_BAR_HEIGHT,
+            Math.max(0, BROWSER_BOTTOM_BAR_HEIGHT - contentOffsetY),
+          );
+
+      toolbarHeight.value = withTiming(height, {
+        duration: DISPLAY_BOTTOM_BAR_DURATION,
+      }); // No gradual animation
+      toolbarOpacity.value = withTiming(height / BROWSER_BOTTOM_BAR_HEIGHT, {
+        duration: DISPLAY_BOTTOM_BAR_DURATION,
+      }); // No gradual animation
+      console.log('====> change height: ', height);
     },
     [toolbarHeight, toolbarOpacity],
   );
@@ -110,8 +138,8 @@ function MobileBrowser() {
 
   // Reset toolbar animation state when activeTabId changes.
   useEffect(() => {
-    toolbarHeight.value = withTiming(52);
-    toolbarOpacity.value = withTiming(1);
+    toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);
+    toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
 
