@@ -66,7 +66,6 @@ function DesktopCustomTabBar() {
   );
 
   useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
-    console.log('isFocus', isFocus);
     if (!isFocus) {
       setCurrentWebTab('');
     }
@@ -92,7 +91,6 @@ function DesktopCustomTabBar() {
           key={t.id}
           activeTabId={activeTabId}
           onPress={(id) => {
-            console.log('isFocus-id', id)
             setCurrentWebTab(id);
           }}
           onBookmarkPress={handleBookmarkPress}
