@@ -106,6 +106,8 @@ export function DesktopLeftSideBar({
         if (route.name === extraConfig?.name) {
           return (
             <YStack
+              id="DesktopLeftSideBar"
+              flex={1}
               key={route.key}
               onPress={() => {
                 // Avoid re-rendering by checking if it's the current route.
@@ -176,6 +178,9 @@ export function DesktopLeftSideBar({
         px="$3"
         pb="$3"
         testID="Desktop-AppSideBar-Content-Container"
+        // HeaderView's height is 68px
+        // Need to replaced by HeaderHeightContext
+        maxHeight="calc(100vh - 68px)"
         pt={platformEnv.isDesktopMac ? undefined : '$3'}
       >
         {tabs}
