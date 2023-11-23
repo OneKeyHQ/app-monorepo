@@ -18,10 +18,10 @@ const Index = () => {
           flex={1}
           paddingVertical={20}
           data={componentsRoute}
-          contentContainerStyle={{
-            marginHorizontal: 'auto',
+          style={{
             width: 640,
             maxWidth: '100%',
+            alignSelf: 'center',
           }}
           renderItem={({ item }) => (
             <ListItem
