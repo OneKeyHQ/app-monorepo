@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { Button, ListView, Page, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -21,6 +27,22 @@ function SearchModal() {
   useEffect(() => {
     console.log('SearchModal renderer ===> : ', displayHomePage);
   }, [displayHomePage]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: 'Search Modal',
+      headerSearchBarOptions: {
+        placeholder: 'search',
+        inputType: 'text',
+        hideNavigationBar: true,
+        // @ts-expect-error
+        hideWhenScrolling: false,
+        onChangeText: ({ nativeEvent }) => {
+          setValue(nativeEvent.text);
+        },
+      },
+    });
+  }, []);
 
   const handleOnPress = useCallback(
     (item: { url: string; name: string; _id: string; logoURL: string }) => {
@@ -56,17 +78,7 @@ function SearchModal() {
   }, [value]);
 
   return (
-    <Page>
-      <Page.Header
-        headerTitle="Search Modal"
-        headerSearchBarOptions={{
-          placeholder: 'search',
-          inputType: 'text',
-          onChangeText: ({ nativeEvent }) => {
-            setValue(nativeEvent.text);
-          },
-        }}
-      />
+    <Page skipLoading>
       <Page.Body>
         <Stack flex={1}>
           <ListView

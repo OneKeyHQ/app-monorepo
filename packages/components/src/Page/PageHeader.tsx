@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+
+import { Stack } from '../Stack';
 
 import type { IStackNavigationOptions } from '../Navigation';
 
@@ -8,8 +10,9 @@ export type IPageHeaderProps = IStackNavigationOptions;
 
 export function PageHeader(props: IPageHeaderProps) {
   const navigation = useNavigation();
-  useEffect(() => {
+  useLayoutEffect(() => {
     navigation.setOptions(props);
   }, [navigation, props]);
-  return null;
+
+  return <Stack />;
 }

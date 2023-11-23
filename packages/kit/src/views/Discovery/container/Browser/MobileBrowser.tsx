@@ -186,7 +186,17 @@ function MobileBrowser() {
       )}
       <Freeze freeze={displayHomePage}>{content}</Freeze>
       <Freeze freeze={!displayBottomBar}>
-        <Animated.View style={[toolbarAnimatedStyle]}>
+        <Animated.View
+          style={[
+            toolbarAnimatedStyle,
+            {
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+            },
+          ]}
+        >
           <MobileBrowserBottomBar id={activeTabId ?? ''} />
         </Animated.View>
       </Freeze>

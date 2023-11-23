@@ -103,7 +103,7 @@ function DesktopCustomTabBar() {
           });
         }}
       />
-      <ScrollView>
+      <ScrollView mx="$-5" px="$5">
         {/* Tabs */}
         {data.map((t) => (
           <DesktopCustomTabBarItem

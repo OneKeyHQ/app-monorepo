@@ -177,10 +177,11 @@ export function DesktopLeftSideBar({
         px="$3"
         pb="$3"
         testID="Desktop-AppSideBar-Content-Container"
-        // HeaderView's height is 68px
         // Need to replaced by HeaderHeightContext
-        maxHeight="calc(100vh - 68px)"
         pt={platformEnv.isDesktopMac ? undefined : '$3'}
+        $platform-web={{
+          h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
+        }}
       >
         {tabs}
       </YStack>

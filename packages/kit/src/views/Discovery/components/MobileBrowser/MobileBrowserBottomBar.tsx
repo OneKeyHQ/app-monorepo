@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
@@ -31,11 +31,15 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
 import type WebView from 'react-native-webview';
+import type { StackProps } from 'tamagui';
 
-function MobileBrowserBottomBar({ id }: { id: string }) {
+interface IMobileBrowserBottomBarProps extends StackProps {
+  id: string;
+}
+
+function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { bottom } = useSafeAreaInsets();
   const { tab } = useWebTabData(id);
   const { tabs } = useWebTabs();
 
@@ -113,16 +117,16 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
   }, [tab?.url, handleShareUrl]);
 
   return (
-    <Stack bg="$bgApp" h={BROWSER_BOTTOM_BAR_HEIGHT} zIndex={1} display="flex">
-      <Stack
-        flex={1}
-        flexDirection="row"
-        overflow="hidden"
-        mb={`${bottom}px`}
-        alignItems="center"
-        justifyContent="space-between"
-        px={27}
-      >
+    <Stack
+      flexDirection="row"
+      bg="$bgApp"
+      h={BROWSER_BOTTOM_BAR_HEIGHT}
+      zIndex={1}
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      {...rest}
+    >
+      <Stack flex={1} alignItems="center" justifyContent="center">
         <IconButton
           variant="tertiary"
           size="medium"
@@ -132,6 +136,8 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}
         />
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
         <IconButton
           variant="tertiary"
           size="medium"
@@ -141,14 +147,18 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
           }}
         />
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
         <IconButton
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
           onPress={handleAddNewTab}
         />
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
         <Stack
-          p="$2"
+          p="$3"
           borderRadius="$full"
           pressStyle={{
             bg: '$bgActive',
@@ -160,11 +170,9 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           <Stack
             minWidth="$5"
             minHeight="$5"
-            p={tabCount.toString().length > 1 ? '$1' : undefined}
             borderRadius="$1"
             borderWidth="$0.5"
             borderColor="$iconSubdued"
-            flexDirection="row"
             alignItems="center"
             justifyContent="center"
           >
@@ -173,6 +181,8 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             </Text>
           </Stack>
         </Stack>
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
           isBookmark={tab?.isBookmark ?? false}
           onBookmarkPress={(isBookmark) => {

@@ -1,6 +1,10 @@
 import { useMedia } from 'tamagui';
 
-import { IconButton, Input, Stack, XStack } from '@onekeyhq/components';
+import { Input, Stack, XStack } from '@onekeyhq/components';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/Navigation/Header';
 
 function HeaderLeftToolBar({
   url,
@@ -47,28 +51,22 @@ function HeaderLeftToolBar({
   }
   return (
     <XStack alignItems="center" justifyContent="center">
-      <XStack space="$6">
-        <IconButton
-          size="medium"
-          variant="tertiary"
+      <HeaderButtonGroup>
+        <HeaderIconButton
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
         />
-        <IconButton
-          size="medium"
-          variant="tertiary"
+        <HeaderIconButton
           icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
         />
-        <IconButton
-          size="medium"
-          variant="tertiary"
+        <HeaderIconButton
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
         />
-      </XStack>
+      </HeaderButtonGroup>
       <Input
         containerProps={{ ml: '$6' }}
         size="small"

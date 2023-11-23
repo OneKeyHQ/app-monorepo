@@ -44,7 +44,7 @@ function MobileBrowserBottomOptions({
             },
             {
               label: 'Open in Browser',
-              icon: 'CompassOutline',
+              icon: 'CompassCircleOutline',
               onPress: () => onBrowserOpen(),
             },
           ],

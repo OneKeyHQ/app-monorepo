@@ -168,7 +168,7 @@ function BaseInput(
                     iconName && (
                       <Icon
                         name={iconName}
-                        color={disabled ? '$iconDisabled' : '$icon'}
+                        color={disabled ? '$iconDisabled' : '$iconSubdued'}
                         size={size === 'small' ? '$5' : '$6'}
                       />
                     )
@@ -178,7 +178,7 @@ function BaseInput(
                       userSelect="none"
                       variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
                       ml={iconName ? '$2' : '$0'}
-                      color={sharedStyles.color}
+                      color={disabled ? '$textDisabled' : '$textSubdued'}
                     >
                       {label}
                     </Text>
