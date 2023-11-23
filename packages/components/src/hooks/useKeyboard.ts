@@ -4,7 +4,9 @@ import { Keyboard } from 'react-native';
 
 import type { KeyboardEventListener } from 'react-native';
 
-export default function useKeyboardHeight() {
+export { default as useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
+
+export function useKeyboardHeight() {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
 
   const handleKeyboardWillShow: KeyboardEventListener = useCallback((e) => {

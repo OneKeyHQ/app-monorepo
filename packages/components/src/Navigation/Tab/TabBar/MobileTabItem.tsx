@@ -4,11 +4,11 @@ import { Icon } from '../../../Icon';
 import { YStack } from '../../../Stack';
 import { Text } from '../../../Text';
 
-import type { IICON_NAMES } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../Icon';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
 interface IMobileTabItemProps {
-  icon?: IICON_NAMES;
+  icon?: IKeyOfIcons;
   label?: string;
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;

@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 
-import useIsKeyboardShown from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 import { CommonActions } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 
+import { useIsKeyboardShown } from '../../../hooks';
 import useSafeAreaInsets from '../../../Provider/hooks/useSafeAreaInsets';
 import { Stack } from '../../../Stack';
 
 import { MobileTabItem } from './MobileTabItem';
 
-import type { IICON_NAMES } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../Icon';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
@@ -54,7 +54,7 @@ export default function MobileBottomTabBar({
           <MobileTabItem
             testID="Mobile-AppTabBar-TabItem-Icon"
             // @ts-expect-error
-            icon={options?.tabBarIcon?.(renderActive) as IICON_NAMES}
+            icon={options?.tabBarIcon?.(renderActive) as IKeyOfIcons}
             label={options?.tabBarLabel as string}
             style={[StyleSheet.absoluteFill]}
             selected={renderActive}

@@ -9,7 +9,7 @@ import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IICON_NAMES } from '../Icon';
+import type { IKeyOfIcons } from '../Icon';
 import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
@@ -17,10 +17,10 @@ type ITMInputProps = GetProps<typeof TMInput>;
 export type IInputProps = {
   readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
-  leftIconName?: IICON_NAMES;
+  leftIconName?: IKeyOfIcons;
   error?: boolean;
   addOns?: {
-    iconName?: IICON_NAMES;
+    iconName?: IKeyOfIcons;
     label?: string;
     onPress?: () => void;
     loading?: boolean;
