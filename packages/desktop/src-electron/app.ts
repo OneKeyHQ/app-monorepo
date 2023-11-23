@@ -203,7 +203,7 @@ function createMainWindow() {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: true,
+      webSecurity: !isDev,
       nativeWindowOpen: true,
       allowRunningInsecureContent: isDev,
       // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
