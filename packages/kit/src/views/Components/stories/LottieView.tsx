@@ -1,9 +1,14 @@
 /* eslint-disable  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { useRef, useState } from 'react';
 
-import { XStack, YStack } from 'tamagui';
-
-import { Button, LottieView, Switch, Text } from '@onekeyhq/components';
+import {
+  Button,
+  LottieView,
+  Switch,
+  Text,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

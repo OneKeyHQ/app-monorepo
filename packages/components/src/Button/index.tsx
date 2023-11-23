@@ -10,14 +10,14 @@ import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Text } from '../Text';
 
-import type { IICON_NAMES, IIconProps } from '../Icon';
+import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ColorTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
   size?: 'small' | 'medium' | 'large';
   variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
-  icon?: IICON_NAMES;
-  iconAfter?: IICON_NAMES;
+  icon?: IKeyOfIcons;
+  iconAfter?: IKeyOfIcons;
   disabled?: boolean;
   loading?: boolean;
   children: React.ReactNode;
@@ -199,6 +199,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
   return (
     <ButtonFrame
       ref={ref}
+      my={variant === 'tertiary' ? '$-1' : '$0'}
+      mx={variant === 'tertiary' ? '$-2' : '$0'}
       py={variant === 'tertiary' ? '$1' : py}
       px={variant === 'tertiary' ? '$2' : px}
       borderRadius={borderRadius}

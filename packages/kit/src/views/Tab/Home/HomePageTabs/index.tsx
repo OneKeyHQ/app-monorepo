@@ -2,10 +2,10 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { getTokens } from 'tamagui';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import { ListView, Page, ScrollView, Stack, Text } from '@onekeyhq/components';
+import { getTokens } from '@onekeyhq/components/src/hooks';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -153,26 +153,31 @@ function HomePage() {
 
   const reloadContentHeight = useCallback(
     (index: number) => {
-      const finallyHeight = config.scrollViewHeight - config.headerViewHeight;
+      if (config.scrollViewHeight * config.headerViewHeight <= 0) {
+        return;
+      }
+      const minHeight = config.scrollViewHeight - config.headerViewHeight;
+      const height = Math.max(data[index].contentHeight ?? 0, minHeight);
+      if (height === contentHeight) {
+        return;
+      }
       if (platformEnv.isNative) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         container?.current?.setNativeProps?.({
-          height: Math.max(data[index].contentHeight ?? 0, finallyHeight),
+          height,
         });
       } else {
-        setContentHeight(
-          Math.max(data[index].contentHeight ?? 0, finallyHeight),
-        );
+        setContentHeight(height);
       }
     },
-    [data, config, container],
+    [data, config, container, contentHeight],
   );
 
   const pageManager = useMemo(
     () =>
       new PageManager({
         data,
-        initialScrollIndex: 1,
+        initialScrollIndex: 3,
         onSelectedPageIndex: (index: number) => {
           reloadContentHeight(index);
           const { contentOffsetY } = data[index];
