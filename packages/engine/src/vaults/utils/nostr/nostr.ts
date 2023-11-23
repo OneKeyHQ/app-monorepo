@@ -1,3 +1,5 @@
+import { schnorr } from '@noble/curves/secp256k1';
+import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import * as bip39 from 'bip39';
 
@@ -6,7 +8,68 @@ import { getBitcoinBip32 } from '../btcForkChain/utils';
 
 import type { BIP32Interface } from 'bip32';
 
+export type NostrEvent = {
+  id?: string;
+  kind: EventKind;
+  pubkey?: string;
+  content: string;
+  tags: string[][];
+  created_at: number;
+  sig?: string;
+};
+
+export enum EventKind {
+  Metadata = 0,
+  Text = 1,
+  RelayRec = 2,
+  Contacts = 3,
+  DM = 4,
+  Deleted = 5,
+}
+
 const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0"; // NIP-06
+
+export function validateEvent(event: NostrEvent): boolean {
+  if (!(event instanceof Object)) return false;
+  if (typeof event.kind !== 'number') return false;
+  if (typeof event.content !== 'string') return false;
+  if (typeof event.created_at !== 'number') return false;
+  // ignore pubkey checks because if the pubkey is not set we add it to the event. same for the ID.
+
+  if (!Array.isArray(event.tags)) return false;
+  for (let i = 0; i < event.tags.length; i += 1) {
+    const tag = event.tags[i];
+    if (!Array.isArray(tag)) return false;
+    for (let j = 0; j < tag.length; j += 1) {
+      if (typeof tag[j] === 'object') return false;
+    }
+  }
+
+  return true;
+}
+
+export function serializeEvent(event: NostrEvent): string {
+  if (!validateEvent(event))
+    throw new Error("can't serialize event with wrong or missing properties");
+
+  return JSON.stringify([
+    0,
+    event.pubkey,
+    event.created_at,
+    event.kind,
+    event.tags,
+    event.content,
+  ]);
+}
+
+export function getEventHash(event: NostrEvent): string {
+  return bytesToHex(sha256(serializeEvent(event)));
+}
+
+export function signEvent(event: NostrEvent, key: string) {
+  const signedEvent = schnorr.sign(getEventHash(event), key);
+  return bytesToHex(signedEvent);
+}
 
 class Nostr {
   readonly mnemonic: string;
@@ -26,6 +89,19 @@ class Nostr {
 
   getPublicKeyHex() {
     return bytesToHex(this.getPublicKey());
+  }
+
+  getEventHash(event: NostrEvent) {
+    return getEventHash(event);
+  }
+
+  signEvent(event: NostrEvent): Promise<NostrEvent> {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    const signature = signEvent(event, bytesToHex(this.node.privateKey));
+    event.sig = signature;
+    return Promise.resolve(event);
   }
 }
 

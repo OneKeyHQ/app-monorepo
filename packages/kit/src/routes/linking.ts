@@ -197,6 +197,9 @@ export const normalRouteWhiteList: WhiteListItemList = [
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.Nostr}/${NostrModalRoutes.GetPublicKey}`,
   },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Nostr}/${NostrModalRoutes.SignEvent}`,
+  },
   /**
    * refresh page will flash the last item of normalRouteWhiteList
    * ** please add exact routes above here

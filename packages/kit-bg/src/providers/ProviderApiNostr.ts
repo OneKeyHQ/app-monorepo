@@ -1,24 +1,11 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
-import {
-  findLnurl,
-  getLnurlDetails,
-  isLNURLRequestError,
-} from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
-import type {
-  RequestInvoiceArgs,
-  RequestInvoiceResponse,
-  SignMessageResponse,
-  VerifyMessageArgs,
-} from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
+import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
   NostrModalRoutes,
-  SendModalRoutes,
-  WeblnModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   backgroundClass,
@@ -96,6 +83,31 @@ class ProviderApiNostr extends ProviderApiBase {
     });
     console.log('=====> publickey: ', pubkey);
     return Promise.resolve(pubkey as string);
+  }
+
+  @providerApiMethod()
+  public async signEvent(
+    request: IJsBridgeMessagePayload,
+  ): Promise<NostrEvent> {
+    const { walletId } = getActiveWalletAccount();
+    const params = (request.data as IJsonRpcRequest)?.params as {
+      event: NostrEvent;
+    };
+    if (!params.event) {
+      throw web3Errors.rpc.invalidInput();
+    }
+    try {
+      const signedEvent = await this.backgroundApi.serviceDapp.openModal({
+        request,
+        screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
+        params: { walletId, event: params.event },
+      });
+      return signedEvent as NostrEvent;
+    } catch (e) {
+      debugLogger.providerApi.error(`nostr.signEvent data: `, params.event);
+      debugLogger.providerApi.error(`nostr.signEvent error: `, e);
+      throw e;
+    }
   }
 }
 

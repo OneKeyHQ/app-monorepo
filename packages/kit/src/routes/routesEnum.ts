@@ -401,6 +401,7 @@ export enum WeblnModalRoutes {
 
 export enum NostrModalRoutes {
   GetPublicKey = 'GetPublicKey',
+  SignEvent = 'SignEvent',
   NostrAuthentication = 'NostrAuthentication',
 }
 
