@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { captureRef } from 'react-native-view-shot';
 
-import { IconButton, Stack, Text } from '@onekeyhq/components';
+import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 
@@ -14,6 +14,7 @@ import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import {
+  useDisabledAddedNewTab,
   useDisplayHomePageFlag,
   useWebTabData,
   useWebTabs,
@@ -39,6 +40,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
 
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setPinnedTab, setDisplayHomePage } = useWebTabAction();
+  const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const { handleShareUrl } = useBrowserOptionsAction();
@@ -88,6 +90,23 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
     });
   }, [takeScreenshot, navigation, displayHomePage]);
 
+  const handleAddNewTab = useCallback(async () => {
+    if (disabledAddedNewTab) {
+      Toast.message({ title: '窗口已达 20 个上限' });
+      return;
+    }
+    try {
+      if (!displayHomePage) {
+        await takeScreenshot();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.FakeSearchModal,
+    });
+  }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot]);
+
   const onShare = useCallback(() => {
     handleShareUrl(tab?.url ?? '');
   }, [tab?.url, handleShareUrl]);
@@ -107,7 +126,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
-          disabled={displayHomePage ? false : !tab?.canGoBack}
+          disabled={displayHomePage ? true : !tab?.canGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}
@@ -116,7 +135,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="tertiary"
           size="medium"
           icon="ChevronRightOutline"
-          disabled={displayHomePage ? false : !tab?.canGoForward}
+          disabled={displayHomePage ? true : !tab?.canGoForward}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
           }}
@@ -125,11 +144,7 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          onPress={() =>
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.FakeSearchModal,
-            })
-          }
+          onPress={handleAddNewTab}
         />
         <Stack
           p="$2"
@@ -191,7 +206,12 @@ function MobileBrowserBottomBar({ id }: { id: string }) {
             });
           }}
         >
-          <IconButton variant="tertiary" size="medium" icon="DotHorOutline" />
+          <IconButton
+            variant="tertiary"
+            size="medium"
+            icon="DotHorOutline"
+            disabled={displayHomePage}
+          />
         </MobileBrowserBottomOptions>
       </Stack>
     </Stack>
