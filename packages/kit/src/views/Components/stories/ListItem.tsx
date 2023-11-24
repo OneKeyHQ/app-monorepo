@@ -19,7 +19,7 @@ const SwitchDemo = ({ ...rest }: ISwitchProps) => {
   );
 };
 
-const TOKENDATA = [
+export const TOKENDATA = [
   {
     src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
     title: 'BTC',
@@ -45,7 +45,7 @@ const TOKENDATA = [
   },
 ];
 
-const NFTDATA = [
+export const NFTDATA = [
   {
     src: 'https://images.glow.app/https%3A%2F%2Farweave.net%2F0WFtaZrc_DUzL2Tt_zztq-9cfJoSDhDacSfrPT50HOo%3Fext%3Dpng?ixlib=js-3.8.0&w=80&h=80&dpr=2&fit=crop&s=7af3b8e6a74c4abc0ab9de93ca67d1c4',
     title: 'Critter Ywin',

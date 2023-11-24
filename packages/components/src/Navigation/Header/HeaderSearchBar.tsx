@@ -13,6 +13,7 @@ import type {
 
 type IHeaderSearchBarProps = {
   height?: string;
+  autoFocus?: boolean;
   /**
    * A callback that gets called when search bar has lost focus
    */
@@ -38,6 +39,7 @@ type IHeaderSearchBarProps = {
 };
 
 function HeaderSearchBar({
+  autoFocus,
   onBlur,
   onFocus,
   onChangeText,
@@ -93,6 +95,7 @@ function HeaderSearchBar({
       {...(media.gtMd && {
         size: 'small',
       })}
+      autoFocus={autoFocus}
       onBlur={onBlurCallback}
       onFocus={onFocusCallback}
       onChangeText={handleChangeCallback}

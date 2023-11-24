@@ -80,7 +80,7 @@ function HeaderView({
   );
 
   return (
-    <DesktopDragZoneBox>
+    <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
         $gtMd={{
           flexDirection: 'row',
@@ -133,6 +133,7 @@ function HeaderView({
         </Stack>
         {!!headerSearchBarOptions && (
           <HeaderSearchBar
+            autoFocus={headerSearchBarOptions?.autoFocus}
             placeholder={headerSearchBarOptions?.placeholder}
             onChangeText={headerSearchBarOptions?.onChangeText}
             onBlur={headerSearchBarOptions?.onBlur}
