@@ -4,12 +4,15 @@ import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Button,
   Divider,
+  Icon,
+  ListItem,
   SectionList,
   Stack,
   Text,
   XStack,
 } from '@onekeyhq/components';
 
+import { NFTDATA, TOKENDATA } from './ListItem';
 import { Layout } from './utils/Layout';
 
 const sectionListData = [
@@ -31,15 +34,23 @@ const sectionListData = [
   },
 ];
 
+const stickySectionListData = [
+  { title: 'NFT', data: NFTDATA },
+  {
+    title:
+      'TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN TOKEN',
+    data: TOKENDATA,
+  },
+  { title: 'NFT', data: NFTDATA },
+  { title: 'TOKEN', data: TOKENDATA },
+];
+
 const SectionListDemo = () => {
   const ref = useRef<ISectionListRef<any>>(null);
   return (
     <SectionList
       h="$60"
-      bg="$backgroundPress"
-      contentContainerStyle={{
-        bg: '$borderLight',
-      }}
+      bg="$bg"
       ListHeaderComponentStyle={{
         w: '100%',
         bg: 'blue',
@@ -59,8 +70,9 @@ const SectionListDemo = () => {
       ListHeaderComponent={XStack}
       ListFooterComponent={XStack}
       estimatedItemSize="$10"
+      SectionSeparatorComponent={null}
       renderItem={({ item }) => (
-        <XStack>
+        <XStack bg="$borderLight">
           <Text>{item}</Text>
           <Divider />
           <XStack space="$8">
@@ -83,16 +95,83 @@ const SectionListDemo = () => {
   );
 };
 
+const StickySectionListDemo = () => {
+  const ref = useRef<ISectionListRef<any>>(null);
+  return (
+    <SectionList
+      ref={ref}
+      h={500}
+      sections={stickySectionListData}
+      renderSectionHeader={({ section: { title }, index }) => (
+        <SectionList.SectionHeader title={title}>
+          {index !== 0 ? null : (
+            <Text numberOfLines={1}>
+              {title} (custom the children of section header)
+            </Text>
+          )}
+        </SectionList.SectionHeader>
+      )}
+      estimatedItemSize="$10"
+      stickySectionHeadersEnabled
+      renderItem={({
+        item,
+      }: {
+        item: {
+          title: string;
+          subtitle: string;
+          src: string;
+          networkSrc?: string;
+          amount?: string;
+          value?: string;
+        };
+      }) => (
+        <ListItem
+          key={item.title}
+          title={item.title}
+          subtitle={item.subtitle}
+          subtitleProps={{
+            numberOfLines: 1,
+          }}
+          avatarProps={{
+            src: item.src,
+            fallbackProps: {
+              bg: '$bgStrong',
+              justifyContent: 'center',
+              alignItems: 'center',
+              children: <Icon name="ImageMountainSolid" />,
+            },
+            cornerImageProps: item.networkSrc
+              ? { src: item.networkSrc }
+              : undefined,
+          }}
+          onPress={() => {
+            console.log('clicked');
+          }}
+        >
+          <ListItem.Text
+            align="right"
+            primary={item.amount}
+            secondary={item.value}
+          />
+        </ListItem>
+      )}
+    />
+  );
+};
+
 const SectionListGallery = () => (
   <Layout
     description=".."
     suggestions={['...']}
     boundaryConditions={['...']}
-    scrollEnabled={false}
     elements={[
       {
-        title: 'Styled SectionList',
+        title: 'Styled and cleared the SectionSeparatorComponent SectionList',
         element: <SectionListDemo />,
+      },
+      {
+        title: 'Sticky SectionHeader SectionList',
+        element: <StickySectionListDemo />,
       },
     ]}
   />
