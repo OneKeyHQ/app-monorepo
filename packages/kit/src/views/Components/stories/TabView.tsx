@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { ListView, RefreshControl, Stack, Text } from '@onekeyhq/components';
+import { ListView, Stack, Text } from '@onekeyhq/components';
 import { Tab } from '@onekeyhq/components/src/TabView';
 
 import { Layout } from './utils/Layout';
@@ -42,7 +42,6 @@ const SecondRoute = ({
 );
 
 const TabViewScrollStickyDemo = () => {
-  const onRefresh = () => {};
   const data = useMemo(
     () => [
       {
