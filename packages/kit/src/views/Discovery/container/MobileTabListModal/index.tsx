@@ -2,7 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // TODO：需要替换为组件库中的 ListView
-import { FlatList, StyleSheet } from 'react-native';
+import { FlatList, InteractionManager, StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import {
@@ -188,10 +188,13 @@ function MobileTabListModal() {
       Toast.message({ title: '窗口已达 20 个上限' });
       return;
     }
+    // TODO: need to add promise  api for navigation chains
     navigation.pop();
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.FakeSearchModal,
-    });
+    setTimeout(() => {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.FakeSearchModal,
+      });
+    }, 0);
   }, [disabledAddedNewTab, navigation]);
 
   const showTabOptions = useCallback(
