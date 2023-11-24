@@ -127,7 +127,6 @@ function MobileBrowser() {
       toolbarOpacity.value = withTiming(height / BROWSER_BOTTOM_BAR_HEIGHT, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
       }); // No gradual animation
-      console.log('====> change height: ', height);
     },
     [toolbarHeight, toolbarOpacity],
   );

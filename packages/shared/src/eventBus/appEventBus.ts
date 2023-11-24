@@ -22,6 +22,7 @@ export interface IAppEventBusPayload {
     id: number;
   };
   [EAppEventBusNames.NetworkChanged]: undefined;
+  [EAppEventBusNames.CloseAllBrowserTab]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
