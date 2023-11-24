@@ -5,6 +5,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import * as secp256k1 from '@noble/secp256k1';
 import { AES_CBC } from 'asmcrypto.js';
+import { bech32 } from 'bech32';
 import * as bip39 from 'bip39';
 
 import { mnemonicFromEntropy } from '../../../secret';
@@ -148,6 +149,11 @@ class Nostr {
       Buffer.from(iv, 'base64'),
     );
     return Buffer.from(decrypted).toString('utf-8');
+  }
+
+  getPubkeyEncodedByNip19() {
+    const words = bech32.toWords(this.getPublicKey());
+    return bech32.encode('npub', words, 1000);
   }
 }
 

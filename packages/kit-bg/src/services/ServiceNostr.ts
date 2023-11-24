@@ -38,6 +38,15 @@ export default class ServiceNostr extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPublicKeyEncodedByNip19({
+    walletId,
+    password,
+  }: IGetNostrParams): Promise<string> {
+    const nostr = await this.getNostrInstance(walletId, password);
+    return nostr.getPubkeyEncodedByNip19();
+  }
+
+  @backgroundMethod()
   async signEvent({
     walletId,
     password,

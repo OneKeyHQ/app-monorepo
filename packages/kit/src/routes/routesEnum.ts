@@ -403,6 +403,7 @@ export enum NostrModalRoutes {
   GetPublicKey = 'GetPublicKey',
   SignEvent = 'SignEvent',
   NostrAuthentication = 'NostrAuthentication',
+  ExportPubkey = 'ExportPubkey',
 }
 
 export enum InscriptionControlModalRoutes {

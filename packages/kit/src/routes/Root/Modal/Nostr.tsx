@@ -1,6 +1,7 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import NostrAuthenticationModal from '../../../views/Account/AddNewAccount/Authentication';
+import ExportPubkeyModal from '../../../views/Nostr/ExportPubkeyModal';
 import GetPublicKeyModal from '../../../views/Nostr/GetPublicKeyModal';
 import SignEventModal from '../../../views/Nostr/SignEventModal';
 import { NostrModalRoutes } from '../../../views/Nostr/types';
@@ -23,6 +24,10 @@ const modalRoutes = [
   {
     name: NostrModalRoutes.NostrAuthentication,
     component: NostrAuthenticationModal,
+  },
+  {
+    name: NostrModalRoutes.ExportPubkey,
+    component: ExportPubkeyModal,
   },
 ];
 
