@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { IconButton, XStack } from '@onekeyhq/components';
+import { XStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,

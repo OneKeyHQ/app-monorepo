@@ -168,17 +168,7 @@ function MobileBrowser() {
           url={tab?.url ?? ''}
           onSearch={() => {
             navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.SearchModal,
-              params: {
-                onSubmitContent: (text: string) => {
-                  console.log('onSubmitContent: ===> : ', text);
-                  gotoSite({
-                    url: text,
-                    isNewWindow: false,
-                    userTriggered: true,
-                  });
-                },
-              },
+              screen: EDiscoveryModalRoutes.FakeSearchModal,
             });
           }}
         />
