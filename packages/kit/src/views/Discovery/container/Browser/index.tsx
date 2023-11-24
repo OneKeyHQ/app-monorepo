@@ -24,7 +24,7 @@ function Browser() {
   }
 
   return (
-    <Stack flex={1} bg="background-default">
+    <Stack flex={1}>
       {isVerticalLayout ? <MobileBrowser /> : <DesktopBrowser />}
     </Stack>
   );

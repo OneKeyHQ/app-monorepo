@@ -1,7 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { FlatList, StyleSheet } from 'react-native';
+// TODO：需要替换为组件库中的 ListView
+import { FlatList, InteractionManager, StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import {
@@ -61,25 +62,25 @@ function TabToolBar({
   onDone: () => void;
 }) {
   return (
-    <Stack
-      py="$2"
-      px="$8"
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
-    >
-      <Button variant="tertiary" size="medium" onPress={onCloseAll}>
-        Close All
-      </Button>
-      <IconButton
-        variant="secondary"
-        size="medium"
-        icon="PlusLargeOutline"
-        onPress={onAddTab}
-      />
-      <Button variant="tertiary" size="medium" onPress={onDone}>
-        Done
-      </Button>
+    <Stack py="$2" flexDirection="row" alignItems="center">
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <Button variant="tertiary" size="medium" onPress={onCloseAll}>
+          Close All
+        </Button>
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <IconButton
+          variant="secondary"
+          size="medium"
+          icon="PlusLargeOutline"
+          onPress={onAddTab}
+        />
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <Button variant="tertiary" size="medium" onPress={onDone}>
+          Done
+        </Button>
+      </Stack>
     </Stack>
   );
 }
@@ -194,10 +195,13 @@ function MobileTabListModal() {
       Toast.message({ title: '窗口已达 20 个上限' });
       return;
     }
+    // TODO: need to add promise  api for navigation chains
     navigation.pop();
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.FakeSearchModal,
-    });
+    setTimeout(() => {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.FakeSearchModal,
+      });
+    }, 0);
   }, [disabledAddedNewTab, navigation]);
 
   const showTabOptions = useCallback(
