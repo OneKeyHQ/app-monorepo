@@ -61,25 +61,25 @@ function TabToolBar({
   onDone: () => void;
 }) {
   return (
-    <Stack
-      py="$2"
-      px="$8"
-      flexDirection="row"
-      alignItems="center"
-      justifyContent="space-between"
-    >
-      <Button variant="tertiary" size="medium" onPress={onCloseAll}>
-        Close All
-      </Button>
-      <IconButton
-        variant="secondary"
-        size="medium"
-        icon="PlusLargeOutline"
-        onPress={onAddTab}
-      />
-      <Button variant="tertiary" size="medium" onPress={onDone}>
-        Done
-      </Button>
+    <Stack py="$2" flexDirection="row" alignItems="center">
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <Button variant="tertiary" size="medium" onPress={onCloseAll}>
+          Close All
+        </Button>
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <IconButton
+          variant="secondary"
+          size="medium"
+          icon="PlusLargeOutline"
+          onPress={onAddTab}
+        />
+      </Stack>
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <Button variant="tertiary" size="medium" onPress={onDone}>
+          Done
+        </Button>
+      </Stack>
     </Stack>
   );
 }

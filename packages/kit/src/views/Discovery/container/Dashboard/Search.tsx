@@ -6,7 +6,13 @@ import {
   useState,
 } from 'react';
 
-import { ListItem, ListView, Page, Stack } from '@onekeyhq/components';
+import {
+  ListItem,
+  ListView,
+  Page,
+  Skeleton,
+  Stack,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -42,10 +48,16 @@ function SearchModal() {
         },
       },
     });
-  }, []);
+  }, [navigation]);
 
   const handleOnPress = useCallback(
-    (item: { url: string; name: string; _id: string; logoURL: string }) => {
+    (item: {
+      url: string;
+      name: string;
+      desc?: string;
+      _id: string;
+      logoURL: string;
+    }) => {
       console.log(1, 'displayHomePage', displayHomePage);
       setDisplayHomePage(false);
 
@@ -70,6 +82,7 @@ function SearchModal() {
       {
         _id: value,
         name: value,
+        desc: '',
         url: value,
         logoURL: '',
       },
@@ -90,8 +103,15 @@ function SearchModal() {
               <ListItem
                 avatarProps={{
                   src: item.logoURL,
+                  fallbackProps: {
+                    children: <Skeleton w="$10" h="$10" />,
+                  },
                 }}
                 title={item.name}
+                subtitle={item.desc}
+                subtitleProps={{
+                  numberOfLines: 1,
+                }}
                 onPress={() => {
                   handleOnPress(item);
                 }}
