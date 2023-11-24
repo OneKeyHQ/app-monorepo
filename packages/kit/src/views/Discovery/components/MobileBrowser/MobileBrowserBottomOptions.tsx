@@ -29,12 +29,12 @@ function MobileBrowserBottomOptions({
             },
             {
               label: isBookmark ? 'Remove Bookmark' : 'Bookmark',
-              icon: isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+              icon: isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => onBookmarkPress(!isBookmark),
             },
             {
               label: isPinned ? 'Un-Pin' : 'Pin',
-              icon: isPinned ? 'PinSolid' : 'PinOutline',
+              icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => onPinnedPress(!isPinned),
             },
             {
