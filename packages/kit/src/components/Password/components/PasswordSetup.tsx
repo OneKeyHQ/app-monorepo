@@ -1,6 +1,15 @@
 import { Suspense, memo, useState } from 'react';
 
-import { Button, Form, Input, Spinner, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Form,
+  Input,
+  Spinner,
+  Stack,
+  Text,
+  XStack,
+  useForm,
+} from '@onekeyhq/components';
 
 export interface IPasswordSetupForm {
   password: string;
@@ -97,12 +106,17 @@ const PasswordSetup = ({
           ]}
         />
       </Form.Field>
+      {biologyAuthSwitchContainer ? (
+        <Suspense fallback={<Spinner size="small" />}>
+          <XStack justifyContent="space-between" alignItems="center">
+            <Text variant="bodyMdMedium">Authentication with FaceID</Text>
+            <Stack>{biologyAuthSwitchContainer}</Stack>
+          </XStack>
+        </Suspense>
+      ) : null}
       <Button variant="primary" onPress={form.handleSubmit(onSetupPassword)}>
         Set Password
       </Button>
-      <Suspense fallback={<Spinner size="small" />}>
-        {biologyAuthSwitchContainer}
-      </Suspense>
     </Form>
   );
 };
