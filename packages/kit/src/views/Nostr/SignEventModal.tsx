@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,7 +11,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+import {
+  EventKind,
+  type NostrEvent,
+} from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -176,6 +179,54 @@ const NostrSignEventModal = () => {
     [event, displayDetails],
   );
 
+  const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
+  const isDMEvent = useMemo(
+    () => signType === 'signEvent' && Number(event?.kind) === EventKind.DM,
+    [signType, event],
+  );
+  useEffect(() => {
+    if (isDMEvent && event?.content) {
+      backgroundApiProxy.serviceNostr
+        .getEncryptedData(event?.content)
+        .then((data) => {
+          if (!data) {
+            return;
+          }
+          if (data.plaintext) {
+            setSavedPlaintext(data.plaintext);
+          }
+        });
+    }
+  }, [event, isDMEvent]);
+  const renderEncryptSignEventPlaintext = useMemo(() => {
+    if (
+      signType === 'signEvent' &&
+      Number(event?.kind) === EventKind.DM &&
+      savedPlaintext &&
+      savedPlaintext.length > 0
+    ) {
+      return (
+        <Box
+          bg="surface-default"
+          borderColor="border-default"
+          borderWidth={1}
+          borderRadius={12}
+          paddingX={4}
+          paddingY={3}
+          mb={4}
+        >
+          <Text mb={2} typography="Body1Strong">
+            Plaintext:
+          </Text>
+          <Text typography="Body2" color="text-subdued">
+            {savedPlaintext}
+          </Text>
+        </Box>
+      );
+    }
+    return null;
+  }, [signType, event, savedPlaintext]);
+
   const content = useMemo(() => {
     if (signType === 'encrypt') {
       return plaintext;
@@ -204,7 +255,7 @@ const NostrSignEventModal = () => {
           navigation.goBack();
         }
       }}
-      height="500px"
+      height={isDMEvent ? '580px' : '500px'}
       scrollViewProps={{
         contentContainerStyle: {
           flex: 1,
@@ -235,6 +286,7 @@ const NostrSignEventModal = () => {
                 {content}
               </Text>
             </Box>
+            {renderEncryptSignEventPlaintext}
             {signType === 'signEvent' && renderEventDetails}
           </Box>
         ),

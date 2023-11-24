@@ -5,9 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
-import Protected, {
-  ValidationFields,
-} from '@onekeyhq/kit/src/components/Protected';
+import Protected from '@onekeyhq/kit/src/components/Protected';
 import { PrivateOrPublicKeyPreview } from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate/previewView';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

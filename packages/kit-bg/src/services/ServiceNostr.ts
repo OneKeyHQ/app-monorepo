@@ -1,9 +1,12 @@
+import ExpiryMap from 'expiry-map';
+
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
 import {
   Nostr,
   validateEvent,
 } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
@@ -16,8 +19,20 @@ type IGetNostrParams = {
   password: string;
 };
 
+type IPersistEncryptData = {
+  pubkey: string;
+  plaintext: string;
+  encryptedData: string;
+};
+
 @backgroundClass()
 export default class ServiceNostr extends ServiceBase {
+  expiryMap = new ExpiryMap<string, IPersistEncryptData>(
+    getTimeDurationMs({
+      minute: 5,
+    }),
+  );
+
   @backgroundMethod()
   async getNostrInstance(walletId: string, password: string): Promise<Nostr> {
     const { entropy } = (await this.backgroundApi.engine.dbApi.getCredential(
@@ -104,5 +119,24 @@ export default class ServiceNostr extends ServiceBase {
     return {
       data: decrypted,
     };
+  }
+
+  @backgroundMethod()
+  async saveEncryptedData({
+    pubkey,
+    plaintext,
+    encryptedData,
+  }: IPersistEncryptData) {
+    this.expiryMap.set(encryptedData, { pubkey, plaintext, encryptedData });
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async getEncryptedData(encryptedData: string) {
+    const data = this.expiryMap.get(encryptedData);
+    if (!data) {
+      return null;
+    }
+    return Promise.resolve(data);
   }
 }

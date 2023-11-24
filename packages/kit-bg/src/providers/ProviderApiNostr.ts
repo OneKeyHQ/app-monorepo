@@ -63,17 +63,6 @@ class ProviderApiNostr extends ProviderApiBase {
 
   // Nostr API
   @providerApiMethod()
-  public async enable(request: IJsBridgeMessagePayload) {
-    try {
-      await this.backgroundApi.serviceDapp.openConnectionModal(request);
-      return { enabled: true };
-    } catch (error) {
-      debugLogger.providerApi.error(`webln.enable error: `, error);
-      throw error;
-    }
-  }
-
-  @providerApiMethod()
   public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
     const pubkey = await this.backgroundApi.serviceDapp.openModal({
@@ -111,6 +100,15 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  private async getPasswordCache() {
+    const password = await this.backgroundApi.servicePassword.getPassword();
+    if (password && password.length > 0) {
+      return password;
+    }
+    return false;
+  }
+
+  @providerApiMethod()
   public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
     console.log(request);
@@ -123,6 +121,22 @@ class ProviderApiNostr extends ProviderApiBase {
     }
 
     try {
+      const passwordCache = await this.getPasswordCache();
+      if (passwordCache) {
+        const encrypted = await this.backgroundApi.serviceNostr.encrypt({
+          walletId,
+          password: passwordCache,
+          pubkey: params.pubkey,
+          plaintext: params.plaintext,
+        });
+        await this.backgroundApi.serviceNostr.saveEncryptedData({
+          pubkey: params.pubkey,
+          plaintext: params.plaintext,
+          encryptedData: encrypted.data,
+        });
+        return encrypted.data;
+      }
+
       const encrypted = await this.backgroundApi.serviceDapp.openModal({
         request,
         screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
@@ -131,6 +145,11 @@ class ProviderApiNostr extends ProviderApiBase {
           pubkey: params.pubkey,
           plaintext: params.plaintext,
         },
+      });
+      await this.backgroundApi.serviceNostr.saveEncryptedData({
+        pubkey: params.pubkey,
+        plaintext: params.plaintext,
+        encryptedData: encrypted as string,
       });
       return encrypted as string;
     } catch (e) {
@@ -152,6 +171,17 @@ class ProviderApiNostr extends ProviderApiBase {
     }
 
     try {
+      const passwordCache = await this.getPasswordCache();
+      if (passwordCache) {
+        const decrypted = await this.backgroundApi.serviceNostr.decrypt({
+          walletId,
+          password: passwordCache,
+          pubkey: params.pubkey,
+          ciphertext: params.ciphertext,
+        });
+
+        return decrypted.data;
+      }
       const decrypted = await this.backgroundApi.serviceDapp.openModal({
         request,
         screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
