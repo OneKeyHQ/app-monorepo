@@ -1,27 +1,27 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef } from 'react';
 
+import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { FlatList } from 'react-native';
+import { getTokenValue } from 'tamagui';
 
+import { View } from '../View';
+
+import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
-import type {
-  FlatListProps,
-  ListRenderItem,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
-export type IListViewRef<T> = FlatList<T>;
+type IListViewRef<T> = FlashList<T>;
 
-export type IListViewProps<T> = Omit<
-  FlatListProps<T>,
+type IListViewProps<T> = Omit<
+  FlashListProps<T>,
   | 'contentContainerStyle'
   | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
   | 'data'
   | 'renderItem'
+  | 'estimatedItemSize'
 > &
   StackStyleProps & {
     contentContainerStyle?: StackStyleProps;
@@ -29,13 +29,10 @@ export type IListViewProps<T> = Omit<
     ListHeaderComponentStyle?: StackStyleProps;
     ListFooterComponentStyle?: StackStyleProps;
   } & {
-    data: ArrayLike<T> | null | undefined;
+    data: ReadonlyArray<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
-
-    // for web
     estimatedItemSize: number | `$${keyof Tokens['size']}`;
-    getItemType?: (item: T) => string | undefined;
   };
 
 function BaseListView<T>(
@@ -46,6 +43,7 @@ function BaseListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
+    estimatedItemSize,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -55,13 +53,6 @@ function BaseListView<T>(
   });
   const contentStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const columnStyle = useStyle(
-    (columnWrapperStyle || {}) as Record<string, unknown>,
     {
       resolveValues: 'auto',
     },
@@ -80,18 +71,23 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
+  const itemSize =
+    typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : getTokenValue(estimatedItemSize);
   return (
-    <FlatList<T>
-      ref={ref}
-      style={style as StyleProp<ViewStyle>}
-      columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
-      ListHeaderComponentStyle={listHeaderStyle}
-      ListFooterComponentStyle={listFooterStyle}
-      contentContainerStyle={contentStyle}
-      data={data}
-      renderItem={renderItem}
-      {...restProps}
-    />
+    <View style={style as StyleProp<ViewStyle>}>
+      <FlashList<T>
+        ref={ref}
+        ListHeaderComponentStyle={listHeaderStyle}
+        ListFooterComponentStyle={listFooterStyle}
+        contentContainerStyle={contentStyle}
+        data={data}
+        renderItem={renderItem}
+        estimatedItemSize={itemSize}
+        {...restProps}
+      />
+    </View>
   );
 }
 

@@ -7,10 +7,15 @@ import {
   useRef,
 } from 'react';
 
+import { withStaticProperties } from 'tamagui';
+
 import { ListView } from '../ListView';
+import { Stack, XStack } from '../Stack';
+import { Text } from '../Text';
 
 import type { IListViewProps, IListViewRef } from '../ListView';
-import type { ListRenderItem } from '@shopify/flash-list';
+import type { ListRenderItem } from 'react-native';
+import type { GetProps } from 'tamagui';
 
 type ISectionRenderInfo = (info: {
   section: any;
@@ -31,6 +36,7 @@ export type ISectionListProps<T> = Omit<
   }) => ReactNode | null;
   renderSectionHeader?: ISectionRenderInfo;
   renderSectionFooter?: ISectionRenderInfo;
+  SectionSeparatorComponent?: ReactNode;
   stickySectionHeadersEnabled?: boolean;
 };
 
@@ -48,6 +54,7 @@ export type ISectionListRef<T> = IListViewRef<T> & {
 
 enum ESectionLayoutType {
   Header = 'sectionHeader',
+  SectionSeparator = 'sectionSeparator',
   Item = 'item',
   Footer = 'sectionFooter',
 }
@@ -65,6 +72,7 @@ function BaseSectionList<T>(
     renderItem,
     renderSectionHeader,
     renderSectionFooter,
+    SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     ...restProps
   }: ISectionListProps<T>,
@@ -73,6 +81,13 @@ function BaseSectionList<T>(
   const reloadSections = useMemo(() => {
     const reloadSectionList: ISectionLayoutItem[] = [];
     sections?.forEach?.((section, sectionIndex) => {
+      if (sectionIndex !== 0) {
+        reloadSectionList.push({
+          value: section,
+          index: sectionIndex,
+          type: ESectionLayoutType.SectionSeparator,
+        });
+      }
       reloadSectionList.push({
         value: section,
         index: sectionIndex,
@@ -132,6 +147,9 @@ function BaseSectionList<T>(
     ({ item }: { item: T }) => {
       const { type, value, section, index } = item as ISectionLayoutItem;
       switch (type) {
+        case ESectionLayoutType.SectionSeparator: {
+          return SectionSeparatorComponent;
+        }
         case ESectionLayoutType.Header: {
           return renderSectionHeader?.({
             section: value,
@@ -156,7 +174,12 @@ function BaseSectionList<T>(
         }
       }
     },
-    [renderItem, renderSectionHeader, renderSectionFooter],
+    [
+      renderItem,
+      renderSectionHeader,
+      renderSectionFooter,
+      SectionSeparatorComponent,
+    ],
   );
   const getItemType = useCallback(
     (item: T) => (item as ISectionLayoutItem).type,
@@ -174,4 +197,29 @@ function BaseSectionList<T>(
   );
 }
 
-export const SectionList = forwardRef(BaseSectionList);
+const SectionHeader = ({
+  title,
+  titleProps,
+  children,
+  ...restProps
+}: GetProps<typeof XStack> & {
+  title?: string;
+  titleProps?: GetProps<typeof Text>;
+}) => (
+  <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
+    {children ?? (
+      <Text
+        numberOfLines={1}
+        variant="$headingSm"
+        color="$textSubdued"
+        {...titleProps}
+      >
+        {title}
+      </Text>
+    )}
+  </XStack>
+);
+
+export const SectionList = withStaticProperties(forwardRef(BaseSectionList), {
+  SectionHeader,
+});
