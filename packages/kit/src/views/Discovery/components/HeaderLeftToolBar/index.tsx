@@ -50,7 +50,7 @@ function HeaderLeftToolBar({
     );
   }
   return (
-    <XStack alignItems="center" justifyContent="center">
+    <XStack alignItems="center" justifyContent="center" pl="$2">
       <HeaderButtonGroup>
         <HeaderIconButton
           icon="ChevronLeftOutline"
@@ -68,13 +68,13 @@ function HeaderLeftToolBar({
         />
       </HeaderButtonGroup>
       <Input
-        containerProps={{ ml: '$6' }}
+        containerProps={{ ml: '$6', w: '$80' }}
         size="small"
         leftIconName="LockSolid"
         value={url}
         addOns={[
           {
-            iconName: isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+            iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
           },
           {

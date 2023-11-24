@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 
-import { Button, ListView, Page, Stack } from '@onekeyhq/components';
+import { ListItem, ListView, Page, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -32,7 +32,7 @@ function SearchModal() {
     navigation.setOptions({
       headerTitle: 'Search Modal',
       headerSearchBarOptions: {
-        placeholder: 'search',
+        placeholder: 'Search',
         inputType: 'text',
         hideNavigationBar: true,
         // @ts-expect-error
@@ -84,20 +84,18 @@ function SearchModal() {
           <ListView
             height="100%"
             estimatedItemSize="$10"
-            contentContainerStyle={{
-              bg: '$borderLight',
-              m: '$4',
-            }}
             data={dataSource}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => (
-              <Button
+              <ListItem
+                avatarProps={{
+                  src: item.logoURL,
+                }}
+                title={item.name}
                 onPress={() => {
                   handleOnPress(item);
                 }}
-              >
-                {item.name}
-              </Button>
+              />
             )}
           />
         </Stack>

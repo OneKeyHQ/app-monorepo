@@ -1,6 +1,10 @@
 import { memo, useEffect, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/Navigation/Header';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
@@ -28,7 +32,16 @@ function DesktopBrowser() {
 
   return (
     <Page>
-      <Page.Header headerTitle={DesktopBrowserNavigationContainer} />
+      <Page.Header
+        headerTitle={DesktopBrowserNavigationContainer}
+        // eslint-disable-next-line react/no-unstable-nested-components
+        headerRight={() => (
+          <HeaderButtonGroup>
+            <HeaderIconButton icon="PlaceholderOutline" />
+            <HeaderIconButton icon="PlaceholderOutline" />
+          </HeaderButtonGroup>
+        )}
+      />
       <Page.Body>
         {tabs.map((t) => (
           <DesktopBrowserContent
