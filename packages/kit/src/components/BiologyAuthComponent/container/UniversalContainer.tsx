@@ -1,5 +1,3 @@
-import { Suspense } from 'react';
-
 import { Stack, Text, XStack } from '@onekeyhq/components';
 import {
   usePasswordBiologyAuthInfoAtom,

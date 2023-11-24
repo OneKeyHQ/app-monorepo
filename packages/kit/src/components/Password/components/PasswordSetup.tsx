@@ -1,15 +1,6 @@
-import { Suspense, memo, useState } from 'react';
+import { memo, useState } from 'react';
 
-import {
-  Button,
-  Form,
-  Input,
-  Spinner,
-  Stack,
-  Text,
-  XStack,
-  useForm,
-} from '@onekeyhq/components';
+import { Button, Form, Input, useForm } from '@onekeyhq/components';
 
 export interface IPasswordSetupForm {
   password: string;

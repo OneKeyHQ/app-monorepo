@@ -24,6 +24,7 @@ const isSupportBiologyAtom = unwrap(
   atom(async () => biologyAuth.isSupportBiologyAuth()),
   () => false,
 );
+
 const isSupportWebAtom = unwrap(
   atom(async () => isSupportWebAuth()),
   () => false,
@@ -48,22 +49,29 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
 export const {
   target: passwordWebAuthInfoAtom,
   use: usePasswordWebAuthInfoAtom,
-} = globalAtomComputed(async (get) => {
+} = globalAtomComputed((get) => {
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
   const isSupport = get(isSupportWebAtom);
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
-  return { isSupport, isEnable };
+  return {
+    isSupport,
+    isEnable,
+  };
 });
 
 export const {
   target: passwordBiologyAuthInfoAtom,
   use: usePasswordBiologyAuthInfoAtom,
-} = globalAtomComputed(async (get) => {
+} = globalAtomComputed((get) => {
   const authType = get(biologyAuthTypeAtom);
   const isSupport = get(isSupportBiologyAtom);
   const isEnable =
     isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
-  return { authType, isSupport, isEnable };
+  return {
+    authType,
+    isSupport,
+    isEnable,
+  };
 });
 
 export const useSupportWebOrBiology = () => {};
