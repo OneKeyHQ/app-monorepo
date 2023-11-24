@@ -1,3 +1,6 @@
+import { atom } from 'jotai';
+import { unwrap } from 'jotai/utils';
+
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
@@ -17,6 +20,20 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     initialValue: { passwordPromptPromiseId: undefined, unLock: false },
   });
 
+const isSupportBiologyAtom = unwrap(
+  atom(async () => biologyAuth.isSupportBiologyAuth()),
+  () => false,
+);
+const isSupportWebAtom = unwrap(
+  atom(async () => isSupportWebAuth()),
+  () => false,
+);
+
+const biologyAuthTypeAtom = unwrap(
+  atom(async () => biologyAuth.getBiologyAuthType()),
+  () => [],
+);
+
 export type IPasswordPersistAtom = {
   isPasswordSet: boolean;
   webAuthCredentialId: string;
@@ -33,7 +50,7 @@ export const {
   use: usePasswordWebAuthInfoAtom,
 } = globalAtomComputed(async (get) => {
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
-  const isSupport = await isSupportWebAuth();
+  const isSupport = get(isSupportWebAtom);
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
   return { isSupport, isEnable };
 });
@@ -42,9 +59,11 @@ export const {
   target: passwordBiologyAuthInfoAtom,
   use: usePasswordBiologyAuthInfoAtom,
 } = globalAtomComputed(async (get) => {
-  const authType = await biologyAuth.getBiologyAuthType();
-  const isSupport = await biologyAuth.isSupportBiologyAuth();
+  const authType = get(biologyAuthTypeAtom);
+  const isSupport = get(isSupportBiologyAtom);
   const isEnable =
     isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
   return { authType, isSupport, isEnable };
 });
+
+export const useSupportWebOrBiology = () => {};

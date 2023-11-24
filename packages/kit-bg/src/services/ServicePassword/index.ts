@@ -236,6 +236,7 @@ export default class ServicePassword extends ServiceBase {
       await this.biologyAuthSavePassword(password);
       await this.setCachedPassword(password);
       await this.setPasswordSetStatus(true);
+      await this.unLockApp();
       await localDb.createPassword({ password });
       return password;
     } catch (e) {

@@ -106,14 +106,7 @@ const PasswordSetup = ({
           ]}
         />
       </Form.Field>
-      {biologyAuthSwitchContainer ? (
-        <Suspense fallback={<Spinner size="small" />}>
-          <XStack justifyContent="space-between" alignItems="center">
-            <Text variant="bodyMdMedium">Authentication with FaceID</Text>
-            <Stack>{biologyAuthSwitchContainer}</Stack>
-          </XStack>
-        </Suspense>
-      ) : null}
+      {biologyAuthSwitchContainer}
       <Button variant="primary" onPress={form.handleSubmit(onSetupPassword)}>
         Set Password
       </Button>

@@ -3,7 +3,7 @@ import { memo, useCallback, useState } from 'react';
 import { Toast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitchContainer from '../../BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import { LabelUniversalContainer } from '../../BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetup from '../components/PasswordSetup';
 
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
@@ -51,7 +51,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
     <PasswordSetup
       loading={loading}
       onSetupPassword={onSetupPassword}
-      biologyAuthSwitchContainer={<BiologyAuthSwitchContainer />}
+      biologyAuthSwitchContainer={<LabelUniversalContainer />}
     />
   );
 };

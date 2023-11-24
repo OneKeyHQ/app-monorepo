@@ -1,21 +1,27 @@
-import { useCallback, useState } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, ListItem, Switch, Toast } from '@onekeyhq/components';
+import { Dialog, ListItem, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { UniversalContainer } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import {
+  usePasswordBiologyAuthInfoAtom,
+  usePasswordPersistAtom,
+  usePasswordWebAuthInfoAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
 
 const AppLockItem = () => {
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
@@ -24,7 +30,7 @@ const AppLockItem = () => {
     });
   }, [navigation]);
   const intl = useIntl();
-  return (
+  return isPasswordSet ? (
     <ListItem
       onPress={onPress}
       icon="LockOutline"
@@ -39,7 +45,7 @@ const AppLockItem = () => {
         }}
       />
     </ListItem>
-  );
+  ) : null;
 };
 
 const SetPasswordItem = () => {
@@ -103,19 +109,27 @@ const PasswordItem = () => {
   return isPasswordSet ? <ChangePasswordItem /> : <SetPasswordItem />;
 };
 
-export const SecuritySection = () => {
+const FaceIdItem = () => {
   const intl = useIntl();
-  const [val, setVal] = useState(false);
-  return (
-    <Section title="SECURITY">
-      <ListItem
-        icon="FaceIdOutline"
-        title={intl.formatMessage({ id: 'content__face_id' })}
-      >
-        <Switch value={val} onChange={setVal} />
-      </ListItem>
-      <AppLockItem />
-      <PasswordItem />
-    </Section>
-  );
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const [{ isSupport: biologyAuthIsSupport }] =
+    usePasswordBiologyAuthInfoAtom();
+  const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
+
+  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+    <ListItem
+      icon="FaceIdOutline"
+      title={intl.formatMessage({ id: 'content__face_id' })}
+    >
+      <UniversalContainer />
+    </ListItem>
+  ) : null;
 };
+
+export const SecuritySection = () => (
+  <Section title="SECURITY">
+    <FaceIdItem />
+    <AppLockItem />
+    <PasswordItem />
+  </Section>
+);
