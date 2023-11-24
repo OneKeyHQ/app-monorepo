@@ -118,6 +118,7 @@ function HomePage() {
       <Page>
         <Page.Body alignItems="center">
           <Tab
+            // @ts-expect-error
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
