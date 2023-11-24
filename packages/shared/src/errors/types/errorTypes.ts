@@ -41,6 +41,7 @@ export interface IOneKeyError<
   info?: InfoT;
   key?: ILocaleIds;
   constructorName?: string;
+  autoToast?: boolean;
 }
 
 export type IOneKeyHardwareErrorPayload = {

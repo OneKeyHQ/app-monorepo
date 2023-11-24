@@ -27,6 +27,7 @@ import {
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsTimeNowAtom } from '../states/jotai/atoms';
+import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
@@ -56,6 +57,7 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
     this.cycleDepsCheck();
+    jotaiBgSync.setBackgroundApi(this as any);
     this.allAtoms = jotaiInit();
     this.startDemoNowTimeUpdateInterval();
     if (process.env.NODE_ENV !== 'production') {
