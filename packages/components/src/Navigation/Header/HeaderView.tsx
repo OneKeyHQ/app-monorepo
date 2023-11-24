@@ -80,7 +80,7 @@ function HeaderView({
   );
 
   return (
-    <DesktopDragZoneBox>
+    <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
         $gtMd={{
           flexDirection: 'row',
