@@ -59,7 +59,12 @@ const HeaderComponent = (
     undefined,
     true,
   );
-  const data = useMemo(() => props.data, [rawNormalColor, rawSelectedColor]);
+  const data = useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    () => props.data,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [props.data, rawNormalColor, rawSelectedColor],
+  );
   const reloadWebPxNumber = useCallback((value: any) => {
     if (typeof value === 'string') {
       return Number(value?.replace(/px/, ''));
