@@ -58,7 +58,6 @@ function SearchModal() {
       _id: string;
       logoURL: string;
     }) => {
-      console.log(1, 'displayHomePage', displayHomePage);
       setDisplayHomePage(false);
 
       // @ts-expect-error
@@ -69,7 +68,7 @@ function SearchModal() {
         navigation.pop();
       }
     },
-    [displayHomePage, setDisplayHomePage, navigation],
+    [setDisplayHomePage, navigation],
   );
 
   const dataSource = useMemo(() => {
@@ -84,7 +83,7 @@ function SearchModal() {
         name: value,
         desc: '',
         url: value,
-        logoURL: '',
+        logoURL: 'https://nutty-tomato-parrot.faviconkit.com/google.com/256',
       },
       ...mockData,
     ];
