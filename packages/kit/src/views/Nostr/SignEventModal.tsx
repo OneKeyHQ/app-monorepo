@@ -33,7 +33,7 @@ const NostrSignEventModal = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { sourceInfo, walletId } = useDappParams();
-  const { event, pubkey, plaintext } = sourceInfo?.data
+  const { event, pubkey, plaintext, ciphertext } = sourceInfo?.data
     .params as NostrRoutesParams[NostrModalRoutes.SignEvent];
 
   const dappApprove = useDappApproveAction({
@@ -45,10 +45,19 @@ const NostrSignEventModal = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
-  const isEncryptType = useMemo(
-    () => !!(pubkey && plaintext && !event),
-    [pubkey, plaintext, event],
-  );
+  const signType = useMemo<
+    'signEvent' | 'encrypt' | 'decrypt' | undefined
+  >(() => {
+    if (event) {
+      return 'signEvent';
+    }
+    if (pubkey && plaintext) {
+      return 'encrypt';
+    }
+    if (pubkey && ciphertext) {
+      return 'decrypt';
+    }
+  }, [pubkey, plaintext, event, ciphertext]);
 
   const closeModal = useModalClose();
 
@@ -60,23 +69,27 @@ const NostrSignEventModal = () => {
         }
         setIsLoading(true);
         let result: { data: NostrEvent } | { data: string } | undefined;
-        if (!isEncryptType) {
+        if (signType === 'signEvent') {
           result = await backgroundApiProxy.serviceNostr.signEvent({
             walletId,
             password,
             event: event ?? ({} as NostrEvent),
           });
-        } else {
+        } else if (signType === 'encrypt') {
           result = await backgroundApiProxy.serviceNostr.encrypt({
             walletId,
             password,
             pubkey: pubkey ?? '',
             plaintext: plaintext ?? '',
           });
+        } else if (signType === 'decrypt') {
+          result = await backgroundApiProxy.serviceNostr.decrypt({
+            walletId,
+            password,
+            pubkey: pubkey ?? '',
+            ciphertext: ciphertext ?? '',
+          });
         }
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__success' }),
-        });
         setTimeout(() => {
           dappApprove.resolve({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -115,9 +128,10 @@ const NostrSignEventModal = () => {
       intl,
       dappApprove,
       event,
-      isEncryptType,
       pubkey,
       plaintext,
+      ciphertext,
+      signType,
     ],
   );
 
@@ -163,11 +177,14 @@ const NostrSignEventModal = () => {
   );
 
   const content = useMemo(() => {
-    if (isEncryptType) {
+    if (signType === 'encrypt') {
       return plaintext;
     }
+    if (signType === 'decrypt') {
+      return ciphertext;
+    }
     return event?.content;
-  }, [isEncryptType, event, plaintext]);
+  }, [signType, event, plaintext, ciphertext]);
 
   return (
     <Modal
@@ -218,7 +235,7 @@ const NostrSignEventModal = () => {
                 {content}
               </Text>
             </Box>
-            {!isEncryptType && renderEventDetails}
+            {signType === 'signEvent' && renderEventDetails}
           </Box>
         ),
       }}

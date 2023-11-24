@@ -14,6 +14,7 @@ export type NostrRoutesParams = {
     event?: NostrEvent;
     pubkey?: string;
     plaintext?: string;
+    ciphertext?: string;
   };
   [NostrModalRoutes.NostrAuthentication]: {
     onDone: (password: string) => void;

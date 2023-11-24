@@ -58,9 +58,6 @@ const NostrGetPublicKeyModal = () => {
           walletId,
           password,
         });
-        ToastManager.show({
-          title: intl.formatMessage({ id: 'msg__success' }),
-        });
         setTimeout(() => {
           dappApprove.resolve({
             result: pubkey,

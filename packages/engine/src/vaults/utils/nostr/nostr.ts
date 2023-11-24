@@ -112,16 +112,16 @@ class Nostr {
     if (!this.node.privateKey) {
       throw new Error('Nostr: private key not found');
     }
-    const sharedPoint = secp256k1.getSharedSecret(
+    const key = secp256k1.getSharedSecret(
       bytesToHex(this.node.privateKey),
       `02${pubkey}`,
     );
-    const sharedX = sharedPoint.slice(1, 33);
+    const normalizedKey = key.slice(1, 33);
     const iv = crypto.randomBytes(16);
 
     const encrypted = AES_CBC.encrypt(
       Buffer.from(plaintext),
-      sharedX,
+      normalizedKey,
       true,
       iv,
     );
@@ -129,6 +129,25 @@ class Nostr {
     return `${Buffer.from(encrypted).toString('base64')}?iv=${iv.toString(
       'base64',
     )}`;
+  }
+
+  decrypt(pubkey: string, ciphertext: string) {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    const key = secp256k1.getSharedSecret(
+      bytesToHex(this.node.privateKey),
+      `02${pubkey}`,
+    );
+    const [cip, iv] = ciphertext.split('?iv=');
+    const normalizedKey = key.slice(1, 33);
+    const decrypted = AES_CBC.decrypt(
+      Buffer.from(cip, 'base64'),
+      normalizedKey,
+      true,
+      Buffer.from(iv, 'base64'),
+    );
+    return Buffer.from(decrypted).toString('utf-8');
   }
 }
 
