@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+// TODO：需要替换为组件库中的 ListView
 import { FlatList, StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
