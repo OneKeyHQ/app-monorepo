@@ -10,7 +10,7 @@ import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
-import { THUMB_HEIGHT, THUMB_WIDTH } from '../../config/TabList.constants';
+import { THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import useWebTabAction from '../../hooks/useWebTabAction';
@@ -63,7 +63,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           format: 'jpg',
           quality: 0.2,
           width: THUMB_WIDTH,
-          height: THUMB_HEIGHT,
+          height: THUMB_WIDTH,
         })
           .then(async (imageUri) => {
             const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
