@@ -38,10 +38,10 @@ function SearchModal() {
     navigation.setOptions({
       headerTitle: 'Search Modal',
       headerSearchBarOptions: {
+        autoFocus: true,
         placeholder: 'Search',
         inputType: 'text',
         hideNavigationBar: true,
-        // @ts-expect-error
         hideWhenScrolling: false,
         onChangeText: ({ nativeEvent }) => {
           setValue(nativeEvent.text);
