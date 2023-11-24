@@ -29,6 +29,7 @@ import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
 import AlertGallery from '../../../../../views/Components/stories/Alert';
 import DividerGallery from '../../../../../views/Components/stories/Divider';
+import ErrorToastGallery from '../../../../../views/Components/stories/ErrorToastGallery';
 import FormGallery from '../../../../../views/Components/stories/Form';
 import JotaiContextGallery from '../../../../../views/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
@@ -104,6 +105,7 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
+  { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
   {
     name: EGalleryRoutes.ComponentForm,
     component: FormGallery,

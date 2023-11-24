@@ -1,7 +1,9 @@
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import * as Errors from '@onekeyhq/shared/src/errors';
 
 import { DB_MAIN_CONTEXT_ID } from '../dbs/local/consts';
 import localDb from '../dbs/local/localDbInstance';
@@ -106,6 +108,18 @@ class ServiceApp extends ServiceBase {
   async demoUpdateCredentialRecord() {
     const ctx = await localDb.demoUpdateCredentialRecord();
     return ctx;
+  }
+
+  @backgroundMethod()
+  async demoError(): Promise<string> {
+    await wait(600);
+    throw new Errors.MinimumTransferBalanceRequiredError({
+      autoToast: true,
+      info: {
+        symbol: 'BTC',
+        amount: '0.0001',
+      },
+    });
   }
 }
 

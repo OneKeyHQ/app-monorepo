@@ -33,6 +33,7 @@ export enum EGalleryRoutes {
   ComponentJotaiContext = 'component/jotaiContext',
   ComponentJotaiGlobal = 'component/jotaiGlobal',
   ComponentLocalDB = 'component/localDB',
+  ComponentErrorToast = 'component/errorToast',
   ComponentTabview = 'component/tabView',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
