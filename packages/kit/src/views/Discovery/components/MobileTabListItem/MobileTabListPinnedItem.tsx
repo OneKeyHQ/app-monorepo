@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Image, Stack, Text, XStack } from '@onekeyhq/components';
+import { Avatar, Icon, Image, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
 
@@ -21,13 +21,13 @@ function MobileTabListPinnedItem({
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack
-      p="$1"
-      minHeight="$8"
+      flex={1}
+      p="$0.5"
       minWidth="$28"
       maxWidth="$40"
-      borderRadius="$3"
-      borderWidth={2}
-      borderColor={isActive ? '$borderActive' : '$transparent'}
+      borderRadius="$4"
+      borderWidth={4}
+      borderColor={isActive ? '$focusRing' : '$transparent'}
       marginHorizontal={2}
       onPress={() => {
         onSelectedItem(id);
@@ -35,17 +35,19 @@ function MobileTabListPinnedItem({
       onLongPress={() => {
         onLongPress(id);
       }}
+      animation="quick"
+      pressStyle={{
+        scale: 0.95,
+      }}
     >
-      <XStack
-        bg="$bgStrong"
-        p="$2"
-        justifyContent="center"
-        alignItems="center"
-        space="$2"
-        borderRadius="$2"
-      >
-        <Image w={16} h={16} source={{ uri: tab?.favicon }} />
-        <Text flex={1} variant="$bodySm" numberOfLines={1}>
+      <XStack bg="$bgStrong" p="$2" alignItems="center" borderRadius="$2.5">
+        <Avatar size="$4" borderRadius="$1">
+          <Avatar.Image src={tab?.favicon} />
+          <Avatar.Fallback>
+            <Icon name="GlobusOutline" size="$4" />
+          </Avatar.Fallback>
+        </Avatar>
+        <Text flex={1} variant="$bodySm" numberOfLines={1} ml="$2">
           {tab?.title || ''}
         </Text>
       </XStack>

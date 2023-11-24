@@ -1,8 +1,7 @@
-import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // TODO：需要替换为组件库中的 ListView
-import { FlatList, InteractionManager, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import {
@@ -13,7 +12,6 @@ import {
   ListView,
   Page,
   Stack,
-  Text,
   Toast,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
@@ -42,16 +40,6 @@ import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  listContentContainer: {
-    paddingBottom: 16,
-  },
-});
-
 function TabToolBar({
   onAddTab,
   onCloseAll,
@@ -62,7 +50,13 @@ function TabToolBar({
   onDone: () => void;
 }) {
   return (
-    <Stack py="$2" flexDirection="row" alignItems="center">
+    <Stack
+      py="$2"
+      flexDirection="row"
+      alignItems="center"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+    >
       <Stack flex={1} alignItems="center" justifyContent="center">
         <Button variant="tertiary" size="medium" onPress={onCloseAll}>
           Close All
@@ -83,10 +77,6 @@ function TabToolBar({
       </Stack>
     </Stack>
   );
-}
-
-function HeaderTitle({ children }: PropsWithChildren<unknown>) {
-  return <Text>{children} Tabs</Text>;
 }
 
 function MobileTabListModal() {
@@ -212,7 +202,7 @@ function MobileTabListModal() {
           {
             items: [
               {
-                label: tab.isBookmark ? 'Delete Bookmark' : 'Bookmark',
+                label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
                 icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
                 onPress: () =>
                   handleBookmarkPress(
@@ -223,7 +213,7 @@ function MobileTabListModal() {
               },
               {
                 label: tab.isPinned ? 'Un-Pin' : 'Pin',
-                icon: tab.isPinned ? 'PinSolid' : 'PinOutline',
+                icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
               },
               {
@@ -292,19 +282,16 @@ function MobileTabListModal() {
     return (
       <BlurView
         position="absolute"
-        left={10}
-        bottom={0}
-        right={10}
-        bg="$bgStrong"
-        px="$2"
-        py="$3"
+        left="$2.5"
+        bottom="$2.5"
+        right="$2.5"
         borderRadius="$5"
-        display="flex"
-        flexDirection="row"
-        alignItems="center"
+        bg="$bgStrong"
       >
         <ListView
-          w="100%"
+          contentContainerStyle={{
+            p: '$1',
+          }}
           ref={pinnedListRef}
           horizontal
           data={pinnedData}
@@ -319,23 +306,21 @@ function MobileTabListModal() {
 
   return (
     <Page>
-      <Page.Header
-        headerTitle={HeaderTitle}
-        title={(tabs.length ?? 0).toString()}
-      />
+      <Page.Header title={`${(tabs.length ?? 0).toString()} Tabs`} />
       <Page.Body>
-        <Stack style={styles.container}>
-          <FlatList
-            ref={flatListRef}
-            data={data}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContentContainer}
-          />
-        </Stack>
+        <FlatList
+          ref={flatListRef}
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          numColumns={TAB_LIST_CELL_COUNT_PER_ROW}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 10,
+            paddingBottom: 62,
+          }}
+        />
         {renderPinnedList}
       </Page.Body>
       <Page.Footer>

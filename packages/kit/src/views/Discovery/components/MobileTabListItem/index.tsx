@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
+  Avatar,
+  Icon,
   IconButton,
   Image,
   Stack,
@@ -12,9 +14,8 @@ import {
 } from '@onekeyhq/components';
 
 import {
-  TAB_LIST_CELL_HEIGHT,
   TAB_LIST_CELL_WIDTH,
-  THUMB_HEIGHT,
+  TAB_LIST_ITEM_SPACING,
   THUMB_WIDTH,
 } from '../../config/TabList.constants';
 import { useWebTabData } from '../../hooks/useWebTabs';
@@ -38,49 +39,50 @@ function MobileTabListItem({
   return (
     <Stack
       w={TAB_LIST_CELL_WIDTH}
-      h={TAB_LIST_CELL_HEIGHT}
-      mr="$3"
-      mb="$3"
       onPress={() => {
         onSelectedItem(id);
       }}
       onLongPress={() => {
         onLongPress(id);
       }}
-      borderRadius="$3"
-      borderWidth="$0.5"
-      borderColor={isActive ? '$borderActive' : '$transparent'}
-      overflow="hidden"
+      p="$0.5"
+      mx={TAB_LIST_ITEM_SPACING / 2}
+      mb={TAB_LIST_ITEM_SPACING}
+      borderRadius="$4"
+      borderWidth="$1"
+      borderColor={isActive ? '$focusRing' : '$transparent'}
+      animation="quick"
+      pressStyle={{
+        scale: 0.95,
+      }}
     >
       <YStack
-        m="$0.5"
         flex={1}
         collapsable={false}
         justifyContent="center"
         alignItems="center"
-        borderRadius="$2"
+        borderRadius="$2.5"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         bg="$bgStrong"
         zIndex={1}
         overflow="hidden"
       >
-        <XStack
-          py="$2"
-          pl="$2.5"
-          pr="$2"
-          justifyContent="center"
-          alignItems="center"
-          h="$8"
-          space="$2"
-        >
-          <Image
-            w={16}
-            h={16}
-            source={{ uri: tab?.favicon }}
-            borderRadius="$1"
-          />
-          <Text flex={1} variant="$bodySm" textAlign="left" numberOfLines={1}>
+        {/* Header */}
+        <XStack py="$2" pl="$2.5" pr="$2" alignItems="center">
+          <Avatar size="$4" borderRadius="$1">
+            <Avatar.Image src={tab?.favicon} />
+            <Avatar.Fallback>
+              <Icon name="GlobusOutline" size="$4" />
+            </Avatar.Fallback>
+          </Avatar>
+          <Text
+            flex={1}
+            variant="$bodySm"
+            textAlign="left"
+            numberOfLines={1}
+            mx="$2"
+          >
             {tab?.title || ''}
           </Text>
           <IconButton
@@ -90,10 +92,11 @@ function MobileTabListItem({
             onPress={() => onCloseItem(id)}
           />
         </XStack>
+        {/* Body */}
         <Image
-          flex={1}
+          bg="$bg"
           w={THUMB_WIDTH}
-          h={THUMB_HEIGHT}
+          h={THUMB_WIDTH}
           source={{ uri: tab?.thumbnail }}
         />
       </YStack>

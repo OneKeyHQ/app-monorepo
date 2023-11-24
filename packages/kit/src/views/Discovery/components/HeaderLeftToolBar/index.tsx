@@ -1,6 +1,6 @@
 import { useMedia } from 'tamagui';
 
-import { Input, Stack, XStack } from '@onekeyhq/components';
+import { Icon, Input, Stack, Text, XStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -39,13 +39,24 @@ function HeaderLeftToolBar({
 
   if (media.md) {
     return (
-      <Stack flex={1} alignItems="center" onPress={() => onSearch?.()}>
-        <Input
-          size="medium"
-          leftIconName="LockSolid"
-          value={url}
-          editable={false}
-        />
+      <Stack
+        flex={1}
+        alignItems="center"
+        flexDirection="row"
+        onPress={() => onSearch?.()}
+        mr="$4"
+        bg="$bgStrong"
+        py="$2"
+        px="$2.5"
+        borderRadius="$full"
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        <Icon size="$5" color="$iconSubdued" name="LockSolid" />
+        <Text variant="$textLg" flex={1} numberOfLines={1} ml="$2">
+          {url}
+        </Text>
       </Stack>
     );
   }

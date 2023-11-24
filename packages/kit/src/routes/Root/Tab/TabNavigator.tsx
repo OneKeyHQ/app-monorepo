@@ -105,7 +105,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
   {
     name: ETabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
-      focused ? 'EmailSolid' : 'EmailOutline',
+      focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
     translationId: 'action__more',
     freezeOnBlur: true,
     children: [

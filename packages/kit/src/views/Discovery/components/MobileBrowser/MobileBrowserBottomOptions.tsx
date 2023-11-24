@@ -28,7 +28,7 @@ function MobileBrowserBottomOptions({
               onPress: () => onRefresh(),
             },
             {
-              label: isBookmark ? 'Delete Bookmark' : 'Bookmark',
+              label: isBookmark ? 'Remove Bookmark' : 'Bookmark',
               icon: isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
               onPress: () => onBookmarkPress(!isBookmark),
             },
