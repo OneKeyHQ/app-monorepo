@@ -16,7 +16,7 @@ const ListViewDemo = () => {
       estimatedItemSize="$10"
       contentContainerStyle={{
         bg: '$borderLight',
-        m: '$4',
+        p: '$4',
       }}
       ListHeaderComponentStyle={{
         h: '$10',
@@ -40,10 +40,10 @@ const ListViewDemo = () => {
             <Button
               onPress={() => {
                 const scrollView = ref.current;
-                scrollView?.scrollToEnd({ animated: true });
+                scrollView?.scrollToIndex({ index: 0, animated: true });
               }}
             >
-              Scroll to Bottom
+              Scroll to Top
             </Button>
           </XStack>
         </XStack>

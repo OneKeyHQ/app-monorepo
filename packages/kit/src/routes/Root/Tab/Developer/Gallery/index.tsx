@@ -35,6 +35,7 @@ import JotaiContextGallery from '../../../../../views/Components/stories/JotaiCo
 import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
 import ListViewGallery from '../../../../../views/Components/stories/ListView';
 import LocalDBGallery from '../../../../../views/Components/stories/LocalDBGallery';
+import PasswordDemoGallery from '../../../../../views/Components/stories/PasswordDemo';
 import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../../../../views/Components/stories/ScrollView';
 import SectionListGallery from '../../../../../views/Components/stories/SectionList';
@@ -74,6 +75,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },
   { name: EGalleryRoutes.ComponentProgress, component: ProgressGallery },
+  {
+    name: EGalleryRoutes.ComponentPasswordDemo,
+    component: PasswordDemoGallery,
+  },
   {
     name: EGalleryRoutes.ComponentIconButton,
     component: IconButtonGallery,

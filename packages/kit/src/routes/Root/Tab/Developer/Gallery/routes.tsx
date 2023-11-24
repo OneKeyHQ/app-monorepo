@@ -40,4 +40,5 @@ export enum EGalleryRoutes {
   ComponentListView = 'component/ListView',
   ComponentSectionList = 'component/SectionList',
   ComponentListItem = 'component/ListItem',
+  ComponentPasswordDemo = 'component/passwordDemo',
 }
