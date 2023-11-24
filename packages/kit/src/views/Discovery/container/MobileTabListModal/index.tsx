@@ -161,10 +161,14 @@ function MobileTabListModal() {
   const { handleShareUrl } = useBrowserOptionsAction();
 
   const handleBookmarkPress = useCallback(
-    (bookmark: boolean, url: string, title: string) =>
-      bookmark
-        ? addBrowserBookmark({ url, title })
-        : removeBrowserBookmark(url),
+    (bookmark: boolean, url: string, title: string) => {
+      if (bookmark) {
+        addBrowserBookmark({ url, title });
+      } else {
+        removeBrowserBookmark(url);
+      }
+      Toast.success({ title: bookmark ? 'Bookmark Added' : 'Remove Success' });
+    },
     [addBrowserBookmark, removeBrowserBookmark],
   );
   const handleShare = useCallback(
@@ -174,7 +178,10 @@ function MobileTabListModal() {
     [handleShareUrl],
   );
   const handlePinnedPress = useCallback(
-    (id: string, pinned: boolean) => setPinnedTab({ id, pinned }),
+    (id: string, pinned: boolean) => {
+      void setPinnedTab({ id, pinned });
+      Toast.success({ title: pinned ? 'Pin Success' : 'UnPin Success' });
+    },
     [setPinnedTab],
   );
   const handleCloseTab = useCallback(

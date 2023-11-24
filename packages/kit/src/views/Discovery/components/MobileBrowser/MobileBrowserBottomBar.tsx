@@ -191,9 +191,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             } else {
               removeBrowserBookmark(tab?.url);
             }
-            void setWebTabData({
-              id,
-              isBookmark,
+            Toast.success({
+              title: isBookmark ? 'Bookmark Added' : 'Remove Success',
             });
           }}
           onRefresh={() => {
@@ -204,6 +203,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={(pinned) => {
             void setPinnedTab({ id, pinned });
+            Toast.success({ title: pinned ? 'Pin Success' : 'UnPin Success' });
           }}
           onBrowserOpen={() => {
             if (tab?.url) {
