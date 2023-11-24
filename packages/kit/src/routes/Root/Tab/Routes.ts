@@ -12,7 +12,6 @@ export enum ETabRoutes {
   Developer = 'Developer',
   Swap = 'Swap',
   MultiTabBrowser = 'MultiTabBrowser',
-  WebViewTab = 'WebViewTab',
 }
 
 export type ITabStackParamList = {

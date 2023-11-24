@@ -69,7 +69,10 @@ const IconContainer = forwardRef(({ name, style }: IIconContainerProps, _) => {
       color={componentColor}
     />
   ) : (
-    <Suspense fallback={<View width={componentWidth} height={componentHeight} />}>
+    <Suspense fallback={<View style={{
+      width: componentWidth,
+      height: componentHeight,
+    }} />}>
       <IconLoader
         width={componentWidth}
         height={componentHeight}
