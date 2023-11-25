@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Було використано Nonce, що може призвести до збою цієї транзакції.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce вище, це означає, що транзакція буде в черзі, доки транзакції перед нею не будуть підтверджені.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Використано одноразовий номер, це призведе до заміни платною транзакцією. Сплатіть вищу комісію, щоб забезпечити можливість заміни цільової транзакції.",
+  "msg__nostr_allow_website_to_decrypt_data": "Дозволити цьому веб-сайту розшифровувати дані",
+  "msg__nostr_allow_website_to_encrypt_data": "Дозволити цьому веб-сайту шифрувати дані",
   "msg__nostr_event_kind_0": "метадані",
   "msg__nostr_event_kind_1": "коротка текстова замітка",
   "msg__nostr_event_kind_10002": "метадані списку реле",

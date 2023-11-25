@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce has been used and may cause this transaction to fail.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce is higher, it means that the transaction will be queued until the transactions in front of it are confirmed.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "The nonce has been used, this will generate a replacement by fee transaction. Pay higher fee to ensure that the target transaction can be replaced.",
+  "msg__nostr_allow_website_to_decrypt_data": "Allow this website to decrypt data",
+  "msg__nostr_allow_website_to_encrypt_data": "Allow this website to encrypt data",
   "msg__nostr_event_kind_0": "metadata",
   "msg__nostr_event_kind_1": "short text note",
   "msg__nostr_event_kind_10002": "relay list metadata",

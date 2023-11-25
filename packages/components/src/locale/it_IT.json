@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce è stato utilizzato e potrebbe causare il fallimento di questa transazione.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce è più alto, significa che la transazione verrà messa in coda fino a quando le transazioni davanti non saranno confermate.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Il nonce è stato utilizzato, questo genererà una sostituzione per transazione a pagamento. Paga una commissione più alta per assicurarti che la transazione target possa essere sostituita.",
+  "msg__nostr_allow_website_to_decrypt_data": "Consenti a questo sito Web di decrittografare i dati",
+  "msg__nostr_allow_website_to_encrypt_data": "Consenti a questo sito Web di crittografare i dati",
   "msg__nostr_event_kind_0": "metadati",
   "msg__nostr_event_kind_1": "breve nota testuale",
   "msg__nostr_event_kind_10002": "metadati dell'elenco di inoltro",

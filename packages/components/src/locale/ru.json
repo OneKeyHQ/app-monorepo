@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Был использован одноразовый номер, что может привести к сбою этой транзакции.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce выше, это означает, что транзакция будет поставлена в очередь до тех пор, пока транзакции перед ней не будут подтверждены.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Был использован одноразовый номер, это приведет к замене комиссионной транзакцией. Платите более высокую комиссию, чтобы убедиться, что целевая транзакция может быть заменена.",
+  "msg__nostr_allow_website_to_decrypt_data": "Разрешить этому сайту расшифровывать данные",
+  "msg__nostr_allow_website_to_encrypt_data": "Разрешить этому сайту шифровать данные",
   "msg__nostr_event_kind_0": "метаданные",
   "msg__nostr_event_kind_1": "короткая текстовая заметка",
   "msg__nostr_event_kind_10002": "метаданные списка ретрансляции",

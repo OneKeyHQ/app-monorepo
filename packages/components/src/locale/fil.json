@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce ay nagamit at maaaring maging sanhi ng transaksyon na ito upang mabigo.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Ang Nonce ay mas mataas, nangangahulugan ito na ang transaksyon ay nakapila hanggang sa makumpirma ang mga transaksyon sa harap nito.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Ang nonce ay ginamit, ito ay bubuo ng kapalit sa pamamagitan ng transaksyon sa bayad. Magbayad ng mas mataas na bayarin upang matiyak na mapapalitan ang target na transaksyon.",
+  "msg__nostr_allow_website_to_decrypt_data": "Payagan ang website na ito na mag-decrypt ng data",
+  "msg__nostr_allow_website_to_encrypt_data": "Payagan ang website na ito na mag-encrypt ng data",
   "msg__nostr_event_kind_0": "metadata",
   "msg__nostr_event_kind_1": "maikling text note",
   "msg__nostr_event_kind_10002": "metadata ng listahan ng relay",

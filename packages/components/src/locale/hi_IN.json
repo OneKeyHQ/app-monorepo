@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "गैर का उपयोग किया गया है और इस लेन-देन के विफल होने का कारण हो सकता है।",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "नॉन अधिक है, इसका मतलब है कि लेन-देन तब तक कतारबद्ध रहेगा जब तक कि उसके सामने लेन-देन की पुष्टि नहीं हो जाती।",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "गैर का उपयोग किया गया है, यह शुल्क लेनदेन द्वारा प्रतिस्थापन उत्पन्न करेगा। यह सुनिश्चित करने के लिए उच्च शुल्क का भुगतान करें कि लक्ष्य लेनदेन को बदला जा सकता है।",
+  "msg__nostr_allow_website_to_decrypt_data": "इस वेबसाइट को डेटा डिक्रिप्ट करने की अनुमति दें",
+  "msg__nostr_allow_website_to_encrypt_data": "इस वेबसाइट को डेटा एन्क्रिप्ट करने की अनुमति दें",
   "msg__nostr_event_kind_0": "मेटाडाटा",
   "msg__nostr_event_kind_1": "लघु पाठ नोट",
   "msg__nostr_event_kind_10002": "रिले सूची मेटाडेटा",

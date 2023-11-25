@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce ব্যবহার করা হয়েছে এবং এই লেনদেন ব্যর্থ হতে পারে.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce উচ্চতর, এর মানে হল যে লেনদেনটি সারিতে থাকবে যতক্ষণ না এটির সামনে থাকা লেনদেনগুলি নিশ্চিত হয়৷",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "nonce ব্যবহার করা হয়েছে, এটি ফি লেনদেনের দ্বারা একটি প্রতিস্থাপন তৈরি করবে। লক্ষ্য লেনদেন প্রতিস্থাপন করা যেতে পারে তা নিশ্চিত করতে উচ্চ ফি প্রদান করুন।",
+  "msg__nostr_allow_website_to_decrypt_data": "এই ওয়েবসাইটটিকে ডেটা ডিক্রিপ্ট করার অনুমতি দিন",
+  "msg__nostr_allow_website_to_encrypt_data": "এই ওয়েবসাইটটিকে ডেটা এনক্রিপ্ট করার অনুমতি দিন",
   "msg__nostr_event_kind_0": "মেটাডেটা",
   "msg__nostr_event_kind_1": "সংক্ষিপ্ত পাঠ্য নোট",
   "msg__nostr_event_kind_10002": "রিলে তালিকা মেটাডেটা",

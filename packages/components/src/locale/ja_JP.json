@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "利用されたことがあるノンスのため、このトランザクションは失敗になる可能性がある。",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "ノンスが高い、これはその前のトランザクションが確認されるまでトランザクションがキューに入れられることを意味する。",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "ノンスが使用されたため、置換トランザクションが生成される。対象トランザクションを確実に置き換えられるようにするために、より高い手数料を支払ってください。",
+  "msg__nostr_allow_website_to_decrypt_data": "この Web サイトにデータの復号化を許可する",
+  "msg__nostr_allow_website_to_encrypt_data": "この Web サイトのデータ暗号化を許可する",
   "msg__nostr_event_kind_0": "メタデータ",
   "msg__nostr_event_kind_1": "短いテキストのメモ",
   "msg__nostr_event_kind_10002": "リレーリストのメタデータ",

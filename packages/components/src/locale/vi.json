@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce đã được sử dụng và có thể khiến giao dịch này không thành công.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce cao hơn, điều đó có nghĩa là giao dịch sẽ được xếp hàng đợi cho đến khi các giao dịch phía trước nó được xác nhận.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Nonce đã được sử dụng, điều này sẽ tạo ra một giao dịch thay thế bằng phí. Trả phí cao hơn để đảm bảo rằng giao dịch mục tiêu có thể được thay thế.",
+  "msg__nostr_allow_website_to_decrypt_data": "Cho phép trang web này giải mã dữ liệu",
+  "msg__nostr_allow_website_to_encrypt_data": "Cho phép trang web này mã hóa dữ liệu",
   "msg__nostr_event_kind_0": "metadata",
   "msg__nostr_event_kind_1": "ghi chú văn bản ngắn",
   "msg__nostr_event_kind_10002": "siêu dữ liệu danh sách chuyển tiếp",

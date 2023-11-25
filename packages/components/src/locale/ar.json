@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "تم استخدام Nonce وقد يتسبب في فشل هذه المعاملة.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce أعلى ، فهذا يعني أنه سيتم وضع المعاملة في قائمة الانتظار حتى يتم تأكيد المعاملات الموجودة أمامها.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "تم استخدام nonce ، سيؤدي ذلك إلى استبداله بمعاملة الرسوم. ادفع رسومًا أعلى لضمان إمكانية استبدال المعاملة المستهدفة.",
+  "msg__nostr_allow_website_to_decrypt_data": "السماح لهذا الموقع بفك تشفير البيانات",
+  "msg__nostr_allow_website_to_encrypt_data": "السماح لهذا الموقع بتشفير البيانات",
   "msg__nostr_event_kind_0": "البيانات الوصفية",
   "msg__nostr_event_kind_1": "مذكرة نصية قصيرة",
   "msg__nostr_event_kind_10002": "البيانات الوصفية لقائمة التتابع",

@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce已被使用，可能導致本次交易失敗。",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "nonce 大於默認值，意味著該筆交易發出後將會排在隊列之中待處理，直至隊列前面的交易得到確認。",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "nonce 已使用過，這將會生成一筆替換交易。請支付更高的交易費以保證目標交易能被成功替換。",
+  "msg__nostr_allow_website_to_decrypt_data": "允許該網站解密數據",
+  "msg__nostr_allow_website_to_encrypt_data": "允許該網站加密數據",
   "msg__nostr_event_kind_0": "元數據",
   "msg__nostr_event_kind_1": "短文筆記",
   "msg__nostr_event_kind_10002": "中繼清單元數據",

@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce a été utilisé et peut entraîner l'échec de cette transaction.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce est plus élevé, cela signifie que la transaction sera mise en file d'attente jusqu'à ce que les transactions qui la précèdent soient confirmées.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Le nonce a été utilisé, cela générera un remplacement par transaction payante. Payez des frais plus élevés pour vous assurer que la transaction cible peut être remplacée.",
+  "msg__nostr_allow_website_to_decrypt_data": "Autoriser ce site Web à décrypter les données",
+  "msg__nostr_allow_website_to_encrypt_data": "Autoriser ce site Web à crypter les données",
   "msg__nostr_event_kind_0": "métadonnées",
   "msg__nostr_event_kind_1": "courte note de texte",
   "msg__nostr_event_kind_10002": "métadonnées de la liste de relais",

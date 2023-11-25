@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "ไม่มีการใช้งานและอาจทำให้ธุรกรรมนี้ล้มเหลว",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce สูงกว่า หมายความว่าธุรกรรมจะอยู่ในคิวจนกว่าธุรกรรมข้างหน้าจะได้รับการยืนยัน",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "ไม่มีการใช้สิ่งนี้จะสร้างการแทนที่ด้วยการทำธุรกรรมค่าธรรมเนียม ชำระค่าธรรมเนียมที่สูงขึ้นเพื่อให้แน่ใจว่าสามารถเปลี่ยนธุรกรรมเป้าหมายได้",
+  "msg__nostr_allow_website_to_decrypt_data": "อนุญาตให้เว็บไซต์นี้ถอดรหัสข้อมูล",
+  "msg__nostr_allow_website_to_encrypt_data": "อนุญาตให้เว็บไซต์นี้เข้ารหัสข้อมูล",
   "msg__nostr_event_kind_0": "ข้อมูลเมตา",
   "msg__nostr_event_kind_1": "บันทึกข้อความสั้น ๆ",
   "msg__nostr_event_kind_10002": "ข้อมูลเมตาของรายการรีเลย์",

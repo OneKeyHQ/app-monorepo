@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce가 사용되었으며 이 트랜잭션이 실패할 수 있습니다.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce가 높을수록 트랜잭션이 앞에 있는 트랜잭션이 확인될 때까지 대기열에 있음을 의미합니다.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "nonce가 사용되었으므로 수수료 트랜잭션으로 교체를 생성합니다. 대상 트랜잭션을 대체할 수 있도록 더 높은 수수료를 지불하십시오.",
+  "msg__nostr_allow_website_to_decrypt_data": "이 웹사이트에서 데이터를 해독하도록 허용",
+  "msg__nostr_allow_website_to_encrypt_data": "이 웹사이트에서 데이터를 암호화하도록 허용",
   "msg__nostr_event_kind_0": "메타데이터",
   "msg__nostr_event_kind_1": "짧은 텍스트 메모",
   "msg__nostr_event_kind_10002": "릴레이 목록 메타데이터",

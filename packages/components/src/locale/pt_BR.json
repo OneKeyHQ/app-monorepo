@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "O nonce foi usado e pode causar falha nessa transação.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce for maior, isso significa que a transação ficará na fila até que as transações anteriores a ela sejam confirmadas.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "O nonce foi usado, o que gerará uma transação de substituição por taxa. Pague uma taxa mais alta para garantir que a transação de destino possa ser substituída.",
+  "msg__nostr_allow_website_to_decrypt_data": "Permitir que este site descriptografe dados",
+  "msg__nostr_allow_website_to_encrypt_data": "Permitir que este site criptografe dados",
   "msg__nostr_event_kind_0": "metadados",
   "msg__nostr_event_kind_1": "breve nota de texto",
   "msg__nostr_event_kind_10002": "metadados da lista de retransmissão",

@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce ашиглагдаагүй бөгөөд энэ гүйлгээ амжилтгүй болоход хүргэж болзошгүй.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce нь өндөр байна, энэ нь өмнөх гүйлгээг баталгаажуулах хүртэл гүйлгээг дараалалд оруулна гэсэн үг юм.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Нэг удаа ашиглаагүй бол энэ нь шимтгэлийн гүйлгээгээр орлуулах болно. Зорилтот гүйлгээг солих боломжтой байхын тулд илүү өндөр хураамж төлнө үү.",
+  "msg__nostr_allow_website_to_decrypt_data": "Энэ вэб сайтад мэдээллийн шифрийг тайлахыг зөвшөөрнө үү",
+  "msg__nostr_allow_website_to_encrypt_data": "Энэ вэб сайтад өгөгдлийг шифрлэхийг зөвшөөрнө үү",
   "msg__nostr_event_kind_0": "мета өгөгдөл",
   "msg__nostr_event_kind_1": "богино текст тэмдэглэл",
   "msg__nostr_event_kind_10002": "реле жагсаалтын мета өгөгдөл",

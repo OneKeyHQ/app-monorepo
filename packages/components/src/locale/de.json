@@ -2369,6 +2369,8 @@
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "Nonce wurde verwendet und kann dazu führen, dass diese Transaktion fehlschlägt.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce ist höher, das bedeutet, dass die Transaktion in die Warteschlange gestellt wird, bis die Transaktionen davor bestätigt werden.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "Die Nonce wurde verwendet, dies generiert einen Ersatz durch Gebührentransaktion. Zahlen Sie eine höhere Gebühr, um sicherzustellen, dass die Zieltransaktion ersetzt werden kann.",
+  "msg__nostr_allow_website_to_decrypt_data": "Erlauben Sie dieser Website, Daten zu entschlüsseln",
+  "msg__nostr_allow_website_to_encrypt_data": "Erlauben Sie dieser Website, Daten zu verschlüsseln",
   "msg__nostr_event_kind_0": "Metadaten",
   "msg__nostr_event_kind_1": "kurze Textnotiz",
   "msg__nostr_event_kind_10002": "Metadaten der Relay-Liste",
