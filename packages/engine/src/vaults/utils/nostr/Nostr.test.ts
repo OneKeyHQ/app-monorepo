@@ -40,4 +40,25 @@ describe('test Nostr', () => {
       expect(nostr.getPubkeyEncodedByNip19()).toEqual(fixture.npub);
     });
   });
+
+  test('NIP-04 Encrypted Direct Message', async () => {
+    const [alice, bob] = fixtures;
+    const { entropyWithLangPrefixed: aliceEntropy } =
+      revealableSeedFromMnemonic(alice.mnemonic, alice.password);
+    const { entropyWithLangPrefixed: bobEntropy } = revealableSeedFromMnemonic(
+      bob.mnemonic,
+      bob.password,
+    );
+    const aliceNostr = new Nostr(aliceEntropy, alice.password);
+
+    const message =
+      'This is a message sent from Alice to Bob, encrypted using the Nostr NIP-04 protocol.';
+    const encrypted = aliceNostr.encrypt(bob.pubkey, message);
+
+    const bobNostr = new Nostr(bobEntropy, bob.password);
+
+    const decrypted = bobNostr.decrypt(alice.pubkey, encrypted);
+
+    expect(decrypted).toMatch(message);
+  });
 });
