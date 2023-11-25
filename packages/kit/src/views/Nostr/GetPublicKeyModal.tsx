@@ -103,7 +103,7 @@ const NostrGetPublicKeyModal = () => {
 
   return (
     <Modal
-      header="Nostr"
+      header={intl.formatMessage({ id: 'title__nostr' })}
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled: isLoading,
@@ -130,7 +130,7 @@ const NostrGetPublicKeyModal = () => {
               mb={0}
             />
             <Text my={4} typography="Heading">
-              Allow this website to:
+              {`${intl.formatMessage({ id: 'msg__allow_website_to' })}:`}
             </Text>
             <Box py={4}>
               <VStack space={4}>
@@ -145,7 +145,7 @@ const NostrGetPublicKeyModal = () => {
                   </Center>
 
                   <Text ml={4} typography="Body1" color="text-default">
-                    Read your public key
+                    {intl.formatMessage({ id: 'msg__read_your_public_key' })}
                   </Text>
                 </HStack>
               </VStack>

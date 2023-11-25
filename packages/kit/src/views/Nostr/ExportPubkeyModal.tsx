@@ -60,8 +60,7 @@ const ExportPubkeyModal = () => {
   return (
     <Modal
       footer={null}
-      header={intl.formatMessage({ id: 'title__export_public_key' })}
-      headerDescription="Nostr"
+      header={intl.formatMessage({ id: 'title__nostr_public_key' })}
       height="auto"
     >
       <Protected walletId={walletId}>

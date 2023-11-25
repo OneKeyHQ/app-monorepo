@@ -14,6 +14,7 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import {
   EventKind,
   type NostrEvent,
+  SupportEventKinds,
 } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 
@@ -156,7 +157,9 @@ const NostrSignEventModal = () => {
             setDisplayDetails(!displayDetails);
           }}
         >
-          {displayDetails ? 'Hide details' : 'View details'}
+          {displayDetails
+            ? intl.formatMessage({ id: 'action__hide_details' })
+            : intl.formatMessage({ id: 'action__view_details' })}
         </Button>
 
         {displayDetails && (
@@ -176,7 +179,7 @@ const NostrSignEventModal = () => {
         )}
       </>
     ),
-    [event, displayDetails],
+    [intl, event, displayDetails],
   );
 
   const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
@@ -216,7 +219,7 @@ const NostrSignEventModal = () => {
           mb={4}
         >
           <Text mb={2} typography="Body1Strong">
-            Plaintext:
+            {intl.formatMessage({ id: 'form__nostr_plaintext' })}:
           </Text>
           <Text typography="Body2" color="text-subdued">
             {savedPlaintext}
@@ -225,7 +228,7 @@ const NostrSignEventModal = () => {
       );
     }
     return null;
-  }, [signType, event, savedPlaintext]);
+  }, [intl, signType, event, savedPlaintext]);
 
   const content = useMemo(() => {
     if (signType === 'encrypt') {
@@ -234,8 +237,46 @@ const NostrSignEventModal = () => {
     if (signType === 'decrypt') {
       return ciphertext;
     }
-    return event?.content;
-  }, [signType, event, plaintext, ciphertext]);
+    return (
+      event?.content ?? `(${intl.formatMessage({ id: 'msg__no_content' })})`
+    );
+  }, [signType, event, plaintext, ciphertext, intl]);
+
+  const eventKindText = useMemo(() => {
+    if (signType !== 'signEvent') {
+      return '';
+    }
+    if (SupportEventKinds.includes(Number(event?.kind))) {
+      return intl.formatMessage({
+        id: `msg__nostr_event_kind_${event?.kind ?? 'unknown'}`,
+      } as any);
+    }
+    return intl.formatMessage(
+      { id: 'msg__nostr_event_kind_unknown' },
+      { kind: event?.kind },
+    );
+  }, [intl, signType, event]);
+
+  const signText = useMemo(() => {
+    if (signType === 'encrypt') {
+      return intl.formatMessage({
+        id: 'msg__nostr_allow_website_to_encrypt_data',
+      });
+    }
+    if (signType === 'decrypt') {
+      return intl.formatMessage({
+        id: 'msg__nostr_allow_website_to_decrypt_data',
+      });
+    }
+    return intl.formatMessage(
+      {
+        id: 'msg__allow_sign_event',
+      },
+      {
+        kind: eventKindText,
+      },
+    );
+  }, [intl, signType, eventKindText]);
 
   return (
     <Modal
@@ -280,7 +321,7 @@ const NostrSignEventModal = () => {
               my={4}
             >
               <Text mb={2} typography="Heading">
-                Allow {new URL(interactInfo?.url ?? '').host} to sign content:
+                {signText}
               </Text>
               <Text typography="Body2" color="text-subdued">
                 {content}

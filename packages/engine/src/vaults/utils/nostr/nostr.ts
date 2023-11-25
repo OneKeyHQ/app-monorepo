@@ -32,6 +32,11 @@ export enum EventKind {
   Deleted = 5,
 }
 
+export const SupportEventKinds = [
+  0, 1, 2, 3, 4, 5, 7, 8, 40, 41, 42, 43, 44, 1984, 9734, 9735, 10002, 22242,
+  24133, 30008, 30009, 30023, 30078,
+];
+
 const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0"; // NIP-06
 
 export function validateEvent(event: NostrEvent): boolean {
