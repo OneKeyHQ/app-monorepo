@@ -41,7 +41,7 @@ describe('test Nostr', () => {
     });
   });
 
-  test('NIP-04 Encrypted Direct Message', async () => {
+  test('NIP-04 Encrypted Direct Message', () => {
     const [alice, bob] = fixtures;
     const { entropyWithLangPrefixed: aliceEntropy } =
       revealableSeedFromMnemonic(alice.mnemonic, alice.password);
