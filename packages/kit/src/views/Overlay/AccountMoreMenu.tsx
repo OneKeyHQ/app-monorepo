@@ -276,7 +276,7 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
         icon: 'GasIllus',
       },
       isHdWallet({ walletId }) && {
-        id: 'Nostr',
+        id: 'title__nostr',
         onPress: () => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Nostr,
@@ -288,7 +288,7 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
             },
           });
         },
-        icon: 'GasIllus',
+        icon: 'NostrMini',
       },
       // TODO Share
     ],

@@ -103,7 +103,7 @@ const NostrGetPublicKeyModal = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'title__nostr' })}
+      header={intl.formatMessage({ id: 'title__nostr_request' })}
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled: isLoading,
