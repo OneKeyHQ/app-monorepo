@@ -101,6 +101,20 @@ class Nostr {
     return bytesToHex(this.getPublicKey());
   }
 
+  getPrivateKey() {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    return this.node.privateKey;
+  }
+
+  getPrivateKeyHex() {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    return bytesToHex(this.node.privateKey);
+  }
+
   getEventHash(event: NostrEvent) {
     return getEventHash(event);
   }
@@ -159,6 +173,11 @@ class Nostr {
   getPubkeyEncodedByNip19() {
     const words = bech32.toWords(this.getPublicKey());
     return bech32.encode('npub', words, 1000);
+  }
+
+  getPrivateEncodedByNip19() {
+    const words = bech32.toWords(this.getPrivateKey());
+    return bech32.encode('nsec', words, 1000);
   }
 }
 
