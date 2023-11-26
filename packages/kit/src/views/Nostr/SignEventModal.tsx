@@ -37,8 +37,22 @@ const NostrSignEventModal = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { sourceInfo, walletId } = useDappParams();
-  const { event, pubkey, plaintext, ciphertext } = sourceInfo?.data
-    .params as NostrRoutesParams[NostrModalRoutes.SignEvent];
+  let sigHash: string | undefined;
+  let event: NostrEvent | undefined;
+  let pubkey: string | undefined;
+  let plaintext: string | undefined;
+  let ciphertext: string | undefined;
+  // For SignSchnorr
+  if (typeof sourceInfo?.data.params === 'string') {
+    sigHash = sourceInfo?.data.params;
+  } else {
+    const params = sourceInfo?.data
+      .params as NostrRoutesParams[NostrModalRoutes.SignEvent];
+    event = params.event;
+    pubkey = params.pubkey;
+    plaintext = params.plaintext;
+    ciphertext = params.ciphertext;
+  }
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -50,10 +64,13 @@ const NostrSignEventModal = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
   const signType = useMemo<
-    'signEvent' | 'encrypt' | 'decrypt' | undefined
+    'signEvent' | 'signSchnorr' | 'encrypt' | 'decrypt' | undefined
   >(() => {
     if (event) {
       return 'signEvent';
+    }
+    if (sigHash) {
+      return 'signSchnorr';
     }
     if (pubkey && plaintext) {
       return 'encrypt';
@@ -61,7 +78,7 @@ const NostrSignEventModal = () => {
     if (pubkey && ciphertext) {
       return 'decrypt';
     }
-  }, [pubkey, plaintext, event, ciphertext]);
+  }, [pubkey, plaintext, event, ciphertext, sigHash]);
 
   const closeModal = useModalClose();
 
@@ -92,6 +109,12 @@ const NostrSignEventModal = () => {
             password,
             pubkey: pubkey ?? '',
             ciphertext: ciphertext ?? '',
+          });
+        } else if (signType === 'signSchnorr') {
+          result = await backgroundApiProxy.serviceNostr.signSchnorr({
+            walletId,
+            password,
+            sigHash: sigHash ?? '',
           });
         }
         setTimeout(() => {
@@ -135,6 +158,7 @@ const NostrSignEventModal = () => {
       pubkey,
       plaintext,
       ciphertext,
+      sigHash,
       signType,
     ],
   );
@@ -237,10 +261,13 @@ const NostrSignEventModal = () => {
     if (signType === 'decrypt') {
       return ciphertext;
     }
+    if (signType === 'signSchnorr') {
+      return sigHash;
+    }
     return (
       event?.content ?? `(${intl.formatMessage({ id: 'msg__no_content' })})`
     );
-  }, [signType, event, plaintext, ciphertext, intl]);
+  }, [signType, event, plaintext, ciphertext, sigHash, intl]);
 
   const eventKindText = useMemo(() => {
     if (signType !== 'signEvent') {

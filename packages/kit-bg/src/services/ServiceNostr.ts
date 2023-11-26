@@ -139,4 +139,20 @@ export default class ServiceNostr extends ServiceBase {
     }
     return Promise.resolve(data);
   }
+
+  @backgroundMethod()
+  async signSchnorr({
+    walletId,
+    password,
+    sigHash,
+  }: IGetNostrParams & { sigHash: string }) {
+    if (!sigHash) {
+      throw new Error('Invalid sigHash');
+    }
+    const nostr = await this.getNostrInstance(walletId, password);
+    const signedHash = nostr.signSchnorr(sigHash);
+    return {
+      data: signedHash,
+    };
+  }
 }

@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 
 import { schnorr } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import * as secp256k1 from '@noble/secp256k1';
 import { AES_CBC } from 'asmcrypto.js';
 import { bech32 } from 'bech32';
@@ -178,6 +178,18 @@ class Nostr {
   getPrivateEncodedByNip19() {
     const words = bech32.toWords(this.getPrivateKey());
     return bech32.encode('nsec', words, 1000);
+  }
+
+  signSchnorr(sigHash: string): string {
+    if (!this.node.privateKey) {
+      throw new Error('Nostr: private key not found');
+    }
+    const signature = schnorr.sign(
+      Buffer.from(hexToBytes(sigHash)),
+      this.node.privateKey,
+    );
+    const signedHex = bytesToHex(signature);
+    return signedHex;
   }
 }
 

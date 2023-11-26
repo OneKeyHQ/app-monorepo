@@ -70,7 +70,6 @@ class ProviderApiNostr extends ProviderApiBase {
       screens: [ModalRoutes.Nostr, NostrModalRoutes.GetPublicKey],
       params: { walletId },
     });
-    console.log('=====> publickey: ', pubkey);
     return Promise.resolve(pubkey as string);
   }
 
@@ -195,6 +194,24 @@ class ProviderApiNostr extends ProviderApiBase {
     } catch (e) {
       debugLogger.providerApi.error(`nostr.decrypt data: `, params);
       debugLogger.providerApi.error(`nostr.decrypt error: `, e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async signSchnorr(request: IJsBridgeMessagePayload): Promise<string> {
+    const { walletId } = getActiveWalletAccount();
+    const params = (request.data as IJsonRpcRequest)?.params as string;
+    try {
+      const signedHash = await this.backgroundApi.serviceDapp.openModal({
+        request,
+        screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
+        params: { walletId, sigHash: params },
+      });
+      return signedHash as string;
+    } catch (e) {
+      debugLogger.providerApi.error(`nostr.signSchnorr data: `, params);
+      debugLogger.providerApi.error(`nostr.signSchnorr error: `, e);
       throw e;
     }
   }
