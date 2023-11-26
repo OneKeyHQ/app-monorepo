@@ -12,10 +12,11 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import {
+  ESignType,
   EventKind,
   type NostrEvent,
-  SupportEventKinds,
-} from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+  i18nSupportEventKinds,
+} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -63,20 +64,18 @@ const NostrSignEventModal = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
-  const signType = useMemo<
-    'signEvent' | 'signSchnorr' | 'encrypt' | 'decrypt' | undefined
-  >(() => {
+  const signType = useMemo<ESignType | undefined>(() => {
     if (event) {
-      return 'signEvent';
+      return ESignType.signEvent;
     }
     if (sigHash) {
-      return 'signSchnorr';
+      return ESignType.signSchnorr;
     }
     if (pubkey && plaintext) {
-      return 'encrypt';
+      return ESignType.encrypt;
     }
     if (pubkey && ciphertext) {
-      return 'decrypt';
+      return ESignType.decrypt;
     }
   }, [pubkey, plaintext, event, ciphertext, sigHash]);
 
@@ -90,27 +89,27 @@ const NostrSignEventModal = () => {
         }
         setIsLoading(true);
         let result: { data: NostrEvent } | { data: string } | undefined;
-        if (signType === 'signEvent') {
+        if (signType === ESignType.signEvent) {
           result = await backgroundApiProxy.serviceNostr.signEvent({
             walletId,
             password,
             event: event ?? ({} as NostrEvent),
           });
-        } else if (signType === 'encrypt') {
+        } else if (signType === ESignType.encrypt) {
           result = await backgroundApiProxy.serviceNostr.encrypt({
             walletId,
             password,
             pubkey: pubkey ?? '',
             plaintext: plaintext ?? '',
           });
-        } else if (signType === 'decrypt') {
+        } else if (signType === ESignType.decrypt) {
           result = await backgroundApiProxy.serviceNostr.decrypt({
             walletId,
             password,
             pubkey: pubkey ?? '',
             ciphertext: ciphertext ?? '',
           });
-        } else if (signType === 'signSchnorr') {
+        } else if (signType === ESignType.signSchnorr) {
           result = await backgroundApiProxy.serviceNostr.signSchnorr({
             walletId,
             password,
@@ -208,7 +207,8 @@ const NostrSignEventModal = () => {
 
   const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
   const isDMEvent = useMemo(
-    () => signType === 'signEvent' && Number(event?.kind) === EventKind.DM,
+    () =>
+      signType === ESignType.signEvent && Number(event?.kind) === EventKind.DM,
     [signType, event],
   );
   useEffect(() => {
@@ -227,7 +227,7 @@ const NostrSignEventModal = () => {
   }, [event, isDMEvent]);
   const renderEncryptSignEventPlaintext = useMemo(() => {
     if (
-      signType === 'signEvent' &&
+      signType === ESignType.signEvent &&
       Number(event?.kind) === EventKind.DM &&
       savedPlaintext &&
       savedPlaintext.length > 0
@@ -255,13 +255,13 @@ const NostrSignEventModal = () => {
   }, [intl, signType, event, savedPlaintext]);
 
   const content = useMemo(() => {
-    if (signType === 'encrypt') {
+    if (signType === ESignType.encrypt) {
       return plaintext;
     }
-    if (signType === 'decrypt') {
+    if (signType === ESignType.decrypt) {
       return ciphertext;
     }
-    if (signType === 'signSchnorr') {
+    if (signType === ESignType.signSchnorr) {
       return sigHash;
     }
     return (
@@ -270,10 +270,10 @@ const NostrSignEventModal = () => {
   }, [signType, event, plaintext, ciphertext, sigHash, intl]);
 
   const eventKindText = useMemo(() => {
-    if (signType !== 'signEvent') {
+    if (signType !== ESignType.signEvent) {
       return '';
     }
-    if (SupportEventKinds.includes(Number(event?.kind))) {
+    if (i18nSupportEventKinds.includes(Number(event?.kind))) {
       return intl.formatMessage({
         id: `msg__nostr_event_kind_${event?.kind ?? 'unknown'}`,
       } as any);
@@ -285,12 +285,12 @@ const NostrSignEventModal = () => {
   }, [intl, signType, event]);
 
   const signText = useMemo(() => {
-    if (signType === 'encrypt') {
+    if (signType === ESignType.encrypt) {
       return intl.formatMessage({
         id: 'msg__nostr_allow_website_to_encrypt_data',
       });
     }
-    if (signType === 'decrypt') {
+    if (signType === ESignType.decrypt) {
       return intl.formatMessage({
         id: 'msg__nostr_allow_website_to_decrypt_data',
       });
@@ -307,7 +307,7 @@ const NostrSignEventModal = () => {
 
   return (
     <Modal
-      header="Nostr"
+      header={intl.formatMessage({ id: 'title__nostr_request' })}
       primaryActionTranslationId="action__confirm"
       primaryActionProps={{
         isDisabled: isLoading,

@@ -11,31 +11,8 @@ import * as bip39 from 'bip39';
 import { mnemonicFromEntropy } from '../../../secret';
 import { getBitcoinBip32 } from '../btcForkChain/utils';
 
+import type { NostrEvent } from './types';
 import type { BIP32Interface } from 'bip32';
-
-export type NostrEvent = {
-  id?: string;
-  kind: EventKind;
-  pubkey?: string;
-  content: string;
-  tags: string[][];
-  created_at: number;
-  sig?: string;
-};
-
-export enum EventKind {
-  Metadata = 0,
-  Text = 1,
-  RelayRec = 2,
-  Contacts = 3,
-  DM = 4,
-  Deleted = 5,
-}
-
-export const SupportEventKinds = [
-  0, 1, 2, 3, 4, 5, 7, 8, 40, 41, 42, 43, 44, 1984, 9734, 9735, 10002, 22242,
-  24133, 30008, 30009, 30023, 30078,
-];
 
 const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0"; // NIP-06
 
@@ -62,6 +39,7 @@ export function serializeEvent(event: NostrEvent): string {
   if (!validateEvent(event))
     throw new Error("can't serialize event with wrong or missing properties");
 
+  // https://github.com/nostr-protocol/nips/blob/master/01.md
   return JSON.stringify([
     0,
     event.pubkey,
