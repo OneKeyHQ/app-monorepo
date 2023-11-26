@@ -318,6 +318,7 @@ const scopeNetwork: Record<IInjectedProviderNamesStrings, string | undefined> =
     'cosmos': IMPL_COSMOS,
     'polkadot': IMPL_DOT,
     'webln': IMPL_LIGHTNING,
+    'nostr': undefined,
     '$hardware_sdk': undefined,
     '$private': undefined,
   };
