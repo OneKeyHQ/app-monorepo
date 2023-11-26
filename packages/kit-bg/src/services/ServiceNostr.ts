@@ -1,11 +1,16 @@
+import axios from 'axios';
 import ExpiryMap from 'expiry-map';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
   Nostr,
   validateEvent,
 } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+import type {
+  INostrRelays,
+  NostrEvent,
+} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -154,5 +159,13 @@ export default class ServiceNostr extends ServiceBase {
     return {
       data: signedHash,
     };
+  }
+
+  @backgroundMethod()
+  async getRelays() {
+    const { data } = await axios.get<INostrRelays>(
+      `${getFiatEndpoint()}/nostr/getRelays`,
+    );
+    return data;
   }
 }

@@ -1,7 +1,10 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+import type {
+  INostrRelays,
+  NostrEvent,
+} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
@@ -74,21 +77,9 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public async getRelays(): Promise<{
-    [url: string]: { read: boolean; write: boolean };
-  }> {
-    return Promise.resolve({
-      'wss://relay.relayable.org': { read: true, write: true },
-      'wss://relay.nostrassets.com': { read: true, write: true },
-      'wss://relay.damus.io': { read: true, write: true },
-      'wss://nostr1.tunnelsats.com': { read: true, write: true },
-      'wss://nostr-pub.wellorder.net': { read: true, write: true },
-      'wss://relay.nostr.info': { read: true, write: true },
-      'wss://nostr-relay.wlvs.space': { read: true, write: true },
-      'wss://nostr.bitcoiner.social': { read: true, write: true },
-      'wss://nostr-01.bolt.observer': { read: true, write: true },
-      'wss://relayer.fiatjaf.com': { read: true, write: true },
-    });
+  public async getRelays(): Promise<INostrRelays> {
+    const result = await this.backgroundApi.serviceNostr.getRelays();
+    return result;
   }
 
   @providerApiMethod()
