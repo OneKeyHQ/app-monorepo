@@ -9,11 +9,14 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceToken from '../services/ServiceToken';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -38,6 +41,12 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
+
+  serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
+
+  serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 

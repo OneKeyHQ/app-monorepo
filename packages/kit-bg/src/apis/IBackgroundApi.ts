@@ -11,10 +11,13 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceToken from '../services/ServiceToken';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -71,5 +74,9 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
   serviceAccount: ServiceAccount;
+  serviceToken: ServiceToken;
+  serviceNFT: ServiceNFT;
+  serviceHistory: ServiceHistory;
+  // serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

@@ -81,9 +81,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceSend() {
-    const Service =
+    const ServiceSend =
       require('../services/ServiceSend') as typeof import('../services/ServiceSend');
-    const value = new Service.default({
+    const value = new ServiceSend.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceSend', { value });
@@ -97,6 +97,36 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceBootstrap', { value });
+    return value;
+  }
+
+  get serviceToken() {
+    const ServiceToken =
+      require('../services/ServiceToken') as typeof import('../services/ServiceToken');
+    const value = new ServiceToken.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceToken', { value });
+    return value;
+  }
+
+  get serviceNFT() {
+    const ServiceNFT =
+      require('../services/ServiceNFT') as typeof import('../services/ServiceNFT');
+    const value = new ServiceNFT.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNFT', { value });
+    return value;
+  }
+
+  get serviceHistory() {
+    const ServiceHistory =
+      require('../services/ServiceHistory') as typeof import('../services/ServiceHistory');
+    const value = new ServiceHistory.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHistory', { value });
     return value;
   }
 }
