@@ -19,7 +19,12 @@ export function SplashView({ onReady }: ISplashViewProps) {
     [onReady],
   );
   return (
-    <Stack flex={1} justifyContent="center" alignItems="center">
+    <Stack
+      width="100vw"
+      height="100vh"
+      justifyContent="center"
+      alignItems="center"
+    >
       <Stack w={80} h={80} onLayout={handleLayout}>
         <Image
           flex={1}
