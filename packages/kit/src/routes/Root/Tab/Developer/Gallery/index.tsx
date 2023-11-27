@@ -40,6 +40,7 @@ import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
 import ScrollViewGallery from '../../../../../views/Components/stories/ScrollView';
 import SectionListGallery from '../../../../../views/Components/stories/SectionList';
 import SkeletonGallery from '../../../../../views/Components/stories/Skeleton';
+import SpotlightTourGallery from '../../../../../views/Components/stories/SpotlightTour';
 import TextAreaGallery from '../../../../../views/Components/stories/TextArea';
 
 import { EGalleryRoutes } from './routes';
@@ -129,5 +130,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentBlurView,
     component: BlurViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSpotlightTour,
+    component: SpotlightTourGallery,
   },
 ];

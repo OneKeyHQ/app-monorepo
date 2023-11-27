@@ -49,6 +49,7 @@ export * from './ListView';
 export * from './SectionList';
 export * as DelayedFreeze from './DelayedFreeze';
 export * from './RefreshControl';
+export * from './SpotlightTour';
 export * from './BlurView';
 export * from './Navigation';
 
