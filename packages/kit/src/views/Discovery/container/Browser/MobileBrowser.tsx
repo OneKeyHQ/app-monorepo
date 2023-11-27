@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { Page, Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
@@ -154,41 +154,45 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Stack flex={1} zIndex={3} pt={top} bg="$bgApp">
-      <HandleRebuildBrowserData />
-      {displayHomePage ? (
-        <Stack flex={1}>
-          <Text>Dashboard</Text>
-          <Dashboard />
+    <Page>
+      <Page.Body>
+        <Stack flex={1} zIndex={3} pt={top}>
+          <HandleRebuildBrowserData />
+          {displayHomePage ? (
+            <Stack flex={1}>
+              <Text>Dashboard</Text>
+              <Dashboard />
+            </Stack>
+          ) : (
+            <MobileBrowserInfoBar
+              id={activeTabId ?? ''}
+              url={tab?.url ?? ''}
+              onSearch={() => {
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.FakeSearchModal,
+                });
+              }}
+            />
+          )}
+          <Freeze freeze={displayHomePage}>{content}</Freeze>
+          <Freeze freeze={!displayBottomBar}>
+            <Animated.View
+              style={[
+                toolbarAnimatedStyle,
+                {
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                },
+              ]}
+            >
+              <MobileBrowserBottomBar id={activeTabId ?? ''} />
+            </Animated.View>
+          </Freeze>
         </Stack>
-      ) : (
-        <MobileBrowserInfoBar
-          id={activeTabId ?? ''}
-          url={tab?.url ?? ''}
-          onSearch={() => {
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.FakeSearchModal,
-            });
-          }}
-        />
-      )}
-      <Freeze freeze={displayHomePage}>{content}</Freeze>
-      <Freeze freeze={!displayBottomBar}>
-        <Animated.View
-          style={[
-            toolbarAnimatedStyle,
-            {
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-            },
-          ]}
-        >
-          <MobileBrowserBottomBar id={activeTabId ?? ''} />
-        </Animated.View>
-      </Freeze>
-    </Stack>
+      </Page.Body>
+    </Page>
   );
 }
 
