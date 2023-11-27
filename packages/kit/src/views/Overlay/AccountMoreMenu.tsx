@@ -20,7 +20,10 @@ import {
   IMPL_SUI,
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import {
+  isHdWallet,
+  isPassphraseWallet,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -31,6 +34,7 @@ import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
   ModalRoutes,
+  NostrModalRoutes,
   RootRoutes,
 } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
@@ -55,7 +59,7 @@ interface Props {
 const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { network, account, wallet, accountId, networkId } =
+  const { network, account, wallet, walletId, accountId, networkId } =
     useActiveWalletAccount();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const { copyAddress } = useCopyAddress({ wallet });
@@ -233,18 +237,19 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
           openAddressDetails(account?.address);
         },
       },
-      !isAllNetworks(network?.id) && {
-        id: 'action__copy_address',
-        onPress: () => {
-          setTimeout(() => {
-            copyAddress({
-              address: account?.address,
-              displayAddress: account?.displayAddress,
-            });
-          }, 150);
+      !isAllNetworks(network?.id) &&
+        !!account?.address && {
+          id: 'action__copy_address',
+          onPress: () => {
+            setTimeout(() => {
+              copyAddress({
+                address: account?.address,
+                displayAddress: account?.displayAddress,
+              });
+            }, 150);
+          },
+          icon: 'Square2StackMini',
         },
-        icon: 'Square2StackMini',
-      },
       showSubscriptionIcon && {
         id: enabledNotification ? 'action__unsubscribe' : 'action__subscribe',
         onPress: onChangeAccountSubscribe,
@@ -270,6 +275,21 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
         },
         icon: 'GasIllus',
       },
+      isHdWallet({ walletId }) && {
+        id: 'title__nostr',
+        onPress: () => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Nostr,
+            params: {
+              screen: NostrModalRoutes.ExportPubkey,
+              params: {
+                walletId,
+              },
+            },
+          });
+        },
+        icon: 'NostrMini',
+      },
       // TODO Share
     ],
     [
@@ -285,6 +305,7 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
       isDevMode,
       account,
       network,
+      walletId,
       navigation,
       copyAddress,
       openAddressDetails,

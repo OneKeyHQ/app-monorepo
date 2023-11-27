@@ -1201,6 +1201,7 @@ const icons = {
   WrenchScrewdriverSolid: () => null,
   XCircleSolid: () => null,
   XMarkSolid: () => null,
+  NostrMini: () => null,
 };
 export type ICON_NAMES = keyof typeof icons;
 export default icons;

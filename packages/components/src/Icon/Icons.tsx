@@ -1256,6 +1256,7 @@ const icons = {
   WrenchScrewdriverSolid: () => import("./react/solid/WrenchScrewdriver"),
   XCircleSolid: () => import("./react/solid/XCircle"),
   XMarkSolid: () => import("./react/solid/XMark"),
+  NostrMini: () => import("./react/mini/Nostr"),
 };
 export type ICON_NAMES = keyof typeof icons;
 export default icons;

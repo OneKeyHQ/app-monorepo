@@ -198,6 +198,7 @@ export enum ModalRoutes {
   GasPanel = 'GasPanel',
   Inscribe = 'Inscribe',
   Webln = 'Webln',
+  Nostr = 'Nostr',
   InscriptionControl = 'InscriptionControl',
 }
 
@@ -397,6 +398,14 @@ export enum WeblnModalRoutes {
   VerifyMessage = 'VerifyMessage',
   WeblnAuthentication = 'WeblnAuthentication',
 }
+
+export enum NostrModalRoutes {
+  GetPublicKey = 'GetPublicKey',
+  SignEvent = 'SignEvent',
+  NostrAuthentication = 'NostrAuthentication',
+  ExportPubkey = 'ExportPubkey',
+}
+
 export enum InscriptionControlModalRoutes {
   InscriptionControlModal = 'InscriptionControlModal',
 }

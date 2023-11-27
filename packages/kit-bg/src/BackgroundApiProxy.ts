@@ -38,6 +38,7 @@ import type ServiceMigrate from './services/ServiceMigrate';
 import type ServiceNameResolver from './services/ServiceNameResolver';
 import type ServiceNetwork from './services/ServiceNetwork';
 import type ServiceNFT from './services/ServiceNFT';
+import type ServiceNostr from './services/ServiceNostr';
 import type ServiceNotification from './services/ServiceNotification';
 import type ServiceOnboarding from './services/ServiceOnboarding';
 import type ServiceOverview from './services/ServiceOverview';
@@ -204,6 +205,8 @@ class BackgroundApiProxy
   ) as ServiceDappMetaData;
 
   serviceBRC20 = this._createProxyService('serviceBRC20') as ServiceBRC20;
+
+  serviceNostr = this._createProxyService('serviceNostr') as ServiceNostr;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

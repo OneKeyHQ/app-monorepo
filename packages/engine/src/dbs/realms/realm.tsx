@@ -41,7 +41,7 @@ import {
 } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
-import { walletIsImported } from '../../managers/wallet';
+import { isNostrCredentialId, walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -50,6 +50,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../types/wallet';
+import { getNostrCredentialId } from '../../vaults/utils/nostr/nostr';
 import {
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
@@ -76,7 +77,10 @@ import type {
   IAddAccountDerivationParams,
   ISetAccountTemplateParams,
 } from '../../types/accountDerivation';
-import type { PrivateKeyCredential } from '../../types/credential';
+import type {
+  PrivateKeyCredential,
+  PrivateKeyCredentialWithId,
+} from '../../types/credential';
 import type { Device, DevicePayload } from '../../types/device';
 import type {
   HistoryEntry,
@@ -93,6 +97,7 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  ExportedPrivateKeyCredential,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -101,7 +106,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -248,7 +253,10 @@ class RealmDB implements DBAPI {
         ).toString('hex');
         const credentials = this.realm!.objects<CredentialSchema>('Credential');
         credentials.forEach((credentialItem) => {
-          if (credentialItem.id.startsWith('imported')) {
+          if (
+            walletIsImported(credentialItem.id) ||
+            isNostrCredentialId(credentialItem.id)
+          ) {
             const privateKeyCredentialJSON: StoredPrivateKeyCredential =
               JSON.parse(credentialItem.credential);
             credentialItem.credential = JSON.stringify({
@@ -1312,6 +1320,10 @@ class RealmDB implements DBAPI {
         'Credential',
         walletId,
       );
+      const nostrCredential = this.realm!.objectForPrimaryKey<CredentialSchema>(
+        'Credential',
+        getNostrCredentialId(walletId),
+      );
       this.realm!.write(() => {
         this.realm!.delete(Array.from(wallet.accounts!));
         if (removeDevice && wallet.associatedDevice) {
@@ -1323,6 +1335,9 @@ class RealmDB implements DBAPI {
         }
         if (historyEntries.length > 0) {
           this.realm!.delete(historyEntries);
+        }
+        if (nostrCredential) {
+          this.realm!.delete(nostrCredential);
         }
       });
       return Promise.resolve();
@@ -1444,7 +1459,7 @@ class RealmDB implements DBAPI {
       }
 
       let exprotedCredential: ExportedCredential;
-      if (walletIsImported(credentialId)) {
+      if (walletIsImported(credentialId) || isNostrCredentialId(credentialId)) {
         const privateKeyCredentialJSON = JSON.parse(
           credential.credential,
         ) as StoredPrivateKeyCredential;
@@ -1461,6 +1476,51 @@ class RealmDB implements DBAPI {
         };
       }
       return Promise.resolve(exprotedCredential);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  createPrivateKeyCredential(
+    credential: PrivateKeyCredentialWithId,
+  ): Promise<ExportedPrivateKeyCredential> {
+    try {
+      if (!credential) {
+        return Promise.reject(new OneKeyInternalError('Credential required.'));
+      }
+      const context = this.realm!.objectForPrimaryKey<ContextSchema>(
+        'Context',
+        MAIN_CONTEXT,
+      );
+      if (!context) {
+        return Promise.reject(new OneKeyInternalError('Context not found.'));
+      }
+      if (!checkPassword(context.internalObj, credential.password)) {
+        return Promise.reject(new WrongPassword());
+      }
+      const existCredential = this.realm!.objectForPrimaryKey<CredentialSchema>(
+        'Credential',
+        credential.id,
+      );
+      if (existCredential) {
+        return Promise.reject(
+          new OneKeyInternalError(
+            `${credential.id} credential has alerday exists.`,
+          ),
+        );
+      }
+
+      this.realm!.write(() => {
+        this.realm!.create('Credential', {
+          id: credential.id,
+          credential: JSON.stringify({
+            privateKey: credential.privateKey.toString('hex'),
+          }),
+        });
+      });
+
+      return Promise.resolve({ privateKey: credential.privateKey });
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
