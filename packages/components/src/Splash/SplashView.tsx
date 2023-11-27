@@ -28,13 +28,9 @@ export function SplashView({ onReady }: ISplashViewProps) {
       <Stack w={80} h={80} onLayout={handleLayout}>
         <Image
           flex={1}
-          source={
-            {
-              uri: require('../../assets/splash.svg'),
-              width: '100%',
-              height: '100%',
-            } as unknown as ImageSourcePropType
-          }
+          source={{
+            uri: require('../../assets/splash.svg'),
+          }}
         />
       </Stack>
     </Stack>
