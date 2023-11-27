@@ -11,7 +11,7 @@ const waitDataReady = () =>
     setTimeout(() => {
       // TODO：Hide the Splash View only when the UI view is ready.
       resolve(true);
-    }, 10000);
+    }, 100);
   });
 
 function AppLoading({ children }: PropsWithChildren<unknown>) {
