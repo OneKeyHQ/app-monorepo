@@ -6,15 +6,22 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import * as secp256k1 from '@noble/secp256k1';
 import { AES_CBC } from 'asmcrypto.js';
 import { bech32 } from 'bech32';
-import * as bip39 from 'bip39';
 
-import { mnemonicFromEntropy } from '../../../secret';
+import { DbApi } from '../../../dbs';
+import { batchGetPrivateKeys } from '../../../secret';
+import { decrypt } from '../../../secret/encryptors/aes256';
+import { CredentialType } from '../../../types/credential';
 import { getBitcoinBip32 } from '../btcForkChain/utils';
 
+import type {
+  DBAPI,
+  ExportedPrivateKeyCredential,
+  ExportedSeedCredential,
+} from '../../../dbs/base';
 import type { NostrEvent } from './types';
-import type { BIP32Interface } from 'bip32';
 
-const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0/0"; // NIP-06
+const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0"; // NIP-06
+const NOSTR_ADDRESS_INDEX = '0';
 
 export function validateEvent(event: NostrEvent): boolean {
   if (!(event instanceof Object)) return false;
@@ -60,58 +67,112 @@ export function signEvent(event: NostrEvent, key: string) {
 }
 
 class Nostr {
-  readonly mnemonic: string;
+  dbApi: DBAPI;
 
-  private node: BIP32Interface;
+  private walletId: string;
 
-  constructor(entropy: Buffer, password: string) {
-    this.mnemonic = mnemonicFromEntropy(entropy, password);
-    const seed = bip39.mnemonicToSeedSync(this.mnemonic);
-    const root = getBitcoinBip32().fromSeed(seed);
-    this.node = root.derivePath(NOSTR_DERIVATION_PATH);
+  private password: string;
+
+  constructor(walletId: string, password: string) {
+    this.walletId = walletId;
+    this.password = password;
+    this.dbApi = new DbApi() as DBAPI;
   }
 
-  getPublicKey() {
-    return this.node.publicKey.slice(1, 33);
+  private getCredentialId() {
+    return `${this.walletId}--nostr`;
   }
 
-  getPublicKeyHex() {
-    return bytesToHex(this.getPublicKey());
+  private async getOrCreateCredential(): Promise<
+    ExportedPrivateKeyCredential['privateKey']
+  > {
+    try {
+      // try to find credential from database
+      const credential = (await this.dbApi.getCredential(
+        this.getCredentialId(),
+        this.password,
+      )) as ExportedPrivateKeyCredential;
+      return credential.privateKey;
+    } catch (e) {
+      // cannot find credential, will create credential by path derivation
+      const dbApi = new DbApi() as DBAPI;
+      const { seed } = (await dbApi.getCredential(
+        this.walletId,
+        this.password,
+      )) as ExportedSeedCredential;
+      const keys = batchGetPrivateKeys(
+        'secp256k1',
+        seed,
+        this.password,
+        NOSTR_DERIVATION_PATH,
+        [NOSTR_ADDRESS_INDEX],
+      );
+      if (keys.length !== 1) {
+        throw new Error('Nostr: private key not found');
+      }
+      if (keys[0].path !== `${NOSTR_DERIVATION_PATH}/${NOSTR_ADDRESS_INDEX}`) {
+        throw new Error('Nostr: wrong derivation path');
+      }
+      const encryptedPrivateKey = keys[0].extendedKey.key;
+      // save to database
+      await this.dbApi.createPrivateKeyCredential({
+        type: CredentialType.PRIVATE_KEY,
+        id: this.getCredentialId(),
+        password: this.password,
+        privateKey: encryptedPrivateKey,
+      });
+
+      return encryptedPrivateKey;
+    }
   }
 
-  getPrivateKey() {
-    if (!this.node.privateKey) {
+  async getBip32Node() {
+    const encryptedCredential = await this.getOrCreateCredential();
+    const privateKey = decrypt(this.password, encryptedCredential);
+    const node = getBitcoinBip32().fromPrivateKey(
+      privateKey,
+      crypto.randomBytes(32),
+    );
+    return node;
+  }
+
+  async getPublicKey() {
+    const node = await this.getBip32Node();
+    return node.publicKey;
+  }
+
+  async getPublicKeyHex() {
+    return bytesToHex(await this.getPublicKey());
+  }
+
+  async getPrivateKey() {
+    const node = await this.getBip32Node();
+    if (!node.privateKey) {
       throw new Error('Nostr: private key not found');
     }
-    return this.node.privateKey;
+    return node.privateKey;
   }
 
-  getPrivateKeyHex() {
-    if (!this.node.privateKey) {
-      throw new Error('Nostr: private key not found');
-    }
-    return bytesToHex(this.node.privateKey);
+  async getPrivateKeyHex() {
+    const privateKey = await this.getPrivateKey();
+    return bytesToHex(privateKey);
   }
 
   getEventHash(event: NostrEvent) {
     return getEventHash(event);
   }
 
-  signEvent(event: NostrEvent): Promise<NostrEvent> {
-    if (!this.node.privateKey) {
-      throw new Error('Nostr: private key not found');
-    }
-    const signature = signEvent(event, bytesToHex(this.node.privateKey));
+  async signEvent(event: NostrEvent): Promise<NostrEvent> {
+    const privateKey = await this.getPrivateKey();
+    const signature = signEvent(event, bytesToHex(privateKey));
     event.sig = signature;
     return Promise.resolve(event);
   }
 
-  encrypt(pubkey: string, plaintext: string): string {
-    if (!this.node.privateKey) {
-      throw new Error('Nostr: private key not found');
-    }
+  async encrypt(pubkey: string, plaintext: string): Promise<string> {
+    const privateKey = await this.getPrivateKey();
     const key = secp256k1.getSharedSecret(
-      bytesToHex(this.node.privateKey),
+      bytesToHex(privateKey),
       `02${pubkey}`,
     );
     const normalizedKey = key.slice(1, 33);
@@ -129,12 +190,10 @@ class Nostr {
     )}`;
   }
 
-  decrypt(pubkey: string, ciphertext: string) {
-    if (!this.node.privateKey) {
-      throw new Error('Nostr: private key not found');
-    }
+  async decrypt(pubkey: string, ciphertext: string) {
+    const privateKey = await this.getPrivateKey();
     const key = secp256k1.getSharedSecret(
-      bytesToHex(this.node.privateKey),
+      bytesToHex(privateKey),
       `02${pubkey}`,
     );
     const [cip, iv] = ciphertext.split('?iv=');
@@ -148,23 +207,23 @@ class Nostr {
     return Buffer.from(decrypted).toString('utf-8');
   }
 
-  getPubkeyEncodedByNip19() {
-    const words = bech32.toWords(this.getPublicKey());
+  async getPubkeyEncodedByNip19() {
+    const privateKey = await this.getPrivateKey();
+    const words = bech32.toWords(privateKey);
     return bech32.encode('npub', words, 1000);
   }
 
-  getPrivateEncodedByNip19() {
-    const words = bech32.toWords(this.getPrivateKey());
+  async getPrivateEncodedByNip19() {
+    const privateKey = await this.getPrivateKey();
+    const words = bech32.toWords(privateKey);
     return bech32.encode('nsec', words, 1000);
   }
 
-  signSchnorr(sigHash: string): string {
-    if (!this.node.privateKey) {
-      throw new Error('Nostr: private key not found');
-    }
+  async signSchnorr(sigHash: string): Promise<string> {
+    const privateKey = await this.getPrivateKey();
     const signature = schnorr.sign(
       Buffer.from(hexToBytes(sigHash)),
-      this.node.privateKey,
+      privateKey,
     );
     const signedHex = bytesToHex(signature);
     return signedHex;
