@@ -1,10 +1,17 @@
 // import type only here to avoid cycle-deps error
 
-import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceSend from '../services/ServiceSend';
+import type ServiceSetting from '../services/ServiceSetting';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -16,8 +23,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-
-// import type ServiceBootstrap from '../services/ServiceBootstrap';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
@@ -25,16 +30,15 @@ export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
 };
 
 export interface IBackgroundApiBridge {
-  // **** redux
-  store: IStore;
-  persistor: IPersistor;
-  dispatch: (...actions: any[]) => void;
-  getState: () => Promise<{ state: any; bootstrapped: boolean }>;
-  appSelector: IAppSelector;
-
   // **** jotai
   setAtomValue: (atomName: EAtomNames, value: any) => Promise<void>;
   getAtomStates: () => Promise<{ states: Record<EAtomNames, any> }>;
+
+  // **** eventBus
+  emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean>;
 
   // **** webview bridge
   bridge: JsBridgeBase | null;
@@ -55,7 +59,10 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
 
   // **** services
   servicePromise: ServicePromise;
+  servicePassword: ServicePassword;
+  serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
-  // serviceBootstrap: ServiceBootstrap;
+  serviceSend: ServiceSend;
+  serviceBootstrap: ServiceBootstrap;
   // serviceCronJob: ServiceCronJob;
 }

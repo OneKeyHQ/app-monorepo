@@ -1,16 +1,21 @@
 import type { ReactNode } from 'react';
 
+import { getFontSize } from 'tamagui';
+
 import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
 
-import HeaderButtonBack from './HeaderButtonBack';
+import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
-import type { StackHeaderProps, StackNavigationOptions } from '../ScreenProps';
+import type {
+  IStackHeaderProps,
+  IStackNavigationOptions,
+} from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 import type { VariableVal } from '@tamagui/core';
 
-export type OneKeyStackHeaderProps = {
-  navigation?: StackHeaderProps['navigation'];
+export type IOnekeyStackHeaderProps = {
+  navigation?: IStackHeaderProps['navigation'];
   isModelScreen?: boolean;
   isRootScreen?: boolean;
   isFlowModelScreen?: boolean;
@@ -23,10 +28,11 @@ export function makeHeaderScreenOptions({
   isRootScreen = false,
   bgColor,
   titleColor,
-}: OneKeyStackHeaderProps & {
+}: IOnekeyStackHeaderProps & {
   bgColor: VariableVal;
   titleColor: VariableVal;
-}): StackNavigationOptions {
+}): IStackNavigationOptions {
+  // It's only for iOS, see CommonConfig.hasNativeHeaderView
   if (hasNativeHeaderView) {
     const state = currentNavigation?.getState();
     const isCanGoBack = (state?.index ?? 0) > 0;
@@ -36,18 +42,23 @@ export function makeHeaderScreenOptions({
         backgroundColor: bgColor as string,
       },
       headerTitleStyle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: getFontSize('$headingLg'),
         color: titleColor as string,
       },
+      headerShadowVisible: false,
+      /* Although the default value of `headerTransparent` is `false` too, 
+         we still cannot remove it here.
+         because RNSSearchBar seems will read an incorrect default value.
+      */
       headerTransparent: false,
+      headerTitleAlign: 'left',
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
-        <HeaderButtonBack
-          {...props}
+        <HeaderBackButton
           onPress={currentNavigation?.goBack}
-          canGoBack={isCanGoBack}
           isModelScreen={isModelScreen}
           isRootScreen={isRootScreen}
+          {...props}
+          canGoBack={isCanGoBack}
         />
       ),
     };
@@ -61,7 +72,7 @@ export function makeHeaderScreenOptions({
       options,
       route,
       navigation,
-    }: StackHeaderProps) => (
+    }: IStackHeaderProps) => (
       <HeaderView
         back={headerBack}
         options={options}

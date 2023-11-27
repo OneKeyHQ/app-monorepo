@@ -1,17 +1,16 @@
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
 
-import { ModalTestRoutes } from './Routes';
+import { EModalTestRoutes } from './Routes';
 import TestSimpleModal from './TestSimpleModal';
 
-import type { ModalTestParamList } from './Routes';
+import type { IModalTestParamList } from './Routes';
 
-export const ModalTestStack: ModalFlowNavigatorConfig<
-  ModalTestRoutes,
-  ModalTestParamList
+export const ModalTestStack: IModalFlowNavigatorConfig<
+  EModalTestRoutes,
+  IModalTestParamList
 >[] = [
   {
-    name: ModalTestRoutes.TestSimpleModal,
+    name: EModalTestRoutes.TestSimpleModal,
     component: TestSimpleModal,
-    translationId: 'Locked Modal Demo',
   },
 ];

@@ -10,6 +10,7 @@ export const openUrlByWebview = (
   },
 ) => {
   // TODO: open url by webview
+  console.log(url, title, options);
 };
 
 export const openUrl = (

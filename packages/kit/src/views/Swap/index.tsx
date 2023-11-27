@@ -1,18 +1,16 @@
 import { memo } from 'react';
 
-import { Screen, Text, YStack } from '@onekeyhq/components';
-
-import LocalAuthenticationButton from '../../components/LocalAuthenticationButton/LocalAuthenticationButton';
+import { Page, Text } from '@onekeyhq/components';
 
 const Swap = () => {
   console.log('swap');
+
   return (
-    <Screen>
-      <YStack space="$4">
+    <Page>
+      <Page.Body space="$4">
         <Text>Swap</Text>
-        <LocalAuthenticationButton />
-      </YStack>
-    </Screen>
+      </Page.Body>
+    </Page>
   );
 };
 

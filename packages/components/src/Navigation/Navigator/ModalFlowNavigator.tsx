@@ -9,26 +9,26 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig.ts';
 
-import type { CommonNavigatorConfig } from './types';
-import type { LocaleIds } from '../../locale';
-import type { ModalNavigationOptions } from '../ScreenProps';
+import type { ICommonNavigatorConfig } from './types';
+import type { ILocaleIds } from '../../locale';
+import type { IModalNavigationOptions } from '../ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
 import type { ParamListBase } from '@react-navigation/routers';
 
-export interface ModalFlowNavigatorConfig<
+export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
-> extends CommonNavigatorConfig<RouteName, P> {
-  translationId: LocaleIds;
+> extends ICommonNavigatorConfig<RouteName, P> {
+  translationId?: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
 }
 
-interface ModalFlowNavigatorProps<
+interface IModalFlowNavigatorProps<
   RouteName extends string,
   P extends ParamListBase,
 > {
-  config: ModalFlowNavigatorConfig<RouteName, P>[];
+  config: IModalFlowNavigatorConfig<RouteName, P>[];
 }
 
 const ModalStack = hasStackNavigatorModal
@@ -37,7 +37,7 @@ const ModalStack = hasStackNavigatorModal
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
-}: ModalFlowNavigatorProps<RouteName, P>) {
+}: IModalFlowNavigatorProps<RouteName, P>) {
   const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
   const intl = useIntl();
 
@@ -64,13 +64,15 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
           allowDisableClose,
           disableClose,
         }) => {
-          const customOptions: ModalNavigationOptions = {
+          const customOptions: IModalNavigationOptions = {
             ...options,
             allowDisableClose,
             disableClose,
-            title: intl.formatMessage({
-              id: translationId,
-            }),
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId as ILocaleIds,
+                })
+              : '',
           };
 
           return (

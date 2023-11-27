@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import { Button, IconButton, Stack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 
 import { useWebController } from '../../Controller/useWebController';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -15,7 +13,7 @@ import { homeTab, webTabsActions } from '../Context/contextWebTabs';
 
 function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   const { currentTab, goBack, goForward } = useWebController();
   const { bottom } = useSafeAreaInsets();
   const { canGoForward, url } = currentTab ?? {};
@@ -53,7 +51,7 @@ function BrowserBottomBar({ showHome }: { showHome?: () => void }) {
         />
         <Button
           onPress={() =>
-            navigation.pushModal(ModalRoutes.DiscoverModal, {
+            navigation.pushModal(EModalRoutes.DiscoverModal, {
               screen: DiscoverModalRoutes.MobileTabList,
             })
           }

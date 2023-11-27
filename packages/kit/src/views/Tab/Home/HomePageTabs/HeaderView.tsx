@@ -1,20 +1,22 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import { GalleryRoutes } from '@onekeyhq/kit/src/routes/Gallery/routes';
+import { Button, Text, YStack } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { RootRoutes } from '../../../../routes/Root/Routes';
-import { TabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
+import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalTestRoutes } from '../../../../routes/Root/Modal/TestModal/Routes';
+import { ETabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
-import type { TabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
+import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 
-export default function HomePageHeaderView({}: // switchDemoVisible,
-{
-  // switchDemoVisible: () => void;
-}) {
-  const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
+// export default function HomePageHeaderView({
+//   switchDemoVisible,
+// }: {
+//   switchDemoVisible: () => void;
+// }) {
+export default function HomePageHeaderView() {
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
 
   const headerHeightCall = useCallback(() => {
@@ -26,38 +28,27 @@ export default function HomePageHeaderView({}: // switchDemoVisible,
   // }, [switchDemoVisible]);
 
   const onNextPageCall = useCallback(() => {
-    navigation.push(TabHomeRoutes.TabHomeStack1);
+    navigation.push(ETabHomeRoutes.TabHomeStack1);
+  }, [navigation]);
+
+  const navigateTestSimpleModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TestModal, {
+      screen: EModalTestRoutes.TestSimpleModal,
+    });
   }, [navigation]);
 
   return useMemo(
     () => (
-      <Stack alignItems="center" justifyContent="center" py="$4">
+      <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
-        <Button
-          onPress={() => {
-            navigation.push(RootRoutes.Gallery, {
-              screen: GalleryRoutes.Components,
-              params: {
-                ts: new Date().getTime(),
-              },
-            });
-          }}
-        >
-          Gallery
-        </Button>
-      </Stack>
+        <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
+      </YStack>
     ),
-    [
-      headerHighMode,
-      headerHeightCall,
-      onNextPageCall,
-      // switchDemoVisibleCall,
-      navigation,
-    ],
+    [headerHighMode, headerHeightCall, onNextPageCall, navigateTestSimpleModal],
   );
 }

@@ -4,9 +4,9 @@ import { ipcRenderer } from 'electron';
 
 import { ipcMessageKeys } from './config';
 
-import type { UpdateSettings } from './libs/store';
+import type { IUpdateSettings } from './libs/store';
 
-export type PrefType =
+export type IPrefType =
   | 'camera'
   | 'bluetooth'
   | 'location'
@@ -16,7 +16,7 @@ export type PrefType =
 
 export type IDesktopAppState = 'active' | 'background' | 'blur';
 
-export type DesktopAPI = {
+export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
   arch: string;
@@ -26,14 +26,14 @@ export type DesktopAPI = {
   reload: () => void;
   ready: () => void;
   focus: () => void;
-  openPreferences: (prefType: PrefType) => void;
+  openPreferences: (prefType: IPrefType) => void;
   toggleMaximizeWindow: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
   secureGetItemAsync: (key: string) => Promise<string | null>;
-  secureDelItemAsync: (key: string) => Promise<string | null>;
+  secureDelItemAsync: (key: string) => Promise<void>;
   reloadBridgeProcess: () => void;
   addIpcEventListener: (
     event: string,
@@ -48,7 +48,7 @@ export type DesktopAPI = {
   checkForUpdates: (isManual?: boolean) => void;
   downloadUpdate: () => void;
   installUpdate: () => void;
-  setAutoUpdateSettings: (settings: UpdateSettings) => void;
+  setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
@@ -81,8 +81,9 @@ export type DesktopAPI = {
   clearWebViewData: () => void;
 };
 declare global {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
-    desktopApi: DesktopAPI;
+    desktopApi: IDesktopAPI;
     INJECT_PATH: string;
   }
 }
@@ -201,7 +202,7 @@ const desktopApi = {
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   installUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL),
-  setAutoUpdateSettings: (settings: UpdateSettings) =>
+  setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
   clearAutoUpdateSettings: () =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR_SETTINGS),

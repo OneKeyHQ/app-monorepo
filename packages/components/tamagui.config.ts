@@ -110,23 +110,6 @@ const font = createFont({
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
-  '150ms': {
-    type: 'timing',
-    duration: 150,
-  },
-  '300ms': {
-    type: 'timing',
-    duration: 300,
-  },
-  bouncy: {
-    type: 'spring',
-    damping: 10,
-    mass: 0.9,
-  },
-  lazy: {
-    type: 'spring',
-    damping: 20,
-  },
   quick: {
     type: 'spring',
     damping: 20,
@@ -509,6 +492,7 @@ const mergedTokens = createTokens({
     96: 384,
     100: 400,
     160: 640,
+    sideBarWidth: 208,
   },
   radius: {
     0: 0,
@@ -644,17 +628,21 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
+  mediaQueryDefaultActive: {
+    sm: true,
+    md: true,
+  },
 });
 
-export type AppConfig = typeof config;
+export type IAppConfig = typeof config;
 
 declare module 'tamagui' {
   // or '@tamagui/core'
   // overrides TamaguiCustomConfig so your custom types
   // work everywhere you import `tamagui`
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
-  interface TamaguiCustomConfig extends AppConfig {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
+  interface TamaguiCustomConfig extends IAppConfig {}
 }
 
 export default config;

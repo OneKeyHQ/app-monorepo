@@ -8,14 +8,18 @@ import BackgroundApiBase from './BackgroundApiBase';
 import type { IBackgroundApi } from './IBackgroundApi';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
+  constructor() {
+    super();
+    void this.serviceBootstrap.init();
+  }
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
 
   get servicePromise() {
-    const ServicePromise =
+    const Service =
       require('../services/ServicePromise') as typeof import('../services/ServicePromise');
-    const value = new ServicePromise.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'servicePromise', { value });
@@ -23,23 +27,53 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceApp() {
-    const ServicePromise =
+    const Service =
       require('../services/ServiceApp') as typeof import('../services/ServiceApp');
-    const value = new ServicePromise.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceApp', { value });
     return value;
   }
 
-  // get serviceBootstrap() {
-  //   const ServiceBootstrap =
-  //     require('../services/ServiceBootstrap') as typeof import('./services/ServiceBootstrap');
-  //   const value = new ServiceBootstrap.default({
-  //     backgroundApi: this,
-  //   });
-  //   Object.defineProperty(this, 'serviceBootstrap', { value });
-  //   return value;
-  // }
+  get servicePassword() {
+    const Service =
+      require('../services/ServicePassword') as typeof import('../services/ServicePassword');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePassword', { value });
+    return value;
+  }
+
+  get serviceSetting() {
+    const Service =
+      require('../services/ServiceSetting') as typeof import('../services/ServiceSetting');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSetting', { value });
+    return value;
+  }
+
+  get serviceSend() {
+    const Service =
+      require('../services/ServiceSend') as typeof import('../services/ServiceSend');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSend', { value });
+    return value;
+  }
+
+  get serviceBootstrap() {
+    const Service =
+      require('../services/ServiceBootstrap') as typeof import('../services/ServiceBootstrap');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceBootstrap', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

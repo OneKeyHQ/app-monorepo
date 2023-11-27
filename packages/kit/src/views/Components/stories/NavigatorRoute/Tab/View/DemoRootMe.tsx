@@ -1,10 +1,10 @@
-import { Button, Stack } from '@onekeyhq/components';
+import { Button, Stack, Text } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoDeveloperTabRoutes, DemoTabRoutes } from '../Routes';
+import { EDemoDeveloperTabRoutes, EDemoTabRoutes } from '../Routes';
 
 const DemoRootMe = () => {
   const navigation = useDemoAppNavigation();
@@ -21,7 +21,7 @@ const DemoRootMe = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.switchTab(DemoTabRoutes.Home);
+                navigation.switchTab(EDemoTabRoutes.Home);
               }}
             >
               跳转 Home
@@ -34,8 +34,8 @@ const DemoRootMe = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.switchTab(DemoTabRoutes.Developer, {
-                  screen: DemoDeveloperTabRoutes.DemoRootDeveloperOptions,
+                navigation.switchTab(EDemoTabRoutes.Developer, {
+                  screen: EDemoDeveloperTabRoutes.DemoRootDeveloperOptions,
                   params: {
                     from: '来自 Me Tab 页面的跳转',
                   },
@@ -52,6 +52,16 @@ const DemoRootMe = () => {
             <Stack>
               <FreezeProbe componentName="DemoRootMe" />
               <NavigationFocusTools componentName="DemoRootMe" />
+            </Stack>
+          ),
+        },
+        {
+          title: 'BottomTab 渲染卡顿测试',
+          element: (
+            <Stack>
+              {new Array(1000).fill({}).map((_, index) => (
+                <Text>这是有1000个 View 的 BottomTab 卡顿测试{index}</Text>
+              ))}
             </Stack>
           ),
         },

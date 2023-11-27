@@ -1,23 +1,18 @@
-import { Children } from 'react';
-import type { ReactNode } from 'react';
+import { XStack } from '../../Stack';
 
-import { Stack } from '../../Stack';
+import type { GetProps } from 'tamagui';
 
-export default function HeaderButtonGroup({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const childCount = Children.count(children);
+export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
+  const { children, ...rest } = props;
 
   return (
-    <Stack
-      flexDirection="row"
-      space={childCount > 1 ? '$4' : '0'}
+    <XStack
+      space="$6"
       alignItems="center"
       testID="Navigation-HeaderView-ButtonGroup"
+      {...rest}
     >
       {children}
-    </Stack>
+    </XStack>
   );
 }

@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactElement } from 'react';
 
 import type { HeaderButtonGroup } from './Header';
-import type HeaderButtonIcon from './Header/HeaderButtonIcon';
+import type HeaderIconButton from './Header/HeaderIconButton';
 import type {
   NavigationProp,
   StackActionHelpers,
@@ -20,12 +20,12 @@ import type {
 } from 'react-native';
 
 export type {
-  ModalScreenProps,
-  ModalNavigationProp,
-  ModalNavigationOptions,
+  IModalScreenProps,
+  IModalNavigationProp,
+  IModalNavigationOptions,
 } from './Modal/types';
 
-export interface SearchBarProps {
+export interface ISearchBarProps {
   /**
    * The auto-capitalization behavior
    */
@@ -86,42 +86,42 @@ export interface SearchBarProps {
   hideNavigationBar?: boolean;
 }
 
-export type StackHeaderProps = {
+export type IStackHeaderProps = {
   back?: {
     title: string;
   };
-  options: StackNavigationOptions;
+  options: IStackNavigationOptions;
   route: Route<string>;
-  navigation: PageNavigationProp<ParamListBase>;
+  navigation: IPageNavigationProp<ParamListBase>;
 };
 
-export type StackNavigationOptions = Omit<
+export type IStackNavigationOptions = Omit<
   NativeStackNavigationOptions,
   'headerRight' | 'headerSearchBarOptions'
 > & {
-  headerSearchBarOptions?: SearchBarProps;
+  headerSearchBarOptions?: ISearchBarProps;
   headerRight?: (
     props: HeaderButtonProps,
   ) => ReactElement<
-    | ComponentProps<typeof HeaderButtonIcon>
+    | ComponentProps<typeof HeaderIconButton>
     | ComponentProps<typeof HeaderButtonGroup>
   >;
 };
 
-export type PageScreenProps<
+export type IPageScreenProps<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = keyof ParamList,
   NavigatorID extends string | undefined = undefined,
 > = {
-  navigation: PageNavigationProp<ParamList, RouteName, NavigatorID>;
+  navigation: IPageNavigationProp<ParamList, RouteName, NavigatorID>;
   route: RouteProp<ParamList, RouteName>;
 };
 
-export type PageNavigationProp<
+export type IPageNavigationProp<
   ParamList extends ParamListBase,
   RouteName extends keyof ParamList = string,
   NavigatorID extends string | undefined = undefined,
-  Options extends StackNavigationOptions = StackNavigationOptions,
+  Options extends IStackNavigationOptions = IStackNavigationOptions,
 > = NavigationProp<
   ParamList,
   RouteName,

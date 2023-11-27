@@ -4,15 +4,16 @@ import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
-import { StyleSheet } from 'react-native';
+import { useTheme } from 'tamagui';
 
-import { DesktopDragZoneBox, Stack, useThemeValue } from '../../index';
+import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
+import { Stack } from '../../Stack';
 
-import HeaderButtonBack from './HeaderButtonBack';
+import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
 
-import type { OneKeyStackHeaderProps } from './HeaderScreenOptions';
-import type { StackHeaderProps } from '../ScreenProps';
+import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IStackHeaderProps } from '../ScreenProps';
 import type {
   HeaderBackButtonProps,
   HeaderOptions,
@@ -37,19 +38,17 @@ function HeaderView({
   navigation,
   isModelScreen = false,
   isRootScreen = false,
-}: StackHeaderProps & OneKeyStackHeaderProps) {
+}: IStackHeaderProps & IOnekeyStackHeaderProps) {
   const {
     headerRight,
     headerTitle,
     headerTitleAlign,
     headerStyle,
-    headerTransparent,
     headerBackground,
     headerSearchBarOptions,
   } = options || {};
 
-  const headerTintColor = useThemeValue('text');
-
+  const theme = useTheme();
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
   const topStack = (state?.index ?? 0) === 0;
@@ -68,12 +67,12 @@ function HeaderView({
       if (disableClose) return null;
 
       return (
-        <HeaderButtonBack
-          {...props}
+        <HeaderBackButton
           canGoBack={!topStack}
           onPress={onBackCallback}
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
+          {...props}
         />
       );
     },
@@ -81,35 +80,27 @@ function HeaderView({
   );
 
   return (
-    <DesktopDragZoneBox>
+    <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
-        px="$5"
-        $md={{
-          flexDirection: 'column',
-        }}
         $gtMd={{
-          flexDirection: isModelScreen ? 'column' : 'row',
+          flexDirection: 'row',
         }}
-        borderTopLeftRadius={isModelScreen ? '$2' : 0}
-        borderTopRightRadius={isModelScreen ? '$2' : 0}
+        alignItems="center"
         backgroundColor="$bgApp"
-        overflow="hidden"
-        borderBottomWidth={StyleSheet.hairlineWidth}
-        borderBottomColor="$borderSubdued"
+        // borderBottomWidth={StyleSheet.hairlineWidth}
+        // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
       >
         <Stack
-          $md={{
-            width: '100%',
-          }}
+          alignSelf="stretch"
+          px="$5"
           $gtMd={{
-            flex: isModelScreen ? 0 : 1,
-            width: isModelScreen ? '100%' : undefined,
+            flex: 1,
           }}
         >
           <Header
             title={getHeaderTitle(options, route.name)}
-            headerTintColor={headerTintColor}
+            headerTintColor={theme.text.val}
             headerLeft={headerLeftView}
             headerRight={
               typeof headerRight === 'function'
@@ -124,39 +115,30 @@ function HeaderView({
             }
             headerTitleAlign={headerTitleAlign}
             headerTitleStyle={{
-              fontSize: 18,
               lineHeight: 28,
               fontWeight: '600',
             }}
-            headerTransparent={headerTransparent}
-            headerShadowVisible={false}
+            headerTitleContainerStyle={{
+              marginHorizontal: 0,
+            }}
+            headerTransparent
             headerBackground={headerBackground}
-            headerStyle={[{ backgroundColor: 'transparent' }, headerStyle]}
+            headerStyle={[
+              {
+                height: 52,
+              },
+              headerStyle,
+            ]}
           />
         </Stack>
         {!!headerSearchBarOptions && (
-          <Stack
-            flex={0}
-            $md={{
-              pb: '$4',
-              width: '100%',
-            }}
-            $gtMd={{
-              pl: isModelScreen ? '$0' : '$5',
-              py: isModelScreen ? '$0' : '$3.5',
-              pb: isModelScreen ? '$4' : '$0',
-              width: isModelScreen ? '100%' : '$60',
-              alignItems: isModelScreen ? 'flex-start' : 'center',
-            }}
-          >
-            <HeaderSearchBar
-              placeholder={headerSearchBarOptions?.placeholder}
-              onChangeText={headerSearchBarOptions?.onChangeText}
-              onBlur={headerSearchBarOptions?.onBlur}
-              onFocus={headerSearchBarOptions?.onFocus}
-              onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
-            />
-          </Stack>
+          <HeaderSearchBar
+            placeholder={headerSearchBarOptions?.placeholder}
+            onChangeText={headerSearchBarOptions?.onChangeText}
+            onBlur={headerSearchBarOptions?.onBlur}
+            onFocus={headerSearchBarOptions?.onFocus}
+            onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+          />
         )}
       </Stack>
     </DesktopDragZoneBox>

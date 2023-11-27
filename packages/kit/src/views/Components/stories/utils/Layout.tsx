@@ -1,16 +1,14 @@
-import { useDispatch } from 'react-redux';
-import { ScrollView } from 'tamagui';
-
 import {
   Button,
-  Screen,
+  Page,
+  ScrollView,
   Stack,
   Text,
   XStack,
-  useKeyboardHeight,
 } from '@onekeyhq/components';
+import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 
-import { setTheme } from '../../../../store/reducers/settings';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
@@ -44,23 +42,27 @@ export function Layout({
   suggestions = [],
   boundaryConditions = [],
   elements = [],
+  scrollEnabled = true,
+  skipLoading = false,
   children,
 }: React.PropsWithChildren<{
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
+  scrollEnabled?: boolean;
+  skipLoading?: boolean;
   elements?: {
     title: string;
     description?: string;
     element: React.ReactElement;
   }[];
 }>) {
-  const dispatch = useDispatch();
   const keyboardHeight = useKeyboardHeight();
   return (
-    <Screen>
+    <Page skipLoading={skipLoading}>
       <ScrollView
         maxWidth="100%"
+        scrollEnabled={scrollEnabled}
         flex={1}
         marginBottom={keyboardHeight}
         paddingHorizontal="$5"
@@ -68,26 +70,27 @@ export function Layout({
           paddingTop: 20,
           paddingBottom: 280,
         }}
+        keyboardDismissMode="on-drag"
       >
-        <XStack padding="$4" display="flex" justifyContent="center">
-          <Button
-            onPress={() => {
-              dispatch(setTheme('light'));
-            }}
-          >
-            Light Theme
-          </Button>
-          <Button
-            ml="$4"
-            variant="primary"
-            onPress={() => {
-              dispatch(setTheme('dark'));
-            }}
-          >
-            Night Theme
-          </Button>
-        </XStack>
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
+          <XStack>
+            <Button
+              onPress={async () => {
+                await backgroundApiProxy.serviceSetting.setTheme('light');
+              }}
+            >
+              Light Theme
+            </Button>
+            <Button
+              ml="$4"
+              variant="primary"
+              onPress={async () => {
+                await backgroundApiProxy.serviceSetting.setTheme('dark');
+              }}
+            >
+              Dark Theme
+            </Button>
+          </XStack>
           {description && (
             <Stack space="$2">
               <Stack>
@@ -144,6 +147,6 @@ export function Layout({
           </Stack>
         </Stack>
       </ScrollView>
-    </Screen>
+    </Page>
   );
 }

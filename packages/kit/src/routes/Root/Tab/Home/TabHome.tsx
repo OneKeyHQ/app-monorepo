@@ -1,20 +1,20 @@
 import { Button, YStack } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 
-import { TabHomeRoutes } from './Routes';
+import { ETabHomeRoutes } from './Routes';
 
-import type { TabHomeParamList } from './Routes';
+import type { ITabHomeParamList } from './Routes';
 
 const TabHome = () => {
-  const navigation = useAppNavigation<PageNavigationProp<TabHomeParamList>>();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   return (
     <YStack>
       <Button
         onPress={() => {
-          navigation.push(TabHomeRoutes.TabHomeStack1);
+          navigation.push(ETabHomeRoutes.TabHomeStack1);
         }}
       >
         下一页

@@ -47,6 +47,19 @@ const tsRules = {
   '@typescript-eslint/require-await': 'off',
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
+  '@typescript-eslint/naming-convention': [
+    'warn',
+    {
+      'selector': ['interface', 'typeAlias'],
+      'format': ['PascalCase'],
+      'prefix': ['I'],
+    },
+    {
+      'selector': ['enum'],
+      'format': ['PascalCase'],
+      'prefix': ['E'],
+    },
+  ],
   'sort-imports': [
     'error',
     {
@@ -126,6 +139,26 @@ module.exports = {
     'packages/components/src/Icon/*',
     'packages/kit/src/store',
     'packages/shared/src/engine',
+    'packages/core/src/chains/ada',
+    'packages/core/src/chains/algo',
+    'packages/core/src/chains/apt',
+    'packages/core/src/chains/bch',
+    'packages/core/src/chains/btc',
+    'packages/core/src/chains/cfx',
+    'packages/core/src/chains/cosmos',
+    'packages/core/src/chains/doge',
+    'packages/core/src/chains/dot',
+    'packages/core/src/chains/fil',
+    'packages/core/src/chains/kaspa',
+    'packages/core/src/chains/ltc',
+    'packages/core/src/chains/near',
+    'packages/core/src/chains/nexa',
+    'packages/core/src/chains/sol',
+    'packages/core/src/chains/stc',
+    'packages/core/src/chains/sui',
+    'packages/core/src/chains/tron',
+    'packages/core/src/chains/xmr',
+    'packages/core/src/chains/xrp',
   ],
   env: {
     browser: true,

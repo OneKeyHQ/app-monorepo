@@ -1,4 +1,4 @@
-export enum ExplorerShortcutEvents {
+export enum EExplorerShortcutEvents {
   NewTab = 'NewTab',
   NewTabAndFocus = 'NewTabAndFocus',
   JumpToNextTab = 'JumpToNextTab',
@@ -10,34 +10,34 @@ export enum ExplorerShortcutEvents {
 
 export const getShortcutsMap: (
   isMac?: boolean,
-) => Record<ExplorerShortcutEvents, { keys: string | null; desc: string }> = (
+) => Record<EExplorerShortcutEvents, { keys: string | null; desc: string }> = (
   isMac,
 ) => ({
-  [ExplorerShortcutEvents.NewTab]: {
+  [EExplorerShortcutEvents.NewTab]: {
     keys: 'CmdOrCtrl+N',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.NewTabAndFocus]: {
+  [EExplorerShortcutEvents.NewTabAndFocus]: {
     keys: 'CmdOrCtrl+T',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.JumpToNextTab]: {
+  [EExplorerShortcutEvents.JumpToNextTab]: {
     keys: isMac ? 'Cmd+Alt+Right' : 'Ctrl+Tab',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.GoBackHistory]: {
+  [EExplorerShortcutEvents.GoBackHistory]: {
     keys: 'Alt+Left',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.GoForwardHistory]: {
+  [EExplorerShortcutEvents.GoForwardHistory]: {
     keys: 'Alt+Right',
     desc: 'New Tab',
   },
-  [ExplorerShortcutEvents.CloseTab]: {
+  [EExplorerShortcutEvents.CloseTab]: {
     keys: 'CmdOrCtrl+W',
     desc: 'Close Tab',
   },
-  [ExplorerShortcutEvents.CloseTabOnWinOrLinux]: {
+  [EExplorerShortcutEvents.CloseTabOnWinOrLinux]: {
     keys: isMac ? null : 'Ctrl+F4',
     desc: 'Close Tab',
   },

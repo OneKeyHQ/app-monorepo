@@ -9,22 +9,24 @@ import { Text } from '../Text';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { ICON_NAMES } from '../Icon';
+import type { IKeyOfIcons } from '../Icon';
 import type { GetProps } from 'tamagui';
 
-type TMInputProps = GetProps<typeof TMInput>;
+type ITMInputProps = GetProps<typeof TMInput>;
 
-export type InputProps = {
+export type IInputProps = {
+  readonly?: boolean;
   size?: 'small' | 'medium' | 'large';
-  leftIconName?: ICON_NAMES;
+  leftIconName?: IKeyOfIcons;
   error?: boolean;
   addOns?: {
-    iconName?: ICON_NAMES;
+    iconName?: IKeyOfIcons;
     label?: string;
     onPress?: () => void;
     loading?: boolean;
   }[];
-} & Omit<TMInputProps, 'size'>;
+  containerProps?: GetProps<typeof Group>;
+} & Omit<ITMInputProps, 'size'>;
 
 const SIZE_MAPPINGS = {
   'large': {
@@ -58,8 +60,10 @@ function BaseInput(
     disabled,
     editable,
     error,
+    containerProps,
+    readonly,
     ...props
-  }: InputProps,
+  }: IInputProps,
   ref: Ref<any>,
 ) {
   const {
@@ -77,7 +81,7 @@ function BaseInput(
       borderRadius={size === 'large' ? '$3' : '$2'}
       disablePassBorderRadius={!addOns?.length}
       disabled={disabled}
-      flex={1}
+      {...containerProps}
     >
       {/* input */}
       <Group.Item>
@@ -85,6 +89,7 @@ function BaseInput(
           unstyled
           ref={ref}
           flex={1}
+          pointerEvents={readonly ? 'none' : undefined}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012

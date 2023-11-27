@@ -817,6 +817,7 @@ const icons = {
   TextSizeOutline: () => import("./react/outline/TextSize"),
   ThumbDownOutline: () => import("./react/outline/ThumbDown"),
   ThumbUpOutline: () => import("./react/outline/ThumbUp"),
+  ThumbtackOutline: () => import("./react/outline/Thumbtack"),
   TicketOutline: () => import("./react/outline/Ticket"),
   TitleCaseOutline: () => import("./react/outline/TitleCase"),
   ToastOutline: () => import("./react/outline/Toast"),
@@ -1583,6 +1584,7 @@ const icons = {
   TextSizeSolid: () => import("./react/solid/TextSize"),
   ThumbDownSolid: () => import("./react/solid/ThumbDown"),
   ThumbUpSolid: () => import("./react/solid/ThumbUp"),
+  ThumbtackSolid: () => import("./react/solid/Thumbtack"),
   TicketSolid: () => import("./react/solid/Ticket"),
   TitleCaseSolid: () => import("./react/solid/TitleCase"),
   ToastSolid: () => import("./react/solid/Toast"),
@@ -1636,5 +1638,5 @@ const icons = {
   ZoomInSolid: () => import("./react/solid/ZoomIn"),
   ZoomOutSolid: () => import("./react/solid/ZoomOut"),
 };
-export type ICON_NAMES = keyof typeof icons;
+export type IKeyOfIcons = keyof typeof icons;
 export default icons;

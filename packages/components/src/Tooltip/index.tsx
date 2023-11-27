@@ -2,15 +2,20 @@ import { Tooltip as TMTooltip } from 'tamagui';
 
 import { Text } from '../Text';
 
+import type { ITextProps } from '../Text';
 import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
-interface TooltipProps extends TMTooltipProps {
+export function TooltipText({ children }: ITextProps) {
+  return <Text variant="$bodySm">{children}</Text>;
+}
+
+export interface ITooltipProps extends TMTooltipProps {
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
 }
 
 const transformOriginMap: Record<
-  NonNullable<TooltipProps['placement']>,
+  NonNullable<ITooltipProps['placement']>,
   string
 > = {
   'top': 'bottom center',
@@ -32,8 +37,16 @@ export function Tooltip({
   renderContent,
   placement = 'bottom',
   ...props
-}: TooltipProps) {
+}: ITooltipProps) {
   const transformOrigin = transformOriginMap[placement] || 'bottom center';
+
+  const renderTooltipContent = () => {
+    if (typeof renderContent === 'string') {
+      return <TooltipText>{renderContent}</TooltipText>;
+    }
+
+    return renderContent;
+  };
 
   return (
     <TMTooltip
@@ -66,8 +79,10 @@ export function Tooltip({
         exitStyle={{ scale: 0.95, opacity: 0 }}
         animation="quick"
       >
-        <Text variant="$bodySm">{renderContent}</Text>
+        {renderTooltipContent()}
       </TMTooltip.Content>
     </TMTooltip>
   );
 }
+
+Tooltip.Text = TooltipText;

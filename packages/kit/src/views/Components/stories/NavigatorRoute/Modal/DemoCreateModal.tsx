@@ -1,92 +1,90 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useLayoutEffect } from 'react';
 
-import { Input } from 'tamagui';
-
-import { Button, ModalContainer, Stack, Toast } from '@onekeyhq/components';
-import type { ModalScreenProps } from '@onekeyhq/components/src/Navigation';
+import { Button, Input, Stack, Toast } from '@onekeyhq/components';
+import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
 import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
-import HeaderButtonIcon from '@onekeyhq/components/src/Navigation/Header/HeaderButtonIcon';
-import type { ModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
-import { DemoRootRoutes } from '../Routes';
+import { EDemoRootRoutes } from '../Routes';
 
-import { DemoCreateModalRoutes, RootModalRoutes } from './Routes';
+import { EDemoCreateModalRoutes, ERootModalRoutes } from './Routes';
 
-import type { DemoCreateModalParamList } from './Routes';
+import type { IDemoCreateModalParamList } from './Routes';
 
 function DemoCreateViewModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => <HeaderButtonIcon name="AnonymousHidden2Outline" />,
+      headerSearchBarOptions: {
+        placeholder: '搜索',
+        inputType: 'text',
+        onChangeText: (event: any) => {
+          console.log('onChangeText', event);
+        },
+      },
+      headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
   }, [navigation]);
 
   return (
-    <ModalContainer
-      onConfirm={() => {}}
-      checkboxProps={{
-        label: '测试',
-      }}
-    >
-      <Layout
-        description="这是一个普通的 Modal 测试"
-        suggestions={[
-          'Modal 可以通过点击空白处关闭或返回上一级',
-          'Modal 可以通过按 ESC 键关闭或返回上一级',
-          'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
-          'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
-        ]}
-        boundaryConditions={[
-          '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
-        ]}
-        elements={[
-          {
-            title: '开始 Demo',
-            element: (
-              <Button
-                variant="primary"
-                onPress={() => {
-                  navigation.navigate(
-                    DemoCreateModalRoutes.DemoCreateSearchModal,
-                    {
-                      question: '你好',
-                    },
-                  );
-                }}
-              >
-                开始 Demo
-              </Button>
-            ),
-          },
-          {
-            title: '测试输入法',
-            element: <Input />,
-          },
-          {
-            title: '渲染测试',
-            element: (
-              <Stack>
-                <FreezeProbe componentName="DemoCreateViewModal" />
-                <NavigationFocusTools componentName="DemoCreateViewModal" />
-              </Stack>
-            ),
-          },
-        ]}
-      />
-    </ModalContainer>
+    <Layout
+      description="这是一个普通的 Modal 测试"
+      suggestions={[
+        'Modal 可以通过点击空白处关闭或返回上一级',
+        'Modal 可以通过按 ESC 键关闭或返回上一级',
+        'Android 平台 Modal 可以通过点击返回键关闭或返回上一级',
+        'iOS 平台 Modal 可以通过向下滑动直接关闭整个 Modal Stack',
+      ]}
+      boundaryConditions={[
+        '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
+      ]}
+      elements={[
+        {
+          title: '开始 Demo',
+          element: (
+            <Button
+              variant="primary"
+              onPress={() => {
+                navigation.navigate(
+                  EDemoCreateModalRoutes.DemoCreateSearchModal,
+                  {
+                    question: '你好',
+                  },
+                );
+              }}
+            >
+              开始 Demo
+            </Button>
+          ),
+        },
+        {
+          title: '测试输入法',
+          element: <Input />,
+        },
+        {
+          title: '渲染测试',
+          element: (
+            <Stack>
+              <FreezeProbe componentName="DemoCreateViewModal" />
+              <NavigationFocusTools componentName="DemoCreateViewModal" />
+            </Stack>
+          ),
+        },
+      ]}
+    />
   );
 }
 
 function DemoCreateSearchModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -118,7 +116,7 @@ function DemoCreateSearchModal({
               variant="primary"
               onPress={() => {
                 navigation.navigate(
-                  DemoCreateModalRoutes.DemoCreateOptionsModal,
+                  EDemoCreateModalRoutes.DemoCreateOptionsModal,
                   {
                     question: '你好',
                   },
@@ -145,7 +143,7 @@ function DemoCreateSearchModal({
 
 function DemoCreateOptionsModal({
   navigation,
-}: ModalScreenProps<DemoCreateModalParamList>) {
+}: IModalScreenProps<IDemoCreateModalParamList>) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
@@ -157,9 +155,9 @@ function DemoCreateOptionsModal({
       },
       headerRight: () => (
         <HeaderButtonGroup>
-          <HeaderButtonIcon name="AnonymousHidden2Outline" />
-          <HeaderButtonIcon name="ArchiveOutline" />
-          <HeaderButtonIcon name="AlignmentJustifyOutline" />
+          <HeaderIconButton icon="AnonymousHidden2Outline" />
+          <HeaderIconButton icon="ArchiveOutline" />
+          <HeaderIconButton icon="AlignmentJustifyOutline" />
         </HeaderButtonGroup>
       ),
     });
@@ -180,8 +178,8 @@ function DemoCreateOptionsModal({
               variant="primary"
               onPress={() => {
                 // @ts-expect-error
-                navigation.navigate(DemoRootRoutes.Modal, {
-                  screen: RootModalRoutes.DemoLockedModal,
+                navigation.navigate(EDemoRootRoutes.Modal, {
+                  screen: ERootModalRoutes.DemoLockedModal,
                 });
               }}
             >
@@ -219,27 +217,27 @@ function DemoCreateOptionsModal({
   );
 }
 
-export const CreateModalStack: ModalFlowNavigatorConfig<
-  DemoCreateModalRoutes,
-  DemoCreateModalParamList
+export const CreateModalStack: IModalFlowNavigatorConfig<
+  EDemoCreateModalRoutes,
+  IDemoCreateModalParamList
 >[] = [
   {
-    name: DemoCreateModalRoutes.DemoCreateModal,
+    name: EDemoCreateModalRoutes.DemoCreateModal,
     component: DemoCreateViewModal,
     translationId: 'Modal Demo',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateSearchModal,
+    name: EDemoCreateModalRoutes.DemoCreateSearchModal,
     component: DemoCreateSearchModal,
     translationId: 'Search Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoCreateOptionsModal,
+    name: EDemoCreateModalRoutes.DemoCreateOptionsModal,
     component: DemoCreateOptionsModal,
     translationId: 'Options Demo Modal',
   },
   {
-    name: DemoCreateModalRoutes.DemoBigListModal,
+    name: EDemoCreateModalRoutes.DemoBigListModal,
     component: IconGallery,
     translationId: 'Big List Demo Modal',
   },

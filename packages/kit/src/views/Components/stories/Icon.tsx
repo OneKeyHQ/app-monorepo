@@ -1,12 +1,12 @@
-import { FlatList, Text, View } from 'react-native';
+import { Text } from 'react-native';
 
-import { Icon, Stack, XStack } from '@onekeyhq/components';
-import type { ICON_NAMES } from '@onekeyhq/components/src/Icon/Icons';
+import { Icon, ListView, Stack, XStack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/Icon/Icons';
 import Icons from '@onekeyhq/components/src/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 
-const iconData = Object.keys(Icons) as ICON_NAMES[];
+const iconData = Object.keys(Icons) as IKeyOfIcons[];
 const IconGallery = () => (
   <Layout
     description="图标是一种视觉符号，用于表示对象或概念"
@@ -38,17 +38,19 @@ const IconGallery = () => (
       {
         title: 'icons',
         element: (
-          <FlatList
+          <ListView
+            estimatedItemSize="$20"
             removeClippedSubviews
-            style={{ width: '100%', height: 300 }}
+            width="100%"
+            height="$75"
             numColumns={4}
             data={iconData}
             renderItem={({ item }) => (
-              <Stack width="25%" height={80} alignItems="center" key={item}>
+              <Stack height="$28" key={item}>
                 <Text>{item}</Text>
-                <View style={{ position: 'absolute', bottom: 10 }}>
+                <Stack position="absolute" bottom="$10">
                   <Icon name={item} />
-                </View>
+                </Stack>
               </Stack>
             )}
           />

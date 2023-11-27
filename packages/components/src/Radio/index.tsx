@@ -5,14 +5,14 @@ import { RadioGroup } from 'tamagui';
 import { Label } from '../Label';
 import { XStack } from '../Stack';
 
-export type RadioProps = PropsWithChildren<{
+export type IRadioProps = PropsWithChildren<{
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
   options: { label: string; value: string }[];
 }>;
 
-export function Radio({ value, onChange, disabled, options }: RadioProps) {
+export function Radio({ value, onChange, disabled, options }: IRadioProps) {
   return (
     <RadioGroup value={value} onValueChange={onChange} disabled={disabled}>
       {options.map(({ label, value: v }) => (

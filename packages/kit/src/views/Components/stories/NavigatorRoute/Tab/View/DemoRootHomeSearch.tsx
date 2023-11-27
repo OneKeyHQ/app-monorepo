@@ -1,15 +1,18 @@
 import { useLayoutEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
-import { DemoHomeTabRoutes } from '../Routes';
+import { EDemoHomeTabRoutes } from '../Routes';
 
-import type { DemoHomeTabParamList } from '../RouteParamTypes';
+import type { IDemoHomeTabParamList } from '../RouteParamTypes';
 import type {
   NativeSyntheticEvent,
   TextInputChangeEventData,
@@ -17,13 +20,16 @@ import type {
 } from 'react-native';
 
 const DemoRootHomeSearch = () => {
+  const intl = useIntl();
   const navigation =
-    useDemoAppNavigation<PageNavigationProp<DemoHomeTabParamList>>();
+    useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
-        placeholder: '搜索',
+        placeholder: intl.formatMessage({
+          id: 'content__search_dapps_or_type_url',
+        }),
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
@@ -32,10 +38,11 @@ const DemoRootHomeSearch = () => {
         ) => console.log('onSearchButtonPress', event.nativeEvent.text),
       },
     });
-  }, [navigation]);
+  }, [navigation, intl]);
 
   return (
     <Layout
+      skipLoading={platformEnv.isNativeIOS}
       description="这是一个带搜索的路由 Header"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={['无']}
@@ -44,15 +51,17 @@ const DemoRootHomeSearch = () => {
           title: '使用说明',
           element: (
             <Text variant="$bodyLg">{`这是一个简单的使用场景
-            useLayoutEffect(() => {
-              navigation.setOptions({
-                headerSearchBarOptions: {
-                  placeholder: '搜索',
-                  inputType: 'text',
-                  onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
-                    console.log(event.nativeEvent.text),
-                },
-              });
+            1. 需要给 Screen 或者 Layout 设置一个 skipLoading 以确保 iOS controller.headerSearch 动画正常
+
+            2. useLayoutEffect(() => {
+                navigation.setOptions({
+                  headerSearchBarOptions: {
+                    placeholder: '搜索',
+                    inputType: 'text',
+                    onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
+                      console.log(event.nativeEvent.text),
+                  },
+                });
             }, []);
           `}</Text>
           ),
@@ -63,7 +72,7 @@ const DemoRootHomeSearch = () => {
             <Button
               variant="primary"
               onPress={() => {
-                navigation.push(DemoHomeTabRoutes.DemoRootHomeOptions);
+                navigation.push(EDemoHomeTabRoutes.DemoRootHomeOptions);
               }}
             >
               跳转自定义 headerRight Demo

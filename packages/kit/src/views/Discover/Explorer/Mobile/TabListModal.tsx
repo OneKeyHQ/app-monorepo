@@ -1,10 +1,8 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { FlatList } from 'react-native';
-
-import { IconButton, ModalContainer, Stack, Text } from '@onekeyhq/components';
-import type { PageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import { IconButton, ListView, Page, Stack, Text } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useWebTabs } from '../../Controller/useWebTabs';
@@ -16,9 +14,9 @@ import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
 
-const WebTabItem: FC<WebTab> = ({ isCurrent, title, favicon, id, url }) => {
+const WebTabItem: FC<WebTab> = ({ isCurrent, title, id, url }) => {
   const navigation =
-    useAppNavigation<PageNavigationProp<DiscoverModalParamList>>();
+    useAppNavigation<IPageNavigationProp<DiscoverModalParamList>>();
   return (
     <Stack
       w="full"
@@ -106,17 +104,19 @@ function TabListModal() {
     [],
   );
   return (
-    <ModalContainer
-      onConfirm={() => webTabsActions.addBlankWebTab()}
-      onCancel={() => webTabsActions.closeAllWebTabs()}
-    >
-      <FlatList
-        style={{ width: '100%', height: 200 }}
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-      />
-    </ModalContainer>
+    <Page>
+      <Page.Header title="Tab List" />
+      <Page.Body>
+        <ListView
+          width="100%"
+          height="$44"
+          estimatedItemSize="$44"
+          data={data}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+        />
+      </Page.Body>
+    </Page>
   );
 }
 

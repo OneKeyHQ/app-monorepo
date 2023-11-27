@@ -87,6 +87,13 @@ input {
   outline: none;
 }
 
+button,
+input,
+/* `Select` and `Toggle` are typically wrapped by a `Group`, so we handle them consistently. */
+.is_GroupFrame {
+  -webkit-app-region: no-drag;
+}
+
 textarea {
   outline: none;
   min-width: 0;

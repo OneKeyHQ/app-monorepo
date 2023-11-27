@@ -1,5 +1,6 @@
 /* eslint-disable no-var,vars-on-top */
-import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/components/src/locale';
+import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 
@@ -20,11 +21,12 @@ declare global {
   var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
-  var $backgroundApi: IBackgroundApi;
+  var $backgroundApi: IBackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
 
   var $$navigationShortcuts: any;
   var $$simpleDb: any;
+  var $$localDb: LocalDbBase;
   var $$appEventBus: any;
   var $$appUIEventBus: any;
   var $$appStore: EnhancedStore;
@@ -55,6 +57,7 @@ declare global {
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api
 
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Window {
     // All website
     ethereum: any;
@@ -76,8 +79,9 @@ declare global {
 
 declare global {
   namespace FormatjsIntl {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
-      ids: LocaleIds;
+      ids: ILocaleIds;
     }
   }
 }

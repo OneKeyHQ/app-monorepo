@@ -1,18 +1,24 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import { withStaticProperties } from 'tamagui';
+
 import { ButtonFrame } from '../Button';
 import { Divider } from '../Divider';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
+import { Portal } from '../Portal';
 import { YStack } from '../Stack';
 import { Text } from '../Text';
+import { Trigger } from '../Trigger';
 
-import type { ICON_NAMES } from '../Icon';
-import type { PopoverProps } from '../Popover';
+import type { IKeyOfIcons } from '../Icon';
+import type { IPopoverProps } from '../Popover';
 
-interface ActionListItemProps {
-  icon?: ICON_NAMES;
+interface IActionListItemProps {
+  icon?: IKeyOfIcons;
   label: string;
   destructive?: boolean;
-  onPress?: () => void;
+  onPress?: () => void | Promise<boolean | void>;
   disabled?: boolean;
 }
 
@@ -22,7 +28,16 @@ function ActionListItem({
   onPress,
   destructive,
   disabled,
-}: ActionListItemProps) {
+  onClose,
+}: IActionListItemProps & {
+  onClose?: () => void;
+}) {
+  const handlePress = useCallback(async () => {
+    const result = await onPress?.();
+    if (result || result === undefined) {
+      onClose?.();
+    }
+  }, [onClose, onPress]);
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -48,7 +63,7 @@ function ActionListItem({
           outlineWidth: 2,
         },
       })}
-      onPress={onPress}
+      onPress={handlePress}
     >
       {icon && (
         <Icon
@@ -71,32 +86,65 @@ function ActionListItem({
   );
 }
 
-interface ActionListSection {
+interface IActionListSection {
   title?: string;
-  items: ActionListItemProps[];
+  items: IActionListItemProps[];
 }
 
-export interface ActionListProps extends PopoverProps {
-  items?: ActionListItemProps[];
-  sections?: ActionListSection[];
+export interface IActionListProps
+  extends Omit<IPopoverProps, 'renderContent' | 'open' | 'onOpenChange'> {
+  items?: IActionListItemProps[];
+  sections?: IActionListSection[];
+  onOpenChange?: (isOpen: boolean) => void;
+  defaultOpen?: boolean;
 }
 
-export function ActionList({
+function BasicActionList({
   items,
   sections,
+  renderTrigger,
+  onOpenChange,
+  defaultOpen = false,
   ...props
-}: Omit<ActionListProps, 'renderContent'>) {
-  const renderActionListItem = (item: ActionListItemProps) => (
+}: IActionListProps) {
+  const [isOpen, setOpenStatus] = useState(false);
+  const handleOpenStatusChange = useCallback(
+    (openStatus: boolean) => {
+      setOpenStatus(openStatus);
+      onOpenChange?.(openStatus);
+    },
+    [onOpenChange],
+  );
+  // Fix the crash on Android where the view node cannot be found.
+  useEffect(() => {
+    if (defaultOpen) {
+      setTimeout(() => {
+        setOpenStatus(defaultOpen);
+      }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const handleActionListOpen = useCallback(() => {
+    handleOpenStatusChange(true);
+  }, [handleOpenStatusChange]);
+  const handleActionListClose = useCallback(() => {
+    handleOpenStatusChange(false);
+  }, [handleOpenStatusChange]);
+
+  const renderActionListItem = (item: IActionListItemProps) => (
     <ActionListItem
       onPress={item.onPress}
       key={item.label}
       disabled={item.disabled}
       {...item}
+      onClose={handleActionListClose}
     />
   );
-
   return (
     <Popover
+      open={isOpen}
+      onOpenChange={handleOpenStatusChange}
+      onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}
@@ -124,6 +172,18 @@ export function ActionList({
         width: '$56',
       }}
       {...props}
+      renderTrigger={
+        <Trigger onOpen={handleActionListOpen}>{renderTrigger}</Trigger>
+      }
     />
   );
 }
+
+export const ActionList = withStaticProperties(BasicActionList, {
+  show: (props: Omit<IActionListProps, 'renderTrigger' | 'defaultOpen'>) => {
+    Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      <BasicActionList {...props} defaultOpen renderTrigger={null} />,
+    );
+  },
+});

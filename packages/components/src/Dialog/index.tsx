@@ -1,17 +1,10 @@
-import type {
-  Dispatch,
-  PropsWithChildren,
-  ReactNode,
-  SetStateAction,
-} from 'react';
+import type { ForwardedRef, PropsWithChildren } from 'react';
 import {
-  Children,
-  cloneElement,
-  createContext,
-  isValidElement,
+  createRef,
+  forwardRef,
   useCallback,
   useContext,
-  useEffect,
+  useImperativeHandle,
   useMemo,
   useState,
 } from 'react';
@@ -20,64 +13,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Sheet,
   Dialog as TMDialog,
-  composeEventHandlers,
   useMedia,
   withStaticProperties,
 } from 'tamagui';
 
 import { Button } from '../Button';
-import { Form, useForm } from '../Form';
-import useKeyboardHeight from '../hooks/useKeyboardHeight';
-import { type ICON_NAMES, Icon } from '../Icon';
+import { useKeyboardHeight } from '../hooks';
+import { Icon } from '../Icon';
 import { IconButton } from '../IconButton';
-import { removePortalComponent, setPortalComponent } from '../Portal';
+import { Portal } from '../Portal';
+import { SheetGrabber } from '../SheetGrabber';
 import { Stack, XStack, YStack } from '../Stack';
 import { Text } from '../Text';
+import { Trigger } from '../Trigger';
 
-import type { ButtonProps } from '../Button';
-import type { FormProps } from '../Form';
-import type { UseFormProps, UseFormReturn } from 'react-hook-form';
-import type {
-  DialogProps as TMDialogProps,
-  SheetProps as TMSheetProps,
-} from 'tamagui';
+import { DialogContext } from './context';
 
-function Trigger({
-  onOpen,
-  children,
-}: PropsWithChildren<{ onOpen?: () => void }>) {
-  if (children) {
-    const child = Children.only(children);
-    if (isValidElement(child)) {
-      const handleOpen = (child.props as ButtonProps).onPress
-        ? composeEventHandlers((child.props as ButtonProps).onPress, onOpen)
-        : onOpen;
-      if (child.type === Button) {
-        return cloneElement(child, { onPress: handleOpen } as ButtonProps);
-      }
-      return <Stack onPress={handleOpen}>{children}</Stack>;
-    }
-  }
-  return null;
-}
-
-export interface DialogProps extends TMDialogProps {
-  onOpen?: () => void;
-  onClose?: () => void;
-  renderTrigger?: React.ReactNode;
-  icon?: ICON_NAMES;
-  title?: string;
-  description?: string;
-  tone?: 'default' | 'destructive';
-  renderContent?: React.ReactNode;
-  showFooter?: boolean;
-  onConfirm?: () => void | Promise<boolean>;
-  onCancel?: () => void;
-  confirmButtonProps?: ButtonProps;
-  cancelButtonProps?: ButtonProps;
-  dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
-  sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-}
+import type { IDialogInstanceRef, IDialogProps } from './type';
+import type { IButtonProps } from '../Button';
+import type { IPortalManager } from '../Portal';
 
 function DialogFrame({
   open,
@@ -90,13 +44,16 @@ function DialogFrame({
   renderContent,
   showFooter = true,
   onConfirm,
+  onConfirmText = 'Confirm',
   onCancel,
+  onCancelText = 'Cancel',
   tone,
   confirmButtonProps,
   cancelButtonProps,
   dismissOnOverlayPress = true,
   sheetProps,
-}: DialogProps) {
+  contextValue,
+}: IDialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
@@ -126,7 +83,6 @@ function DialogFrame({
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
-
   const content = (
     <Stack {...(bottom && { pb: bottom })}>
       {icon && (
@@ -179,12 +135,12 @@ function DialogFrame({
             $md={
               {
                 size: 'large',
-              } as ButtonProps
+              } as IButtonProps
             }
             {...cancelButtonProps}
             onPress={handleCancelButtonPress}
           >
-            Cancel
+            {onCancelText}
           </Button>
           <Button
             variant={tone === 'destructive' ? 'destructive' : 'primary'}
@@ -193,23 +149,29 @@ function DialogFrame({
             $md={
               {
                 size: 'large',
-              } as ButtonProps
+              } as IButtonProps
             }
             {...confirmButtonProps}
             onPress={handleConfirmButtonPress}
           >
-            Confirm
+            {onConfirmText}
           </Button>
         </XStack>
       )}
     </Stack>
+  );
+  const renderDialogContent = contextValue ? (
+    <DialogContext.Provider value={contextValue}>
+      {content}
+    </DialogContext.Provider>
+  ) : (
+    content
   );
   if (media.md) {
     return (
       <>
         <Trigger onOpen={onOpen}>{renderTrigger}</Trigger>
         <Sheet
-          modal
           open={open}
           position={position}
           onPositionChange={setPosition}
@@ -233,22 +195,8 @@ function DialogFrame({
             bg="$bg"
             paddingBottom={keyboardHeight}
           >
-            {/* grabber */}
-            <Stack
-              position="absolute"
-              top={0}
-              width="100%"
-              py="$1"
-              alignItems="center"
-            >
-              <Stack
-                width="$9"
-                height="$1"
-                bg="$neutral5"
-                borderRadius="$full"
-              />
-            </Stack>
-            {content}
+            <SheetGrabber />
+            {renderDialogContent}
           </Sheet.Frame>
         </Sheet>
       </>
@@ -292,88 +240,63 @@ function DialogFrame({
           width={400}
           p="$0"
         >
-          {content}
+          {renderDialogContent}
         </TMDialog.Content>
       </TMDialog.Portal>
     </TMDialog>
   );
 }
 
-type DialogFormProps = Omit<FormProps, 'form'> & {
-  useFormProps?: UseFormProps<any>;
-};
-export const DialogContext = createContext<{
-  context?: { form?: UseFormReturn<any> };
-  setContext?: Dispatch<
-    SetStateAction<{
-      form?: UseFormReturn<any> | undefined;
-    }>
-  >;
-}>({});
-
-function DialogForm({ useFormProps, children, ...props }: DialogFormProps) {
-  const formContext = useForm((useFormProps as any) || {});
-  const { setContext } = useContext(DialogContext);
-  useEffect(() => {
-    setContext?.({ form: formContext });
-  }, [formContext, setContext]);
-  const element =
-    typeof children === 'function'
-      ? (children as (props: { form: UseFormReturn<any> }) => ReactNode)({
-          form: formContext,
-        })
-      : children;
-  return (
-    <Form {...props} form={formContext}>
-      {element}
-    </Form>
-  );
-}
-
-type DialogContainerProps = PropsWithChildren<
-  { name: string } & Omit<DialogProps, 'onConfirm'> & {
-      onConfirm?: (context: {
-        form?: UseFormReturn<any> | undefined;
-      }) => void | Promise<boolean>;
-    }
+type IDialogContainerProps = PropsWithChildren<
+  Omit<IDialogProps, 'onConfirm'> & {
+    onConfirm?: () => void | Promise<boolean>;
+  }
 >;
 
-function DialogContainer({
-  name,
-  onOpen,
-  onClose,
-  renderContent,
-  onConfirm,
-  ...props
-}: DialogContainerProps) {
+function BaseDialogContainer(
+  {
+    onOpen,
+    onClose,
+    renderContent,
+    onConfirm,
+    ...props
+  }: IDialogContainerProps,
+  ref: ForwardedRef<IDialogInstanceRef>,
+) {
   const [isOpen, changeIsOpen] = useState(true);
-  const [context, setContext] = useState<{ form?: UseFormReturn<any> }>({});
+  const handleClose = useCallback(() => {
+    changeIsOpen(false);
+    onClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose]);
+
   const contextValue = useMemo(
     () => ({
-      context,
-      setContext,
+      dialogInstance: {
+        close: handleClose,
+      },
     }),
-    [context],
+    [handleClose],
   );
+
   const handleOpen = useCallback(() => {
     changeIsOpen(true);
     onOpen?.();
   }, [onOpen]);
 
-  const handleClose = useCallback(() => {
-    changeIsOpen(false);
-    onClose?.();
-    removePortalComponent(name);
-  }, [name, onClose]);
+  const handleConfirm = useCallback(() => onConfirm?.(), [onConfirm]);
 
-  const handleConfirm = useCallback(
-    () => onConfirm?.(context),
-    [context, onConfirm],
+  useImperativeHandle(
+    ref,
+    () => ({
+      close: handleClose,
+    }),
+    [handleClose],
   );
-
   return (
-    <DialogContext.Provider key={name} value={contextValue}>
+    <DialogContext.Provider value={contextValue}>
       <DialogFrame
+        contextValue={contextValue}
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
@@ -385,14 +308,50 @@ function DialogContainer({
   );
 }
 
-function DialogConfirm(props: Omit<DialogContainerProps, 'name'>) {
-  setPortalComponent(
-    <DialogContainer {...props} name={Math.random().toString()} />,
-  );
+const DialogContainer = forwardRef<IDialogInstanceRef, IDialogContainerProps>(
+  BaseDialogContainer,
+);
+
+function DialogConfirm({
+  onClose,
+  ...props
+}: Omit<IDialogContainerProps, 'name'>): IDialogInstanceRef {
+  let instanceRef: React.RefObject<IDialogInstanceRef> | undefined =
+    createRef<IDialogInstanceRef>();
+  let portalRef:
+    | {
+        current: IPortalManager;
+      }
+    | undefined;
+  const handleClose = () => {
+    onClose?.();
+    // Remove the React node after the animation has finished.
+    setTimeout(() => {
+      if (instanceRef) {
+        instanceRef = undefined;
+      }
+      if (portalRef) {
+        portalRef.current.destroy();
+        portalRef = undefined;
+      }
+    }, 300);
+  };
+  portalRef = {
+    current: Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
+    ),
+  };
+  return {
+    close: handleClose,
+  };
 }
+
+export const useDialogInstance = () => {
+  const { dialogInstance } = useContext(DialogContext);
+  return dialogInstance;
+};
 
 export const Dialog = withStaticProperties(DialogFrame, {
   confirm: DialogConfirm,
-  Form: DialogForm,
-  FormField: Form.Field,
 });

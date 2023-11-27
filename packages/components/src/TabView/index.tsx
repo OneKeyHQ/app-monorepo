@@ -1,6 +1,6 @@
 import {
-  PageHeaderView,
   PageContentView,
+  PageHeaderView,
   PageManager,
   SelectedLabel,
 } from 'react-native-tab-page-view';
@@ -8,7 +8,7 @@ import {
 PageHeaderView.defaultProps = {
   ...PageHeaderView.defaultProps,
   titleFromItem: (item: any) => (item as { title: string }).title,
-  itemContainerStyle: { paddingHorizontal: 10, marginLeft: 10 },
+  itemContainerStyle: { paddingHorizontal: 12, marginRight: 8 },
   itemTitleStyle: { fontSize: 15 },
   itemTitleNormalStyle: { color: '#333' },
   itemTitleSelectedStyle: { color: 'orange', fontSize: 17 },

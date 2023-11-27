@@ -1,16 +1,15 @@
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
-import store from '@onekeyhq/kit/src/store';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInit';
 import type {
-  IDispatchActionBroadcastParams,
+  IGlobalEventBusSyncBroadcastParams,
   IGlobalStatesSyncBroadcastParams,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
-  DISPATCH_ACTION_BROADCAST_METHOD_NAME,
+  GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
   GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
-  buildReduxBatchAction,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type {
   IJsBridgeMessagePayload,
@@ -21,24 +20,16 @@ function init() {
   const jsBridgeReceiveHandler = async (payload: IJsBridgeMessagePayload) => {
     // console.log('jsBridgeReceiveHandler Ext-UI', payload);
     const { method, params } = payload.data as IJsonRpcRequest;
-    if (method === DISPATCH_ACTION_BROADCAST_METHOD_NAME) {
-      const { actions } = params as IDispatchActionBroadcastParams;
-      if (actions && actions.length) {
-        const actionData = buildReduxBatchAction(...actions);
-        if (actionData) {
-          // * update Ext ui store
-          store.dispatch(actionData);
-        }
-      }
-    }
     if (method === GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME) {
-      console.log(
-        'background GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME',
-        params,
-      );
+      console.log('background states sync', params);
       await jotaiUpdateFromUiByBgBroadcast(
         params as IGlobalStatesSyncBroadcastParams,
       );
+    }
+    if (method === GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME) {
+      console.log('background event bus sync', params);
+      const p = params as IGlobalEventBusSyncBroadcastParams;
+      appEventBus.emitToSelf(p.type as any, p.payload);
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg

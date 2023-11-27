@@ -22,7 +22,7 @@
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modalize": "^2.1.1",
     "react-native-progress": "^5.0.0",
-    "react-native-root-siblings": "^4.1.1",
+    "react-native-root-siblings": "^5.0.1",
     "react-native-svg": "^13.9.0",
     "react-native-tab-view": "^3.5.1",
     "react-native-typewriter": "^0.7.0",
@@ -35,7 +35,7 @@
     "rimraf": "^3"
   },
   "scripts": {
-    "build:icons": "rm -rf src/Icon/react && svgr --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "build:icons": "rimraf src/Icon/react && svgr --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
