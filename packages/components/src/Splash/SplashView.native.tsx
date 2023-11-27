@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { Dimensions } from 'react-native';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Image } from '../Image';
 
@@ -34,7 +32,7 @@ export function SplashView({ onReady }: ISplashViewProps) {
       // @ts-expect-error
       onLayout={handleLayout}
       aspectRatio={windowWidth / windowHeight}
-      resizeMode={platformEnv.isNativeIOS ? 'contain' : 'cover'}
+      resizeMode="contain"
       source={require('../../assets/splash.png')}
     />
   );
