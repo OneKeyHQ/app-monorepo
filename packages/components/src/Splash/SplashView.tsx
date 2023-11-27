@@ -4,7 +4,7 @@ import { Image } from '../Image';
 import { Stack } from '../Stack';
 
 import type { ISplashViewProps } from './SplashView.type';
-import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 export function SplashView({ onReady }: ISplashViewProps) {
   const handleLayout = useCallback(
