@@ -41,7 +41,7 @@ describe('test Nostr', () => {
       expect(bytesToHex(node.privateKey ?? Buffer.from(''))).toEqual(
         fixture.privateKey,
       );
-      expect(bytesToHex(node.publicKey)).toEqual(fixture.pubkey);
+      expect(bytesToHex(node.publicKey.slice(1, 33))).toEqual(fixture.pubkey);
     });
   });
 
