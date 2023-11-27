@@ -47,6 +47,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../types/wallet';
+import { getNostrCredentialId } from '../../vaults/utils/nostr/nostr';
 import {
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
@@ -1224,6 +1225,19 @@ class IndexedDBApi implements DBAPI {
                 });
                 walletStore.delete(walletId);
                 transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
+
+                // delete nostr credential
+                const nostrId = getNostrCredentialId(walletId);
+                const getNostrCredentialRequest = transaction
+                  .objectStore(CREDENTIAL_STORE_NAME)
+                  .get(nostrId);
+                getNostrCredentialRequest.onsuccess = (_creevent) => {
+                  if (!isNil(getNostrCredentialRequest.result)) {
+                    transaction
+                      .objectStore(CREDENTIAL_STORE_NAME)
+                      .delete(nostrId);
+                  }
+                };
               };
             };
 
