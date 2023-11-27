@@ -38,7 +38,7 @@ function DesktopCustomTabBarItem({
           items: [
             {
               label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
-              icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+              icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => {
                 onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
               },

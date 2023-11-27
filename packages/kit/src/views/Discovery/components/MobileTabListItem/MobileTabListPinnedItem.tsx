@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Avatar, Icon, Image, Stack, Text, XStack } from '@onekeyhq/components';
+import { Avatar, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabData } from '../../hooks/useWebTabs';
 

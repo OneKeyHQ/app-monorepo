@@ -33,7 +33,6 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import { gotoSite } from '../../utils/gotoSite';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import Dashboard from '../Dashboard';
 

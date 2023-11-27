@@ -158,7 +158,9 @@ function MobileTabListModal() {
       } else {
         removeBrowserBookmark(url);
       }
-      Toast.success({ title: bookmark ? 'Bookmark Added' : 'Remove Success' });
+      Toast.success({
+        title: bookmark ? 'Bookmark Added' : 'Bookmark Removed',
+      });
     },
     [addBrowserBookmark, removeBrowserBookmark],
   );
@@ -171,7 +173,7 @@ function MobileTabListModal() {
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
       void setPinnedTab({ id, pinned });
-      Toast.success({ title: pinned ? 'Pin Success' : 'UnPin Success' });
+      Toast.success({ title: pinned ? 'Pined' : ' Unpinned' });
     },
     [setPinnedTab],
   );
@@ -203,7 +205,7 @@ function MobileTabListModal() {
             items: [
               {
                 label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
-                icon: tab.isBookmark ? 'BookmarkSolid' : 'BookmarkOutline',
+                icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
                 onPress: () =>
                   handleBookmarkPress(
                     !tab.isBookmark,
@@ -306,7 +308,11 @@ function MobileTabListModal() {
 
   return (
     <Page>
-      <Page.Header title={`${(tabs.length ?? 0).toString()} Tabs`} />
+      <Page.Header
+        title={`${(tabs.length ?? 0).toString()} ${
+          tabs.length === 1 ? 'Tab' : 'Tabs'
+        }`}
+      />
       <Page.Body>
         <FlatList
           ref={flatListRef}
