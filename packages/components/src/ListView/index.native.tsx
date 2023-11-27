@@ -76,7 +76,9 @@ function BaseListView<T>(
       ? estimatedItemSize
       : getTokenValue(estimatedItemSize);
   return (
-    <View style={style as StyleProp<ViewStyle>}>
+    // FlashList doesn't support the style, so we have to wrap it,
+    // and we set default flex = 1 just like FlatList
+    <View style={[{ flex: 1 }, style as StyleProp<ViewStyle>]}>
       <FlashList<T>
         ref={ref}
         ListHeaderComponentStyle={listHeaderStyle}
