@@ -82,7 +82,6 @@ function useDemoAppNavigation<
       newHeaderSearchBarOptions = {
         headerSearchBarOptions: {
           hideNavigationBar: false,
-          // @ts-expect-error
           hideWhenScrolling: false,
           cancelButtonText: searchCancelText,
           textColor: searchTextColor,

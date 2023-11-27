@@ -34,7 +34,6 @@ const DemoRootHomeOptions = () => {
       ),
       headerSearchBarOptions: {
         hideNavigationBar: true,
-        // @ts-expect-error
         hideWhenScrolling: true,
         placeholder: intl.formatMessage({
           id: 'content__search_dapps_or_type_url',
