@@ -3,9 +3,8 @@ import { useMemo } from 'react';
 import {
   Button,
   Icon,
-  Stack,
   Text,
-  XStack,
+  UnOrderedList,
   YStack,
 } from '@onekeyhq/components';
 
@@ -13,32 +12,75 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
   const content = useMemo(
     () => (
       <YStack
-        flex={1}
+        fullscreen
         bg="$bgCriticalStrong"
         justifyContent="center"
         alignItems="center"
+        animation="quick"
+        enterStyle={{
+          opacity: 0,
+        }}
       >
-        <YStack maxWidth="$96" p="$6" borderRadius="$6" bg="$bg">
-          <Icon name="InfoCircleOutline" size="$16" color="$iconCritical" />
-          <Text mt="$6" variant="$heading4xl">
+        <YStack
+          w="100%"
+          maxWidth="$96"
+          p="$5"
+          animation="quick"
+          enterStyle={{
+            scale: 0.95,
+          }}
+          borderRadius="$6"
+          bg="$bg"
+          elevation={20}
+          outlineColor="$borderCritical"
+          outlineWidth={1}
+          outlineStyle="solid"
+          overflow="hidden"
+        >
+          <YStack
+            p="$3"
+            bg="$bgCritical"
+            borderRadius="$full"
+            alignSelf="flex-start"
+          >
+            <Icon name="InfoCircleOutline" size="$8" color="$iconCritical" />
+          </YStack>
+          <Text mt="$3" variant="$headingXl">
             Malicious DApp
           </Text>
           <Text variant="$bodyLg" py="$2">
-            Potential risks
+            Potential risks:
           </Text>
-          <XStack alignItems="center" px="$1" mb="$2" space="$3">
-            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
-            <Text>Theft of recovery phrase or password</Text>
-          </XStack>
-          <XStack alignItems="center" px="$1" mb="$2" space="$3">
-            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
-            <Text>Phishing attacks</Text>
-          </XStack>
-          <XStack alignItems="center" px="$1" space="$3">
-            <Stack h="$1.5" w="$1.5" borderRadius="$full" bg="$textSubdued" />
-            <Text>Fake tokens or scams</Text>
-          </XStack>
-          <Button variant="primary" size="large" my="$6" onPress={onCloseTab}>
+          <UnOrderedList>
+            <UnOrderedList.Item>
+              Theft of recovery phrase or password
+            </UnOrderedList.Item>
+            <UnOrderedList.Item>Phishing attacks</UnOrderedList.Item>
+            <UnOrderedList.Item>Fake tokens or scams</UnOrderedList.Item>
+          </UnOrderedList>
+          <Text mt="$2" color="$textSubdued">
+            If you understand the risks and want to proceed, you can{' '}
+            <Button
+              px="$1"
+              py="$0"
+              mx="$-1"
+              my="$-px"
+              display="inline-flex"
+              variant="tertiary"
+            >
+              continue to the site
+            </Button>
+            .
+          </Text>
+          <Button
+            mt="$5"
+            variant="primary"
+            size="large"
+            $gtMd={{
+              size: 'medium',
+            }}
+            onPress={onCloseTab}
+          >
             Close Tab
           </Button>
         </YStack>

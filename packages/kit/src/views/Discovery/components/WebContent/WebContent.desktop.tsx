@@ -155,11 +155,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   );
 
   const phishingView = useMemo(
-    () => (
-      <Stack position="absolute" top={52} bottom={0} left={0} right={0}>
-        <PhishingView onCloseTab={() => closeWebTab(id)} />
-      </Stack>
-    ),
+    () => <PhishingView onCloseTab={() => closeWebTab(id)} />,
     [closeWebTab, id],
   );
 
