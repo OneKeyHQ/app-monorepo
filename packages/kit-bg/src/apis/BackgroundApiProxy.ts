@@ -4,9 +4,9 @@ import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServicePassword from '../services/ServicePassword';
-// import type ServiceBootstrap from './services/ServiceBootstrap';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
@@ -38,9 +38,9 @@ class BackgroundApiProxy
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 
-  // serviceBootstrap = this._createProxyService(
-  //   'serviceBootstrap',
-  // ) as ServiceBootstrap;
+  serviceBootstrap = this._createProxyService(
+    'serviceBootstrap',
+  ) as ServiceBootstrap;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {
