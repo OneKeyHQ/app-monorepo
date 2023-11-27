@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
@@ -76,9 +77,11 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
             mt="$5"
             variant="primary"
             size="large"
-            $gtMd={{
-              size: 'medium',
-            }}
+            $gtMd={
+              {
+                size: 'medium',
+              } as IButtonProps
+            }
             onPress={onCloseTab}
           >
             Close Tab
