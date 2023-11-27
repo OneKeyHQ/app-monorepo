@@ -1,0 +1,41 @@
+import { useCallback, useEffect, useRef } from 'react';
+
+import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
+import { Dimensions } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Image } from '../Image';
+
+import type { ISplashViewProps } from './SplashView.type';
+import type { LayoutChangeEvent } from 'react-native';
+
+void preventAutoHideAsync();
+
+const { height: windowHeight, width: windowWidth } = Dimensions.get('window');
+
+export function SplashView({ onReady }: ISplashViewProps) {
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const { height, width } = e.nativeEvent.layout;
+      if (height && width) {
+        setTimeout(async () => {
+          await hideAsync();
+          onReady();
+        }, 0);
+      }
+    },
+    [onReady],
+  );
+  return (
+    <Image
+      flex={1}
+      // onLayout is missing from Image properties in the tamagui component library.
+      // @ts-expect-error
+      onLayout={handleLayout}
+      aspectRatio={windowWidth / windowHeight}
+      resizeMode={platformEnv.isNativeIOS ? 'contain' : 'cover'}
+      source={require('../../assets/splash.png')}
+    />
+  );
+}
