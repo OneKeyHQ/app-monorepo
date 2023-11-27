@@ -50,6 +50,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../types/wallet';
+import { getNostrCredentialId } from '../../vaults/utils/nostr/nostr';
 import {
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
@@ -105,7 +106,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -1319,6 +1320,10 @@ class RealmDB implements DBAPI {
         'Credential',
         walletId,
       );
+      const nostrCredential = this.realm!.objectForPrimaryKey<CredentialSchema>(
+        'Credential',
+        getNostrCredentialId(walletId),
+      );
       this.realm!.write(() => {
         this.realm!.delete(Array.from(wallet.accounts!));
         if (removeDevice && wallet.associatedDevice) {
@@ -1330,6 +1335,9 @@ class RealmDB implements DBAPI {
         }
         if (historyEntries.length > 0) {
           this.realm!.delete(historyEntries);
+        }
+        if (nostrCredential) {
+          this.realm!.delete(nostrCredential);
         }
       });
       return Promise.resolve();
@@ -1495,7 +1503,7 @@ class RealmDB implements DBAPI {
         'Credential',
         credential.id,
       );
-      if (!existCredential) {
+      if (existCredential) {
         return Promise.reject(
           new OneKeyInternalError(
             `${credential.id} credential has alerday exists.`,
@@ -1503,11 +1511,13 @@ class RealmDB implements DBAPI {
         );
       }
 
-      this.realm!.create('Credential', {
-        id: credential.id,
-        credential: JSON.stringify({
-          privateKey: credential.privateKey.toString('hex'),
-        }),
+      this.realm!.write(() => {
+        this.realm!.create('Credential', {
+          id: credential.id,
+          credential: JSON.stringify({
+            privateKey: credential.privateKey.toString('hex'),
+          }),
+        });
       });
 
       return Promise.resolve({ privateKey: credential.privateKey });

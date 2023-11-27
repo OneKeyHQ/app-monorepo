@@ -7,7 +7,6 @@ import * as secp256k1 from '@noble/secp256k1';
 import { AES_CBC } from 'asmcrypto.js';
 import { bech32 } from 'bech32';
 
-import { DbApi } from '../../../dbs';
 import { batchGetPrivateKeys } from '../../../secret';
 import { decrypt } from '../../../secret/encryptors/aes256';
 import { CredentialType } from '../../../types/credential';
@@ -20,8 +19,8 @@ import type {
 } from '../../../dbs/base';
 import type { NostrEvent } from './types';
 
-const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0"; // NIP-06
-const NOSTR_ADDRESS_INDEX = '0';
+export const NOSTR_DERIVATION_PATH = "m/44'/1237'/0'/0"; // NIP-06
+export const NOSTR_ADDRESS_INDEX = '0';
 
 export function validateEvent(event: NostrEvent): boolean {
   if (!(event instanceof Object)) return false;
@@ -66,6 +65,10 @@ export function signEvent(event: NostrEvent, key: string) {
   return bytesToHex(signedEvent);
 }
 
+export function getNostrCredentialId(walletId: string) {
+  return `${walletId}--nostr`;
+}
+
 class Nostr {
   dbApi: DBAPI;
 
@@ -73,14 +76,14 @@ class Nostr {
 
   private password: string;
 
-  constructor(walletId: string, password: string) {
+  constructor(walletId: string, password: string, dbApi: DBAPI) {
     this.walletId = walletId;
     this.password = password;
-    this.dbApi = new DbApi() as DBAPI;
+    this.dbApi = dbApi;
   }
 
   private getCredentialId() {
-    return `${this.walletId}--nostr`;
+    return getNostrCredentialId(this.walletId);
   }
 
   private async getOrCreateCredential(): Promise<
@@ -95,8 +98,7 @@ class Nostr {
       return credential.privateKey;
     } catch (e) {
       // cannot find credential, will create credential by path derivation
-      const dbApi = new DbApi() as DBAPI;
-      const { seed } = (await dbApi.getCredential(
+      const { seed } = (await this.dbApi.getCredential(
         this.walletId,
         this.password,
       )) as ExportedSeedCredential;
@@ -131,7 +133,7 @@ class Nostr {
     const privateKey = decrypt(this.password, encryptedCredential);
     const node = getBitcoinBip32().fromPrivateKey(
       privateKey,
-      crypto.randomBytes(32),
+      Buffer.from(crypto.randomBytes(32).buffer),
     );
     return node;
   }
@@ -208,8 +210,8 @@ class Nostr {
   }
 
   async getPubkeyEncodedByNip19() {
-    const privateKey = await this.getPrivateKey();
-    const words = bech32.toWords(privateKey);
+    const pubkey = await this.getPublicKey();
+    const words = bech32.toWords(pubkey);
     return bech32.encode('npub', words, 1000);
   }
 

@@ -15,6 +15,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -37,12 +38,28 @@ export default class ServiceNostr extends ServiceBase {
     }),
   );
 
+  getNostrInstance = memoizee(
+    async (walletId: string, password: string): Promise<Nostr> => {
+      const nostr = new Nostr(
+        walletId,
+        password,
+        this.backgroundApi.engine.dbApi,
+      );
+      return Promise.resolve(nostr);
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 60 * 1000 }),
+      max: 5,
+    },
+  );
+
   @backgroundMethod()
   async getPublicKeyHex({
     walletId,
     password,
   }: IGetNostrParams): Promise<string> {
-    const nostr = new Nostr(walletId, password);
+    const nostr = await this.getNostrInstance(walletId, password);
     return nostr.getPublicKeyHex();
   }
 
@@ -51,7 +68,7 @@ export default class ServiceNostr extends ServiceBase {
     walletId,
     password,
   }: IGetNostrParams): Promise<string> {
-    const nostr = new Nostr(walletId, password);
+    const nostr = await this.getNostrInstance(walletId, password);
     return nostr.getPubkeyEncodedByNip19();
   }
 
@@ -65,7 +82,7 @@ export default class ServiceNostr extends ServiceBase {
       if (!validateEvent(event)) {
         throw new Error('Invalid event');
       }
-      const nostr = new Nostr(walletId, password);
+      const nostr = await this.getNostrInstance(walletId, password);
       if (!event.pubkey) {
         event.pubkey = await nostr.getPublicKeyHex();
       }
@@ -91,7 +108,7 @@ export default class ServiceNostr extends ServiceBase {
     if (!pubkey || !plaintext) {
       throw new Error('Invalid encrypt params');
     }
-    const nostr = new Nostr(walletId, password);
+    const nostr = await this.getNostrInstance(walletId, password);
     const encrypted = await nostr.encrypt(pubkey, plaintext);
     return {
       data: encrypted,
@@ -108,7 +125,7 @@ export default class ServiceNostr extends ServiceBase {
     if (!pubkey || !ciphertext) {
       throw new Error('Invalid encrypt params');
     }
-    const nostr = new Nostr(walletId, password);
+    const nostr = await this.getNostrInstance(walletId, password);
     const decrypted = await nostr.decrypt(pubkey, ciphertext);
     return {
       data: decrypted,
@@ -143,7 +160,7 @@ export default class ServiceNostr extends ServiceBase {
     if (!sigHash) {
       throw new Error('Invalid sigHash');
     }
-    const nostr = new Nostr(walletId, password);
+    const nostr = await this.getNostrInstance(walletId, password);
     const signedHash = await nostr.signSchnorr(sigHash);
     return {
       data: signedHash,
