@@ -11,7 +11,7 @@ export function SplashView({ onReady }: ISplashViewProps) {
     (e: LayoutChangeEvent) => {
       const { height, width } = e.nativeEvent.layout;
       if (height && width) {
-        setTimeout(async () => {
+        setTimeout(() => {
           onReady();
         }, 0);
       }
