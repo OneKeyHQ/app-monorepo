@@ -2,7 +2,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
-import { Splash, Stack } from '@onekeyhq/components';
+import { Splash } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 const waitDataReady = () =>
@@ -15,11 +15,7 @@ const waitDataReady = () =>
 
 function AppLoading({ children }: PropsWithChildren<unknown>) {
   const handleReady = useCallback(() => waitDataReady(), []);
-  return (
-    <Stack flex={1}>
-      <Splash onReady={handleReady}>{children}</Splash>
-    </Stack>
-  );
+  return <Splash onReady={handleReady}>{children}</Splash>;
 }
 
 export default AppLoading;
