@@ -10,10 +10,9 @@ type ISplash = PropsWithChildren<{
 
 export function Splash({ onReady, children }: ISplash) {
   const [showLoadingView, changeLoadingVisibleStatus] = useState(true);
-  const handleReady = useCallback(() => {
-    void onReady().then((isReady) => {
-      changeLoadingVisibleStatus(!isReady);
-    });
+  const handleReady = useCallback(async () => {
+    const isReady = await onReady();
+    changeLoadingVisibleStatus(!isReady);
   }, [onReady]);
 
   return (
