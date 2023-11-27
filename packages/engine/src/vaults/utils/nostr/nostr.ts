@@ -187,9 +187,9 @@ class Nostr {
       iv,
     );
 
-    return `${Buffer.from(encrypted).toString('base64')}?iv=${iv.toString(
-      'base64',
-    )}`;
+    return `${Buffer.from(encrypted).toString('base64')}?iv=${Buffer.from(
+      iv.buffer,
+    ).toString('base64')}`;
   }
 
   async decrypt(pubkey: string, ciphertext: string) {
