@@ -9,7 +9,7 @@ import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlP
 const waitDataReady = () =>
   new Promise<boolean>((resolve) => {
     setTimeout(() => {
-      // TODO：Hide the Splash View only when the UI view is ready.
+      // TODO：Hide the Splash View only when data is ready.
       resolve(true);
     }, 100);
   });
