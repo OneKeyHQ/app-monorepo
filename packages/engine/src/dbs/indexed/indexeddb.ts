@@ -38,7 +38,7 @@ import {
 } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
-import { walletIsImported } from '../../managers/wallet';
+import { isNostrCredentialId, walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -331,7 +331,10 @@ class IndexedDBApi implements DBAPI {
                 const credentialItem: { id: string; credential: string } =
                   cursor.value as { id: string; credential: string };
 
-                if (credentialItem.id.startsWith('imported')) {
+                if (
+                  walletIsImported(credentialItem.id) ||
+                  isNostrCredentialId(credentialItem.id)
+                ) {
                   const privateKeyCredentialJSON: StoredPrivateKeyCredential =
                     JSON.parse(credentialItem.credential);
                   credentialItem.credential = JSON.stringify({
@@ -1391,7 +1394,10 @@ class IndexedDBApi implements DBAPI {
                 credential: string;
               };
 
-              if (walletIsImported(credentialId)) {
+              if (
+                walletIsImported(credentialId) ||
+                isNostrCredentialId(credentialId)
+              ) {
                 const privateKeyCredentialJSON = JSON.parse(
                   credential,
                 ) as StoredPrivateKeyCredential;

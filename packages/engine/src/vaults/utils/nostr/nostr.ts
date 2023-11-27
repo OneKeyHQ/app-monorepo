@@ -138,7 +138,7 @@ class Nostr {
 
   async getPublicKey() {
     const node = await this.getBip32Node();
-    return node.publicKey;
+    return node.publicKey.slice(1, 33);
   }
 
   async getPublicKeyHex() {
