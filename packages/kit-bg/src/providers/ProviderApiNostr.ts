@@ -15,6 +15,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -64,10 +65,17 @@ class ProviderApiNostr extends ProviderApiBase {
     return Promise.resolve();
   }
 
+  private checkWalletSupport(walletId: string) {
+    if (!isHdWallet({ walletId })) {
+      throw web3Errors.rpc.methodNotSupported();
+    }
+  }
+
   // Nostr API
   @providerApiMethod()
   public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
+    this.checkWalletSupport(walletId);
     const pubkey = await this.backgroundApi.serviceDapp.openModal({
       request,
       screens: [ModalRoutes.Nostr, NostrModalRoutes.GetPublicKey],
@@ -87,6 +95,7 @@ class ProviderApiNostr extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
   ): Promise<NostrEvent> {
     const { walletId } = getActiveWalletAccount();
+    this.checkWalletSupport(walletId);
     const params = (request.data as IJsonRpcRequest)?.params as {
       event: NostrEvent;
     };
@@ -119,7 +128,7 @@ class ProviderApiNostr extends ProviderApiBase {
   @providerApiMethod()
   public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
-    console.log(request);
+    this.checkWalletSupport(walletId);
     const params = (request.data as IJsonRpcRequest)?.params as {
       pubkey: string;
       plaintext: string;
@@ -170,6 +179,7 @@ class ProviderApiNostr extends ProviderApiBase {
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
+    this.checkWalletSupport(walletId);
     const params = (request.data as IJsonRpcRequest)?.params as {
       pubkey: string;
       ciphertext: string;
@@ -210,6 +220,7 @@ class ProviderApiNostr extends ProviderApiBase {
   @providerApiMethod()
   public async signSchnorr(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId } = getActiveWalletAccount();
+    this.checkWalletSupport(walletId);
     const params = (request.data as IJsonRpcRequest)?.params as string;
     try {
       const signedHash = await this.backgroundApi.serviceDapp.openModal({
