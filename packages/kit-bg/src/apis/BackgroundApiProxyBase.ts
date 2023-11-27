@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
+import { Toast } from '@onekeyhq/components';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
   type EAppEventBusNames,
   EEventBusBroadcastMethodNames,
@@ -49,6 +51,14 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
         await this.emitEvent(type as any, payload);
       },
     );
+    globalErrorHandler.addListener((error) => {
+      // TODO log error to file if developer mode on
+      if (error && error.autoToast) {
+        Toast.error({
+          title: error?.message ?? 'Error',
+        });
+      }
+    });
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
