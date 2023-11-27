@@ -4,7 +4,6 @@ import { useCallback } from 'react';
 
 import { Splash, Stack } from '@onekeyhq/components';
 // import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHtmlPreloadSplashLogoRemove } from '@onekeyhq/kit/src/hooks/useHtmlPreloadSplashLogoRemove';
 
 const waitDataReady = () =>
   new Promise<boolean>((resolve) => {
@@ -15,7 +14,6 @@ const waitDataReady = () =>
   });
 
 function AppLoading({ children }: PropsWithChildren<unknown>) {
-  useHtmlPreloadSplashLogoRemove();
   const handleReady = useCallback(() => waitDataReady(), []);
   return (
     <Stack flex={1}>
