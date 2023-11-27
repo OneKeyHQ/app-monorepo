@@ -65,6 +65,7 @@ export const IconButton = (props: IIconButtonProps) => {
       {...(variant === 'tertiary' && {
         m: negativeMargin,
       })}
+      {...(size === 'small' && { hitSlop: 8 })}
       {...sharedFrameStyles}
       {...rest}
     >

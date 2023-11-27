@@ -5,6 +5,7 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
+import type { IActionListSection } from '@onekeyhq/components';
 import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
@@ -12,7 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
 
-import { TabItem } from './TabItem';
+import { DesktopTabItem } from './DesktopTabItem';
 
 import type { IKeyOfIcons } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
@@ -31,7 +32,9 @@ function TabItemView({
   isActive: boolean;
   route: NavigationState['routes'][0];
   onPress: () => void;
-  options: BottomTabNavigationOptions;
+  options: BottomTabNavigationOptions & {
+    actionList?: IActionListSection[];
+  };
   isCollapse?: boolean;
 }) {
   useMemo(() => {
@@ -44,7 +47,7 @@ function TabItemView({
   }, [options]);
   const contentMemo = useMemo(
     () => (
-      <TabItem
+      <DesktopTabItem
         onPress={onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
@@ -52,6 +55,7 @@ function TabItemView({
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
+        actionList={options.actionList}
       />
     ),
     [isActive, onPress, options, route.name],
@@ -102,6 +106,8 @@ export function DesktopLeftSideBar({
         if (route.name === extraConfig?.name) {
           return (
             <YStack
+              flex={1}
+              key={route.key}
               onPress={() => {
                 // Avoid re-rendering by checking if it's the current route.
                 if (state.routeNames[state.index] !== extraConfig?.name) {
@@ -167,10 +173,15 @@ export function DesktopLeftSideBar({
         />
       )}
       <YStack
-        testID="Desktop-AppSideBar-Content-Container"
         flex={1}
-        pt={platformEnv.isDesktopMac ? undefined : '$3'}
         px="$3"
+        pb="$3"
+        testID="Desktop-AppSideBar-Content-Container"
+        // Need to replaced by HeaderHeightContext
+        pt={platformEnv.isDesktopMac ? undefined : '$3'}
+        $platform-web={{
+          h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
+        }}
       >
         {tabs}
       </YStack>
