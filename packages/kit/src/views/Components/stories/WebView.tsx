@@ -1,4 +1,4 @@
-// import WebView from '@onekeyhq/kit/src/views/Discovery/components/WebView';
+// import WebView from '@onekeyhq/kit/src/components/WebView';
 
 // const WebviewGallery = () => (
 //   <WebView
@@ -12,8 +12,8 @@
 
 // export default WebviewGallery;
 
-import Browser from '@onekeyhq/kit/src/views/Discovery/container/Browser';
+import Explorer from '@onekeyhq/kit/src/views/Discover/Explorer';
 
-const WebviewGallery = () => <Browser />;
+const WebviewGallery = () => <Explorer />;
 
 export default WebviewGallery;
