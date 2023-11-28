@@ -4,8 +4,7 @@ import { withStaticProperties } from 'tamagui';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
-import { Icon, Text, YStack } from '../../primitives';
-import { ButtonFrame } from '../../primitives/Button';
+import { ButtonFrame, Icon, Text, YStack } from '../../primitives';
 import { Popover } from '../Popover';
 import { Trigger } from '../Trigger';
 
