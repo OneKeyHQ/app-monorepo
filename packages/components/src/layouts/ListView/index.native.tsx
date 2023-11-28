@@ -5,7 +5,7 @@ import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { getTokenValue } from 'tamagui';
 
-import { View } from '../View';
+import { View } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';

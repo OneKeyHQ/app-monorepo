@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { Divider, Portal } from '../../layouts';
+import { Divider } from '../../content';
+import { Portal } from '../../hocs';
 import { Icon, Text, YStack } from '../../primitives';
 import { ButtonFrame } from '../../primitives/Button';
 import { Popover } from '../Popover';

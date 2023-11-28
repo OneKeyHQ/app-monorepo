@@ -6,8 +6,8 @@ import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { useTheme } from 'tamagui';
 
+import { Stack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
-import { Stack } from '../../Stack';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';

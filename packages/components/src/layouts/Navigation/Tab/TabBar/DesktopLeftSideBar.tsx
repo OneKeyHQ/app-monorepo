@@ -5,19 +5,18 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
-import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
-import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Icon } from '../../../Icon';
-import { Portal } from '../../../Portal';
-import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
-import { YStack } from '../../../Stack';
+import { Portal } from '../../../../hocs';
+import useProviderSideBarValue from '../../../../hocs/Provider/hooks/useProviderSideBarValue';
+import { useSafeAreaInsets } from '../../../../hooks';
+import { Icon, YStack } from '../../../../primitives';
+import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
-import type { IActionListSection } from '../../../ActionList';
-import type { IKeyOfIcons } from '../../../Icon';
+import type { IActionListSection } from '../../../../actions';
+import type { IKeyOfIcons } from '../../../../primitives';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,

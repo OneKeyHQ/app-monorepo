@@ -1,6 +1,6 @@
 import type { ComponentProps, FC } from 'react';
 
-import { Stack } from '../Stack';
+import { Stack } from '../../primitives';
 
 export const DesktopDragZoneAbsoluteBar: FC<
   ComponentProps<typeof Stack>

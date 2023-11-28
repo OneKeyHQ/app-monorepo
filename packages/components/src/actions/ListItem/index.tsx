@@ -1,12 +1,11 @@
 import { type ComponentProps, isValidElement } from 'react';
 
-import { Avatar } from '../Avatar';
-import { type IIconProps, Icon } from '../Icon';
+import { Avatar } from '../../content';
+import { Icon, Stack, Text } from '../../primitives';
 import { IconButton } from '../IconButton';
-import { Stack } from '../Stack';
-import { Text } from '../Text';
 
-import type { IIconButtonProps } from '../IconButton';
+import type { IIconButtonProps } from '..';
+import type { IIconProps } from '../../primitives';
 import type {
   AvatarFallbackProps,
   AvatarImageProps,

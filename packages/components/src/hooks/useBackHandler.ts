@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 
 const stopDefaultBackHandler = () => true;
 
-const useBackHandler = (
+export const useBackHandler = (
   callback: () => boolean = stopDefaultBackHandler,
   enable: boolean | undefined = true,
 ) => {
@@ -23,5 +23,3 @@ const useBackHandler = (
     };
   }, [enable, handleKeyDown]);
 };
-
-export default useBackHandler;

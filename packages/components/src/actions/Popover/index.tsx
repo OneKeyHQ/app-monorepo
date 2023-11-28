@@ -2,8 +2,9 @@ import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Divider } from '../../content';
+import { Portal } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
-import { Divider, Portal } from '../../layouts';
 import { Text, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 

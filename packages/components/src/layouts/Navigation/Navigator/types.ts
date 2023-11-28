@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react';
 
-import type { IActionListSection } from '../../ActionList';
-import type { IKeyOfIcons } from '../../Icon';
-import type { ILocaleIds } from '../../locale';
+import type { IActionListSection } from '../../../actions';
+import type { ILocaleIds } from '../../../locale';
+import type { IKeyOfIcons } from '../../../primitives';
 import type { RouteProp } from '@react-navigation/core/lib/typescript/src/types';
 import type { ParamListBase } from '@react-navigation/routers';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';

@@ -9,9 +9,8 @@ import {
 
 import { withStaticProperties } from 'tamagui';
 
+import { Stack, Text, XStack } from '../../primitives';
 import { ListView } from '../ListView';
-import { Stack, XStack } from '../Stack';
-import { Text } from '../Text';
 
 import type { IListViewProps, IListViewRef } from '../ListView';
 import type { ListRenderItem } from 'react-native';

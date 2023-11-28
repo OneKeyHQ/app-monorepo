@@ -17,8 +17,9 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import { Divider } from '../../content';
+import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Portal, SheetGrabber } from '../../layouts';
 import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 import { IconButton } from '../IconButton';
@@ -27,7 +28,7 @@ import { Trigger } from '../Trigger';
 import { DialogContext } from './context';
 
 import type { IDialogInstanceRef, IDialogProps } from './type';
-import type { IPortalManager } from '../../layouts';
+import type { IPortalManager } from '../../hocs';
 import type { IButtonProps } from '../../primitives/Button';
 
 function DialogFrame({

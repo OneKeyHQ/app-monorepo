@@ -5,7 +5,7 @@ import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useProviderSideBarValue from '../../Provider/hooks/useProviderSideBarValue';
+import useProviderSideBarValue from '../../../hocs/Provider/hooks/useProviderSideBarValue';
 
 import HeaderIconButton from './HeaderIconButton';
 

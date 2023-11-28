@@ -1,10 +1,8 @@
 import { type GetProps } from 'tamagui';
 
-import { Icon } from '../../../Icon';
-import { YStack } from '../../../Stack';
-import { Text } from '../../../Text';
+import { Icon, Text, YStack } from '../../../../primitives';
 
-import type { IKeyOfIcons } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
 interface IMobileTabItemProps {

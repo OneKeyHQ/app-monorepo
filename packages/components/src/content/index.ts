@@ -1,4 +1,3 @@
-export * from './Alert';
 export * from './Avatar';
 export * from './Badge';
 export * from './BlurView';
@@ -8,3 +7,5 @@ export * from './Progress';
 export * from './QRCode';
 export * from './Skeleton';
 export * from './Splash';
+export * from './Divider';
+export * from './SheetGrabber';

@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-import { Stack } from '../../Stack';
+import { Stack } from '../../../primitives';
 
 function CenteredModal({
   children,

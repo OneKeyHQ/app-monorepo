@@ -126,5 +126,3 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
 export const Form = withStaticProperties(FormWrapper, {
   Field,
 });
-
-export { useForm } from 'react-hook-form';

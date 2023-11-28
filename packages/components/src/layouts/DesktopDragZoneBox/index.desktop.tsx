@@ -2,7 +2,7 @@ import type { ComponentProps, FC } from 'react';
 
 import { Pressable } from 'react-native';
 
-import { Stack } from '../Stack';
+import { Stack } from '../../primitives';
 
 let lastTime: Date | undefined;
 let num = 0;

@@ -3,13 +3,12 @@ import { useMemo } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 
-import { useIsKeyboardShown } from '../../../hooks';
-import useSafeAreaInsets from '../../../Provider/hooks/useSafeAreaInsets';
-import { Stack } from '../../../Stack';
+import { useIsKeyboardShown, useSafeAreaInsets } from '../../../../hooks';
+import { Stack } from '../../../../primitives';
 
 import { MobileTabItem } from './MobileTabItem';
 
-import type { IKeyOfIcons } from '../../../Icon';
+import type { IKeyOfIcons } from '../../../../primitives';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 

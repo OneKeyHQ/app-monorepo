@@ -1,4 +1,4 @@
-import { Stack } from '../../Stack';
+import { Stack } from '../../../primitives';
 
 export default function ModalBackdrop() {
   return (

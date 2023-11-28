@@ -1,11 +1,9 @@
-import { ActionList, type IActionListSection } from '../../../ActionList';
-import { Avatar } from '../../../Avatar';
-import { Icon } from '../../../Icon';
-import { IconButton } from '../../../IconButton';
-import { Stack, XStack } from '../../../Stack';
-import { Text } from '../../../Text';
+import { ActionList, IconButton } from '../../../../actions';
+import { Avatar } from '../../../../content';
+import { Icon, Stack, Text, XStack } from '../../../../primitives';
 
-import type { IKeyOfIcons } from '../../../Icon';
+import type { IActionListSection } from '../../../../actions';
+import type { IKeyOfIcons } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { AvatarImage, GetProps } from 'tamagui';
 

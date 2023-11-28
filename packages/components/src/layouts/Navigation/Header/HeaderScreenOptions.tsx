@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { getFontSize } from 'tamagui';
 
-import { hasNativeHeaderView } from '../Navigator/CommonConfig.ts';
+import { hasNativeHeaderView } from '../Navigator/CommonConfig';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderView from './HeaderView';

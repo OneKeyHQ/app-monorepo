@@ -1,6 +1,6 @@
 import { useIsFocused } from '@react-navigation/core';
 
-import DelayedFreeze from '../../DelayedFreeze';
+import { DelayedFreeze } from '../../../hocs';
 
 export function tabRouteWrapper(
   WrappedComponent: any,

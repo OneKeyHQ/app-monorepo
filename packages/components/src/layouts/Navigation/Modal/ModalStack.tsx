@@ -3,9 +3,9 @@ import { useCallback, useContext } from 'react';
 import { NavigationHelpersContext } from '@react-navigation/core';
 import { HeaderBackContext, getHeaderTitle } from '@react-navigation/elements';
 
-import DelayedFreeze from '../../DelayedFreeze';
-import useBackHandler from '../../Provider/hooks/useBackHandler';
-import { Stack, ZStack } from '../../Stack';
+import { DelayedFreeze } from '../../../hocs';
+import { useBackHandler } from '../../../hooks';
+import { Stack, ZStack } from '../../../primitives';
 import { HeaderView } from '../Header';
 
 import CenteredModal from './CenteredModal';

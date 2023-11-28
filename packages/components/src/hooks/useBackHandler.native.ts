@@ -16,7 +16,7 @@ const stopDefaultBackHandler = () => true;
  * @param enable - Whether the back press listener should be enabled or not.
  * @returns void
  */
-const useBackHandler = (
+export const useBackHandler = (
   callback: () => boolean = stopDefaultBackHandler,
   enable: boolean | undefined = true,
 ) => {
@@ -29,5 +29,3 @@ const useBackHandler = (
     return () => backHandler.remove();
   }, [callback, enable]);
 };
-
-export default useBackHandler;

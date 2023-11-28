@@ -5,11 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Stack } from '../../Stack';
+import { Stack } from '../../../primitives';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import { TransparentModalTheme } from './CommonConfig.ts';
+import { TransparentModalTheme } from './CommonConfig';
 import ModalFlowNavigator from './ModalFlowNavigator';
 
 import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';

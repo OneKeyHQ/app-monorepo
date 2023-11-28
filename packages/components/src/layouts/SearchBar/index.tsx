@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 
-import { Input } from '../Input';
+import { Input } from '../../forms/Input';
 
-import type { IInputProps } from '../Input';
+import type { IInputProps } from '../../forms/Input';
 
 type ISearchBarProps = IInputProps;
 
