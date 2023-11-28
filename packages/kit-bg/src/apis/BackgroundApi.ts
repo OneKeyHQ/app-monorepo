@@ -129,5 +129,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceHistory', { value });
     return value;
   }
+
+  get serviceTool() {
+    const ServiceTool =
+      require('../services/ServiceTool') as typeof import('../services/ServiceTool');
+    const value = new ServiceTool.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceTool', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

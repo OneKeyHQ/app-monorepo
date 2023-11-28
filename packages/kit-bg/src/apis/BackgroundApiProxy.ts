@@ -17,6 +17,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTool from '../services/ServiceTool';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -47,6 +48,8 @@ class BackgroundApiProxy
   serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
+
+  serviceTool = this._createProxyService('serviceTool') as ServiceTool;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 

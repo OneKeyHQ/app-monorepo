@@ -1,3 +1,5 @@
+import type { ILocaleIds } from '@onekeyhq/components';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsonRpcRequest,
@@ -83,6 +85,19 @@ export enum EAccountSelectorSceneName {
 }
 
 export type INotPromise<T> = T extends Promise<any> ? never : T;
+
+export type ITool = {
+  key: string;
+  networkId: string;
+  title: ILocaleIds;
+  description: ILocaleIds;
+  icon: {
+    name: string;
+    color: string;
+  };
+  logoURI: string;
+  link: string;
+};
 
 export enum EHomeTab {
   TOKENS = 'tokens',

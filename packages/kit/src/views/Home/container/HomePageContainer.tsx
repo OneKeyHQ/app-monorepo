@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
-import { Page, ScrollView, Stack, Text } from '@onekeyhq/components';
+import { Page, ScrollView, Stack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
 import { PageManager } from '@onekeyhq/components/src/TabView';
@@ -12,24 +12,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainer } from './TokenListContainer';
+import { ToolListContainer } from './ToolListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletOverviewContainer } from './WalletOverviewContainer';
-
-const OtherRoute = ({
-  onContentSizeChange,
-}: {
-  onContentSizeChange: ((w: number, h: number) => void) | undefined;
-}) => (
-  <ScrollView
-    style={{ flex: 1 }}
-    scrollEnabled={false}
-    onContentSizeChange={onContentSizeChange}
-  >
-    <Stack bg="#ff4081" height="$100">
-      <Text>demo3</Text>
-    </Stack>
-  </ScrollView>
-);
 
 function HomePageContainer() {
   const screenWidth = useWindowDimensions().width;
@@ -90,7 +75,7 @@ function HomePageContainer() {
         }),
         contentHeight: undefined,
         contentOffsetY: 0,
-        page: memo(OtherRoute, () => true),
+        page: memo(ToolListContainer, () => true),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
