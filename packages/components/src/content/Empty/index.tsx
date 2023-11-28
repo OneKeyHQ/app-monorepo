@@ -1,9 +1,6 @@
-import { Text, YStack } from '../../primitives';
-import { Button } from '../Button';
-import { Icon } from '../../primitives/Icon';
+import { Button, Icon, Text, YStack } from '../../primitives';
 
-import type { IButtonProps } from '../Button';
-import type { IKeyOfIcons } from '../../primitives/Icon';
+import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { YStackProps } from 'tamagui';
 
 interface IEmptyProps extends YStackProps {

@@ -2,14 +2,11 @@ import { type Ref, forwardRef } from 'react';
 
 import { Group, Input as TMInput, getFontSize } from 'tamagui';
 
-import { Icon } from '../Icon';
-import { Spinner } from '../Spinner';
-import { XStack, YStack } from '../Stack';
-import { Text } from '../Text';
+import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IKeyOfIcons } from '../Icon';
+import type { IKeyOfIcons } from '../../primitives';
 import type { ColorTokens, GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;

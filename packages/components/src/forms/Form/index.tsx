@@ -5,11 +5,9 @@ import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
-import { HeightTransition } from '../HeightTransition';
+import { HeightTransition } from '../../layouts';
+import { Label, Text, YStack } from '../../primitives';
 import { Input } from '../Input';
-import { Label } from '../Label';
-import { YStack } from '../Stack';
-import { Text } from '../Text';
 import { TextArea } from '../TextArea';
 
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';

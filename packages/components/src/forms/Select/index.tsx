@@ -9,12 +9,10 @@ import {
 } from 'tamagui';
 import { LinearGradient } from 'tamagui/linear-gradient';
 
-import { Divider } from '../Divider';
-import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
-import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
-import { Stack, XStack, YStack } from '../Stack';
-import { Text } from '../Text';
+import { IconButton } from '../../actions';
+import { useSafeAreaInsets } from '../../hooks';
+import { Divider } from '../../layouts';
+import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
 
 import type {
   ListItemProps,

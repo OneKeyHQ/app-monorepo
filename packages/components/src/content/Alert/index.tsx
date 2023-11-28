@@ -4,11 +4,8 @@ import type { ComponentProps, FC } from 'react';
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { Button } from '../Button';
-import { Icon } from '../../primitives/Icon';
-import { IconButton } from '../IconButton';
-import { Stack, XStack, YStack } from '../Stack';
-import { Text } from '../Text';
+import { IconButton } from '../../actions';
+import { Button, Icon, Stack, Text, XStack, YStack } from '../../primitives';
 
 import type { ColorTokens } from 'tamagui';
 

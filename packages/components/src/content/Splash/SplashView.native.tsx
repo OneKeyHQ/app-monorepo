@@ -3,9 +3,9 @@ import { useCallback } from 'react';
 import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { Dimensions } from 'react-native';
 
-import { Image } from '../Image';
+import { Image } from '../../primitives';
 
-import type { ISplashViewProps } from './SplashView.type';
+import type { ISplashViewProps } from './type';
 import type { LayoutChangeEvent } from 'react-native';
 
 void preventAutoHideAsync();

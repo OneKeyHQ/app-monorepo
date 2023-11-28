@@ -8,8 +8,8 @@ import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../../tamagui.config';
+import { Toaster } from '../../actions';
 import LOCALES from '../../locale';
-import { Toaster } from '../Toast';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
@@ -53,7 +53,7 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-const Provider: FC<IUIProviderProps> = ({
+export const Provider: FC<IUIProviderProps> = ({
   children,
   themeVariant,
   locale,
@@ -93,5 +93,3 @@ const Provider: FC<IUIProviderProps> = ({
     </AppIntlProvider>
   );
 };
-
-export default Provider;

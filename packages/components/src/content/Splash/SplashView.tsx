@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
 
-import { Image } from '../Image';
-import { Stack } from '../Stack';
+import { Image, Stack } from '../../primitives';
 
-import type { ISplashViewProps } from './SplashView.type';
+import type { ISplashViewProps } from './type';
 import type { LayoutChangeEvent } from 'react-native';
 
 const removeWebLogo = () => {

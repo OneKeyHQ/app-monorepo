@@ -14,7 +14,7 @@ interface IFreezeWrapperProps {
 
 // This component allows one more render before freezing the screen.
 // Allows activityState to reach the native side and useIsFocused to work correctly.
-function DelayedFreeze({
+export function DelayedFreeze({
   freeze,
   children,
   placeholder = null,
@@ -36,4 +36,3 @@ function DelayedFreeze({
     </Freeze>
   );
 }
-export default DelayedFreeze;

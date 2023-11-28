@@ -2,8 +2,7 @@ import type { FC, PropsWithChildren } from 'react';
 
 import { styled } from '@tamagui/core';
 
-import { Stack } from '../Stack';
-import { Text } from '../Text';
+import { Stack, Text } from '../../primitives';
 
 const BadgeFrame = styled(Stack, {
   name: 'BadgeFrame',

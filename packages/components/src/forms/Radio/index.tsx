@@ -2,8 +2,7 @@ import type { PropsWithChildren } from 'react';
 
 import { RadioGroup } from 'tamagui';
 
-import { Label } from '../Label';
-import { XStack } from '../Stack';
+import { Label, XStack } from '../../primitives';
 
 export type IRadioProps = PropsWithChildren<{
   value?: string;
