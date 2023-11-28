@@ -6,13 +6,14 @@ import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Stack } from '../../primitives';
 import { ScrollView } from '../ScrollView';
-import { Stack } from '../Stack';
 
 import { Header } from './Header';
 
 import type { IHeaderProps } from './Header';
 import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
+import type { LayoutChangeEvent } from 'react-native';
 
 type IPageType = ({
   onContentSizeChange,
@@ -171,7 +172,7 @@ const TabComponent = ({
       />
       <Stack
         ref={pageContainerRef}
-        onLayout={(event) => {
+        onLayout={(event: LayoutChangeEvent) => {
           stickyConfig.headerViewY =
             event.nativeEvent.layout.y - stickyConfig.headerViewHeight;
         }}

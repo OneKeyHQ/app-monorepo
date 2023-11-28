@@ -7,7 +7,7 @@ import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
-import { hasStackNavigatorModal } from './CommonConfig.ts';
+import { hasStackNavigatorModal } from './CommonConfig';
 
 import type { ICommonNavigatorConfig } from './types';
 import type { ILocaleIds } from '../../../locale';

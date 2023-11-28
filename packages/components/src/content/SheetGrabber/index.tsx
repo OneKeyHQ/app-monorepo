@@ -1,4 +1,4 @@
-import { Stack } from '../Stack';
+import { Stack } from '../../primitives';
 
 import type { GetProps } from 'tamagui';
 

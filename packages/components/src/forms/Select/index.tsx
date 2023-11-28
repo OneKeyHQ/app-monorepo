@@ -10,8 +10,8 @@ import {
 import { LinearGradient } from 'tamagui/linear-gradient';
 
 import { IconButton } from '../../actions';
+import { Divider } from '../../content';
 import { useSafeAreaInsets } from '../../hooks';
-import { Divider } from '../../layouts';
 import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
 
 import type {

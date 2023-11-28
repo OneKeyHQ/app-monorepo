@@ -17,7 +17,7 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import { Divider } from '../../content';
+import { SheetGrabber } from '../../content';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
 import { Icon, Stack, Text, XStack, YStack } from '../../primitives';

@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
 
-import { Divider, ListView } from '../../layouts';
+import { Divider } from '../../content';
+import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
 
 import type { ViewStyle } from 'react-native';
