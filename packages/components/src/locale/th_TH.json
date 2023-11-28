@@ -908,6 +908,7 @@
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "การตรวจจับสัญญายังไม่สมบูรณ์ ดังนั้นบางส่วนอาจหลุดผ่านรอยแตกได้ หากคุณพบเนื้อหาที่ไม่ถูกต้องขณะตรวจสอบการอนุญาต โปรดแจ้งให้เราทราบในเซิร์ฟเวอร์ DISCORD ของเรา",
   "content__the_current_statistical_content_only_includes": "เนื้อหาทางสถิติปัจจุบันรวมเฉพาะโทเค็นในสาย {0} และ NFTs บน {0} เท่านั้น และจะมีสายอื่นๆ เพิ่มขึ้นในเร็วๆ นี้",
   "content__the_current_statistical_content_only_includes_the_assets": "เนื้อหาสถิติปัจจุบันรวมเฉพาะเนื้อหาในเครือข่าย {0} เท่านั้น และจะมีเครือข่ายเพิ่มขึ้นเร็วๆ นี้",
+  "content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet": "กระเป๋าเงินปัจจุบันไม่รองรับ {0} เปลี่ยนไปใช้กระเป๋าเงินของแอพ",
   "content__the_decentralized_web_awaits": "เว็บกระจายอำนาจรออยู่",
   "content__the_recipient_address_is_a_contract_address_and_the_tokens_sent_may_be_lost": "ที่อยู่ผู้รับคือที่อยู่ตามสัญญา และโทเค็นที่ส่งอาจสูญหาย",
   "content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser": "ขอบเขตทางสถิติจำกัดเฉพาะเครือข่าย ETH\n ข้อมูลทั้งหมดมาจากเบราว์เซอร์ blockchain OneKey จะไม่บันทึกข้อมูลความเป็นส่วนตัวของผู้ใช้ใดๆ",

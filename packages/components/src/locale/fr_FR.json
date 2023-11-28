@@ -908,6 +908,7 @@
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "La détection des contrats n'est pas encore parfaite, donc certains d'entre eux peuvent passer entre les mailles du filet. Si vous voyez un contenu incorrect lors de la vérification de l'allocation, veuillez nous en informer sur notre serveur DISCORD.",
   "content__the_current_statistical_content_only_includes": "Le contenu statistique actuel n'inclut que les jetons sur la chaîne {0} et les NFT sur {0} , d'autres chaînes seront bientôt disponibles.",
   "content__the_current_statistical_content_only_includes_the_assets": "Le contenu statistique actuel ne comprend que les actifs du réseau {0}, d'autres réseaux seront bientôt disponibles.",
+  "content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet": "Le portefeuille actuel ne prend pas en charge {0} , passez à un portefeuille d'applications",
   "content__the_decentralized_web_awaits": "Le web décentralisé attend",
   "content__the_recipient_address_is_a_contract_address_and_the_tokens_sent_may_be_lost": "L'adresse du destinataire est une adresse de contrat et les jetons envoyés peuvent être perdus.",
   "content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser": "Le périmètre statistique est limité aux réseaux EPF.\n Toutes les données proviennent du navigateur blockchain. OneKey n'enregistrera pas les données de confidentialité des utilisateurs.",
