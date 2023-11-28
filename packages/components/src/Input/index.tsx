@@ -10,7 +10,7 @@ import { Text } from '../Text';
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IKeyOfIcons } from '../Icon';
-import type { GetProps } from 'tamagui';
+import type { ColorTokens, GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
@@ -21,6 +21,7 @@ export type IInputProps = {
   error?: boolean;
   addOns?: {
     iconName?: IKeyOfIcons;
+    iconColor?: ColorTokens;
     label?: string;
     onPress?: () => void;
     loading?: boolean;
@@ -75,6 +76,7 @@ function BaseInput(
   } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
+
   return (
     <Group
       orientation="horizontal"
@@ -140,52 +142,65 @@ function BaseInput(
             borderColor={sharedStyles.borderColor}
             bg={sharedStyles.backgroundColor}
             disabled={disabled}
+            disablePassBorderRadius="start"
           >
-            {addOns.map(({ iconName, label, onPress, loading }) => (
-              <Group.Item>
-                <XStack
-                  onPress={onPress}
-                  key={`${iconName || ''}-${label || ''}`}
-                  alignItems="center"
-                  px={size === 'large' ? '$2.5' : '$2'}
-                  {...(onPress &&
-                    !disabled && {
-                      hoverStyle: {
-                        bg: '$bgHover',
-                      },
-                      pressStyle: {
-                        bg: '$bgActive',
-                      },
-                    })}
-                  focusable={!(disabled || loading)}
-                  focusStyle={sharedStyles.focusStyle}
-                >
-                  {loading ? (
-                    <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                      <Spinner size="small" />
-                    </YStack>
-                  ) : (
-                    iconName && (
-                      <Icon
-                        name={iconName}
-                        color={disabled ? '$iconDisabled' : '$icon'}
-                        size={size === 'small' ? '$5' : '$6'}
-                      />
-                    )
-                  )}
-                  {label && (
-                    <Text
-                      userSelect="none"
-                      variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                      ml={iconName ? '$2' : '$0'}
-                      color={sharedStyles.color}
-                    >
-                      {label}
-                    </Text>
-                  )}
-                </XStack>
-              </Group.Item>
-            ))}
+            {addOns.map(({ iconName, iconColor, label, onPress, loading }) => {
+              const getIconColor = () => {
+                if (disabled) {
+                  return '$iconDisabled';
+                }
+                if (iconColor) {
+                  return iconColor;
+                }
+                return '$iconSubdued';
+              };
+
+              return (
+                <Group.Item>
+                  <XStack
+                    onPress={onPress}
+                    key={`${iconName || ''}-${label || ''}`}
+                    alignItems="center"
+                    px={size === 'large' ? '$2.5' : '$2'}
+                    {...(onPress &&
+                      !disabled && {
+                        hoverStyle: {
+                          bg: '$bgHover',
+                        },
+                        pressStyle: {
+                          bg: '$bgActive',
+                        },
+                      })}
+                    focusable={!(disabled || loading)}
+                    focusStyle={sharedStyles.focusStyle}
+                  >
+                    {loading ? (
+                      <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                        <Spinner size="small" />
+                      </YStack>
+                    ) : (
+                      iconName && (
+                        <Icon
+                          name={iconName}
+                          color={getIconColor()}
+                          size={size === 'small' ? '$5' : '$6'}
+                        />
+                      )
+                    )}
+                    {label && (
+                      <Text
+                        userSelect="none"
+                        variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
+                        ml={iconName ? '$2' : '$0'}
+                        color={disabled ? '$textDisabled' : '$textSubdued'}
+                      >
+                        {label}
+                      </Text>
+                    )}
+                  </XStack>
+                </Group.Item>
+              );
+            })}
           </Group>
         </Group.Item>
       )}

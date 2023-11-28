@@ -53,15 +53,14 @@ function ActionListItem({
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       {...(!disabled && {
-        mb: 2,
         hoverStyle: { bg: '$bgHover' },
         pressStyle: { bg: '$bgActive' },
-        focusable: true,
-        focusStyle: {
-          outlineColor: '$focusRing',
-          outlineStyle: 'solid',
-          outlineWidth: 2,
-        },
+        // focusable: true,
+        // focusStyle: {
+        //   outlineColor: '$focusRing',
+        //   outlineStyle: 'solid',
+        //   outlineWidth: 2,
+        // },
       })}
       onPress={handlePress}
     >
@@ -86,7 +85,7 @@ function ActionListItem({
   );
 }
 
-interface IActionListSection {
+export interface IActionListSection {
   title?: string;
   items: IActionListItemProps[];
 }
