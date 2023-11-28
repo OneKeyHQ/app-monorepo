@@ -51,5 +51,6 @@ export * as DelayedFreeze from './DelayedFreeze';
 export * from './RefreshControl';
 export * from './BlurView';
 export * from './Navigation';
+export * from './Splash';
 
 export { Provider };
