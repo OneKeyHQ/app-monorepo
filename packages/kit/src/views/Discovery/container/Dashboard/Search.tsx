@@ -111,6 +111,7 @@ function SearchModal() {
                 subtitleProps={{
                   numberOfLines: 1,
                 }}
+                testID={item._id}
                 onPress={() => {
                   handleOnPress(item);
                 }}

@@ -11,10 +11,11 @@ import { YStack } from '../Stack';
 import { Text } from '../Text';
 import { Trigger } from '../Trigger';
 
+import type IBaseProps from '../IBaseProps';
 import type { IKeyOfIcons } from '../Icon';
 import type { IPopoverProps } from '../Popover';
 
-interface IActionListItemProps {
+interface IActionListItemProps extends IBaseProps {
   icon?: IKeyOfIcons;
   label: string;
   destructive?: boolean;
@@ -63,6 +64,7 @@ function ActionListItem({
         // },
       })}
       onPress={handlePress}
+      testID={`action-list-item-${label.toLocaleLowerCase()}`}
     >
       {icon && (
         <Icon

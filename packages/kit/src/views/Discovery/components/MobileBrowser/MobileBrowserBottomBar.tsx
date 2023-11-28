@@ -131,6 +131,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
+          testID="browser-bar-go-back"
           disabled={displayHomePage ? true : !tab?.canGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
@@ -142,6 +143,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           variant="tertiary"
           size="medium"
           icon="ChevronRightOutline"
+          testID="browser-bar-go-forward"
           disabled={displayHomePage ? true : !tab?.canGoForward}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
@@ -154,6 +156,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           size="medium"
           icon="PlusLargeOutline"
           onPress={handleAddNewTab}
+          testID="browser-bar-add"
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -163,6 +166,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           pressStyle={{
             bg: '$bgActive',
           }}
+          testID="browser-bar-tabs"
           onPress={() => {
             void handleShowTabList();
           }}
@@ -221,6 +225,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             variant="tertiary"
             size="medium"
             icon="DotHorOutline"
+            testID="browser-bar-options"
             disabled={displayHomePage}
           />
         </MobileBrowserBottomOptions>

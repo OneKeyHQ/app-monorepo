@@ -58,7 +58,12 @@ function TabToolBar({
       borderTopColor="$borderSubdued"
     >
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button variant="tertiary" size="medium" onPress={onCloseAll}>
+        <Button
+          variant="tertiary"
+          size="medium"
+          testID="tab-list-modal-close-all"
+          onPress={onCloseAll}
+        >
           Close All
         </Button>
       </Stack>
@@ -67,11 +72,17 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
+          testID="tab-list-modal-add"
           onPress={onAddTab}
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button variant="tertiary" size="medium" onPress={onDone}>
+        <Button
+          variant="tertiary"
+          size="medium"
+          testID="tab-list-modal-done"
+          onPress={onDone}
+        >
           Done
         </Button>
       </Stack>
@@ -294,6 +305,7 @@ function MobileTabListModal() {
           contentContainerStyle={{
             p: '$1',
           }}
+          testID="tab-modal-pinned-list"
           ref={pinnedListRef}
           horizontal
           data={pinnedData}

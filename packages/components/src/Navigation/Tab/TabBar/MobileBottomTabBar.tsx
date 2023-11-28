@@ -66,7 +66,7 @@ export default function MobileBottomTabBar({
 
         return (
           <Stack
-            testID="Mobile-AppTabBar-TabItem"
+            testID={route.name.toLocaleLowerCase()}
             flex={1}
             key={route.name}
             onPress={onPress}

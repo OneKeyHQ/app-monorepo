@@ -23,6 +23,7 @@ function Dashboard() {
       </Stack>
 
       <Button
+        testID="fake-search-modal"
         onPress={() => {
           console.log('onPress');
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
