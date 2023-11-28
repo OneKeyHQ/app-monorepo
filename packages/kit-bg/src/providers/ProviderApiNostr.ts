@@ -1,6 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type {
   INostrRelays,
   NostrEvent,
@@ -67,7 +68,13 @@ class ProviderApiNostr extends ProviderApiBase {
 
   private checkWalletSupport(walletId: string) {
     if (!isHdWallet({ walletId })) {
-      throw web3Errors.rpc.methodNotSupported();
+      const errorMessage = formatMessage(
+        {
+          id: 'content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet',
+        },
+        { 0: 'Nostr' },
+      );
+      throw new Error(errorMessage);
     }
   }
 
