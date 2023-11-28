@@ -34,7 +34,7 @@ export function SplashView({ onReady }: ISplashViewProps) {
         <Image
           flex={1}
           source={{
-            uri: require('../../assets/splash.svg'),
+            uri: require('../../../assets/splash.svg'),
           }}
         />
       </Stack>
