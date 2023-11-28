@@ -85,7 +85,6 @@ function useAppNavigation<
         headerSearchBarOptions: {
           // always show search bar on iOS
           hideNavigationBar: false,
-          // @ts-expect-error
           hideWhenScrolling: false,
           cancelButtonText: searchCancelText,
           textColor: searchTextColor,

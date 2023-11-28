@@ -41,15 +41,21 @@ export function RootModalNavigator<RouteName extends string>({
   );
   const insets = useSafeAreaInsets();
 
+  // iOS Pad Modal not is full screen
+  const modalStyle =
+    PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad
+      ? {
+          paddingBottom: insets.bottom,
+          bg: '$bgApp',
+        }
+      : {};
+
   return (
     <Stack
       flex={1}
-      paddingBottom={
-        // iOS Pad Modal not is full screen
-        PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad ? insets.bottom : 0
-      }
       paddingLeft={insets.left}
       paddingRight={insets.right}
+      {...modalStyle}
     >
       <ThemeProvider value={TransparentModalTheme}>
         <ModalStack.Navigator screenOptions={screenOptions}>

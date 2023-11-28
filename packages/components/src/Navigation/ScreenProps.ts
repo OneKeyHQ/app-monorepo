@@ -84,6 +84,9 @@ export interface ISearchBarProps {
    */
   shouldShowHintSearchIcon?: boolean;
   hideNavigationBar?: boolean;
+  hideWhenScrolling?: boolean;
+  autoFocus?: boolean;
+  cancelButtonText?: string;
 }
 
 export type IStackHeaderProps = {

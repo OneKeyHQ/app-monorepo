@@ -23,6 +23,7 @@ export * from './Select';
 export * from './Dialog';
 export * from './ActionList';
 export * from './Slider';
+export * from './UnorderedList';
 export * from './Popover';
 export * from './Shortcut';
 export * from './Progress';
