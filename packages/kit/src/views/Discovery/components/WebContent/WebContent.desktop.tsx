@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
-
 import { onNavigation } from '../../hooks/useWebController';
 import useWebTabAction from '../../hooks/useWebTabAction';
 import { webviewRefs } from '../../utils/explorerUtils';
