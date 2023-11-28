@@ -43,7 +43,7 @@ function HomePageContainer() {
     undefined,
     true,
   );
-  const data = useMemo(
+  const tabs = useMemo(
     () => [
       {
         title: intl.formatMessage({
@@ -88,47 +88,47 @@ function HomePageContainer() {
       if (platformEnv.isNative) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         container?.current?.setNativeProps?.({
-          height: Math.max(data[index].contentHeight ?? 0, finallyHeight),
+          height: Math.max(tabs[index].contentHeight ?? 0, finallyHeight),
         });
       } else {
         setContentHeight(
-          Math.max(data[index].contentHeight ?? 0, finallyHeight),
+          Math.max(tabs[index].contentHeight ?? 0, finallyHeight),
         );
       }
     },
-    [data, config, container],
+    [tabs, config, container],
   );
 
   const pageManager = useMemo(
     () =>
       new PageManager({
-        data,
+        data: tabs,
         initialScrollIndex: 0,
         onSelectedPageIndex: (index: number) => {
           reloadContentHeight(index);
-          const { contentOffsetY } = data[index];
+          const { contentOffsetY } = tabs[index];
           const lastContentOffsetY =
-            data?.[config.lastIndex]?.contentOffsetY ?? 0;
+            tabs?.[config.lastIndex]?.contentOffsetY ?? 0;
 
           if (
             Math.round(lastContentOffsetY) < Math.round(config.headerLayoutY)
           ) {
-            data[index].contentOffsetY = lastContentOffsetY;
+            tabs[index].contentOffsetY = lastContentOffsetY;
           } else if (
             Math.round(contentOffsetY) <= Math.round(config.headerLayoutY)
           ) {
-            data[index].contentOffsetY = config.headerLayoutY;
+            tabs[index].contentOffsetY = config.headerLayoutY;
           }
 
           // Need to wait for contentHeight to be updated
           setTimeout(() => {
             if (platformEnv.isNative) {
               scrollView?.current?.setNativeProps({
-                contentOffset: { y: data[index].contentOffsetY },
+                contentOffset: { y: tabs[index].contentOffsetY },
               });
             } else {
               scrollView?.current?.scrollTo({
-                y: data[index].contentOffsetY,
+                y: tabs[index].contentOffsetY,
                 animated: false,
               });
             }
@@ -136,7 +136,7 @@ function HomePageContainer() {
           config.lastIndex = index;
         },
       }),
-    [data, config, scrollView, reloadContentHeight],
+    [tabs, config, scrollView, reloadContentHeight],
   );
   const Header = pageManager.renderHeaderView;
   const Content = pageManager.renderContentView;
@@ -197,7 +197,7 @@ function HomePageContainer() {
             }}
             onScroll={(event) => {
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              data[pageManager.pageIndex].contentOffsetY = (
+              tabs[pageManager.pageIndex].contentOffsetY = (
                 event as any
               ).nativeEvent.contentOffset.y;
             }}
@@ -254,7 +254,7 @@ function HomePageContainer() {
       onRefresh,
       renderHeaderView,
       renderContentItem,
-      data,
+      tabs,
       config,
       pageManager,
     ],
