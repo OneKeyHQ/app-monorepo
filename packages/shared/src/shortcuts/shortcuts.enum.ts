@@ -6,11 +6,10 @@ export enum EBrowserShortcutEvents {
   CloseTab = 'CloseTab',
 }
 
-export const getShortcutsMap: (
-  isMac?: boolean,
-) => Record<EBrowserShortcutEvents, { keys: string | null; desc: string }> = (
-  isMac,
-) => ({
+export const getShortcutsMap: () => Record<
+  EBrowserShortcutEvents,
+  { keys: string | null; desc: string }
+> = () => ({
   [EBrowserShortcutEvents.GoBackHistory]: {
     keys: 'CmdOrCtrl+[',
     desc: 'Go back history',
