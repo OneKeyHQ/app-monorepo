@@ -5,8 +5,8 @@ import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
 
 import { Portal } from '@onekeyhq/components';
-import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { RootStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import AppStateLockContainer from '../../components/AppLock/container/AppStateLockContainer';

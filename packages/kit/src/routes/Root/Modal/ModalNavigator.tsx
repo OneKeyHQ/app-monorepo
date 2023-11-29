@@ -1,5 +1,5 @@
-import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/Stack';
 
 import { ModalDiscoveryStack } from './Discovery';

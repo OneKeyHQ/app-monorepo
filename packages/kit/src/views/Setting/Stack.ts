@@ -1,4 +1,4 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import SettingCurrencyModal from '@onekeyhq/kit/src/views/Setting/Currency';
 import SettingLanguageModal from '@onekeyhq/kit/src/views/Setting/Language';
 import SettingListModal from '@onekeyhq/kit/src/views/Setting/List';
