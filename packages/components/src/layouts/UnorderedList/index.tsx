@@ -1,10 +1,8 @@
 import { Children, cloneElement, isValidElement } from 'react';
 
-import { Icon } from '../Icon';
-import { Stack, XStack } from '../Stack';
-import { Text } from '../Text';
+import { Icon, Stack, Text, XStack } from '../../primitives';
 
-import type { IIconProps } from '../Icon';
+import type { IIconProps } from '../../primitives';
 import type { StackProps, XStackProps } from 'tamagui';
 
 interface IUnOrderedListItemProps extends XStackProps {
