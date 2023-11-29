@@ -5,16 +5,18 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
-import type { IActionListSection } from '@onekeyhq/components';
-import { Icon, Portal, YStack } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Icon } from '../../../Icon';
+import { Portal } from '../../../Portal';
 import useProviderSideBarValue from '../../../Provider/hooks/useProviderSideBarValue';
+import { YStack } from '../../../Stack';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
+import type { IActionListSection } from '../../../ActionList';
 import type { IKeyOfIcons } from '../../../Icon';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {

@@ -23,6 +23,7 @@ export * from './Select';
 export * from './Dialog';
 export * from './ActionList';
 export * from './Slider';
+export * from './UnorderedList';
 export * from './Popover';
 export * from './Shortcut';
 export * from './Progress';
@@ -51,5 +52,6 @@ export * as DelayedFreeze from './DelayedFreeze';
 export * from './RefreshControl';
 export * from './BlurView';
 export * from './Navigation';
+export * from './Splash';
 
 export { Provider };
