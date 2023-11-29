@@ -15,6 +15,7 @@ export default function TestSimpleModal() {
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
   );
+  const [showHeader, changeHeaderStatus] = useState(true);
   const [showFooter, changeFooterStatus] = useState(true);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
@@ -25,8 +26,16 @@ export default function TestSimpleModal() {
   }, [navigation]);
   return (
     <Page>
-      <Page.Header title="test modal" headerRight={headerRightCall} />
+      <Page.Header
+        title="test modal"
+        headerShown={showHeader}
+        headerRight={headerRightCall}
+      />
       <Page.Body bg="burlywood">
+        <XStack>
+          <Switch value={showHeader} onChange={changeHeaderStatus} />
+          <Text>{showHeader ? 'Show Header' : 'Hide Header'}</Text>
+        </XStack>
         <XStack>
           <Switch value={showFooter} onChange={changeFooterStatus} />
           <Text>{showFooter ? 'Show Footer' : 'Hide Fotter'}</Text>
