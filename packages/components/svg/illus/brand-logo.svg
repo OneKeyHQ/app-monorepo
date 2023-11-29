@@ -1,6 +1,6 @@
 <svg width="27" height="27" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g clip-path="url(#clip0_3773_6487)">
-<mask id="mask0_3773_6487" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="27" height="27">
+<mask id="mask0_3773_6487" maskUnits="userSpaceOnUse" x="0" y="0" width="27" height="27">
 <path d="M27 0H0V27H27V0Z" fill="white"/>
 </mask>
 <g mask="url(#mask0_3773_6487)">
@@ -13,7 +13,7 @@
 <path d="M27 13.5C27 22.8198 22.8198 27 13.5 27C4.18019 27 0 22.8198 0 13.5C0 4.18019 4.18019 0 13.5 0C22.8198 0 27 4.18019 27 13.5Z" fill="url(#paint3_radial_3773_6487)"/>
 <path d="M27 13.5C27 22.8198 22.8198 27 13.5 27C4.18019 27 0 22.8198 0 13.5C0 4.18019 4.18019 0 13.5 0C22.8198 0 27 4.18019 27 13.5Z" fill="url(#paint4_radial_3773_6487)"/>
 </g>
-<mask id="mask1_3773_6487" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="-1" y="-1" width="28" height="28">
+<mask id="mask1_3773_6487" maskUnits="userSpaceOnUse" x="-1" y="-1" width="28" height="28">
 <path d="M26.5 -0.5H-0.5V26.5H26.5V-0.5Z" fill="white"/>
 </mask>
 <g mask="url(#mask1_3773_6487)">

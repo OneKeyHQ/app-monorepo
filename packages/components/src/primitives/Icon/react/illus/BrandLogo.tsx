@@ -15,9 +15,6 @@ const SvgBrandLogo = (props: SvgProps) => (
     <G clipPath="url(#a)">
       <Mask
         id="b"
-        style={{
-          maskType: 'luminance',
-        }}
         maskUnits="userSpaceOnUse"
         x={0}
         y={0}
@@ -59,9 +56,6 @@ const SvgBrandLogo = (props: SvgProps) => (
         </G>
         <Mask
           id="h"
-          style={{
-            maskType: 'luminance',
-          }}
           maskUnits="userSpaceOnUse"
           x={-1}
           y={-1}
