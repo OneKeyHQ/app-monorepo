@@ -45,7 +45,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tabs } = useWebTabs();
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setDisplayHomePage, setCurrentWebTab } =
+  const { setWebTabData, setPinnedTab, setCurrentWebTab } =
     useBrowserTabActions();
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =

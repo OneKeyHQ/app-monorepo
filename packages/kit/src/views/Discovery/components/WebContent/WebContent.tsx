@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useMemo } from 'react';
 
-import { setWebTabData } from '../../store/contextWebTabs';
+// import { setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import WebView from '../WebView';
 
@@ -25,10 +25,10 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              void setWebTabData({
-                id,
-                refReady: true,
-              });
+              // void setWebTabData({
+              //   id,
+              //   refReady: true,
+              // });
             }
             webviewRefs[id] = ref;
           }

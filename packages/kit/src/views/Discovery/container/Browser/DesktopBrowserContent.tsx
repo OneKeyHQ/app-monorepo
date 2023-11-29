@@ -2,10 +2,10 @@ import { useMemo } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery'
-import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useWebTabDataById } from '../../hooks/useWebTabs';
 
 function DesktopBrowserContent({
   id,
