@@ -4,7 +4,7 @@
   "main": "index.js",
   "private": true,
   "scripts": {
-    "android": "NDROID_CHANNEL=direct expo run:android --variant=ProdDebug",
+    "android": "ANDROID_CHANNEL=direct expo run:android --variant=ProdDebug",
     "android:device": "ANDROID_CHANNEL=direct expo run:android --variant=ProdDebug --device",
     "android:huawei": "ANDROID_CHANNEL=huawei expo run:android --variant=ProdDebug",
     "android:google": "ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
