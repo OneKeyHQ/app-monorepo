@@ -1,7 +1,6 @@
 import { memo, useEffect } from 'react';
 
-import { Stack, useThemeValue } from '@onekeyhq/components';
-import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
+import { Stack, useSafeAreaInsets, useThemeValue } from '@onekeyhq/components';
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';

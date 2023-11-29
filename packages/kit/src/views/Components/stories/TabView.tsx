@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-import { ListView, Stack, Text } from '@onekeyhq/components';
-import { Tab } from '@onekeyhq/components/src/TabView';
+import { ListView, Stack, Tab, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
