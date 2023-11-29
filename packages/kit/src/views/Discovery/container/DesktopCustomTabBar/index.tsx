@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,

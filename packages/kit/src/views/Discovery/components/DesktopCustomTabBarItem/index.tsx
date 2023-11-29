@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';

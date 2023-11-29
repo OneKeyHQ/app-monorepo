@@ -1,4 +1,4 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import FakeSearchModal from '@onekeyhq/kit/src/views/Discovery/container/Dashboard/Search';
 import MobileTabListModal from '@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal';
 import SearchModal from '@onekeyhq/kit/src/views/Discovery/container/SearchModal';

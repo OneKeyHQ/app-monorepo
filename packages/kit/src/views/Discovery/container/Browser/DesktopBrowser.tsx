@@ -4,7 +4,7 @@ import { Page } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
-} from '@onekeyhq/components/src/Navigation/Header';
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';

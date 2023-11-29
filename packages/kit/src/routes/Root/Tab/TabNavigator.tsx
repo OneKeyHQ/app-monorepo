@@ -9,7 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv from '@onekeyhq/shared/src/platformEnv'; 
 
 import Browser from '../../../views/Discovery/container/Browser';
 import DiscoveryDashboard from '../../../views/Discovery/container/Dashboard';
