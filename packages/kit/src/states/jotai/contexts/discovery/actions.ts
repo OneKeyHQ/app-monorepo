@@ -3,8 +3,15 @@ import { isEqual } from 'lodash';
 import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { webviewRefs } from '../../../../views/Discovery/utils/explorerUtils';
+import { openUrl } from '../../../../utils/openUrl';
+import {
+  browserTypeHandler,
+  crossWebviewLoadUrl,
+  validateUrl,
+  webviewRefs,
+} from '../../../../views/Discovery/utils/explorerUtils';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -20,6 +27,9 @@ import {
 import type {
   IBrowserBookmark,
   IBrowserHistory,
+  IGotoSiteFnParams,
+  IMatchDAppItemType,
+  IOnWebviewNavigationFnParams,
   IWebTab,
 } from '../../../../views/Discovery/types';
 
@@ -324,6 +334,185 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     }
     this.buildHistoryData.call(set, history);
   });
+
+  /**
+   * Browser Logic
+   */
+  getWebTabById = contextAtomMethod((get, _, tabId: string) => {
+    const tabMaps = get(webTabsMapAtom());
+    return tabMaps?.[tabId || ''];
+  });
+
+  gotoSite = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        id,
+        url,
+        title,
+        favicon,
+        isNewWindow,
+        isInPlace,
+        userTriggered,
+      }: IGotoSiteFnParams,
+    ) => {
+      const tab = this.getWebTabById.call(set, id ?? '');
+      if (url) {
+        const validatedUrl = validateUrl(url);
+        if (!validatedUrl) {
+          return;
+        }
+
+        if (userTriggered) {
+          this.addBrowserHistory.call(set, { url, title: title ?? '' });
+        }
+
+        if (browserTypeHandler === 'StandardBrowser') {
+          return openUrl(validatedUrl);
+        }
+
+        const tabId = tab?.id;
+        const maybeDeepLink =
+          !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
+
+        const isNewTab =
+          (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
+          browserTypeHandler === 'MultiTabBrowser';
+
+        const bookmarks = get(browserBookmarkAtom());
+        const isBookmark = bookmarks?.some((item) =>
+          item.url.includes(validatedUrl),
+        );
+        if (isNewTab) {
+          this.addWebTab.call(set, {
+            title,
+            url: validatedUrl,
+            favicon,
+            isBookmark,
+          });
+        } else {
+          this.setWebTabData.call(set, {
+            id: tabId,
+            url: validatedUrl,
+            title,
+            favicon,
+            isBookmark,
+          });
+        }
+
+        if (!isNewTab && !isInPlace) {
+          crossWebviewLoadUrl({
+            url: validatedUrl,
+            tabId,
+          });
+        }
+
+        // close deep link tab after 1s
+        if (maybeDeepLink) {
+          if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
+            setTimeout(() => {
+              this.closeWebTab.call(set, tabId);
+            }, 1000);
+          }
+        }
+        return true;
+      }
+      return false;
+    },
+  );
+
+  openMatchDApp = contextAtomMethod(
+    (_, set, { dapp, webSite, isNewWindow }: IMatchDAppItemType) => {
+      if (webSite) {
+        return this.gotoSite.call(set, {
+          url: webSite.url,
+          title: webSite.title,
+          // TODO: get favicon from url
+          // @ts-expect-error
+          favicon: webSite.favicon,
+          isNewWindow,
+          userTriggered: true,
+        });
+      }
+      if (dapp) {
+        return this.gotoSite.call(set, {
+          url: dapp.url,
+          title: dapp.name,
+          dAppId: dapp._id,
+          favicon: dapp.logoURL,
+          userTriggered: true,
+          isNewWindow,
+        });
+      }
+    },
+  );
+
+  onNavigation = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        url,
+        isNewWindow,
+        isInPlace,
+        title,
+        favicon,
+        canGoBack,
+        canGoForward,
+        loading,
+        id,
+        handlePhishingUrl,
+      }: IOnWebviewNavigationFnParams,
+    ) => {
+      const now = Date.now();
+      const tab = this.getWebTabById.call(set, id ?? '');
+      if (!tab) {
+        return;
+      }
+      const isValidNewUrl = typeof url === 'string' && url !== tab.url;
+
+      if (url) {
+        const { action } = uriUtils.parseDappRedirect(url);
+        if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          handlePhishingUrl?.(url);
+          return;
+        }
+      }
+
+      if (isValidNewUrl) {
+        if (tab.timestamp && now - tab.timestamp < 500) {
+          // ignore url change if it's too fast to avoid back & forth loop
+          return;
+        }
+        if (
+          homeResettingFlags[tab.id] &&
+          url !== homeTab.url &&
+          now - homeResettingFlags[tab.id] < 1000
+        ) {
+          return;
+        }
+
+        this.gotoSite.call(set, {
+          url,
+          title,
+          favicon,
+          isNewWindow,
+          isInPlace,
+          id: tab.id,
+        });
+      }
+
+      this.setWebTabData.call(set, {
+        id: tab.id,
+        title,
+        favicon,
+        canGoBack,
+        canGoForward,
+        loading,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -381,5 +570,18 @@ export function useBrowserHistoryAction() {
     buildHistoryData,
     addBrowserHistory,
     removeBrowserHistory,
+  };
+}
+
+export function useBrowserAction() {
+  const actions = createActions();
+  const gotoSite = actions.gotoSite.use();
+  const openMatchDApp = actions.openMatchDApp.use();
+  const onNavigation = actions.onNavigation.use();
+
+  return {
+    gotoSite,
+    openMatchDApp,
+    onNavigation,
   };
 }
