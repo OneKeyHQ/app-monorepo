@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Page, Switch, Text, XStack } from '@onekeyhq/components';
-import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 

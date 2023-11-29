@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
@@ -45,7 +45,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tabs } = useWebTabs();
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setDisplayHomePage, setCurrentWebTab } =
+  const { setWebTabData, setPinnedTab, setCurrentWebTab } =
     useBrowserTabActions();
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =

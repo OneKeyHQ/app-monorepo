@@ -1,10 +1,10 @@
 import { getTokenValue } from 'tamagui';
 
-import { TabStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import { TabStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
-} from '@onekeyhq/components/src/Navigation/Navigator/types';
+} from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import {
   EAppEventBusNames,
   appEventBus,

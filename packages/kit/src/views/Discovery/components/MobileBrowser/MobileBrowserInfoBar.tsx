@@ -4,7 +4,7 @@ import { XStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
-} from '@onekeyhq/components/src/Navigation/Header';
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import HeaderLeftToolBar from '../HeaderLeftToolBar';
 

@@ -14,7 +14,7 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,

@@ -1,8 +1,8 @@
 import { Text } from 'react-native';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, ListView, Stack, XStack } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components/src/Icon/Icons';
-import Icons from '@onekeyhq/components/src/Icon/Icons';
+import Icons from '@onekeyhq/components/src/primitives/Icon/Icons';
 
 import { Layout } from './utils/Layout';
 

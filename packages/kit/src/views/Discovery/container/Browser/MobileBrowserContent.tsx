@@ -3,13 +3,16 @@ import { useCallback, useMemo, useState } from 'react';
 import { Freeze } from 'react-freeze';
 import { Stack } from 'tamagui';
 
+import {
+  homeTab,
+  useBrowserHistoryAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard';
-import { homeTab, useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery'
 
 import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
 
