@@ -35,7 +35,7 @@
     "rimraf": "^3"
   },
   "scripts": {
-    "build:icons": "rimraf src/Icon/react && svgr --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
+    "icon:build": "rimraf src/Icon/react && svgr --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
