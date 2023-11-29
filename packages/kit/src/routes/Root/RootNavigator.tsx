@@ -10,6 +10,7 @@ import { RootStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/
 import AppStateLockContainer from '../../components/AppLock/container/AppStateLockContainer';
 
 import ModalNavigator from './Modal/ModalNavigator';
+import NativeFullScreenNavigator from './NativeFullScreenNavigator/NativeFullScreenNavigator';
 import { ERootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
 
@@ -23,6 +24,11 @@ const rootConfig: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
+  },
+  {
+    name: ERootRoutes.NativeFullScreen,
+    component: NativeFullScreenNavigator,
+    type: 'nativeFullScreen',
   },
 ];
 

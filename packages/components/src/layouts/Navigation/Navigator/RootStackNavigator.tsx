@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useIsVerticalLayout, useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
@@ -11,7 +13,7 @@ import { createStackNavigator } from '../StackNavigator';
 import type { ICommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-type IRootStackType = 'normal' | 'modal' | 'fullScreen';
+type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'nativeFullScreen';
 
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
@@ -54,6 +56,10 @@ export function RootStackNavigator<
           return makeModalScreenOptions({ isVerticalLayout });
         case 'fullScreen':
           return makeFullScreenOptions();
+        case 'nativeFullScreen':
+          return platformEnv.isNative
+            ? makeFullScreenOptions()
+            : makeModalScreenOptions({ isVerticalLayout });
         default:
           return {};
       }

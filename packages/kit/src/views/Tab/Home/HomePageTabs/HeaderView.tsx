@@ -6,6 +6,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { EModalTestRoutes } from '../../../../routes/Root/Modal/TestModal/Routes';
+import { ENativeFullScreenModalRoutes } from '../../../../routes/Root/NativeFullScreenNavigator/Routes';
+import { ENativeFullModalTestRoutes } from '../../../../routes/Root/NativeFullScreenNavigator/TestModal/Routes';
 import { ETabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
 import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
@@ -37,6 +39,12 @@ export default function HomePageHeaderView() {
     });
   }, [navigation]);
 
+  const navigateFullScreenSimpleModal = useCallback(() => {
+    navigation.pushFullModal(ENativeFullScreenModalRoutes.NativeFullModal, {
+      screen: ENativeFullModalTestRoutes.TestFullSimpleModal,
+    });
+  }, [navigation]);
+
   return useMemo(
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
@@ -47,6 +55,9 @@ export default function HomePageHeaderView() {
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
+        <Button onPress={navigateFullScreenSimpleModal}>
+          to TestFullScreenSimpleModal
+        </Button>
       </YStack>
     ),
     [headerHighMode, headerHeightCall, onNextPageCall, navigateTestSimpleModal],

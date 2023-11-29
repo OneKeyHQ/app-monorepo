@@ -15,6 +15,10 @@ import type {
   EModalRoutes,
   IModalParamList,
 } from '../routes/Root/Modal/Routes';
+import type {
+  ENativeFullScreenModalRoutes,
+  IFullScreenModalParamList,
+} from '../routes/Root/NativeFullScreenNavigator/Routes';
 import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
 
 function useAppNavigation<
@@ -58,6 +62,19 @@ function useAppNavigation<
     },
   ) => {
     navigation.navigate(ERootRoutes.Modal, {
+      screen: route,
+      params,
+    });
+  };
+
+  const pushFullModal = <T extends ENativeFullScreenModalRoutes>(
+    route: T,
+    params?: {
+      screen: keyof IFullScreenModalParamList[T];
+      params?: IFullScreenModalParamList[T][keyof IFullScreenModalParamList[T]];
+    },
+  ) => {
+    navigation.navigate(ERootRoutes.NativeFullScreen, {
       screen: route,
       params,
     });
@@ -109,6 +126,7 @@ function useAppNavigation<
     navigate: navigation.navigate,
     switchTab,
     pushModal,
+    pushFullModal,
     pop,
     popStack,
     setOptions,
