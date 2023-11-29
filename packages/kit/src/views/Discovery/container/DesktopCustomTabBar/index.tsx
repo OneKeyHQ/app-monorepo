@@ -35,9 +35,9 @@ function DesktopCustomTabBar() {
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const data = useMemo(() => {
-    const UnpinnedData = (tabs ?? []).filter((t) => !t.isPinned);
-    UnpinnedData.reverse();
-    return UnpinnedData;
+    const unpinnedData = (tabs ?? []).filter((t) => !t.isPinned);
+    unpinnedData.reverse();
+    return unpinnedData;
   }, [tabs]);
   const pinnedData = useMemo(
     () => (tabs ?? []).filter((t) => t.isPinned),

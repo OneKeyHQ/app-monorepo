@@ -237,6 +237,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isPinned: payload.pinned,
         timestamp: Date.now(),
       });
+      this.refreshTabs.call(set);
     },
   );
 
