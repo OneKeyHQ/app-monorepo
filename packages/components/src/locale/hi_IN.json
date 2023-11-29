@@ -908,6 +908,7 @@
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "अनुबंध का पता लगाना अभी सही नहीं है, इसलिए उनमें से कुछ दरारों से फिसल सकते हैं। यदि आप भत्ता चेक करते समय कोई गलत सामग्री देखते हैं, तो कृपया हमें हमारे DISCORD सर्वर में बताएं।",
   "content__the_current_statistical_content_only_includes": "वर्तमान सांख्यिकीय सामग्री में केवल {0} श्रृंखला पर टोकन और {0} पर NFTs शामिल हैं, और अधिक श्रृंखलाएँ जल्द ही आ रही हैं.",
   "content__the_current_statistical_content_only_includes_the_assets": "वर्तमान सांख्यिकीय सामग्री में केवल {0} नेटवर्क पर संपत्तियां शामिल हैं, और अधिक नेटवर्क जल्द ही आ रहे हैं।",
+  "content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet": "वर्तमान वॉलेट {0} का समर्थन नहीं करता है, ऐप वॉलेट पर स्विच करें",
   "content__the_decentralized_web_awaits": "विकेंद्रीकृत वेब इंतजार कर रहा है",
   "content__the_recipient_address_is_a_contract_address_and_the_tokens_sent_may_be_lost": "प्राप्तकर्ता का पता एक अनुबंध का पता है, और भेजे गए टोकन खो सकते हैं।",
   "content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser": "सांख्यिकीय दायरा ETH नेटवर्क तक सीमित है।\n सारा डेटा ब्लॉकचेन ब्राउज़र से आता है। OneKey किसी भी उपयोगकर्ता का गोपनीयता डेटा नहीं सहेजेगा।",

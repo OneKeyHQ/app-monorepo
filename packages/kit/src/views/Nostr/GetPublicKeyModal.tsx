@@ -111,8 +111,10 @@ const NostrGetPublicKeyModal = () => {
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
+      onModalClose={dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
+        close();
       }}
       height="auto"
       scrollViewProps={{

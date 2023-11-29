@@ -908,6 +908,7 @@
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "Deteksi kontrak belum sempurna, jadi beberapa dari mereka mungkin lolos dari celah. Jika Anda melihat konten yang salah saat memeriksa uang saku, beri tahu kami di server DISCORD kami.",
   "content__the_current_statistical_content_only_includes": "Konten statistik saat ini hanya mencakup token pada rantai {0} dan NFT pada {0} , lebih banyak rantai segera hadir.",
   "content__the_current_statistical_content_only_includes_the_assets": "Konten statistik saat ini hanya mencakup aset pada rantai {0} , rantai lainnya akan segera hadir.",
+  "content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet": "Dompet saat ini tidak mendukung {0} , beralihlah ke dompet aplikasi",
   "content__the_decentralized_web_awaits": "Web terdesentralisasi menunggu",
   "content__the_recipient_address_is_a_contract_address_and_the_tokens_sent_may_be_lost": "Alamat penerima adalah alamat kontrak, dan token yang dikirim mungkin hilang.",
   "content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser": "Cakupan statistik terbatas pada jaringan ETH.\n Semua data berasal dari browser blockchain. OneKey tidak akan menyimpan data privasi pengguna mana pun.",

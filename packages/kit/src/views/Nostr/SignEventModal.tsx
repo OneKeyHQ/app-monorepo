@@ -315,13 +315,10 @@ const NostrSignEventModal = () => {
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
-      onModalClose={() => {
+      onModalClose={dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
-      }}
-      onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
+        close();
       }}
       height={isDMEvent ? '580px' : '500px'}
       scrollViewProps={{

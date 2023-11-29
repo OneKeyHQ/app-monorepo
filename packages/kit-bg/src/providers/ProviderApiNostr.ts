@@ -67,7 +67,9 @@ class ProviderApiNostr extends ProviderApiBase {
 
   private checkWalletSupport(walletId: string) {
     if (!isHdWallet({ walletId })) {
-      throw web3Errors.rpc.methodNotSupported();
+      throw new Error(
+        'The current wallet does not support Nostr, switch to an app wallet',
+      );
     }
   }
 
