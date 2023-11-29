@@ -18,7 +18,7 @@ import {
   TAB_LIST_ITEM_SPACING,
   THUMB_WIDTH,
 } from '../../config/TabList.constants';
-import { useWebTabData } from '../../hooks/useWebTabs';
+import { useWebTabDataById } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
 
@@ -34,7 +34,7 @@ function MobileTabListItem({
   onCloseItem: (id: string) => void;
   onLongPress: (id: string) => void;
 }) {
-  const { tab } = useWebTabData(id);
+  const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack

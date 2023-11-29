@@ -15,15 +15,17 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import {
+  useBrowserBookmarkAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
   useDisabledAddedNewTab,
@@ -96,12 +98,12 @@ function MobileTabListModal() {
     useBrowserBookmarkAction();
 
   const {
-    closeAllWebTab,
+    closeAllWebTabs,
     setCurrentWebTab,
     closeWebTab,
     setPinnedTab,
     setDisplayHomePage,
-  } = useWebTabAction();
+  } = useBrowserTabActions();
 
   const triggerCloseTab = useRef(false);
   useEffect(() => {
@@ -337,7 +339,7 @@ function MobileTabListModal() {
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
             triggerCloseTab.current = true;
-            void closeAllWebTab();
+            closeAllWebTabs();
           }}
           onDone={() => {
             navigation.pop();

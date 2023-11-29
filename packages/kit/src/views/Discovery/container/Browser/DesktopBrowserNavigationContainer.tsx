@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
+import {
+  useBrowserBookmarkAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
-  useWebTabData,
+  useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
@@ -23,9 +26,9 @@ function DesktopBrowserNavigationBar({
   id: string;
   activeTabId: string | null;
 }) {
-  const { tab } = useWebTabData(id);
+  const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const { setPinnedTab, setWebTabData } = useWebTabAction();
+  const { setPinnedTab, setWebTabData } = useBrowserTabActions();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const [innerRef, setInnerRef] = useState<IElectronWebView>(

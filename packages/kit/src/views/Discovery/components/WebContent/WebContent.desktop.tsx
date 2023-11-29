@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { onNavigation } from '../../hooks/useWebController';
-import useWebTabAction from '../../hooks/useWebTabAction';
+import {
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+
 import { webviewRefs } from '../../utils/explorerUtils';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';
@@ -23,7 +26,8 @@ type IWebContentProps = IWebTab &
 function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const urlRef = useRef<string>('');
   const [showPhishingView, setShowPhishingView] = useState(false);
-  const { setWebTabData, closeWebTab } = useWebTabAction();
+  const { setWebTabData, closeWebTab } = useBrowserTabActions();
+  const { onNavigation } = useBrowserAction();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -42,7 +46,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   }, [id]);
   const onDidStartLoading = useCallback(() => {
     onNavigation({ id, loading: true });
-  }, [id]);
+  }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
     ({
       url: willNavigationUrl,
@@ -64,7 +68,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
         urlRef.current = willNavigationUrl;
       }
     },
-    [getNavStatusInfo, id],
+    [getNavStatusInfo, id, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
     onNavigation({
@@ -72,7 +76,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
       loading: false,
       ...getNavStatusInfo(),
     });
-  }, [getNavStatusInfo, id]);
+  }, [getNavStatusInfo, id, onNavigation]);
   const onPageTitleUpdated = useCallback(
     ({ title }: PageTitleUpdatedEvent) => {
       if (title && title.length) {
@@ -85,7 +89,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
         }
       }
     },
-    [id, addBrowserHistory],
+    [id, addBrowserHistory, onNavigation],
   );
   const onPageFaviconUpdated = useCallback(
     ({ favicons }: PageFaviconUpdatedEvent) => {
@@ -96,7 +100,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
         });
       }
     },
-    [id],
+    [id, onNavigation],
   );
   // const onNewWindow = useCallback(
   //   ({ url: newWindowUrl }: NewWindowEvent) => {

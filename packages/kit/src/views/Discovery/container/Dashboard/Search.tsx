@@ -13,13 +13,15 @@ import {
   Skeleton,
   Stack,
 } from '@onekeyhq/components';
+import {
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
-import { openMatchDApp } from '../../utils/gotoSite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';
@@ -27,8 +29,9 @@ import { mockData } from './dataSource';
 function SearchModal() {
   const navigation = useAppNavigation();
   const [value, setValue] = useState('');
-  const { setDisplayHomePage } = useWebTabAction();
+  const { setDisplayHomePage } = useBrowserTabActions();
   const { displayHomePage } = useDisplayHomePageFlag();
+  const { openMatchDApp } = useBrowserAction();
 
   useEffect(() => {
     console.log('SearchModal renderer ===> : ', displayHomePage);
@@ -68,7 +71,7 @@ function SearchModal() {
         navigation.pop();
       }
     },
-    [setDisplayHomePage, navigation],
+    [setDisplayHomePage, navigation, openMatchDApp],
   );
 
   const dataSource = useMemo(() => {

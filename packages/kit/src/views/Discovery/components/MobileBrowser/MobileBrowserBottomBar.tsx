@@ -5,26 +5,27 @@ import { captureRef } from 'react-native-view-shot';
 
 import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import {
+  useBrowserBookmarkAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_WIDTH } from '../../config/TabList.constants';
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useDisabledAddedNewTab,
   useDisplayHomePageFlag,
-  useWebTabData,
+  useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,
 } from '../../router/Routes';
-import { setWebTabData } from '../../store/contextWebTabs';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
@@ -40,11 +41,12 @@ interface IMobileBrowserBottomBarProps extends StackProps {
 function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { tab } = useWebTabData(id);
+  const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setPinnedTab, setDisplayHomePage } = useWebTabAction();
+  const { setWebTabData, setPinnedTab, setDisplayHomePage } =
+    useBrowserTabActions();
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
@@ -67,7 +69,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
         })
           .then(async (imageUri) => {
             const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-            void setWebTabData({
+            setWebTabData({
               id,
               thumbnail: path,
             });
@@ -79,7 +81,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             reject(e);
           });
       }),
-    [id],
+    [id, setWebTabData],
   );
 
   const handleShowTabList = useCallback(async () => {

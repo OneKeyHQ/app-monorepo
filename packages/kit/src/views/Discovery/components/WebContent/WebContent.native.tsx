@@ -9,14 +9,15 @@ import {
   ScrollView,
   Stack,
 } from '@onekeyhq/components';
+import {
+  homeTab,
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
-import { onNavigation } from '../../hooks/useWebController';
-import useWebTabAction from '../../hooks/useWebTabAction';
-import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
-import { gotoSite } from '../../utils/gotoSite';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';
 
@@ -58,7 +59,8 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
-  const { closeWebTab } = useWebTabAction();
+  const { onNavigation, gotoSite } = useBrowserAction();
+  const { setWebTabData, closeWebTab } = useBrowserTabActions();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -121,7 +123,7 @@ function WebContent({
         });
       }
     },
-    [id],
+    [id, onNavigation],
   );
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -161,7 +163,7 @@ function WebContent({
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              void setWebTabData({
+              setWebTabData({
                 id,
                 refReady: true,
               });
@@ -188,7 +190,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome, androidLayerType, height],
+    [id, gotoSite, showHome, androidLayerType, height],
   );
 
   const progressBar = useMemo(() => {

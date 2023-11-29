@@ -13,6 +13,7 @@ import { Page, Stack, Text } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
@@ -25,11 +26,10 @@ import {
   THROTTLE_TIME,
   THROTTLE_TIME_WHEN_REACH_BOTTOM,
 } from '../../config/Animation.constants';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
-  useWebTabData,
+  useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -46,7 +46,7 @@ function MobileBrowser() {
   const navigationCore = useNavigation();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { tab } = useWebTabData(activeTabId ?? '');
+  const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
@@ -58,7 +58,7 @@ function MobileBrowser() {
     return false;
   }, [displayHomePage, tabs]);
 
-  const { setDisplayHomePage } = useWebTabAction();
+  const { setDisplayHomePage } = useBrowserTabActions();
   const firstRender = useRef(true);
   useEffect(() => {
     if (!firstRender.current && tabs.length === 0) {

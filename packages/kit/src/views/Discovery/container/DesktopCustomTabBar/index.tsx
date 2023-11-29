@@ -3,6 +3,10 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
+import {
+  useBrowserBookmarkAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import {
   EAppEventBusNames,
@@ -14,8 +18,6 @@ import useListenTabFocusState from '../../../../hooks/useListenTabFocusState';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import {
   EDiscoveryModalRoutes,
@@ -28,8 +30,8 @@ function DesktopCustomTabBar() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTab } =
-    useWebTabAction();
+  const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTabs } =
+    useBrowserTabActions();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction();
   const data = useMemo(() => {
@@ -73,13 +75,13 @@ function DesktopCustomTabBar() {
 
   useEffect(() => {
     const listener = () => {
-      void closeAllWebTab();
+      closeAllWebTabs();
     };
     appEventBus.on(EAppEventBusNames.CloseAllBrowserTab, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.CloseAllBrowserTab, listener);
     };
-  }, [closeAllWebTab]);
+  }, [closeAllWebTabs]);
 
   return (
     <Stack flex={1}>

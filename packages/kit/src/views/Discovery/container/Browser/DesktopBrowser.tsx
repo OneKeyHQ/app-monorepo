@@ -33,6 +33,7 @@ function DesktopBrowser() {
   return (
     <Page>
       <Page.Header
+        // @ts-expect-error
         headerTitle={DesktopBrowserNavigationContainer}
         // eslint-disable-next-line react/no-unstable-nested-components
         headerRight={() => (

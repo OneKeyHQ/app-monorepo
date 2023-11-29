@@ -1,12 +1,9 @@
 import { useMemo } from 'react';
 
-import {
-  browserBookmarkAtom,
-  useAtomBrowserBookmark,
-} from '../store/contextBrowserBookmark';
+import { useBrowserBookmarkAtom } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 function useBrowserBookmark() {
-  const [browserBookmark] = useAtomBrowserBookmark(browserBookmarkAtom);
+  const [browserBookmark] = useBrowserBookmarkAtom();
   return useMemo(
     () => ({
       browserBookmark,

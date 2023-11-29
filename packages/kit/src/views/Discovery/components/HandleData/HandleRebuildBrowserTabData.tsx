@@ -1,55 +1,58 @@
 import { useEffect } from 'react';
 
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
+import {
+  useBrowserBookmarkAction,
+  useBrowserHistoryAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+
 import {
   useBrowserBookmarksDataFromSimpleDb,
   useBrowserHistoryDataFromSimpleDb,
   useBrowserTabDataFromSimpleDb,
 } from '../../hooks/useBrowserDataFromSimpleDb';
-import useBrowserHistoryAction from '../../hooks/useBrowserHistoryAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 
 function HandleRebuildTabData() {
   const result = useBrowserTabDataFromSimpleDb();
-  const { setWebTabs, addBlankWebTab } = useWebTabAction();
+  const { buildWebTabs } = useBrowserTabActions();
 
   useEffect(() => {
     if (!result.result) return;
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
-      void setWebTabs({ data });
+      buildWebTabs({ data });
     }
-  }, [result.result, addBlankWebTab, setWebTabs]);
+  }, [result.result, buildWebTabs]);
 
   return null;
 }
 
 function HandleRebuildBookmarksData() {
   const result = useBrowserBookmarksDataFromSimpleDb();
-  const { setBookmarkData } = useBrowserBookmarkAction();
+  const { buildBookmarkData } = useBrowserBookmarkAction();
 
   useEffect(() => {
     if (!result.result) return;
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
-      setBookmarkData(data);
+      buildBookmarkData(data);
     }
-  }, [result.result, setBookmarkData]);
+  }, [result.result, buildBookmarkData]);
 
   return null;
 }
 
 function HandleRebuildHistoryData() {
   const result = useBrowserHistoryDataFromSimpleDb();
-  const { setHistoryData } = useBrowserHistoryAction();
+  const { buildHistoryData } = useBrowserHistoryAction();
 
   useEffect(() => {
     if (!result.result) return;
     const data = result.result;
     if (data && Array.isArray(data) && data.length > 0) {
-      setHistoryData(data);
+      buildHistoryData(data);
     }
-  }, [result.result, setHistoryData]);
+  }, [result.result, buildHistoryData]);
 
   return null;
 }

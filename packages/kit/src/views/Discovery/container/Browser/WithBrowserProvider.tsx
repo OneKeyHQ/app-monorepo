@@ -1,11 +1,13 @@
-import { withProviderBrowserBookmark } from '../../store/contextBrowserBookmark';
-import { withProviderBrowserHistory } from '../../store/contextBrowserHistory';
-import { withProviderWebTabs } from '../../store/contextWebTabs';
+import { ProviderJotaiContextDiscovery } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
-export function withBrowserProvider<T = any>(
+export function withBrowserProvider<T extends React.PropsWithChildren>(
   WrappedComponent: React.ComponentType<T>,
-): (props: T) => React.JSX.Element {
-  return withProviderWebTabs(
-    withProviderBrowserHistory(withProviderBrowserBookmark(WrappedComponent)),
-  );
+): React.ComponentType<T> {
+  return function WithBrowserProvider(props: T): JSX.Element {
+    return (
+      <ProviderJotaiContextDiscovery>
+        <WrappedComponent {...props} />
+      </ProviderJotaiContextDiscovery>
+    );
+  };
 }

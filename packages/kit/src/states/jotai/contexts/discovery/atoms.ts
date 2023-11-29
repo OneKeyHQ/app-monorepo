@@ -26,10 +26,12 @@ export const { atom: webTabsAtom, use: useWebTabsAtom } =
     tabs: [],
     keys: [],
   });
-export const { atom: webTabsMapAtom } = contextAtom<Record<string, IWebTab>>(
-  {},
-);
-export const { atom: activeTabIdAtom } = contextAtom<string | null>(null);
+export const { atom: webTabsMapAtom, use: useWebTabsMapAtom } = contextAtom<
+  Record<string, IWebTab>
+>({});
+export const { atom: activeTabIdAtom, use: useActiveTabIdAtom } = contextAtom<
+  string | null
+>(null);
 
 export const {
   atom: disabledAddedNewTabAtom,
@@ -42,11 +44,11 @@ export const {
 /**
  * Bookmark Atom
  */
-export const { atom: browserBookmarkAtom } = contextAtom<IBrowserBookmark[]>(
-  [],
-);
+export const { atom: browserBookmarkAtom, use: useBrowserBookmarkAtom } =
+  contextAtom<IBrowserBookmark[]>([]);
 
 /**
  * History Atom
  */
-export const { atom: browserHistoryAtom } = contextAtom<IBrowserHistory[]>([]);
+export const { atom: browserHistoryAtom, use: useBrowserHistoryAtom } =
+  contextAtom<IBrowserHistory[]>([]);

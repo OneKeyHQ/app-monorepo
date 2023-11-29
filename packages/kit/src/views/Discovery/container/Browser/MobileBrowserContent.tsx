@@ -6,11 +6,10 @@ import { Stack } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
-import useBrowserHistoryAction from '../../hooks/useBrowserHistoryAction';
-import { useActiveTabId, useWebTabData } from '../../hooks/useWebTabs';
-import { homeTab } from '../../store/contextWebTabs';
+import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard';
+import { homeTab, useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery'
 
 import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
 
@@ -21,7 +20,7 @@ function MobileBrowserContent({
   id: string;
   onScroll?: (event: WebViewScrollEvent) => void;
 }) {
-  const { tab } = useWebTabData(id);
+  const { tab } = useWebTabDataById(id);
   const { addBrowserHistory } = useBrowserHistoryAction();
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);
