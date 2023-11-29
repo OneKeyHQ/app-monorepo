@@ -3,7 +3,7 @@ import { app, globalShortcut } from 'electron';
 import { getShortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import type { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-const shortcutsMap = getShortcutsMap(process.platform === 'darwin');
+const shortcutsMap = getShortcutsMap();
 export function registerShortcuts(
   callback: (event: EBrowserShortcutEvents) => void,
 ) {
