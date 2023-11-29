@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-import { Stack } from '@onekeyhq/components';
-import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
+import { Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import { simpleDb } from '@onekeyhq/kit/src/components/WebView/mock';
 
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';

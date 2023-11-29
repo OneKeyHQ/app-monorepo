@@ -1,5 +1,10 @@
-import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components/src/ActionList';
+import {
+  ActionList,
+  Button,
+  Dialog,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

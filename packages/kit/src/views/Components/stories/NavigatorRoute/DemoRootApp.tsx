@@ -1,5 +1,5 @@
-import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import { RootStackNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { RootStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import DemoModalStackScreen from './Modal';
 import { EDemoRootRoutes } from './Routes';

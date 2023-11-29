@@ -1,8 +1,12 @@
 import { useEffect } from 'react';
 
-import { Button, IconButton, Stack } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import useSafeAreaInsets from '@onekeyhq/components/src/Provider/hooks/useSafeAreaInsets';
+import {
+  Button,
+  IconButton,
+  Stack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 

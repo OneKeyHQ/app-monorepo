@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';

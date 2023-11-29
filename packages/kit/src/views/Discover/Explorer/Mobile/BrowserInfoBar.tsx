@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Image } from 'react-native';
 
 import { Stack, Text } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

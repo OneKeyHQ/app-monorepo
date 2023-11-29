@@ -1,9 +1,9 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
-import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';

@@ -1,4 +1,4 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import TabListModal from '@onekeyhq/kit/src/views/Discover/Explorer/Mobile/TabListModal';
 import type { DiscoverModalParamList } from '@onekeyhq/kit/src/views/Discover/types';
 import { DiscoverModalRoutes } from '@onekeyhq/kit/src/views/Discover/types';

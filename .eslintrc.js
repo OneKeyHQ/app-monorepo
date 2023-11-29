@@ -136,7 +136,7 @@ module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
-    'packages/components/src/Icon/*',
+    'packages/components/src/primitives/Icon/*',
     'packages/kit/src/store',
     'packages/shared/src/engine',
     'packages/core/src/chains/ada',

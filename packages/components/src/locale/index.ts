@@ -6,7 +6,7 @@ import { LOCALES as _LOCALES, enUS } from './localeJsonMap';
 
 export type ILocaleSymbol = keyof typeof _LOCALES | 'system';
 export type ILocaleIds = keyof typeof enUS;
-const LOCALES = _LOCALES as Record<
+export const LOCALES = _LOCALES as Record<
   ILocaleSymbol,
   Record<keyof typeof enUS, string> | (() => Promise<any>)
 >;
@@ -58,9 +58,8 @@ const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
 }));
 
 if (platformEnv.isExtensionBackground) {
-  // debugger;
-  // throw new Error('components/locale is not allowed imported from background');
+  debugger;
+  throw new Error('components/locale is not allowed imported from background');
 }
 
-export default LOCALES;
 export { LOCALES_OPTION };

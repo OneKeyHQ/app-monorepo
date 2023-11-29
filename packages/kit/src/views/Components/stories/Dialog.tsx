@@ -11,7 +11,7 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
 

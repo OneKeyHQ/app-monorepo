@@ -1,11 +1,7 @@
 import { useState } from 'react';
 
-import { Icon, Stack, Text, XStack } from '@onekeyhq/components';
-import type {
-  ISelectItem,
-  ISelectSection,
-} from '@onekeyhq/components/src/Select';
-import { Select } from '@onekeyhq/components/src/Select';
+import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
+import { Icon, Select, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

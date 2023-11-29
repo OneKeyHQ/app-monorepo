@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { IconButton, ListView, Page, Stack, Text } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useWebTabs } from '../../Controller/useWebTabs';

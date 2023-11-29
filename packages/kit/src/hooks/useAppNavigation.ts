@@ -7,7 +7,7 @@ import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
-} from '@onekeyhq/components/src/Navigation';
+} from '@onekeyhq/components/src/layouts/Navigation';
 
 import { ERootRoutes } from '../routes/Root/Routes';
 

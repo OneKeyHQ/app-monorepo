@@ -1,7 +1,7 @@
 import { isFunction } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
-import LOCALES from '@onekeyhq/components/src/locale';
+import { LOCALES } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,

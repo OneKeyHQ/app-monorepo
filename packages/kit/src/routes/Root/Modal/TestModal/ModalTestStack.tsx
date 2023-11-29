@@ -1,4 +1,4 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import { EModalTestRoutes } from './Routes';
 import TestSimpleModal from './TestSimpleModal';
