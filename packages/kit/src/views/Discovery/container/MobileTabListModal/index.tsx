@@ -103,13 +103,13 @@ function MobileTabListModal() {
     setDisplayHomePage,
   } = useWebTabAction();
 
-  const triggerCloseAllTab = useRef(false);
+  const triggerCloseTab = useRef(false);
   useEffect(() => {
-    if (triggerCloseAllTab.current && !tabs.length) {
+    if (triggerCloseTab.current && !tabs.length) {
       setDisplayHomePage(true);
       navigation.pop();
-      triggerCloseAllTab.current = false;
     }
+    triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
   const flatListRef = useRef<FlatList<IWebTab> | null>(null);
@@ -178,7 +178,10 @@ function MobileTabListModal() {
     [setPinnedTab],
   );
   const handleCloseTab = useCallback(
-    (id: string) => closeWebTab(id),
+    (id: string) => {
+      triggerCloseTab.current = true;
+      void closeWebTab(id);
+    },
     [closeWebTab],
   );
 
@@ -333,7 +336,7 @@ function MobileTabListModal() {
         <TabToolBar
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
-            triggerCloseAllTab.current = true;
+            triggerCloseTab.current = true;
             void closeAllWebTab();
           }}
           onDone={() => {

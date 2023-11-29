@@ -9,13 +9,19 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   activeTabIdAtom,
+  browserBookmarkAtom,
+  browserHistoryAtom,
   contextAtomMethod,
   displayHomePageAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
 
-import type { IWebTab, IWebTabsAtom } from '../../../../views/Discovery/types';
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IWebTab,
+} from '../../../../views/Discovery/types';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -51,8 +57,12 @@ export const homeTab: IWebTab = {
 };
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
+  /**
+   * Browser web tab action
+   */
   setDisplayHomePage = contextAtomMethod((get, set, payload: boolean) => {
     const v = get(displayHomePageAtom());
+    console.log('displayHomePageAtom: ', v);
     set(displayHomePageAtom(), payload);
   });
 
@@ -219,6 +229,101 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
     },
   );
+
+  /**
+   * Bookmark actions
+   */
+  syncBookmark = contextAtomMethod(
+    (get, set, payload: { url: string; isBookmark: boolean }) => {
+      const tabMap = get(webTabsMapAtom());
+      if (!tabMap) return;
+      Object.entries(tabMap).forEach(([, value]) => {
+        if (value.url === payload.url) {
+          this.setWebTabData.call(set, {
+            id: value.id,
+            isBookmark: payload.isBookmark,
+          });
+        }
+      });
+    },
+  );
+
+  buildBookmarkData = contextAtomMethod(
+    (_, set, payload: IBrowserBookmark[]) => {
+      if (!Array.isArray(payload)) {
+        throw new Error('buildBookmarkData: payload must be an array');
+      }
+      set(browserBookmarkAtom(), payload);
+      void simpleDb.browserBookmarks.setRawData({
+        data: payload,
+      });
+    },
+  );
+
+  addBrowserBookmark = contextAtomMethod(
+    (get, set, payload: IBrowserBookmark) => {
+      if (!payload.url || payload.url === homeTab.url) {
+        return;
+      }
+      const bookmark = get(browserBookmarkAtom());
+      const index = bookmark.findIndex((item) => item.url === payload.url);
+      if (index !== -1) {
+        bookmark.splice(index, 1);
+      }
+      bookmark.push({ url: payload.url, title: payload.title });
+      this.buildBookmarkData.call(set, bookmark);
+      console.log('===>set browserBookmarkAtom: ', bookmark);
+      this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
+    },
+  );
+
+  removeBrowserBookmark = contextAtomMethod((get, set, payload: string) => {
+    const bookmark = get(browserBookmarkAtom());
+    const index = bookmark.findIndex((item) => item.url === payload);
+    if (index !== -1) {
+      bookmark.splice(index, 1);
+    }
+    this.buildBookmarkData.call(set, bookmark);
+    this.syncBookmark.call(set, { url: payload, isBookmark: false });
+  });
+
+  /**
+   * History actions
+   */
+  buildHistoryData = contextAtomMethod((_, set, payload: IBrowserHistory[]) => {
+    if (!Array.isArray(payload)) {
+      throw new Error('buildHistoryData: payload must be an array');
+    }
+    set(browserHistoryAtom(), payload);
+    void simpleDb.browserHistory.setRawData({
+      data: payload,
+    });
+  });
+
+  addBrowserHistory = contextAtomMethod(
+    (get, set, payload: IBrowserHistory) => {
+      if (!payload.url || payload.url === homeTab.url) {
+        return;
+      }
+      const history = get(browserHistoryAtom());
+      const index = history.findIndex((item) => item.url === payload.url);
+      if (index !== -1) {
+        history.splice(index, 1);
+      }
+      history.unshift({ url: payload.url, title: payload.title });
+      this.buildHistoryData.call(set, history);
+      console.log('===>set browserHistoryAtom: ', history);
+    },
+  );
+
+  removeBrowserHistory = contextAtomMethod((get, set, payload: string) => {
+    const history = get(browserHistoryAtom());
+    const index = history.findIndex((item) => item.url === payload);
+    if (index !== -1) {
+      history.splice(index, 1);
+    }
+    this.buildHistoryData.call(set, history);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -250,5 +355,31 @@ export function useBrowserTabActions() {
     setCurrentWebTab,
     setPinnedTab,
     setDisplayHomePage,
+  };
+}
+
+export function useBrowserBookmarkAction() {
+  const actions = createActions();
+  const buildBookmarkData = actions.buildBookmarkData.use();
+  const addBrowserBookmark = actions.addBrowserBookmark.use();
+  const removeBrowserBookmark = actions.removeBrowserBookmark.use();
+
+  return {
+    buildBookmarkData,
+    addBrowserBookmark,
+    removeBrowserBookmark,
+  };
+}
+
+export function useBrowserHistoryAction() {
+  const actions = createActions();
+  const buildHistoryData = actions.buildHistoryData.use();
+  const addBrowserHistory = actions.addBrowserHistory.use();
+  const removeBrowserHistory = actions.removeBrowserHistory.use();
+
+  return {
+    buildHistoryData,
+    addBrowserHistory,
+    removeBrowserHistory,
   };
 }

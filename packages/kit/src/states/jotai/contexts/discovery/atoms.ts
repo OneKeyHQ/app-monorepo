@@ -1,6 +1,11 @@
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
-import type { IWebTab, IWebTabsAtom } from '../../../../views/Discovery/types';
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IWebTab,
+  IWebTabsAtom,
+} from '../../../../views/Discovery/types';
 
 const {
   Provider: ProviderJotaiContextDiscovery,
@@ -10,6 +15,9 @@ const {
 } = createJotaiContext({ isSingletonStore: true });
 export { ProviderJotaiContextDiscovery, contextAtomMethod };
 
+/**
+ * WebTabs Atom
+ */
 export const { atom: displayHomePageAtom, use: useDisplayHomePageAtom } =
   contextAtom<boolean>(true);
 
@@ -22,3 +30,23 @@ export const { atom: webTabsMapAtom } = contextAtom<Record<string, IWebTab>>(
   {},
 );
 export const { atom: activeTabIdAtom } = contextAtom<string | null>(null);
+
+export const {
+  atom: disabledAddedNewTabAtom,
+  use: useDisabledAddedNewTabAtom,
+} = contextAtomComputed((get) => {
+  const { tabs } = get(webTabsAtom());
+  return tabs.length >= 20;
+});
+
+/**
+ * Bookmark Atom
+ */
+export const { atom: browserBookmarkAtom } = contextAtom<IBrowserBookmark[]>(
+  [],
+);
+
+/**
+ * History Atom
+ */
+export const { atom: browserHistoryAtom } = contextAtom<IBrowserHistory[]>([]);
