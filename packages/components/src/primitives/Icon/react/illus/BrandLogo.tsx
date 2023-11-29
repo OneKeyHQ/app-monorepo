@@ -114,9 +114,6 @@ const SvgBrandLogo = (props: SvgProps) => (
             </G>
             <Mask
               id="u"
-              style={{
-                maskType: 'luminance',
-              }}
               maskUnits="userSpaceOnUse"
               x={8}
               y={5}
