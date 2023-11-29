@@ -43,10 +43,12 @@ import type { View } from 'react-native';
 export const tabGridRefs: Record<string, View> = {};
 
 function TabToolBar({
+  closeAllDisabled,
   onAddTab,
   onCloseAll,
   onDone,
 }: {
+  closeAllDisabled: boolean;
   onAddTab: () => void;
   onCloseAll: () => void;
   onDone: () => void;
@@ -60,7 +62,12 @@ function TabToolBar({
       borderTopColor="$borderSubdued"
     >
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button variant="tertiary" size="medium" onPress={onCloseAll}>
+        <Button
+          variant="tertiary"
+          size="medium"
+          onPress={onCloseAll}
+          disabled={closeAllDisabled}
+        >
           Close All
         </Button>
       </Stack>
@@ -192,7 +199,7 @@ function MobileTabListModal() {
       Toast.message({ title: '窗口已达 20 个上限' });
       return;
     }
-    // TODO: need to add promise  api for navigation chains
+    // TODO: need to add promise api for navigation chains
     navigation.pop();
     setTimeout(() => {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -336,6 +343,7 @@ function MobileTabListModal() {
       </Page.Body>
       <Page.Footer>
         <TabToolBar
+          closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
             triggerCloseTab.current = true;

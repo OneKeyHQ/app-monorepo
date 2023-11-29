@@ -60,7 +60,8 @@ function WebContent({
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
   const { onNavigation, gotoSite } = useBrowserAction();
-  const { setWebTabData, closeWebTab } = useBrowserTabActions();
+  const { setWebTabData, closeWebTab, setCurrentWebTab } =
+    useBrowserTabActions();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -214,10 +215,15 @@ function WebContent({
   const phishingView = useMemo(
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
-        <PhishingView onCloseTab={() => closeWebTab(id)} />
+        <PhishingView
+          onCloseTab={() => {
+            closeWebTab(id);
+            setCurrentWebTab(null);
+          }}
+        />
       </Stack>
     ),
-    [closeWebTab, id],
+    [closeWebTab, setCurrentWebTab, id],
   );
 
   return (

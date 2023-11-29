@@ -5,6 +5,8 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import { webviewRefs } from '../../utils/explorerUtils';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';
@@ -24,9 +26,11 @@ type IWebContentProps = IWebTab &
   };
 
 function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
+  const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const [showPhishingView, setShowPhishingView] = useState(false);
-  const { setWebTabData, closeWebTab } = useBrowserTabActions();
+  const { setWebTabData, closeWebTab, setCurrentWebTab } =
+    useBrowserTabActions();
   const { onNavigation } = useBrowserAction();
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
@@ -157,8 +161,16 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   );
 
   const phishingView = useMemo(
-    () => <PhishingView onCloseTab={() => closeWebTab(id)} />,
-    [closeWebTab, id],
+    () => (
+      <PhishingView
+        onCloseTab={() => {
+          closeWebTab(id);
+          setCurrentWebTab(null);
+          navigation.switchTab(ETabRoutes.Discovery);
+        }}
+      />
+    ),
+    [closeWebTab, setCurrentWebTab, id, navigation],
   );
 
   return (

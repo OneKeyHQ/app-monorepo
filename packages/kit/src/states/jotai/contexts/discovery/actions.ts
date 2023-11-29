@@ -113,7 +113,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     });
   });
 
-  setCurrentWebTab = contextAtomMethod((get, set, tabId: string) => {
+  setCurrentWebTab = contextAtomMethod((get, set, tabId: string | null) => {
     const currentTabId = get(activeTabIdAtom());
     if (currentTabId !== tabId) {
       // set isActive to true
@@ -130,8 +130,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         set(activeTabIdAtom(), '');
       }
     }
-    if (get(displayHomePageAtom())) {
+    const displayHomePage = get(displayHomePageAtom());
+    if (tabId && displayHomePage) {
       this.setDisplayHomePage.call(set, false);
+    }
+    if (!tabId && !displayHomePage) {
+      this.setDisplayHomePage.call(set, true);
     }
   });
 

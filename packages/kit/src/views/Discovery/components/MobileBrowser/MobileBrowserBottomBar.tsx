@@ -45,7 +45,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tabs } = useWebTabs();
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setDisplayHomePage } =
+  const { setWebTabData, setPinnedTab, setDisplayHomePage, setCurrentWebTab } =
     useBrowserTabActions();
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -215,7 +215,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           onGoBackHomePage={async () => {
             await takeScreenshot();
             setTimeout(() => {
-              setDisplayHomePage(true);
+              setCurrentWebTab(null);
             });
           }}
         >
