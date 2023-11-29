@@ -3,9 +3,15 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { ListView, Page, ScrollView, Stack, Text } from '@onekeyhq/components';
+import {
+  ListView,
+  Page,
+  ScrollView,
+  Stack,
+  Tab,
+  Text,
+} from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { Tab } from '@onekeyhq/components/src/TabView';
 
 import HeaderView from './HeaderView';
 

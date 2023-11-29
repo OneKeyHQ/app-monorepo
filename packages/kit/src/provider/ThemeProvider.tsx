@@ -5,7 +5,7 @@ import { Provider } from '@onekeyhq/components';
 import {
   setDarkContent,
   setLightContent,
-} from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
+} from '@onekeyhq/components/src/layouts/Navigation/utils/StatusBarUtils';
 
 import { useLocaleVariant } from '../hooks/useLocaleVariant';
 import { useThemeVariant } from '../hooks/useThemeVariant';
