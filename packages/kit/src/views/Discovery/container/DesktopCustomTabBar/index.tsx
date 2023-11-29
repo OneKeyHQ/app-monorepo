@@ -18,6 +18,7 @@ import useListenTabFocusState from '../../../../hooks/useListenTabFocusState';
 import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
+import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import {
   EDiscoveryModalRoutes,
@@ -26,6 +27,9 @@ import {
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 function DesktopCustomTabBar() {
+  // register desktop shortcuts for browser tab
+  useShortcuts();
+
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { tabs } = useWebTabs();
