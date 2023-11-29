@@ -3,9 +3,8 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { Page, XStack } from '@onekeyhq/components';
+import { Page, Tab, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { Tab } from '@onekeyhq/components/src/TabView';
 
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainer } from './TokenListContainer';
