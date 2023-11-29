@@ -1,7 +1,14 @@
 import { useCallback, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, Page, Switch, Text, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  Switch,
+  Text,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -54,7 +61,39 @@ export default function TestSimpleModal() {
           <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
         </XStack>
         <Text>这是一个普通的 Modal 测试</Text>
-        <Button onPress={navigateToNextPage}>Push Next Page</Button>
+        <YStack space="$4" m="$4">
+          <Button onPress={navigateToNextPage}>Push to Next Page</Button>
+          <Page.Close>
+            <Button>Back To Pervious Page</Button>
+          </Page.Close>
+          <Page.Close>
+            <Button
+              onPress={() =>
+                new Promise((resolve) => {
+                  setTimeout(() => {
+                    resolve(false);
+                    alert('false');
+                  }, 3000);
+                })
+              }
+            >
+              Back To Pervious Page --- async fail
+            </Button>
+          </Page.Close>
+          <Page.Close>
+            <Button
+              onPress={() =>
+                new Promise((resolve) => {
+                  setTimeout(() => {
+                    resolve(true);
+                  }, 3000);
+                })
+              }
+            >
+              Back To Pervious Page --- async success
+            </Button>
+          </Page.Close>
+        </YStack>
       </Page.Body>
       {showNewHeader ? (
         <XStack>

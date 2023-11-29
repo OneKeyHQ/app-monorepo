@@ -169,7 +169,7 @@ function BasicActionList({
       }}
       {...props}
       renderTrigger={
-        <Trigger onOpen={handleActionListOpen}>{renderTrigger}</Trigger>
+        <Trigger onPress={handleActionListOpen}>{renderTrigger}</Trigger>
       }
     />
   );
