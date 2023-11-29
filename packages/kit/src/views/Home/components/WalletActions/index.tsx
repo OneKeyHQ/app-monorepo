@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { IconButton, XStack } from '@onekeyhq/components';
 
 type IProps = {
   onSend: () => void;
@@ -12,12 +12,16 @@ function WalletActions(props: IProps) {
   const intl = useIntl();
   return (
     <XStack space="$4">
-      <Button variant="primary" size="large" onPress={onSend}>
-        {intl.formatMessage({ id: 'action__send' })}
-      </Button>
-      <Button variant="primary" size="large" onPress={onReceive}>
-        {intl.formatMessage({ id: 'action__receive' })}
-      </Button>
+      <IconButton
+        icon="SendSolid"
+        onPress={onSend}
+        title={intl.formatMessage({ id: 'action__send' })}
+      />
+      <IconButton
+        icon="QrCodeOutline"
+        onPress={onReceive}
+        title={intl.formatMessage({ id: 'action__receive' })}
+      />
     </XStack>
   );
 }

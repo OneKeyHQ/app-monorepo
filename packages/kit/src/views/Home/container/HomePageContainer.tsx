@@ -1,19 +1,17 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import type { IScrollViewRef } from '@onekeyhq/components';
-import { Page, ScrollView, Stack } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { useThemeValue } from '@onekeyhq/components/src/Provider/hooks/useThemeValue';
-import { PageManager } from '@onekeyhq/components/src/TabView';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Tab } from '@onekeyhq/components/src/TabView';
 
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainer } from './TokenListContainer';
 import { ToolListContainer } from './ToolListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
+import { WalletActionsContainer } from './WalletActionsContainer';
 import { WalletOverviewContainer } from './WalletOverviewContainer';
 
 function HomePageContainer() {
@@ -25,159 +23,55 @@ function HomePageContainer() {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
-  const [contentHeight, setContentHeight] = useState<number | undefined>(1);
-  const scrollView = useRef<IScrollViewRef | null>(null);
-  const container = useRef<any | null>(null);
-  const config = useMemo(
-    () => ({
-      lastIndex: -1,
-      scrollViewHeight: 0,
-      headerLayoutY: 0,
-      headerViewHeight: 0,
-    }),
-    [],
-  );
-
-  const [bgAppColor, textColor, textSubduedColor] = useThemeValue(
-    ['bgApp', 'text', 'textSubdued'],
-    undefined,
-    true,
-  );
   const tabs = useMemo(
     () => [
       {
         title: intl.formatMessage({
           id: 'asset__tokens',
         }),
-        contentHeight: undefined,
-        contentOffsetY: 0,
         page: memo(TokenListContainer, () => true),
       },
       {
         title: intl.formatMessage({
           id: 'asset__collectibles',
         }),
-        contentHeight: undefined,
-        contentOffsetY: 0,
         page: memo(NFTListContainer, () => true),
       },
       {
         title: intl.formatMessage({
           id: 'transaction__history',
         }),
-        contentHeight: undefined,
-        contentOffsetY: 0,
         page: memo(TxHistoryListContainer, () => true),
       },
       {
         title: intl.formatMessage({
           id: 'form__tools',
         }),
-        contentHeight: undefined,
-        contentOffsetY: 0,
         page: memo(ToolListContainer, () => true),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, bgAppColor, textColor, textSubduedColor],
+    [intl],
   );
 
-  const reloadContentHeight = useCallback(
-    (index: number) => {
-      const finallyHeight = config.scrollViewHeight - config.headerViewHeight;
-      if (platformEnv.isNative) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        container?.current?.setNativeProps?.({
-          height: Math.max(tabs[index].contentHeight ?? 0, finallyHeight),
-        });
-      } else {
-        setContentHeight(
-          Math.max(tabs[index].contentHeight ?? 0, finallyHeight),
-        );
-      }
-    },
-    [tabs, config, container],
-  );
-
-  const pageManager = useMemo(
-    () =>
-      new PageManager({
-        data: tabs,
-        initialScrollIndex: 0,
-        onSelectedPageIndex: (index: number) => {
-          reloadContentHeight(index);
-          const { contentOffsetY } = tabs[index];
-          const lastContentOffsetY =
-            tabs?.[config.lastIndex]?.contentOffsetY ?? 0;
-
-          if (
-            Math.round(lastContentOffsetY) < Math.round(config.headerLayoutY)
-          ) {
-            tabs[index].contentOffsetY = lastContentOffsetY;
-          } else if (
-            Math.round(contentOffsetY) <= Math.round(config.headerLayoutY)
-          ) {
-            tabs[index].contentOffsetY = config.headerLayoutY;
-          }
-
-          // Need to wait for contentHeight to be updated
-          setTimeout(() => {
-            if (platformEnv.isNative) {
-              scrollView?.current?.setNativeProps({
-                contentOffset: { y: tabs[index].contentOffsetY },
-              });
-            } else {
-              scrollView?.current?.scrollTo({
-                y: tabs[index].contentOffsetY,
-                animated: false,
-              });
-            }
-          });
-          config.lastIndex = index;
-        },
-      }),
-    [tabs, config, scrollView, reloadContentHeight],
-  );
-  const Header = pageManager.renderHeaderView;
-  const Content = pageManager.renderContentView;
-
-  const renderHeaderView = useCallback(() => <WalletOverviewContainer />, []);
-
-  const renderContentItem = useCallback(
-    ({
-      item,
-      index,
-    }: {
-      item: {
-        backgroundColor: string;
-        contentHeight: number | undefined;
-        page: any;
-      };
-      index: number;
-    }) => (
-      <Stack
-        style={{
-          flex: 1,
-        }}
-      >
-        <item.page
-          onContentSizeChange={(_: number, height: number) => {
-            item.contentHeight = height;
-            if (index === pageManager.pageIndex) {
-              reloadContentHeight(index);
-            }
-          }}
-        />
-      </Stack>
+  const renderHeaderView = useCallback(
+    () => (
+      <XStack justifyContent="space-between" alignItems="center">
+        <WalletOverviewContainer />
+        <WalletActionsContainer />
+      </XStack>
     ),
-    [pageManager, reloadContentHeight],
+    [],
   );
 
   return useMemo(
     () => (
       <Page>
         <Page.Body alignItems="center">
-          <ScrollView
+          <Tab
+            // @ts-expect-error
+            data={tabs}
+            ListHeaderComponent={<>{renderHeaderView()}</>}
+            initialScrollIndex={3}
             $md={{
               width: '100%',
             }}
@@ -188,76 +82,12 @@ function HomePageContainer() {
             refreshControl={
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
             }
-            stickyHeaderIndices={[1]}
-            ref={scrollView}
             showsVerticalScrollIndicator={false}
-            scrollEventThrottle={16}
-            onLayout={(event) => {
-              config.scrollViewHeight = event.nativeEvent.layout.height;
-            }}
-            onScroll={(event) => {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              tabs[pageManager.pageIndex].contentOffsetY = (
-                event as any
-              ).nativeEvent.contentOffset.y;
-            }}
-          >
-            {renderHeaderView()}
-            <Header
-              // HTPageHeaderView.defaultProps in TabView
-              style={{
-                height: 54,
-                backgroundColor: bgAppColor,
-              }}
-              onLayout={(event: any) => {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                config.headerViewHeight = event.nativeEvent.layout.height;
-              }}
-              itemTitleStyle={{ fontSize: 16, textTransform: 'uppercase' }}
-              itemTitleNormalStyle={{ color: textSubduedColor }}
-              itemTitleSelectedStyle={{ color: textColor, fontSize: 16 }}
-              cursorStyle={{
-                left: 12,
-                right: 12,
-                height: 2,
-                backgroundColor: textColor,
-              }}
-            />
-            <Stack
-              ref={container}
-              onLayout={(event) => {
-                config.headerLayoutY =
-                  event.nativeEvent.layout.y - config.headerViewHeight;
-              }}
-              style={{ height: contentHeight }}
-            >
-              <Content
-                windowSize={5}
-                scrollEnabled={platformEnv.isNative}
-                shouldSelectedPageAnimation={platformEnv.isNative}
-                renderItem={renderContentItem}
-              />
-            </Stack>
-          </ScrollView>
+          />
         </Page.Body>
       </Page>
     ),
-    [
-      screenWidth,
-      sideBarWidth,
-      bgAppColor,
-      textColor,
-      textSubduedColor,
-      contentHeight,
-      Header,
-      Content,
-      onRefresh,
-      renderHeaderView,
-      renderContentItem,
-      tabs,
-      config,
-      pageManager,
-    ],
+    [screenWidth, sideBarWidth, onRefresh, renderHeaderView, tabs],
   );
 }
 
