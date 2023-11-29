@@ -14,7 +14,7 @@ const composeEventHandlers =
     onTrigger?: () => void,
   ) =>
   async (...params: any) => {
-    const result = await onPress(params);
+    const result = await onPress(...params);
     if (result !== false) {
       onTrigger?.();
     }
