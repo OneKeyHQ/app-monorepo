@@ -20,7 +20,8 @@ try {
   ).toString('utf-8');
   handleProblems(result);
 } catch (error) {
-  handleProblems(error.stdout.toString('utf-8'));
+  console.log(error.stdout.toString('utf-8'));
+  exit(1);
 }
 
 exit(0);
