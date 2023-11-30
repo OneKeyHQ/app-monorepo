@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
@@ -39,8 +40,10 @@ interface IMobileBrowserBottomBarProps extends StackProps {
 }
 
 function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+
   const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
@@ -99,7 +102,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const handleAddNewTab = useCallback(async () => {
     if (disabledAddedNewTab) {
-      Toast.message({ title: '窗口已达 20 个上限' });
+      Toast.message({
+        title: intl.formatMessage(
+          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+          { 0: '20' },
+        ),
+      });
       return;
     }
     try {
@@ -112,7 +120,46 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.FakeSearchModal,
     });
-  }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot]);
+  }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot, intl]);
+
+  const handleBookmarkPress = useCallback(
+    (isBookmark: boolean) => {
+      if (isBookmark) {
+        addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+      } else {
+        removeBrowserBookmark(tab?.url);
+      }
+      Toast.success({
+        title: isBookmark
+          ? intl.formatMessage({ id: 'msg__bookmark_added' })
+          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
+      });
+    },
+    [intl, addBrowserBookmark, removeBrowserBookmark, tab?.url, tab?.title],
+  );
+
+  const handlePinTab = useCallback(
+    (pinned: boolean) => {
+      setPinnedTab({ id, pinned });
+      Toast.success({
+        title: pinned
+          ? intl.formatMessage({ id: 'msg__pinned' })
+          : intl.formatMessage({ id: 'msg__unpinned' }),
+      });
+    },
+    [setPinnedTab, id, intl],
+  );
+
+  const handleGoBackHome = useCallback(async () => {
+    try {
+      await takeScreenshot();
+    } catch (e) {
+      console.error('takeScreenshot error: ', e);
+    }
+    setTimeout(() => {
+      setCurrentWebTab(null);
+    });
+  }, [takeScreenshot, setCurrentWebTab]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.url ?? '');
@@ -187,37 +234,19 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
           isBookmark={tab?.isBookmark ?? false}
-          onBookmarkPress={(isBookmark) => {
-            if (isBookmark) {
-              addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
-            } else {
-              removeBrowserBookmark(tab?.url);
-            }
-            Toast.success({
-              title: isBookmark ? 'Bookmark Added' : 'Bookmark Removed',
-            });
-          }}
+          onBookmarkPress={handleBookmarkPress}
           onRefresh={() => {
-            console.log(webviewRefs[id]?.reload);
             webviewRefs[id]?.reload();
           }}
           onShare={onShare}
           isPinned={tab?.isPinned ?? false}
-          onPinnedPress={(pinned) => {
-            void setPinnedTab({ id, pinned });
-            Toast.success({ title: pinned ? 'Pined' : ' Unpinned' });
-          }}
+          onPinnedPress={handlePinTab}
           onBrowserOpen={() => {
             if (tab?.url) {
               openUrlExternal(tab.url);
             }
           }}
-          onGoBackHomePage={async () => {
-            await takeScreenshot();
-            setTimeout(() => {
-              setCurrentWebTab(null);
-            });
-          }}
+          onGoBackHomePage={handleGoBackHome}
         >
           <IconButton
             variant="tertiary"

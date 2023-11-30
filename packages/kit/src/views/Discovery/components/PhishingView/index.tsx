@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
@@ -10,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
+  const intl = useIntl();
   const content = useMemo(
     () => (
       <YStack
@@ -47,20 +50,26 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
             <Icon name="InfoCircleOutline" size="$8" color="$iconCritical" />
           </YStack>
           <Text mt="$3" variant="$headingXl">
-            Malicious DApp
+            {intl.formatMessage({ id: 'content__dapp_potential_risk' })}
           </Text>
           <Text variant="$bodyLg" py="$2">
-            Potential risks:
+            {intl.formatMessage({ id: 'content__dapp_potential_risk_li_1' })}
           </Text>
           <UnOrderedList>
             <UnOrderedList.Item>
-              Theft of recovery phrase or password
+              {intl.formatMessage({ id: 'content__dapp_potential_risk_li_2' })}
             </UnOrderedList.Item>
-            <UnOrderedList.Item>Phishing attacks</UnOrderedList.Item>
-            <UnOrderedList.Item>Fake tokens or scams</UnOrderedList.Item>
+            <UnOrderedList.Item>
+              {intl.formatMessage({ id: 'content__dapp_potential_risk_li_3' })}
+            </UnOrderedList.Item>
+            <UnOrderedList.Item>
+              {intl.formatMessage({ id: 'content__dapp_potential_risk_li_4' })}
+            </UnOrderedList.Item>
           </UnOrderedList>
           <Text mt="$2" color="$textSubdued">
-            If you understand the risks and want to proceed, you can{' '}
+            {intl.formatMessage({
+              id: 'content__dapp_potential_risk_continue',
+            })}
             <Button
               px="$1"
               py="$0"
@@ -84,12 +93,12 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
             }
             onPress={onCloseTab}
           >
-            Close Tab
+            {intl.formatMessage({ id: 'form__close_tab' })}
           </Button>
         </YStack>
       </YStack>
     ),
-    [onCloseTab],
+    [onCloseTab, intl],
   );
   return content;
 }

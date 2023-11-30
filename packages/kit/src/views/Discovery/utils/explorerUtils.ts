@@ -41,13 +41,7 @@ export const validateUrl = (url: string) => {
 };
 
 export function getWebviewWrapperRef(id?: string) {
-  const tabId = id;
-  if (!tabId) {
-    // const { getCurrentTabId } =
-    //   require('./Explorer/Context/contextWebTabs') as typeof import('./Explorer/Context/contextWebTabs');
-    // tabId = getCurrentTabId();
-  }
-  const ref = tabId ? webviewRefs[tabId] : null;
+  const ref = id ? webviewRefs[id] : null;
   return ref ?? null;
 }
 

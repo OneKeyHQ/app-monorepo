@@ -4,9 +4,8 @@ import { useIntl } from 'react-intl';
 import { ERROR_CODE } from 'react-native-webview/lib/WebViewShared';
 
 import { Empty, Stack } from '@onekeyhq/components';
-import type EnLanguage from '@onekeyhq/components/src/locale/en-US.json';
 
-type ILanguageId = keyof typeof EnLanguage;
+import type { MessageDescriptor } from 'react-intl';
 
 interface IErrorViewProps {
   errorCode?: number;
@@ -16,8 +15,8 @@ interface IErrorViewProps {
 const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
   const intl = useIntl();
   const messages: {
-    title: ILanguageId;
-    subTitle: ILanguageId;
+    title: MessageDescriptor['id'];
+    subTitle: MessageDescriptor['id'];
   } = useMemo(() => {
     if (errorCode === ERROR_CODE.CONNECTION_FAILED) {
       return {
@@ -26,8 +25,8 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
       };
     }
     return {
-      title: 'title__no_connection',
-      subTitle: 'title__no_connection_desc',
+      title: 'empty__network_issue_connect',
+      subTitle: 'empty__network_issue_refresh',
     };
   }, [errorCode]);
 

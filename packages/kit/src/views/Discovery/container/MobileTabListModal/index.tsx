@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 // TODO：需要替换为组件库中的 ListView
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -53,6 +54,7 @@ function TabToolBar({
   onCloseAll: () => void;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   return (
     <Stack
       py="$2"
@@ -68,7 +70,7 @@ function TabToolBar({
           onPress={onCloseAll}
           disabled={closeAllDisabled}
         >
-          Close All
+          {intl.formatMessage({ id: 'action__close_all_tabs' })}
         </Button>
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -81,7 +83,7 @@ function TabToolBar({
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <Button variant="tertiary" size="medium" onPress={onDone}>
-          Done
+          {intl.formatMessage({ id: 'action__done' })}
         </Button>
       </Stack>
     </Stack>
@@ -89,8 +91,10 @@ function TabToolBar({
 }
 
 function MobileTabListModal() {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+
   const { tabs } = useWebTabs();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
   const pinnedData = useMemo(
@@ -168,10 +172,12 @@ function MobileTabListModal() {
         removeBrowserBookmark(url);
       }
       Toast.success({
-        title: bookmark ? 'Bookmark Added' : 'Bookmark Removed',
+        title: bookmark
+          ? intl.formatMessage({ id: 'msg__bookmark_added' })
+          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
       });
     },
-    [addBrowserBookmark, removeBrowserBookmark],
+    [addBrowserBookmark, removeBrowserBookmark, intl],
   );
   const handleShare = useCallback(
     (url: string) => {
@@ -182,9 +188,13 @@ function MobileTabListModal() {
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
       void setPinnedTab({ id, pinned });
-      Toast.success({ title: pinned ? 'Pined' : ' Unpinned' });
+      Toast.success({
+        title: pinned
+          ? intl.formatMessage({ id: 'msg__pinned' })
+          : intl.formatMessage({ id: 'msg__unpinned' }),
+      });
     },
-    [setPinnedTab],
+    [setPinnedTab, intl],
   );
   const handleCloseTab = useCallback(
     (id: string) => {
@@ -196,7 +206,12 @@ function MobileTabListModal() {
 
   const handleAddNewTab = useCallback(() => {
     if (disabledAddedNewTab) {
-      Toast.message({ title: '窗口已达 20 个上限' });
+      Toast.message({
+        title: intl.formatMessage(
+          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+          { 0: '20' },
+        ),
+      });
       return;
     }
     // TODO: need to add promise api for navigation chains
@@ -206,7 +221,7 @@ function MobileTabListModal() {
         screen: EDiscoveryModalRoutes.FakeSearchModal,
       });
     }, 0);
-  }, [disabledAddedNewTab, navigation]);
+  }, [disabledAddedNewTab, navigation, intl]);
 
   const showTabOptions = useCallback(
     (tab: IWebTab, id: string) => {
@@ -216,7 +231,11 @@ function MobileTabListModal() {
           {
             items: [
               {
-                label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
+                label: intl.formatMessage({
+                  id: tab.isBookmark
+                    ? 'actionn__remove_bookmark'
+                    : 'actionn__bookmark',
+                }),
                 icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
                 onPress: () =>
                   handleBookmarkPress(
@@ -226,12 +245,14 @@ function MobileTabListModal() {
                   ),
               },
               {
-                label: tab.isPinned ? 'Un-Pin' : 'Pin',
+                label: intl.formatMessage({
+                  id: tab.isPinned ? 'action__unpin' : 'action__pin',
+                }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
               },
               {
-                label: 'Share',
+                label: intl.formatMessage({ id: 'action__share' }),
                 icon: 'ShareOutline',
                 onPress: () => handleShare(tab.url),
               },
@@ -240,7 +261,11 @@ function MobileTabListModal() {
           {
             items: [
               {
-                label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+                label: intl.formatMessage({
+                  id: tab.isPinned
+                    ? 'action__close_pin_tab'
+                    : 'form__close_tab',
+                }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
               },
@@ -249,7 +274,7 @@ function MobileTabListModal() {
         ],
       });
     },
-    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab],
+    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab, intl],
   );
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
@@ -321,9 +346,10 @@ function MobileTabListModal() {
   return (
     <Page>
       <Page.Header
-        title={`${(tabs.length ?? 0).toString()} ${
-          tabs.length === 1 ? 'Tab' : 'Tabs'
-        }`}
+        title={intl.formatMessage(
+          { id: 'title__str_tabs' },
+          { 0: `${tabs.length ?? 0}` },
+        )}
       />
       <Page.Body>
         <FlatList

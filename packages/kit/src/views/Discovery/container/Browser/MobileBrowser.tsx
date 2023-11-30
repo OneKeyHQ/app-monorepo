@@ -70,7 +70,6 @@ function MobileBrowser() {
   }, [tabs, navigation, setDisplayHomePage]);
 
   useEffect(() => {
-    console.log('MobileBrowser renderer ===> : ');
     navigationCore.setOptions({
       headerShown: false,
       animation: 'none',
