@@ -1,5 +1,5 @@
 import type { FC, PropsWithChildren, ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useLayoutEffect, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
@@ -17,6 +17,8 @@ import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../../locale';
+import { setDarkContent, setLightContent } from '../../layouts/Navigation/utils/StatusBarUtils.native';
+import { useStatusBarTheme } from './hooks/useStatusBarTheme';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -53,7 +55,7 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-export const Provider: FC<IUIProviderProps> = ({
+export const ConfigProvider: FC<IUIProviderProps> = ({
   children,
   themeVariant,
   locale,
@@ -67,6 +69,8 @@ export const Provider: FC<IUIProviderProps> = ({
     }),
     [themeVariant, reduxReady],
   );
+
+  useStatusBarTheme(themeVariant);
 
   return (
     <AppIntlProvider

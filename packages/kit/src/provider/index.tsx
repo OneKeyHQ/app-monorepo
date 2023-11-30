@@ -11,7 +11,7 @@ import PasswordVerifyPromptMount from '../components/Password/container/Password
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
-import ThemeProvider from './ThemeProvider';
+import { ThemeProvider } from './ThemeProvider';
 import { WebTabBarItem } from './WebTabBarItem';
 
 if (platformEnv.isRuntimeBrowser) {
@@ -30,27 +30,27 @@ const FullWindowOverlayContainer = platformEnv.isNativeIOS
   : Fragment;
 
 // TODO: detect network change & APP in background mode
-const KitProvider: FC = () => (
-  <ThemeProvider>
-    <AppLoading>
-      <RootSiblingParent>
-        <GestureHandlerRootView style={flexStyle}>
-          <NavigationProvider />
-          <FullWindowOverlayContainer>
-            <Portal.Container
-              name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
-            />
-            {platformEnv.isDesktop ? (
-              <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
-                <WebTabBarItem />
-              </Portal.Body>
-            ) : null}
-          </FullWindowOverlayContainer>
-        </GestureHandlerRootView>
-      </RootSiblingParent>
-    </AppLoading>
-    <PasswordVerifyPromptMount />
-  </ThemeProvider>
-);
-
-export default KitProvider;
+export function KitProvider() {
+  return (
+    <ThemeProvider>
+      <AppLoading>
+        <RootSiblingParent>
+          <GestureHandlerRootView style={flexStyle}>
+            <NavigationProvider />
+            <FullWindowOverlayContainer>
+              <Portal.Container
+                name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}
+              />
+              {platformEnv.isDesktop ? (
+                <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
+                  <WebTabBarItem />
+                </Portal.Body>
+              ) : null}
+            </FullWindowOverlayContainer>
+          </GestureHandlerRootView>
+        </RootSiblingParent>
+      </AppLoading>
+      <PasswordVerifyPromptMount />
+    </ThemeProvider>
+  );
+}
