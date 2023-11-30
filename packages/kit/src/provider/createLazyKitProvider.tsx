@@ -14,7 +14,7 @@ export function createLazyKitProviderLegacy({
       setTimeout(() => {
         // KitProviderMock index
         void import('.').then((module) => {
-          const KitProvider = module.default;
+          const { KitProvider } = module;
           setCmp(<KitProvider {...propsRef.current} />);
         });
       }, 0);
