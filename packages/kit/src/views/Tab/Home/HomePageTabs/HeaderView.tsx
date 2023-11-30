@@ -12,11 +12,6 @@ import { ETabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
 
 import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
 
-// export default function HomePageHeaderView({
-//   switchDemoVisible,
-// }: {
-//   switchDemoVisible: () => void;
-// }) {
 export default function HomePageHeaderView() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
@@ -24,10 +19,6 @@ export default function HomePageHeaderView() {
   const headerHeightCall = useCallback(() => {
     setHeaderHighMode((pre) => !pre);
   }, []);
-
-  // const switchDemoVisibleCall = useCallback(() => {
-  //   switchDemoVisible?.();
-  // }, [switchDemoVisible]);
 
   const onNextPageCall = useCallback(() => {
     navigation.push(ETabHomeRoutes.TabHomeStack1);
@@ -60,6 +51,12 @@ export default function HomePageHeaderView() {
         </Button>
       </YStack>
     ),
-    [headerHighMode, headerHeightCall, onNextPageCall, navigateTestSimpleModal],
+    [
+      headerHighMode,
+      headerHeightCall,
+      onNextPageCall,
+      navigateTestSimpleModal,
+      navigateFullScreenSimpleModal,
+    ],
   );
 }
