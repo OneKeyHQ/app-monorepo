@@ -13,9 +13,7 @@ const waitDataReady = () =>
     }, 100);
   });
 
-function AppLoading({ children }: PropsWithChildren<unknown>) {
+export function SplashProvider({ children }: PropsWithChildren<unknown>) {
   const handleReady = useCallback(() => waitDataReady(), []);
   return <Splash onReady={handleReady}>{children}</Splash>;
 }
-
-export default AppLoading;
