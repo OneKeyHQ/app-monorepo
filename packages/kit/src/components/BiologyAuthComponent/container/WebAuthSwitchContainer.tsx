@@ -10,7 +10,7 @@ const WebAuthSwitchContainer = () => {
   const [{ isSupport, isEnable }] = usePasswordWebAuthInfoAtom();
   const onChange = useCallback(async (checked: boolean) => {
     try {
-      await backgroundApiProxy.servicePassword.setWebAuthEnable(checked);
+      await backgroundApiProxy.servicePassword.webAuthSetEnable(checked);
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       Toast.error({ title: e?.message || 'Failed to set web auth' });

@@ -10,8 +10,8 @@ import type { ICurveName } from './coreTypesBase';
 import type { IUnsignedMessage } from './coreTypesMessage';
 import type { IUnsignedTxPro } from './coreTypesTx';
 
-export * from './coreTypesBase';
 export * from './coreEnums';
+export * from './coreTypesBase';
 export * from './coreTypesMessage';
 export * from './coreTypesTx';
 
@@ -29,7 +29,7 @@ export type ICoreApiNetworkInfo = {
 export type ICoreApiGetAddressesQueryHdBase = {
   networkInfo: ICoreApiNetworkInfo;
   template: string;
-  hdCredential: ICoreHdCredential;
+  hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
   indexes: number[];
 };
@@ -119,19 +119,22 @@ export type ICoreApiGetPrivateKeysMapHdQuery = {
     address: string;
   };
   password: string;
-  hdCredential: ICoreHdCredential;
+  hdCredential: ICoreHdCredentialEncryptHex;
   relPaths?: string[];
 };
 export type ICoreImportedCredential = {
-  // encryptedPrivateKey
+  // rawPrivateKey
   privateKey: string;
 };
+export type ICoreImportedCredentialEncryptHex = string;
+
 export type ICoreHdCredential = {
-  // encryptedSeed
-  seed: string;
-  entropy: string;
+  seed: string; // rawSeed
+  entropy: string; // rawEntropy
 };
+export type ICoreHdCredentialEncryptHex = string;
+
 export type ICoreCredentialsInfo = {
-  hd?: ICoreHdCredential;
-  imported?: ICoreImportedCredential;
+  hd?: ICoreHdCredentialEncryptHex;
+  imported?: ICoreImportedCredentialEncryptHex;
 };

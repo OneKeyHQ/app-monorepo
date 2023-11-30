@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServicePassword from '../services/ServicePassword';
@@ -64,5 +65,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
+  serviceAccount: ServiceAccount;
   // serviceCronJob: ServiceCronJob;
 }

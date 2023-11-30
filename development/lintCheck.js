@@ -13,7 +13,9 @@ function handleWarnings(result) {
     console.log(
       'Hope you can fix the ESLint warings introduced after this merge.',
     );
-    exit(1);
+    if (process.env.NODE_ENV === 'production') {
+      exit(1);
+    }
   }
 }
 

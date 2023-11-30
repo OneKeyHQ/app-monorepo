@@ -20,19 +20,6 @@ export function mockGetChainInfo({ networkId }: { networkId: string }) {
   };
 }
 
-export function mockGetAccountNameInfoByTemplate({
-  impl,
-  template,
-}: {
-  impl: string;
-  template: string;
-}) {
-  return {
-    prefix: 'HELLO', // namePrefix
-    idSuffix: 'hi-',
-  };
-}
-
 export function mockIsAccountCompatibleWithNetwork({
   accountId,
   networkId,
@@ -213,6 +200,7 @@ export const mockPresetNetworks: Record<'evm' | 'goerli', IServerNetwork> = {
 };
 
 export async function mockGetNetwork({ networkId }: { networkId: string }) {
+  // TODO use simpleDB save networks
   return Promise.resolve(mockPresetNetworks.goerli);
 }
 

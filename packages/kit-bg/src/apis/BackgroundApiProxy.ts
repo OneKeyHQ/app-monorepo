@@ -3,6 +3,7 @@
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServicePassword from '../services/ServicePassword';
@@ -27,6 +28,8 @@ class BackgroundApiProxy
   ) as ServicePassword;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
+
+  serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
 
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 

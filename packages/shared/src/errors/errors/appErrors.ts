@@ -69,6 +69,19 @@ export class WrongPassword extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
         defaultKey: 'msg__engine__incorrect_password',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class PasswordNotSet extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordNotSet',
+        defaultKey: 'msg__engine__password_not_set' as any,
+        defaultAutoToast: true,
       }),
     );
   }

@@ -27,6 +27,7 @@ import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
+import AccountModelGallery from '../../../../../views/Components/stories/AccountModelGallery';
 import AlertGallery from '../../../../../views/Components/stories/Alert';
 import DividerGallery from '../../../../../views/Components/stories/Divider';
 import ErrorToastGallery from '../../../../../views/Components/stories/ErrorToastGallery';
@@ -99,6 +100,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
+  {
+    name: EGalleryRoutes.ComponentAccountModel,
+    component: AccountModelGallery,
+  },
   {
     name: EGalleryRoutes.ComponentJotaiContext,
     component: JotaiContextGallery,
