@@ -9,17 +9,14 @@ import type {
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
 
-import { ERootRoutes } from '../routes/Root/Routes';
+import { ERootRoutes } from '../routes/enum';
 
-import type {
-  EModalRoutes,
-  IModalParamList,
-} from '../routes/Root/Modal/Routes';
+import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
 import type {
   ENativeFullScreenModalRoutes,
   IFullScreenModalParamList,
-} from '../routes/Root/NativeFullScreenNavigator/Routes';
-import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
+} from '../routes/iOSFullScreen/Routes';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/Routes';
 
 function useAppNavigation<
   P extends
@@ -74,7 +71,7 @@ function useAppNavigation<
       params?: IFullScreenModalParamList[T][keyof IFullScreenModalParamList[T]];
     },
   ) => {
-    navigation.navigate(ERootRoutes.NativeFullScreen, {
+    navigation.navigate(ERootRoutes.iOSFullScreen, {
       screen: route,
       params,
     });

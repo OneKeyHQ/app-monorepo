@@ -4,13 +4,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Page, Switch, Text, XStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 
-import { ENativeFullModalTestRoutes } from './Routes';
+import type { ITabHomeParamList } from '../../../routes/Tab/Home/Routes';
 
-import type { ITabHomeParamList } from '../../Tab/Home/Routes';
-
-export default function TestSimpleModal() {
+export function TestIOSFullModal() {
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
@@ -21,7 +20,7 @@ export default function TestSimpleModal() {
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const navigateToNextPage = useCallback(() => {
-    navigation.push(ENativeFullModalTestRoutes.TestFullSimpleModal);
+    navigation.push(EIOSFullScreenModalRoutes.iOSFullScreenTestModal);
   }, [navigation]);
   return (
     <Page>
@@ -44,7 +43,7 @@ export default function TestSimpleModal() {
           <Switch value={showNewHeader} onChange={changeNewHeaderStatus} />
           <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
         </XStack>
-        <Text>这是一个普通的 Modal 测试</Text>
+        <Text>Full Screen</Text>
         <Button onPress={navigateToNextPage}>Push Next Page</Button>
       </Page.Body>
       {showNewHeader ? (

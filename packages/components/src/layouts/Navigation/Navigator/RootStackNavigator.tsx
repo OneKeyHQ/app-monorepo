@@ -13,7 +13,7 @@ import { createStackNavigator } from '../StackNavigator';
 import type { ICommonNavigatorConfig } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
-type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'nativeFullScreen';
+type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'iOSFullScreen';
 
 export interface IRootStackNavigatorConfig<
   RouteName extends string,
@@ -56,7 +56,7 @@ export function RootStackNavigator<
           return makeModalScreenOptions({ isVerticalLayout });
         case 'fullScreen':
           return makeFullScreenOptions();
-        case 'nativeFullScreen':
+        case 'iOSFullScreen':
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout });

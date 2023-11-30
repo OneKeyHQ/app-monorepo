@@ -3,7 +3,7 @@ export enum ERootRoutes {
 
   Modal = 'modal',
 
-  NativeFullScreen = 'NativeFullScreen',
+  iOSFullScreen = 'iOSFullScreen',
 
   Gallery = 'gallery',
 }

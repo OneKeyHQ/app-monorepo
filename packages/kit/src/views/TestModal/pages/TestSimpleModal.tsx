@@ -11,13 +11,12 @@ import {
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ETestModalPages } from '../router/type';
 
-import { EModalTestRoutes } from './Routes';
+import type { ITabHomeParamList } from '../../../routes/Tab/Home/Routes';
 
-import type { ITabHomeParamList } from '../../Tab/Home/Routes';
-
-export default function TestSimpleModal() {
+export function TestSimpleModal() {
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     [],
@@ -29,7 +28,7 @@ export default function TestSimpleModal() {
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const navigateToNextPage = useCallback(() => {
-    navigation.push(EModalTestRoutes.TestSimpleModal);
+    navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
   return (
     <Page>
