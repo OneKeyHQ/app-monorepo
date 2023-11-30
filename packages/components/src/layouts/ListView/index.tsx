@@ -33,7 +33,10 @@ export type IListViewProps<T> = Omit<
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
 
-    // for web
+    /*
+      Average height of your cell
+      See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
+    */
     estimatedItemSize: number | `$${keyof Tokens['size']}`;
     getItemType?: (item: T) => string | undefined;
   };
