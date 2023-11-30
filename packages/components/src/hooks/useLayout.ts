@@ -2,12 +2,9 @@ import { createContext, useContext, useMemo } from 'react';
 
 import { Dimensions } from 'react-native';
 
+import useProviderIsVerticalLayout from '../hocs/Provider/hooks/useProviderIsVerticalLayout';
+
 export { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-export const ContextIsVerticalLayout = createContext<boolean>(false);
-
-export const useProviderIsVerticalLayout = () =>
-  useContext(ContextIsVerticalLayout);
 
 export function useIsVerticalLayout() {
   return useProviderIsVerticalLayout();
