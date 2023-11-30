@@ -1,5 +1,5 @@
 import type { FC, PropsWithChildren, ReactNode } from 'react';
-import { memo, useLayoutEffect, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
@@ -13,12 +13,11 @@ import { LOCALES } from '../../locale';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
+import { useStatusBarTheme } from './hooks/useStatusBarTheme';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../../locale';
-import { setDarkContent, setLightContent } from '../../layouts/Navigation/utils/StatusBarUtils.native';
-import { useStatusBarTheme } from './hooks/useStatusBarTheme';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**

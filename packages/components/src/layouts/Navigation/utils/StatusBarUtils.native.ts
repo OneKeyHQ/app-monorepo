@@ -19,4 +19,3 @@ export const setHidden = (
 ): void => {
   StatusBar.setHidden(hidden, animation);
 };
-

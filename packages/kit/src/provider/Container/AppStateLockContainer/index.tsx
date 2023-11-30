@@ -1,4 +1,4 @@
-import type { FC, PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
@@ -8,10 +8,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import PasswordVerifyContainer from '../../Password/container/PasswordVerifyContainer';
-import AppStateLock from '../components/AppStateLock';
+import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
-const AppStateLockContainer: FC<PropsWithChildren> = ({ children }) => {
+import AppStateLock from './components/AppStateLock';
+
+export function AppStateLockContainer({
+  children,
+}: PropsWithChildren<unknown>) {
   const [{ unLock }] = usePasswordAtom();
   const [{ isPasswordSet, webAuthCredentialId }] = usePasswordPersistAtom();
   const handleUnlock = useCallback(async () => {
@@ -44,6 +47,4 @@ const AppStateLockContainer: FC<PropsWithChildren> = ({ children }) => {
       }
     />
   );
-};
-
-export default AppStateLockContainer;
+}
