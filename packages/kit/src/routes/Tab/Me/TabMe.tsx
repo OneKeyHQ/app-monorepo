@@ -4,10 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Button, Page } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../Routes';
 
 import type { ITabMeParamList } from './Routes';

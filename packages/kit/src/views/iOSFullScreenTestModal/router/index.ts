@@ -6,7 +6,7 @@ import { EIOSFullScreenTestModalPages } from './type';
 
 import type { IIOSFullScreenTestModalPagesParam } from './type';
 
-export const TestModalRouter: IModalFlowNavigatorConfig<
+export const iOSFullScreenTestModalRouter: IModalFlowNavigatorConfig<
   EIOSFullScreenTestModalPages,
   IIOSFullScreenTestModalPagesParam
 >[] = [

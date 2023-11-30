@@ -5,8 +5,8 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Swap from '../../../views/Swap';
-import HomePage from '../../../views/Tab/Home/HomePageTabs';
+import Swap from '../../views/Swap';
+import HomePage from '../../views/Tab/Home/HomePageTabs';
 
 import { galleryScreenList } from './Developer/Gallery';
 import { ETabDeveloperRoutes } from './Developer/Routes';

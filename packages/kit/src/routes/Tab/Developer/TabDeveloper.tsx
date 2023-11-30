@@ -17,8 +17,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import useCookie from '../../../../hooks/useCookie';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import useCookie from '../../../hooks/useCookie';
 
 import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './Routes';
 

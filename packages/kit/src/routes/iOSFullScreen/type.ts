@@ -4,6 +4,6 @@ export enum EIOSFullScreenModalRoutes {
   iOSFullScreenTestModal = 'iOSFullScreenTestModal',
 }
 
-export type IFullScreenModalParamList = {
+export type IIOSFullScreenModalParamList = {
   [EIOSFullScreenModalRoutes.iOSFullScreenTestModal]: IIOSFullScreenTestModalPagesParam;
 };

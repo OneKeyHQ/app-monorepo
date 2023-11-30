@@ -27,20 +27,20 @@ import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
 
-import AlertGallery from '../../../../../views/Components/stories/Alert';
-import DividerGallery from '../../../../../views/Components/stories/Divider';
-import ErrorToastGallery from '../../../../../views/Components/stories/ErrorToastGallery';
-import FormGallery from '../../../../../views/Components/stories/Form';
-import JotaiContextGallery from '../../../../../views/Components/stories/JotaiContextGallery';
-import JotaiGlobalGallery from '../../../../../views/Components/stories/JotaiGlobalGallery';
-import ListViewGallery from '../../../../../views/Components/stories/ListView';
-import LocalDBGallery from '../../../../../views/Components/stories/LocalDBGallery';
-import PasswordDemoGallery from '../../../../../views/Components/stories/PasswordDemo';
-import QRCodeGallery from '../../../../../views/Components/stories/QRCode';
-import ScrollViewGallery from '../../../../../views/Components/stories/ScrollView';
-import SectionListGallery from '../../../../../views/Components/stories/SectionList';
-import SkeletonGallery from '../../../../../views/Components/stories/Skeleton';
-import TextAreaGallery from '../../../../../views/Components/stories/TextArea';
+import AlertGallery from '../../../../views/Components/stories/Alert';
+import DividerGallery from '../../../../views/Components/stories/Divider';
+import ErrorToastGallery from '../../../../views/Components/stories/ErrorToastGallery';
+import FormGallery from '../../../../views/Components/stories/Form';
+import JotaiContextGallery from '../../../../views/Components/stories/JotaiContextGallery';
+import JotaiGlobalGallery from '../../../../views/Components/stories/JotaiGlobalGallery';
+import ListViewGallery from '../../../../views/Components/stories/ListView';
+import LocalDBGallery from '../../../../views/Components/stories/LocalDBGallery';
+import PasswordDemoGallery from '../../../../views/Components/stories/PasswordDemo';
+import QRCodeGallery from '../../../../views/Components/stories/QRCode';
+import ScrollViewGallery from '../../../../views/Components/stories/ScrollView';
+import SectionListGallery from '../../../../views/Components/stories/SectionList';
+import SkeletonGallery from '../../../../views/Components/stories/Skeleton';
+import TextAreaGallery from '../../../../views/Components/stories/TextArea';
 
 import { EGalleryRoutes } from './routes';
 

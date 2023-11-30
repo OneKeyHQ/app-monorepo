@@ -4,13 +4,13 @@ import { Button, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EIOSFullScreenModalRoutes } from '../../../../routes/iOSFullScreen/type';
 import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EModalTestRoutes } from '../../../TestModal/Routes';
-import { ENativeFullScreenModalRoutes } from '../../../../routes/iOSFullScreen/Routes';
-import { ENativeFullModalTestRoutes } from '../../../iOSFullScreenTestModal/Routes';
-import { ETabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
+import { ETabHomeRoutes } from '../../../../routes/Tab/Home/Routes';
+import { EIOSFullScreenTestModalPages } from '../../../iOSFullScreenTestModal/router/type';
+import { ETestModalPages } from '../../../TestModal/router/type';
 
-import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
+import type { ITabHomeParamList } from '../../../../routes/Tab/Home/Routes';
 
 export default function HomePageHeaderView() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
@@ -26,13 +26,13 @@ export default function HomePageHeaderView() {
 
   const navigateTestSimpleModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.TestModal, {
-      screen: EModalTestRoutes.TestSimpleModal,
+      screen: ETestModalPages.TestSimpleModal,
     });
   }, [navigation]);
 
   const navigateFullScreenSimpleModal = useCallback(() => {
-    navigation.pushFullModal(ENativeFullScreenModalRoutes.NativeFullModal, {
-      screen: ENativeFullModalTestRoutes.TestFullSimpleModal,
+    navigation.pushFullModal(EIOSFullScreenModalRoutes.iOSFullScreenTestModal, {
+      screen: EIOSFullScreenTestModalPages.TestFullSimpleModal,
     });
   }, [navigation]);
 

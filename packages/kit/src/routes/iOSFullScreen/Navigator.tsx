@@ -4,7 +4,7 @@ import { iOSFullScreenRouter } from './router';
 
 import type { EIOSFullScreenModalRoutes } from './type';
 
-export function iOSFullScreenNavigator() {
+export function IOSFullScreenNavigator() {
   return (
     <RootModalNavigator<EIOSFullScreenModalRoutes>
       config={iOSFullScreenRouter}

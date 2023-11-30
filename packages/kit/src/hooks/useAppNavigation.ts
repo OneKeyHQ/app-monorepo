@@ -11,11 +11,11 @@ import type {
 
 import { ERootRoutes } from '../routes/enum';
 
-import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
 import type {
-  ENativeFullScreenModalRoutes,
-  IFullScreenModalParamList,
-} from '../routes/iOSFullScreen/Routes';
+  EIOSFullScreenModalRoutes,
+  IIOSFullScreenModalParamList,
+} from '../routes/iOSFullScreen/type';
+import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
 import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/Routes';
 
 function useAppNavigation<
@@ -64,11 +64,11 @@ function useAppNavigation<
     });
   };
 
-  const pushFullModal = <T extends ENativeFullScreenModalRoutes>(
+  const pushFullModal = <T extends EIOSFullScreenModalRoutes>(
     route: T,
     params?: {
-      screen: keyof IFullScreenModalParamList[T];
-      params?: IFullScreenModalParamList[T][keyof IFullScreenModalParamList[T]];
+      screen: keyof IIOSFullScreenModalParamList[T];
+      params?: IIOSFullScreenModalParamList[T][keyof IIOSFullScreenModalParamList[T]];
     },
   ) => {
     navigation.navigate(ERootRoutes.iOSFullScreen, {
