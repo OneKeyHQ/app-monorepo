@@ -83,6 +83,7 @@
   "action__close": "يغلق",
   "action__close_all": "أغلق الكل",
   "action__close_all_tabs": "إغلاق كافة علامات التبويب",
+  "action__close_pin_tab": "إغلاق علامة التبويب دبوس",
   "action__coin_control": "التحكم في العملات",
   "action__collapse": "ينهار",
   "action__collect_to_touch": "اجمع للمس",
@@ -180,6 +181,7 @@
   "action__go_tobackup": "انتقل إلى النسخ الاحتياطي",
   "action__grid_view": "عرض شبكي",
   "action__hide_chart": "إخفاء الرسم البياني",
+  "action__hide_details": "أخف التفاصيل",
   "action__hide_risky_nfts": "إخفاء NFTs المحفوفة بالمخاطر",
   "action__hide_risky_tokens_histories": "إخفاء تاريخ الرموز المحفوفة بالمخاطر",
   "action__hide_this_collection": "إخفاء هذه المجموعة",
@@ -237,6 +239,7 @@
   "action__permanently_delete": "حذف بشكل دائم",
   "action__photo": "صورة",
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
+  "action__pin": "دبوس",
   "action__place_limit_order": "مكان الامر",
   "action__preview": "معاينة",
   "action__private_view_key": "تصدير مفتاح العرض الخاص",
@@ -324,6 +327,7 @@
   "action__str_more_actions": "و {count} إجراءات أخرى",
   "action__str_more_transations": "{count} مزيد من المعاملات",
   "action__submit": "إرسال",
+  "action__submit_ticket": "قدم التذكرة",
   "action__submit_token": "إرسال الرمز",
   "action__submitting_order_str": "إرسال الطلب ... {0}",
   "action__subscribe": "الإشتراك",
@@ -346,6 +350,7 @@
   "action__unlike": "غير مفضل",
   "action__unlist_on_sale_inscription": "إلغاء القائمة",
   "action__unlock": "الغاء القفل",
+  "action__unpin": "إزالة التثبيت",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
   "action__unwrap": "بسط",
@@ -396,6 +401,8 @@
   "action_copy_hash": "نسخ التجزئة",
   "action_retry": "أعد المحاولة",
   "action_unstake": "نزع",
+  "actionn__bookmark": "إشارة مرجعية",
+  "actionn__remove_bookmark": "إزالة المرجعية",
   "alert__some_of_words_you_typed_are_wrong": "بعض الكلمات التي كتبتها خاطئة",
   "alert_only_use_a_recovery_seed_from_device": "قم فقط بتدوين عبارات الاسترداد التي عرضها جهازك أثناء الإعداد.",
   "app__app_name": "OneKey",
@@ -445,6 +452,7 @@
   "content__about_int_str": "حول {time} {unit}",
   "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
   "content__account_balance": "رصيد الحساب",
+  "content__account_derivation": "اشتقاق الحساب",
   "content__account_is_not_matched": "الحساب غير مطابق",
   "content__account_type": "نوع الحساب",
   "content__activated": "مفعل",
@@ -541,6 +549,12 @@
   "content__custom_what_is_max_gas_price_desc": "المعاملة الأعلى سعرًا في mempool (الكتلة المعلقة).",
   "content__custom_what_is_pending_tx_desc": "سيتم تضمين عدد العناصر التي نقدرها في الكتلة التالية بناءً على لقطة mempool.",
   "content__customise_transfer_amount_by_adding_the_amount_after_the_address": "تخصيص مبلغ التحويل عن طريق إضافة المبلغ بعد العنوان (استخدم الفواصل للتقسيم). على سبيل المثال:",
+  "content__dapp_potential_risk": "التطبيقات اللامركزية الضارة",
+  "content__dapp_potential_risk_continue": "إذا كنت تفهم المخاطر وترغب في المتابعة، يمكنك المتابعة إلى الموقع.",
+  "content__dapp_potential_risk_li_1": "المخاطر المحتملة:",
+  "content__dapp_potential_risk_li_2": "سرقة عبارة الاسترداد أو كلمة المرور",
+  "content__dapp_potential_risk_li_3": "هجمات التصيد",
+  "content__dapp_potential_risk_li_4": "الرموز المزيفة أو عمليات الاحتيال",
   "content__data_for_this_token_is_not_included_yet": "لم يتم تضمين البيانات لهذا الرمز المميز حتى الآن.",
   "content__data_source": "مصدر البيانات:",
   "content__day": "يوم",
@@ -894,6 +908,7 @@
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "اكتشاف العقد ليس مثاليًا بعد ، لذلك قد ينزلق البعض منهم عبر الفجوات. إذا رأيت أي محتوى غير صحيح أثناء التحقق من البدل ، فيرجى إخبارنا في خادم DISCORD الخاص بنا.",
   "content__the_current_statistical_content_only_includes": "يتضمن المحتوى الإحصائي الحالي فقط الرموز المميزة على سلسلة {0} و NFTs على {0} ، المزيد من السلاسل قريبًا.",
   "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
+  "content__the_current_wallet_doesnot_support_str_switch_to_an_app_wallet": "المحفظة الحالية لا تدعم {0} ، قم بالتبديل إلى محفظة التطبيقات",
   "content__the_decentralized_web_awaits": "شبكة الإنترنت اللامركزية تنتظر",
   "content__the_recipient_address_is_a_contract_address_and_the_tokens_sent_may_be_lost": "عنوان المستلم هو عنوان عقد ، وقد يتم فقد الرموز المميزة المرسلة.",
   "content__the_statistical_scope_is_limited_to_eth_networks_all_data_comes_from_the_blockchain_browser": "يقتصر النطاق الإحصائي على شبكات ETH.\n جميع البيانات تأتي من متصفح blockchain. لن يقوم OneKey بحفظ بيانات الخصوصية لأي مستخدم.",
@@ -1047,6 +1062,8 @@
   "empty__creating_data": "جارٍ تحضير محفظتك ...",
   "empty__creating_data_desc": "قد يستغرق التحميل الأولي بعض الوقت ، فلا تتردد في العودة إلى هذه الصفحة لاحقًا.",
   "empty__migrated_data_already_exists": "البيانات التي تم ترحيلها موجودة بالفعل.",
+  "empty__network_issue_connect": "غير قادر على الاتصال",
+  "empty__network_issue_refresh": "تم اكتشاف مشكلة في الشبكة. يرجى التحقق من اتصالك وتحديث الصفحة",
   "empty__no_account_desc": "لا يوجد حساب للشبكة المختارة.",
   "empty__no_account_title": "لا حسابات",
   "empty__no_connected_sites": "لا توجد مواقع متصلة",
@@ -1561,6 +1578,7 @@
   "form__node_id": "معرف العقدة",
   "form__nonce": "نونس",
   "form__normal": "طبيعي",
+  "form__nostr_plaintext": "نص عادي",
   "form__not__selected_str_uppercase": "غير محدد ( {0} )",
   "form__not_appear_to_be_a_honeypot": "ليس موضع جذب",
   "form__not_appear_to_be_a_honeypot_desc": "لا يوجد ترميز نعرفه يمنع مبيعات الرمز المميز.",
@@ -2148,6 +2166,8 @@
   "msg__address_deleted": "تم حذف العنوان",
   "msg__address_is_inconsistent_please_check_manually": "العنوان غير متسق. يرجى التحقق يدويًا.",
   "msg__alert_already_exists": "التنبيه موجود بالفعل",
+  "msg__allow_sign_event": "السماح لموقع الويب هذا بالتوقيع على {kind} :",
+  "msg__allow_website_to": "السماح لهذا الموقع",
   "msg__amount_should_not_be_less_than_int": "يجب ألا يقل المبلغ عن {0}",
   "msg__amount_should_not_exceed_int": "يجب ألا يتجاوز المبلغ {0}",
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
@@ -2156,6 +2176,8 @@
   "msg__asset_ratio": "نسبة الأصول",
   "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق من اتصال الشبكة وحاول مرة أخرى",
   "msg__backup_imported": "البيانات المستوردة",
+  "msg__bookmark_added": "تمت إضافة الإشارة المرجعية",
+  "msg__bookmark_removed": "تمت إزالة الإشارة المرجعية",
   "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كاف.",
   "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",
   "msg__broadcast_tx_Insufficient_fee": "رسوم غير كافية: يرجى التحقق مما إذا كان الرصيد كافياً أو حاول تبديل ترس الرسوم.",
@@ -2342,11 +2364,38 @@
   "msg__network_reset": "إعادة تعيين الشبكة",
   "msg__nfc_reader_usage_description": "استخدم NFC لإجراء نسخ احتياطي باستخدام OneKey Lite.",
   "msg__nft_does_not_exist": "NFT غير موجود",
+  "msg__no_content": "لا يوجد محتوى",
   "msg__no_data_available": "لا تتوافر بيانات",
   "msg__no_route_found": "لم يتم العثور على مسار",
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "تم استخدام Nonce وقد يتسبب في فشل هذه المعاملة.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce أعلى ، فهذا يعني أنه سيتم وضع المعاملة في قائمة الانتظار حتى يتم تأكيد المعاملات الموجودة أمامها.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "تم استخدام nonce ، سيؤدي ذلك إلى استبداله بمعاملة الرسوم. ادفع رسومًا أعلى لضمان إمكانية استبدال المعاملة المستهدفة.",
+  "msg__nostr_allow_website_to_decrypt_data": "السماح لهذا الموقع بفك تشفير البيانات",
+  "msg__nostr_allow_website_to_encrypt_data": "السماح لهذا الموقع بتشفير البيانات",
+  "msg__nostr_event_kind_0": "البيانات الوصفية",
+  "msg__nostr_event_kind_1": "مذكرة نصية قصيرة",
+  "msg__nostr_event_kind_10002": "البيانات الوصفية لقائمة التتابع",
+  "msg__nostr_event_kind_1984": "إعداد التقارير",
+  "msg__nostr_event_kind_2": "يوصي التتابع",
+  "msg__nostr_event_kind_22242": "مصادقة العميل",
+  "msg__nostr_event_kind_24133": "اتصالنا",
+  "msg__nostr_event_kind_3": "جهات الاتصال",
+  "msg__nostr_event_kind_30008": "شارات الملف الشخصي",
+  "msg__nostr_event_kind_30009": "تعريف الشارة",
+  "msg__nostr_event_kind_30023": "محتوى طويل الشكل",
+  "msg__nostr_event_kind_30078": "البيانات الخاصة بالتطبيق",
+  "msg__nostr_event_kind_4": "رسائل مباشرة مشفرة",
+  "msg__nostr_event_kind_40": "إنشاء القناة",
+  "msg__nostr_event_kind_41": "البيانات الوصفية للقناة",
+  "msg__nostr_event_kind_42": "رسالة القناة",
+  "msg__nostr_event_kind_43": "رسالة إخفاء القناة",
+  "msg__nostr_event_kind_44": "قناة المستخدم كتم الصوت",
+  "msg__nostr_event_kind_5": "حذف الحدث",
+  "msg__nostr_event_kind_7": "رد فعل",
+  "msg__nostr_event_kind_8": "جائزة الشارة",
+  "msg__nostr_event_kind_9734": "طلب انطلق",
+  "msg__nostr_event_kind_9735": "انطلق",
+  "msg__nostr_event_kind_unknown": "حدث من نوع {kind}",
   "msg__not_support_passphrase_need_upgrade": "استخدم عبارة المرور ، تحتاج إلى ترقية البرامج الثابتة إلى {0} أو أحدث.",
   "msg__not_the_same_wallet": "ليست نفس المحفظة.",
   "msg__ns_bluetooth_always_usage_description": "استخدم البلوتوث لتوصيل أجهزة OneKey.",
@@ -2370,6 +2419,8 @@
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
   "msg__payment_channel_not_found_sending_failed": "قناة الدفع غير موجودة ، فشل الإرسال",
   "msg__payment_received": "تم استلام الدفعة",
+  "msg__pin_tutorial": "يمكنك اللمس مع الاستمرار لتثبيت علامة التبويب هذه للوصول السريع.",
+  "msg__pinned": "مثبت",
   "msg__please_approve_camera_permission_on_your_browser": "يرجى الموافقة على إذن الكاميرا على متصفحك.",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "الرجاء تحديد مقدار الرموز المميزة بـ {0} منازل عشرية أو أقل.",
   "msg__please_limit_the_file_size_to_str_or_less": "الرجاء تحديد حجم الملف بـ {0} أو أقل",
@@ -2383,6 +2434,7 @@
   "msg__price_alert_reached_desc": "وصل {0} إلى القيمة المستهدفة {1}",
   "msg__processing_transactions": "معالجة المعاملات ...",
   "msg__psbt_will_not_broadcast_to_blockchain_now_no_need_to_pay_tx_fee": "لن يتم بث معاملات البيتكوين الموقعة جزئيًا إلى blockchain على الفور، لذلك لا تحتاج إلى دفع رسوم المعاملات",
+  "msg__read_your_public_key": "اقرأ مفتاحك العام",
   "msg__received": "🤑 تم استلام {assets}",
   "msg__received_a_nft": "🤑 حصل على NFT",
   "msg__received_desc": "من {address}",
@@ -2476,6 +2528,7 @@
   "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "توجد معاملات بنفس القيمة الفعلية بالفعل ، يرجى دفع رسوم شبكة أعلى ، وإلا فقد تفشل المعاملة.",
   "msg__unable_to_access_disk_onekey_data": "تعذر الوصول إلى القرص \"ONEKEY DATA\"",
   "msg__unknown_error": "خطأ غير معروف",
+  "msg__unpinned": "غير مثبت",
   "msg__unstaking_in_progress_str": "إلغاء التثبيت قيد التقدم: {0}",
   "msg__unstaking_in_progress_str_desc": "قد يستغرق هذا {0}",
   "msg__unsubscription_succeeded": "نجح إلغاء الاشتراك",
@@ -2543,6 +2596,7 @@
   "platform__tablet": "لوح",
   "reward__history_empty_desc": "سيظهر سجل المكافأة هنا.",
   "select__options": "خيارات",
+  "tab__browser": "المتصفح",
   "tag__adventurist_uppercase": "# مبتدئ",
   "tag__hodler_uppercase": "# هودلر",
   "tag__stablecoin_player_uppercase": "# لاعب STABLECOIN",
@@ -2730,6 +2784,9 @@
   "title__no_request_history_desc": "أنت لم تقدم أي طلبات.",
   "title__no_result_for_str": "لا توجد نتائج لـ \"{keyword}\"",
   "title__no_used_addresses": "لا توجد عناوين مستخدمة",
+  "title__nostr": "Nostr",
+  "title__nostr_public_key": "مفتاح Nostr العام",
+  "title__nostr_request": "طلب نستر",
   "title__notifications": "إشعارات",
   "title__official_website": "الموقع الرسمي",
   "title__onekey_lite_pin": "OneKey Lite PIN",
