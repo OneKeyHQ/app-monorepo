@@ -114,7 +114,7 @@ index 74f1804..aebed6e 100644
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1ed4914..5c3121d 100644
+index 1ed4914..95e1178 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -209,23 +209,29 @@ index 1ed4914..5c3121d 100644
    // For RN touches to work we need to instantiate and connect RCTTouchHandler. This only applies
    // for screens that aren't mounted under RCTRootView e.g., modals that are mounted directly to
    // root application window.
-@@ -1036,6 +1112,16 @@ - (void)viewDidLayoutSubviews
-     }
- #endif
-   }
-+  [self.screenView.findHeaderConfig.reactSubviews enumerateObjectsUsingBlock:^(UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-+    UIView *view = [obj.subviews firstObject];
-+    if ([[obj.subviews firstObject] isKindOfClass:[RNSSearchBar class]]) {
-+      RNSSearchBar *searchBar = (RNSSearchBar *)view;
-+      if (searchBar.autoFocus) {
-+        self.navigationItem.searchController.active = YES;
-+        [self.navigationItem.searchController.searchBar becomeFirstResponder];
+@@ -971,6 +1047,22 @@ - (void)viewDidAppear:(BOOL)animated
+     // or successfully swiped back
+     [self.screenView notifyAppear];
+     [self notifyTransitionProgress:1.0 closing:NO goingForward:_goingForward];
++
++    // searchBar.autoFocus
++    [self.screenView.findHeaderConfig.reactSubviews enumerateObjectsUsingBlock:^(UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
++      UIView *view = [obj.subviews firstObject];
++      if (![[obj.subviews firstObject] isKindOfClass:[RNSSearchBar class]]) {
++        return;
 +      }
-+    }
-+  }];
- }
- 
- - (BOOL)isModalWithHeader
++      RNSSearchBar *searchBar = (RNSSearchBar *)view;
++      if (!searchBar.autoFocus) {
++        return;
++      }
++      self.navigationItem.searchController.active = YES;
++      dispatch_async(dispatch_get_main_queue(), ^{
++        [self.navigationItem.searchController.searchBar becomeFirstResponder];
++      });
++    }];
+   } else {
+     [self.screenView notifyGestureCancel];
+   }
 diff --git a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h b/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h
 index defd0d5..f6521f5 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.h
@@ -269,20 +275,21 @@ index 9ac04c0..10a914b 100644
  
  @end
 diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.mm b/node_modules/react-native-screens/ios/RNSSearchBar.mm
-index 94475b7..b11a80b 100644
+index 94475b7..81ab4eb 100644
 --- a/node_modules/react-native-screens/ios/RNSSearchBar.mm
 +++ b/node_modules/react-native-screens/ios/RNSSearchBar.mm
-@@ -195,6 +195,9 @@ - (void)hideCancelButton
-   if (@available(iOS 13, *)) {
-     // On iOS 13+ UISearchController automatically shows/hides cancel button
-     // https://developer.apple.com/documentation/uikit/uisearchcontroller/3152926-automaticallyshowscancelbutton?language=objc
-+
-+    // But when we use `keyboardDismissMode` to dismiss the search bar, we should manually hide the cancel button with the following code.
-+    // _controller.active = NO;
-   } else {
-     [_controller.searchBar setShowsCancelButton:NO animated:YES];
-   }
-@@ -304,6 +307,18 @@ - (void)setText:(NSString *)text
+@@ -253,6 +253,10 @@ - (void)searchBarTextDidEndEditing:(UISearchBar *)searchBar
+ {
+   [self emitOnBlurEvent];
+   [self hideCancelButton];
++  // When we use `keyboardDismissMode` to dismiss the search bar, we should manually hide the cancel button with the following code.
++  if (_controller.active) {
++    _controller.active = NO;
++  }
+ }
+ 
+ - (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText
+@@ -304,6 +308,18 @@ - (void)setText:(NSString *)text
    [_controller.searchBar setText:text];
  }
  
@@ -301,7 +308,7 @@ index 94475b7..b11a80b 100644
  #pragma mark-- Fabric specific
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -403,6 +418,7 @@ - (UIView *)view
+@@ -403,6 +419,7 @@ - (UIView *)view
  RCT_EXPORT_VIEW_PROPERTY(onSearchButtonPress, RCTBubblingEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onFocus, RCTBubblingEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onBlur, RCTBubblingEventBlock)
@@ -309,3 +316,21 @@ index 94475b7..b11a80b 100644
  
  #ifndef RCT_NEW_ARCH_ENABLED
  
+diff --git a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
+index e295dcc..aebe6bc 100644
+--- a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
++++ b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
+@@ -6,6 +6,13 @@ @implementation UIWindow (RNScreens)
+ - (void)didAddSubview:(UIView *)subview
+ {
+   if (![subview isKindOfClass:[RNSFullWindowOverlayContainer class]]) {
++
++    // We only bring `RNSFullWindowOverlayContainer` above the `UIModal`; we don't handle other things like `SPAlert`
++    NSString *subviewClassString = NSStringFromClass([subview class]);
++    if (![subviewClassString hasPrefix:@"UI"] && ![subviewClassString hasPrefix:@"_UI"]) {
++      return;
++    }
++
+     for (UIView *view in self.subviews) {
+       if ([view isKindOfClass:[RNSFullWindowOverlayContainer class]]) {
+         [self bringSubviewToFront:view];
