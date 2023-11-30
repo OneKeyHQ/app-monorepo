@@ -1,6 +1,7 @@
 import { random } from 'lodash';
 
 import { encodePassword } from '@onekeyhq/core/src/secret';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -31,7 +32,9 @@ class ServiceSend extends ServiceBase {
     };
     // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> encodedTx
     // Dapp -> encodedTx
-    const encodedTx = await vault.buildEncodedTx({ transferInfo });
+    const encodedTx = await vault.buildEncodedTx({
+      transfersInfo: [transferInfo],
+    });
 
     // PageSendConfirm
     let unsignedTx = await vault.buildUnsignedTx({ encodedTx });
@@ -67,6 +70,28 @@ class ServiceSend extends ServiceBase {
       signedTxWithoutBroadcast,
     });
     return Promise.resolve('hello world');
+  }
+
+  @backgroundMethod()
+  public async buildEncodedTx({
+    transfersInfo,
+  }: {
+    transfersInfo: ITransferInfo[];
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId: 'evm--5',
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+    });
+    return vault.buildEncodedTx({ transfersInfo });
+  }
+
+  @backgroundMethod()
+  public async buildUnsignedTx({ encodedTx }: { encodedTx: IEncodedTx }) {
+    const vault = await vaultFactory.getVault({
+      networkId: 'evm--5',
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+    });
+    return vault.buildUnsignedTx({ encodedTx });
   }
 }
 

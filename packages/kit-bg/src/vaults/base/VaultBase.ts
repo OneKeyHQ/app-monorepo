@@ -9,6 +9,7 @@ import type {
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
 import { VaultContext } from './VaultContext';
 
@@ -94,6 +95,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro>;
+
+  abstract validateAddress(address: string): Promise<IAddressValidation>;
+
+  async validateSendAmount() {
+    return Promise.resolve(true);
+  }
 
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {

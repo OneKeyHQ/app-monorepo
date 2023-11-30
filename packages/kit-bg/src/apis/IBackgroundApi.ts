@@ -19,6 +19,7 @@ import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTool from '../services/ServiceTool';
+import type ServiceValidator from '../services/ServiceValidator';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -79,4 +80,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNFT: ServiceNFT;
   serviceHistory: ServiceHistory;
   serviceTool: ServiceTool;
+  serviceValidator: ServiceValidator;
 }

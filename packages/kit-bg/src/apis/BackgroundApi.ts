@@ -139,5 +139,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceTool', { value });
     return value;
   }
+
+  get serviceValidator() {
+    const ServiceValidator =
+      require('../services/ServiceValidator') as typeof import('../services/ServiceValidator');
+    const value = new ServiceValidator.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceValidator', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

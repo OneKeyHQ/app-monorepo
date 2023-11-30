@@ -1,5 +1,6 @@
+import { getAddress } from '@ethersproject/address';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -29,11 +30,11 @@ export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
   override async buildEncodedTx(options: {
-    transferInfo?: ITransferInfo | undefined;
+    transfersInfo?: ITransferInfo[] | undefined;
   }): Promise<IEncodedTxEvm> {
-    const { transferInfo } = options;
-    if (transferInfo) {
-      return this._buildEncodedTxFromTransfer(transferInfo);
+    const { transfersInfo } = options;
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
   }
@@ -65,6 +66,26 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async validateAddress(address: string) {
+    let isValid = false;
+    let checksumAddress = '';
+
+    try {
+      checksumAddress = getAddress(address);
+      isValid = checksumAddress.length === 42;
+    } catch {
+      return Promise.resolve({
+        isValid: false,
+      });
+    }
+
+    return Promise.resolve({
+      normalizedAddress: checksumAddress.toLowerCase() || undefined,
+      displayAddress: checksumAddress || undefined,
+      isValid,
+    });
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -74,18 +95,32 @@ export default class Vault extends VaultBase {
   };
 
   async _buildEncodedTxFromTransfer(
-    transferInfo: ITransferInfo,
+    transfersInfo: ITransferInfo[],
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
+    if (transfersInfo.length === 1) {
+      const transferInfo = transfersInfo[0];
+      return {
+        from: transferInfo.from,
+        to: transferInfo.to,
+        value: numberUtils.numberToHex(
+          chainValueUtils.convertAmountToChainValue({
+            network,
+            value: transferInfo.amount,
+          }),
+        ),
+        data: '0x',
+      };
+    }
+    return this._buildEncodedTxFromBatchTransfer(transfersInfo);
+  }
+
+  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
+    // TODO EVM batch transfer through contract
     return {
-      from: transferInfo.from,
-      to: transferInfo.to,
-      value: numberUtils.numberToHex(
-        chainValueUtils.convertAmountToChainValue({
-          network,
-          value: transferInfo.amount,
-        }),
-      ),
+      from: '',
+      to: '',
+      value: '0',
       data: '0x',
     };
   }

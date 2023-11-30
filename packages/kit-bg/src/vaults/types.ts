@@ -170,7 +170,7 @@ export interface ITxUpdateFeeInfo {
 
 // Send ------------
 export interface IBuildEncodedTxParams {
-  transferInfo?: ITransferInfo;
+  transfersInfo?: ITransferInfo[];
   // swapInfo
 }
 export interface IBuildUnsignedTxParams {
