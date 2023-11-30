@@ -11,6 +11,7 @@ import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
+import { PageClose } from './PageClose';
 
 function PageContainer({
   children,
@@ -53,4 +54,5 @@ export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
   Footer: PageContextFooter,
+  Close: PageClose,
 });
