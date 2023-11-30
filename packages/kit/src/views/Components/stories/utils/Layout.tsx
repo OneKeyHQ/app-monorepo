@@ -51,7 +51,12 @@ export function Layout({
   suggestions?: string[];
   boundaryConditions?: string[];
   scrollEnabled?: boolean;
-  contentInsetAdjustmentBehavior?: string;
+  contentInsetAdjustmentBehavior?:
+    | 'always'
+    | 'never'
+    | 'automatic'
+    | 'scrollableAxes'
+    | undefined;
   skipLoading?: boolean;
   elements?: {
     title: string;
