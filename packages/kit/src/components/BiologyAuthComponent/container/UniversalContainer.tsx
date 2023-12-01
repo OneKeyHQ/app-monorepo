@@ -1,4 +1,5 @@
-import { Stack, Text, XStack } from '@onekeyhq/components';
+import { Suspense } from 'react';
+
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordWebAuthInfoAtom,
@@ -7,7 +8,7 @@ import {
 import BiologyAuthSwitchContainer from './BiologyAuthSwitchContainer';
 import WebAuthSwitchContainer from './WebAuthSwitchContainer';
 
-export const UniversalContainer = () => {
+const UniversalContainer = () => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
@@ -20,16 +21,8 @@ export const UniversalContainer = () => {
   return null;
 };
 
-export const LabelUniversalContainer = () => {
-  const [{ isSupport: biologyAuthIsSupport }] =
-    usePasswordBiologyAuthInfoAtom();
-  const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  return biologyAuthIsSupport || webAuthIsSupport ? (
-    <XStack justifyContent="space-between" alignItems="center">
-      <Text variant="bodyMdMedium">Authentication with FaceID</Text>
-      <Stack>
-        <UniversalContainer />
-      </Stack>
-    </XStack>
-  ) : null;
-};
+export const UniversalContainerWithSuspense = () => (
+  <Suspense fallback={null}>
+    <UniversalContainer />
+  </Suspense>
+);

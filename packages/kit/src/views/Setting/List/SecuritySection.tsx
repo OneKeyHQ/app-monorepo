@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, ListItem, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
-import { UniversalContainer } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
+import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -112,23 +112,29 @@ const PasswordItem = () => {
 const FaceIdItem = () => {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport }] =
+  const [{ isSupport: biologyAuthIsSupport, authType }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
 
+  let title = intl.formatMessage({ id: 'form__touch_id' });
+  if (biologyAuthIsSupport) {
+    if (authType.includes(2)) {
+      title = intl.formatMessage({ id: 'content__face_id' });
+    }
+  }
+
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
-    <ListItem
-      icon="FaceIdOutline"
-      title={intl.formatMessage({ id: 'content__face_id' })}
-    >
-      <UniversalContainer />
+    <ListItem icon="FaceIdOutline" title={title}>
+      <UniversalContainerWithSuspense />
     </ListItem>
   ) : null;
 };
 
 export const SecuritySection = () => (
   <Section title="SECURITY">
-    <FaceIdItem />
+    <Suspense>
+      <FaceIdItem />
+    </Suspense>
     <AppLockItem />
     <PasswordItem />
   </Section>
