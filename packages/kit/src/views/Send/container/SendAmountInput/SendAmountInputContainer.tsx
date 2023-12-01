@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page, Text } from '@onekeyhq/components';
+import { Input, Page } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -15,6 +15,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendAmountInputContainer() {
   const [amount, setAmount] = useState('0.0001');
+  const [isLoading, setIsLoading] = useState(false);
   const route =
     useRoute<
       RouteProp<IModalSendParamList, EModalSendRoutes.SendAmountInput>
@@ -23,6 +24,7 @@ function SendAmountInputContainer() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const handleConfirm = useCallback(async () => {
+    setIsLoading(true);
     const updatedTransfersInfo = transfersInfo.map((transferInfo) => ({
       ...transferInfo,
       amount,
@@ -35,6 +37,7 @@ function SendAmountInputContainer() {
     const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
       encodedTx,
     });
+    setIsLoading(false);
 
     navigation.pushModal(EModalRoutes.SendModal, {
       screen: EModalSendRoutes.SendConfirm,
@@ -48,9 +51,18 @@ function SendAmountInputContainer() {
   return (
     <Page>
       <Page.Body>
-        <Text>SendAmountInputContainer</Text>
+        <Input
+          value={amount}
+          onChange={({ nativeEvent }) => setAmount(nativeEvent.text)}
+          autoFocus
+        />
       </Page.Body>
-      <Page.Footer onConfirm={handleConfirm} />
+      <Page.Footer
+        onConfirm={handleConfirm}
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
+      />
     </Page>
   );
 }

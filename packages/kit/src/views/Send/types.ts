@@ -18,5 +18,10 @@ export type IModalSendParamList = {
   };
   [EModalSendRoutes.SendConfirm]: {
     unsignedTx: IUnsignedTxPro;
+    transfersInfo: ITransferInfo[];
+  };
+  [EModalSendRoutes.SendProgress]: {
+    unsignedTx: IUnsignedTxPro;
+    transfersInfo: ITransferInfo[];
   };
 };
