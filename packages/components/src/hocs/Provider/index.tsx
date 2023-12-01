@@ -11,9 +11,9 @@ import config from '../../../tamagui.config';
 import Toaster from '../../actions/Toast/Toaster';
 import { LOCALES } from '../../locale';
 
+import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
-import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
