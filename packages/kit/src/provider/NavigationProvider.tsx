@@ -7,19 +7,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const webProps = platformEnv.isRuntimeBrowser
   ? ({
+      documentTitle: {
+        formatter: () => 'OneKey',
+      },
       linking: {
         config: {},
       },
-    } as INavigationContainerProps)
+    } as unknown as INavigationContainerProps)
   : undefined;
 
 const NavigationApp = () => (
-  <NavigationContainer
-    documentTitle={{
-      formatter: () => 'OneKey',
-    }}
-    {...webProps}
-  >
+  <NavigationContainer {...webProps}>
     <RootNavigator />
   </NavigationContainer>
 );
