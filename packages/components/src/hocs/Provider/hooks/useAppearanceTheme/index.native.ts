@@ -2,7 +2,7 @@ import { useLayoutEffect } from 'react';
 
 import { StatusBar } from 'react-native';
 
-import type { IUseStatusBarTheme } from './type';
+import type { IUseAppearanceTheme } from './type';
 
 const setLightContent = (isAnimated = true) => {
   StatusBar.pushStackEntry({
@@ -18,7 +18,7 @@ const setDarkContent = (isAnimated = true) => {
   });
 };
 
-export const useStatusBarTheme: IUseStatusBarTheme = (themeVariant) => {
+export const useAppearanceTheme: IUseAppearanceTheme = (themeVariant) => {
   useLayoutEffect(() => {
     if (themeVariant === 'light') {
       setDarkContent();

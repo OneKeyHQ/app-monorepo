@@ -1,10 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
-export function setThemePreloadToLocalStorage(
-  value: string,
-  forceUpdate = true,
-) {
+import type { IUseAppearanceTheme } from './type';
+
+const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
+function setThemePreloadToLocalStorage(value: string, forceUpdate = true) {
   try {
     const key = THEME_PRELOAD_STORAGE_KEY;
     if (platformEnv.isRuntimeBrowser) {
@@ -25,3 +24,9 @@ export function setThemePreloadToLocalStorage(
     console.error(error);
   }
 }
+
+export const useAppearanceTheme: IUseAppearanceTheme = (themeVariant) => {
+  if (['dark', 'light'].includes(themeVariant)) {
+    setThemePreloadToLocalStorage(themeVariant, true);
+  }
+};

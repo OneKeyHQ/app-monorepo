@@ -13,7 +13,7 @@ import { LOCALES } from '../../locale';
 
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
-import { useStatusBarTheme } from './hooks/useStatusBarTheme';
+import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
@@ -69,7 +69,7 @@ export const ConfigProvider: FC<IUIProviderProps> = ({
     [themeVariant, reduxReady],
   );
 
-  useStatusBarTheme(themeVariant);
+  useAppearanceTheme(themeVariant);
 
   return (
     <AppIntlProvider
