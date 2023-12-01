@@ -15,7 +15,13 @@ const AppStateLock = ({
 }: IAppStateLockProps) => {
   console.log('app state lock');
   return (
-    <YStack space="$5" justifyContent="center" alignItems="center" flex={1}>
+    <YStack
+      space="$5"
+      justifyContent="center"
+      alignItems="center"
+      flex={1}
+      backgroundColor="$background"
+    >
       <Icon name="LockOutline" size="$5" />
       {passwordVerifyContainer}
       {enableWebAuth && (
