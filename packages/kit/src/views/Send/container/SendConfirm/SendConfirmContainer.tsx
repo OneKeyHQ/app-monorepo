@@ -57,7 +57,10 @@ function SendConfirmContainer() {
       <Page.Footer>
         <Stack padding="$5">
           <TxFeeContainer />
-          <SendActions onConfirm={handleConfirm} />
+          <SendActions
+            onConfirm={handleConfirm}
+            onCancel={() => navigation.popStack()}
+          />
         </Stack>
       </Page.Footer>
     </Page>
