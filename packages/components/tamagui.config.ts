@@ -537,10 +537,7 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
-  mediaQueryDefaultActive: {
-    sm: true,
-    md: true,
-  },
+  disableSSR: true,
 });
 
 export type IAppConfig = typeof config;
