@@ -5,7 +5,6 @@ import { ConfigProvider } from '@onekeyhq/components';
 
 import { useLocaleVariant } from '../hooks/useLocaleVariant';
 import { useThemeVariant } from '../hooks/useThemeVariant';
-import { setThemePreloadToLocalStorage } from '../utils/themePreload';
 
 function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
   const themeVariant = useThemeVariant();
