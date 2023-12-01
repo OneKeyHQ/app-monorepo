@@ -285,13 +285,25 @@ function DemoAccountSelector() {
 
       <Text>...</Text>
       <Text variant="$heading5xl">SWAP</Text>
+      <Text variant="$headingXl">账户选择器2</Text>
+      <Text variant="$headingXl">网络选择器2</Text>
+      <Text variant="$headingXl">派生选择器2</Text>
+      <Text variant="$headingXl">账户2：</Text>
       <Text>...</Text>
       <Text variant="$heading5xl">发现页</Text>
       <Text>app.uniswap.org</Text>
+      <Text variant="$headingXl">账户选择器3</Text>
+      <Text variant="$headingXl">网络选择器3</Text>
+      <Text variant="$headingXl">派生选择器3</Text>
+      <Text variant="$headingXl">账户3：</Text>
       <Text>...</Text>
 
       <Text variant="$heading5xl">发现页</Text>
       <Text>opensea.io</Text>
+      <Text variant="$headingXl">账户选择器4</Text>
+      <Text variant="$headingXl">网络选择器4</Text>
+      <Text variant="$headingXl">派生选择器4</Text>
+      <Text variant="$headingXl">账户4：</Text>
       <Text>...</Text>
     </>
   );
