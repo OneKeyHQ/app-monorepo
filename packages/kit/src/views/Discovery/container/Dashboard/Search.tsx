@@ -111,7 +111,7 @@ function SearchModal() {
                 subtitleProps={{
                   numberOfLines: 1,
                 }}
-                testID={item._id}
+                testID={`search-modal-${item.name.toLowerCase()}`}
                 onPress={() => {
                   handleOnPress(item);
                 }}
