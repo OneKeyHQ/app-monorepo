@@ -48,6 +48,7 @@ const DemoRootHomeOptions = () => {
   return (
     <Layout
       skipLoading={platformEnv.isNativeIOS}
+      contentInsetAdjustmentBehavior="automatic"
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
         '使用方式与 @react-navigation/native-stack 相同',

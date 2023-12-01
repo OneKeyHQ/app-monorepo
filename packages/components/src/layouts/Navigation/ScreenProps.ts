@@ -84,6 +84,8 @@ export interface ISearchBarProps {
    */
   shouldShowHintSearchIcon?: boolean;
   hideNavigationBar?: boolean;
+
+  // If this property is set to true, please ensure that `ScrollView.contentInsetAdjustmentBehavior` is set to `automatic`.
   hideWhenScrolling?: boolean;
   autoFocus?: boolean;
   cancelButtonText?: string;
