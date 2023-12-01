@@ -45,6 +45,7 @@ function HeaderView({
     headerTitleAlign,
     headerStyle,
     headerBackground,
+    headerShown = true,
     headerSearchBarOptions,
   } = options || {};
 
@@ -79,6 +80,9 @@ function HeaderView({
     [disableClose, isModelScreen, isRootScreen, onBackCallback, topStack],
   );
 
+  if (!headerShown) {
+    return null;
+  }
   return (
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
