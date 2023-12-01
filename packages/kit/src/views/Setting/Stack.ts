@@ -1,4 +1,4 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import SettingAccountDerivationModal from '@onekeyhq/kit/src/views/Setting/AccountDerivation';
 import SettingAppLockModal from '@onekeyhq/kit/src/views/Setting/AppLock';
 import SettingCurrencyModal from '@onekeyhq/kit/src/views/Setting/Currency';

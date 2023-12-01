@@ -4,8 +4,8 @@ import { useLayoutEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Stack, YStack } from '@onekeyhq/components';
-import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
-import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
@@ -34,7 +34,6 @@ const DemoRootHomeOptions = () => {
       ),
       headerSearchBarOptions: {
         hideNavigationBar: true,
-        // @ts-expect-error
         hideWhenScrolling: true,
         placeholder: intl.formatMessage({
           id: 'content__search_dapps_or_type_url',

@@ -1,5 +1,5 @@
-import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator';
-import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
+import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { RootModalNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import { CoverageModalStack } from './DemoCoverageModal';
 import { CreateModalStack } from './DemoCreateModal';

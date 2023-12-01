@@ -134,6 +134,23 @@ const animations = createAnimations({
     damping: 20,
     mass: 0.1,
   },
+  fast: {
+    type: 'spring',
+    damping: 20,
+    mass: 1.2,
+    stiffness: 250,
+  },
+  medium: {
+    type: 'spring',
+    damping: 10,
+    mass: 0.9,
+    stiffness: 100,
+  },
+  slow: {
+    type: 'spring',
+    damping: 20,
+    stiffness: 60,
+  },
 });
 
 const { whiteA } = primitiveWhiteA;
@@ -424,7 +441,7 @@ const mergedTokens = createTokens({
     28: 112,
     32: 128,
     '-px': -1,
-    '-0.5': 2,
+    '-0.5': -2,
     '-1': -4,
     '-1.5': -6,
     '-2': -8,

@@ -2,10 +2,10 @@
 import { useLayoutEffect } from 'react';
 
 import { Button, Input, Stack, Toast } from '@onekeyhq/components';
-import type { IModalScreenProps } from '@onekeyhq/components/src/Navigation';
-import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
-import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/Navigation/Navigator/ModalFlowNavigator';
+import type { IModalScreenProps } from '@onekeyhq/components/src/layouts/Navigation';
+import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator/ModalFlowNavigator';
 
 import IconGallery from '../../Icon';
 import { Layout } from '../../utils/Layout';

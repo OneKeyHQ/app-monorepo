@@ -7,7 +7,7 @@ import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
-} from '@onekeyhq/components/src/Navigation';
+} from '@onekeyhq/components/src/layouts/Navigation';
 
 import { ERootRoutes } from '../routes/Root/Routes';
 
@@ -85,7 +85,6 @@ function useAppNavigation<
         headerSearchBarOptions: {
           // always show search bar on iOS
           hideNavigationBar: false,
-          // @ts-expect-error
           hideWhenScrolling: false,
           cancelButtonText: searchCancelText,
           textColor: searchTextColor,
