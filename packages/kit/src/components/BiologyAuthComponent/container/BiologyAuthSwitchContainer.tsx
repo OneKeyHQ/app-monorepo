@@ -12,7 +12,7 @@ const BiologyAuthSwitchContainer = () => {
   const [settings] = useSettingsPersistAtom();
   const onChange = useCallback(async (checked: boolean) => {
     try {
-      await backgroundApiProxy.servicePassword.biologyAuthSetEnable(checked);
+      await backgroundApiProxy.servicePassword.setBiologyAuthEnable(checked);
     } catch (e) {
       Toast.error({ title: 'msg__verification_failure' });
     }

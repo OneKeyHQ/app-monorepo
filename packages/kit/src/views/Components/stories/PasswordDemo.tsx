@@ -117,7 +117,7 @@ const PasswordDemoGallery = () => {
                 onPress={async () => {
                   try {
                     const res =
-                      await backgroundApiProxy.servicePassword.webAuthGetPassword();
+                      await backgroundApiProxy.servicePassword.getWebAuthPassword();
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
                   } catch (e) {
                     console.log('e', e);

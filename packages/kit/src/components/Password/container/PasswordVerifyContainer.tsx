@@ -29,7 +29,7 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
     setStatues({ value: 'verifying' });
     try {
       const pwd =
-        await backgroundApiProxy.servicePassword.biologyAuthGetPassword();
+        await backgroundApiProxy.servicePassword.getBiologyAuthPassword();
       if (pwd) {
         onVerifyRes(pwd);
         setStatues({ value: 'verified' });

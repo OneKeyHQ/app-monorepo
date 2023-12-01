@@ -27,7 +27,7 @@ const AppStateLockContainer: FC<PropsWithChildren> = ({ children }) => {
       enableWebAuth={!!webAuthCredentialId}
       onWebAuthVerify={async () => {
         const res =
-          await backgroundApiProxy.servicePassword.webAuthGetPassword();
+          await backgroundApiProxy.servicePassword.getWebAuthPassword();
         if (res) {
           await handleUnlock();
         } else {

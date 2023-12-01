@@ -377,7 +377,7 @@ function Demo() {
       </Button>
       <Button
         onPress={() => {
-          void backgroundApiProxy.servicePassword.cachedPasswordClear();
+          void backgroundApiProxy.servicePassword.clearCachedPassword();
         }}
       >
         清空缓存密码
