@@ -3,7 +3,7 @@ import { Suspense, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, ListItem, Toast } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
@@ -130,12 +130,15 @@ const FaceIdItem = () => {
   ) : null;
 };
 
-export const SecuritySection = () => (
-  <Section title="SECURITY">
-    <Suspense>
-      <FaceIdItem />
-    </Suspense>
-    <AppLockItem />
-    <PasswordItem />
-  </Section>
-);
+export const SecuritySection = () => {
+  const intl = useIntl();
+  return (
+    <Section title={intl.formatMessage({ id: 'form__security_uppercase' })}>
+      <Suspense>
+        <FaceIdItem />
+      </Suspense>
+      <AppLockItem />
+      <PasswordItem />
+    </Section>
+  );
+};
