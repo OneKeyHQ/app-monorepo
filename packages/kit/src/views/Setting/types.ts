@@ -7,6 +7,7 @@ export enum EModalSettingRoutes {
   SettingHardwareSdkUrlModal = 'SettingHardwareSdkUrlModal',
   SettingSpendUTXOModal = 'SettingSpendUTXOModal',
   SettingAppLockModal = 'SettingAppLockModal',
+  SettingProtectModal = 'SettingProtectModal',
 }
 
 export type IModalSettingParamList = {
@@ -18,4 +19,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingHardwareSdkUrlModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
   [EModalSettingRoutes.SettingAppLockModal]: undefined;
+  [EModalSettingRoutes.SettingProtectModal]: undefined;
 };

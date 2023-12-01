@@ -5,6 +5,7 @@ import SettingCurrencyModal from '@onekeyhq/kit/src/views/Setting/Currency';
 import SettingHardwareSdkUrlModal from '@onekeyhq/kit/src/views/Setting/HardwareSdkUrl';
 import SettingLanguageModal from '@onekeyhq/kit/src/views/Setting/Language';
 import SettingListModal from '@onekeyhq/kit/src/views/Setting/List';
+import SettingProtectionModal from '@onekeyhq/kit/src/views/Setting/Protection';
 import SettingSpendUTXOModal from '@onekeyhq/kit/src/views/Setting/SpendUTXO';
 import SettingThemeModal from '@onekeyhq/kit/src/views/Setting/Theme';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
@@ -53,5 +54,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingAppLockModal,
     component: SettingAppLockModal,
     translationId: 'form__app_lock',
+  },
+  {
+    name: EModalSettingRoutes.SettingProtectModal,
+    component: SettingProtectionModal,
+    translationId: 'action__protection',
   },
 ];

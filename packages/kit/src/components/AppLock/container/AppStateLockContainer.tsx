@@ -1,5 +1,5 @@
 import type { FC, PropsWithChildren } from 'react';
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import {
@@ -34,13 +34,15 @@ const AppStateLockContainer: FC<PropsWithChildren> = ({ children }) => {
         }
       }}
       passwordVerifyContainer={
-        <PasswordVerifyContainer
-          onVerifyRes={async (data) => {
-            if (data) {
-              await handleUnlock();
-            }
-          }}
-        />
+        <Suspense>
+          <PasswordVerifyContainer
+            onVerifyRes={async (data) => {
+              if (data) {
+                await handleUnlock();
+              }
+            }}
+          />
+        </Suspense>
       }
     />
   );

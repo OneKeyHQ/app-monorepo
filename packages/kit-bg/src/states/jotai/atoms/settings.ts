@@ -12,6 +12,9 @@ export type ISettingsPersistAtom = {
   buildNumber?: string;
   instanceId: string;
   isBiologyAuthSwitchOn: boolean;
+  protectCreateTransaction: boolean;
+  protectCreateOrRemoveWallet: boolean;
+  spendDustUTXO: boolean;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -26,6 +29,9 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
       isBiologyAuthSwitchOn: false,
+      protectCreateTransaction: false,
+      protectCreateOrRemoveWallet: false,
+      spendDustUTXO: false,
     },
   });
 

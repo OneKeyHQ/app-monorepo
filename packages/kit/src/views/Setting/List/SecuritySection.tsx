@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Suspense, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -117,16 +118,38 @@ const FaceIdItem = () => {
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
 
   let title = intl.formatMessage({ id: 'form__touch_id' });
+  let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
   if (biologyAuthIsSupport) {
     if (authType.includes(2)) {
       title = intl.formatMessage({ id: 'content__face_id' });
+      icon = 'FaceIdSolid';
     }
   }
 
   return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
-    <ListItem icon="FaceIdOutline" title={title}>
+    <ListItem icon={icon} title={title}>
       <UniversalContainerWithSuspense />
     </ListItem>
+  ) : null;
+};
+
+const ProtectionItem = () => {
+  const intl = useIntl();
+  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingProtectModal,
+    });
+  }, [navigation]);
+  return isPasswordSet ? (
+    <ListItem
+      onPress={onPress}
+      icon="ShieldCheckDoneOutline"
+      title={intl.formatMessage({ id: 'action__protection' })}
+      drillIn
+    />
   ) : null;
 };
 
@@ -134,11 +157,12 @@ export const SecuritySection = () => {
   const intl = useIntl();
   return (
     <Section title={intl.formatMessage({ id: 'form__security_uppercase' })}>
-      <Suspense>
+      <Suspense fallback={null}>
         <FaceIdItem />
       </Suspense>
       <AppLockItem />
       <PasswordItem />
+      <ProtectionItem />
     </Section>
   );
 };
