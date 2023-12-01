@@ -9,6 +9,7 @@ import {
 
 import { useLocaleVariant } from '../hooks/useLocaleVariant';
 import { useThemeVariant } from '../hooks/useThemeVariant';
+import { setThemePreloadToLocalStorage } from '../utils/themePreload';
 
 const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
   const themeVariant = useThemeVariant();
@@ -16,8 +17,10 @@ const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
   useEffect(() => {
     if (themeVariant === 'light') {
       setDarkContent();
+      setThemePreloadToLocalStorage(themeVariant, true);
     } else if (themeVariant === 'dark') {
       setLightContent();
+      setThemePreloadToLocalStorage(themeVariant, true);
     }
   }, [themeVariant]);
 
