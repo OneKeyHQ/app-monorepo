@@ -7,7 +7,9 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { ERootRoutes } from '../Root/Routes';
 
-import { allowList, type IAllowListItem, type IAllowListItemList } from './allowList';
+import { allowList } from './allowList';
+
+import type { IAllowList, IAllowListItem } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
 
 const prefix = Linking.createURL('/');
@@ -66,10 +68,8 @@ const generateScreenHierarchyRouteConfig = ({
   };
 };
 
-const generateScreenHierarchyRouteConfigList = (
-  allowList: IAllowListItemList,
-) =>
-  allowList.reduce(
+const generateScreenHierarchyRouteConfigList = (list: IAllowList) =>
+  list.reduce(
     (prev, tab) =>
       merge(
         prev,

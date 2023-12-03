@@ -1,6 +1,7 @@
 import { ERootRoutes } from '../Root/Routes';
 import { ETabHomeRoutes } from '../Root/Tab/Home/Routes';
 import { ETabRoutes } from '../Root/Tab/Routes';
+import { ETabSwapRoutes } from '../Root/Tab/Swap/Routes';
 
 import { linkingPathMap } from './path';
 
@@ -10,9 +11,9 @@ export interface IAllowListItem {
   exact?: boolean;
 }
 
-export type IAllowListItemList = IAllowListItem[];
+export type IAllowList = IAllowListItem[];
 
-export const allowList: IAllowListItemList = [
+export const allowList: IAllowList = [
   {
     screen: `${ERootRoutes.Main}/${ETabRoutes.Home}/${ETabHomeRoutes.TabHome}`,
     exact: true,
