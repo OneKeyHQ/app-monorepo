@@ -5,11 +5,11 @@ import type { IWebViewParamList } from './WebView/Routes';
 import type { IDemoDeveloperTabParamList } from '../../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 
 export enum ETabRoutes {
-  Home = 'Home',
-  Me = 'Me',
-  Developer = 'Developer',
-  Swap = 'Swap',
-  WebViewTab = 'WebViewTab',
+  Home = 'tab-Home',
+  Me = 'tab-Me',
+  Developer = 'tab-Developer',
+  Swap = 'tab-Swap',
+  WebViewTab = 'tab-WebViewTab',
 }
 
 export type ITabStackParamList = {

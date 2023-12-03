@@ -3,38 +3,16 @@ import * as Linking from 'expo-linking';
 import { merge } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { ERootRoutes } from '../Root/Routes';
-import { ETabRoutes } from '../Root/Tab/Routes';
 
-import { buildAppRootTabName } from './utils';
-
+import { allowList, type IAllowListItem, type IAllowListItemList } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
-import { linkingPathMap } from './path';
 
 const prefix = Linking.createURL('/');
 
-type WhiteListItem = {
-  screen: string;
-  path?: string;
-  exact?: boolean;
-};
-
-type WhiteListItemList = WhiteListItem[];
-
-function buildAppRootTabScreen(tabName: ETabRoutes) {
-  return `${ERootRoutes.Main}/Tab/${tabName}/${buildAppRootTabName(tabName)}`;
-}
-
-export const normalRouteWhiteList: WhiteListItemList = [
-  {
-    screen: buildAppRootTabScreen(ETabRoutes.Home),
-    exact: true,
-    path: linkingPathMap.tabHome,
-  },
-];
-
-const getScreen = (screen: WhiteListItem['screen']) => {
+const getScreen = (screen: IAllowListItem['screen']) => {
   if (typeof screen === 'string') {
     return screen;
   }
@@ -74,7 +52,6 @@ const generateScreenHierarchyRouteConfig = ({
 
   const isLastScreen = screens.length === 1;
   const isExactUrl = Boolean(isLastScreen && exact);
-  console.log(isExactUrl, fullPath, currentPath);
   return {
     [currentRoute]: {
       path: isExactUrl ? fullPath : `/${currentPath}`,
@@ -90,12 +67,12 @@ const generateScreenHierarchyRouteConfig = ({
 };
 
 const generateScreenHierarchyRouteConfigList = (
-  whiteListConfig: WhiteListItemList,
+  allowList: IAllowListItemList,
 ) =>
-  whiteListConfig.reduce(
-    (memo, tab) =>
+  allowList.reduce(
+    (prev, tab) =>
       merge(
-        memo,
+        prev,
         generateScreenHierarchyRouteConfig({
           screenListStr: getScreen(tab.screen),
           path: tab.path,
@@ -107,19 +84,54 @@ const generateScreenHierarchyRouteConfigList = (
   );
 
 function buildWhiteList() {
-  const list = [...normalRouteWhiteList];
+  const list = [...allowList];
   list.forEach((item) => {
     item.path = item.path || createPathFromScreen(item.screen);
   });
   return list;
 }
 
+const whiteList = buildWhiteList();
+
 const buildLinking = (): LinkingOptions<any> => {
   const screenHierarchyConfig =
-    generateScreenHierarchyRouteConfigList(normalRouteWhiteList);
+    generateScreenHierarchyRouteConfigList(allowList);
   return {
     enabled: true,
     prefixes: [prefix],
+
+    /**
+     * Only change url at whitelist routes, or return home page
+     */
+    getPathFromState(state, options) {
+      const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
+      /**
+       * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
+       */
+      if (platformEnv.isExtFirefox) {
+        return extHtmlFileUrl;
+      }
+      let newPath = '/';
+      const defaultPath = getPathFromStateDefault(state, options);
+      const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
+      const isAllowPath = whiteList.some(
+        (item) =>
+          defaultPathWithoutQuery && item.path === defaultPathWithoutQuery,
+      );
+      if (isAllowPath) {
+        newPath = defaultPath;
+      }
+      // keep manifest v3 url with html file
+      if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
+        /*
+        check chrome.webRequest.onBeforeRequest
+         /ui-expand-tab.html/#/   not working for Windows Chrome
+         /ui-expand-tab.html#/    works fine
+        */
+        return `${extHtmlFileUrl}#${newPath}`;
+      }
+      return newPath;
+    },
     config: {
       initialRouteName: ERootRoutes.Main,
       screens: {
