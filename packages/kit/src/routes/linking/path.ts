@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import { WalletConnectUniversalLinkPathSchema } from './deeplink';
 
 const AccountRootLandingPathSchema = '/account/:address/:networkId?';
