@@ -125,6 +125,8 @@ export function makeTabScreenOptions({
   // @ts-expect-error
   return {
     detachPreviousScreen: false,
+    // fix the height of the right content on web when the left side bar is closed
+    cardStyle: { flex: 1 },
     ...makeHeaderScreenOptions({
       isRootScreen: true,
       navigation,
