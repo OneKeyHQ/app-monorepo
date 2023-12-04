@@ -13,16 +13,18 @@ import ModalNavigator from './Modal/ModalNavigator';
 import { ERootRoutes } from './Routes';
 import TabNavigator from './Tab/TabNavigator';
 
-const rootConfig: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+export const rootConfig: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
+    showPath: true,
     initialRoute: true,
   },
   {
     name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
+    showPath: false,
   },
 ];
 

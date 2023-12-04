@@ -5,14 +5,14 @@ import { NavigationContainer } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import buildLinking from '../routes/linking';
+import { LinkingConfig } from '../routes/linking';
 
 const webProps = platformEnv.isRuntimeBrowser
   ? ({
       documentTitle: {
         formatter: () => 'OneKey',
       },
-      linking: buildLinking(),
+      linking: LinkingConfig,
     } as unknown as INavigationContainerProps)
   : undefined;
 
