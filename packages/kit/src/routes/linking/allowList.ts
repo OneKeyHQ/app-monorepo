@@ -1,7 +1,7 @@
-import { ERootRoutes } from '../Root/Routes';
-import { ETabHomeRoutes } from '../Root/Tab/Home/Routes';
-import { ETabRoutes } from '../Root/Tab/Routes';
-import { ETabSwapRoutes } from '../Root/Tab/Swap/Routes';
+import { ERootRoutes } from '../enum';
+import { ETabHomeRoutes } from '../Tab/Home/Routes';
+import { ETabRoutes } from '../Tab/Routes';
+import { ETabSwapRoutes } from '../Tab/Swap/Routes';
 
 import { linkingPathMap } from './path';
 

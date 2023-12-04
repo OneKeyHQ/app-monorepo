@@ -5,7 +5,7 @@ import { merge } from 'lodash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
-import { ERootRoutes } from '../Root/Routes';
+import { ERootRoutes } from '../enum';
 
 import { allowList } from './allowList';
 
