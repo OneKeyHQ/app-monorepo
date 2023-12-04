@@ -262,6 +262,34 @@ index f10671e..20e0d45 100644
        [screen notifyFinishTransitioning];
      }
    }
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+index 4fa7506..e308015 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -475,7 +475,22 @@ + (void)updateViewController:(UIViewController *)vc
+   if (!shouldHide && !config.translucent) {
+     // when nav bar is not translucent we chage edgesForExtendedLayout to avoid system laying out
+     // the screen underneath navigation controllers
+-    vc.edgesForExtendedLayout = UIRectEdgeNone;
++
++    // When using hideWhenScrolling, we cannot set UIRectEdgeNone as it leads to significant gesture lag and conflicts
++    __block BOOL shouldResetExtendedLayout = true;
++    [config.reactSubviews enumerateObjectsUsingBlock:^(UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
++      UIView *view = [obj.subviews firstObject];
++      if (![[obj.subviews firstObject] isKindOfClass:[RNSSearchBar class]]) {
++        return;
++      }
++      RNSSearchBar *searchBar = (RNSSearchBar *)view;
++      if (searchBar.hideWhenScrolling) {
++        shouldResetExtendedLayout = false;
++      }
++    }];
++    if (shouldResetExtendedLayout) {
++      vc.edgesForExtendedLayout = UIRectEdgeNone;
++    }
+   } else {
+     // system default is UIRectEdgeAll
+     vc.edgesForExtendedLayout = UIRectEdgeAll;
 diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.h b/node_modules/react-native-screens/ios/RNSSearchBar.h
 index 9ac04c0..10a914b 100644
 --- a/node_modules/react-native-screens/ios/RNSSearchBar.h
