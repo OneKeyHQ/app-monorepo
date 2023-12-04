@@ -2,12 +2,11 @@
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
-import * as Linking from 'expo-linking';
 
 import type {
-  type ICommonNavigatorConfig,
+  ICommonNavigatorConfig,
   INavigationContainerProps,
-  type ITabNavigatorExtraConfig,
+  ITabNavigatorExtraConfig,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
@@ -15,12 +14,10 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import { ERootRoutes } from '../enum';
 import { rootRouter } from '../router';
 
-import { allowList } from './allowList';
+import { allowList, routerPrefix } from './allowList';
 import { registerDeepLinking } from './deeplink';
 
 import type { LinkingOptions } from '@react-navigation/native';
-
-const prefix = Linking.createURL('/');
 
 const rootRouteValues = Object.values(ERootRoutes);
 const pickConfig = (
@@ -73,19 +70,15 @@ const resolveScreens = (routes: typeof rootRouter) =>
     : undefined;
 
 const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
-  // const screenHierarchyConfig =
-  //   generateScreenHierarchyRouteConfigList(allowList);
   const screenHierarchyConfig = resolveScreens(routes);
-  console.log('screenHierarchyConfig', screenHierarchyConfig);
   return {
     enabled: true,
-    prefixes: [prefix],
+    prefixes: [routerPrefix],
 
     /**
      * Only change url at whitelist routes, or return home page
      */
     getPathFromState(state, options) {
-      console.log('getPathFromState-', state, options);
       const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
       /**
        * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
@@ -93,28 +86,14 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
       if (platformEnv.isExtFirefox) {
         return extHtmlFileUrl;
       }
-      let newPath = '/';
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
-      console.log(
-        'getPathFromState-defaultPath',
-        defaultPath,
-        defaultPathWithoutQuery,
-      );
-      const rule = allowList.find(
-        (item) => item.path === defaultPathWithoutQuery,
-      );
-      console.log('allowList', allowList, rule);
-      console.log('rule===', rule);
-      newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
-      if (defaultPath.includes('NOOO_PATH')) {
-        return newPath;
-      }
+      const rule = allowList[defaultPathWithoutQuery];
+      let newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
 
-      if (defaultPath.includes('REWRITE--')) {
-        newPath = defaultPath.split('REWRITE--').pop() || '/';
+      if (defaultPath.includes(REWRITE_PREFIX)) {
+        newPath = defaultPath.split(REWRITE_PREFIX).pop() || '/';
       }
-      console.log('REWRITE', newPath);
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
         /*
@@ -149,7 +128,7 @@ export const useRouterConfig = () =>
               formatter: () => 'OneKey',
             },
             linking: buildLinking(rootRouter),
-          } as unknown as INavigationContainerProps)
+          } as INavigationContainerProps)
         : undefined,
     };
   }, []);

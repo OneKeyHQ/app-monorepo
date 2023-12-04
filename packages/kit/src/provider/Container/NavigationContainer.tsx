@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { NavigationContainer as NavigationContainerComponent } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
-import { useRouterConfig } from '../../routes/linking';
+import { useRouterConfig } from '../../routes/config';
 
 function BasicNavigationApp() {
   const { containerProps, routerConfig } = useRouterConfig();

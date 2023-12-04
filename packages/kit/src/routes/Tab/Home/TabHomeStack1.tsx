@@ -1,5 +1,8 @@
 import { Button, Page, YStack } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import type {
+  IPageNavigationProp,
+  IPageScreenProps,
+} from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -7,9 +10,15 @@ import { ETabHomeRoutes } from './Routes';
 
 import type { ITabHomeParamList } from './Routes';
 
-const TabHomeStack1 = (props: IPageNavigationProp<{}>) => {
-  console.log(props.route.params);
-  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+const TabHomeStack1 = (
+  props: IPageScreenProps<ITabHomeParamList, ETabHomeRoutes.TabHomeStack1>,
+) => {
+  const { route } = props;
+  console.log(route.params.a, route.params.b);
+  const navigation =
+    useAppNavigation<
+      IPageNavigationProp<ITabHomeParamList, ETabHomeRoutes.TabHomeStack1>
+    >();
   return (
     <Page>
       <YStack>
