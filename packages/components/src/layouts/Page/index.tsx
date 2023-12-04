@@ -7,11 +7,11 @@ import { View } from '../../optimization';
 import { BasicPage } from './BasicPage';
 import { BasicPageFooter, PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
+import { PageClose } from './PageClose';
 import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
-import { PageClose } from './PageClose';
 
 function PageContainer({
   children,
@@ -20,7 +20,7 @@ function PageContainer({
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading}>
-        <View style={{ flex: 1, height: '100%' }}>{children}</View>
+        <View style={{ flex: 1 }}>{children}</View>
         <BasicPageFooter />
       </BasicPage>
     ),
