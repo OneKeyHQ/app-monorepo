@@ -35,8 +35,6 @@ const pickConfig = (
   }
 };
 
-const REWRITE_PREFIX = 'REWRITE--';
-
 const resolveScreens = (routes: typeof rootRouter) =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   routes // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
@@ -45,14 +43,14 @@ const resolveScreens = (routes: typeof rootRouter) =>
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           prev[route.name] = {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            path: route.rewrite
-              ? `${REWRITE_PREFIX}/${route.rewrite}`
-              : route.rewrite || route.name,
+            path: route.rewrite ? route.rewrite : route.name,
+            exact: !!route.exact,
           };
           const config = pickConfig(route);
           if (config) {
             prev[route.name].screens = resolveScreens(config);
           }
+
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return prev;
         },
@@ -60,10 +58,8 @@ const resolveScreens = (routes: typeof rootRouter) =>
           string,
           {
             path: string;
-            screens?: Record<
-              string,
-              { path: string; screens?: Record<string, { path: string }> }
-            >;
+            exact: boolean;
+            screens?: Record<string, any>;
           }
         >,
       )
@@ -89,11 +85,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
       const rule = allowList[defaultPathWithoutQuery];
-      let newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
-
-      if (defaultPath.includes(REWRITE_PREFIX)) {
-        newPath = defaultPath.split(REWRITE_PREFIX).pop() || '/';
-      }
+      const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
         /*

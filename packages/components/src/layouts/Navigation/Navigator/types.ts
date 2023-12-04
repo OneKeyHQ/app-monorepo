@@ -39,6 +39,7 @@ export interface ICommonNavigatorConfig<
   component: (() => JSX.Element) | ComponentType<any>;
   /** rewrite old URL to new URL */
   rewrite?: string;
+  exact?: boolean;
   options?:
     | ICommonScreenOptions
     | ((props: {

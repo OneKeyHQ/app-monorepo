@@ -32,6 +32,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
         component: HomePage,
         translationId: 'wallet__wallet',
         rewrite: '/',
+        exact: true,
       },
       {
         name: ETabHomeRoutes.TabHomeStack1,
@@ -56,6 +57,8 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
         name: ETabSwapRoutes.TabSwap,
         component: Swap,
         translationId: 'title__swap',
+        rewrite: 'swap',
+        exact: true,
       },
     ],
   },
@@ -86,6 +89,8 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         component: require('./Developer/TabDeveloper').default,
         translationId: 'form__dev_mode',
+        rewrite: 'dev',
+        exact: true,
       },
       ...galleryScreenList,
     ],
