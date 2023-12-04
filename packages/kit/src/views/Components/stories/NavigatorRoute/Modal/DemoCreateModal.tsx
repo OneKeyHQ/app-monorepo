@@ -12,6 +12,7 @@ import { Layout } from '../../utils/Layout';
 import { NavigationFocusTools } from '../../utils/NavigationTools';
 import { FreezeProbe } from '../../utils/RenderTools';
 import { EDemoRootRoutes } from '../Routes';
+import useDemoAppNavigation from '../useDemoAppNavigation';
 
 import { EDemoCreateModalRoutes, ERootModalRoutes } from './Routes';
 
@@ -20,18 +21,22 @@ import type { IDemoCreateModalParamList } from './Routes';
 function DemoCreateViewModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
+  const demoNavigation = useDemoAppNavigation();
   useLayoutEffect(() => {
-    navigation.setOptions({
+    demoNavigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
+        hideNavigationBar: true,
+        hideWhenScrolling: true,
+        autoFocus: true,
         onChangeText: (event: any) => {
           console.log('onChangeText', event);
         },
       },
       headerRight: () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
     });
-  }, [navigation]);
+  }, [demoNavigation]);
 
   return (
     <Layout
@@ -45,6 +50,7 @@ function DemoCreateViewModal({
       boundaryConditions={[
         '打开 Modal 推荐使用 useDemoAppNavigation() hook 的 pushModal 方法',
       ]}
+      contentInsetAdjustmentBehavior="automatic"
       elements={[
         {
           title: '开始 Demo',
