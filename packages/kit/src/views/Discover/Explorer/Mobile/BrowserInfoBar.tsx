@@ -7,7 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 // @ts-expect-error
 import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
 import { gotoSite } from '../../Controller/gotoSite';
 import { useWebTabs } from '../../Controller/useWebTabs';

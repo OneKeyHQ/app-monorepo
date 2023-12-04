@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
-import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
+import { EGalleryRoutes } from '../../../routes/Tab/Developer/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 

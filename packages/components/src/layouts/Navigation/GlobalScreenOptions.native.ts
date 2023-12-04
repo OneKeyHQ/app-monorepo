@@ -164,7 +164,9 @@ export function makeTabScreenOptions({
 export function makeFullScreenOptions(): IStackNavigationOptions {
   return {
     headerShown: false,
-    presentation: 'fullScreenModal', // containedModal card fullScreenModal
-    animation: 'fade',
+    presentation: 'card',
+    gestureEnabled: true,
+    gestureDirection: 'vertical',
+    ...makeModalOpenAnimationOptions({ isVerticalLayout: true }),
   };
 }

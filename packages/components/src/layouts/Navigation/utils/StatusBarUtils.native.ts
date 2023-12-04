@@ -19,17 +19,3 @@ export const setHidden = (
 ): void => {
   StatusBar.setHidden(hidden, animation);
 };
-
-export const setLightContent = (isAnimated = true) => {
-  StatusBar.pushStackEntry({
-    animated: isAnimated,
-    barStyle: 'light-content',
-  });
-};
-
-export const setDarkContent = (isAnimated = true) => {
-  StatusBar.pushStackEntry({
-    animated: isAnimated,
-    barStyle: 'dark-content',
-  });
-};

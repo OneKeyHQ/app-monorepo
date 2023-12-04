@@ -13,8 +13,8 @@ export function createLazyKitProviderLegacy({
     useEffect(() => {
       setTimeout(() => {
         // KitProviderMock index
-        void import('./KitProvider').then((module) => {
-          const KitProvider = module.default;
+        void import('.').then((module) => {
+          const { KitProvider } = module;
           setCmp(<KitProvider {...propsRef.current} />);
         });
       }, 0);
