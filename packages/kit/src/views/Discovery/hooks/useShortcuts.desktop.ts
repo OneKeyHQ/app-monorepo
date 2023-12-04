@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
+import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { ETabRoutes } from '../../../routes/Tab/Routes';
-import { useBrowserTabActions } from '../../../states/jotai/contexts/discovery';
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,

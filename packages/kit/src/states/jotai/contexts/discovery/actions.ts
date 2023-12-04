@@ -1,18 +1,25 @@
 import { isEqual } from 'lodash';
 
-import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
-import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-
-import { openUrl } from '../../../../utils/openUrl';
+import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IGotoSiteFnParams,
+  IMatchDAppItemType,
+  IOnWebviewNavigationFnParams,
+  IWebTab,
+} from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   browserTypeHandler,
   crossWebviewLoadUrl,
   validateUrl,
   webviewRefs,
-} from '../../../../views/Discovery/utils/explorerUtils';
-import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
+} from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
+import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import {
   activeTabIdAtom,
@@ -23,15 +30,6 @@ import {
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
-
-import type {
-  IBrowserBookmark,
-  IBrowserHistory,
-  IGotoSiteFnParams,
-  IMatchDAppItemType,
-  IOnWebviewNavigationFnParams,
-  IWebTab,
-} from '../../../../views/Discovery/types';
 
 export const homeResettingFlags: Record<string, number> = {};
 

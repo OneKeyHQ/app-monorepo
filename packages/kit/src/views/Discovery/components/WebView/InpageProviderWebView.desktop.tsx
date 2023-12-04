@@ -48,7 +48,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       (): IWebViewWrapperRef | null => webviewRef.current,
     );
 
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const innerOnDidStartLoading = useCallback(
       (e: any) => {
         onDidStartLoading?.(e);

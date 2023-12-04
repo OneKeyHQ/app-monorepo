@@ -5,9 +5,9 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 

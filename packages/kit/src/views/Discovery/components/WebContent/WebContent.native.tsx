@@ -9,6 +9,7 @@ import {
   ScrollView,
   Stack,
 } from '@onekeyhq/components';
+import useBackHandler from '@onekeyhq/kit/src/hooks/useBackHandler';
 import {
   homeTab,
   useBrowserAction,
@@ -16,7 +17,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import useBackHandler from '../../../../hooks/useBackHandler';
 import { webviewRefs } from '../../utils/explorerUtils';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';

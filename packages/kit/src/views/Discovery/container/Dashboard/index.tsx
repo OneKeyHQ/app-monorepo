@@ -1,7 +1,7 @@
 import { Button, SearchBar, Stack, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 
 function Dashboard() {

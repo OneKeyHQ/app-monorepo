@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
 import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { webviewRefs } from '../../utils/explorerUtils';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';

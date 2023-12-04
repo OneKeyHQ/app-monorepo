@@ -1,11 +1,11 @@
-import { createJotaiContext } from '../../utils/createJotaiContext';
-
+import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
   IBrowserBookmark,
   IBrowserHistory,
   IWebTab,
   IWebTabsAtom,
-} from '../../../../views/Discovery/types';
+} from '@onekeyhq/kit/src/views/Discovery/types';
 
 const {
   Provider: ProviderJotaiContextDiscovery,
@@ -38,7 +38,7 @@ export const {
   use: useDisabledAddedNewTabAtom,
 } = contextAtomComputed((get) => {
   const { tabs } = get(webTabsAtom());
-  return tabs.length >= 20;
+  return tabs.length >= MaximumNumberOfTabs;
 });
 
 /**

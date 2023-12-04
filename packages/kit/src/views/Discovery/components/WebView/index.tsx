@@ -2,10 +2,9 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import InpageProviderWebView from './InpageProviderWebView';
 

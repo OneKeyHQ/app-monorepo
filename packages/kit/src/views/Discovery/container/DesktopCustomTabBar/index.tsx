@@ -3,6 +3,10 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
@@ -13,10 +17,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import useListenTabFocusState from '../../../../hooks/useListenTabFocusState';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';

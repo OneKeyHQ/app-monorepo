@@ -7,14 +7,14 @@ import {
   Skeleton,
   Stack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
 import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';

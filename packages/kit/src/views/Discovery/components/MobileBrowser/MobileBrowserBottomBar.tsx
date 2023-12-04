@@ -6,14 +6,14 @@ import { captureRef } from 'react-native-view-shot';
 
 import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { openUrlExternal } from '../../../../utils/openUrl';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_WIDTH } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
