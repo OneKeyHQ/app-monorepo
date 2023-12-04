@@ -26,18 +26,15 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'wallet__wallet',
     freezeOnBlur: true,
-    showPath: true,
     children: [
       {
         name: ETabHomeRoutes.TabHome,
         component: HomePage,
         translationId: 'wallet__wallet',
-        showPath: true,
-        reWrite: '/',
+        rewrite: '/',
       },
       {
         name: ETabHomeRoutes.TabHomeStack1,
-        showPath: true,
         component: TabHomeStack1,
         translationId: 'wallet__wallet',
       },

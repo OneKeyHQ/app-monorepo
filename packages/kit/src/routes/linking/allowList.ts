@@ -1,27 +1,30 @@
 import { ERootRoutes } from '../enum';
 import { ETabHomeRoutes } from '../Tab/Home/Routes';
 import { ETabRoutes } from '../Tab/Routes';
-import { ETabSwapRoutes } from '../Tab/Swap/Routes';
 
-import { linkingPathMap } from './path';
+interface IAllowSettingItem {
+  path: string[];
+  showParams: boolean;
+}
 
 export interface IAllowListItem {
-  screen: string;
-  path?: string;
-  exact?: boolean;
+  path: string;
+  showParams: boolean;
 }
 
 export type IAllowList = IAllowListItem[];
 
-export const allowList: IAllowList = [
+const basicAllowList: IAllowSettingItem[] = [
   {
-    screen: `${ERootRoutes.Main}/${ETabRoutes.Home}/${ETabHomeRoutes.TabHome}`,
-    exact: true,
-    path: linkingPathMap.tabHome,
-  },
-  {
-    screen: `${ERootRoutes.Main}/${ETabRoutes.Swap}/${ETabSwapRoutes.TabSwap}`,
-    exact: true,
-    path: linkingPathMap.tabSwap,
+    // Fill in the route name in the order of the route stack
+    path: [ERootRoutes.Main, ETabRoutes.Home, ETabHomeRoutes.TabHomeStack1],
+    showParams: true,
   },
 ];
+
+export const allowList: IAllowList = basicAllowList.map(
+  ({ path, ...props }) => ({
+    path: `/${path.join('/')}`,
+    ...props,
+  }),
+);

@@ -5,7 +5,7 @@ import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
 
-type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
+type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>
 
 export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
   onConfirm?: () => void | Promise<boolean>;

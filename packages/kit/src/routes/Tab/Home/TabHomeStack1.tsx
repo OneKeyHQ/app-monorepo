@@ -7,9 +7,9 @@ import { ETabHomeRoutes } from './Routes';
 
 import type { ITabHomeParamList } from './Routes';
 
-const TabHomeStack1 = () => {
+const TabHomeStack1 = (props: IPageNavigationProp<{}>) => {
+  console.log(props.route.params);
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
-
   return (
     <Page>
       <YStack>

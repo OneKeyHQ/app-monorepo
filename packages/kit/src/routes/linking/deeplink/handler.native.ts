@@ -3,7 +3,6 @@
 import type { IRegisterHandler } from './handler.type';
 
 export const registerHandler: IRegisterHandler = () => {
-  // app-monorepo 4.0 code
   //
   // export const registerHandler: IRegisterHandler = (handler) => {
   //   const nativeLinkingHandler = ({ url }: { url: string }) => {

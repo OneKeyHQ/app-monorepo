@@ -3,15 +3,13 @@ import { memo } from 'react';
 import { NavigationContainer as NavigationContainerComponent } from '@onekeyhq/components';
 import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
-const formatter = () => 'OneKey';
-const documentTitle = {
-  formatter,
-};
+import { useRouterConfig } from '../../routes/linking';
 
 function BasicNavigationApp() {
+  const { containerProps, routerConfig } = useRouterConfig();
   return (
-    <NavigationContainerComponent documentTitle={documentTitle}>
-      <RootNavigator />
+    <NavigationContainerComponent {...containerProps}>
+      <RootNavigator config={routerConfig} />
     </NavigationContainerComponent>
   );
 }

@@ -1,140 +1,78 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+import { useMemo } from 'react';
+
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import * as Linking from 'expo-linking';
-import { merge } from 'lodash';
 
+import type {
+  type ICommonNavigatorConfig,
+  INavigationContainerProps,
+  type ITabNavigatorExtraConfig,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { ERootRoutes } from '../enum';
+import { rootRouter } from '../router';
 
 import { allowList } from './allowList';
+import { registerDeepLinking } from './deeplink';
 
-import type { IAllowList, IAllowListItem } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
 
 const prefix = Linking.createURL('/');
 
-const getScreen = (screen: IAllowListItem['screen']) => {
-  if (typeof screen === 'string') {
-    return screen;
+const rootRouteValues = Object.values(ERootRoutes);
+const pickConfig = (
+  routeConfig: ICommonNavigatorConfig<any, any> | ITabNavigatorExtraConfig<any>,
+) => {
+  if (Array.isArray((routeConfig as ITabNavigatorExtraConfig<any>).children)) {
+    return (routeConfig as ITabNavigatorExtraConfig<any>).children;
   }
-  return screen;
+  const { component, name } = routeConfig as ICommonNavigatorConfig<any, any>;
+
+  if (rootRouteValues.includes(name) && typeof component === 'function') {
+    const result: any = (component as () => JSX.Element)();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return result?.props?.config as typeof rootRouter;
+  }
 };
 
-function createPathFromScreen(screen: string) {
-  return `/${screen}`;
-}
+const REWRITE_PREFIX = 'REWRITE--';
 
-/**
- * split white list config and generate hierarchy config for react-navigation linking config
- */
-const generateScreenHierarchyRouteConfig = ({
-  screenListStr,
-  path,
-  exact,
-  fullPath,
-}: {
-  screenListStr: string;
-  path?: string;
-  exact?: boolean;
-  fullPath?: string;
-}): Record<string, any> => {
-  const screens = screenListStr.split('/').filter(Boolean);
-  let pathStr = path;
-  if (!pathStr && screenListStr) {
-    pathStr = createPathFromScreen(screenListStr);
-  }
-  const pathList = (pathStr || '').split('/').filter(Boolean);
-  if (!screens.length || (!pathList.length && !exact)) {
-    return {};
-  }
-
-  const currentRoute = screens[0];
-  const currentPath = pathList[0] || currentRoute;
-
-  const isLastScreen = screens.length === 1;
-  const isExactUrl = Boolean(isLastScreen && exact);
-  return {
-    [currentRoute]: {
-      path: isExactUrl ? fullPath : `/${currentPath}`,
-      exact: isExactUrl,
-      screens: generateScreenHierarchyRouteConfig({
-        screenListStr: screens.slice(1).join('/'),
-        path: pathList.slice(1).join('/'),
-        fullPath,
-        exact,
-      }),
-    },
-  };
-};
-
-const generateScreenHierarchyRouteConfigList = (list: IAllowList) =>
-  list.reduce(
-    (prev, tab) =>
-      merge(
-        prev,
-        generateScreenHierarchyRouteConfig({
-          screenListStr: getScreen(tab.screen),
-          path: tab.path,
-          exact: tab.exact,
-          fullPath: tab.path,
-        }),
-      ),
-    {},
-  );
-
-function buildWhiteList() {
-  const list = [...allowList];
-  list.forEach((item) => {
-    item.path = item.path || createPathFromScreen(item.screen);
-  });
-  return list;
-}
-
-const whiteList = buildWhiteList();
-
-const pickConfig = (route: any) => {
-  if (Array.isArray(route.children)) {
-    return route.children;
-  }
-  try {
-    if (typeof route.component === 'function') {
-      console.log(route.component());
-      return route.component()?.props?.config;
-    }
-  } catch (error) {
-    return undefined;
-  }
-  return route?.component?.props?.config;
-};
-
-const resolveScreens = (routes: any) =>
+const resolveScreens = (routes: typeof rootRouter) =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   routes // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    ? routes.reduce((prev: any, route: any) => {
-        console.log(route.name, route);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        prev[route.name] = {
+    ? routes.reduce(
+        (prev, route) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          exact: !!route.exact,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          path: !!route.reWrite
-            ? `REWRITE--${route.reWrite}`
-            : route.showPath
-            ? route.reWrite || route.name
-            : `NOOO_PATH${route.name}`,
-        };
-        const config = pickConfig(route);
-        if (config) {
-          prev[route.name].screens = resolveScreens(config);
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return prev;
-      }, {})
+          prev[route.name] = {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            path: route.rewrite
+              ? `${REWRITE_PREFIX}/${route.rewrite}`
+              : route.rewrite || route.name,
+          };
+          const config = pickConfig(route);
+          if (config) {
+            prev[route.name].screens = resolveScreens(config);
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return prev;
+        },
+        {} as Record<
+          string,
+          {
+            path: string;
+            screens?: Record<
+              string,
+              { path: string; screens?: Record<string, { path: string }> }
+            >;
+          }
+        >,
+      )
     : undefined;
 
-const buildLinking = (routes: any): LinkingOptions<any> => {
+const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   // const screenHierarchyConfig =
   //   generateScreenHierarchyRouteConfigList(allowList);
   const screenHierarchyConfig = resolveScreens(routes);
@@ -158,17 +96,21 @@ const buildLinking = (routes: any): LinkingOptions<any> => {
       let newPath = '/';
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
- 
       console.log(
         'getPathFromState-defaultPath',
         defaultPath,
         defaultPathWithoutQuery,
       );
+      const rule = allowList.find(
+        (item) => item.path === defaultPathWithoutQuery,
+      );
+      console.log('allowList', allowList, rule);
+      console.log('rule===', rule);
+      newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       if (defaultPath.includes('NOOO_PATH')) {
         return newPath;
       }
 
-      newPath = defaultPathWithoutQuery;
       if (defaultPath.includes('REWRITE--')) {
         newPath = defaultPath.split('REWRITE--').pop() || '/';
       }
@@ -195,5 +137,19 @@ const buildLinking = (routes: any): LinkingOptions<any> => {
   };
 };
 
-export default buildLinking;
-export const LinkingConfig = buildLinking(rootConfig);
+export const useRouterConfig = () =>
+  useMemo(() => {
+    // Execute it before component mount.
+    registerDeepLinking();
+    return {
+      routerConfig: rootRouter,
+      containerProps: platformEnv.isRuntimeBrowser
+        ? ({
+            documentTitle: {
+              formatter: () => 'OneKey',
+            },
+            linking: buildLinking(rootRouter),
+          } as unknown as INavigationContainerProps)
+        : undefined,
+    };
+  }, []);

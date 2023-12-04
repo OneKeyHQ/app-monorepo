@@ -33,4 +33,4 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$handleDeepLinkUrl = handleDeepLinkUrl;
 }
 
-registerHandler(handleDeepLinkUrl);
+export const registerDeepLinking = () => registerHandler(handleDeepLinkUrl);
