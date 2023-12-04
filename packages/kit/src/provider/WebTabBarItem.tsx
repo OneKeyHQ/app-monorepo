@@ -2,7 +2,7 @@
 import { Divider, Text, YStack } from '@onekeyhq/components';
 
 import useListenTabFocusState from '../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../routes/Tab/Routes';
 
 export function WebTabBarItem() {
   useListenTabFocusState(ETabRoutes.WebViewTab, (isFocus: boolean) => {
