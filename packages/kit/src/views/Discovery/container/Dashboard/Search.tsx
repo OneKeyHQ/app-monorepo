@@ -14,7 +14,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';

@@ -6,8 +6,8 @@ import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { EModalRoutes } from '../../../routes/Root/Modal/Routes';
-import { ETabRoutes } from '../../../routes/Root/Tab/Routes';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { ETabRoutes } from '../../../routes/Tab/Routes';
 import { useBrowserTabActions } from '../../../states/jotai/contexts/discovery';
 import {
   EDiscoveryModalRoutes,

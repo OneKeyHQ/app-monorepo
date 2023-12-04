@@ -22,7 +22,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';

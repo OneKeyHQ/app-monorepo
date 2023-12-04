@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_WIDTH } from '../../config/TabList.constants';

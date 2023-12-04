@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 

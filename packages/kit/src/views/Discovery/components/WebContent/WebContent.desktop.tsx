@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
+import { ETabRoutes } from '../../../../routes/Tab/Routes';
 import { webviewRefs } from '../../utils/explorerUtils';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';
