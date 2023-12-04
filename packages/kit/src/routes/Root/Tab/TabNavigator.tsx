@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import Browser from '../../../views/Discovery/container/Browser';
+import Browser from '../../../views/Discovery/container/Browser/Browser';
 import DiscoveryDashboard from '../../../views/Discovery/container/Dashboard';
 import Swap from '../../../views/Swap';
 import HomePage from '../../../views/Tab/Home/HomePageTabs';
@@ -146,7 +146,8 @@ const extraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
             name: EMultiTabBrowserRoutes.MultiTabBrowser,
             component:
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              require('../../../views/Discovery/container/Browser').default,
+              require('../../../views/Discovery/container/Browser/Browser')
+                .default,
           },
         ],
       }

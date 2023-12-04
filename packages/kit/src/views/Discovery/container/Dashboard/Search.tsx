@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   ListItem,
@@ -21,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
-import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';
@@ -30,28 +23,7 @@ function SearchModal() {
   const navigation = useAppNavigation();
   const [value, setValue] = useState('');
   const { setDisplayHomePage } = useBrowserTabActions();
-  const { displayHomePage } = useDisplayHomePageFlag();
   const { openMatchDApp } = useBrowserAction();
-
-  useEffect(() => {
-    console.log('SearchModal renderer ===> : ', displayHomePage);
-  }, [displayHomePage]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: 'Search Modal',
-      headerSearchBarOptions: {
-        autoFocus: true,
-        placeholder: 'Search',
-        inputType: 'text',
-        hideNavigationBar: true,
-        hideWhenScrolling: false,
-        onChangeText: ({ nativeEvent }) => {
-          setValue(nativeEvent.text);
-        },
-      },
-    });
-  }, [navigation]);
 
   const handleOnPress = useCallback(
     (item: {
@@ -94,6 +66,19 @@ function SearchModal() {
 
   return (
     <Page skipLoading>
+      <Page.Header
+        headerTitle="Search Modal"
+        headerSearchBarOptions={{
+          autoFocus: true,
+          placeholder: 'Search',
+          inputType: 'text',
+          hideNavigationBar: true,
+          hideWhenScrolling: false,
+          onChangeText: ({ nativeEvent }) => {
+            setValue(nativeEvent.text);
+          },
+        }}
+      />
       <Page.Body>
         <Stack flex={1}>
           <ListView

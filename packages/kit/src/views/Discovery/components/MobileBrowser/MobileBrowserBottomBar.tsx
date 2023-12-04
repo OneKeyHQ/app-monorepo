@@ -58,7 +58,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const tabCount = useMemo(() => tabs.length, [tabs]);
 
   const takeScreenshot = useCallback(
-    async () =>
+    () =>
       new Promise<boolean>((resolve, reject) => {
         if (!id) {
           reject(new Error('capture view id is null'));
@@ -180,7 +180,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
-          disabled={displayHomePage ? true : !tab?.canGoBack}
+          disabled={displayHomePage || !tab?.canGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}

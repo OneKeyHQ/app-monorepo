@@ -13,16 +13,10 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 // eslint-disable-next-line import/order
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
-// TODO: REPLACE_HOOKS
-// import { useIsVerticalLayout } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { DesktopWebView } from './DesktopWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-
-const DESKTOP_USER_AGENT_MOCK = undefined;
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
@@ -48,9 +42,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     const [progress, setProgress] = useState(5);
     const [showProgress, setShowProgress] = useState(true);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
-
-    const isVertical = false;
-    // const isVertical = useIsVerticalLayout();
 
     useImperativeHandle(
       ref,
@@ -139,10 +130,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           allowpopups={allowpopups.toString()}
           useragent={
             // we can resize desktop to vertical only in DEV env currently
-            platformEnv.isDev && isVertical
-              ? // sim mobile app UA
-                DESKTOP_USER_AGENT_MOCK
-              : undefined
+            undefined
           }
           onDidStartLoading={() => innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}

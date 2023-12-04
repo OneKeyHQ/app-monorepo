@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
@@ -15,6 +15,15 @@ import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+function DesktopBrowserHeaderRight() {
+  return (
+    <HeaderButtonGroup>
+      <HeaderIconButton icon="PlaceholderOutline" />
+      <HeaderIconButton icon="PlaceholderOutline" />
+    </HeaderButtonGroup>
+  );
+}
+
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -30,18 +39,14 @@ function DesktopBrowser() {
     }
   }, [tabs, navigation]);
 
+  const headerRightCall = useCallback(() => <DesktopBrowserHeaderRight />, []);
+
   return (
     <Page>
       <Page.Header
         // @ts-expect-error
         headerTitle={DesktopBrowserNavigationContainer}
-        // eslint-disable-next-line react/no-unstable-nested-components
-        headerRight={() => (
-          <HeaderButtonGroup>
-            <HeaderIconButton icon="PlaceholderOutline" />
-            <HeaderIconButton icon="PlaceholderOutline" />
-          </HeaderButtonGroup>
-        )}
+        headerRight={headerRightCall}
       />
       <Page.Body>
         {tabs.map((t) => (
