@@ -26,13 +26,13 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'wallet__wallet',
     freezeOnBlur: true,
+    rewrite: '/',
+    exact: true,
     children: [
       {
         name: ETabHomeRoutes.TabHome,
         component: HomePage,
         translationId: 'wallet__wallet',
-        rewrite: '/',
-        exact: true,
       },
       {
         name: ETabHomeRoutes.TabHomeStack1,
@@ -52,13 +52,14 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
     translationId: 'title__swap',
     freezeOnBlur: true,
+    rewrite: '/swap',
+    exact: true,
     children: [
       {
         name: ETabSwapRoutes.TabSwap,
         component: Swap,
+        rewrite: '/',
         translationId: 'title__swap',
-        rewrite: 'swap',
-        exact: true,
       },
     ],
   },
@@ -89,7 +90,7 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         component: require('./Developer/TabDeveloper').default,
         translationId: 'form__dev_mode',
-        rewrite: 'dev',
+        rewrite: '/dev',
         exact: true,
       },
       ...galleryScreenList,

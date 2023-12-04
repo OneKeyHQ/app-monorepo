@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
+import { createURL } from 'expo-linking';
 
 import type {
   ICommonNavigatorConfig,
@@ -14,11 +15,13 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import { ERootRoutes } from '../enum';
 import { rootRouter } from '../router';
 
-import { allowList, routerPrefix } from './allowList';
+import { buildAllowList } from './allowList';
 import { registerDeepLinking } from './deeplink';
 
+import type { IScreenPathConfig } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
 
+const routerPrefix = createURL('/');
 const rootRouteValues = Object.values(ERootRoutes);
 const pickConfig = (
   routeConfig: ICommonNavigatorConfig<any, any> | ITabNavigatorExtraConfig<any>,
@@ -38,35 +41,29 @@ const pickConfig = (
 const resolveScreens = (routes: typeof rootRouter) =>
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   routes // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    ? routes.reduce(
-        (prev, route) => {
+    ? routes.reduce((prev, route) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        prev[route.name] = {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          prev[route.name] = {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            path: route.rewrite ? route.rewrite : route.name,
-            exact: !!route.exact,
-          };
-          const config = pickConfig(route);
-          if (config) {
-            prev[route.name].screens = resolveScreens(config);
-          }
+          path: route.rewrite ? route.rewrite : route.name,
+          exact: !!route.exact,
+        };
+        const config = pickConfig(route);
+        if (config) {
+          prev[route.name].screens = resolveScreens(config);
+        }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return prev;
-        },
-        {} as Record<
-          string,
-          {
-            path: string;
-            exact: boolean;
-            screens?: Record<string, any>;
-          }
-        >,
-      )
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return prev;
+      }, {} as IScreenPathConfig)
     : undefined;
 
 const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const screenHierarchyConfig = resolveScreens(routes);
+  if (!screenHierarchyConfig) {
+    return { prefixes: [routerPrefix] };
+  }
+  const allowList = buildAllowList(screenHierarchyConfig);
   return {
     enabled: true,
     prefixes: [routerPrefix],
@@ -85,6 +82,13 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
       const rule = allowList[defaultPathWithoutQuery];
+      console.log(
+        'rule',
+        screenHierarchyConfig,
+        allowList,
+        rule,
+        defaultPathWithoutQuery,
+      );
       const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
