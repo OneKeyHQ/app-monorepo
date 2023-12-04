@@ -37,7 +37,7 @@ const addPath = (prev: string, path: string) => {
 };
 
 export const buildAllowList = (screens: IScreenPathConfig) => {
-  function URL(_: TemplateStringsArray, ...screenNames: string[]): string {
+  function realPath(_: TemplateStringsArray, ...screenNames: string[]): string {
     let screenConfig = screens;
     const path = screenNames.reduce((prev, screenName) => {
       const screen = screenConfig[screenName];
@@ -59,17 +59,17 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   return {
-    [URL`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeStack1}`]:
+    [realPath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeStack1}`]:
       {
         showParams: true,
       },
     // Page: /main/tab-Swap/TabSwap
     // Don't worry, the URL here is virtual, actually /swap.
     // it will automatically find the real route according to the route stacks.
-    [URL`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]: {
+    [realPath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]: {
       showParams: true,
     },
-    [URL`${ERootRoutes.Main}${ETabRoutes.Developer}${EGalleryRoutes.Components}`]:
+    [realPath`${ERootRoutes.Main}${ETabRoutes.Developer}${EGalleryRoutes.Components}`]:
       {
         showParams: true,
       },
