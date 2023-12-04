@@ -20,7 +20,7 @@ function PageContainer({
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading}>
-        <View style={{ flex: 1, height: '100%' }}>{children}</View>
+        <View style={{ flex: 1 }}>{children}</View>
         <BasicPageFooter />
       </BasicPage>
     ),
