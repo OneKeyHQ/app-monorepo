@@ -25,7 +25,7 @@ export interface ITabProps extends IScrollViewProps {
   data: { title: string; page: IPageType }[];
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
-  headerProps?: IHeaderProps;
+  headerProps?: Omit<IHeaderProps, 'data'>;
 }
 
 const TabComponent = ({
@@ -146,7 +146,6 @@ const TabComponent = ({
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
       }}
-      stickyHeaderIndices={[1]}
       scrollEventThrottle={16}
       onScroll={(event) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

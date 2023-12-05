@@ -129,6 +129,7 @@ function HomePage() {
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
+            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}
