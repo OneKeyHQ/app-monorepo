@@ -1,5 +1,4 @@
-import { getTokenValue } from 'tamagui';
-
+import { getTokenValue } from '@onekeyhq/components';
 import { TabStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type {
   ITabNavigatorConfig,
