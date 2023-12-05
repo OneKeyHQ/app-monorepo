@@ -19,13 +19,9 @@ const Index = () => {
           flex={1}
           paddingVertical={20}
           data={componentsRoute}
-          style={{
-            width: 640,
-            maxWidth: '100%',
-            alignSelf: 'center',
-          }}
           renderItem={({ item }) => (
             <ListItem
+              style={{ width: '90%', maxWidth: 640, alignSelf: 'center' }}
               key={item.replace('component/', '')}
               drillIn
               onPress={() => {
