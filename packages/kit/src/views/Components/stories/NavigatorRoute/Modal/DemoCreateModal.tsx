@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 import { Button, Input, Stack, Toast } from '@onekeyhq/components';
 import type { IModalScreenProps } from '@onekeyhq/components/src/layouts/Navigation';
@@ -22,7 +22,7 @@ function DemoCreateViewModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
   const demoNavigation = useDemoAppNavigation();
-  useLayoutEffect(() => {
+  useEffect(() => {
     demoNavigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
@@ -41,6 +41,7 @@ function DemoCreateViewModal({
   return (
     <Layout
       description="这是一个普通的 Modal 测试"
+      skipLoading
       suggestions={[
         'Modal 可以通过点击空白处关闭或返回上一级',
         'Modal 可以通过按 ESC 键关闭或返回上一级',
@@ -91,20 +92,26 @@ function DemoCreateViewModal({
 function DemoCreateSearchModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
-  useLayoutEffect(() => {
-    navigation.setOptions({
+  const demoNavigation = useDemoAppNavigation();
+  useEffect(() => {
+    demoNavigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
+        hideNavigationBar: true,
+        hideWhenScrolling: true,
+        autoFocus: false,
         onChangeText: (event: any) => {
           console.log('onChangeText', event);
         },
       },
     });
-  }, [navigation]);
+  }, [demoNavigation]);
 
   return (
     <Layout
+      skipLoading
+      contentInsetAdjustmentBehavior="automatic"
       description="这是一个带搜索框的 Modal"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
@@ -150,11 +157,15 @@ function DemoCreateSearchModal({
 function DemoCreateOptionsModal({
   navigation,
 }: IModalScreenProps<IDemoCreateModalParamList>) {
-  useLayoutEffect(() => {
-    navigation.setOptions({
+  const demoNavigation = useDemoAppNavigation();
+  useEffect(() => {
+    demoNavigation.setOptions({
       headerSearchBarOptions: {
         placeholder: '搜索',
         inputType: 'text',
+        hideNavigationBar: false,
+        hideWhenScrolling: true,
+        autoFocus: true,
         onChangeText: (event: any) => {
           console.log('onChangeText', event);
         },
@@ -167,10 +178,12 @@ function DemoCreateOptionsModal({
         </HeaderButtonGroup>
       ),
     });
-  }, [navigation]);
+  }, [demoNavigation]);
 
   return (
     <Layout
+      skipLoading
+      contentInsetAdjustmentBehavior="automatic"
       description="这是一个带有搜索框和 RightButton 的 Demo"
       suggestions={['使用方式与 @react-navigation/native-stack 相同']}
       boundaryConditions={[
