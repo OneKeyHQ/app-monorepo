@@ -3,8 +3,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '../enum';
 import { EGalleryRoutes } from '../Tab/Developer/Gallery/routes';
 import { ETabHomeRoutes } from '../Tab/Home/Routes';
-import { ETabRoutes } from '../Tab/Routes';
 import { ETabSwapRoutes } from '../Tab/Swap/Routes';
+import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
