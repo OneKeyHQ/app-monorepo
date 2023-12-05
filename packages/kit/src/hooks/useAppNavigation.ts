@@ -7,15 +7,16 @@ import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
-} from '@onekeyhq/components/src/Navigation';
+} from '@onekeyhq/components/src/layouts/Navigation';
 
-import { ERootRoutes } from '../routes/Root/Routes';
+import { ERootRoutes } from '../routes/enum';
 
 import type {
-  EModalRoutes,
-  IModalParamList,
-} from '../routes/Root/Modal/Routes';
-import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
+  EIOSFullScreenModalRoutes,
+  IIOSFullScreenModalParamList,
+} from '../routes/iOSFullScreen/type';
+import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/Routes';
 
 function useAppNavigation<
   P extends
@@ -63,6 +64,19 @@ function useAppNavigation<
     });
   };
 
+  const pushFullModal = <T extends EIOSFullScreenModalRoutes>(
+    route: T,
+    params?: {
+      screen: keyof IIOSFullScreenModalParamList[T];
+      params?: IIOSFullScreenModalParamList[T][keyof IIOSFullScreenModalParamList[T]];
+    },
+  ) => {
+    navigation.navigate(ERootRoutes.iOSFullScreen, {
+      screen: route,
+      params,
+    });
+  };
+
   const iosHeaderStyle = Platform.select<IStackNavigationOptions>({
     ios: {
       headerStyle: {
@@ -85,7 +99,6 @@ function useAppNavigation<
         headerSearchBarOptions: {
           // always show search bar on iOS
           hideNavigationBar: false,
-          // @ts-expect-error
           hideWhenScrolling: false,
           cancelButtonText: searchCancelText,
           textColor: searchTextColor,
@@ -110,6 +123,7 @@ function useAppNavigation<
     navigate: navigation.navigate,
     switchTab,
     pushModal,
+    pushFullModal,
     pop,
     popStack,
     setOptions,

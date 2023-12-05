@@ -3,12 +3,14 @@ import { useLayoutEffect } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Stack, Text } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
+import { ERootModalRoutes } from '../../Modal/Routes';
+import { EDemoRootRoutes } from '../../Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { EDemoHomeTabRoutes } from '../Routes';
 
@@ -64,6 +66,22 @@ const DemoRootHomeSearch = () => {
                 });
             }, []);
           `}</Text>
+          ),
+        },
+        {
+          title: '弹出 Modal',
+          element: (
+            <Button
+              variant="primary"
+              onPress={() => {
+                // @ts-expect-error
+                navigation.pushModal(EDemoRootRoutes.Modal, {
+                  screen: ERootModalRoutes.DemoLockedModal,
+                });
+              }}
+            >
+              弹出 Modal
+            </Button>
           ),
         },
         {

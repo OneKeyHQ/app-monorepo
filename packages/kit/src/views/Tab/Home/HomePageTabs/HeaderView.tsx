@@ -1,20 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Text, YStack } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
-import { EModalTestRoutes } from '../../../../routes/Root/Modal/TestModal/Routes';
-import { ETabHomeRoutes } from '../../../../routes/Root/Tab/Home/Routes';
+import { EIOSFullScreenModalRoutes } from '../../../../routes/iOSFullScreen/type';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+import { ETabHomeRoutes } from '../../../../routes/Tab/Home/Routes';
+import { EIOSFullScreenTestModalPages } from '../../../iOSFullScreenTestModal/router/type';
+import { ETestModalPages } from '../../../TestModal/router/type';
 
-import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
+import type { ITabHomeParamList } from '../../../../routes/Tab/Home/Routes';
 
-// export default function HomePageHeaderView({
-//   switchDemoVisible,
-// }: {
-//   switchDemoVisible: () => void;
-// }) {
 export default function HomePageHeaderView() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
@@ -23,17 +20,19 @@ export default function HomePageHeaderView() {
     setHeaderHighMode((pre) => !pre);
   }, []);
 
-  // const switchDemoVisibleCall = useCallback(() => {
-  //   switchDemoVisible?.();
-  // }, [switchDemoVisible]);
-
   const onNextPageCall = useCallback(() => {
     navigation.push(ETabHomeRoutes.TabHomeStack1);
   }, [navigation]);
 
   const navigateTestSimpleModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.TestModal, {
-      screen: EModalTestRoutes.TestSimpleModal,
+      screen: ETestModalPages.TestSimpleModal,
+    });
+  }, [navigation]);
+
+  const navigateFullScreenSimpleModal = useCallback(() => {
+    navigation.pushFullModal(EIOSFullScreenModalRoutes.iOSFullScreenTestModal, {
+      screen: EIOSFullScreenTestModalPages.TestFullSimpleModal,
     });
   }, [navigation]);
 
@@ -47,8 +46,17 @@ export default function HomePageHeaderView() {
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
+        <Button onPress={navigateFullScreenSimpleModal}>
+          to TestFullScreenSimpleModal
+        </Button>
       </YStack>
     ),
-    [headerHighMode, headerHeightCall, onNextPageCall, navigateTestSimpleModal],
+    [
+      headerHighMode,
+      headerHeightCall,
+      onNextPageCall,
+      navigateTestSimpleModal,
+      navigateFullScreenSimpleModal,
+    ],
   );
 }
