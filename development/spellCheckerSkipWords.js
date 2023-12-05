@@ -574,4 +574,5 @@ module.exports = [
   'alg',
   'gitkeep',
   'COMMITHASH',
+  'swft',
 ];

@@ -4,6 +4,21 @@ import './intlShim';
 import 'react-native-url-polyfill/auto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// https://docs.ethers.io/v5/cookbook/react-native/
+// Import the crypto getRandomValues shim (**BEFORE** the shims)
+import 'react-native-get-random-values';
+// Import the the ethers shims (**BEFORE** ethers)
+/*
+Shims Injected:
+  - atob
+  - btoa
+  - nextTick
+  - FileReader.prototype.readAsArrayBuffer
+ */
+// Shim atob and btoa
+// js-base64 lib cannot import by `require` function in React Native 0.72.
+import Base64 from 'js-base64';
+
 const shimsLog = (str) => console.log(`Shims Injected: ${str}`);
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
@@ -51,20 +66,6 @@ if (typeof crypto === 'undefined') {
   }
 }
 
-// https://docs.ethers.io/v5/cookbook/react-native/
-// Import the crypto getRandomValues shim (**BEFORE** the shims)
-import 'react-native-get-random-values';
-// Import the the ethers shims (**BEFORE** ethers)
-/*
-Shims Injected:
-  - atob
-  - btoa
-  - nextTick
-  - FileReader.prototype.readAsArrayBuffer
- */
-// Shim atob and btoa
-// js-base64 lib cannot import by `require` function in React Native 0.72.
-import Base64 from 'js-base64';
 if (!global.atob) {
   shimsLog('atob');
   global.atob = Base64.atob;

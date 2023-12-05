@@ -6,4 +6,5 @@ export enum EAtomNames {
   settingsTimeNowAtom = 'settingsTimeNowAtom',
   passwordAtom = 'passwordAtom',
   passwordPersistAtom = 'passwordPersistAtom',
+  swapAtom = 'swapAtom',
 }

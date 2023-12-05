@@ -2,6 +2,8 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/Navigat
 import { RootModalNavigator } from '@onekeyhq/components/src/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/Stack';
 
+import { ModalSwapStack } from '../../../views/Swap/router/ModalStack';
+
 import { ModalDiscoverStack } from './Discover';
 import { EModalRoutes } from './Routes';
 import { ModalTestStack } from './TestModal/ModalTestStack';
@@ -19,6 +21,7 @@ const config: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
   },
+  { name: EModalRoutes.SwapModal, children: ModalSwapStack },
 ];
 
 export default function ModalNavigator() {

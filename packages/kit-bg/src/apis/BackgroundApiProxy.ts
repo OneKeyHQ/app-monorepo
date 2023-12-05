@@ -10,6 +10,7 @@ import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSwap from '../services/ServiceSwap';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -31,6 +32,7 @@ class BackgroundApiProxy
 
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
 
+  serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 
   // serviceBootstrap = this._createProxyService(
