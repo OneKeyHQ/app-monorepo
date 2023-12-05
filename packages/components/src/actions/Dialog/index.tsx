@@ -341,7 +341,7 @@ function DialogConfirm({
     ),
   };
   return {
-    close: handleClose,
+    close: () => instanceRef?.current?.close(),
   };
 }
 
