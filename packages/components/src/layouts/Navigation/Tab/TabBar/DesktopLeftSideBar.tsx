@@ -104,7 +104,7 @@ export function DesktopLeftSideBar({
           }
         };
 
-        if (route.name === extraConfig?.name) {
+        if (platformEnv.isDesktop && route.name === extraConfig?.name) {
           return (
             <YStack
               flex={1}

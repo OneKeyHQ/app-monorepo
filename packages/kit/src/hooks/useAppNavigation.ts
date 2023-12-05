@@ -15,7 +15,7 @@ import type {
   IIOSFullScreenModalParamList,
 } from '../routes/iOSFullScreen/type';
 import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
-import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/Routes';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 
 function useAppNavigation<
   P extends

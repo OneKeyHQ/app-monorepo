@@ -21,7 +21,10 @@ export default function HomePageHeaderView() {
   }, []);
 
   const onNextPageCall = useCallback(() => {
-    navigation.push(ETabHomeRoutes.TabHomeStack1);
+    navigation.push(ETabHomeRoutes.TabHomeStack1, {
+      a: '1',
+      b: '2',
+    });
   }, [navigation]);
 
   const navigateTestSimpleModal = useCallback(() => {
