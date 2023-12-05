@@ -5,10 +5,10 @@ import { NavigationContainer as RNNavigationContainer } from '@react-navigation/
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { GetProps } from 'tamagui';
 
+type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
+export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
 export const navigationRef = createRef<NavigationContainerRef<any>>();
 
-export function NavigationContainer(
-  props: GetProps<typeof RNNavigationContainer>,
-) {
+export function NavigationContainer(props: IBasicNavigationContainerProps) {
   return <RNNavigationContainer {...props} ref={navigationRef} />;
 }

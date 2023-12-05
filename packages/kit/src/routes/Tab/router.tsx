@@ -1,6 +1,5 @@
 import { getTokenValue } from 'tamagui';
 
-import { TabStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -25,10 +24,10 @@ import TabHomeStack2 from './Home/TabHomeStack2';
 import { ETabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
 import { EMultiTabBrowserRoutes } from './MultiTabBrowser/Routes';
-import { ETabRoutes } from './Routes';
 import { ETabSwapRoutes } from './Swap/Routes';
+import { ETabRoutes } from './type';
 
-const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
+const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
   name: ETabRoutes.Discovery,
   tabBarIcon: (focused?: boolean) =>
     focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
@@ -61,13 +60,15 @@ const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
   ],
 };
 
-const config: ITabNavigatorConfig<ETabRoutes>[] = [
+export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
   {
     name: ETabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'WalletSolid' : 'WalletOutline',
     translationId: 'wallet__wallet',
     freezeOnBlur: true,
+    rewrite: '/',
+    exact: true,
     children: [
       {
         name: ETabHomeRoutes.TabHome,
@@ -92,15 +93,18 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
     translationId: 'title__swap',
     freezeOnBlur: true,
+    rewrite: '/swap',
+    exact: true,
     children: [
       {
         name: ETabSwapRoutes.TabSwap,
         component: Swap,
+        rewrite: '/',
         translationId: 'title__swap',
       },
     ],
   },
-  !platformEnv.isDesktop ? discoverRouteConfig : undefined,
+  !platformEnv.isDesktop ? discoverRouterConfig : undefined,
   {
     name: ETabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
@@ -128,16 +132,18 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         component: require('./Developer/TabDeveloper').default,
         translationId: 'form__dev_mode',
+        rewrite: '/dev',
+        exact: true,
       },
       ...galleryScreenList,
     ],
   },
-  platformEnv.isDesktop ? discoverRouteConfig : undefined,
+  platformEnv.isDesktop ? discoverRouterConfig : undefined,
 ].filter<ITabNavigatorConfig<ETabRoutes>>(
   (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
 );
 
-const extraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
+export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
   platformEnv.isDesktop
     ? {
         name: ETabRoutes.MultiTabBrowser,
@@ -152,9 +158,3 @@ const extraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
         ],
       }
     : undefined;
-
-export default function TabNavigator() {
-  return (
-    <TabStackNavigator<ETabRoutes> config={config} extraConfig={extraConfig} />
-  );
-}

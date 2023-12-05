@@ -6,6 +6,6 @@ export enum ETabHomeRoutes {
 
 export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHome]: undefined;
-  [ETabHomeRoutes.TabHomeStack1]: undefined;
+  [ETabHomeRoutes.TabHomeStack1]: { a: string; b: string };
   [ETabHomeRoutes.TabHomeStack2]: undefined;
 };
