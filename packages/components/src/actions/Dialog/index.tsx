@@ -140,20 +140,22 @@ function DialogFrame({
           >
             {onCancelText}
           </Button>
-          <Button
-            variant={tone === 'destructive' ? 'destructive' : 'primary'}
-            flex={1}
-            ml="$2.5"
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-            {...confirmButtonProps}
-            onPress={handleConfirmButtonPress}
-          >
-            {onConfirmText}
-          </Button>
+          {onConfirm ? (
+            <Button
+              variant={tone === 'destructive' ? 'destructive' : 'primary'}
+              flex={1}
+              ml="$2.5"
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              {...confirmButtonProps}
+              onPress={handleConfirmButtonPress}
+            >
+              {onConfirmText}
+            </Button>
+          ) : null}
         </XStack>
       )}
     </Stack>
@@ -256,7 +258,6 @@ function BaseDialogContainer(
     onOpen,
     onClose,
     renderContent,
-    onConfirm,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstanceRef>,
@@ -282,7 +283,6 @@ function BaseDialogContainer(
     onOpen?.();
   }, [onOpen]);
 
-  const handleConfirm = useCallback(() => onConfirm?.(), [onConfirm]);
 
   useImperativeHandle(
     ref,
@@ -300,7 +300,6 @@ function BaseDialogContainer(
         renderContent={renderContent}
         onClose={handleClose}
         {...props}
-        onConfirm={handleConfirm}
       />
     </DialogContext.Provider>
   );

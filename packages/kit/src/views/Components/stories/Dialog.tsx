@@ -142,6 +142,25 @@ const DialogGallery = () => (
         ),
       },
       {
+        title: 'Hide Confirm Button',
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  onCancelText: 'Bye',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                })
+              }
+            >
+              Hide Confirm Button
+            </Button>
+          </YStack>
+        ),
+      },
+      {
         title: 'Hide dialog footer',
         element: (
           <YStack>
