@@ -19,12 +19,12 @@ import {
 import { getTokens } from '@onekeyhq/components/src/hooks';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../../AccountManagerStacks/types';
 
 import HeaderView from './HeaderView';
 
-import type { ITabHomeParamList } from '../../../../routes/Root/Tab/Home/Routes';
+import type { ITabHomeParamList } from '../../../../routes/Tab/Home/Routes';
 
 const FirstRoute = ({
   onContentSizeChange,
