@@ -53,6 +53,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   );
 
   return (
+    // @ts-expect-error
     <ModalStack.Navigator screenOptions={makeScreenOptions}>
       {config.map(
         ({
