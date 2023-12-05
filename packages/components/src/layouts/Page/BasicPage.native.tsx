@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -17,12 +17,16 @@ function Loading() {
 function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
-  setTimeout(() => {
-    changeChildrenVisibleStatus(true);
+
+  useEffect(() => {
     setTimeout(() => {
-      changeLoadingVisibleStatus(false);
+      changeChildrenVisibleStatus(true);
+      setTimeout(() => {
+        changeLoadingVisibleStatus(false);
+      }, 0);
     }, 0);
-  }, 0);
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       {showChildren ? children : null}
