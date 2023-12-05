@@ -22,7 +22,6 @@ export type IScreenPathConfig = Record<
 
 const removeExtraSlash = (path: string) => path.replace(/\/+/g, '');
 const addPath = (prev: string, path: string) => {
-  console.log(prev, path);
   if (!path) {
     return prev;
   }

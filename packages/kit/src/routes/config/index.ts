@@ -82,13 +82,6 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
       const rule = allowList[defaultPathWithoutQuery];
-      console.log(
-        'rule',
-        screenHierarchyConfig,
-        allowList,
-        rule,
-        defaultPathWithoutQuery,
-      );
       const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {

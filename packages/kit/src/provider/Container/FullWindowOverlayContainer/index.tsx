@@ -8,11 +8,6 @@ export function FullWindowOverlayContainer() {
   return (
     <OverlayContainer>
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
-      {platformEnv.isDesktop ? (
-        <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
-          <DesktopCustomTabBar />
-        </Portal.Body>
-      ) : null}
     </OverlayContainer>
   );
 }
