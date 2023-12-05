@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,7 +26,7 @@ const DemoRootHomeSearch = () => {
   const navigation =
     useDemoAppNavigation<IPageNavigationProp<IDemoHomeTabParamList>>();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     navigation.setOptions({
       headerSearchBarOptions: {
         placeholder: intl.formatMessage({
@@ -53,9 +53,9 @@ const DemoRootHomeSearch = () => {
           title: '使用说明',
           element: (
             <Text variant="$bodyLg">{`这是一个简单的使用场景
-            1. 需要给 Screen 或者 Layout 设置一个 skipLoading 以确保 iOS controller.headerSearch 动画正常
+            1. 需要给 Screen 或者 Layout 设置一个 skipLoading={platformEnv.isNativeIOS} 以确保 iOS controller.headerSearch 动画正常
 
-            2. useLayoutEffect(() => {
+            2. useEffect(() => {
                 navigation.setOptions({
                   headerSearchBarOptions: {
                     placeholder: '搜索',
