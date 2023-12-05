@@ -16,7 +16,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { NFTDATA } from './ListItem';
 
-const NUMBEROFITEMS = 1000;
+const NUMBEROFITEMS = 200;
 
 const RELOADNFTDATA = new Array(NUMBEROFITEMS)
   .fill(null)

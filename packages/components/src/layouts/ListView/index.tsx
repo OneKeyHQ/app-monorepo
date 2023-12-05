@@ -4,8 +4,6 @@ import { forwardRef } from 'react';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
 import type {
   FlatListProps,
@@ -35,6 +33,8 @@ export type IListViewProps<T> = Omit<
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
 
+    // Do not remove the following properties, they are set for ListView.native.tsx
+
     /*
       Average height of your cell
       See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
@@ -56,7 +56,6 @@ function BaseListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
-    refreshControl,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -101,8 +100,9 @@ function BaseListView<T>(
       contentContainerStyle={contentStyle}
       data={data}
       renderItem={renderItem}
-      refreshControl={platformEnv.isNative ? refreshControl : undefined}
       {...restProps}
+      // we can't set it on web
+      refreshControl={undefined}
     />
   );
 }

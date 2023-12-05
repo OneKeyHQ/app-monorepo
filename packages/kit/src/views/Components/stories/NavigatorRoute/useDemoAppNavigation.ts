@@ -1,8 +1,7 @@
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Page, useThemeValue } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
@@ -21,7 +20,6 @@ function useDemoAppNavigation<
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
-  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
 
   const popStack = () => {
     navigation.getParent()?.goBack?.();
@@ -61,40 +59,16 @@ function useDemoAppNavigation<
     });
   };
 
-  const iosHeaderStyle = Platform.select<IStackNavigationOptions>({
-    ios: {
-      headerStyle: {
-        backgroundColor: bgColor,
-      },
-      headerTintColor: titleColor,
-    },
-  });
-
-  const searchTextColor = titleColor;
   const intl = useIntl();
-  const searchCancelText = intl.formatMessage({ id: 'action__cancel' });
+  const textColor = useThemeValue('text');
 
   function setOptions(options: Partial<IStackNavigationOptions>) {
-    const { headerSearchBarOptions, ...otherOptions } = options;
-
-    let newHeaderSearchBarOptions: IStackNavigationOptions = {};
-    if (headerSearchBarOptions) {
-      newHeaderSearchBarOptions = {
-        headerSearchBarOptions: {
-          hideNavigationBar: false,
-          hideWhenScrolling: false,
-          cancelButtonText: searchCancelText,
-          textColor: searchTextColor,
-          ...headerSearchBarOptions,
-        },
-      };
-    }
-
-    navigation.setOptions({
-      ...iosHeaderStyle,
-      ...otherOptions,
-      ...newHeaderSearchBarOptions,
-    });
+    const reloadOptions = Page.Header.usePageHeaderSearchOptions(
+      options,
+      intl,
+      { searchTextColor: textColor },
+    );
+    navigation.setOptions(reloadOptions);
   }
 
   return {

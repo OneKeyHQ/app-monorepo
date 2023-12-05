@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,7 +22,7 @@ const DemoRootHomeOptions = () => {
   const intl = useIntl();
   const navigation = useDemoAppNavigation();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <HeaderButtonGroup>
