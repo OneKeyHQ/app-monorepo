@@ -1,6 +1,6 @@
 import { type Ref, forwardRef } from 'react';
 
-import { Group, Input as TMInput, getFontSize } from 'tamagui';
+import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 
 import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
 
@@ -73,6 +73,7 @@ function BaseInput(
   } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
+  const themeName = useThemeName();
 
   return (
     <Group
@@ -110,6 +111,7 @@ function BaseInput(
           borderRightWidth={addOns?.length ? '$0' : '$px'}
           focusStyle={sharedStyles.focusStyle}
           cursor={sharedStyles.cursor}
+          keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           {...props}
         />
       </Group.Item>
