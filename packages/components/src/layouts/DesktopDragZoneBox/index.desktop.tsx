@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { FC } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -58,7 +58,7 @@ export function DesktopDragZoneAbsoluteBar({
   w = '100%',
   h = '$16',
   ...others
-}: ComponentProps<IDesktopDragZoneAbsoluteBarProps>) {
+}: IDesktopDragZoneAbsoluteBarProps) {
   // const highlightDragZone = platformEnv.isDev;
   const highlightDragZone = false;
 
