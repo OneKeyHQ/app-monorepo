@@ -32,7 +32,17 @@ type IListViewProps<T> = Omit<
     data: ReadonlyArray<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
     ref?: MutableRefObject<IListViewRef<any> | null>;
+
+    /*
+      Average height of your cell
+      See https://shopify.github.io/flash-list/docs/estimated-item-size/#how-to-calculate
+    */
     estimatedItemSize: number | `$${keyof Tokens['size']}`;
+    onBlankArea?: (blankAreaEvent: {
+      offsetStart: number;
+      offsetEnd: number;
+      blankArea: number;
+    }) => void;
   };
 
 function BaseListView<T>(

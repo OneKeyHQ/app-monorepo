@@ -168,7 +168,7 @@ function DialogFrame({
   if (media.md) {
     return (
       <>
-        <Trigger onOpen={onOpen}>{renderTrigger}</Trigger>
+        <Trigger onPress={onOpen}>{renderTrigger}</Trigger>
         <Sheet
           open={open}
           position={position}

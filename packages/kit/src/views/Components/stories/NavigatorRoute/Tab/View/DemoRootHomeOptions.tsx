@@ -3,7 +3,7 @@ import { useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, YStack } from '@onekeyhq/components';
+import { Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -11,8 +11,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
-import { ERootModalRoutes } from '../../Modal/Routes';
-import { EDemoRootRoutes } from '../../Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 
 import type {
@@ -48,6 +46,7 @@ const DemoRootHomeOptions = () => {
   return (
     <Layout
       skipLoading={platformEnv.isNativeIOS}
+      contentInsetAdjustmentBehavior="automatic"
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
         '使用方式与 @react-navigation/native-stack 相同',
@@ -76,21 +75,6 @@ const DemoRootHomeOptions = () => {
                 }}
               />
             </YStack>
-          ),
-        },
-        {
-          title: '弹出 Modal',
-          element: (
-            <Button
-              onPress={() => {
-                // @ts-expect-error
-                navigation.pushModal(EDemoRootRoutes.Modal, {
-                  screen: ERootModalRoutes.DemoLockedModal,
-                });
-              }}
-            >
-              弹出 Modal
-            </Button>
           ),
         },
         {

@@ -7,6 +7,7 @@ import { View } from '../../optimization';
 import { BasicPage } from './BasicPage';
 import { BasicPageFooter, PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
+import { PageClose } from './PageClose';
 import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
@@ -19,7 +20,7 @@ function PageContainer({
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading}>
-        <View style={{ flex: 1, height: '100%' }}>{children}</View>
+        <View style={{ flex: 1 }}>{children}</View>
         <BasicPageFooter />
       </BasicPage>
     ),
@@ -53,4 +54,5 @@ export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
   Footer: PageContextFooter,
+  Close: PageClose,
 });
