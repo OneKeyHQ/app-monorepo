@@ -28,13 +28,18 @@ export interface ITabProps extends IScrollViewProps {
   headerProps?: IHeaderProps;
 }
 
-const TabComponent = ({
-  data,
-  initialScrollIndex,
-  ListHeaderComponent,
-  headerProps,
-  ...props
-}: ITabProps) => {
+const TabComponent = (
+  {
+    data,
+    initialScrollIndex,
+    ListHeaderComponent,
+    headerProps,
+    ...props
+  }: ITabProps,
+  // fix missing forwardRef warnings.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _: any,
+) => {
   const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
