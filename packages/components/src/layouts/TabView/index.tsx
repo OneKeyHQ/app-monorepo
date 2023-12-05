@@ -38,18 +38,19 @@ const TabComponent = ({
   const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
+  const dataCount = useMemo(() => data.length, [data]);
   const stickyConfig = useMemo(
     () => ({
       lastIndex: -1,
       scrollViewHeight: 0,
       headerViewY: 0,
       headerViewHeight: 0,
-      data: data.map(() => ({
+      data: new Array(dataCount).fill({}).map(() => ({
         contentHeight: 0,
         contentOffsetY: 0,
       })),
     }),
-    [data],
+    [dataCount],
   );
   const reloadContentHeight = useCallback(
     (index: number) => {
@@ -68,13 +69,10 @@ const TabComponent = ({
           height,
         });
       } else {
-        if (height === contentHeight) {
-          return;
-        }
         setContentHeight(height);
       }
     },
-    [stickyConfig, pageContainerRef, contentHeight],
+    [stickyConfig, pageContainerRef],
   );
   const pageManagerProps = useMemo(
     () => ({
