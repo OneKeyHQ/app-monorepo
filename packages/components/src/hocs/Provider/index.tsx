@@ -11,6 +11,7 @@ import config from '../../../tamagui.config';
 import Toaster from '../../actions/Toast/Toaster';
 import { LOCALES } from '../../locale';
 
+import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
 import ScreenSizeProvider from './ScreenSizeProvider';
@@ -53,7 +54,7 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-export const Provider: FC<IUIProviderProps> = ({
+export const ConfigProvider: FC<IUIProviderProps> = ({
   children,
   themeVariant,
   locale,
@@ -67,6 +68,8 @@ export const Provider: FC<IUIProviderProps> = ({
     }),
     [themeVariant, reduxReady],
   );
+
+  useAppearanceTheme(themeVariant);
 
   return (
     <AppIntlProvider

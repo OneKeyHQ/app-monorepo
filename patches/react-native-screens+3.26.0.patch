@@ -1,8 +1,16 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 401d57e..fc18e6a 100644
+index 401d57e..34b9300 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-@@ -14,6 +14,7 @@ import com.facebook.react.ReactRootView
+@@ -2,6 +2,7 @@ package com.swmansion.rnscreens
+ 
+ import android.content.Context
+ import android.content.ContextWrapper
++import android.view.MotionEvent
+ import android.view.View
+ import android.view.ViewGroup
+ import android.view.ViewParent
+@@ -14,6 +15,7 @@ import com.facebook.react.ReactRootView
  import com.facebook.react.bridge.ReactContext
  import com.facebook.react.modules.core.ChoreographerCompat
  import com.facebook.react.modules.core.ReactChoreographer
@@ -10,7 +18,7 @@ index 401d57e..fc18e6a 100644
  import com.swmansion.rnscreens.Screen.ActivityState
  
  open class ScreenContainer(context: Context?) : ViewGroup(context) {
-@@ -35,6 +36,7 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
+@@ -35,6 +37,7 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
          }
      }
      private var mParentScreenFragment: ScreenFragmentWrapper? = null
@@ -18,7 +26,7 @@ index 401d57e..fc18e6a 100644
  
      override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
          var i = 0
-@@ -214,6 +216,49 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
+@@ -214,6 +217,57 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
          super.onAttachedToWindow()
          mIsAttached = true
          setupFragmentManager()
@@ -38,8 +46,11 @@ index 401d57e..fc18e6a 100644
 +            val tabBarItem = tabBar.getChildAt(index) as? ReactViewGroup ?: return
 +
 +            tabBarItem.setOnInterceptTouchEventListener { viewGroup, motionEvent ->
++                if (motionEvent.action != MotionEvent.ACTION_UP) {
++                    return@setOnInterceptTouchEventListener false
++                }
 +                if (mScreenFragments[index].screen.activityState == ActivityState.ON_TOP) {
-+                    false
++                    return@setOnInterceptTouchEventListener false
 +                }
 +                mScreenFragments.forEach {
 +                    it.screen.setActivityState(ActivityState.INACTIVE)
@@ -54,8 +65,13 @@ index 401d57e..fc18e6a 100644
 +                            continue
 +                        }
 +                    }
-+                    (item.getChildAt(0) as? ReactViewGroup)?.setOpacityIfPossible(if (itemIndex == index) 0f else 1f)
-+                    (item.getChildAt(1) as? ReactViewGroup)?.setOpacityIfPossible(if (itemIndex == index) 1f else 0f)
++                    var aboveView = item.getChildAt(0) as? ReactViewGroup
++                    var belowView = item.getChildAt(1) as? ReactViewGroup
++                    if (((aboveView?.alpha ?: 0f) + (belowView?.alpha ?: 0f)) != 1.0f) {
++                        continue
++                    }
++                    aboveView?.setOpacityIfPossible(if (itemIndex == index) 0f else 1f)
++                    belowView?.setOpacityIfPossible(if (itemIndex == index) 1f else 0f)
 +                }
 +                shouldBreakJSUpdateCount += 1;
 +                createTransaction().let {
@@ -68,7 +84,7 @@ index 401d57e..fc18e6a 100644
      }
  
      /** Removes fragments from fragment manager that are attached to this container  */
-@@ -312,6 +357,10 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
+@@ -312,6 +366,10 @@ open class ScreenContainer(context: Context?) : ViewGroup(context) {
      }
  
      open fun onUpdate() {
@@ -114,7 +130,7 @@ index 74f1804..aebed6e 100644
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1ed4914..95e1178 100644
+index 1ed4914..1bb4d87 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -125,7 +141,7 @@ index 1ed4914..95e1178 100644
  #import "RNSScreenWindowTraits.h"
  
  #ifdef RCT_NEW_ARCH_ENABLED
-@@ -456,8 +457,83 @@ - (BOOL)isMountedUnderScreenOrReactRoot
+@@ -456,8 +457,86 @@ - (BOOL)isMountedUnderScreenOrReactRoot
  #undef RNS_EXPECTED_VIEW
  }
  
@@ -191,6 +207,9 @@ index 1ed4914..95e1178 100644
 +      	return;
 +      }
 +    }
++    if ((opacityViewList[0].alpha + opacityViewList[1].alpha) != 1) {
++      return;
++    }
 +    if (index == idx) {
 +      opacityViewList[0].alpha = 0;
 +      opacityViewList[1].alpha = 1;
@@ -209,7 +228,7 @@ index 1ed4914..95e1178 100644
    // For RN touches to work we need to instantiate and connect RCTTouchHandler. This only applies
    // for screens that aren't mounted under RCTRootView e.g., modals that are mounted directly to
    // root application window.
-@@ -971,6 +1047,22 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -971,6 +1050,23 @@ - (void)viewDidAppear:(BOOL)animated
      // or successfully swiped back
      [self.screenView notifyAppear];
      [self notifyTransitionProgress:1.0 closing:NO goingForward:_goingForward];
@@ -217,13 +236,14 @@ index 1ed4914..95e1178 100644
 +    // searchBar.autoFocus
 +    [self.screenView.findHeaderConfig.reactSubviews enumerateObjectsUsingBlock:^(UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
 +      UIView *view = [obj.subviews firstObject];
-+      if (![[obj.subviews firstObject] isKindOfClass:[RNSSearchBar class]]) {
++      if (![view isKindOfClass:[RNSSearchBar class]]) {
 +        return;
 +      }
 +      RNSSearchBar *searchBar = (RNSSearchBar *)view;
 +      if (!searchBar.autoFocus) {
 +        return;
 +      }
++      searchBar.autoFocus = NO;
 +      self.navigationItem.searchController.active = YES;
 +      dispatch_async(dispatch_get_main_queue(), ^{
 +        [self.navigationItem.searchController.searchBar becomeFirstResponder];
@@ -263,7 +283,7 @@ index f10671e..20e0d45 100644
      }
    }
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 4fa7506..e308015 100644
+index 4fa7506..e908622 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 @@ -475,7 +475,22 @@ + (void)updateViewController:(UIViewController *)vc
@@ -276,7 +296,7 @@ index 4fa7506..e308015 100644
 +    __block BOOL shouldResetExtendedLayout = true;
 +    [config.reactSubviews enumerateObjectsUsingBlock:^(UIView * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
 +      UIView *view = [obj.subviews firstObject];
-+      if (![[obj.subviews firstObject] isKindOfClass:[RNSSearchBar class]]) {
++      if (![view isKindOfClass:[RNSSearchBar class]]) {
 +        return;
 +      }
 +      RNSSearchBar *searchBar = (RNSSearchBar *)view;

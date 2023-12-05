@@ -11,9 +11,11 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
+import { useIsFocused } from '@react-navigation/core';
+
 import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
-import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
+import { EGalleryRoutes } from '../../../routes/Tab/Developer/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -26,6 +28,9 @@ const CustomFooter = ({
   index: number;
   form: UseFormReturn<any>;
 }) => {
+  // test Navigation Container hooks
+  const isFocused = useIsFocused();
+  console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
     <XStack space="$4" justifyContent="center">

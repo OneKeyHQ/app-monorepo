@@ -27,6 +27,9 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;
+  rewrite?: string;
+  /** with exact property set to true, current screen will ignore the parent screen's path config */
+  exact?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
 }
@@ -37,6 +40,9 @@ export interface ICommonNavigatorConfig<
 > {
   name: RouteName;
   component: (() => JSX.Element) | ComponentType<any>;
+  rewrite?: string;
+  /** with exact property set to true, current screen will ignore the parent screen's path config */
+  exact?: boolean;
   options?:
     | ICommonScreenOptions
     | ((props: {
