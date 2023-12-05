@@ -26,7 +26,6 @@ type Props = {
     transferBalance: string;
   };
   isWatching: boolean;
-  isTaproot: boolean;
 };
 
 function TokenActions(props: Props) {
@@ -37,7 +36,6 @@ function TokenActions(props: Props) {
     style,
     balanceWithoutRecycle,
     isWatching,
-    isTaproot,
   } = props;
 
   const intl = useIntl();
@@ -61,20 +59,14 @@ function TokenActions(props: Props) {
 
   const isSendActionDisabled = useMemo(
     () =>
-      (isInsufficientTransferBalance && !isTaproot) ||
       (isInsufficientAvailableBalance && isInsufficientTransferBalance) ||
       isWatching,
-    [
-      isInsufficientAvailableBalance,
-      isInsufficientTransferBalance,
-      isTaproot,
-      isWatching,
-    ],
+    [isInsufficientAvailableBalance, isInsufficientTransferBalance, isWatching],
   );
 
   const isTransferActionDisabled = useMemo(
-    () => isInsufficientAvailableBalance || isWatching || !isTaproot,
-    [isInsufficientAvailableBalance, isTaproot, isWatching],
+    () => isInsufficientAvailableBalance || isWatching,
+    [isInsufficientAvailableBalance, isWatching],
   );
 
   const actions = useMemo(
