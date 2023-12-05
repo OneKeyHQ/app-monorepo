@@ -1,13 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import {
-  Group,
-  Input as TMInput,
-  getFontSize,
-  useMedia,
-  useThemeName,
-} from 'tamagui';
+import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
 
@@ -58,6 +54,19 @@ const SIZE_MAPPINGS = {
   },
 };
 
+const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
+  useEffect(() => {
+    // focus after the animation of Dialog and other containers is finished,
+    //  to avoid the misalignment caused by the container recalculating its height
+    if (platformEnv.isWebTouchable) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [autoFocus, inputRef]);
+  return platformEnv.isWebTouchable ? undefined : autoFocus;
+};
+
 function BaseInput(
   {
     size = 'medium',
@@ -83,17 +92,8 @@ function BaseInput(
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
   const themeName = useThemeName();
-  const media = useMedia();
   const inputRef: RefObject<TextInput> | null = useRef(null);
-  useEffect(() => {
-    // focus after the animation of Dialog and other containers is finished,
-    //  to avoid the misalignment caused by the container recalculating its height
-    if (media.md) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [autoFocus, media.md, ref]);
+  const _autoFocus = useAutoFocus(inputRef, autoFocus);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -115,7 +115,7 @@ function BaseInput(
           unstyled
           ref={inputRef}
           flex={1}
-          autoFocus={media.md ? undefined : autoFocus}
+          autoFocus={_autoFocus}
           pointerEvents={readonly ? 'none' : undefined}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
