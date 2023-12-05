@@ -1,5 +1,7 @@
 import { memo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Form, Input, useForm } from '@onekeyhq/components';
 
 export interface IPasswordSetupForm {
@@ -17,6 +19,7 @@ const PasswordSetup = ({
   biologyAuthSwitchContainer,
   onSetupPassword,
 }: IPasswordSetupProps) => {
+  const intl = useIntl();
   const form = useForm<IPasswordSetupForm>({
     defaultValues: {
       password: '',
@@ -99,7 +102,7 @@ const PasswordSetup = ({
       </Form.Field>
       {biologyAuthSwitchContainer}
       <Button variant="primary" onPress={form.handleSubmit(onSetupPassword)}>
-        Set Password
+        {intl.formatMessage({ id: 'title__set_password' })}
       </Button>
     </Form>
   );

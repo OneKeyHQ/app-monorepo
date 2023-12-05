@@ -9,7 +9,7 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Root/Modal/Routes';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 import {
   usePasswordBiologyAuthInfoAtom,

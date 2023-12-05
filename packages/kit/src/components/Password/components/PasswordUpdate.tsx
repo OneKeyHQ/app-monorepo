@@ -1,5 +1,7 @@
 import { memo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Form, Input, useForm } from '@onekeyhq/components';
 
 export interface IPasswordUpdateForm {
@@ -47,7 +49,7 @@ const PasswordUpdate = ({
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [secureReentry, setSecureReentry] = useState(true);
-
+  const intl = useIntl();
   return (
     <Form form={form}>
       <Form.Field name="oldPassword" rules={oldRules}>
@@ -86,7 +88,9 @@ const PasswordUpdate = ({
           ]}
         />
       </Form.Field>
-      <Button onPress={form.handleSubmit(onUpdatePassword)}>Confirm</Button>
+      <Button onPress={form.handleSubmit(onUpdatePassword)}>
+        {intl.formatMessage({ id: 'action__confirm' })}
+      </Button>
     </Form>
   );
 };
