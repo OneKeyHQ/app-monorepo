@@ -136,6 +136,7 @@ const TabComponent = (
       index: number;
     }) => (
       <item.page
+        // eslint-disable-next-line @typescript-eslint/no-shadow
         onContentSizeChange={(_: number, height: number) => {
           stickyConfig.data[index].contentHeight = height;
           if (index === pageManager.pageIndex) {

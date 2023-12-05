@@ -254,12 +254,7 @@ type IDialogContainerProps = PropsWithChildren<
 >;
 
 function BaseDialogContainer(
-  {
-    onOpen,
-    onClose,
-    renderContent,
-    ...props
-  }: IDialogContainerProps,
+  { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstanceRef>,
 ) {
   const [isOpen, changeIsOpen] = useState(true);
@@ -282,7 +277,6 @@ function BaseDialogContainer(
     changeIsOpen(true);
     onOpen?.();
   }, [onOpen]);
-
 
   useImperativeHandle(
     ref,
