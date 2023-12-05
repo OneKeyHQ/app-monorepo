@@ -19,7 +19,7 @@ interface IActionListItemProps {
   disabled?: boolean;
 }
 
-function ActionListItem({
+export function ActionListItem({
   icon,
   label,
   onPress,
@@ -73,7 +73,6 @@ function ActionListItem({
       <Text
         variant="$bodyMd"
         $md={{ variant: '$bodyLg' }}
-        userSelect="none"
         color={destructive ? '$textCritical' : '$text'}
       >
         {label}

@@ -186,7 +186,6 @@ function BaseInput(
                     )}
                     {label && (
                       <Text
-                        userSelect="none"
                         variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
                         ml={iconName ? '$2' : '$0'}
                         color={disabled ? '$textDisabled' : '$textSubdued'}

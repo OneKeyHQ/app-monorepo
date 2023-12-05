@@ -30,7 +30,6 @@ const config: ITabNavigatorConfig<ETabRoutes>[] = [
       {
         name: ETabHomeRoutes.TabHome,
         component: HomePage,
-        translationId: 'wallet__wallet',
       },
       {
         name: ETabHomeRoutes.TabHomeStack1,

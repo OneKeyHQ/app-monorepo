@@ -68,7 +68,6 @@ function SegmentControlItem({
         variant="$bodyMdMedium"
         textAlign="center"
         color={active ? '$text' : '$textSubdued'}
-        userSelect="none"
       >
         {label}
       </Text>

@@ -70,7 +70,6 @@ export function DesktopTabItem(
           ml="$2"
           color="$text"
           variant="$bodyMd"
-          userSelect="none"
         >
           {label}
         </Text>

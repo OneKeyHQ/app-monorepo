@@ -1,24 +1,29 @@
 import { type ComponentProps, isValidElement } from 'react';
 
-import { Avatar } from '../../content';
+import {
+  AnimatePresence,
+  type AvatarFallbackProps,
+  type AvatarImageProps,
+  type AvatarProps,
+  type GetProps,
+  type StackProps,
+  Unspaced,
+} from 'tamagui';
+
+import { Avatar, Divider } from '../../content';
 import { Icon, Stack, Text } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
 import type { IIconProps } from '../../primitives';
-import type {
-  AvatarFallbackProps,
-  AvatarImageProps,
-  AvatarProps,
-  GetProps,
-  StackProps,
-} from 'tamagui';
 
-type IListItemAvatarCornerIconProps = IIconProps;
+interface IListItemAvatarCornerIconProps extends IIconProps {
+  containerProps?: StackProps;
+}
 
 /* Avatar Corner Icon */
 const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
-  const { name, ...rest } = props;
+  const { name, containerProps, ...rest } = props;
 
   return (
     <Stack
@@ -29,6 +34,7 @@ const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
       p="$px"
       borderRadius="$full"
       zIndex="$1"
+      {...containerProps}
     >
       <Icon size="$4.5" name={name} {...rest} />
     </Stack>
@@ -85,6 +91,9 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
     <Stack>
       <Avatar
         size="$10"
+        style={{
+          borderCurve: 'continuous',
+        }}
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...rest}
       >
@@ -133,12 +142,7 @@ const ListItemText = (props: IListItemTextProps) => {
         (isValidElement(primary) ? (
           primary
         ) : (
-          <Text
-            textAlign={align}
-            variant="$bodyLgMedium"
-            userSelect="none"
-            {...primaryTextProps}
-          >
+          <Text textAlign={align} variant="$bodyLgMedium" {...primaryTextProps}>
             {primary}
           </Text>
         ))}
@@ -150,7 +154,6 @@ const ListItemText = (props: IListItemTextProps) => {
             variant="$bodyMd"
             tone="subdued"
             textAlign={align}
-            userSelect="none"
             {...secondaryTextProps}
           >
             {secondary}
@@ -165,8 +168,30 @@ const ListItemIconButton = (props: IIconButtonProps) => (
   <IconButton variant="tertiary" size="medium" {...props} />
 );
 
+// CheckMark
+const ListItemCheckMark = (props: StackProps) => (
+  <Stack
+    key="checkMarkIndicator"
+    animation="quick"
+    enterStyle={{
+      opacity: 0,
+      scale: 0,
+    }}
+    exitStyle={{
+      opacity: 0,
+      scale: 0,
+    }}
+    {...props}
+  >
+    <Icon name="CheckRadioSolid" color="$iconActive" />
+  </Stack>
+);
+
+// Separator
+const ListItemSeparator = () => <Divider mx="$5" />;
+
 /* ListItem */
-interface IListItemProps extends StackProps {
+export interface IListItemProps extends StackProps {
   title?: string;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
@@ -210,9 +235,9 @@ function ListItem(props: IListItemProps) {
         focusable: true,
         focusStyle: {
           outlineWidth: 2,
-          outlineOffset: -2,
           outlineStyle: 'solid',
           outlineColor: '$focusRing',
+          outlineOffset: -2,
         },
       })}
       {...rest}
@@ -237,7 +262,9 @@ function ListItem(props: IListItemProps) {
       {drillIn && (
         <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
       )}
-      {checkMark && <Icon name="CheckRadioSolid" color="$iconActive" />}
+      <Unspaced>
+        <AnimatePresence>{checkMark && <ListItemCheckMark />}</AnimatePresence>
+      </Unspaced>
     </Stack>
   );
 }
@@ -249,5 +276,7 @@ ListItem.Avatar = {
   CornerImage: ListItemAvatarCornerImage,
 };
 ListItem.IconButton = ListItemIconButton;
+ListItem.CheckMark = ListItemCheckMark;
+ListItem.Separator = ListItemSeparator;
 
 export { ListItem };
