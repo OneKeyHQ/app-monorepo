@@ -12,10 +12,10 @@ export function Container() {
       <AppStateLockContainer>
         <KeyboardContainer />
         <NavigationContainer>
+          <FullWindowOverlayContainer />
           <PortalBodyContainer />
         </NavigationContainer>
       </AppStateLockContainer>
-      <FullWindowOverlayContainer />
     </RootSiblingParent>
   );
 }
