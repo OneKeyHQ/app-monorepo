@@ -1,15 +1,16 @@
-import { AnimatePresence, useMedia } from 'tamagui';
+// eslint-disable-next-line spellcheck/spell-checker
+import { useState } from 'react';
+
+import makeBlockie from 'ethereum-blockies-base64';
+import { AnimatePresence } from 'tamagui';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   ActionList,
-  ActionListItem,
   Button,
-  Checkbox,
   Icon,
   IconButton,
   ListItem,
-  Popover,
   SectionList,
   Skeleton,
   Stack,
@@ -38,7 +39,7 @@ export function WalletDetails({
   onEditButtonPress,
   onAccountPress,
 }: IWalletDetailsProps) {
-  const media = useMedia();
+  const [remember, setIsRemember] = useState(false);
 
   return (
     <Stack flex={1}>
@@ -83,9 +84,16 @@ export function WalletDetails({
                       {
                         items: [
                           {
-                            icon: 'SuqarePlaceholderOutline',
+                            icon: remember
+                              ? 'CheckboxSolid'
+                              : 'SuqarePlaceholderOutline',
+                            ...(remember && {
+                              iconProps: {
+                                color: '$iconActive',
+                              },
+                            }),
                             label: 'Remember',
-                            onPress: () => alert('edit'),
+                            onPress: () => setIsRemember(!remember),
                           },
                         ],
                       },
@@ -106,53 +114,6 @@ export function WalletDetails({
                       },
                     ]}
                   />
-                  // <Popover
-                  //   floatingPanelProps={{
-                  //     w: '$64',
-                  //   }}
-                  //   title={section.title}
-                  //   renderTrigger={
-                  //     <Stack>
-                  //       <IconButton
-                  //         icon="DotHorOutline"
-                  //         variant="tertiary"
-                  //         ml="$2"
-                  //       />
-                  //     </Stack>
-                  //   }
-                  //   renderContent={
-                  //     <Stack
-                  //       py="$1"
-                  //       px="$3"
-                  //       $gtMd={{
-                  //         px: '$1',
-                  //       }}
-                  //     >
-                  //       <Checkbox
-                  //         label="Remember"
-                  //         labelProps={{
-                  //           pl: '$3',
-                  //           variant: media.gtMd ? '$bodyMd' : '$bodyLg',
-                  //         }}
-                  //         containerProps={{
-                  //           alignItems: 'center',
-                  //           px: '$2',
-                  //           py: media.gtMd ? '$1' : '$2.5',
-                  //         }}
-                  //       />
-                  //       <Popover.Close>
-                  //         <ActionListItem icon="PencilOutline" label="Rename" />
-                  //       </Popover.Close>
-                  //       <Popover.Close>
-                  //         <ActionListItem
-                  //           destructive
-                  //           icon="DeleteOutline"
-                  //           label="Remove wallet"
-                  //         />
-                  //       </Popover.Close>
-                  //     </Stack>
-                  //   }
-                  // />
                 )}
               </SectionList.SectionHeader>
             )}
@@ -170,7 +131,8 @@ export function WalletDetails({
           <ListItem
             key={item.id}
             avatarProps={{
-              src: 'https://placehold.co/120x120?text=A',
+              // eslint-disable-next-line spellcheck/spell-checker
+              src: makeBlockie(item.evmAddress || item.address || ''),
               fallbackProps: {
                 children: <Skeleton w="$10" h="$10" />,
               },

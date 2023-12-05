@@ -14,6 +14,7 @@ export type IAccountProps = {
   name: string;
   networkImageSrc?: AvatarImageProps['src'];
   address?: string;
+  evmAddress?: string;
 };
 
 export type IAccountGroupProps = {

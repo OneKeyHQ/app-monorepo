@@ -4,6 +4,10 @@ function generateRandomId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+function generateEthereumAddress() {
+  return `0x${Math.random().toString(16).substr(2, 40)}`;
+}
+
 export const MockPrimaryWallets: IWalletProps[] = [
   {
     id: generateRandomId(),
@@ -13,9 +17,21 @@ export const MockPrimaryWallets: IWalletProps[] = [
     accounts: [
       {
         data: [
-          { id: generateRandomId(), name: 'Account 1' },
-          { id: generateRandomId(), name: 'Account 2' },
-          { id: generateRandomId(), name: 'Account 3' },
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 2',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 3',
+            evmAddress: generateEthereumAddress(),
+          },
         ],
       },
     ],
@@ -28,9 +44,21 @@ export const MockPrimaryWallets: IWalletProps[] = [
     accounts: [
       {
         data: [
-          { id: generateRandomId(), name: 'Account 1' },
-          { id: generateRandomId(), name: 'Account 2' },
-          { id: generateRandomId(), name: 'Account 3' },
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 2',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 3',
+            evmAddress: generateEthereumAddress(),
+          },
         ],
       },
     ],
@@ -44,18 +72,42 @@ export const MockPrimaryWallets: IWalletProps[] = [
     accounts: [
       {
         data: [
-          { id: generateRandomId(), name: 'Account 1' },
-          { id: generateRandomId(), name: 'Account 2' },
-          { id: generateRandomId(), name: 'Account 3' },
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 2',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 3',
+            evmAddress: generateEthereumAddress(),
+          },
         ],
       },
       {
         title: 'Hidden wallet 1',
         isHiddenWalletData: true,
         data: [
-          { id: generateRandomId(), name: 'Account 1' },
-          { id: generateRandomId(), name: 'Account 2' },
-          { id: generateRandomId(), name: 'Account 3' },
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 2',
+            evmAddress: generateEthereumAddress(),
+          },
+          {
+            id: generateRandomId(),
+            name: 'Account 3',
+            evmAddress: generateEthereumAddress(),
+          },
         ],
       },
     ],
@@ -67,7 +119,13 @@ export const MockPrimaryWallets: IWalletProps[] = [
     img: 'mini',
     accounts: [
       {
-        data: [{ id: generateRandomId(), name: 'Account 1' }],
+        data: [
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+        ],
       },
     ],
   },
@@ -78,7 +136,13 @@ export const MockPrimaryWallets: IWalletProps[] = [
     img: 'touch',
     accounts: [
       {
-        data: [{ id: generateRandomId(), name: 'Account 1' }],
+        data: [
+          {
+            id: generateRandomId(),
+            name: 'Account 1',
+            evmAddress: generateEthereumAddress(),
+          },
+        ],
       },
     ],
   },
@@ -96,14 +160,14 @@ export const MockOthersWallet: IWalletProps = {
         {
           id: generateRandomId(),
           name: 'Account 1',
-          address: '123456....7890',
+          address: generateEthereumAddress(),
           networkImageSrc:
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
         },
         {
           id: generateRandomId(),
           name: 'Account 2',
-          address: '123456....7890',
+          address: generateEthereumAddress(),
           networkImageSrc:
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
         },
@@ -115,14 +179,14 @@ export const MockOthersWallet: IWalletProps = {
         {
           id: generateRandomId(),
           name: 'Account 1',
-          address: '123456...7890',
+          address: generateEthereumAddress(),
           networkImageSrc:
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
         },
         {
           id: generateRandomId(),
           name: 'Account 2',
-          address: '123456...7890',
+          address: generateEthereumAddress(),
           networkImageSrc:
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
         },

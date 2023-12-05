@@ -10,6 +10,7 @@
     "@react-navigation/native": "^6.1.8",
     "@react-navigation/native-stack": "^6.9.14",
     "@react-navigation/stack": "^6.3.18",
+    "ethereum-blockies-base64": "^1.0.2",
     "iso-639-1": "^2.1.13",
     "lodash": "^4.17.21",
     "moti": "^0.25.3",
