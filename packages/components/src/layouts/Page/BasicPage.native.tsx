@@ -1,39 +1,50 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useRef } from 'react';
+import { useState } from 'react';
 
-import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
+import { AnimatePresence } from 'tamagui';
 
+import { View } from '../../optimization';
 import { Spinner, Stack } from '../../primitives';
 
-const Loading = () => (
-  <Stack flex={1} alignContent="center" justifyContent="center">
-    <Spinner size="small" />
-  </Stack>
-);
-
-const waitNavigationAnimation = createSuspender(
-  () =>
-    new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true);
-      }, 0);
-    }),
-);
-
-const PendingComponent = ({ children }: PropsWithChildren<unknown>) => {
-  const isLoaded = useRef(false);
-  if (!isLoaded.current) {
-    waitNavigationAnimation();
-    isLoaded.current = true;
-  }
-  return children;
-};
+function Loading() {
+  return (
+    <Stack flex={1} alignContent="center" justifyContent="center">
+      <Spinner size="small" />
+    </Stack>
+  );
+}
 
 function LoadingScreen({ children }: PropsWithChildren<unknown>) {
+  const [showLoading, changeLoadingVisibleStatus] = useState(true);
+  const [showChildren, changeChildrenVisibleStatus] = useState(false);
+  setTimeout(() => {
+    changeChildrenVisibleStatus(true);
+    setTimeout(() => {
+      changeLoadingVisibleStatus(false);
+    }, 0);
+  }, 0);
   return (
-    <Suspense fallback={<Loading />}>
-      <PendingComponent>{children}</PendingComponent>
-    </Suspense>
+    <View style={{ flex: 1 }}>
+      {showChildren ? children : null}
+      <AnimatePresence>
+        {showLoading && (
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            opacity={1}
+            flex={1}
+            exitStyle={{
+              opacity: 0,
+            }}
+          >
+            <Loading />
+          </Stack>
+        )}
+      </AnimatePresence>
+    </View>
   );
 }
 
