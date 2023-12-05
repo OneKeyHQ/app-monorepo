@@ -25,7 +25,7 @@ export type {
   IModalNavigationOptions,
 } from './Modal/types';
 
-export interface ISearchBarProps {
+export interface INavSearchBarProps {
   /**
    * The auto-capitalization behavior
    */
@@ -104,7 +104,7 @@ export type IStackNavigationOptions = Omit<
   NativeStackNavigationOptions,
   'headerRight' | 'headerSearchBarOptions'
 > & {
-  headerSearchBarOptions?: ISearchBarProps;
+  headerSearchBarOptions?: INavSearchBarProps;
   headerRight?: (
     props: HeaderButtonProps,
   ) => ReactElement<

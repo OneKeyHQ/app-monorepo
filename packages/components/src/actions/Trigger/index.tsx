@@ -20,11 +20,10 @@ const composeEventHandlers =
     }
   };
 
+type ITrigger = PropsWithChildren<{ onPress?: () => void }>;
+
 function BasicTrigger(
-  {
-    onPress: onPressInTrigger,
-    children,
-  }: PropsWithChildren<{ onPress?: () => void }>,
+  { onPress: onPressInTrigger, children }: ITrigger,
   ref: ForwardedRef<IView>,
 ) {
   if (children) {

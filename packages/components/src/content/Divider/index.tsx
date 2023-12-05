@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Separator, styled } from 'tamagui';
+import { GetProps, Separator, styled } from 'tamagui';
 
 export const Divider = styled(Separator, {
   borderColor: '$borderSubdued',
@@ -13,3 +13,5 @@ export const Divider = styled(Separator, {
     },
   },
 });
+
+export type IDivider = GetProps<typeof Divider>;

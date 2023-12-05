@@ -21,18 +21,18 @@ import type {
   SelectProps as TMSelectProps,
 } from 'tamagui';
 
-interface ISelectItem {
+export interface ISelectItem {
   label: string;
   value: string;
   leading?: ListItemProps['icon'];
 }
 
-interface ISelectSection {
+export interface ISelectSection {
   items: ISelectItem[];
   title?: string;
 }
 
-interface ISelectProps extends TMSelectProps {
+export interface ISelectProps extends TMSelectProps {
   items?: ISelectItem[];
   sections?: ISelectSection[];
   sheetProps?: SheetProps;
@@ -420,5 +420,3 @@ export function Select({
     </Stack>
   );
 }
-
-export type { ISelectProps, ISelectItem, ISelectSection };
