@@ -4,13 +4,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TestModalRouter } from '../../views/TestModal/router';
 
-import { ModalDiscoverStack } from './Discover';
+import { ModalDiscoveryStack } from './Discovery';
 import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
-    name: EModalRoutes.DiscoverModal,
-    children: ModalDiscoverStack,
+    name: EModalRoutes.DiscoveryModal,
+    children: ModalDiscoveryStack,
   },
   {
     name: EModalRoutes.SettingModal,

@@ -6,6 +6,7 @@ import platformEnv from '../platformEnv';
 export enum EAppEventBusNames {
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
+  CloseAllBrowserTab = 'CloseAllBrowserTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -21,6 +22,7 @@ export interface IAppEventBusPayload {
     id: number;
   };
   [EAppEventBusNames.NetworkChanged]: undefined;
+  [EAppEventBusNames.CloseAllBrowserTab]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
