@@ -1,12 +1,20 @@
-import { type Ref, forwardRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type { ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useMedia,
+  useThemeName,
+} from 'tamagui';
 
 import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
 
 import type { IKeyOfIcons } from '../../primitives';
+import type { TextInput } from 'react-native';
 import type { ColorTokens, GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
@@ -60,9 +68,10 @@ function BaseInput(
     error,
     containerProps,
     readonly,
+    autoFocus,
     ...props
   }: IInputProps,
-  ref: Ref<any>,
+  ref: ForwardedRef<any>,
 ) {
   const {
     verticalPadding,
@@ -74,6 +83,23 @@ function BaseInput(
 
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
   const themeName = useThemeName();
+  const media = useMedia();
+  const inputRef: RefObject<TextInput> | null = useRef(null);
+  useEffect(() => {
+    // focus after the animation of Dialog and other containers is finished,
+    //  to avoid the misalignment caused by the container recalculating its height
+    if (media.md) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [autoFocus, media.md, ref]);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
 
   return (
     <Group
@@ -87,8 +113,9 @@ function BaseInput(
       <Group.Item>
         <TMInput
           unstyled
-          ref={ref}
+          ref={inputRef}
           flex={1}
+          autoFocus={media.md ? undefined : autoFocus}
           pointerEvents={readonly ? 'none' : undefined}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS

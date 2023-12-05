@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 
 import {
   Button,
@@ -11,8 +11,6 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import { useIsFocused } from '@react-navigation/core';
-
 import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import { EGalleryRoutes } from '../../../routes/Tab/Developer/Gallery/routes';
