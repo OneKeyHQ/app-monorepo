@@ -3,7 +3,7 @@ import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ERootRoutes } from './enum';
 import { IOSFullScreenNavigator } from './iOSFullScreen/Navigator';
 import { ModalNavigator } from './Modal/Navigator';
-import TabNavigator from './Tab/TabNavigator';
+import { TabNavigator } from './Tab/Navigator';
 
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {

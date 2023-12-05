@@ -8,7 +8,7 @@ import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../Modal/type';
-import { ETabRoutes } from '../Routes';
+import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './Routes';
 
