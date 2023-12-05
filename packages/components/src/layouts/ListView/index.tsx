@@ -4,6 +4,8 @@ import { forwardRef } from 'react';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
 import type {
   FlatListProps,
@@ -39,6 +41,11 @@ export type IListViewProps<T> = Omit<
     */
     estimatedItemSize: number | `$${keyof Tokens['size']}`;
     getItemType?: (item: T) => string | undefined;
+    onBlankArea?: (blankAreaEvent: {
+      offsetStart: number;
+      offsetEnd: number;
+      blankArea: number;
+    }) => void;
   };
 
 function BaseListView<T>(
@@ -49,6 +56,7 @@ function BaseListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
+    refreshControl,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -93,6 +101,7 @@ function BaseListView<T>(
       contentContainerStyle={contentStyle}
       data={data}
       renderItem={renderItem}
+      refreshControl={platformEnv.isNative ? refreshControl : undefined}
       {...restProps}
     />
   );
