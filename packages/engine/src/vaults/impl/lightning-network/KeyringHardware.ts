@@ -20,9 +20,12 @@ import { AddressEncodings } from '../../utils/btcForkChain/types';
 
 import { getBtcProvider } from './helper/account';
 
-import type { IPrepareHardwareAccountsParams } from '../../types';
-import type { UnionMsgType } from './helper/signature';
-import type { ILightningHWSIgnatureParams } from './types';
+import type {
+  IPrepareHardwareAccountsParams,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxLightning, ILightningHWSIgnatureParams } from './types';
 import type LightningVault from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
@@ -133,6 +136,42 @@ export class KeyringHardware extends KeyringHardwareBase {
       });
     }
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<ISignedTxPro> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const { invoice, expired, created, paymentHash } =
+      unsignedTx.encodedTx as IEncodedTxLightning;
+    const client = await (this.vault as LightningVault).getClient();
+    const signTemplate = await client.fetchSignTemplate(
+      dbAccount.addresses.normalizedAddress,
+      'transfer',
+    );
+    if (signTemplate.type !== 'transfer') {
+      throw new Error('Wrong transfer signature type');
+    }
+    const network = await this.vault.getNetwork();
+    const sign = await this.signature({
+      msgPayload: {
+        ...signTemplate,
+        paymentHash,
+        invoice,
+        expired,
+        created: Number(created),
+        nonce: signTemplate.nonce,
+        randomSeed: signTemplate.randomSeed,
+      },
+      path: dbAccount.addresses.realPath,
+      isTestnet: network.isTestnet,
+    });
+    return {
+      txid: paymentHash,
+      rawTx: sign,
+      nonce: signTemplate.nonce,
+      randomSeed: signTemplate.randomSeed,
+    };
   }
 
   async signature({
