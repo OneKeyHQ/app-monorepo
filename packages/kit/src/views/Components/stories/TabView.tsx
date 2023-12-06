@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { ListView, Stack, Tab, Text } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
 
@@ -12,7 +13,8 @@ const FirstRoute = ({
   <ListView
     data={new Array(20).fill({})}
     estimatedItemSize="$10"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 10 }}>
         <Text>Page 1 Row: {index}</Text>
@@ -30,7 +32,8 @@ const SecondRoute = ({
   <ListView
     data={new Array(50).fill({})}
     estimatedItemSize="$10"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <Text>Page 2 Row: {index}</Text>
@@ -58,8 +61,14 @@ const TabViewScrollStickyDemo = () => {
     <Tab
       data={data}
       initialScrollIndex={1}
+      stickyHeaderIndices={[0]}
+      contentContainerStyle={{ paddingTop: 50 }}
       // style={{ width: 400, height: 600, backgroundColor: 'black' }}
       h={600}
+      headerProps={{
+        itemContainerStyle: { flex: 1 },
+        cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
+      }}
     />
   );
 };

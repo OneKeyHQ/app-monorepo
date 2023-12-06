@@ -40,6 +40,7 @@ export type IPlatformEnv = {
 
   /** running in the browsers */
   isWeb?: boolean;
+  isWebTouchable?: boolean;
   isWebEmbed?: boolean;
   /** running in the desktop system APP */
   isDesktop?: boolean;
@@ -229,6 +230,10 @@ const checkIsRuntimeChrome = (): boolean => {
   return false;
 };
 
+const isWebTouchable =
+  isRuntimeBrowser &&
+  ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
 const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 
@@ -295,6 +300,7 @@ const platformEnv: IPlatformEnv = {
   isProduction,
 
   isWeb,
+  isWebTouchable,
   isWebEmbed,
   isDesktop,
   isExtension,

@@ -61,13 +61,16 @@ const HeaderComponent = (
   );
   const data = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    () => props.data,
+    () => [...props.data],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.data, rawNormalColor, rawSelectedColor],
   );
   const reloadWebPxNumber = useCallback((value: any) => {
     if (typeof value === 'string') {
-      return Number(value?.replace(/px/, ''));
+      const number = value.match(/(\d+(\.\d+)?)px/)?.[1];
+      if (number) {
+        return Number(number);
+      }
     }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return value;
@@ -149,8 +152,8 @@ const HeaderComponent = (
       itemTitleNormalStyle={rawItemTitleNormalStyle}
       itemTitleSelectedStyle={rawItemTitleSelectedStyle}
       cursorStyle={rawCursorStyle}
-      data={data}
       {...rawProps}
+      data={data}
     />
   );
 };
