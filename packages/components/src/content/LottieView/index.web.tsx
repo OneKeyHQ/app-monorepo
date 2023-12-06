@@ -3,15 +3,9 @@ import { forwardRef, useImperativeHandle, useRef } from 'react';
 
 import LottieViewWeb from 'lottie-react';
 
-import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
+import type { ILottieViewProps } from './type';
 
-// Stick props the same as LottieNative by now
-type ILottieViewProps = Omit<LottieWebProps, 'animationData'> & {
-  source: LottieWebProps['animationData'];
-  autoPlay?: boolean;
-};
-
-const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
+export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
   ({ source, autoPlay = false, loop, ...props }, ref) => {
     const animationRef = useRef<any>(null);
 
@@ -41,4 +35,4 @@ const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
 
 LottieView.displayName = 'LottieView';
 
-export { LottieView };
+export * from './type';
