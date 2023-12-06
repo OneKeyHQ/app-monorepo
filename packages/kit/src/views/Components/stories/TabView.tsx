@@ -61,10 +61,11 @@ const TabViewScrollStickyDemo = () => {
     <Tab
       data={data}
       initialScrollIndex={1}
-      stickyHeaderIndices={[0]}
-      contentContainerStyle={{ paddingTop: 50 }}
+      stickyHeaderIndices={[1]}
+      ListHeaderComponent={<Stack h={100} />}
       // style={{ width: 400, height: 600, backgroundColor: 'black' }}
       h={600}
+      nestedScrollEnabled
       headerProps={{
         itemContainerStyle: { flex: 1 },
         cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
