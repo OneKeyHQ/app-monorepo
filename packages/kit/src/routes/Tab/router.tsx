@@ -1,5 +1,4 @@
-import { getTokenValue } from 'tamagui';
-
+import { getTokenValue } from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
@@ -29,6 +28,8 @@ import { ETabRoutes } from './type';
 
 const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
   name: ETabRoutes.Discovery,
+  rewrite: '/discovery',
+  exact: true,
   tabBarIcon: (focused?: boolean) =>
     focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
   translationId: 'title__explore',
@@ -36,6 +37,7 @@ const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
   children: [
     {
       name: ETabDiscoveryRoutes.TabDiscovery,
+      rewrite: '/',
       component: platformEnv.isNative ? Browser : DiscoveryDashboard,
       translationId: 'title__explore',
     },
@@ -107,12 +109,15 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
   !platformEnv.isDesktop ? discoverRouterConfig : undefined,
   {
     name: ETabRoutes.Me,
+    rewrite: '/me',
+    exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
     translationId: 'action__more',
     freezeOnBlur: true,
     children: [
       {
+        rewrite: '/',
         name: ETabMeRoutes.TabMe,
         component: TabMe,
         translationId: 'action__more',
@@ -125,6 +130,8 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
       focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
     translationId: 'form__dev_mode',
     freezeOnBlur: true,
+    rewrite: '/dev',
+    exact: true,
     // disable: process.env.NODE_ENV === 'production',
     children: [
       {
@@ -132,8 +139,7 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         component: require('./Developer/TabDeveloper').default,
         translationId: 'form__dev_mode',
-        rewrite: '/dev',
-        exact: true,
+        rewrite: '/',
       },
       ...galleryScreenList,
     ],

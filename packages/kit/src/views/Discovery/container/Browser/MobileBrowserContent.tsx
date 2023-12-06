@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
-import { Stack } from 'tamagui';
 
+import { Stack } from '@onekeyhq/components';
 import {
   homeTab,
   useBrowserHistoryAction,
