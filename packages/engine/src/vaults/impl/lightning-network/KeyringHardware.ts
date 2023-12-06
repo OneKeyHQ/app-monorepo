@@ -1,5 +1,6 @@
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { bytesToHex } from '@noble/hashes/utils';
+import stringify from 'fast-json-stable-stringify';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
@@ -9,6 +10,7 @@ import {
   COINTYPE_TBTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
@@ -19,6 +21,8 @@ import { AddressEncodings } from '../../utils/btcForkChain/types';
 import { getBtcProvider } from './helper/account';
 
 import type { IPrepareHardwareAccountsParams } from '../../types';
+import type { UnionMsgType } from './helper/signature';
+import type LightningVault from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
@@ -66,6 +70,8 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
+    const client = await (this.vault as LightningVault).getClient();
+
     const ret = [];
     const index = 0;
     const provider = await getBtcProvider(this.engine, isTestnet);
@@ -77,6 +83,35 @@ export class KeyringHardware extends KeyringHardwareBase {
         [addressRelPath],
         AddressEncodings.P2WPKH,
       );
+
+      // check account exist
+      const accountExist = await client.checkAccountExist(address);
+      if (!accountExist) {
+        const hashPubKey = bytesToHex(ripemd160(xpub));
+        const signTemplate = await client.fetchSignTemplate(
+          address,
+          'register',
+        );
+        if (signTemplate.type !== 'register') {
+          throw new Error('Wrong signature type');
+        }
+        const sign = await this.signature({
+          msgPayload: {
+            ...signTemplate,
+            pubkey: hashPubKey,
+            address,
+          },
+          path,
+          isTestnet,
+        });
+        await client.createUser({
+          hashPubKey,
+          address,
+          signature: sign,
+          randomSeed: signTemplate.randomSeed,
+        });
+      }
+
       console.log(path, xpub, address);
       const accountPath = `m/44'/${lightningCoinType}'/${usedIndexes[index]}'`;
       const name =
@@ -97,5 +132,36 @@ export class KeyringHardware extends KeyringHardwareBase {
       });
     }
     return ret;
+  }
+
+  async signature({
+    msgPayload,
+    path,
+    isTestnet,
+  }: {
+    msgPayload: UnionMsgType;
+    path: string;
+    isTestnet: boolean;
+  }) {
+    const coinName = isTestnet ? 'TEST' : 'BTC';
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const passphraseState = await this.getWalletPassphraseState();
+    const message = stringify(msgPayload);
+    const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
+      ...passphraseState,
+      path: `${path}/0/0`,
+      coin: coinName,
+      messageHex: Buffer.from(message).toString('hex'),
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    debugLogger.common.debug(
+      `Lightning Signature, msgPayload: ${stringify(
+        msgPayload,
+      )}, path: ${path}, result: ${response.payload.signature}`,
+    );
+    return response.payload.signature;
   }
 }
