@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import {
@@ -37,13 +37,15 @@ export function AppStateLockContainer({
         }
       }}
       passwordVerifyContainer={
-        <PasswordVerifyContainer
-          onVerifyRes={async (data) => {
-            if (data) {
-              await handleUnlock();
-            }
-          }}
-        />
+        <Suspense>
+          <PasswordVerifyContainer
+            onVerifyRes={async (data) => {
+              if (data) {
+                await handleUnlock();
+              }
+            }}
+          />
+        </Suspense>
       }
     />
   );

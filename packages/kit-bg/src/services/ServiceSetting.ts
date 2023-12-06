@@ -44,6 +44,30 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
   }
+
+  @backgroundMethod()
+  public async setProtectCreateTransaction(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      protectCreateTransaction: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setProtectCreateOrRemoveWallet(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      protectCreateOrRemoveWallet: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setSpendDustUTXO(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      spendDustUTXO: value,
+    }));
+  }
 }
 
 export default ServiceSetting;

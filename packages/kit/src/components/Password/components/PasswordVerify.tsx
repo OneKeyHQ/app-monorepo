@@ -14,6 +14,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 
 import { AppStatusActiveListener } from '../../AppStatusActiveListener';
+import { PasswordRegex, getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
@@ -131,6 +132,8 @@ const PasswordVerify = ({
           disabled={status.value === 'verifying'}
           placeholder="Enter your password"
           flex={1}
+          onChangeText={(text) => text.replace(PasswordRegex, '')}
+          keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
           addOns={rightActions}
         />

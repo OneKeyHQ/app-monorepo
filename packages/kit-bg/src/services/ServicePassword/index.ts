@@ -233,6 +233,7 @@ export default class ServicePassword extends ServiceBase {
   async setPassword(password: string): Promise<string> {
     this.validatePasswordStrength(password);
     try {
+      await this.unLockApp();
       await this.biologyAuthSavePassword(password);
       await this.setCachedPassword(password);
       await this.setPasswordSetStatus(true);

@@ -15,7 +15,7 @@ export const AboutSection = () => {
   const onPress = useCallback(() => {}, []);
   const intl = useIntl();
   return (
-    <Section title="ABOUT">
+    <Section title={intl.formatMessage({ id: 'form__about_uppercase' })}>
       <ListItem
         onPress={onPress}
         icon="InfoCircleOutline"
