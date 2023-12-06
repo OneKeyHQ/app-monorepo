@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Button, Form, Input, useForm } from '@onekeyhq/components';
 
+import { PasswordRegex, getPasswordKeyboardType } from '../utils';
+
 export interface IPasswordUpdateForm {
   newPassword: string;
   oldPassword: string;
@@ -58,7 +60,9 @@ const PasswordUpdate = ({
           placeholder="Enter old password"
           disabled={loading}
           autoFocus
+          onChangeText={(text) => text.replace(PasswordRegex, '')}
           flex={1}
+          keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
           addOns={[
             {
@@ -77,6 +81,8 @@ const PasswordUpdate = ({
           disabled={loading}
           selectTextOnFocus
           flex={1}
+          onChangeText={(text) => text.replace(PasswordRegex, '')}
+          keyboardType={getPasswordKeyboardType(!secureReentry)}
           secureTextEntry={secureReentry}
           addOns={[
             {
