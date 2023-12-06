@@ -1358,6 +1358,54 @@ const serverPresetNetworks = [
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
   {
+    'balance2FeeDecimals': 10,
+    'chainId': 'joystream',
+    'code': 'dot-joystream',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 126,
+        'addressRegex': '^j4[R-X][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--joystream',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/joystream/joystream.png',
+    'name': 'Joystream',
+    'rpcURLs': [
+      {
+        'url': 'wss://rpc.joystream.org',
+      },
+    ],
+    'shortcode': 'joy',
+    'shortname': 'JOY',
+    'symbol': 'JOY',
+    'feeMeta': {
+      'code': 'joy',
+      'decimals': 10,
+      'symbol': 'JOY',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'joystream',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://joystream.subscan.io/account/{address}',
+        'block': 'https://joystream.subscan.io/block/{block}',
+        'name': 'https://joystream.subscan.io/',
+        'transaction': 'https://joystream.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
     'balance2FeeDecimals': 9,
     'chainId': '1',
     'code': 'eth',
