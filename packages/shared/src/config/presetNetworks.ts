@@ -832,6 +832,70 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'celestia',
+    'code': 'celestia',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'celestia',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.1',
+          'low': '0.01',
+          'min': '0.002',
+          'normal': '0.02',
+        },
+        'mainCoinDenom': 'utia',
+      },
+    },
+    'id': 'cosmos--celestia',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/celestia/celestia.png',
+    'name': 'Celestia',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd-celestia.keplr.app/',
+      },
+      {
+        'url': 'https://celestia-mainnet-grpc.autostake.com',
+      },
+      {
+        'url': 'https://celestia-grpc.lavenderfive.com',
+      },
+      {
+        'url': 'https://grpc.celestia.nodestake.top',
+      },
+    ],
+    'shortcode': 'celestia',
+    'shortname': 'Celestia',
+    'symbol': 'Tia',
+    'feeMeta': {
+      'code': 'tia',
+      'decimals': 6,
+      'symbol': 'Tia',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'celestia',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/celestia/account/{address}',
+        'block': 'https://www.mintscan.io/celestia/blocks/{block}',
+        'name': 'https://www.mintscan.io/celestia/',
+        'transaction': 'https://www.mintscan.io/celestia/txs/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-12-05T00:00:24.951Z',
+    'updatedAt': '2023-12-05T00:00:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': 'phoenix-1',
     'code': 'terra',
     'decimals': 6,
