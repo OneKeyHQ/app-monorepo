@@ -1,0 +1,178 @@
+import { Fragment, forwardRef, useMemo } from 'react';
+import type { ForwardedRef, ReactNode } from 'react';
+
+import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import {
+  // eslint-disable-next-line spellcheck/spell-checker
+  NestableDraggableFlatList,
+  // eslint-disable-next-line spellcheck/spell-checker
+  NestableScrollContainer,
+  OpacityDecorator,
+  ScaleDecorator,
+  ShadowDecorator,
+} from 'react-native-draggable-flatlist';
+import { withStaticProperties } from 'tamagui';
+
+import { Stack } from '../../primitives';
+import { SectionList } from '../SectionList';
+
+import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
+import type { ScrollView } from 'react-native-gesture-handler';
+
+type ISortableSectionRenderInfo = (info: {
+  section: any;
+  index: number;
+}) => ReactNode | null;
+
+export type ISortableSectionListRef = ScrollView;
+
+type ISectionType = Array<{
+  data: any[];
+}>;
+
+export type ISortableSectionListProps = Omit<
+  ScrollViewProps,
+  'contentContainerStyle'
+> &
+  StackStyleProps & {
+    sections: ISectionType;
+    renderItem?: (info: {
+      item: any;
+      index: number | undefined;
+      section: any;
+      getIndex: () => number | undefined;
+      drag: () => void;
+      isActive: boolean;
+    }) => JSX.Element;
+    keyExtractor: (item: any, index: number) => string;
+    onDragEnd: (info: { sections: ISectionType }) => void;
+    contentContainerStyle?: StackStyleProps;
+    ListHeaderComponent?: ReactNode;
+    ListFooterComponent?: ReactNode;
+    SectionSeparatorComponent?: ReactNode;
+    ListHeaderComponentStyle?: StackStyleProps;
+    ListFooterComponentStyle?: StackStyleProps;
+    renderSectionHeader?: ISortableSectionRenderInfo;
+    renderSectionFooter?: ISortableSectionRenderInfo;
+    stickySectionHeadersEnabled?: boolean;
+  };
+
+function BaseSortableSectionList(
+  {
+    sections,
+    keyExtractor,
+    renderItem,
+    contentContainerStyle = {},
+    ListHeaderComponent,
+    ListFooterComponent,
+    SectionSeparatorComponent = <Stack h="$5" />,
+    ListHeaderComponentStyle = {},
+    ListFooterComponentStyle = {},
+    renderSectionHeader,
+    renderSectionFooter,
+    stickySectionHeadersEnabled = false,
+    onDragEnd,
+    ...props
+  }: ISortableSectionListProps,
+  ref: ForwardedRef<ISortableSectionListRef> | undefined,
+) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+  const rawContentContainerStyle = useStyle(
+    contentContainerStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listHeaderStyle = useStyle(
+    ListHeaderComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const listFooterStyle = useStyle(
+    ListFooterComponentStyle as Record<string, unknown>,
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const reloadStickyHeaderIndices = useMemo(() => {
+    if (!stickySectionHeadersEnabled) {
+      return [];
+    }
+    return sections.map(
+      (section, index) =>
+        (2 +
+          (SectionSeparatorComponent ? 1 : 0) +
+          (renderSectionFooter ? 1 : 0)) *
+        index,
+    );
+  }, [
+    stickySectionHeadersEnabled,
+    sections,
+    SectionSeparatorComponent,
+    renderSectionFooter,
+  ]);
+
+  console.log('22222', reloadStickyHeaderIndices);
+
+  return (
+    <NestableScrollContainer
+      ref={ref}
+      style={style as StyleProp<ViewStyle>}
+      contentContainerStyle={rawContentContainerStyle}
+      stickyHeaderIndices={reloadStickyHeaderIndices}
+      {...restProps}
+    >
+      <Stack style={listHeaderStyle}>{ListHeaderComponent}</Stack>
+      {sections.map((section, index) => (
+        <Fragment key={index}>
+          {index !== 0 && SectionSeparatorComponent}
+          {renderSectionHeader?.({
+            section,
+            index,
+          })}
+          <NestableDraggableFlatList
+            keyExtractor={keyExtractor}
+            data={section.data}
+            onDragEnd={(result) => {
+              sections[index].data = result.data;
+              onDragEnd({ sections: [...sections] });
+            }}
+            renderItem={({ item, getIndex, drag, isActive }) =>
+              renderItem?.({
+                item,
+                section,
+                index: getIndex(),
+                getIndex,
+                drag,
+                isActive,
+              })
+            }
+          />
+          {renderSectionFooter?.({
+            section,
+            index,
+          })}
+        </Fragment>
+      ))}
+
+      <Stack style={listFooterStyle}>{ListFooterComponent}</Stack>
+    </NestableScrollContainer>
+  );
+}
+
+export const SortableSectionList = withStaticProperties(
+  forwardRef(BaseSortableSectionList) as typeof BaseSortableSectionList,
+  {
+    SectionHeader: SectionList.SectionHeader,
+    OpacityDecorator,
+    ScaleDecorator,
+    ShadowDecorator,
+  },
+);

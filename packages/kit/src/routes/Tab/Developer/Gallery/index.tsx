@@ -28,6 +28,8 @@ import RadioGallery from '@onekeyhq/kit/src/views/Components/stories/Radio';
 import RefreshControlGallery from '@onekeyhq/kit/src/views/Components/stories/RefreshControl';
 import ScrollViewGallery from '@onekeyhq/kit/src/views/Components/stories/ScrollView';
 import SectionListGallery from '@onekeyhq/kit/src/views/Components/stories/SectionList';
+import SortableListViewGallery from '@onekeyhq/kit/src/views/Components/stories/SortableListView';
+import SortableSectionListGallery from '@onekeyhq/kit/src/views/Components/stories/SortableSectionList';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Components/stories/SegmentControl';
 import SelectGallery from '@onekeyhq/kit/src/views/Components/stories/Select';
 import ShortcutGallery from '@onekeyhq/kit/src/views/Components/stories/Shortcut';
@@ -68,6 +70,14 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
+  {
+    name: EGalleryRoutes.ComponentSortableListView,
+    component: SortableListViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSortableSectionList,
+    component: SortableSectionListGallery,
+  },
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
