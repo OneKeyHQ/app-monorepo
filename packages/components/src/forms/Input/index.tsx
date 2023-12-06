@@ -28,7 +28,8 @@ export type IInputProps = {
     loading?: boolean;
   }[];
   containerProps?: GetProps<typeof Group>;
-} & Omit<ITMInputProps, 'size'>;
+  onChangeText?: ((text: string) => string | void) | undefined;
+} & Omit<ITMInputProps, 'size' | 'onChangeText'>;
 
 const SIZE_MAPPINGS = {
   'large': {
