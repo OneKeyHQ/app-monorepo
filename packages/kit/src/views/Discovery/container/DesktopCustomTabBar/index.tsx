@@ -96,6 +96,7 @@ function DesktopCustomTabBar() {
           onBookmarkPress={handleBookmarkPress}
           onPinnedPress={handlePinnedPress}
           onClose={handleCloseTab}
+          testID={`tab-list-stack-pinned-${t.id}`}
         />
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
@@ -104,6 +105,7 @@ function DesktopCustomTabBar() {
         key="AddTabButton"
         label="New Tab"
         icon="PlusSmallOutline"
+        testID="browser-bar-add"
         onPress={(e) => {
           e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -124,6 +126,7 @@ function DesktopCustomTabBar() {
             onBookmarkPress={handleBookmarkPress}
             onPinnedPress={handlePinnedPress}
             onClose={handleCloseTab}
+            testID={`tab-modal-list-item-${t.id}`}
           />
         ))}
       </ScrollView>

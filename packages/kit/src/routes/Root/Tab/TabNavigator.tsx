@@ -52,6 +52,7 @@ const discoverRouteConfig: ITabNavigatorConfig<ETabRoutes> = {
         {
           icon: 'CrossedLargeOutline',
           label: 'Close All Tabs',
+          testId: 'tab-list-modal-close-all',
           onPress: () => {
             console.log('Close All');
             appEventBus.emit(EAppEventBusNames.CloseAllBrowserTab, undefined);

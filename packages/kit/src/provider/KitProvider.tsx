@@ -12,6 +12,7 @@ import PasswordVerifyPromptMount from '../components/Password/container/Password
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import ThemeProvider from './ThemeProvider';
+import { LogBox } from 'react-native';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -22,6 +23,7 @@ if (platformEnv.isRuntimeBrowser) {
 const flexStyle = { flex: 1 };
 
 enableFreeze();
+LogBox.ignoreAllLogs();
 
 // Importing FullWindowOverlay is only valid on iOS devices.
 const FullWindowOverlayContainer = platformEnv.isNativeIOS

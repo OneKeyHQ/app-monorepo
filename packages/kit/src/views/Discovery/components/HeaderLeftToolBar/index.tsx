@@ -66,16 +66,19 @@ function HeaderLeftToolBar({
         <HeaderIconButton
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
+          testID="browser-bar-go-back"
           onPress={goBack}
         />
         <HeaderIconButton
           icon="ChevronRightOutline"
           disabled={!canGoForward}
+          testID="browser-bar-go-forward"
           onPress={goForward}
         />
         <HeaderIconButton
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
+          testID={`browser-bar-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
       <Input
@@ -87,10 +90,15 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
+            testID: `action-list-item-${
+              !isBookmark ? 'bookmark' : 'remove bookmark'
+            }
+            `,
           },
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
+            testID: `action-list-item-un-${!isPinned ? 'pin' : 'un-pin'}`,
           },
         ]}
       />

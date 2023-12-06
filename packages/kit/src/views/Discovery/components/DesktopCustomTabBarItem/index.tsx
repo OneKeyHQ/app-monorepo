@@ -12,6 +12,7 @@ function DesktopCustomTabBarItem({
   onBookmarkPress,
   onPinnedPress,
   onClose,
+  testID,
 }: {
   id: string;
   activeTabId: string | null;
@@ -19,6 +20,7 @@ function DesktopCustomTabBarItem({
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
+  testID?: string;
 }) {
   const { tab } = useWebTabData(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
@@ -33,6 +35,7 @@ function DesktopCustomTabBarItem({
       label={tab.title}
       avatarSrc={tab?.favicon}
       onActionListOpenChange={handleActionListOpenChange}
+      testID={testID}
       actionList={[
         {
           items: [

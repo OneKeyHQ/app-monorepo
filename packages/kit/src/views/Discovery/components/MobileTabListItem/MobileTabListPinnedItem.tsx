@@ -39,9 +39,14 @@ function MobileTabListPinnedItem({
       pressStyle={{
         scale: 0.95,
       }}
-      testID={`tab-list-pinned-${id}`}
     >
-      <XStack bg="$bgStrong" p="$2" alignItems="center" borderRadius="$2.5">
+      <XStack
+        bg="$bgStrong"
+        p="$2"
+        alignItems="center"
+        testID={`tab-list-stack-pinned-${id}`}
+        borderRadius="$2.5"
+      >
         <Avatar size="$4" borderRadius="$1">
           <Avatar.Image src={tab?.favicon} />
           <Avatar.Fallback>

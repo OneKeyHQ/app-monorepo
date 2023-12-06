@@ -58,6 +58,7 @@ function TabItemView({
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
         actionList={options.actionList}
+        testID={route.name.toLowerCase()}
       />
     ),
     [isActive, onPress, options, route.name],

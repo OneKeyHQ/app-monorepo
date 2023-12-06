@@ -132,6 +132,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           size="medium"
           icon="ChevronLeftOutline"
           testID="browser-bar-go-back"
+          accessible={!!tab?.canGoBack}
           disabled={displayHomePage ? true : !tab?.canGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
@@ -144,6 +145,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           size="medium"
           icon="ChevronRightOutline"
           testID="browser-bar-go-forward"
+          accessible={!!tab?.canGoForward}
           disabled={displayHomePage ? true : !tab?.canGoForward}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
