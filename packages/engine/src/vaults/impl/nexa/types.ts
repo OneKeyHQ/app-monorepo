@@ -24,6 +24,7 @@ export type IListUTXO = {
   outpoint_hash: string;
   tx_hash: string;
   tx_pos: number;
+  has_token: boolean;
   value: number;
 };
 

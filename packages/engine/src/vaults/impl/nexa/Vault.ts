@@ -243,7 +243,10 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
     const fromNexaAddress = transferInfo.from;
-    const utxos = await client.getNexaUTXOs(fromNexaAddress);
+    const utxos = (await client.getNexaUTXOs(fromNexaAddress)).filter(
+      (value) => !value.has_token,
+    );
+
     const network = await this.getNetwork();
     return {
       inputs: utxos.map((utxo) => ({
