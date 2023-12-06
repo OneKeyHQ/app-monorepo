@@ -3,6 +3,7 @@ import { ListItem } from '@onekeyhq/components';
 export type IListItemSelectOption<T> = {
   value: T;
   title: string;
+  subtitle?: string;
 };
 
 export type IListItemSelectProps<T> = {
@@ -17,10 +18,15 @@ export function ListItemSelect<T>({
   onChange,
 }: IListItemSelectProps<T>) {
   return options.map((opt) => (
-    <ListItem title={opt.title} onPress={() => onChange?.(opt.value)}>
+    <ListItem
+      key={opt.title}
+      title={opt.title}
+      subtitle={opt.subtitle}
+      onPress={() => onChange?.(opt.value)}
+    >
       {value === opt.value ? (
         <ListItem.IconButton
-          iconProps={{ 'color': '$iconActive' }}
+          iconProps={{ 'color': '$iconActive', size: '$6' }}
           icon="CheckRadioSolid"
         />
       ) : null}
