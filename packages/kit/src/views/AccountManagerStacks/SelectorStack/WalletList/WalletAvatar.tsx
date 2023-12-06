@@ -1,3 +1,5 @@
+import { Image } from 'react-native';
+
 import { Avatar, Skeleton, Stack } from '@onekeyhq/components';
 
 import type { IWalletProps } from '../../types';
@@ -59,13 +61,22 @@ export function WalletAvatar({
   size = '$10',
   img,
 }: IWalletAvatarProps) {
+  if (!img) {
+    return null;
+  }
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
       <Avatar size={size}>
-        <Avatar.Image src={img ? WalletAvatarImages[img] : undefined} />
-        <Avatar.Fallback>
-          <Skeleton w={size} h={size} />
-        </Avatar.Fallback>
+        <Image
+          // flex={1}
+          width={40}
+          height={20}
+          style={{
+            width: 40,
+            height: 40,
+          }}
+          source={WalletAvatarImages[img]}
+        />
       </Avatar>
       {status === 'connected' && (
         <Stack
