@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import { Anchor } from 'tamagui';
-
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog, Spinner, Stack, Text, Toast } from '@onekeyhq/components';
 

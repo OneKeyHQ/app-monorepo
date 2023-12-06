@@ -7,6 +7,7 @@ import {
   type AvatarProps,
   type GetProps,
   type StackProps,
+  // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
 } from 'tamagui';
 

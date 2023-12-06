@@ -1,6 +1,6 @@
-// eslint-disable-next-line spellcheck/spell-checker
 import { useState } from 'react';
 
+// eslint-disable-next-line spellcheck/spell-checker
 import makeBlockie from 'ethereum-blockies-base64';
 import { AnimatePresence } from 'tamagui';
 
