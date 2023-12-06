@@ -114,7 +114,7 @@ const Form1 = () => {
         <SearchBar />
       </Form.Field>
       <Button onPress={() => console.log(form.getValues())}>
-        Log Result & Check in Console
+        Log result & Check in Console
       </Button>
     </Form>
   );
