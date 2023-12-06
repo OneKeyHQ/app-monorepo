@@ -7,8 +7,8 @@ import { WalletOptionItem } from './WalletOptionItem';
 
 export function Verification() {
   const [verified, setVerified] = useState(false);
-  const [unUnofficial, setUnofficial] = useState(false);
-
+  // const [unUnofficial, setUnofficial] = useState(false);
+  const [unUnofficial] = useState(false);
   const returnVerified = () => {
     setVerified(true);
     Toast.success({
@@ -17,13 +17,13 @@ export function Verification() {
     });
   };
 
-  const returnUnofficial = () => {
-    setUnofficial(true);
-    Toast.error({
-      title: 'Unofficial',
-      message: 'Please contact support',
-    });
-  };
+  // const returnUnofficial = () => {
+  //   setUnofficial(true);
+  //   Toast.error({
+  //     title: 'Unofficial',
+  //     message: 'Please contact support',
+  //   });
+  // };
 
   const getIconNameAndIconColor = (): {
     iconName: IKeyOfIcons;

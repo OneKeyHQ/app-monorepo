@@ -1,25 +1,4 @@
 import { Avatar, Skeleton, Stack } from '@onekeyhq/components';
-import BearImg from '@onekeyhq/kit/assets/wallet/avatar/Bear.png';
-import CardDividersImg from '@onekeyhq/kit/assets/wallet/avatar/CardDividers.png';
-import CatImg from '@onekeyhq/kit/assets/wallet/avatar/Cat.png';
-import ClassicImg from '@onekeyhq/kit/assets/wallet/avatar/classic.png';
-import CowImg from '@onekeyhq/kit/assets/wallet/avatar/Cow.png';
-import DogImg from '@onekeyhq/kit/assets/wallet/avatar/Dog.png';
-import FoxImg from '@onekeyhq/kit/assets/wallet/avatar/Fox.png';
-import FrogImg from '@onekeyhq/kit/assets/wallet/avatar/Frog.png';
-import KoalaImg from '@onekeyhq/kit/assets/wallet/avatar/Koala.png';
-import LionImg from '@onekeyhq/kit/assets/wallet/avatar/Lion.png';
-import MiniImg from '@onekeyhq/kit/assets/wallet/avatar/mini.png';
-import MonkeyImg from '@onekeyhq/kit/assets/wallet/avatar/Monkey.png';
-import PandaImg from '@onekeyhq/kit/assets/wallet/avatar/Panda.png';
-import PigImg from '@onekeyhq/kit/assets/wallet/avatar/Pig.png';
-import PolarBearImg from '@onekeyhq/kit/assets/wallet/avatar/PolarBear.png';
-import ProImg from '@onekeyhq/kit/assets/wallet/avatar/pro.png';
-import RabbitImg from '@onekeyhq/kit/assets/wallet/avatar/Rabbit.png';
-import RaccoonImg from '@onekeyhq/kit/assets/wallet/avatar/Raccoon.png';
-import TigerImg from '@onekeyhq/kit/assets/wallet/avatar/Tiger.png';
-import TouchImg from '@onekeyhq/kit/assets/wallet/avatar/touch.png';
-import WolfImg from '@onekeyhq/kit/assets/wallet/avatar/Wolf.png';
 
 import type { IWalletProps } from '../../types';
 import type { SizeTokens } from 'tamagui';
@@ -52,27 +31,27 @@ export interface IWalletAvatarProps {
 }
 
 export const WalletAvatarImages = {
-  classic: ClassicImg,
-  mini: MiniImg,
-  touch: TouchImg,
-  pro: ProImg,
-  bear: BearImg,
-  cardDividers: CardDividersImg,
-  cat: CatImg,
-  cow: CowImg,
-  dog: DogImg,
-  fox: FoxImg,
-  frog: FrogImg,
-  koala: KoalaImg,
-  lion: LionImg,
-  monkey: MonkeyImg,
-  panda: PandaImg,
-  pig: PigImg,
-  polarBear: PolarBearImg,
-  rabbit: RabbitImg,
-  raccoon: RaccoonImg,
-  tiger: TigerImg,
-  wolf: WolfImg,
+  classic: require('../../../../../assets/wallet/avatar/Classic.png'),
+  mini: require('../../../../../assets/wallet/avatar/Mini.png'),
+  touch: require('../../../../../assets/wallet/avatar/Touch.png'),
+  pro: require('../../../../../assets/wallet/avatar/Pro.png'),
+  bear: require('../../../../../assets/wallet/avatar/Bear.png'),
+  cardDividers: require('../../../../../assets/wallet/avatar/CardDividers.png'),
+  cat: require('../../../../../assets/wallet/avatar/Cat.png'),
+  cow: require('../../../../../assets/wallet/avatar/Cow.png'),
+  dog: require('../../../../../assets/wallet/avatar/Dog.png'),
+  fox: require('../../../../../assets/wallet/avatar/Fox.png'),
+  frog: require('../../../../../assets/wallet/avatar/Frog.png'),
+  koala: require('../../../../../assets/wallet/avatar/Koala.png'),
+  lion: require('../../../../../assets/wallet/avatar/Lion.png'),
+  monkey: require('../../../../../assets/wallet/avatar/Monkey.png'),
+  panda: require('../../../../../assets/wallet/avatar/Panda.png'),
+  pig: require('../../../../../assets/wallet/avatar/Pig.png'),
+  polarBear: require('../../../../../assets/wallet/avatar/PolarBear.png'),
+  rabbit: require('../../../../../assets/wallet/avatar/Rabbit.png'),
+  raccoon: require('../../../../../assets/wallet/avatar/Raccoon.png'),
+  tiger: require('../../../../../assets/wallet/avatar/Tiger.png'),
+  wolf: require('../../../../../assets/wallet/avatar/Wolf.png'),
 };
 
 export function WalletAvatar({
