@@ -1,4 +1,5 @@
 import {
+  Button,
   Checkbox,
   Form,
   Input,
@@ -21,6 +22,9 @@ const Form1 = () => {
       switch: true,
       radio: '4',
       search: 'search',
+      customInput: '',
+      reverseSwitch: false,
+      defaultPrevented: '',
     },
   });
   return (
@@ -42,6 +46,18 @@ const Form1 = () => {
         rules={{ required: { value: true, message: 'requied input text' } }}
       >
         <Input placeholder="Required" />
+      </Form.Field>
+      <Form.Field
+        label="customInput"
+        name="customInput"
+        description="custom onChange value"
+      >
+        <Input
+          placeholder="Required"
+          onChangeText={(value) =>
+            value.length > 10 ? value.slice(0, 10) : value
+          }
+        />
       </Form.Field>
       <Form.Field
         label="TextArea"
@@ -77,9 +93,30 @@ const Form1 = () => {
           ]}
         />
       </Form.Field>
+      <Form.Field label="Disable A Value" name="defaultPrevented">
+        <Radio
+          onChange={(v) => {
+            if (v === 'A') {
+              // defaultPrevented will stop event propagation, the form's onchange will not be triggered
+              return {
+                defaultPrevented: true,
+              };
+            }
+            return v;
+          }}
+          options={[
+            { label: 'A value', value: 'A' },
+            { label: 'B value', value: 'B' },
+            { label: 'C value', value: 'C' },
+          ]}
+        />
+      </Form.Field>
       <Form.Field label="search" name="search">
         <SearchBar />
       </Form.Field>
+      <Button onPress={() => console.log(form.getValues())}>
+        Log Result & Check in Console
+      </Button>
     </Form>
   );
 };

@@ -28,13 +28,26 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   );
 }
 
+const composeEventHandlers =
+  (prev: (value: unknown) => unknown, next: (value: unknown) => unknown) =>
+  (value: unknown) => {
+    const result = prev(value);
+    return (result as { defaultPrevented?: boolean })?.defaultPrevented
+      ? result
+      : next(result);
+  };
+
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
   validateField: () => void,
   error: Error,
 ) => {
-  const { onBlur } = child.props as { onBlur?: () => void };
+  const { onBlur, onChange, onChangeText } = child.props as {
+    onBlur?: () => void;
+    onChange?: (value: unknown) => void;
+    onChangeText?: (value: unknown) => void;
+  };
   const handleBlur = () => {
     if (onBlur) {
       onBlur();
@@ -44,14 +57,25 @@ const getChildProps = (
   field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
-    case TextArea:
+    case TextArea: {
+      const handleChange = onChangeText
+        ? composeEventHandlers(onChangeText, field.onChange)
+        : field.onChange;
       return {
         ...field,
         error,
-        onChangeText: field.onChange,
+        onChangeText: handleChange,
       };
-    default:
-      return field;
+    }
+    default: {
+      const handleChange = onChange
+        ? composeEventHandlers(onChange, field.onChange)
+        : field.onChange;
+      return {
+        ...field,
+        onChange: handleChange,
+      };
+    }
   }
 };
 
