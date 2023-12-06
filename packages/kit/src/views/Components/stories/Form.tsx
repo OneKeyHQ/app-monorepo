@@ -23,7 +23,6 @@ const Form1 = () => {
       radio: '4',
       search: 'search',
       customInput: '',
-      reverseSwitch: false,
       defaultPrevented: '',
     },
   });
