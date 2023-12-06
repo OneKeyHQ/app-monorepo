@@ -75,11 +75,7 @@ export function WalletList({
           <Stack p="$1" alignItems="center" mt="$3">
             <ActionList
               placement="right-start"
-              renderTrigger={
-                <Stack>
-                  <IconButton icon="PlusSmallOutline" />
-                </Stack>
-              }
+              renderTrigger={<IconButton icon="PlusSmallOutline" />}
               title="Add wallet"
               items={[
                 {
