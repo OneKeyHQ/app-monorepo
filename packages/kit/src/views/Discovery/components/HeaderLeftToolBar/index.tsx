@@ -78,7 +78,7 @@ function HeaderLeftToolBar({
         <HeaderIconButton
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
-          testID={`browser-bar-${loading ? 'stop-loading' : 'reload'}`}
+          testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
       <Input
@@ -90,7 +90,7 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
-            testID: `action-list-item-${
+            testID: `action-header-item-${
               !isBookmark ? 'bookmark' : 'remove bookmark'
             }
             `,
@@ -98,7 +98,7 @@ function HeaderLeftToolBar({
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
-            testID: `action-list-item-un-${!isPinned ? 'pin' : 'un-pin'}`,
+            testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
           },
         ]}
       />

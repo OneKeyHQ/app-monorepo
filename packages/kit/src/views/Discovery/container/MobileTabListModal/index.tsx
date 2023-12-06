@@ -72,7 +72,7 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          testID="tab-list-modal-add"
+          testID="browser-bar-add"
           onPress={onAddTab}
         />
       </Stack>
