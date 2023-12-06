@@ -1,6 +1,6 @@
 import { Image } from 'react-native';
 
-import { Avatar, Skeleton, Stack } from '@onekeyhq/components';
+import { Avatar, Stack } from '@onekeyhq/components';
 
 import type { IWalletProps } from '../../types';
 import type { SizeTokens } from 'tamagui';
