@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { type LayoutChangeEvent, Platform, type View } from 'react-native';
 import { AnimatePresence } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Spinner, Stack, YStack } from '../../primitives';
 
 import type { IDialogContentProps } from './type';
-import type { LayoutChangeEvent, View } from 'react-native';
 import type { TamaguiElement } from 'tamagui';
 
+const MAX_ANIMATION_DURATION = 550;
 export function Content({
   children,
   estimatedContentHeight,
@@ -16,12 +19,13 @@ export function Content({
   const isOptimization = !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
   const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
+  const timeRef = useRef(Date.now());
   const ref = useRef<TamaguiElement>(null);
   const pageYRef = useRef(Number.MAX_VALUE);
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const { height } = e.nativeEvent.layout;
-      if (logContentHeight) {
+      if (platformEnv.isDev && logContentHeight) {
         console.log('Dialog Content Height', e.nativeEvent.layout, height);
       }
     },
@@ -43,6 +47,14 @@ export function Content({
             pageYRef.current = pageY;
             checkMeasureY();
           } else {
+            if (platformEnv.isDev) {
+              const diffTime = Date.now() - timeRef.current;
+              if (diffTime > MAX_ANIMATION_DURATION) {
+                console.error(
+                  `Dialog Animation duration is ${diffTime}ms, please use estimatedContentHeight to reduce animation time.`,
+                );
+              }
+            }
             setTimeout(() => {
               changeChildrenVisibility(true);
             }, 10);
@@ -60,10 +72,12 @@ export function Content({
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
-      checkMeasureY();
-    }, 10);
-  }, [checkMeasureY]);
+    if (platformEnv.isDev || isOptimization) {
+      setTimeout(() => {
+        checkMeasureY();
+      }, 10);
+    }
+  }, [checkMeasureY, isOptimization]);
 
   if (!children) {
     return null;

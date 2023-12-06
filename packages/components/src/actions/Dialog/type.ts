@@ -23,7 +23,9 @@ export interface IDialogProps extends TMDialogProps {
   title?: string;
   description?: string;
   tone?: 'default' | 'destructive';
+  /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
+  /* log the the size value of the content in Console. */
   logContentHeight?: boolean;
   renderContent?: React.ReactNode;
   showFooter?: boolean;
