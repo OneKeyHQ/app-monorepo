@@ -1,5 +1,3 @@
-import type { PropsWithChildren } from 'react';
-
 import { Stack } from '../../primitives';
 
 import type { IBasicPageProps } from './type';

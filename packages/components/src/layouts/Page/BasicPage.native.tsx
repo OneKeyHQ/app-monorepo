@@ -8,7 +8,8 @@ import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { View } from '../../optimization';
 import { Spinner, Stack } from '../../primitives';
-import { IBasicPageProps } from './type';
+
+import type { IBasicPageProps } from './type';
 
 function Loading() {
   return (

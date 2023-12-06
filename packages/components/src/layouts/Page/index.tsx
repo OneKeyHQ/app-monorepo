@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
