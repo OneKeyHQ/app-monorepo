@@ -9,6 +9,7 @@ import {
   IconButton,
   Input,
   ListItem,
+  Spinner,
   Stack,
   XStack,
   useForm,
@@ -72,6 +73,8 @@ export function WalletProfile({
             onPress: () =>
               Dialog.confirm({
                 title: 'Edit Avatar',
+                estimatedContentHeight: 340,
+                logContentHeight: true,
                 renderContent: (
                   <XStack flexWrap="wrap">
                     {avatarData.map((img) => (

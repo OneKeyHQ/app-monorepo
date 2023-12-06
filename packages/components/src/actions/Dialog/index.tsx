@@ -20,11 +20,12 @@ import {
 import { SheetGrabber } from '../../content';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { Icon, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import { Content } from './Content';
 import { DialogContext } from './context';
 
 import type { IDialogInstanceRef, IDialogProps } from './type';
@@ -48,6 +49,8 @@ function DialogFrame({
   tone,
   confirmButtonProps,
   cancelButtonProps,
+  estimatedContentHeight,
+  logContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
   contextValue,
@@ -121,11 +124,12 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
-      {renderContent && (
-        <YStack px="$5" pb="$5">
-          {renderContent}
-        </YStack>
-      )}
+      <Content
+        estimatedContentHeight={estimatedContentHeight}
+        logContentHeight={logContentHeight}
+      >
+        {renderContent}
+      </Content>
       {showFooter && (
         <XStack p="$5" pt="$0">
           <Button

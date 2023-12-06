@@ -1,0 +1,121 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { AnimatePresence } from 'tamagui';
+
+import { Spinner, Stack, YStack } from '../../primitives';
+
+import type { IDialogContentProps } from './type';
+import type { LayoutChangeEvent, View } from 'react-native';
+import type { TamaguiElement } from 'tamagui';
+
+export function Content({
+  children,
+  estimatedContentHeight,
+  logContentHeight,
+}: IDialogContentProps) {
+  const isOptimization = !!estimatedContentHeight;
+  const [showLoading, changeLoadingVisibility] = useState(isOptimization);
+  const [showChildren, changeChildrenVisibility] = useState(!isOptimization);
+  const ref = useRef<TamaguiElement>(null);
+  const pageYRef = useRef(Number.MAX_VALUE);
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const { height } = e.nativeEvent.layout;
+      if (logContentHeight) {
+        console.log('Dialog Content Height', e.nativeEvent.layout, height);
+      }
+    },
+    [logContentHeight],
+  );
+
+  const checkMeasureY = useCallback(() => {
+    (ref.current as View).measure(
+      (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        pageX: number,
+        pageY: number,
+      ) => {
+        setTimeout(() => {
+          if (pageY < pageYRef.current) {
+            pageYRef.current = pageY;
+            checkMeasureY();
+          } else {
+            setTimeout(() => {
+              changeChildrenVisibility(true);
+            }, 10);
+          }
+        }, 5);
+      },
+    );
+  }, []);
+
+  const handleChildrenLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height) {
+      changeLoadingVisibility(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      checkMeasureY();
+    }, 10);
+  }, [checkMeasureY]);
+
+  if (!children) {
+    return null;
+  }
+  return (
+    <YStack
+      px="$5"
+      pb="$5"
+      ref={ref}
+      height={estimatedContentHeight}
+      onLayout={handleLayout}
+    >
+      {isOptimization ? (
+        <>
+          {
+            // When height and width are undefined, the initial width and height of Stack are 0,
+            //  it needs to be propped open by the content, and the height will be rewritten when the content is completed,
+            //   thus ensuring that children are rendered
+          }
+          <Stack
+            height={undefined}
+            width={undefined}
+            onLayout={handleChildrenLayout}
+          >
+            {showChildren ? children : null}
+          </Stack>
+          <AnimatePresence>
+            {showLoading ? (
+              <Stack
+                bg="$bg"
+                animation="medium"
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                opacity={1}
+                alignContent="center"
+                justifyContent="center"
+                flex={1}
+                exitStyle={{
+                  opacity: 0,
+                }}
+              >
+                <Spinner size="large" />
+              </Stack>
+            ) : null}
+          </AnimatePresence>
+        </>
+      ) : (
+        children
+      )}
+    </YStack>
+  );
+}

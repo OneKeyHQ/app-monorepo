@@ -1,3 +1,5 @@
+import type { PropsWithChildren } from 'react';
+
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type {
   DialogProps as TMDialogProps,
@@ -8,6 +10,11 @@ export type IDialogContextType = {
   dialogInstance?: IDialogInstanceRef;
 };
 
+export interface IDialogContentProps extends PropsWithChildren {
+  estimatedContentHeight?: number;
+  logContentHeight?: boolean;
+}
+
 export interface IDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
@@ -16,6 +23,8 @@ export interface IDialogProps extends TMDialogProps {
   title?: string;
   description?: string;
   tone?: 'default' | 'destructive';
+  estimatedContentHeight?: number;
+  logContentHeight?: boolean;
   renderContent?: React.ReactNode;
   showFooter?: boolean;
   onConfirm?: () => void | Promise<boolean>;
