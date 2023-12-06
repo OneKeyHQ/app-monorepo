@@ -1,7 +1,7 @@
 import { Button, SearchBar, Stack, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 
 function Dashboard() {
@@ -23,7 +23,6 @@ function Dashboard() {
       </Stack>
 
       <Button
-        testID="fake-search-modal"
         onPress={() => {
           console.log('onPress');
           navigation.pushModal(EModalRoutes.DiscoveryModal, {

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { Avatar, Icon, Stack, Text, XStack } from '@onekeyhq/components';
 
-import { useWebTabData } from '../../hooks/useWebTabs';
+import { useWebTabDataById } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
 
@@ -17,7 +17,7 @@ function MobileTabListPinnedItem({
   onCloseItem: (id: string) => void;
   onLongPress: (id: string) => void;
 } & IWebTab) {
-  const { tab } = useWebTabData(id);
+  const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
   return (
     <Stack
@@ -40,13 +40,7 @@ function MobileTabListPinnedItem({
         scale: 0.95,
       }}
     >
-      <XStack
-        bg="$bgStrong"
-        p="$2"
-        alignItems="center"
-        testID={`tab-list-stack-pinned-${id}`}
-        borderRadius="$2.5"
-      >
+      <XStack bg="$bgStrong" p="$2" alignItems="center" borderRadius="$2.5">
         <Avatar size="$4" borderRadius="$1">
           <Avatar.Image src={tab?.favicon} />
           <Avatar.Fallback>

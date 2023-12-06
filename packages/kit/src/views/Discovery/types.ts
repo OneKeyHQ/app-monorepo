@@ -20,6 +20,17 @@ export interface IBrowserBookmark {
   url: string;
 }
 
+export interface IGotoSiteFnParams {
+  url: string;
+  title?: string;
+  favicon?: string;
+  dAppId?: string;
+  isNewWindow?: boolean;
+  isInPlace?: boolean;
+  id?: string;
+  userTriggered?: boolean;
+}
+
 export interface IMatchDAppItemType {
   id: string;
   dapp?: IDAppItemType;
@@ -29,6 +40,18 @@ export interface IMatchDAppItemType {
   isNewWindow?: boolean;
 }
 
+export interface IOnWebviewNavigationFnParams {
+  url?: string;
+  title?: string;
+  favicon?: string;
+  isInPlace?: boolean;
+  isNewWindow?: boolean;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  loading?: boolean;
+  id?: string;
+  handlePhishingUrl?: (url: string) => void;
+}
 export type IOnWebviewNavigation = ({
   url,
   title,
@@ -40,18 +63,7 @@ export type IOnWebviewNavigation = ({
   loading,
   id,
   handlePhishingUrl,
-}: {
-  url?: string;
-  title?: string;
-  favicon?: string;
-  isInPlace?: boolean;
-  isNewWindow?: boolean;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
-  loading?: boolean;
-  id?: string;
-  handlePhishingUrl?: (url: string) => void;
-}) => void;
+}: IOnWebviewNavigationFnParams) => void;
 
 export interface IWebTab {
   id: string;

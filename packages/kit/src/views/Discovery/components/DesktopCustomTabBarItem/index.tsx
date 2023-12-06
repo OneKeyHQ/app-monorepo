@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
-import { DesktopTabItem } from '@onekeyhq/components/src/Navigation/Tab/TabBar/DesktopTabItem';
+import { useIntl } from 'react-intl';
 
-import { useWebTabData } from '../../hooks/useWebTabs';
+import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+
+import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
@@ -12,7 +14,6 @@ function DesktopCustomTabBarItem({
   onBookmarkPress,
   onPinnedPress,
   onClose,
-  testID,
 }: {
   id: string;
   activeTabId: string | null;
@@ -20,9 +21,9 @@ function DesktopCustomTabBarItem({
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
-  testID?: string;
 }) {
-  const { tab } = useWebTabData(id);
+  const intl = useIntl();
+  const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
   const handleActionListOpenChange = useCallback((isOpen: boolean) => {
     dispatchOverlayEvent(isOpen);
@@ -35,19 +36,24 @@ function DesktopCustomTabBarItem({
       label={tab.title}
       avatarSrc={tab?.favicon}
       onActionListOpenChange={handleActionListOpenChange}
-      testID={testID}
       actionList={[
         {
           items: [
             {
-              label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
+              label: intl.formatMessage({
+                id: tab.isBookmark
+                  ? 'actionn__remove_bookmark'
+                  : 'actionn__bookmark',
+              }),
               icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => {
                 onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
               },
             },
             {
-              label: tab.isPinned ? 'Un-Pin' : 'Pin',
+              label: intl.formatMessage({
+                id: tab.isPinned ? 'action__unpin' : 'action__pin',
+              }),
               icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => {
                 onPinnedPress(tab.id, !tab.isPinned);
@@ -58,7 +64,9 @@ function DesktopCustomTabBarItem({
         {
           items: [
             {
-              label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+              label: intl.formatMessage({
+                id: tab.isPinned ? 'action__close_pin_tab' : 'form__close_tab',
+              }),
               icon: 'CrossedLargeOutline',
               onPress: () => {
                 onClose(id);

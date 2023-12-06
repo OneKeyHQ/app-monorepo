@@ -1,6 +1,5 @@
 import { isNil, isString } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 const SIMPLE_DB_KEY_PREFIX = 'simple_db';
@@ -65,13 +64,8 @@ abstract class SimpleDbEntityBase<T> {
       data,
       updatedAt,
     };
-    if (platformEnv.isDev && platformEnv.isDesktop) {
-      Object.assign(savedData, {
-        _tmpUpdatedAtText: new Date(updatedAt).toLocaleString(),
-      });
-    }
     await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
-    this.updatedAt = updatedAt ?? 0;
+    this.updatedAt = updatedAt;
     return data;
   }
 

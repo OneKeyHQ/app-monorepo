@@ -1,10 +1,15 @@
-import { useMedia } from 'tamagui';
-
-import { Icon, Input, Stack, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  Stack,
+  Text,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
-} from '@onekeyhq/components/src/Navigation/Header';
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 function HeaderLeftToolBar({
   url,
@@ -66,19 +71,16 @@ function HeaderLeftToolBar({
         <HeaderIconButton
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
-          testID="browser-bar-go-back"
           onPress={goBack}
         />
         <HeaderIconButton
           icon="ChevronRightOutline"
           disabled={!canGoForward}
-          testID="browser-bar-go-forward"
           onPress={goForward}
         />
         <HeaderIconButton
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
-          testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
       <Input
@@ -90,15 +92,10 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
-            testID: `action-header-item-${
-              !isBookmark ? 'bookmark' : 'remove bookmark'
-            }
-            `,
           },
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
-            testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
           },
         ]}
       />

@@ -2,7 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
 import { ListItem, ListView, Page } from '@onekeyhq/components';
-import { EGalleryRoutes } from '@onekeyhq/kit/src/routes/Root/Tab/Developer/Gallery/routes';
+
+import { EGalleryRoutes } from '../../routes/Tab/Developer/Gallery/routes';
 
 const Index = () => {
   const navigation = useNavigation();
@@ -18,13 +19,9 @@ const Index = () => {
           flex={1}
           paddingVertical={20}
           data={componentsRoute}
-          style={{
-            width: 640,
-            maxWidth: '100%',
-            alignSelf: 'center',
-          }}
           renderItem={({ item }) => (
             <ListItem
+              style={{ width: '90%', maxWidth: 640, alignSelf: 'center' }}
               key={item.replace('component/', '')}
               drillIn
               onPress={() => {

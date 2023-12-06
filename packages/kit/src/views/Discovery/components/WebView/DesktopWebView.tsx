@@ -15,10 +15,9 @@ import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 
 import { Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import ErrorView from './ErrorView';
 

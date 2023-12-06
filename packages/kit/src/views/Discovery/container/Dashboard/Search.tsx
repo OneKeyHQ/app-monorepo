@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   ListItem,
@@ -13,13 +7,14 @@ import {
   Skeleton,
   Stack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
+import {
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabRoutes } from '../../../../routes/Root/Tab/Routes';
-import useWebTabAction from '../../hooks/useWebTabAction';
-import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
-import { openMatchDApp } from '../../utils/gotoSite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { mockData } from './dataSource';
@@ -27,28 +22,8 @@ import { mockData } from './dataSource';
 function SearchModal() {
   const navigation = useAppNavigation();
   const [value, setValue] = useState('');
-  const { setDisplayHomePage } = useWebTabAction();
-  const { displayHomePage } = useDisplayHomePageFlag();
-
-  useEffect(() => {
-    console.log('SearchModal renderer ===> : ', displayHomePage);
-  }, [displayHomePage]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: 'Search Modal',
-      headerSearchBarOptions: {
-        autoFocus: true,
-        placeholder: 'Search',
-        inputType: 'text',
-        hideNavigationBar: true,
-        hideWhenScrolling: false,
-        onChangeText: ({ nativeEvent }) => {
-          setValue(nativeEvent.text);
-        },
-      },
-    });
-  }, [navigation]);
+  const { setDisplayHomePage } = useBrowserTabActions();
+  const { openMatchDApp } = useBrowserAction();
 
   const handleOnPress = useCallback(
     (item: {
@@ -68,7 +43,7 @@ function SearchModal() {
         navigation.pop();
       }
     },
-    [setDisplayHomePage, navigation],
+    [setDisplayHomePage, navigation, openMatchDApp],
   );
 
   const dataSource = useMemo(() => {
@@ -91,6 +66,19 @@ function SearchModal() {
 
   return (
     <Page skipLoading>
+      <Page.Header
+        headerTitle="Search Modal"
+        headerSearchBarOptions={{
+          autoFocus: true,
+          placeholder: 'Search',
+          inputType: 'text',
+          hideNavigationBar: true,
+          hideWhenScrolling: false,
+          onChangeText: ({ nativeEvent }) => {
+            setValue(nativeEvent.text);
+          },
+        }}
+      />
       <Page.Body>
         <Stack flex={1}>
           <ListView
@@ -111,7 +99,6 @@ function SearchModal() {
                 subtitleProps={{
                   numberOfLines: 1,
                 }}
-                testID={`search-modal-${item.name.toLowerCase()}`}
                 onPress={() => {
                   handleOnPress(item);
                 }}

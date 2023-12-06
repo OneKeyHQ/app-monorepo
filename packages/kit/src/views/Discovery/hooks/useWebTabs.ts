@@ -1,19 +1,15 @@
 import { useMemo } from 'react';
 
 import {
-  activeTabIdAtom,
-  disabledAddedNewTabAtom,
-  displayHomePageAtom,
-  getActiveTabId,
-  getTabs,
-  getTabsMap,
-  useAtomWebTabs,
-  webTabsAtom,
-  webTabsMapAtom,
-} from '../store/contextWebTabs';
+  useActiveTabIdAtom,
+  useDisabledAddedNewTabAtom,
+  useDisplayHomePageAtom,
+  useWebTabsAtom,
+  useWebTabsMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 export const useWebTabs = () => {
-  const [webTabs] = useAtomWebTabs(webTabsAtom);
+  const [webTabs] = useWebTabsAtom();
   return useMemo(
     () => ({
       tabs: webTabs.tabs,
@@ -22,8 +18,8 @@ export const useWebTabs = () => {
   );
 };
 
-export const useWebTabData = (id?: string) => {
-  const [map] = useAtomWebTabs(webTabsMapAtom);
+export const useWebTabDataById = (id?: string) => {
+  const [map] = useWebTabsMapAtom();
   return useMemo(
     () => ({
       tab: map[id ?? ''],
@@ -33,41 +29,28 @@ export const useWebTabData = (id?: string) => {
 };
 
 export const useActiveTabId = () => {
-  const [activeTabId] = useAtomWebTabs(activeTabIdAtom as any);
+  const [activeTabId] = useActiveTabIdAtom();
   return useMemo(
     () => ({
-      activeTabId: activeTabId as string | null,
+      activeTabId,
     }),
     [activeTabId],
   );
 };
 
 export const useDisplayHomePageFlag = () => {
-  const [value] = useAtomWebTabs(displayHomePageAtom);
+  const [value] = useDisplayHomePageAtom();
   return {
     displayHomePage: value,
   };
 };
 
 export const useDisabledAddedNewTab = () => {
-  const [disabledAddedNewTab] = useAtomWebTabs(disabledAddedNewTabAtom as any);
+  const [disabledAddedNewTab] = useDisabledAddedNewTabAtom();
   return useMemo(
     () => ({
-      disabledAddedNewTab: disabledAddedNewTab as boolean,
+      disabledAddedNewTab,
     }),
     [disabledAddedNewTab],
   );
-};
-
-// not a hook, won't refresh
-export const getWebTabs = (id?: string) => {
-  const webTabs = getTabs();
-  const map = getTabsMap();
-  const activeTabId = getActiveTabId();
-  const curId = id || activeTabId;
-  return {
-    tabs: webTabs?.tabs ?? [],
-    tab: map?.[curId || ''],
-    activeTabId,
-  };
 };

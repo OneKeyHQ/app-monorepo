@@ -3,9 +3,16 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { ListView, Page, ScrollView, Stack, Text } from '@onekeyhq/components';
+import {
+  ListView,
+  Page,
+  ScrollView,
+  Stack,
+  Tab,
+  Text,
+} from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { Tab } from '@onekeyhq/components/src/TabView';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderView from './HeaderView';
 
@@ -15,8 +22,8 @@ const FirstRoute = ({
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => (
   <ScrollView
-    style={{ flex: 1 }}
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
@@ -31,8 +38,8 @@ const SecondRoute = ({
 }) => (
   <ListView
     data={new Array(70).fill({})}
-    h="100%"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Text color="$text" key={index}>
         demo2 ${index}
@@ -49,8 +56,8 @@ const OtherRoute = ({
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => (
   <ScrollView
-    style={{ flex: 1 }}
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
@@ -66,8 +73,8 @@ const ListRoute = ({
 }) => (
   <ListView
     data={new Array(50).fill({})}
-    h="100%"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <Text>Row: {index}</Text>
@@ -122,6 +129,7 @@ function HomePage() {
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
+            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}

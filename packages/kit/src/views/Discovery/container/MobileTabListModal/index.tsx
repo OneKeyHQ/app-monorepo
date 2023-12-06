@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 // TODO：需要替换为组件库中的 ListView
 import { FlatList, StyleSheet } from 'react-native';
 
@@ -14,16 +15,18 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  useBrowserBookmarkAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
-import useBrowserBookmarkAction from '../../hooks/useBrowserBookmarkAction';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import useWebTabAction from '../../hooks/useWebTabAction';
 import {
   useActiveTabId,
   useDisabledAddedNewTab,
@@ -41,14 +44,17 @@ import type { View } from 'react-native';
 export const tabGridRefs: Record<string, View> = {};
 
 function TabToolBar({
+  closeAllDisabled,
   onAddTab,
   onCloseAll,
   onDone,
 }: {
+  closeAllDisabled: boolean;
   onAddTab: () => void;
   onCloseAll: () => void;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   return (
     <Stack
       py="$2"
@@ -61,10 +67,10 @@ function TabToolBar({
         <Button
           variant="tertiary"
           size="medium"
-          testID="tab-list-modal-close-all"
           onPress={onCloseAll}
+          disabled={closeAllDisabled}
         >
-          Close All
+          {intl.formatMessage({ id: 'action__close_all_tabs' })}
         </Button>
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -72,18 +78,12 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          testID="browser-bar-add"
           onPress={onAddTab}
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button
-          variant="tertiary"
-          size="medium"
-          testID="tab-list-modal-done"
-          onPress={onDone}
-        >
-          Done
+        <Button variant="tertiary" size="medium" onPress={onDone}>
+          {intl.formatMessage({ id: 'action__done' })}
         </Button>
       </Stack>
     </Stack>
@@ -91,8 +91,10 @@ function TabToolBar({
 }
 
 function MobileTabListModal() {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+
   const { tabs } = useWebTabs();
   const data = useMemo(() => (tabs ?? []).filter((t) => !t.isPinned), [tabs]);
   const pinnedData = useMemo(
@@ -107,20 +109,20 @@ function MobileTabListModal() {
     useBrowserBookmarkAction();
 
   const {
-    closeAllWebTab,
+    closeAllWebTabs,
     setCurrentWebTab,
     closeWebTab,
     setPinnedTab,
     setDisplayHomePage,
-  } = useWebTabAction();
+  } = useBrowserTabActions();
 
-  const triggerCloseAllTab = useRef(false);
+  const triggerCloseTab = useRef(false);
   useEffect(() => {
-    if (triggerCloseAllTab.current && !tabs.length) {
+    if (triggerCloseTab.current && !tabs.length) {
       setDisplayHomePage(true);
       navigation.pop();
-      triggerCloseAllTab.current = false;
     }
+    triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
   const flatListRef = useRef<FlatList<IWebTab> | null>(null);
@@ -170,10 +172,12 @@ function MobileTabListModal() {
         removeBrowserBookmark(url);
       }
       Toast.success({
-        title: bookmark ? 'Bookmark Added' : 'Bookmark Removed',
+        title: bookmark
+          ? intl.formatMessage({ id: 'msg__bookmark_added' })
+          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
       });
     },
-    [addBrowserBookmark, removeBrowserBookmark],
+    [addBrowserBookmark, removeBrowserBookmark, intl],
   );
   const handleShare = useCallback(
     (url: string) => {
@@ -184,28 +188,40 @@ function MobileTabListModal() {
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
       void setPinnedTab({ id, pinned });
-      Toast.success({ title: pinned ? 'Pined' : ' Unpinned' });
+      Toast.success({
+        title: pinned
+          ? intl.formatMessage({ id: 'msg__pinned' })
+          : intl.formatMessage({ id: 'msg__unpinned' }),
+      });
     },
-    [setPinnedTab],
+    [setPinnedTab, intl],
   );
   const handleCloseTab = useCallback(
-    (id: string) => closeWebTab(id),
+    (id: string) => {
+      triggerCloseTab.current = true;
+      void closeWebTab(id);
+    },
     [closeWebTab],
   );
 
   const handleAddNewTab = useCallback(() => {
     if (disabledAddedNewTab) {
-      Toast.message({ title: '窗口已达 20 个上限' });
+      Toast.message({
+        title: intl.formatMessage(
+          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+          { 0: '20' },
+        ),
+      });
       return;
     }
-    // TODO: need to add promise  api for navigation chains
+    // TODO: need to add promise api for navigation chains
     navigation.pop();
     setTimeout(() => {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.FakeSearchModal,
       });
     }, 0);
-  }, [disabledAddedNewTab, navigation]);
+  }, [disabledAddedNewTab, navigation, intl]);
 
   const showTabOptions = useCallback(
     (tab: IWebTab, id: string) => {
@@ -215,7 +231,11 @@ function MobileTabListModal() {
           {
             items: [
               {
-                label: tab.isBookmark ? 'Remove Bookmark' : 'Bookmark',
+                label: intl.formatMessage({
+                  id: tab.isBookmark
+                    ? 'actionn__remove_bookmark'
+                    : 'actionn__bookmark',
+                }),
                 icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
                 onPress: () =>
                   handleBookmarkPress(
@@ -225,12 +245,14 @@ function MobileTabListModal() {
                   ),
               },
               {
-                label: tab.isPinned ? 'Un-Pin' : 'Pin',
+                label: intl.formatMessage({
+                  id: tab.isPinned ? 'action__unpin' : 'action__pin',
+                }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
               },
               {
-                label: 'Share',
+                label: intl.formatMessage({ id: 'action__share' }),
                 icon: 'ShareOutline',
                 onPress: () => handleShare(tab.url),
               },
@@ -239,7 +261,11 @@ function MobileTabListModal() {
           {
             items: [
               {
-                label: tab.isPinned ? 'Close Pin Tab' : 'Close Tab',
+                label: intl.formatMessage({
+                  id: tab.isPinned
+                    ? 'action__close_pin_tab'
+                    : 'form__close_tab',
+                }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
               },
@@ -248,7 +274,7 @@ function MobileTabListModal() {
         ],
       });
     },
-    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab],
+    [handleBookmarkPress, handlePinnedPress, handleShare, handleCloseTab, intl],
   );
 
   const keyExtractor = useCallback((item: IWebTab) => item.id, []);
@@ -305,7 +331,6 @@ function MobileTabListModal() {
           contentContainerStyle={{
             p: '$1',
           }}
-          testID="tab-modal-pinned-list"
           ref={pinnedListRef}
           horizontal
           data={pinnedData}
@@ -321,9 +346,10 @@ function MobileTabListModal() {
   return (
     <Page>
       <Page.Header
-        title={`${(tabs.length ?? 0).toString()} ${
-          tabs.length === 1 ? 'Tab' : 'Tabs'
-        }`}
+        title={intl.formatMessage(
+          { id: 'title__str_tabs' },
+          { 0: `${tabs.length ?? 0}` },
+        )}
       />
       <Page.Body>
         <FlatList
@@ -343,10 +369,11 @@ function MobileTabListModal() {
       </Page.Body>
       <Page.Footer>
         <TabToolBar
+          closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}
           onCloseAll={() => {
-            triggerCloseAllTab.current = true;
-            void closeAllWebTab();
+            triggerCloseTab.current = true;
+            closeAllWebTabs();
           }}
           onDone={() => {
             navigation.pop();

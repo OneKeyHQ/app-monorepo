@@ -1,7 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useMemo } from 'react';
 
-import { setWebTabData } from '../../store/contextWebTabs';
+import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+
 import { webviewRefs } from '../../utils/explorerUtils';
 import WebView from '../WebView';
 
@@ -17,6 +18,7 @@ type IWebContentProps = IWebTab &
   };
 
 function WebContent({ id, url }: IWebContentProps) {
+  const { setWebTabData } = useBrowserTabActions();
   const webview = useMemo(
     () => (
       <WebView
@@ -25,7 +27,7 @@ function WebContent({ id, url }: IWebContentProps) {
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              void setWebTabData({
+              setWebTabData({
                 id,
                 refReady: true,
               });

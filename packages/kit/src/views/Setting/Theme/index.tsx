@@ -23,6 +23,7 @@ export default function SettingThemeModal() {
     () => [
       {
         title: intl.formatMessage({ id: 'form__auto' }),
+        subtitle: 'Follow the system',
         value: 'system' as const,
       },
       {
@@ -43,7 +44,7 @@ export default function SettingThemeModal() {
   );
   return (
     <Page>
-      <Stack>
+      <Stack py="$2">
         <ListItemSelect
           onChange={onChange}
           value={settings.theme}

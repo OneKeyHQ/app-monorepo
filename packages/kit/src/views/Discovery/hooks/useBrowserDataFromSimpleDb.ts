@@ -1,6 +1,5 @@
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
-
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IBrowserBookmark, IBrowserHistory, IWebTab } from '../types';
 

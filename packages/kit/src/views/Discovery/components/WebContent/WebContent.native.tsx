@@ -9,14 +9,15 @@ import {
   ScrollView,
   Stack,
 } from '@onekeyhq/components';
+import useBackHandler from '@onekeyhq/kit/src/hooks/useBackHandler';
+import {
+  homeTab,
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import useBackHandler from '../../../../hooks/useBackHandler';
-import { onNavigation } from '../../hooks/useWebController';
-import useWebTabAction from '../../hooks/useWebTabAction';
-import { homeTab, setWebTabData } from '../../store/contextWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
-import { gotoSite } from '../../utils/gotoSite';
 import PhishingView from '../PhishingView';
 import WebView from '../WebView';
 
@@ -58,7 +59,9 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
-  const { closeWebTab } = useWebTabAction();
+  const { onNavigation, gotoSite } = useBrowserAction();
+  const { setWebTabData, closeWebTab, setCurrentWebTab } =
+    useBrowserTabActions();
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -121,7 +124,7 @@ function WebContent({
         });
       }
     },
-    [id],
+    [id, onNavigation],
   );
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -161,7 +164,7 @@ function WebContent({
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              void setWebTabData({
+              setWebTabData({
                 id,
                 refReady: true,
               });
@@ -188,7 +191,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome, androidLayerType, height],
+    [id, gotoSite, showHome, androidLayerType, height],
   );
 
   const progressBar = useMemo(() => {
@@ -212,10 +215,15 @@ function WebContent({
   const phishingView = useMemo(
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
-        <PhishingView onCloseTab={() => closeWebTab(id)} />
+        <PhishingView
+          onCloseTab={() => {
+            closeWebTab(id);
+            setCurrentWebTab(null);
+          }}
+        />
       </Stack>
     ),
-    [closeWebTab, id],
+    [closeWebTab, setCurrentWebTab, id],
   );
 
   return (

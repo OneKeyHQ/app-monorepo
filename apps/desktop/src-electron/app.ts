@@ -289,6 +289,9 @@ function createMainWindow() {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     quitOrMinimizeApp();
   });
+  ipcMain.on(ipcMessageKeys.APP_RELOAD, () => {
+    browserWindow.reload();
+  });
 
   ipcMain.on(
     ipcMessageKeys.APP_OPEN_PREFERENCES,

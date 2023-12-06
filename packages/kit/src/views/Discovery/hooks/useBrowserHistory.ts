@@ -1,12 +1,9 @@
 import { useMemo } from 'react';
 
-import {
-  browserHistoryAtom,
-  useAtomBrowserHistory,
-} from '../store/contextBrowserHistory';
+import { useBrowserHistoryAtom } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 function useBrowserHistory() {
-  const [browserHistory] = useAtomBrowserHistory(browserHistoryAtom);
+  const [browserHistory] = useBrowserHistoryAtom();
   return useMemo(
     () => ({
       browserHistory,

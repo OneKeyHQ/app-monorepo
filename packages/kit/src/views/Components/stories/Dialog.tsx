@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 
 import {
   Button,
@@ -11,9 +11,9 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
-import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
+import { EGalleryRoutes } from '../../../routes/Tab/Developer/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -26,6 +26,9 @@ const CustomFooter = ({
   index: number;
   form: UseFormReturn<any>;
 }) => {
+  // test Navigation Container hooks
+  const isFocused = useIsFocused();
+  console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
     <XStack space="$4" justifyContent="center">
@@ -134,6 +137,25 @@ const DialogGallery = () => (
               }
             >
               destructive
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Hide Confirm Button',
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  onCancelText: 'Bye',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                })
+              }
+            >
+              Hide Confirm Button
             </Button>
           </YStack>
         ),
