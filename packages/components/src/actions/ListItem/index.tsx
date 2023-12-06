@@ -166,7 +166,7 @@ const ListItemIconButton = (props: IIconButtonProps) => (
 );
 
 /* ListItem */
-interface IListItemProps extends StackProps {
+export interface IListItemProps extends StackProps {
   title?: string;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;

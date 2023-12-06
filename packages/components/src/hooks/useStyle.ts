@@ -5,7 +5,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { VariableVal } from '@tamagui/core';
 import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
 
-export { getTokens, useTheme, useMedia, useThemeName } from 'tamagui';
+export {
+  getTokens,
+  getTokenValue,
+  useTheme,
+  useMedia,
+  useThemeName,
+} from 'tamagui';
 
 type IThemeKeys = keyof UseThemeResult;
 const getValue = (

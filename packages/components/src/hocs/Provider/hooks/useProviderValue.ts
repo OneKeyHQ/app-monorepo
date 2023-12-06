@@ -1,11 +1,12 @@
 import { createContext, useContext } from 'react';
 
+import type { ILocaleSymbol } from '../../../locale';
+
 export type IContextValue = {
-  themeVariant: 'light' | 'dark';
-  reduxReady?: boolean;
+  theme: 'light' | 'dark';
+  locale: ILocaleSymbol;
 };
 
 export const Context = createContext<IContextValue>({} as IContextValue);
 
-const useProviderValue = () => useContext(Context);
-export default useProviderValue;
+export const useSettingConfig = () => useContext(Context);

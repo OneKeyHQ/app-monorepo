@@ -23,7 +23,9 @@ function ShortCutKey(props: ITextProps) {
   );
 }
 
-export function Shortcut(props: XStackProps) {
+export type IShortcut = XStackProps;
+
+export function Shortcut(props: IShortcut) {
   const { children, ...rest } = props;
 
   return (

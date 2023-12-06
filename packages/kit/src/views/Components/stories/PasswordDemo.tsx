@@ -1,7 +1,5 @@
 import { Suspense } from 'react';
 
-import { useTheme } from 'tamagui';
-
 import {
   Button,
   Dialog,
@@ -10,6 +8,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
 import type { IPasswordRes } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';

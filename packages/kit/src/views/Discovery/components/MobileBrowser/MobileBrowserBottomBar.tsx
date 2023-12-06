@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -33,9 +34,8 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
 import type WebView from 'react-native-webview';
-import type { StackProps } from 'tamagui';
 
-interface IMobileBrowserBottomBarProps extends StackProps {
+interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
 }
 

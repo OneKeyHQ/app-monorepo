@@ -1,10 +1,10 @@
+import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IBrowserType } from '../types';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebView } from 'react-native-webview';
-import type { TamaguiElement } from 'tamagui';
 
 export const browserTypeHandler: IBrowserType = (() => {
   if (platformEnv.isDesktop || platformEnv.isNative) {
@@ -14,7 +14,7 @@ export const browserTypeHandler: IBrowserType = (() => {
 })();
 
 export const webviewRefs: Record<string, IWebViewWrapperRef> = {};
-export const captureViewRefs: Record<string, TamaguiElement> = {};
+export const captureViewRefs: Record<string, IElement> = {};
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore

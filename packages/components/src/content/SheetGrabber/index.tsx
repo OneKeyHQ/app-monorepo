@@ -2,7 +2,8 @@ import { Stack } from '../../primitives';
 
 import type { GetProps } from 'tamagui';
 
-export function SheetGrabber(props: GetProps<typeof Stack>) {
+export type ISheetGrabberProps = GetProps<typeof Stack>;
+export function SheetGrabber(props: ISheetGrabberProps) {
   return (
     <Stack
       position="absolute"

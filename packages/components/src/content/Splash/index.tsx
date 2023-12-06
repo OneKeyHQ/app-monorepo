@@ -4,11 +4,11 @@ import { AnimatePresence, Stack } from 'tamagui';
 
 import { SplashView } from './SplashView';
 
-type ISplash = PropsWithChildren<{
+export type ISplashProps = PropsWithChildren<{
   onReady: () => Promise<boolean>;
 }>;
 
-export function Splash({ onReady, children }: ISplash) {
+export function Splash({ onReady, children }: ISplashProps) {
   const [showLoadingView, changeLoadingVisibleStatus] = useState(true);
   const handleReady = useCallback(async () => {
     const isReady = await onReady();
