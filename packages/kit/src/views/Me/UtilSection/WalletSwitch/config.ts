@@ -71,6 +71,12 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     propertyKeys: ['suiWallet'],
     enable: true,
   },
+  'SOLANA-onekey': {
+    logo: OnekeyLogo,
+    title: 'OneKey(Solana)',
+    propertyKeys: ['onekey-solana'],
+    enable: true,
+  },
   'SOLANA-Phantom': {
     logo: SolanaPhantomLogo,
     title: 'Phantom',
