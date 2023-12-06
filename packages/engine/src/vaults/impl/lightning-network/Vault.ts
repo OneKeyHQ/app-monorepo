@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -106,24 +107,30 @@ export default class Vault extends VaultBase {
 
   async exchangeToken(password: string) {
     try {
-      if (!password) {
-        throw new Error('No Password');
-      }
       const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
       const address = dbAccount.addresses.normalizedAddress;
       const hashPubKey = bytesToHex(sha256(dbAccount.pub));
       const network = await this.getNetwork();
-      const { entropy } = (await this.engine.dbApi.getCredential(
-        this.walletId,
-        password ?? '',
-      )) as ExportedSeedCredential;
+      let entropy: Buffer | null = null;
+      if (isHdWallet({ walletId: this.walletId })) {
+        if (!password) {
+          throw new Error('No Password');
+        }
+        entropy = (
+          (await this.engine.dbApi.getCredential(
+            this.walletId,
+            password ?? '',
+          )) as ExportedSeedCredential
+        ).entropy;
+      }
       const client = await this.getClient();
       const signTemplate = await client.fetchSignTemplate(address, 'auth');
       if (signTemplate.type !== 'auth') {
         throw new Error('Invalid auth sign template');
       }
       const timestamp = Date.now();
-      const sign = await signature({
+      const keyring = this.keyring as KeyringHd;
+      const sign = await keyring.signature({
         msgPayload: {
           ...signTemplate,
           pubkey: hashPubKey,

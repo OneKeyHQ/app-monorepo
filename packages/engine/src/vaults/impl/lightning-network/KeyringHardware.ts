@@ -22,6 +22,7 @@ import { getBtcProvider } from './helper/account';
 
 import type { IPrepareHardwareAccountsParams } from '../../types';
 import type { UnionMsgType } from './helper/signature';
+import type { ILightningHWSIgnatureParams } from './types';
 import type LightningVault from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
@@ -138,11 +139,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     msgPayload,
     path,
     isTestnet,
-  }: {
-    msgPayload: UnionMsgType;
-    path: string;
-    isTestnet: boolean;
-  }) {
+  }: ILightningHWSIgnatureParams) {
     const coinName = isTestnet ? 'TEST' : 'BTC';
     const { connectId, deviceId } = await this.getHardwareInfo();
     const HardwareSDK = await this.getHardwareSDKInstance();
