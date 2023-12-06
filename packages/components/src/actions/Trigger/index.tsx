@@ -34,11 +34,14 @@ function BasicTrigger(
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
       if ([Button, IconButton].includes(child.type as any)) {
-        return cloneElement(child, {
-          onPress: handleOpen,
-          ...props,
-          ref,
-        } as IButtonProps);
+        return (
+          <Stack ref={ref}>
+            {cloneElement(child, {
+              onPress: handleOpen,
+              ...props,
+            } as IButtonProps)}
+          </Stack>
+        );
       }
       return (
         <Stack ref={ref} onPress={handleOpen}>

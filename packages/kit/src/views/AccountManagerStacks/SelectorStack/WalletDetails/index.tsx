@@ -72,13 +72,11 @@ export function WalletDetails({
                   <ActionList
                     title={section.title}
                     renderTrigger={
-                      <Stack>
-                        <IconButton
-                          icon="DotHorOutline"
-                          variant="tertiary"
-                          ml="$2"
-                        />
-                      </Stack>
+                      <IconButton
+                        icon="DotHorOutline"
+                        variant="tertiary"
+                        ml="$2"
+                      />
                     }
                     sections={[
                       {
@@ -160,11 +158,7 @@ export function WalletDetails({
               {editMode && (
                 <ActionList
                   title={item.name}
-                  renderTrigger={
-                    <Stack>
-                      <ListItem.IconButton icon="DotHorOutline" />
-                    </Stack>
-                  }
+                  renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
                   items={[
                     {
                       icon: 'PencilOutline',

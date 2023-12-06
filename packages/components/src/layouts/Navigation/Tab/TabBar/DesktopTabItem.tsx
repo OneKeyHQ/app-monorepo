@@ -1,9 +1,9 @@
 import { ActionList, IconButton } from '../../../../actions';
 import { Avatar } from '../../../../content';
-import { Icon, Stack, Text, XStack } from '../../../../primitives';
+import { Icon, Text, XStack } from '../../../../primitives';
 
 import type { IActionListSection } from '../../../../actions';
-import type { IKeyOfIcons } from '../../../../primitives';
+import type { IKeyOfIcons, Stack } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { AvatarImage, GetProps } from 'tamagui';
 
@@ -81,16 +81,14 @@ export function DesktopTabItem(
           onOpenChange={onActionListOpenChange}
           renderTrigger={
             selected && (
-              <Stack>
-                <IconButton
-                  size="small"
-                  icon="DotHorOutline"
-                  variant="tertiary"
-                  focusStyle={undefined}
-                  p="$0.5"
-                  m={-3}
-                />
-              </Stack>
+              <IconButton
+                size="small"
+                icon="DotHorOutline"
+                variant="tertiary"
+                focusStyle={undefined}
+                p="$0.5"
+                m={-3}
+              />
             )
           }
           sections={actionList}
