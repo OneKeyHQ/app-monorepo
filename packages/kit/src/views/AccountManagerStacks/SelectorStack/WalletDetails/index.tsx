@@ -14,6 +14,7 @@ import {
   SectionList,
   Skeleton,
   Stack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 
 import { WalletOptions } from './WalletOptions';
@@ -40,9 +41,9 @@ export function WalletDetails({
   onAccountPress,
 }: IWalletDetailsProps) {
   const [remember, setIsRemember] = useState(false);
-
+  const { bottom } = useSafeAreaInsets();
   return (
-    <Stack flex={1}>
+    <Stack flex={1} pb={bottom}>
       <ListItem
         mt="$1.5"
         title={wallet?.name}

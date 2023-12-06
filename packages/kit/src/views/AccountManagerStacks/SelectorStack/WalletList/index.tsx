@@ -9,6 +9,7 @@ import {
   Text,
   XStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -36,6 +37,7 @@ export function WalletList({
 }: IWalletListProps) {
   const media = useMedia();
 
+  const { bottom } = useSafeAreaInsets();
   return (
     <Stack
       $gtMd={{
@@ -113,14 +115,16 @@ export function WalletList({
       />
       {/* Others */}
       {othersWallet && (
-        <WalletListItem
-          walletName={othersWallet.name}
-          selected={othersWallet.id === selectedWalletId}
-          onPress={() => onWalletPress && onWalletPress(othersWallet.id)}
-          walletAvatarProps={{
-            img: othersWallet.img,
-          }}
-        />
+        <Stack pb={bottom}>
+          <WalletListItem
+            walletName={othersWallet.name}
+            selected={othersWallet.id === selectedWalletId}
+            onPress={() => onWalletPress && onWalletPress(othersWallet.id)}
+            walletAvatarProps={{
+              img: othersWallet.img,
+            }}
+          />
+        </Stack>
       )}
     </Stack>
   );

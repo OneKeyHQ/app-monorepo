@@ -1,10 +1,14 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence } from 'tamagui';
+
+import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { View } from '../../optimization';
 import { Spinner, Stack } from '../../primitives';
+import { IBasicPageProps } from './type';
 
 function Loading() {
   return (
@@ -54,12 +58,18 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
 
 export function BasicPage({
   children,
+  enableSafeArea,
   skipLoading = false,
-}: PropsWithChildren<unknown> & {
-  skipLoading?: boolean;
-}) {
+}: IBasicPageProps) {
+  const insets = useSafeAreaInsets();
+  const styles =
+    enableSafeArea && PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad
+      ? {
+          paddingBottom: insets.bottom,
+        }
+      : {};
   return (
-    <Stack bg="$bgApp" flex={1}>
+    <Stack bg="$bgApp" flex={1} {...styles}>
       {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
     </Stack>
   );
