@@ -32,10 +32,9 @@ const composeEventHandlers =
   (prev: (value: unknown) => unknown, next: (value: unknown) => unknown) =>
   (value: unknown) => {
     const result = prev(value);
-    if ((result as { defaultPrevented?: boolean })?.defaultPrevented) {
-      return;
-    }
-    return next(result);
+    return (result as { defaultPrevented?: boolean })?.defaultPrevented
+      ? result
+      : next(result);
   };
 
 const getChildProps = (
