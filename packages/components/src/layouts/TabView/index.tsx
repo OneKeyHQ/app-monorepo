@@ -25,31 +25,37 @@ export interface ITabProps extends IScrollViewProps {
   data: { title: string; page: IPageType }[];
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
-  headerProps?: IHeaderProps;
+  headerProps?: Omit<IHeaderProps, 'data'>;
 }
 
-const TabComponent = ({
-  data,
-  initialScrollIndex,
-  ListHeaderComponent,
-  headerProps,
-  ...props
-}: ITabProps) => {
+const TabComponent = (
+  {
+    data,
+    initialScrollIndex,
+    ListHeaderComponent,
+    headerProps,
+    ...props
+  }: ITabProps,
+  // fix missing forwardRef warnings.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _: any,
+) => {
   const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
+  const dataCount = useMemo(() => data.length, [data]);
   const stickyConfig = useMemo(
     () => ({
       lastIndex: -1,
       scrollViewHeight: 0,
       headerViewY: 0,
       headerViewHeight: 0,
-      data: data.map(() => ({
+      data: new Array(dataCount).fill({}).map(() => ({
         contentHeight: 0,
         contentOffsetY: 0,
       })),
     }),
-    [data],
+    [dataCount],
   );
   const reloadContentHeight = useCallback(
     (index: number) => {
@@ -68,13 +74,10 @@ const TabComponent = ({
           height,
         });
       } else {
-        if (height === contentHeight) {
-          return;
-        }
         setContentHeight(height);
       }
     },
-    [stickyConfig, pageContainerRef, contentHeight],
+    [stickyConfig, pageContainerRef],
   );
   const pageManagerProps = useMemo(
     () => ({
@@ -131,6 +134,7 @@ const TabComponent = ({
       index: number;
     }) => (
       <item.page
+        // eslint-disable-next-line @typescript-eslint/no-shadow
         onContentSizeChange={(_: number, height: number) => {
           stickyConfig.data[index].contentHeight = height;
           if (index === pageManager.pageIndex) {
@@ -148,7 +152,6 @@ const TabComponent = ({
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
       }}
-      stickyHeaderIndices={[1]}
       scrollEventThrottle={16}
       onScroll={(event) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

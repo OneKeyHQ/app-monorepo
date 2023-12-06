@@ -11,10 +11,7 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
   const localeVariant = useLocaleVariant();
 
   return (
-    <ConfigProvider
-      themeVariant={themeVariant as any}
-      locale={localeVariant as any}
-    >
+    <ConfigProvider theme={themeVariant as any} locale={localeVariant as any}>
       {children}
     </ConfigProvider>
   );

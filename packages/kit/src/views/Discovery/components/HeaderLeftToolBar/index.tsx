@@ -1,6 +1,11 @@
-import { useMedia } from 'tamagui';
-
-import { Icon, Input, Stack, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  Stack,
+  Text,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,

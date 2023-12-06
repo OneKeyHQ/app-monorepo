@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
-interface IFreezeWrapperProps {
+export interface IFreezeWrapperProps {
   freeze: boolean | undefined;
   children: ReactNode;
   placeholder?: ReactNode;
