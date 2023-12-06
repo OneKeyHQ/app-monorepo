@@ -119,8 +119,6 @@ function BaseSortableSectionList(
     renderSectionFooter,
   ]);
 
-  console.log('22222', reloadStickyHeaderIndices);
-
   return (
     <NestableScrollContainer
       ref={ref}
