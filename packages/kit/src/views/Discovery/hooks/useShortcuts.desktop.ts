@@ -5,7 +5,7 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
