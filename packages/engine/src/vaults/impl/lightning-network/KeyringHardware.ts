@@ -22,6 +22,7 @@ import { getBtcProvider } from './helper/account';
 
 import type {
   IPrepareHardwareAccountsParams,
+  ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
@@ -29,6 +30,10 @@ import type { IEncodedTxLightning, ILightningHWSIgnatureParams } from './types';
 import type LightningVault from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
+  private getBtcCoinName(isTestnet: boolean) {
+    return isTestnet ? 'TEST' : 'BTC';
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBVariantAccount[]> {
@@ -49,7 +54,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const passphraseState = await this.getWalletPassphraseState();
       const HardwareSDK = await this.getHardwareSDKInstance();
       const { pathPrefix } = slicePathTemplate(template);
-      const coinName = network.isTestnet ? 'TEST' : 'BTC';
+      const coinName = this.getBtcCoinName(isTestnet);
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
           path: `${pathPrefix}/${index}'`,
@@ -174,12 +179,37 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
+  override async signMessage(messages: any[]): Promise<string[]> {
+    debugLogger.common.info('LightningNetwork signMessage', messages);
+    const network = await this.vault.getNetwork();
+    const coinName = this.getBtcCoinName(network.isTestnet);
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      messages.map(async ({ message }) => {
+        const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
+          ...passphraseState,
+          path: `${dbAccount.addresses.realPath}/0/0`,
+          coin: coinName,
+          messageHex: Buffer.from(message).toString('hex'),
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return { message, signature: response.payload.signature };
+      }),
+    );
+    return result.map((ret) => JSON.stringify(ret));
+  }
+
   async signature({
     msgPayload,
     path,
     isTestnet,
   }: ILightningHWSIgnatureParams) {
-    const coinName = isTestnet ? 'TEST' : 'BTC';
+    const coinName = this.getBtcCoinName(isTestnet);
     const { connectId, deviceId } = await this.getHardwareInfo();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const passphraseState = await this.getWalletPassphraseState();
