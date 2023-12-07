@@ -8,11 +8,11 @@ import { Page } from '@onekeyhq/components';
 
 import { AddressInput } from '../../../../components/AddressInput';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import { SendAssets } from '../../components/SendAssets';
-import { EModalSendRoutes } from '../../types';
+import { EModalSendRoutes } from '../../router';
 
-import type { IModalSendParamList } from '../../types';
+import type { IModalSendParamList } from '../../router';
 
 function SendAddressInputContainer() {
   const intl = useIntl();

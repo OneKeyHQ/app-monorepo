@@ -3,11 +3,11 @@ import { useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Root/Modal/Routes';
-import { EModalSendRoutes } from '../../Send/types';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
-import type { IModalSendParamList } from '../../Send/types';
+import type { IModalSendParamList } from '../../Send/router';
 
 function WalletActionsContainer() {
   const navigation =

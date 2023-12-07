@@ -3,27 +3,19 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  Button,
-  Page,
-  ScrollView,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, ScrollView, Stack, YStack } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import { InteractInfo } from '../../components/interactInfo';
 import { SendActions } from '../../components/SendActions';
 import { SingerInfo } from '../../components/SingerInfo';
-import { EModalSendRoutes } from '../../types';
+import { EModalSendRoutes } from '../../router';
 
-import { TxActionsContainer } from './TxActionsContainer';
 import { TxFeeContainer } from './TxFeeContainer';
 
-import type { IModalSendParamList } from '../../types';
+import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {

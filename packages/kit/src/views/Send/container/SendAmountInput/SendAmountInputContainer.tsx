@@ -7,10 +7,10 @@ import { Input, Page } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Root/Modal/Routes';
-import { EModalSendRoutes } from '../../types';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EModalSendRoutes } from '../../router';
 
-import type { IModalSendParamList } from '../../types';
+import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendAmountInputContainer() {
