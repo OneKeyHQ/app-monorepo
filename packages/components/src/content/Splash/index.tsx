@@ -24,10 +24,11 @@ export function Splash({ onReady, children }: ISplashProps) {
       setTimeout(() => {
         handleCheck();
       }, 10);
+    } else {
+      setTimeout(() => {
+        changeLoadingVisibility(false);
+      });
     }
-    setTimeout(() => {
-      changeLoadingVisibility(false);
-    });
   }, []);
 
   const handleChildrenLayout = useCallback(
