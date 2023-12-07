@@ -12,7 +12,7 @@ import {
 } from 'tamagui';
 
 import { Avatar, Divider } from '../../content';
-import { Icon, Stack, Text } from '../../primitives';
+import { Icon, Image, Stack, Text } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
@@ -88,6 +88,7 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
     ...rest
   } = props;
 
+  const isLocalImage = typeof src === 'number';
   return (
     <Stack>
       <Avatar
@@ -98,8 +99,14 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...rest}
       >
-        <Avatar.Image src={src} />
-        <Avatar.Fallback {...fallbackProps} />
+        {isLocalImage ? (
+          <Image source={src} resizeMode="center" />
+        ) : (
+          <>
+            <Avatar.Image src={src} />
+            <Avatar.Fallback {...fallbackProps} />
+          </>
+        )}
       </Avatar>
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
