@@ -36,7 +36,6 @@ export function WalletList({
   selectedWalletId,
 }: IWalletListProps) {
   const media = useMedia();
-
   const { bottom } = useSafeAreaInsets();
   return (
     <Stack
@@ -60,6 +59,7 @@ export function WalletList({
       <ListView
         estimatedItemSize="$10"
         data={primaryWallets}
+        extraData={selectedWalletId}
         renderItem={({ item }: { item: IWalletProps }) => (
           <WalletListItem
             key={item.id}

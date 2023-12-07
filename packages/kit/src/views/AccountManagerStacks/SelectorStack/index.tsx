@@ -8,6 +8,8 @@ import { type IAccountProps, type IWalletProps } from '../types';
 import { WalletDetails } from './WalletDetails';
 import { WalletList } from './WalletList';
 
+const mergedWallets = [...MockPrimaryWallets, MockOthersWallet];
+
 export function SelectorStack() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState(
@@ -30,8 +32,6 @@ export function SelectorStack() {
     },
     [setSelectedAccountId],
   );
-
-  const mergedWallets = [...MockPrimaryWallets, MockOthersWallet];
 
   const activeWallet = mergedWallets.find(
     (wallet) => wallet.id === selectedWalletId,

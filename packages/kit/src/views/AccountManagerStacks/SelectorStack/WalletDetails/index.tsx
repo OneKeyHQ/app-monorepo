@@ -58,6 +58,7 @@ export function WalletDetails({
       </ListItem>
       <SectionList
         pb="$3"
+        extraData={selectedAccountId}
         estimatedItemSize="$14"
         {...(wallet?.type !== 'others' && {
           ListHeaderComponent: (
