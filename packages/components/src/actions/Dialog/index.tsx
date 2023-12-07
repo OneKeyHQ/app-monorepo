@@ -17,6 +17,8 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SheetGrabber } from '../../content';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
@@ -221,6 +223,12 @@ function DialogFrame({
           backgroundColor="$bgBackdrop"
           onPress={handleBackdropPress}
         />
+        {
+          /* fix missing title warnings in html dialog element on Web */
+          platformEnv.isRuntimeBrowser ? (
+            <TMDialog.Title display="none">{title}</TMDialog.Title>
+          ) : null
+        }
         <TMDialog.Content
           elevate
           key="content"

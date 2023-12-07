@@ -72,12 +72,12 @@ export function Content({
   }, []);
 
   useEffect(() => {
-    if (platformEnv.isDev || isOptimization) {
+    if ((platformEnv.isDev || isOptimization) && children) {
       setTimeout(() => {
         checkMeasureY();
       }, 10);
     }
-  }, [checkMeasureY, isOptimization]);
+  }, [checkMeasureY, children, isOptimization]);
 
   if (!children) {
     return null;
