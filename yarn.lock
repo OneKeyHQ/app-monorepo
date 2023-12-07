@@ -5904,7 +5904,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:^1.7.1":
+"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:^1.7.1":
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: d2301f1f7690368d8409a3152450458f27e54df47e3f917292de3de82c298770890c2de7c967d237eff9c95b70af485389a9695f73eb05a43e2bd562d18b18cb
@@ -6519,6 +6519,10 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": 1.1.48
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
+    "@stacks/blockchain-api-client": ^7.3.4
+    "@stacks/encryption": ^6.10.0
+    "@stacks/network": ^6.10.0
+    "@stacks/transactions": ^6.10.0
     "@starcoin/starcoin": 2.1.5
     "@types/babel__preset-env": ^7
     "@types/chrome": ^0.0.161
@@ -9662,6 +9666,79 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@stacks/blockchain-api-client@npm:^7.3.4":
+  version: 7.3.4
+  resolution: "@stacks/blockchain-api-client@npm:7.3.4"
+  dependencies:
+    "@stacks/stacks-blockchain-api-types": "*"
+    "@types/ws": 7.4.7
+    cross-fetch: 3.1.5
+    eventemitter3: 4.0.7
+    jsonrpc-lite: 2.2.0
+    socket.io-client: 4.6.1
+    ws: 7.5.6
+  checksum: 6d2db64c48b46129862981b9f3d2e359d92d4c5f01416255999eeb514cd0dc267f12afc036a227dc6c686bfb3e30ed1bd00e10714ff21996bf972a61271c78ea
+  languageName: node
+  linkType: hard
+
+"@stacks/common@npm:^6.10.0":
+  version: 6.10.0
+  resolution: "@stacks/common@npm:6.10.0"
+  dependencies:
+    "@types/bn.js": ^5.1.0
+    "@types/node": ^18.0.4
+  checksum: fc83a26b1f3857b7e19eaf5e0db67584a47ca5432a50958b4dacbcc4e9850249cb088b4d448f636a45f772a3407c064fa6982dbc63a39479bf1270ba76b97780
+  languageName: node
+  linkType: hard
+
+"@stacks/encryption@npm:^6.10.0":
+  version: 6.10.0
+  resolution: "@stacks/encryption@npm:6.10.0"
+  dependencies:
+    "@noble/hashes": 1.1.5
+    "@noble/secp256k1": 1.7.1
+    "@scure/bip39": 1.1.0
+    "@stacks/common": ^6.10.0
+    "@types/node": ^18.0.4
+    base64-js: ^1.5.1
+    bs58: ^5.0.0
+    ripemd160-min: ^0.0.6
+    varuint-bitcoin: ^1.1.2
+  checksum: 1b71fede9fa32d60280204486f7a76dd8d215ae11eef4040bc06bedc4ff6c9251917056e2d411a9b9a3066d98a3bcf3e222dab45ad1330bcac95b40308a778c0
+  languageName: node
+  linkType: hard
+
+"@stacks/network@npm:^6.10.0":
+  version: 6.10.0
+  resolution: "@stacks/network@npm:6.10.0"
+  dependencies:
+    "@stacks/common": ^6.10.0
+    cross-fetch: ^3.1.5
+  checksum: 960fa88a66fad36c3502d86db603dd429e9f004a8e35cf02daf10adf6cac553c2f97c3aa70113c0b0639b8be602b851a243e4aa37f8a145c75543467a580cd28
+  languageName: node
+  linkType: hard
+
+"@stacks/stacks-blockchain-api-types@npm:*":
+  version: 7.3.4
+  resolution: "@stacks/stacks-blockchain-api-types@npm:7.3.4"
+  checksum: 3eab8092d83e096061e4f6099b81f7e52b95b9a70839d7d4084472ecca8298d1e0c245baed88f5ae0e1091e4a553e0628a841a3673f5a89c34fcfd1873d403c2
+  languageName: node
+  linkType: hard
+
+"@stacks/transactions@npm:^6.10.0":
+  version: 6.10.0
+  resolution: "@stacks/transactions@npm:6.10.0"
+  dependencies:
+    "@noble/hashes": 1.1.5
+    "@noble/secp256k1": 1.7.1
+    "@stacks/common": ^6.10.0
+    "@stacks/network": ^6.10.0
+    c32check: ^2.0.0
+    lodash.clonedeep: ^4.5.0
+  checksum: f1e69afa2aeda8d3f294a14a76a1a3fc9d2506a5357dcbeb07f2f28c331d98396c3d43899380d8399a19e59a613855af25731f79e836a03781069d5776322f39
+  languageName: node
+  linkType: hard
+
 "@starcoin/starcoin@npm:2.1.5":
   version: 2.1.5
   resolution: "@starcoin/starcoin@npm:2.1.5"
@@ -10412,6 +10489,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^18.0.4":
+  version: 18.19.3
+  resolution: "@types/node@npm:18.19.3"
+  dependencies:
+    undici-types: ~5.26.4
+  checksum: 58c4fa45a78fcec75c78182a4b266395905957633654eb0311c5f9c30ac15c179ea2287ab1af034e46c2db7bb0589ef0000ee64c1de8f568a0aad29eaadb100c
+  languageName: node
+  linkType: hard
+
 "@types/parse-json@npm:^4.0.0":
   version: 4.0.0
   resolution: "@types/parse-json@npm:4.0.0"
@@ -10684,7 +10770,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:^7.4.4":
+"@types/ws@npm:7.4.7, @types/ws@npm:^7.4.4":
   version: 7.4.7
   resolution: "@types/ws@npm:7.4.7"
   dependencies:
@@ -14560,6 +14646,16 @@ __metadata:
   version: 3.1.2
   resolution: "bytes@npm:3.1.2"
   checksum: e4bcd3948d289c5127591fbedf10c0b639ccbf00243504e4e127374a15c3bc8eed0d28d4aaab08ff6f1cf2abc0cce6ba3085ed32f4f90e82a5683ce0014e1b6e
+  languageName: node
+  linkType: hard
+
+"c32check@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "c32check@npm:2.0.0"
+  dependencies:
+    "@noble/hashes": ^1.1.2
+    base-x: ^4.0.0
+  checksum: af555f5d5cb14780936ea2f055d0013f57046200483c53b992e64ce8b2ef7041f66cd81e873b2a2f5bb5e863033a9f4c3877e254e8d6db9a9a55cd9d1c61d9b2
   languageName: node
   linkType: hard
 
@@ -24474,6 +24570,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jsonrpc-lite@npm:2.2.0":
+  version: 2.2.0
+  resolution: "jsonrpc-lite@npm:2.2.0"
+  checksum: 3062101d3c93401d176c1c24b90e0feebdd063546f8ed89c299531dd792c4d37c6766666d160efb83b94f17f7e2deed4346cdd9124b99581ed4620779e8733bb
+  languageName: node
+  linkType: hard
+
 "jsonschema@npm:^1.4.1":
   version: 1.4.1
   resolution: "jsonschema@npm:1.4.1"
@@ -31433,7 +31536,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ripemd160-min@npm:0.0.6":
+"ripemd160-min@npm:0.0.6, ripemd160-min@npm:^0.0.6":
   version: 0.0.6
   resolution: "ripemd160-min@npm:0.0.6"
   checksum: 3253fec273aee407e736df0baf69f90c65f56573d6fc537532041112e7c09a2f665ee2e618ef4a88eb494923d36614322eac26ddf35a504fcfedb422fd414c75
@@ -34618,6 +34721,13 @@ __metadata:
     has-symbols: ^1.0.3
     which-boxed-primitive: ^1.0.2
   checksum: b7a1cf5862b5e4b5deb091672ffa579aa274f648410009c81cca63fed3b62b610c4f3b773f912ce545bb4e31edc3138975b5bc777fc6e4817dca51affb6380e9
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~5.26.4":
+  version: 5.26.5
+  resolution: "undici-types@npm:5.26.5"
+  checksum: 3192ef6f3fd5df652f2dc1cd782b49d6ff14dc98e5dced492aa8a8c65425227da5da6aafe22523c67f035a272c599bb89cfe803c1db6311e44bed3042fc25487
   languageName: node
   linkType: hard
 

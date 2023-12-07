@@ -58,6 +58,7 @@ import {
 
 import type { DBAccountDerivation } from '../types/accountDerivation';
 import type { Wallet } from '../types/wallet';
+import { COINTYPE_STACKS } from '../../../shared/src/engine/engineConsts';
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
@@ -103,6 +104,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_LTC]: `m/${PURPOSE_TAG}'/${COINTYPE_LTC}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_BCH]: `m/44'/${COINTYPE_BCH}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_NEXA]: `m/44'/${COINTYPE_NEXA}'/${INCREMENT_LEVEL_TAG}'`,
+  [COINTYPE_STACKS]: `m/44'/${COINTYPE_STACKS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_XRP]: `m/44'/${COINTYPE_XRP}'/${INCREMENT_LEVEL_TAG}'/0/0`,
   [COINTYPE_COSMOS]: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_ADA]: `m/1852'/${COINTYPE_ADA}'/${INCREMENT_LEVEL_TAG}'`,

@@ -19,6 +19,7 @@ import {
   IMPL_NEAR,
   IMPL_NEXA,
   IMPL_SOL,
+  IMPL_STACKS,
   IMPL_STC,
   IMPL_SUI,
   IMPL_TBTC,
@@ -54,6 +55,7 @@ import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VaultHelperNexa from './impl/nexa/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
+import VaultHelperStacks from './impl/stacks/VaultHelper';
 import VaultHelperStc from './impl/stc/VaultHelper';
 import VaultHelperSui from './impl/sui/VaultHelper';
 import VaultHelperTbtc from './impl/tbtc/VaultHelper';
@@ -135,6 +137,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_NEXA) {
     return new VaultHelperNexa(options);
+  }
+  if (impl === IMPL_STACKS) {
+    return new VaultHelperStacks(options);
   }
   if (impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET) {
     return new VaultHelperLightning(options);
@@ -270,6 +275,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_NEXA) {
     const VaultNexa = (await import('./impl/nexa/Vault')).default;
     vault = new VaultNexa(options);
+  }
+  if (network.impl === IMPL_STACKS) {
+    const VaultStacks = (await import('./impl/stacks/Vault')).default;
+    vault = new VaultStacks(options);
   }
   if (
     network.impl === IMPL_LIGHTNING ||
