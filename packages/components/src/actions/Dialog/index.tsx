@@ -56,6 +56,7 @@ function DialogFrame({
   dismissOnOverlayPress = true,
   sheetProps,
   contextValue,
+  disableDrag = false,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
@@ -178,6 +179,7 @@ function DialogFrame({
       <>
         <Trigger onPress={onOpen}>{renderTrigger}</Trigger>
         <Sheet
+          disableDrag={disableDrag}
           open={open}
           position={position}
           onPositionChange={setPosition}

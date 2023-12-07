@@ -38,6 +38,7 @@ export interface IDialogProps extends TMDialogProps {
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   contextValue?: IDialogContextType;
+  disableDrag?: boolean;
 }
 
 export interface IDialogInstanceRef {
