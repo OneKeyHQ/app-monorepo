@@ -1,5 +1,3 @@
-import { Checkbox, Dialog } from '@onekeyhq/components';
-
 import { useWalletActions } from './hooks';
 import { WalletOptionItem } from './WalletOptionItem';
 
