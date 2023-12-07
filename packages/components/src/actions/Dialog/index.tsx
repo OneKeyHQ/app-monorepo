@@ -57,6 +57,7 @@ function DialogFrame({
   sheetProps,
   contextValue,
   disableDrag = false,
+  testID,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
@@ -128,6 +129,7 @@ function DialogFrame({
       />
 
       <Content
+        testID={testID}
         estimatedContentHeight={estimatedContentHeight}
         logContentHeight={logContentHeight}
       >

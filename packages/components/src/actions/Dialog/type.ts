@@ -13,6 +13,7 @@ export type IDialogContextType = {
 export interface IDialogContentProps extends PropsWithChildren {
   estimatedContentHeight?: number;
   logContentHeight?: boolean;
+  testID?: string;
 }
 
 export interface IDialogProps extends TMDialogProps {
@@ -39,6 +40,7 @@ export interface IDialogProps extends TMDialogProps {
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
+  testID?: string;
 }
 
 export interface IDialogInstanceRef {

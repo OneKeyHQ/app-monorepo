@@ -14,7 +14,7 @@ const MAX_ANIMATION_DURATION = 550;
 export function Content({
   children,
   estimatedContentHeight,
-  logContentHeight,
+  testID,
 }: IDialogContentProps) {
   const isOptimization = !!estimatedContentHeight;
   const [showLoading, changeLoadingVisibility] = useState(isOptimization);
@@ -25,11 +25,15 @@ export function Content({
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const { height } = e.nativeEvent.layout;
-      if (platformEnv.isDev && logContentHeight) {
-        console.log('Dialog Content Height', e.nativeEvent.layout, height);
+      if (platformEnv.isDev) {
+        console.log(
+          `Dialog ${testID || ''} Content Height`,
+          e.nativeEvent.layout,
+          height,
+        );
       }
     },
-    [logContentHeight],
+    [testID],
   );
 
   const checkMeasureY = useCallback(() => {
