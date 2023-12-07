@@ -140,7 +140,7 @@ export default class Vault extends VaultBase {
         engine: this.engine,
         path: dbAccount.addresses.realPath,
         password: password ?? '',
-        entropy,
+        entropy: entropy as Buffer,
         isTestnet: network.isTestnet,
       });
       return await client.refreshAccessToken({

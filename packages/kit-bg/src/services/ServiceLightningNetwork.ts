@@ -30,6 +30,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -345,6 +346,9 @@ export default class ServiceLightningNetwork extends ServiceBase {
   }) {
     if (lnurlDetail.tag !== 'login') {
       throw new Error('lnurl-auth: invalid tag');
+    }
+    if (isHardwareWallet({ walletId })) {
+      throw new Error('lnurl-auth: hardware wallet is not supported');
     }
     const { entropy } = (await this.backgroundApi.engine.dbApi.getCredential(
       walletId,
