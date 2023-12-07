@@ -2,6 +2,7 @@ import { type PropsWithChildren, useCallback, useRef, useState } from 'react';
 
 import { AnimatePresence, Stack } from 'tamagui';
 
+import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -43,11 +44,9 @@ export function Splash({ onReady, children }: ISplashProps) {
 
   return (
     <Stack flex={1}>
-      {showChildren ? (
-        <Stack flex={1} onLayout={handleChildrenLayout}>
-          {children}
-        </Stack>
-      ) : null}
+      <ChildrenContent onLayout={handleChildrenLayout} visible={showChildren}>
+        {children}
+      </ChildrenContent>
       <AnimatePresence>
         {showLoading && (
           <Stack
