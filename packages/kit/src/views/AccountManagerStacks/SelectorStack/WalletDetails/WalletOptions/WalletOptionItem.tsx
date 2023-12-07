@@ -29,7 +29,7 @@ export function WalletOptionItem({
         primary={label}
         flex={1}
         primaryTextProps={{
-          color: labelColor,
+          color: labelColor || '$text',
         }}
       />
       {children}
