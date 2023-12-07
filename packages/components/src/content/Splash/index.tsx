@@ -32,7 +32,6 @@ export function Splash({ onReady, children }: ISplashProps) {
 
   const handleChildrenLayout = useCallback(
     (e: LayoutChangeEvent) => {
-      console.log('handleChildrenLayout', e.nativeEvent.layout);
       const { height } = e.nativeEvent.layout;
       if (height) {
         handleCheck();
