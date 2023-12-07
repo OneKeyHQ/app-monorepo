@@ -1,5 +1,6 @@
 import { Checkbox, Dialog } from '@onekeyhq/components';
 
+import { useWalletActions } from './hooks';
 import { WalletOptionItem } from './WalletOptionItem';
 
 import type { IWalletDetailsProps } from '..';
@@ -23,22 +24,18 @@ export function RemoveWallet({ wallet }: IWalletDetailsProps) {
 
   const { title, description } = getTitleAndDescription();
 
+  const { remove } = useWalletActions();
   return (
     <WalletOptionItem
       icon="DeleteOutline"
       label="Remove"
-      onPress={() =>
-        Dialog.confirm({
-          icon: 'ErrorOutline',
-          tone: 'destructive',
+      onPress={async () => {
+        await remove({
+          checked: false,
           title,
           description,
-          renderContent:
-            wallet?.type !== 'hw' ? (
-              <Checkbox label="I've written down the recovery phrase" />
-            ) : undefined,
-        })
-      }
+        });
+      }}
     />
   );
 }
