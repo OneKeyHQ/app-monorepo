@@ -17,6 +17,7 @@ interface IActionListItemProps {
   destructive?: boolean;
   onPress?: () => void | Promise<boolean | void>;
   disabled?: boolean;
+  testID?: string;
 }
 
 function ActionListItem({
@@ -26,6 +27,7 @@ function ActionListItem({
   destructive,
   disabled,
   onClose,
+  testID,
 }: IActionListItemProps & {
   onClose?: () => void;
 }) {
@@ -60,6 +62,7 @@ function ActionListItem({
         // },
       })}
       onPress={handlePress}
+      testID={testID}
     >
       {icon && (
         <Icon
