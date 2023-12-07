@@ -58,7 +58,7 @@ export function WalletDetails({
       </ListItem>
       <SectionList
         pb="$3"
-        extraData={selectedAccountId}
+        extraData={[selectedAccountId, remember]}
         estimatedItemSize="$14"
         {...(wallet?.type !== 'others' && {
           ListHeaderComponent: (
@@ -68,6 +68,8 @@ export function WalletDetails({
         sections={wallet?.accounts || []}
         renderSectionHeader={({ section }: { section: IAccountGroupProps }) => (
           <>
+            {/* If better performance is needed,  */
+            /*  a header component should be extracted and data updates should be subscribed to through context" */}
             {section.title && (
               <SectionList.SectionHeader title={section.title}>
                 {section.isHiddenWalletData && editMode && (
