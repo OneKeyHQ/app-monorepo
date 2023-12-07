@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-import { SortableSectionList, Stack, Text } from '@onekeyhq/components';
+import { Pressable } from 'react-native';
+
+import { SortableSectionList, Text } from '@onekeyhq/components';
 
 import { mapIndexToData } from './SortableListView';
 import { Layout } from './utils/Layout';
@@ -23,27 +25,38 @@ const SortableSectionListGallery = () => {
               sections={sections}
               keyExtractor={(item: { index: number }) => `${item?.index}`}
               renderSectionHeader={({ index }) => (
-                <SortableSectionList.SectionHeader title={`Section ${index}`} />
+                <SortableSectionList.SectionHeader
+                  px={0}
+                  title={`Section ${index}`}
+                />
               )}
               renderItem={({
                 item,
                 drag,
+                isActive,
               }: {
                 item: { index: number; backgroundColor: string };
                 drag: () => void;
+                isActive: boolean;
               }) => (
-                <SortableSectionList.ScaleDecorator activeScale={0.9}>
-                  <Stack
-                    onLongPress={drag}
-                    bg={item.backgroundColor}
-                    w="100%"
-                    h={100}
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Text color="white">{item.index}</Text>
-                  </Stack>
-                </SortableSectionList.ScaleDecorator>
+                // Don't use `Stack.onLongPress` as it will only be called after `onPressOut`
+                <SortableSectionList.ShadowDecorator>
+                  <SortableSectionList.ScaleDecorator activeScale={0.9}>
+                    <Pressable
+                      onLongPress={drag}
+                      disabled={isActive}
+                      style={{
+                        backgroundColor: item.backgroundColor,
+                        width: '100%',
+                        height: 100,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text color="white">{item.index}</Text>
+                    </Pressable>
+                  </SortableSectionList.ScaleDecorator>
+                </SortableSectionList.ShadowDecorator>
               )}
               onDragEnd={(result) => setSections(result.sections)}
             />

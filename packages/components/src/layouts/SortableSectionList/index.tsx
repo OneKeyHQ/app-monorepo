@@ -13,6 +13,8 @@ import {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';
 
@@ -152,6 +154,8 @@ function BaseSortableSectionList(
                 isActive,
               })
             }
+            scrollEnabled={platformEnv.isWebTouchable}
+            disableScrollViewPanResponder
           />
           {renderSectionFooter?.({
             section,

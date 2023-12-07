@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-import { SortableListView, Stack, Text } from '@onekeyhq/components';
+import { Pressable } from 'react-native';
+
+import { SortableListView, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -30,19 +32,25 @@ const SortableListViewGallery = () => {
               h={400}
               data={data}
               keyExtractor={(item) => `${item.index}`}
-              renderItem={({ item, drag }) => (
-                <SortableListView.ScaleDecorator activeScale={0.9}>
-                  <Stack
-                    onLongPress={drag}
-                    bg={item.backgroundColor}
-                    w="100%"
-                    h={100}
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Text color="white">{item.index}</Text>
-                  </Stack>
-                </SortableListView.ScaleDecorator>
+              renderItem={({ item, drag, isActive }) => (
+                // Don't use `Stack.onLongPress` as it will only be called after `onPressOut`
+                <SortableListView.ShadowDecorator>
+                  <SortableListView.ScaleDecorator activeScale={0.9}>
+                    <Pressable
+                      onLongPress={drag}
+                      disabled={isActive}
+                      style={{
+                        backgroundColor: item.backgroundColor,
+                        width: '100%',
+                        height: 100,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text color="white">{item.index}</Text>
+                    </Pressable>
+                  </SortableListView.ScaleDecorator>
+                </SortableListView.ShadowDecorator>
               )}
               onDragEnd={(result) => setData(result.data)}
             />
