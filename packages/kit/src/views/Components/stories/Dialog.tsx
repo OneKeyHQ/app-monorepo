@@ -332,7 +332,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'ScrollView Demo(Not Recommand, use Modal Page instead it)',
+        title: 'ScrollView Demo(not recommand, use Modal Page instead it))',
         element: (
           <YStack>
             <Button
