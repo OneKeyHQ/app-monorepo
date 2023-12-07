@@ -4,20 +4,23 @@ import type {
   IPageScreenProps,
 } from '@onekeyhq/components/src/layouts/Navigation';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../Routes';
 
-import { ETabHomeRoutes } from './Routes';
-
-import type { ITabHomeParamList } from './Routes';
-
-const TabHomeStack1 = (
-  props: IPageScreenProps<ITabHomeParamList, ETabHomeRoutes.TabHomeStack1>,
+const DevHomeStack1 = (
+  props: IPageScreenProps<
+    ITabDeveloperParamList,
+    ETabDeveloperRoutes.DevHomeStack1
+  >,
 ) => {
   const { route } = props;
   console.log(route.params.a, route.params.b);
   const navigation =
     useAppNavigation<
-      IPageNavigationProp<ITabHomeParamList, ETabHomeRoutes.TabHomeStack1>
+      IPageNavigationProp<
+        ITabDeveloperParamList,
+        ETabDeveloperRoutes.DevHomeStack1
+      >
     >();
   return (
     <Page>
@@ -31,7 +34,7 @@ const TabHomeStack1 = (
         </Button>
         <Button
           onPress={() => {
-            navigation.push(ETabHomeRoutes.TabHomeStack2);
+            navigation.push(ETabDeveloperRoutes.DevHomeStack2);
           }}
         >
           下一页
@@ -41,4 +44,4 @@ const TabHomeStack1 = (
   );
 };
 
-export default TabHomeStack1;
+export default DevHomeStack1;

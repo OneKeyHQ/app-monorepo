@@ -88,6 +88,16 @@ const TabDeveloper = () => {
             </Button>
           </PartContainer>
 
+          <PartContainer title="Debug Router & Tabs & List">
+            <Button
+              onPress={() => {
+                navigation.push(ETabDeveloperRoutes.DevHome);
+              }}
+            >
+              DevHome Page
+            </Button>
+          </PartContainer>
+
           <PartContainer title="Debug Tools">
             <Button
               onPress={() => {

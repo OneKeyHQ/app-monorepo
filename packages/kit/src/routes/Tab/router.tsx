@@ -15,11 +15,12 @@ import Swap from '../../views/Swap';
 import HomePage from '../../views/Tab/Home/HomePageTabs';
 
 import { galleryScreenList } from './Developer/Gallery';
+import DevHome from './Developer/Gallery/DevHome';
+import DevHomeStack1 from './Developer/Gallery/DevHomeStack1';
+import DevHomeStack2 from './Developer/Gallery/DevHomeStack2';
 import { ETabDeveloperRoutes } from './Developer/Routes';
 import { ETabDiscoveryRoutes } from './Discovery/Routes';
 import { ETabHomeRoutes } from './Home/Routes';
-import TabHomeStack1 from './Home/TabHomeStack1';
-import TabHomeStack2 from './Home/TabHomeStack2';
 import { ETabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
 import { EMultiTabBrowserRoutes } from './MultiTabBrowser/Routes';
@@ -77,16 +78,6 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
         component: HomePage,
         translationId: 'wallet__wallet',
       },
-      {
-        name: ETabHomeRoutes.TabHomeStack1,
-        component: TabHomeStack1,
-        translationId: 'wallet__wallet',
-      },
-      {
-        name: ETabHomeRoutes.TabHomeStack2,
-        component: TabHomeStack2,
-        translationId: 'wallet__wallet',
-      },
     ],
   },
   {
@@ -142,6 +133,21 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
         rewrite: '/',
       },
       ...galleryScreenList,
+      {
+        name: ETabDeveloperRoutes.DevHome,
+        component: DevHome,
+        translationId: 'wallet__wallet',
+      },
+      {
+        name: ETabDeveloperRoutes.DevHomeStack1,
+        component: DevHomeStack1,
+        translationId: 'wallet__wallet',
+      },
+      {
+        name: ETabDeveloperRoutes.DevHomeStack2,
+        component: DevHomeStack2,
+        translationId: 'wallet__wallet',
+      },
     ],
   },
   platformEnv.isDesktop ? discoverRouterConfig : undefined,
