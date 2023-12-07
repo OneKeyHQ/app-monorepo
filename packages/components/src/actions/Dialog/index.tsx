@@ -200,6 +200,7 @@ function DialogFrame({
           />
           <Sheet.Frame
             unstyled
+            testID={testID}
             borderTopLeftRadius="$6"
             borderTopRightRadius="$6"
             bg="$bg"
@@ -236,6 +237,7 @@ function DialogFrame({
         <TMDialog.Content
           elevate
           key="content"
+          testID={testID}
           animateOnly={['transform', 'opacity']}
           animation={[
             'quick',

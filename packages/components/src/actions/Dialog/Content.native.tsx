@@ -27,9 +27,7 @@ export function Content({
       const { height } = e.nativeEvent.layout;
       if (platformEnv.isDev) {
         console.log(
-          `Dialog ${testID || ''} Content Height`,
-          e.nativeEvent.layout,
-          height,
+          `testID: ${testID || 'unnamed'}, Dialog content Height is ${height}.`,
         );
       }
     },
