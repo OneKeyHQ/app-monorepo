@@ -18,7 +18,6 @@ export type ISkeletonProps = Omit<
   StackStyleProps;
 
 function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
-  console.log('ref--', ref);
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });

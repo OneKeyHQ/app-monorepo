@@ -67,7 +67,6 @@ export function ConfigProvider({
   );
 
   useAppearanceTheme(theme);
-  console.log('useAppearanceTheme', providerValue);
   return (
     <AppIntlProvider
       locale={locale}
