@@ -60,7 +60,7 @@ export function WalletProfile({
   return (
     <ListItem
       avatarProps={{
-        src: wallet?.img ? WalletAvatarImages[wallet?.img] : undefined,
+        source: wallet?.img ? WalletAvatarImages[wallet?.img] : undefined,
         cornerIconProps: {
           name: 'MenuCircleHorSolid',
           containerProps: {

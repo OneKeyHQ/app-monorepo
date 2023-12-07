@@ -16,7 +16,7 @@ import { Icon, Image, Stack, Text } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
-import type { IIconProps } from '../../primitives';
+import type { IIconProps, IImageProps } from '../../primitives';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: StackProps;
@@ -70,7 +70,10 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 type IListItemAvatarProps = {
-  src: AvatarImageProps['src'];
+  /** A string representing the remote URL of the image. */
+  src?: AvatarImageProps['src'];
+  /** A local file resource, such as `require('./test.jpg')` */
+  source?: IImageProps['source'];
   fallbackProps?: AvatarFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
   cornerImageProps?: IListItemAvatarCornerImageProps;
@@ -80,6 +83,7 @@ type IListItemAvatarProps = {
 const ListItemAvatar = (props: IListItemAvatarProps) => {
   const {
     src,
+    source,
     fallbackProps,
     children,
     circular,
@@ -88,7 +92,6 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
     ...rest
   } = props;
 
-  const isLocalImage = typeof src === 'number';
   return (
     <Stack>
       <Avatar
@@ -99,8 +102,8 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...rest}
       >
-        {isLocalImage ? (
-          <Image source={src} resizeMode="center" />
+        {source ? (
+          <Image source={source} resizeMode="center" />
         ) : (
           <>
             <Avatar.Image src={src} />
