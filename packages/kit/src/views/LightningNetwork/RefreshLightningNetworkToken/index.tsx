@@ -54,6 +54,6 @@ export default function RefreshLightningNetworkToken({
         debugLogger.common.info('refresh lightning network token failed: ', e);
       });
     debugLogger.common.info('should refresh lightning network token');
-  }, [password, networkId, accountId, intl]);
+  }, [password, walletId, networkId, accountId, intl]);
   return null;
 }
