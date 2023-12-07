@@ -1,4 +1,4 @@
-import type { ForwardedRef, PropsWithChildren } from 'react';
+import type { ForwardedRef } from 'react';
 import {
   createRef,
   forwardRef,
@@ -27,7 +27,14 @@ import { Trigger } from '../Trigger';
 
 import { DialogContext } from './context';
 
-import type { IDialogInstanceRef, IDialogProps } from './type';
+import type {
+  IDialogCancelProps,
+  IDialogConfirmProps,
+  IDialogContainerProps,
+  IDialogInstanceRef,
+  IDialogProps,
+  IDialogShowProps,
+} from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IButtonProps } from '../../primitives/Button';
 
@@ -52,6 +59,8 @@ function DialogFrame({
   sheetProps,
   contextValue,
   disableDrag = false,
+  showConfirmButton = true,
+  showCancelButton = true,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
@@ -129,19 +138,21 @@ function DialogFrame({
       )}
       {showFooter && (
         <XStack p="$5" pt="$0">
-          <Button
-            flex={1}
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-            {...cancelButtonProps}
-            onPress={handleCancelButtonPress}
-          >
-            {onCancelText}
-          </Button>
-          {onConfirm ? (
+          {showCancelButton ? (
+            <Button
+              flex={1}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              {...cancelButtonProps}
+              onPress={handleCancelButtonPress}
+            >
+              {onCancelText}
+            </Button>
+          ) : null}
+          {showConfirmButton ? (
             <Button
               variant={tone === 'destructive' ? 'destructive' : 'primary'}
               flex={1}
@@ -249,12 +260,6 @@ function DialogFrame({
   );
 }
 
-type IDialogContainerProps = PropsWithChildren<
-  Omit<IDialogProps, 'onConfirm'> & {
-    onConfirm?: () => void | Promise<boolean>;
-  }
->;
-
 function BaseDialogContainer(
   { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstanceRef>,
@@ -305,10 +310,10 @@ const DialogContainer = forwardRef<IDialogInstanceRef, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogConfirm({
+function DialogShow({
   onClose,
   ...props
-}: Omit<IDialogContainerProps, 'name'>): IDialogInstanceRef {
+}: IDialogShowProps): IDialogInstanceRef {
   let instanceRef: React.RefObject<IDialogInstanceRef> | undefined =
     createRef<IDialogInstanceRef>();
   let portalRef:
@@ -340,11 +345,31 @@ function DialogConfirm({
   };
 }
 
+const DialogConfirm = (props: IDialogConfirmProps) =>
+  DialogShow({
+    ...props,
+    showCancelButton: false,
+  });
+
+const DialogCancel = (props: IDialogCancelProps) =>
+  DialogShow({
+    ...props,
+    showConfirmButton: false,
+  });
+
 export const useDialogInstance = () => {
   const { dialogInstance } = useContext(DialogContext);
   return dialogInstance;
 };
 
 export const Dialog = withStaticProperties(DialogFrame, {
+  show: DialogShow,
   confirm: DialogConfirm,
+  cancel: DialogCancel,
 });
+
+export type {
+  IDialogShowProps,
+  IDialogConfirmProps,
+  IDialogCancelProps,
+} from './type';
