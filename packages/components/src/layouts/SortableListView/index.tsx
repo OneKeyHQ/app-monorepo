@@ -98,7 +98,7 @@ function BaseSortableListView<T>(
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
-      containerStyle={rawContainerStyle}
+      containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
       ListFooterComponentStyle={listFooterStyle}

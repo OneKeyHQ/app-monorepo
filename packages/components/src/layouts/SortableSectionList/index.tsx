@@ -1,4 +1,4 @@
-import { Fragment, forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo } from 'react';
 import type { ForwardedRef, ReactNode } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
@@ -112,13 +112,79 @@ function BaseSortableSectionList(
         (2 +
           (SectionSeparatorComponent ? 1 : 0) +
           (renderSectionFooter ? 1 : 0)) *
-        index,
+          index +
+        1,
     );
   }, [
     stickySectionHeadersEnabled,
     sections,
     SectionSeparatorComponent,
     renderSectionFooter,
+  ]);
+
+  const scrollChildList = useMemo(() => {
+    const childList: [ReactNode] = [
+      <Stack style={listHeaderStyle}>{ListHeaderComponent}</Stack>,
+    ];
+    sections.forEach((section, index) => {
+      if (index !== 0 && SectionSeparatorComponent) {
+        childList.push(SectionSeparatorComponent);
+      }
+      if (renderSectionHeader) {
+        childList.push(
+          renderSectionHeader?.({
+            section,
+            index,
+          }),
+        );
+      }
+      childList.push(
+        <NestableDraggableFlatList
+          keyExtractor={keyExtractor}
+          data={section.data}
+          onDragEnd={(result) => {
+            sections[index].data = result.data;
+            onDragEnd({ sections: [...sections] });
+          }}
+          renderItem={({ item, getIndex, drag, isActive }) =>
+            renderItem?.({
+              item,
+              section,
+              index: getIndex(),
+              getIndex,
+              drag,
+              isActive,
+            })
+          }
+          scrollEnabled={platformEnv.isWebTouchable}
+          disableScrollViewPanResponder
+        />,
+      );
+      if (renderSectionFooter) {
+        childList.push(
+          renderSectionFooter?.({
+            section,
+            index,
+          }),
+        );
+      }
+    });
+    childList.push(
+      <Stack style={listFooterStyle}>{ListFooterComponent}</Stack>,
+    );
+    return childList;
+  }, [
+    ListHeaderComponent,
+    ListFooterComponent,
+    SectionSeparatorComponent,
+    renderSectionHeader,
+    renderSectionFooter,
+    keyExtractor,
+    sections,
+    listHeaderStyle,
+    listFooterStyle,
+    onDragEnd,
+    renderItem,
   ]);
 
   return (
@@ -129,42 +195,7 @@ function BaseSortableSectionList(
       stickyHeaderIndices={reloadStickyHeaderIndices}
       {...restProps}
     >
-      <Stack style={listHeaderStyle}>{ListHeaderComponent}</Stack>
-      {sections.map((section, index) => (
-        <Fragment key={index}>
-          {index !== 0 && SectionSeparatorComponent}
-          {renderSectionHeader?.({
-            section,
-            index,
-          })}
-          <NestableDraggableFlatList
-            keyExtractor={keyExtractor}
-            data={section.data}
-            onDragEnd={(result) => {
-              sections[index].data = result.data;
-              onDragEnd({ sections: [...sections] });
-            }}
-            renderItem={({ item, getIndex, drag, isActive }) =>
-              renderItem?.({
-                item,
-                section,
-                index: getIndex(),
-                getIndex,
-                drag,
-                isActive,
-              })
-            }
-            scrollEnabled={platformEnv.isWebTouchable}
-            disableScrollViewPanResponder
-          />
-          {renderSectionFooter?.({
-            section,
-            index,
-          })}
-        </Fragment>
-      ))}
-
-      <Stack style={listFooterStyle}>{ListFooterComponent}</Stack>
+      {scrollChildList}
     </NestableScrollContainer>
   );
 }
