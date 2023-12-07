@@ -1,4 +1,3 @@
-
 import { Dialog } from '@onekeyhq/components';
 
 import { RemoveWalletDialog } from './RemoveWalletDialog';
@@ -11,7 +10,8 @@ export const useRemoveWallet = ({
   checked: boolean;
   title: string;
   description: string;
-}) => new Promise<boolean>((resolve) => {
+}) =>
+  new Promise<boolean>((resolve) => {
     Dialog.confirm({
       icon: 'ErrorOutline',
       tone: 'destructive',
