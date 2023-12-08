@@ -1,5 +1,5 @@
 import type { ITabDiscoveryParamList } from './Discovery/Routes';
-import type { ITabHomeParamList } from './Home/Routes';
+import type { ITabHomeParamList } from './Home/router';
 import type { ITabMeParamList } from './Me/Routes';
 import type { IMultiTabBrowserParamList } from './MultiTabBrowser/Routes';
 import type { ITabSwapParamList } from './Swap/Routes';

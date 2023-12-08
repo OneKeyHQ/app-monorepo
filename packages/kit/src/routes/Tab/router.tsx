@@ -20,7 +20,7 @@ import DevHomeStack1 from './Developer/Gallery/DevHomeStack1';
 import DevHomeStack2 from './Developer/Gallery/DevHomeStack2';
 import { ETabDeveloperRoutes } from './Developer/Routes';
 import { ETabDiscoveryRoutes } from './Discovery/Routes';
-import { ETabHomeRoutes } from './Home/Routes';
+import { ETabHomeRoutes } from './Home/router';
 import { ETabMeRoutes } from './Me/Routes';
 import TabMe from './Me/TabMe';
 import { EMultiTabBrowserRoutes } from './MultiTabBrowser/Routes';
