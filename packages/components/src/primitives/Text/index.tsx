@@ -5,6 +5,7 @@ import type { GetProps } from 'tamagui';
 export const Text = styled(OriginText, {
   name: 'Text',
   fontFamily: '$body',
+  userSelect: 'none',
 
   variants: {
     variant: {

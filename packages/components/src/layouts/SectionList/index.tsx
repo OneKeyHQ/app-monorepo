@@ -206,16 +206,15 @@ const SectionHeader = ({
   titleProps?: GetProps<typeof Text>;
 }) => (
   <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
-    {children ?? (
-      <Text
-        numberOfLines={1}
-        variant="$headingSm"
-        color="$textSubdued"
-        {...titleProps}
-      >
-        {title}
-      </Text>
-    )}
+    <Text
+      numberOfLines={1}
+      variant="$headingSm"
+      color="$textSubdued"
+      {...titleProps}
+    >
+      {title}
+    </Text>
+    {children}
   </XStack>
 );
 

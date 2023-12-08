@@ -32,7 +32,6 @@ export function MobileTabItem(
           mt="$0.5"
           variant="$headingXxs"
           color={selected ? '$text' : '$textSubdued'}
-          userSelect="none"
         >
           {label}
         </Text>

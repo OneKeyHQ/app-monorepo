@@ -63,8 +63,8 @@ const BUTTON_VARIANTS: Record<
     color: '$text',
     iconColor: '$icon',
     bg: '$bgStrong',
-    hoverBg: '$bgHover',
-    activeBg: '$bgActive',
+    hoverBg: '$bgStrongHover',
+    activeBg: '$bgStrongActive',
     focusRingColor: '$focusRing',
   },
 };
@@ -206,7 +206,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       borderRadius={borderRadius}
       disabled={disabled || loading}
       {...sharedFrameStyles}
-      {...rest}
       hoverStyle={{
         ...sharedFrameStyles.hoverStyle,
         ...props.hoverStyle,
@@ -219,6 +218,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
         ...sharedFrameStyles.pressStyle,
         ...props.pressStyle,
       }}
+      {...rest}
     >
       {icon && !loading && (
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />

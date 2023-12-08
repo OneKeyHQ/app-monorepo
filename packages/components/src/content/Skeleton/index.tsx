@@ -1,40 +1,38 @@
+import { forwardRef } from 'react';
+
+import { usePropsAndStyle } from '@tamagui/core';
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
 import { styled, withStaticProperties } from 'tamagui';
 
-import { useThemeName, useThemeValue } from '../../hooks';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
+import { Stack } from '../../primitives';
+
+import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
-export type ISkeletonProps = Omit<MotiSkeletonProps, 'Gradient'> & {
-  style?: any;
-};
+export type ISkeletonProps = Omit<
+  MotiSkeletonProps,
+  'Gradient' | 'height' | 'width'
+> &
+  StackStyleProps;
 
-function BasicSkeleton({ children, style, ...restProps }: ISkeletonProps) {
-  // _: RefObject<unknown>,
-  const themeName = useThemeName();
-  const primaryColor: any = useThemeValue('bgStrong');
-  const secondaryColor =
-    themeName === 'light' ? 'rgb(205, 205, 205)' : 'rgb(51, 51, 51)';
+function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
+  const themeVariant = useThemeVariant();
   return (
-    <MotiSkeleton
-      colors={[
-        primaryColor,
-        secondaryColor,
-        secondaryColor,
-        primaryColor,
-        secondaryColor,
-        primaryColor,
-      ]}
-      {...style}
-      {...restProps}
-    >
-      {children}
-    </MotiSkeleton>
+    <Stack ref={ref}>
+      <MotiSkeleton colorMode={themeVariant} {...(style as any)} {...restProps}>
+        {children}
+      </MotiSkeleton>
+    </Stack>
   );
 }
 
 export const Skeleton = withStaticProperties(
-  styled(BasicSkeleton, {
+  styled(forwardRef(BasicSkeleton), {
     name: 'Skeleton',
   } as const),
   {

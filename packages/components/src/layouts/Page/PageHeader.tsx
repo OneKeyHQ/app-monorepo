@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -44,7 +44,7 @@ const PageHeader = (props: IPageHeaderProps) => {
     searchTextColor: textColor,
   });
   const navigation = useNavigation();
-  useEffect(() => {
+  useLayoutEffect(() => {
     navigation.setOptions(reloadOptions);
   }, [navigation, reloadOptions]);
 

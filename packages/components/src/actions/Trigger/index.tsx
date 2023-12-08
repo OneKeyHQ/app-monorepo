@@ -2,8 +2,6 @@ import type { ForwardedRef, PropsWithChildren } from 'react';
 import { Children, cloneElement, forwardRef, isValidElement } from 'react';
 
 import { Stack } from '../../primitives';
-import { Button } from '../../primitives/Button';
-import { IconButton } from '../IconButton';
 
 import type { IButtonProps } from '../../primitives/Button';
 import type { View as IView } from 'react-native';
@@ -33,16 +31,12 @@ function BasicTrigger(
       const handleOpen = onPress
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
-      if ([Button, IconButton].includes(child.type as any)) {
-        return cloneElement(child, {
-          onPress: handleOpen,
-          ...props,
-          ref,
-        } as IButtonProps);
-      }
       return (
         <Stack ref={ref} onPress={handleOpen}>
-          {children}
+          {cloneElement(child, {
+            onPress: handleOpen,
+            ...props,
+          } as IButtonProps)}
         </Stack>
       );
     }
