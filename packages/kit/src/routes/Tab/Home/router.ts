@@ -1,7 +1,13 @@
-export enum ETabHomeRoutes {
-  TabHome = 'TabHome',
-}
+import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 
-export type ITabHomeParamList = {
-  [ETabHomeRoutes.TabHome]: undefined;
-};
+import HomePage from '../../../views/Tab/Home/HomePageTabs';
+
+import { ETabHomeRoutes } from './type';
+
+export const HomeRouters: ITabSubNavigatorConfig<any, any>[] = [
+  {
+    name: ETabHomeRoutes.TabHome,
+    component: HomePage,
+    translationId: 'wallet__wallet',
+  },
+];

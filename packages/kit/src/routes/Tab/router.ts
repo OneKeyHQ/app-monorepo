@@ -88,6 +88,7 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
     freezeOnBlur: true,
     rewrite: '/dev',
     exact: true,
+    // disable: process.env.NODE_ENV === 'production',
     children: developerRouters,
   },
   platformEnv.isDesktop ? discoverRouterConfig : undefined,
