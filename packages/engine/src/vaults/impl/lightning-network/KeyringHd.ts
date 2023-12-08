@@ -24,7 +24,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxLightning } from './types';
+import type { IEncodedTxLightning, ILightningHDSignatureParams } from './types';
 import type LightningVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
@@ -64,7 +64,7 @@ export class KeyringHd extends KeyringHdBase {
         if (signTemplate.type !== 'register') {
           throw new Error('Wrong signature type');
         }
-        const sign = await signature({
+        const sign = await this.signature({
           msgPayload: {
             ...signTemplate,
             pubkey: hashPubKey,
@@ -128,7 +128,7 @@ export class KeyringHd extends KeyringHdBase {
       throw new Error('Wrong transfer signature type');
     }
     const network = await this.vault.getNetwork();
-    const sign = await signature({
+    const sign = await this.signature({
       msgPayload: {
         ...signTemplate,
         paymentHash,
@@ -177,5 +177,9 @@ export class KeyringHd extends KeyringHdBase {
       ),
     );
     return result.map((ret) => JSON.stringify(ret));
+  }
+
+  signature(params: ILightningHDSignatureParams) {
+    return signature(params);
   }
 }
