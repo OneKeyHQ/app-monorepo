@@ -157,6 +157,7 @@ export default class Vault extends VaultBase {
         res.access_token,
         res.refresh_token,
       );
+      return res;
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);
       throw e;
