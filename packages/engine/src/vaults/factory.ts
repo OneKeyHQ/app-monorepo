@@ -18,6 +18,7 @@ import {
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_NEXA,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -53,6 +54,7 @@ import VaultHelperLightning from './impl/lightning-network/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VaultHelperNexa from './impl/nexa/VaultHelper';
+import VaultHelperNostr from './impl/nostr/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultHelperStc from './impl/stc/VaultHelper';
 import VaultHelperSui from './impl/sui/VaultHelper';
@@ -141,6 +143,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_ALLNETWORKS) {
     return new VaultHelperAllNetworks(options);
+  }
+  if (impl === IMPL_NOSTR) {
+    return new VaultHelperNostr(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -282,6 +287,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_ALLNETWORKS) {
     const VaultAllNetworks = (await import('./impl/allnetworks/Vault')).default;
     vault = new VaultAllNetworks(options);
+  }
+  if (network.impl === IMPL_NOSTR) {
+    const VaultNostr = (await import('./impl/nostr/Vault')).default;
+    vault = new VaultNostr(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

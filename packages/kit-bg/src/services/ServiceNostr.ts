@@ -21,6 +21,8 @@ import ServiceBase from './ServiceBase';
 
 type IGetNostrParams = {
   walletId: string;
+  networkId: string;
+  accountId: string;
   password: string;
 };
 
@@ -54,11 +56,39 @@ export default class ServiceNostr extends ServiceBase {
     },
   );
 
+  private async getCurrentAccountIndex(
+    activeAccountId: string,
+    activeNetworkId: string,
+  ) {
+    const account = await this.backgroundApi.engine.getAccount(
+      activeAccountId,
+      activeNetworkId,
+    );
+    if (!account) {
+      throw new Error('Invalid account');
+    }
+    const index = this.backgroundApi.serviceAllNetwork.getAccountIndex(
+      account,
+      account?.template ?? '',
+    );
+    if (index < 0 || Number.isNaN(index)) {
+      throw new Error('Invalid account index');
+    }
+    return index;
+  }
+
   @backgroundMethod()
   async getPublicKeyHex({
     walletId,
+    networkId,
+    accountId,
     password,
   }: IGetNostrParams): Promise<string> {
+    const accountIndex = await this.getCurrentAccountIndex(
+      accountId,
+      networkId,
+    );
+    console.log('====> accountIndex', accountIndex);
     const nostr = await this.getNostrInstance(walletId, password);
     return nostr.getPublicKeyHex();
   }
@@ -66,8 +96,15 @@ export default class ServiceNostr extends ServiceBase {
   @backgroundMethod()
   async getPublicKeyEncodedByNip19({
     walletId,
+    networkId,
+    accountId,
     password,
   }: IGetNostrParams): Promise<string> {
+    const accountIndex = await this.getCurrentAccountIndex(
+      accountId,
+      networkId,
+    );
+    console.log('====> accountIndex', accountIndex);
     const nostr = await this.getNostrInstance(walletId, password);
     return nostr.getPubkeyEncodedByNip19();
   }

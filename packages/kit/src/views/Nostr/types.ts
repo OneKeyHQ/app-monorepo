@@ -20,8 +20,12 @@ export type NostrRoutesParams = {
   [NostrModalRoutes.NostrAuthentication]: {
     onDone: (password: string) => void;
     walletId: string;
+    networkId: string;
+    accountId: string;
   };
   [NostrModalRoutes.ExportPubkey]: {
     walletId: string;
+    networkId: string;
+    accountId: string;
   };
 };

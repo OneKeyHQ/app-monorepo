@@ -34,7 +34,7 @@ const NostrGetPublicKeyModal = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { sourceInfo, walletId } = useDappParams();
+  const { sourceInfo, walletId, networkId, accountId } = useDappParams();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -56,6 +56,8 @@ const NostrGetPublicKeyModal = () => {
         setIsLoading(true);
         const pubkey = await backgroundApiProxy.serviceNostr.getPublicKeyHex({
           walletId,
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
           password,
         });
         setTimeout(() => {
@@ -89,16 +91,18 @@ const NostrGetPublicKeyModal = () => {
         setIsLoading(false);
       }
     },
-    [walletId, closeModal, intl, dappApprove],
+    [walletId, networkId, accountId, closeModal, intl, dappApprove],
   );
 
   const onConfirmWithAuth = useCallback(
     () =>
       navigation.navigate(NostrModalRoutes.NostrAuthentication, {
         walletId: walletId ?? '',
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
         onDone,
       }),
-    [walletId, navigation, onDone],
+    [walletId, networkId, accountId, navigation, onDone],
   );
 
   return (

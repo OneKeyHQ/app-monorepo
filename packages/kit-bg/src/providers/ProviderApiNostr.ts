@@ -76,12 +76,12 @@ class ProviderApiNostr extends ProviderApiBase {
   // Nostr API
   @providerApiMethod()
   public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
-    const { walletId } = getActiveWalletAccount();
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
     const pubkey = await this.backgroundApi.serviceDapp.openModal({
       request,
       screens: [ModalRoutes.Nostr, NostrModalRoutes.GetPublicKey],
-      params: { walletId },
+      params: { walletId, networkId, accountId },
     });
     return Promise.resolve(pubkey as string);
   }
