@@ -5,6 +5,7 @@ import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useThemeValue } from '../../hooks';
 import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
@@ -103,6 +104,7 @@ function BaseInput(
     },
   }));
 
+  const selectionColor = useThemeValue('bgPrimary');
   return (
     <Group
       orientation="horizontal"
@@ -135,7 +137,7 @@ function BaseInput(
           borderWidth={sharedStyles.borderWidth}
           borderColor={sharedStyles.borderColor}
           bg={sharedStyles.backgroundColor}
-          selectionColor="$bgPrimary"
+          selectionColor={selectionColor}
           borderRadius={size === 'large' ? '$3' : '$2'}
           borderRightWidth={addOns?.length ? '$0' : '$px'}
           focusStyle={sharedStyles.focusStyle}
@@ -219,7 +221,6 @@ function BaseInput(
                       )}
                       {label && (
                         <Text
-                          userSelect="none"
                           variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
                           ml={iconName ? '$2' : '$0'}
                           color={disabled ? '$textDisabled' : '$textSubdued'}

@@ -5,6 +5,8 @@ import {
   Dialog,
   Form,
   Input,
+  ScrollView,
+  Stack,
   Toast,
   XStack,
   YStack,
@@ -65,6 +67,16 @@ function ContentA({ index }: { index: number }) {
       </Form.Field>
       <CustomFooter form={form} index={index + 1} />
     </Form>
+  );
+}
+
+function ScrollContent() {
+  return (
+    <ScrollView height={200}>
+      <Stack height={150} bg="red" />
+      <Stack height={150} bg="blue" />
+      <Stack height={150} bg="black" />
+    </ScrollView>
   );
 }
 
@@ -315,6 +327,25 @@ const DialogGallery = () => (
               }}
             >
               Close Dialog by Hooks !
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'ScrollView Demo(not recommand, use Modal Page instead it))',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                Dialog.confirm({
+                  title: '#ScrollContent',
+                  dismissOnOverlayPress: false,
+                  disableDrag: true,
+                  renderContent: <ScrollContent />,
+                });
+              }}
+            >
+              Open ScrollContent
             </Button>
           </YStack>
         ),
