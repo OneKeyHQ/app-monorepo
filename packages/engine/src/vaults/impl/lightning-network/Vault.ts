@@ -9,6 +9,7 @@ import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
@@ -105,11 +106,12 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async exchangeToken(password: string) {
+  async exchangeToken(password: string, account?: DBVariantAccount) {
     try {
-      const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-      const address = dbAccount.addresses.normalizedAddress;
-      const hashPubKey = bytesToHex(sha256(dbAccount.pub));
+      const usedAccount =
+        account || ((await this.getDbAccount()) as DBVariantAccount);
+      const address = usedAccount.addresses.normalizedAddress;
+      const hashPubKey = bytesToHex(sha256(usedAccount.pub));
       const network = await this.getNetwork();
       let entropy: Buffer | null = null;
       if (isHdWallet({ walletId: this.walletId })) {
@@ -138,18 +140,23 @@ export default class Vault extends VaultBase {
           timestamp,
         },
         engine: this.engine,
-        path: dbAccount.addresses.realPath,
+        path: usedAccount.addresses.realPath,
         password: password ?? '',
         entropy: entropy as Buffer,
         isTestnet: network.isTestnet,
       });
-      return await client.refreshAccessToken({
+      const res = await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,
         timestamp,
         randomSeed: signTemplate.randomSeed,
       });
+      await simpleDb.utxoAccounts.updateLndToken(
+        usedAccount.addresses.normalizedAddress,
+        res.access_token,
+        res.refresh_token,
+      );
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);
       throw e;

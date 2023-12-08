@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { mnemonicToSeedSync } from 'bip39';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -69,15 +68,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
         networkId,
         accountId,
       });
-      const res = await (vault as VaultLightning).exchangeToken(password);
-      const address = await (
-        vault as VaultLightning
-      ).getCurrentBalanceAddress();
-      await simpleDb.utxoAccounts.updateLndToken(
-        address,
-        res.access_token,
-        res.refresh_token,
-      );
+      await (vault as VaultLightning).exchangeToken(password);
       this.previousRequestTokenAccountId = accountId;
       this.previousRequestTokenTimestamp = Date.now();
     } finally {

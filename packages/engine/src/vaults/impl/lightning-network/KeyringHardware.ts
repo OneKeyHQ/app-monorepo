@@ -22,7 +22,6 @@ import { getBtcProvider } from './helper/account';
 
 import type {
   IPrepareHardwareAccountsParams,
-  ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
@@ -37,7 +36,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBVariantAccount[]> {
-    const { indexes, names, confirmOnDevice } = params;
+    const { indexes, names } = params;
     const network = await this.vault.getNetwork();
     const { isTestnet } = network;
     const btcCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
@@ -45,8 +44,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       ? COINTYPE_LIGHTNING_TESTNET
       : COINTYPE_LIGHTNING;
     const template = `m/84'/${btcCoinType}'/${INDEX_PLACEHOLDER}'/0/0`;
-    const ignoreFirst = indexes[0] !== 0;
-    const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
 
     let response;
     try {
@@ -56,12 +53,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { pathPrefix } = slicePathTemplate(template);
       const coinName = this.getBtcCoinName(isTestnet);
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
-        bundle: usedIndexes.map((index) => ({
+        bundle: indexes.map((index) => ({
           path: `${pathPrefix}/${index}'`,
           coin: coinName.toLowerCase(),
-          showOnOneKey: !confirmOnDevice
-            ? false
-            : index === usedIndexes[usedIndexes.length - 1],
+          showOnOneKey: false,
         })),
         ...passphraseState,
       });
@@ -75,7 +70,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(response.payload);
     }
 
-    if (response.payload.length !== usedIndexes.length) {
+    if (response.payload.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
 
@@ -122,10 +117,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       console.log(path, xpub, address);
-      const accountPath = `m/44'/${lightningCoinType}'/${usedIndexes[index]}'`;
-      const name =
-        (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
-      ret.push({
+      const accountPath = `m/44'/${lightningCoinType}'/${indexes[index]}`;
+      const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
+      const account = {
         id: `${this.walletId}--${accountPath}`,
         name,
         type: AccountType.VARIANT,
@@ -138,7 +132,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           realPath: path,
           hashAddress: bytesToHex(ripemd160(address)),
         },
-      });
+      };
+      await (this.vault as LightningVault).exchangeToken('', account);
+      ret.push(account);
     }
     return ret;
   }
@@ -229,5 +225,13 @@ export class KeyringHardware extends KeyringHardwareBase {
       )}, path: ${path}, result: ${response.payload.signature}`,
     );
     return response.payload.signature;
+  }
+
+  override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  override batchGetAddress(): Promise<{ path: string; address: string }[]> {
+    throw new Error('Method not implemented.');
   }
 }
