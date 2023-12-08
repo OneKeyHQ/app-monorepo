@@ -35,6 +35,7 @@ import SkeletonGallery from '@onekeyhq/kit/src/views/Components/stories/Skeleton
 import SliderGallery from '@onekeyhq/kit/src/views/Components/stories/Slider';
 import SortableListViewGallery from '@onekeyhq/kit/src/views/Components/stories/SortableListView';
 import SortableSectionListGallery from '@onekeyhq/kit/src/views/Components/stories/SortableSectionList';
+import SpotlightTourGallery from '@onekeyhq/kit/src/views/Components/stories/SpotlightTour';
 import SwitchGallery from '@onekeyhq/kit/src/views/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Components/stories/TabView';
 import TextAreaGallery from '@onekeyhq/kit/src/views/Components/stories/TextArea';
@@ -42,7 +43,6 @@ import ToastGallery from '@onekeyhq/kit/src/views/Components/stories/Toast';
 import TooltipGallery from '@onekeyhq/kit/src/views/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Components/stories/WebView';
-import SpotlightTourGallery from '@onekeyhq/kit/src/views/views/Components/stories/SpotlightTour';
 
 import { EGalleryRoutes } from './routes';
 
