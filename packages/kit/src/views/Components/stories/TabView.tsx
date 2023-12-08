@@ -1,33 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import {
-  ListView,
-  RefreshControl,
-  ScrollView,
-  Stack,
-  Text,
-} from '@onekeyhq/components';
-import { PageHeaderView, PageManager } from '@onekeyhq/components/src/TabView';
+import { ListView, Stack, Tab, Text } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
-
-const HeaderPropsList = {
-  data: [
-    { title: '标签1' },
-    { title: '标签2' },
-    { title: '标签标签3' },
-    { title: '标签4' },
-  ],
-  style: {
-    height: 50,
-    backgroundColor: 'white',
-    borderBottomColor: '#F5F5F5',
-    borderBottomWidth: 1,
-  },
-  onSelectedPageIndex: (index: number) => {
-    console.log('选中', index);
-  },
-};
 
 const FirstRoute = ({
   onContentSizeChange,
@@ -37,7 +13,8 @@ const FirstRoute = ({
   <ListView
     data={new Array(20).fill({})}
     estimatedItemSize="$10"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 10 }}>
         <Text>Page 1 Row: {index}</Text>
@@ -55,7 +32,8 @@ const SecondRoute = ({
   <ListView
     data={new Array(50).fill({})}
     estimatedItemSize="$10"
-    scrollEnabled={false}
+    scrollEnabled={platformEnv.isWebTouchable}
+    disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
         <Text>Page 2 Row: {index}</Text>
@@ -66,85 +44,33 @@ const SecondRoute = ({
 );
 
 const TabViewScrollStickyDemo = () => {
-  const onRefresh = () => {};
-  const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const data = useMemo(
     () => [
       {
         title: '标签1',
-        backgroundColor: 'skyblue',
-        contentHeight: undefined,
         page: FirstRoute,
       },
       {
         title: '标签2',
-        backgroundColor: 'coral',
-        contentHeight: undefined,
         page: SecondRoute,
       },
     ],
     [],
   );
-  const pageManager = useMemo(
-    () =>
-      new PageManager({
-        data,
-        initialScrollIndex: 1,
-        onSelectedPageIndex: (index: number) => {
-          setContentHeight(data[index]?.contentHeight);
-        },
-      }),
-    [data],
-  );
-  const Header = pageManager.renderHeaderView;
-  const Content = pageManager.renderContentView;
   return (
-    <ScrollView
-      style={{ height: 600, backgroundColor: 'black' }}
-      nestedScrollEnabled
-      refreshControl={
-        <RefreshControl refreshing={false} onRefresh={onRefresh} />
-      }
+    <Tab
+      data={data}
+      initialScrollIndex={1}
       stickyHeaderIndices={[1]}
-    >
-      <Stack style={{ height: 100 }} />
-      <Header
-        // HTPageHeaderView.defaultProps in TabView
-        style={HeaderPropsList.style}
-        itemContainerStyle={{ flex: 1 }}
-      />
-      <Stack style={{ height: contentHeight }}>
-        <Content
-          renderItem={({
-            item,
-            index,
-          }: {
-            item: {
-              backgroundColor: string;
-              contentHeight: number | undefined;
-              page: any;
-            };
-            index: number;
-          }) => (
-            <Stack
-              style={{
-                flex: 1,
-                backgroundColor: item.backgroundColor,
-              }}
-            >
-              <item.page
-                onContentSizeChange={(width: number, height: number) => {
-                  item.contentHeight = height;
-                  if (index === pageManager.pageIndex) {
-                    setContentHeight(height);
-                  }
-                }}
-              />
-            </Stack>
-          )}
-        />
-      </Stack>
-    </ScrollView>
+      ListHeaderComponent={<Stack h={100} />}
+      // style={{ width: 400, height: 600, backgroundColor: 'black' }}
+      h={600}
+      nestedScrollEnabled
+      headerProps={{
+        itemContainerStyle: { flex: 1 },
+        cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
+      }}
+    />
   );
 };
 
@@ -156,20 +82,42 @@ const TabViewGallery = () => (
     elements={[
       {
         title: 'Header 单独使用',
-        element: <PageHeaderView {...HeaderPropsList} />,
+        element: (
+          <Tab.Header
+            data={[
+              { title: '标签1' },
+              { title: '标签2' },
+              { title: '标签标签3' },
+              { title: '标签4' },
+            ]}
+            onSelectedPageIndex={(index: number) => {
+              console.log('选中', index);
+            }}
+          />
+        ),
       },
       {
         title: 'Header 自定义1',
         element: (
-          <PageHeaderView
-            {...HeaderPropsList}
+          <Tab.Header
+            data={[
+              { title: '标签1' },
+              { title: '标签2' },
+              { title: '标签标签3' },
+              { title: '标签4' },
+            ]}
             itemContainerStyle={{ flex: 1 }}
+            itemTitleNormalStyle={{ color: '$text', fontSize: 13 }}
+            itemTitleSelectedStyle={{ color: '$textInverse', fontSize: 15 }}
             cursorStyle={{
               width: 88,
-              height: 48,
-              borderRadius: 48 / 2.0,
-              top: 0.5,
-              backgroundColor: 'black',
+              height: 44,
+              borderRadius: 44 / 2.0,
+              top: 5,
+              bg: '$bgInfoStrong',
+            }}
+            onSelectedPageIndex={(index: number) => {
+              console.log('选中', index);
             }}
           />
         ),

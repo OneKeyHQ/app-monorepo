@@ -1,18 +1,16 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, YStack } from '@onekeyhq/components';
-import HeaderButtonGroup from '@onekeyhq/components/src/Navigation/Header/HeaderButtonGroup';
-import HeaderIconButton from '@onekeyhq/components/src/Navigation/Header/HeaderIconButton';
+import { Stack, YStack } from '@onekeyhq/components';
+import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
+import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
-import { ERootModalRoutes } from '../../Modal/Routes';
-import { EDemoRootRoutes } from '../../Routes';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 
 import type {
@@ -24,7 +22,7 @@ const DemoRootHomeOptions = () => {
   const intl = useIntl();
   const navigation = useDemoAppNavigation();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <HeaderButtonGroup>
@@ -34,7 +32,6 @@ const DemoRootHomeOptions = () => {
       ),
       headerSearchBarOptions: {
         hideNavigationBar: true,
-        // @ts-expect-error
         hideWhenScrolling: true,
         placeholder: intl.formatMessage({
           id: 'content__search_dapps_or_type_url',
@@ -49,6 +46,7 @@ const DemoRootHomeOptions = () => {
   return (
     <Layout
       skipLoading={platformEnv.isNativeIOS}
+      contentInsetAdjustmentBehavior="automatic"
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
         '使用方式与 @react-navigation/native-stack 相同',
@@ -77,21 +75,6 @@ const DemoRootHomeOptions = () => {
                 }}
               />
             </YStack>
-          ),
-        },
-        {
-          title: '弹出 Modal',
-          element: (
-            <Button
-              onPress={() => {
-                // @ts-expect-error
-                navigation.pushModal(EDemoRootRoutes.Modal, {
-                  screen: ERootModalRoutes.DemoLockedModal,
-                });
-              }}
-            >
-              弹出 Modal
-            </Button>
           ),
         },
         {

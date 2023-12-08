@@ -1,9 +1,13 @@
-import { memo, useCallback, useState } from 'react';
+import { Suspense, memo, useCallback, useState } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Stack, Text, Toast, XStack } from '@onekeyhq/components';
+import {
+  usePasswordBiologyAuthInfoAtom,
+  usePasswordWebAuthInfoAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitchContainer from '../../BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetup from '../components/PasswordSetup';
 
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
@@ -11,6 +15,20 @@ import type { IPasswordSetupForm } from '../components/PasswordSetup';
 interface IPasswordSetupProps {
   onSetupRes: (password: string) => void;
 }
+
+const BiologyAuthContainer = () => {
+  const [{ isSupport: biologyAuthIsSupport }] =
+    usePasswordBiologyAuthInfoAtom();
+  const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
+  return biologyAuthIsSupport || webAuthIsSupport ? (
+    <XStack justifyContent="space-between" alignItems="center">
+      <Text variant="bodyMdMedium">Authentication with FaceID</Text>
+      <Stack>
+        <UniversalContainerWithSuspense />
+      </Stack>
+    </XStack>
+  ) : null;
+};
 
 const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
   const [loading, setLoading] = useState(false);
@@ -51,7 +69,11 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
     <PasswordSetup
       loading={loading}
       onSetupPassword={onSetupPassword}
-      biologyAuthSwitchContainer={<BiologyAuthSwitchContainer />}
+      biologyAuthSwitchContainer={
+        <Suspense>
+          <BiologyAuthContainer />
+        </Suspense>
+      }
     />
   );
 };
