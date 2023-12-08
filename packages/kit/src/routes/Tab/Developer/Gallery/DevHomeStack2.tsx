@@ -2,7 +2,7 @@ import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../Routes';
+import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const DevHomeStack2 = () => {
   const navigation =

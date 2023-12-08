@@ -1,8 +1,8 @@
-import type { ITabDiscoveryParamList } from './Discovery/Routes';
+import type { ITabDiscoveryParamList } from './Discovery/type';
 import type { ITabHomeParamList } from './Home/router';
-import type { ITabMeParamList } from './Me/Routes';
-import type { IMultiTabBrowserParamList } from './MultiTabBrowser/Routes';
-import type { ITabSwapParamList } from './Swap/Routes';
+import type { ITabMeParamList } from './Me/type';
+import type { IMultiTabBrowserParamList } from './MultiTabBrowser/type';
+import type { ITabSwapParamList } from './Swap/type';
 import type { IDemoDeveloperTabParamList } from '../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 
 export enum ETabRoutes {

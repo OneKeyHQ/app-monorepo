@@ -5,7 +5,7 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../Routes';
+import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const DevHomeStack1 = (
   props: IPageScreenProps<

@@ -8,9 +8,9 @@ import { EIOSFullScreenTestModalPages } from '../../../../views/iOSFullScreenTes
 import { ETestModalPages } from '../../../../views/TestModal/router/type';
 import { EIOSFullScreenModalRoutes } from '../../../iOSFullScreen/type';
 import { EModalRoutes } from '../../../Modal/type';
-import { ETabDeveloperRoutes } from '../Routes';
+import { ETabDeveloperRoutes } from '../type';
 
-import type { ITabDeveloperParamList } from '../Routes';
+import type { ITabDeveloperParamList } from '../type';
 
 export default function HomePageHeaderView() {
   const navigation =

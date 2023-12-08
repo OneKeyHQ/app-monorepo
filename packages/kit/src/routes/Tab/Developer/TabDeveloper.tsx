@@ -20,7 +20,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 
-import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './Routes';
+import { ETabDeveloperRoutes, type ITabDeveloperParamList } from './type';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSettingKey, initialValue?: boolean) => {
