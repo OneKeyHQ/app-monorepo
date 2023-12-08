@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { bytesToHex } from '@noble/hashes/utils';
 import {
   construct,
   createMetadata,
@@ -61,7 +62,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { accountIdToAddress } from './sdk/address';
 import polkadotSdk from './sdk/polkadotSdk';
 import { EXTRINSIC_VERSION } from './sdk/polkadotSdkTypes';
 import settings from './settings';
@@ -79,6 +79,8 @@ import type { DotImplOptions, IEncodedTxDot } from './types';
 import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
 const {
+  encodeAddress,
+  decodeAddress,
   ApiPromise,
   HttpProvider,
   WsProvider,
@@ -286,11 +288,10 @@ export default class Vault extends VaultBase {
     }
 
     const implOptions = await this.getChainInfoImplOptions();
-    const address = accountIdToAddress(
-      accountId,
+    return encodeAddress(
+      addHexPrefix(accountId),
       implOptions?.addressPrefix ?? 0,
-    ).getValue();
-    return address;
+    );
   }
 
   override async addressFromBase(account: DBAccount) {
@@ -430,8 +431,23 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
+    const implOptions = await this.getChainInfoImplOptions();
+
     const { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
+    const toAccountId = decodeAddress(
+      to,
+      true,
+      implOptions?.addressPrefix ?? 0,
+    );
+
+    const chainId = await this.getNetworkChainId();
+    let toAccount = { id: to };
+    // pending txwapper-polkadot support JoyStream
+    if (chainId === 'joystream') {
+      // @ts-expect-error
+      toAccount = `0x${bytesToHex(toAccountId)}`;
+    }
 
     let amountValue;
     const client = await this.getClient();
@@ -513,7 +529,7 @@ export default class Vault extends VaultBase {
         unsigned = methods.balances.transferKeepAlive(
           {
             value: amountValue,
-            dest: { id: to },
+            dest: toAccount,
           },
           info,
           option,
@@ -522,7 +538,7 @@ export default class Vault extends VaultBase {
         unsigned = methods.balances.transfer(
           {
             value: amountValue,
-            dest: { id: to },
+            dest: toAccount,
           },
           info,
           option,
@@ -848,10 +864,14 @@ export default class Vault extends VaultBase {
       if (type === IDecodedTxActionType.NATIVE_TRANSFER) {
         debugLogger.sendTx.debug('updateEncodedTx', 'send max amount');
 
-        const {
+        const chainId = await this.getNetworkChainId();
+        let {
           // @ts-expect-error
           dest: { id: toAddress },
         } = decodeUnsignedTx.method.args;
+        if (chainId === 'joystream') {
+          toAddress = decodeUnsignedTx.method.args.dest;
+        }
 
         const chainVault = await this.getChainVault();
         const registry = await chainVault.getRegistryCache(encodedTx);
@@ -861,7 +881,7 @@ export default class Vault extends VaultBase {
           blockHash: encodedTx.blockHash,
           blockNumber: hexToNumber(addHexPrefix(encodedTx.blockNumber)),
           eraPeriod: 64,
-          genesisHash: encodedTx.genesisHash as `0x${string}`,
+          genesisHash: encodedTx.genesisHash,
           metadataRpc: encodedTx.metadataRpc,
           nonce: hexToNumber(addHexPrefix(encodedTx.nonce)),
           specVersion: hexToNumber(addHexPrefix(encodedTx.specVersion)),

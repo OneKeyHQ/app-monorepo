@@ -5,11 +5,14 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Box,
   ScrollView,
+  ToastManager,
   Typography,
   VStack,
   useIsVerticalLayout,
+  Text,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { isTaprootAddress } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
@@ -36,8 +39,11 @@ import { TokenDetailContext } from '../context';
 import { InscriptionEntry } from './InscriptionEntry';
 import { TokenActions } from './TokenActions';
 import { TokenDetailHeader } from './TokenDetailHeader';
+import { openUrl } from '../../../utils/openUrl';
 
 const POLLING_INTERVAL = 30000;
+const TRANSFER_BRC20_HELP_URL =
+  'https://help.onekey.so/hc/zh-cn/articles/8531584136719';
 
 let pollingTimer: NodeJS.Timeout | null = null;
 
@@ -111,6 +117,20 @@ function BRC20TokenDetail() {
 
   const handleSendOnPress = useCallback(() => {
     if (accountId && networkId && token) {
+      if (!isTaproot) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__donot_support_sending_brc20',
+            }),
+          },
+          {
+            type: 'error',
+          },
+        );
+        return;
+      }
+
       appNavigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -123,9 +143,22 @@ function BRC20TokenDetail() {
         },
       });
     }
-  }, [accountId, appNavigation, networkId, token]);
+  }, [accountId, appNavigation, intl, isTaproot, networkId, token]);
 
   const handleReceiveOnPress = useCallback(() => {
+    if (!isTaproot) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage({
+            id: 'msg__donot_support_receiving_brc20',
+          }),
+        },
+        {
+          type: 'error',
+        },
+      );
+      return;
+    }
     appNavigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Receive,
       params: {
@@ -137,13 +170,27 @@ function BRC20TokenDetail() {
           network,
           account,
           template: account?.template,
+          receiveInscription: true,
         },
       },
     });
-  }, [account, appNavigation, network, wallet]);
+  }, [account, appNavigation, intl, isTaproot, network, wallet]);
 
   const handleTransferOnPress = useCallback(() => {
     if (accountId && networkId && token) {
+      if (!isTaproot) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__donot_support_transferring_brc20',
+            }),
+          },
+          {
+            type: 'error',
+          },
+        );
+        return;
+      }
       appNavigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Inscribe,
         params: {
@@ -156,7 +203,7 @@ function BRC20TokenDetail() {
         },
       });
     }
-  }, [accountId, appNavigation, networkId, token]);
+  }, [accountId, appNavigation, intl, isTaproot, networkId, token]);
 
   const handleInscriptionControlOnPress = useCallback(() => {
     if (networkId && accountId && token) {
@@ -256,6 +303,28 @@ function BRC20TokenDetail() {
 
   return (
     <ScrollView paddingY={8} paddingX={isVertical ? 4 : 8}>
+      {isTaproot ? null : (
+        <Alert
+          dismiss={false}
+          alertType="warn"
+          containerProps={{ mb: 6 }}
+          title={intl.formatMessage({
+            id: 'msg__non_taproot_accounts_donot_support_brc20_transfers',
+          })}
+          description={
+            <Text
+              color="text-subdued"
+              onPress={() => openUrl(TRANSFER_BRC20_HELP_URL)}
+              typography="Body2Underline"
+            >
+              {intl.formatMessage({
+                id: 'action__how_to_transfer_brc20_assets',
+              })}
+            </Text>
+          }
+        />
+      )}
+
       {!isVertical ? (
         <TokenDetailHeader
           onPressSend={handleSendOnPress}
@@ -263,7 +332,6 @@ function BRC20TokenDetail() {
           onPressTransfer={handleTransferOnPress}
           balanceWithoutRecycle={balanceWithoutRecycle}
           isWatching={isWatching}
-          isTaproot={isTaproot}
           style={{ mb: 8 }}
         />
       ) : null}
@@ -297,7 +365,6 @@ function BRC20TokenDetail() {
           balanceWithoutRecycle={balanceWithoutRecycle}
           style={{ mb: 6 }}
           isWatching={isWatching}
-          isTaproot={isTaproot}
         />
       ) : null}
       {isWatching ? null : (

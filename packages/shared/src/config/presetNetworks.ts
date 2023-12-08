@@ -832,6 +832,70 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'celestia',
+    'code': 'celestia',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'celestia',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.1',
+          'low': '0.01',
+          'min': '0.002',
+          'normal': '0.02',
+        },
+        'mainCoinDenom': 'utia',
+      },
+    },
+    'id': 'cosmos--celestia',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/celestia/celestia.png',
+    'name': 'Celestia',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd-celestia.keplr.app/',
+      },
+      {
+        'url': 'https://celestia-mainnet-grpc.autostake.com',
+      },
+      {
+        'url': 'https://celestia-grpc.lavenderfive.com',
+      },
+      {
+        'url': 'https://grpc.celestia.nodestake.top',
+      },
+    ],
+    'shortcode': 'celestia',
+    'shortname': 'Celestia',
+    'symbol': 'Tia',
+    'feeMeta': {
+      'code': 'tia',
+      'decimals': 6,
+      'symbol': 'Tia',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'celestia',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/celestia/account/{address}',
+        'block': 'https://www.mintscan.io/celestia/blocks/{block}',
+        'name': 'https://www.mintscan.io/celestia/',
+        'transaction': 'https://www.mintscan.io/celestia/txs/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-12-05T00:00:24.951Z',
+    'updatedAt': '2023-12-05T00:00:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': 'phoenix-1',
     'code': 'terra',
     'decimals': 6,
@@ -1287,6 +1351,54 @@ const serverPresetNetworks = [
         'block': 'https://westend.subscan.io/block/{block}',
         'name': 'https://westend.subscan.io/',
         'transaction': 'https://westend.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 10,
+    'chainId': 'joystream',
+    'code': 'dot-joystream',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 126,
+        'addressRegex': '^j4[R-X][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--joystream',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/joystream/joystream.png',
+    'name': 'Joystream',
+    'rpcURLs': [
+      {
+        'url': 'wss://rpc.joystream.org',
+      },
+    ],
+    'shortcode': 'joy',
+    'shortname': 'JOY',
+    'symbol': 'JOY',
+    'feeMeta': {
+      'code': 'joy',
+      'decimals': 10,
+      'symbol': 'JOY',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'joystream',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://joystream.subscan.io/account/{address}',
+        'block': 'https://joystream.subscan.io/block/{block}',
+        'name': 'https://joystream.subscan.io/',
+        'transaction': 'https://joystream.subscan.io/extrinsic/{transaction}',
       },
     ],
     'status': 'LISTED',

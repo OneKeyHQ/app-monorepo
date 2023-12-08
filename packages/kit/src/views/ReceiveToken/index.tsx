@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Alert,
   Box,
   Button,
   Center,
@@ -19,11 +20,13 @@ import {
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { isTaprootAddress } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IActiveWalletAccount } from '../../hooks';
@@ -54,6 +57,7 @@ const ReceiveToken = () => {
   const wallet = routePrams?.wallet ?? activeInfo?.wallet;
   const customPath = routePrams?.customPath;
   const template = routePrams?.template ?? account?.template;
+  const receiveInscription = routePrams?.receiveInscription;
 
   const accountId = account?.id || '';
   const networkId = network?.id || '';
@@ -135,9 +139,36 @@ const ReceiveToken = () => {
     });
   }, [shownAddress, intl]);
 
+  const shouldRenderReceiveInscriptionAlert = useMemo(() => {
+    if (!isBTCNetwork(networkId)) return false;
+
+    if (!isTaprootAddress(shownAddress)) return true;
+
+    if (receiveInscription) return false;
+    return true;
+  }, [networkId, receiveInscription, shownAddress]);
+
+  const renderReceiveInscriptionAlert = useCallback(() => {
+    if (!shouldRenderReceiveInscriptionAlert) return null;
+
+    return (
+      <Alert
+        dismiss={false}
+        alertType="warn"
+        containerProps={{ mb: 6 }}
+        title={intl.formatMessage({
+          id: isTaprootAddress(shownAddress)
+            ? 'msg__donot_send_ordinal_inscriptions_or_brc20_tokens_to_this_address'
+            : 'msg__donot_send_ordinal_inscriptions_or_brc20_tokens_to_non_taproot_address',
+        })}
+      />
+    );
+  }, [shouldRenderReceiveInscriptionAlert, intl, shownAddress]);
+
   const renderHiddenAddress = useMemo(
     () => (
       <Box flexDirection="column" alignItems="center" justifyContent="center">
+        {renderReceiveInscriptionAlert()}
         <Box
           borderRadius="24px"
           alignItems="center"
@@ -224,13 +255,14 @@ const ReceiveToken = () => {
       </Box>
     ),
     [
-      isLoadingForHardware,
-      shownAddress,
-      shownName,
+      renderReceiveInscriptionAlert,
       intl,
       isVerticalLayout,
-      confirmOnDevice,
+      shownName,
+      isLoadingForHardware,
+      shownAddress,
       isSingleAddress,
+      confirmOnDevice,
     ],
   );
 
@@ -270,6 +302,7 @@ const ReceiveToken = () => {
             ) : (
               <>
                 <Box mb={4} w="auto" mx="auto">
+                  {renderReceiveInscriptionAlert()}
                   <Text
                     typography={platformEnv.isExtension ? 'Caption' : 'Body2'}
                     color="text-subdued"
