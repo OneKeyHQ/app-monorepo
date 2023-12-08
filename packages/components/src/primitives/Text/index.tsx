@@ -9,11 +9,10 @@ export const Text = styled(OriginText, {
 
   variants: {
     variant: {
-      '...size': (variant, { font }) => {
+      ':string': (variant, { font }) => {
         const defaultFont = { size: {}, lineHeight: {}, weight: {} };
         const resolvedFont = font || defaultFont;
         type ISizeType = keyof typeof resolvedFont.size;
-
         return {
           fontSize: resolvedFont?.size[variant as ISizeType] || '$true',
           lineHeight: font?.lineHeight[variant],
