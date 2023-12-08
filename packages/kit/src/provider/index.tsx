@@ -2,6 +2,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { LastActivityTracker } from '../components/LastActivityTracker';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 
 import { Container } from './Container';
@@ -25,6 +26,7 @@ export function KitProvider() {
         </GestureHandlerRootView>
       </SplashProvider>
       <PasswordVerifyPromptMount />
+      <LastActivityTracker />
     </ThemeProvider>
   );
 }
