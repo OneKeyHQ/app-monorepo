@@ -1,8 +1,8 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
-import { ERootRoutes } from '../enum';
 import { ETabHomeRoutes } from '../../views/Home/type';
+import { ERootRoutes } from '../enum';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
 

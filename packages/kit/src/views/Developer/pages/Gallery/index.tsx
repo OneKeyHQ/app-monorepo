@@ -1,3 +1,4 @@
+import ComponentsScreen from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components';
 import ActionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList';
 import AlertGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert';
 import BadgeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge';
@@ -41,7 +42,6 @@ import ToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Compon
 import TooltipGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView';
-import ComponentsScreen from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components';
 
 import { EGalleryRoutes } from '../routes';
 
