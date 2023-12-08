@@ -3,7 +3,7 @@ import type { ITabHomeParamList } from './Home/router';
 import type { ITabMeParamList } from './Me/type';
 import type { IMultiTabBrowserParamList } from './MultiTabBrowser/type';
 import type { ITabSwapParamList } from './Swap/type';
-import type { IDemoDeveloperTabParamList } from '../../views/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
+import type { IDemoDeveloperTabParamList } from '../../views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 
 export enum ETabRoutes {
   Home = 'Home',

@@ -3,7 +3,7 @@ import natsort from 'natsort';
 
 import { ListItem, ListView, Page } from '@onekeyhq/components';
 
-import { EGalleryRoutes } from '../../routes/Tab/Developer/Gallery/routes';
+import { EGalleryRoutes } from '../../routes';
 
 const Index = () => {
   const navigation = useNavigation();

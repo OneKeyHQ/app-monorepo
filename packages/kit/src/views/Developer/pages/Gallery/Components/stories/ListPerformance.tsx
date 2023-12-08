@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../../../../hooks/useAppNavigation';
 
 import { NFTDATA } from './ListItem';
 

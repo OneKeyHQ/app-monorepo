@@ -6,7 +6,7 @@ import {
   useDemoJotaiActions,
   useDemoProfileAtom,
   useDemoProfilesMapAtom,
-} from '../../../states/jotai/contexts/demo';
+} from '../../../../../../states/jotai/contexts/demo';
 
 import { Layout } from './utils/Layout';
 

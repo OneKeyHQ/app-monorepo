@@ -3,7 +3,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { IListViewRef } from '@onekeyhq/components';
 import { Button, Divider, ListView, Text, XStack } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../../../../hooks/useAppNavigation';
 
 import ListPerformance from './ListPerformance';
 import { Layout } from './utils/Layout';

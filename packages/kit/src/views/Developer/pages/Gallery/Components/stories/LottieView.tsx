@@ -24,7 +24,6 @@ const LottieDemo = () => {
       setShow(true);
     }, 100);
   };
-
   return (
     <YStack space="$5">
       <XStack h={100}>
@@ -35,7 +34,7 @@ const LottieDemo = () => {
             height={100}
             autoPlay={autoPlay}
             loop={loop}
-            source={require('../../../../assets/animations/lottie_send_success_feedback.json')}
+            source={require('../../../../../../../assets/animations/lottie_send_success_feedback.json')}
           />
         )}
       </XStack>

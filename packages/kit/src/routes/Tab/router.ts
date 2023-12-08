@@ -9,14 +9,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { developerRouters } from './Developer/router';
+import { developerRouters } from '../../views/Developer/router';
+
 import { discoveryRouters } from './Discovery/router';
 import { HomeRouters } from './Home/router';
 import { meRouters } from './Me/router';
-import { EMultiTabBrowserRoutes } from './MultiTabBrowser/type';
+import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { swapRouters } from './Swap/router';
 import { ETabRoutes } from './type';
-import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 
 const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
   name: ETabRoutes.Discovery,
@@ -87,7 +87,6 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
     freezeOnBlur: true,
     rewrite: '/dev',
     exact: true,
-    // disable: process.env.NODE_ENV === 'production',
     children: developerRouters,
   },
   platformEnv.isDesktop ? discoverRouterConfig : undefined,

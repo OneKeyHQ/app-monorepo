@@ -4,7 +4,7 @@ import type {
   IPageScreenProps,
 } from '@onekeyhq/components/src/layouts/Navigation';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const DevHomeStack1 = (

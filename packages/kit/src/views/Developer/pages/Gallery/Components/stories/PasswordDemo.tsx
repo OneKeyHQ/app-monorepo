@@ -13,11 +13,11 @@ import {
 import type { IPasswordRes } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitchContainer from '../../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
-import WebAuthSwitchContainer from '../../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
-import PasswordSetupContainer from '../../../components/Password/container/PasswordSetupContainer';
-import PasswordUpdateContainer from '../../../components/Password/container/PasswordUpdateContainer';
+import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import BiologyAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import WebAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
+import PasswordSetupContainer from '../../../../../../components/Password/container/PasswordSetupContainer';
+import PasswordUpdateContainer from '../../../../../../components/Password/container/PasswordUpdateContainer';
 
 import { Layout } from './utils/Layout';
 

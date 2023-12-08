@@ -5,8 +5,8 @@ import {
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { wait } from '../../../utils/helper';
+import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import { wait } from '../../../../../../utils/helper';
 
 import { Layout } from './utils/Layout';
 

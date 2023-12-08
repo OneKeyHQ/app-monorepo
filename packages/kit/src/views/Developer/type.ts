@@ -1,4 +1,4 @@
-import { EGalleryRoutes } from './Gallery/routes';
+import { EGalleryRoutes } from './pages/routes';
 
 export enum ETabDeveloperRoutes {
   TabDeveloper = 'TabDeveloper',
