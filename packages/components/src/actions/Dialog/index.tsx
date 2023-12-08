@@ -17,14 +17,17 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SheetGrabber } from '../../content';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { Icon, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import { Content } from './Content';
 import { DialogContext } from './context';
 
 import type {
@@ -55,12 +58,15 @@ function DialogFrame({
   tone,
   confirmButtonProps,
   cancelButtonProps,
+  estimatedContentHeight,
+  logContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
   contextValue,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
+  testID,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
   const handleBackdropPress = useMemo(
@@ -131,11 +137,13 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
-      {renderContent && (
-        <YStack px="$5" pb="$5">
-          {renderContent}
-        </YStack>
-      )}
+      <Content
+        testID={testID}
+        estimatedContentHeight={estimatedContentHeight}
+        logContentHeight={logContentHeight}
+      >
+        {renderContent}
+      </Content>
       {showFooter && (
         <XStack p="$5" pt="$0">
           {showCancelButton ? (
@@ -203,6 +211,7 @@ function DialogFrame({
           />
           <Sheet.Frame
             unstyled
+            testID={testID}
             borderTopLeftRadius="$6"
             borderTopRightRadius="$6"
             bg="$bg"
@@ -230,9 +239,16 @@ function DialogFrame({
           backgroundColor="$bgBackdrop"
           onPress={handleBackdropPress}
         />
+        {
+          /* fix missing title warnings in html dialog element on Web */
+          platformEnv.isRuntimeBrowser ? (
+            <TMDialog.Title display="none">{title}</TMDialog.Title>
+          ) : null
+        }
         <TMDialog.Content
           elevate
           key="content"
+          testID={testID}
           animateOnly={['transform', 'opacity']}
           animation={[
             'quick',
