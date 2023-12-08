@@ -23,6 +23,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
+
 import HeaderView from './HeaderView';
 
 import type { ITabHomeParamList } from '../../Home/type';
