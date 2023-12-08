@@ -33,16 +33,22 @@ export class KeyringHardware extends KeyringHardwareBase {
     return isTestnet ? 'TEST' : 'BTC';
   }
 
+  private getBtcCoinType(isTestnet: boolean) {
+    return isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  }
+
+  private getLnCoinType(isTestnet: boolean) {
+    return isTestnet ? COINTYPE_LIGHTNING_TESTNET : COINTYPE_LIGHTNING;
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBVariantAccount[]> {
     const { indexes, names } = params;
     const network = await this.vault.getNetwork();
     const { isTestnet } = network;
-    const btcCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
-    const lightningCoinType = network.isTestnet
-      ? COINTYPE_LIGHTNING_TESTNET
-      : COINTYPE_LIGHTNING;
+    const btcCoinType = this.getBtcCoinType(isTestnet);
+    const lightningCoinType = this.getLnCoinType(isTestnet);
     const template = `m/84'/${btcCoinType}'/${INDEX_PLACEHOLDER}'/0/0`;
 
     let response;
