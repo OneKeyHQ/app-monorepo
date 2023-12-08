@@ -10,7 +10,7 @@ const waitDataReady = () =>
     setTimeout(() => {
       // TODO：Hide the Splash View only when data is ready.
       resolve(true);
-    }, 100);
+    }, 0);
   });
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {

@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -12,19 +12,19 @@ import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
 import type { IPageButtonGroupProps } from './PageButtonGroup';
+import type { IPageProps } from './type';
 
-function PageContainer({
-  children,
-  skipLoading,
-}: PropsWithChildren<{ skipLoading: boolean }>) {
+export type { IPageProps } from './type';
+
+function PageContainer({ children, skipLoading, enableSafeArea }: IPageProps) {
   const memoPageContainer = useMemo(
     () => (
-      <BasicPage skipLoading={skipLoading}>
+      <BasicPage skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
         <View style={{ flex: 1 }}>{children}</View>
         <BasicPageFooter />
       </BasicPage>
     ),
-    [skipLoading, children],
+    [skipLoading, enableSafeArea, children],
   );
   return memoPageContainer;
 }
@@ -32,7 +32,8 @@ function PageContainer({
 function PageProvider({
   children,
   skipLoading = false,
-}: PropsWithChildren<{ skipLoading?: boolean }>) {
+  enableSafeArea = false,
+}: IPageProps) {
   const [options, setOptions] = useState<{
     footerOptions: IPageButtonGroupProps;
   }>();
@@ -45,7 +46,9 @@ function PageProvider({
   );
   return (
     <PageContext.Provider value={value}>
-      <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
+      <PageContainer skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
+        {children}
+      </PageContainer>
     </PageContext.Provider>
   );
 }

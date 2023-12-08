@@ -28,8 +28,6 @@ export function SplashView({ onReady }: ISplashViewProps) {
   return (
     <Image
       flex={1}
-      // onLayout is missing from Image properties in the tamagui component library.
-      // @ts-expect-error
       onLayout={handleLayout}
       aspectRatio={windowWidth / windowHeight}
       resizeMode="contain"

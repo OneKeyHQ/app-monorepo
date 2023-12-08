@@ -37,7 +37,7 @@ export function PageButtonGroup() {
 
   return (
     <Stack
-      bg="$bg"
+      bg="$bgApp"
       pt="$4"
       $sm={{
         flexDirection: 'column',
