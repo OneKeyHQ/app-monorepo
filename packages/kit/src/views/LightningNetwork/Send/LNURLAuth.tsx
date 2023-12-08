@@ -283,13 +283,15 @@ const LNURLAuth = () => {
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
+      onModalClose={isSendFlow ? undefined : dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         if (isSendFlow) {
           if (navigation?.canGoBack?.()) {
             navigation.goBack();
           }
         } else {
           dappApprove.reject();
+          close();
         }
       }}
       height="auto"

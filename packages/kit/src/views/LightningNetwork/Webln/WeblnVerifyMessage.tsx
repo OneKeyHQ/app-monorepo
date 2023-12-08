@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -18,18 +17,10 @@ import { LNModalDescription } from '../components/LNModalDescription';
 import LNSignMessageForm from '../components/LNSignMessageForm';
 
 import type { ISignMessageFormValues } from '../components/LNSignMessageForm';
-import type { WeblnModalRoutes, WeblnRoutesParams } from './types';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  WeblnRoutesParams,
-  WeblnModalRoutes.VerifyMessage
->;
 
 const WeblnSignMessage = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps>();
 
   const { sourceInfo, networkId, accountId } = useDappParams();
   const { message, signature } = sourceInfo?.data.params as VerifyMessageArgs;
@@ -117,13 +108,10 @@ const WeblnSignMessage = () => {
         onSubmit({ close });
       }}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-      }}
-      onModalClose={() => {
+      onModalClose={dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
+        close();
       }}
       height="auto"
       scrollViewProps={{
