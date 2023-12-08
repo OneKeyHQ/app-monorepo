@@ -77,6 +77,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
       try {
         switch ($deviceType) {
           case 'classic':
+          case 'classic1s':
             setDevicePicture(deviceClassicIcon);
             break;
           case 'mini':

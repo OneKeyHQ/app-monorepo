@@ -27,6 +27,7 @@ type RequestPassphraseOnDeviceViewProps = {
 const getEnterPassphraseAnimation = (type: IDeviceType) => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
       return EnterPassphraseOnClassic;
     case 'mini':
       return EnterPassphraseOnMini;
