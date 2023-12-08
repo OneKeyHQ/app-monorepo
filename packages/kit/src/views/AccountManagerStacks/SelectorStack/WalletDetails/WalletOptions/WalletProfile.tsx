@@ -65,7 +65,9 @@ export function WalletProfile({
           name: 'MenuCircleHorSolid',
           containerProps: {
             animation: 'quick',
-            hitSlop: platformEnv.isNative ? { top: 16, left: 16, right: 16, bottom: 16 } : undefined,
+            hitSlop: platformEnv.isNative
+              ? { top: 16, left: 16, right: 16, bottom: 16 }
+              : undefined,
             hoverStyle: {
               scale: 1.25,
             },
