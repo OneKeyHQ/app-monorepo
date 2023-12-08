@@ -14,7 +14,7 @@ import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../../AccountManagerStacks/types';
 
-import type { ITabHomeParamList } from '../../../../routes/Tab/Home/router';
+import type { ITabHomeParamList } from '../../../../routes/Tab/Home/type';
 
 function HomePage() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();

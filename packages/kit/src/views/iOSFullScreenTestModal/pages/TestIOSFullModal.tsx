@@ -7,7 +7,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 
-import type { ITabHomeParamList } from '../../../routes/Tab/Home/router';
+import type { ITabHomeParamList } from '../../../routes/Tab/Home/type';
 
 export function TestIOSFullModal() {
   const headerRightCall = useCallback(
