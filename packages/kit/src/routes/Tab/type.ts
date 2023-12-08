@@ -1,5 +1,5 @@
 import type { ITabDiscoveryParamList } from './Discovery/type';
-import type { ITabHomeParamList } from './Home/type';
+import type { ITabHomeParamList } from '../../views/Home/type';
 import type { ITabMeParamList } from './Me/type';
 import type { IMultiTabBrowserParamList } from './MultiTabBrowser/type';
 import type { ITabSwapParamList } from './Swap/type';

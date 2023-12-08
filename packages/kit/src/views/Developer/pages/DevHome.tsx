@@ -25,7 +25,7 @@ import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
 
 import HeaderView from './HeaderView';
 
-import type { ITabHomeParamList } from '../../../routes/Tab/Home/type';
+import type { ITabHomeParamList } from '../../Home/type';
 
 const FirstRoute = ({
   onContentSizeChange,

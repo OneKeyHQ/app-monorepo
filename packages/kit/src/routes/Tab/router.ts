@@ -10,9 +10,9 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { developerRouters } from '../../views/Developer/router';
+import { homeRouters } from '../../views/Home/router';
 
 import { discoveryRouters } from './Discovery/router';
-import { HomeRouters } from './Home/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { swapRouters } from './Swap/router';
@@ -56,7 +56,7 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
     freezeOnBlur: true,
     rewrite: '/',
     exact: true,
-    children: HomeRouters,
+    children: homeRouters,
   },
   {
     name: ETabRoutes.Swap,

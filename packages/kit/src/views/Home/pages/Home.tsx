@@ -10,11 +10,11 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../../AccountManagerStacks/types';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
 
-import type { ITabHomeParamList } from '../../../../routes/Tab/Home/type';
+import type { ITabHomeParamList } from '../type';
 
 function HomePage() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
