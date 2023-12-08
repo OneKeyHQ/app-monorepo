@@ -53,7 +53,7 @@ function DesktopCustomTabBarItem({
                 onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
               },
               testID: `action-list-item-${
-                !tab.isBookmark ? 'bookmark' : 'remove bookmark'
+                !tab.isBookmark ? 'bookmark' : 'remove-bookmark'
               }`,
             },
             {

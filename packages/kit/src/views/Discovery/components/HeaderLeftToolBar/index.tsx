@@ -96,7 +96,7 @@ function HeaderLeftToolBar({
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
             testID: `action-header-item-${
-              !isBookmark ? 'bookmark' : 'remove bookmark'
+              !isBookmark ? 'bookmark' : 'remove-bookmark'
             }`,
           },
           {
