@@ -12,7 +12,6 @@ export type IDialogContextType = {
 
 export interface IDialogContentProps extends PropsWithChildren {
   estimatedContentHeight?: number;
-  logContentHeight?: boolean;
   testID?: string;
 }
 
@@ -26,8 +25,6 @@ export interface IDialogProps extends TMDialogProps {
   tone?: 'default' | 'destructive';
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
-  /* log the the size value of the content in Console. */
-  logContentHeight?: boolean;
   renderContent?: React.ReactNode;
   showFooter?: boolean;
   onConfirm?: () => void | Promise<boolean>;
@@ -55,12 +52,12 @@ export type IDialogShowProps = Omit<IDialogContainerProps, 'name'>;
 
 export type IDialogConfirmProps = Omit<
   IDialogShowProps,
-  'onCancel' | 'onCancelText' | 'cancelButtonProps'
+  'onCancel' | 'onCancelText' | 'cancelButtonProps' | 'showFooter'
 >;
 
 export type IDialogCancelProps = Omit<
   IDialogShowProps,
-  'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps'
+  'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
 export interface IDialogInstanceRef {

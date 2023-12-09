@@ -59,7 +59,6 @@ function DialogFrame({
   confirmButtonProps,
   cancelButtonProps,
   estimatedContentHeight,
-  logContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
   contextValue,
@@ -140,7 +139,6 @@ function DialogFrame({
       <Content
         testID={testID}
         estimatedContentHeight={estimatedContentHeight}
-        logContentHeight={logContentHeight}
       >
         {renderContent}
       </Content>
