@@ -25,4 +25,28 @@ export default class Vault extends VaultBase {
   override addressFromBase(account: DBAccount): Promise<string> {
     return Promise.resolve(account.address);
   }
+
+  encrypt(
+    params: {
+      pubkey: string;
+      plaintext: string;
+    },
+    options: {
+      password: string;
+    },
+  ) {
+    return (this.keyring as KeyringHd).encrypt(params, options);
+  }
+
+  decrypt(
+    params: {
+      pubkey: string;
+      ciphertext: string;
+    },
+    options: {
+      password: string;
+    },
+  ) {
+    return (this.keyring as KeyringHd).decrypt(params, options);
+  }
 }

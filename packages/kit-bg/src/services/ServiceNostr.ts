@@ -12,6 +12,7 @@ import type {
   INostrRelays,
   NostrEvent,
 } from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
+import type VaultNostr from '@onekeyhq/engine/src/vaults/impl/nostr/Vault';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
@@ -187,16 +188,26 @@ export default class ServiceNostr extends ServiceBase {
   @backgroundMethod()
   async encrypt({
     walletId,
+    networkId,
+    accountId,
     password,
     pubkey,
     plaintext,
   }: IGetNostrParams & { pubkey: string; plaintext: string }) {
-    // TODO: vault encrypt
     if (!pubkey || !plaintext) {
       throw new Error('Invalid encrypt params');
     }
-    const nostr = await this.getNostrInstance(walletId, password);
-    const encrypted = await nostr.encrypt(pubkey, plaintext);
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password,
+    });
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: OnekeyNetwork.nostr,
+      accountId: nostrAccount.id,
+    })) as VaultNostr;
+    const encrypted = await vault.encrypt({ pubkey, plaintext }, { password });
     return {
       data: encrypted,
     };
@@ -205,16 +216,26 @@ export default class ServiceNostr extends ServiceBase {
   @backgroundMethod()
   async decrypt({
     walletId,
+    networkId,
+    accountId,
     password,
     pubkey,
     ciphertext,
   }: IGetNostrParams & { pubkey: string; ciphertext: string }) {
-    // TODO: vault decrypt
     if (!pubkey || !ciphertext) {
       throw new Error('Invalid encrypt params');
     }
-    const nostr = await this.getNostrInstance(walletId, password);
-    const decrypted = await nostr.decrypt(pubkey, ciphertext);
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password,
+    });
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: OnekeyNetwork.nostr,
+      accountId: nostrAccount.id,
+    })) as VaultNostr;
+    const decrypted = await vault.decrypt({ pubkey, ciphertext }, { password });
     return {
       data: decrypted,
     };
@@ -242,17 +263,32 @@ export default class ServiceNostr extends ServiceBase {
   @backgroundMethod()
   async signSchnorr({
     walletId,
+    networkId,
+    accountId,
     password,
     sigHash,
   }: IGetNostrParams & { sigHash: string }) {
-    // TODO: vault signSchnorr
     if (!sigHash) {
       throw new Error('Invalid sigHash');
     }
-    const nostr = await this.getNostrInstance(walletId, password);
-    const signedHash = await nostr.signSchnorr(sigHash);
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password,
+    });
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: OnekeyNetwork.nostr,
+      accountId: nostrAccount.id,
+    })) as VaultNostr;
+    const signedHash = await vault.keyring.signMessage([{ message: sigHash }], {
+      password,
+    });
+    if (signedHash.length !== 1) {
+      throw new Error('Nostr: wrong signature type');
+    }
     return {
-      data: signedHash,
+      data: signedHash[0],
     };
   }
 

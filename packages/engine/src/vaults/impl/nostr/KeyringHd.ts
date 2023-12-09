@@ -2,6 +2,7 @@ import {
   COINTYPE_NOSTR,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { AccountType, type DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -55,6 +56,22 @@ export class KeyringHd extends KeyringHdBase {
     ];
   }
 
+  private getAccountIndex(dbAccount: DBVariantAccount) {
+    const pathComponents = dbAccount.path.split('/');
+    const templateComponents = dbAccount.template?.split('/');
+    if (Array.isArray(templateComponents)) {
+      for (let i = 0; i < templateComponents.length; i += 1) {
+        if (templateComponents[i] === `${INDEX_PLACEHOLDER}'`) {
+          const indexNumber = Number(pathComponents[i].replace(`'`, ''));
+          if (!Number.isNaN(indexNumber)) {
+            return indexNumber;
+          }
+        }
+      }
+    }
+    return -1;
+  }
+
   override async signTransaction(
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
@@ -82,19 +99,73 @@ export class KeyringHd extends KeyringHdBase {
     };
   }
 
-  private getAccountIndex(dbAccount: DBVariantAccount) {
-    const pathComponents = dbAccount.path.split('/');
-    const templateComponents = dbAccount.template?.split('/');
-    if (Array.isArray(templateComponents)) {
-      for (let i = 0; i < templateComponents.length; i += 1) {
-        if (templateComponents[i] === `${INDEX_PLACEHOLDER}'`) {
-          const indexNumber = Number(pathComponents[i].replace(`'`, ''));
-          if (!Number.isNaN(indexNumber)) {
-            return indexNumber;
-          }
-        }
-      }
+  async encrypt(
+    params: {
+      pubkey: string;
+      plaintext: string;
+    },
+    options: {
+      password: string;
+    },
+  ): Promise<string> {
+    const { pubkey, plaintext } = params;
+    const { password } = options;
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password ?? '',
+    )) as ExportedSeedCredential;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const accountIndex = this.getAccountIndex(dbAccount);
+    if (accountIndex < 0) {
+      throw new Error('Invalid account index');
     }
-    return -1;
+    const nostr = new Nostr(this.walletId, accountIndex, password ?? '', seed);
+    const encrypted = nostr.encrypt(pubkey, plaintext);
+    return encrypted;
+  }
+
+  async decrypt(
+    params: {
+      pubkey: string;
+      ciphertext: string;
+    },
+    options: {
+      password: string;
+    },
+  ) {
+    const { pubkey, ciphertext } = params;
+    const { password } = options;
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password ?? '',
+    )) as ExportedSeedCredential;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const accountIndex = this.getAccountIndex(dbAccount);
+    if (accountIndex < 0) {
+      throw new Error('Invalid account index');
+    }
+    const nostr = new Nostr(this.walletId, accountIndex, password ?? '', seed);
+    const decrypted = nostr.decrypt(pubkey, ciphertext);
+    return decrypted;
+  }
+
+  override async signMessage(
+    messages: any[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    debugLogger.common.info('Nostr signSchnorr', messages);
+    const { password } = options;
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password ?? '',
+    )) as ExportedSeedCredential;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const accountIndex = this.getAccountIndex(dbAccount);
+    if (accountIndex < 0) {
+      throw new Error('Invalid account index');
+    }
+    const nostr = new Nostr(this.walletId, accountIndex, password ?? '', seed);
+    const result = messages.map(({ message }) => nostr.signSchnorr(message));
+    return result;
   }
 }
