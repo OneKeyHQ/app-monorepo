@@ -115,6 +115,10 @@ module.exports = (env) => {
           __dirname,
           '../../node_modules/react-native',
         ),
+        '@tamagui/constants': path.resolve(
+          __dirname,
+          `../../node_modules/@tamagui/constants/dist/cjs/index.${platform}.js`,
+        ),
       },
     },
     /**
