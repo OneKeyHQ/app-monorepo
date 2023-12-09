@@ -73,6 +73,7 @@ const getDeviceIcon = (
 ): import('react-native').ImageSourcePropType | undefined => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
       return ClassicDeviceIcon as number;
     case 'mini':
       return MiniDeviceIcon as number;

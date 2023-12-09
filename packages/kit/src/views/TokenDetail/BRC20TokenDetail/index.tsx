@@ -8,11 +8,11 @@ import {
   Alert,
   Box,
   ScrollView,
+  Text,
   ToastManager,
   Typography,
   VStack,
   useIsVerticalLayout,
-  Text,
 } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { isTaprootAddress } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
@@ -33,13 +33,13 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { setAccountTokensBalances } from '../../../store/reducers/tokens';
+import { openUrl } from '../../../utils/openUrl';
 import { TxHistoryListView } from '../../TxHistory/TxHistoryListView';
 import { TokenDetailContext } from '../context';
 
 import { InscriptionEntry } from './InscriptionEntry';
 import { TokenActions } from './TokenActions';
 import { TokenDetailHeader } from './TokenDetailHeader';
-import { openUrl } from '../../../utils/openUrl';
 
 const POLLING_INTERVAL = 30000;
 const TRANSFER_BRC20_HELP_URL =

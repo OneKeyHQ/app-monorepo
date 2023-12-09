@@ -11,26 +11,17 @@ import {
 import type { RequestInvoiceArgs } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/webln';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useNativeToken,
-  useNavigation,
-} from '../../../hooks';
+import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
 import LNMakeInvoiceForm from '../components/LNMakeInvoiceForm';
 import { LNModalDescription } from '../components/LNModalDescription';
 
-import type { ModalScreenProps } from '../../../routes/types';
 import type { IMakeInvoiceFormValues } from '../components/LNMakeInvoiceForm';
-import type { WeblnRoutesParams } from './types';
-
-type NavigationProps = ModalScreenProps<WeblnRoutesParams>;
 
 const WeblnMakeInvoice = () => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { accountId, networkId } = useActiveWalletAccount();
   const { sourceInfo } = useDappParams();
@@ -124,13 +115,10 @@ const WeblnMakeInvoice = () => {
         doSubmit();
       }}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-      }}
-      onModalClose={() => {
+      onModalClose={dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
+        close();
       }}
       height="auto"
       scrollViewProps={{
