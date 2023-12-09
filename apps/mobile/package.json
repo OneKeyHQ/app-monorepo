@@ -11,6 +11,7 @@
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "native-bundle": "react-native start",
+    "webpack-bundle": "react-native webpack-start",
     "native-bundle:analyze": "react-native-bundle-visualizer"
   },
   "devDependencies": {
