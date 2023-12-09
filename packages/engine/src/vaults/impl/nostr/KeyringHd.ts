@@ -1,16 +1,26 @@
-import { COINTYPE_NOSTR } from '@onekeyhq/shared/src/engine/engineConsts';
-
 import {
-  AccountType,
-  type DBAccount,
-  type DBVariantAccount,
-} from '../../../types/account';
+  COINTYPE_NOSTR,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
+import { AccountType, type DBVariantAccount } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { NOSTR_ADDRESS_INDEX, Nostr, getNostrPath } from './helper/NostrSDK';
+import {
+  NOSTR_ADDRESS_INDEX,
+  Nostr,
+  getNostrPath,
+  validateEvent,
+} from './helper/NostrSDK';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { IPrepareSoftwareAccountsParams } from '../../types';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxNostr } from './helper/types';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -43,5 +53,48 @@ export class KeyringHd extends KeyringHdBase {
         addresses: {},
       },
     ];
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    const { password } = options;
+    const { encodedTx } = unsignedTx;
+    const { event } = encodedTx as IEncodedTxNostr;
+    if (!validateEvent(event)) {
+      throw new Error('Invalid event');
+    }
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password ?? '',
+    )) as ExportedSeedCredential;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const accountIndex = this.getAccountIndex(dbAccount);
+    if (accountIndex < 0) {
+      throw new Error('Invalid account index');
+    }
+    const nostr = new Nostr(this.walletId, accountIndex, password ?? '', seed);
+    const data = await nostr.signEvent(event);
+    return {
+      txid: data.id ?? '',
+      rawTx: JSON.stringify(data),
+    };
+  }
+
+  private getAccountIndex(dbAccount: DBVariantAccount) {
+    const pathComponents = dbAccount.path.split('/');
+    const templateComponents = dbAccount.template?.split('/');
+    if (Array.isArray(templateComponents)) {
+      for (let i = 0; i < templateComponents.length; i += 1) {
+        if (templateComponents[i] === `${INDEX_PLACEHOLDER}'`) {
+          const indexNumber = Number(pathComponents[i].replace(`'`, ''));
+          if (!Number.isNaN(indexNumber)) {
+            return indexNumber;
+          }
+        }
+      }
+    }
+    return -1;
   }
 }

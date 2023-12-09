@@ -164,7 +164,7 @@ export default class ServiceNostr extends ServiceBase {
         event.id = getEventHash(event);
       }
       const vault = await this.backgroundApi.engine.getVault({
-        networkId: OnekeyNetwork.Nostr,
+        networkId: OnekeyNetwork.nostr,
         accountId: nostrAccount.id,
       });
       const signedEvent = await vault.keyring.signTransaction(
@@ -177,7 +177,7 @@ export default class ServiceNostr extends ServiceBase {
         { password },
       );
       return {
-        data: signedEvent,
+        data: JSON.parse(signedEvent.rawTx),
       };
     } catch (e) {
       console.error(e);

@@ -4,7 +4,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   INostrRelays,
   NostrEvent,
-} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
+} from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
@@ -96,7 +96,7 @@ class ProviderApiNostr extends ProviderApiBase {
   public async signEvent(
     request: IJsBridgeMessagePayload,
   ): Promise<NostrEvent> {
-    const { walletId } = getActiveWalletAccount();
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
     const params = (request.data as IJsonRpcRequest)?.params as {
       event: NostrEvent;
@@ -108,7 +108,7 @@ class ProviderApiNostr extends ProviderApiBase {
       const signedEvent = await this.backgroundApi.serviceDapp.openModal({
         request,
         screens: [ModalRoutes.Nostr, NostrModalRoutes.SignEvent],
-        params: { walletId, event: params.event },
+        params: { walletId, networkId, accountId, event: params.event },
       });
       return signedEvent as NostrEvent;
     } catch (e) {
