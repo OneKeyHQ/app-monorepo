@@ -4,7 +4,7 @@ PODS:
     - ExpoModulesCore
     - SPAlert (~> 4.2)
     - SPIndicator (~> 1.6)
-  - callstack-repack (3.5.1):
+  - callstack-repack (3.6.0):
     - JWTDecode (~> 3.0.0)
     - React-Core
     - SwiftyRSA (~> 1.7)
@@ -994,7 +994,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   boost: 57d2868c099736d80fcd648bf211b4431e51a558
   Burnt: 8b232817df0d3efd78797702a0a541cc5a8eebe5
-  callstack-repack: f8a2b10fcecdcc033d70b72af1e2c3cf50a023bd
+  callstack-repack: 5ae2a87e5cf204ef1ac6d111c71bb948fc1f5b4e
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54

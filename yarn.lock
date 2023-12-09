@@ -1835,9 +1835,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@callstack/repack@npm:^3.5.1":
-  version: 3.5.1
-  resolution: "@callstack/repack@npm:3.5.1"
+"@callstack/repack@npm:3.6.0":
+  version: 3.6.0
+  resolution: "@callstack/repack@npm:3.6.0"
   dependencies:
     "@callstack/repack-dev-server": ^1.0.2
     "@discoveryjs/json-ext": ^0.5.7
@@ -1867,7 +1867,7 @@ __metadata:
     "@react-native-community/cli-types": "*"
     react-native: ">=0.63"
     webpack: 5.x
-  checksum: d0c4a589e8f8649be3292ab45ce027f5a7c8ea7a172446aecdb2516c48e75e4e37c2b0063db59721bbb6a8568755d1c1f5d6a451dde095a094228af59b764690
+  checksum: a546c91c75a148a79268f849ac71d32f371f722390f52b4acff962f4eff99286f8019a82f4d30c2ad06365dffd8e05fc4bdddd2b6a8d551c917d9322ba345a44
   languageName: node
   linkType: hard
 
@@ -5260,7 +5260,7 @@ __metadata:
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
     "@babel/core": ^7.20.0
-    "@callstack/repack": ^3.5.1
+    "@callstack/repack": 3.6.0
     "@formatjs/intl-getcanonicallocales": ^1.9.2
     "@formatjs/intl-locale": ^2.4.47
     "@formatjs/intl-pluralrules": ^4.3.3
