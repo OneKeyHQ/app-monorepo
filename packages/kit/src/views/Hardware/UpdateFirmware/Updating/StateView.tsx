@@ -184,7 +184,10 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
             stateContent.description = intl.formatMessage({
               id: 'modal__enter_bootloader_mode_touch',
             });
-          } else if (stateInfo?.content?.deviceType === 'classic') {
+          } else if (
+            stateInfo?.content?.deviceType === 'classic' ||
+            stateInfo?.content?.deviceType === 'classic1s'
+          ) {
             // eslint-disable-next-line global-require
             stateContent.sourceSrc = require('@onekeyhq/kit/assets/animations/lottie-onekey-classic-in-bootloader-mode.json');
             stateContent.description = intl.formatMessage({

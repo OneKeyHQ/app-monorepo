@@ -1,17 +1,11 @@
+import { getDeviceTypeByDeviceId as getDeviceTypeByDeviceIdUtil } from '@onekeyfe/hd-core';
+
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import type { IDeviceType, IVersionArray } from '@onekeyfe/hd-core';
 
-export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType => {
-  if (!deviceId) {
-    return 'classic';
-  }
-
-  const miniFlag = deviceId.slice(0, 2);
-  if (miniFlag.toLowerCase() === 'mi') return 'mini';
-  if (miniFlag.toLowerCase() === 'tc') return 'touch';
-  return 'classic';
-};
+export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType =>
+  getDeviceTypeByDeviceIdUtil(deviceId);
 
 export const getDeviceFirmwareVersion = (
   features: IOneKeyDeviceFeatures | undefined,
