@@ -3,19 +3,21 @@ import ExpiryMap from 'expiry-map';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
-  Nostr,
+  NOSTR_ADDRESS_INDEX,
+  getEventHash,
+  getNostrPath,
   validateEvent,
-} from '@onekeyhq/engine/src/vaults/utils/nostr/nostr';
+} from '@onekeyhq/engine/src/vaults/impl/nostr/helper/NostrSDK';
 import type {
   INostrRelays,
   NostrEvent,
-} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
+} from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
 
@@ -40,22 +42,6 @@ export default class ServiceNostr extends ServiceBase {
     }),
   );
 
-  getNostrInstance = memoizee(
-    async (walletId: string, password: string): Promise<Nostr> => {
-      const nostr = new Nostr(
-        walletId,
-        password,
-        this.backgroundApi.engine.dbApi,
-      );
-      return Promise.resolve(nostr);
-    },
-    {
-      promise: true,
-      maxAge: getTimeDurationMs({ seconds: 60 * 1000 }),
-      max: 5,
-    },
-  );
-
   private async getCurrentAccountIndex(
     activeAccountId: string,
     activeNetworkId: string,
@@ -78,19 +64,63 @@ export default class ServiceNostr extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getOrCreateNostrAccount({
+    walletId,
+    currentAccountId,
+    currentNetworkId,
+    password,
+  }: {
+    walletId: string;
+    currentAccountId: string;
+    currentNetworkId: string;
+    password: string;
+  }) {
+    const accountIndex = await this.getCurrentAccountIndex(
+      currentAccountId,
+      currentNetworkId,
+    );
+    const networkId = OnekeyNetwork.nostr;
+    try {
+      const path = `${getNostrPath(accountIndex)}/${NOSTR_ADDRESS_INDEX}`;
+      const accountId = `${walletId}--${path}`;
+      const account = await this.backgroundApi.engine.getAccount(
+        accountId,
+        networkId,
+      );
+      return account;
+    } catch (e) {
+      try {
+        const [account] = await this.backgroundApi.engine.addHdOrHwAccounts({
+          password,
+          walletId,
+          networkId,
+          indexes: [accountIndex],
+        });
+        return account;
+      } catch (createError) {
+        console.error(createError);
+        throw new Error('Create nostr account failed');
+      }
+    }
+  }
+
+  @backgroundMethod()
   async getPublicKeyHex({
     walletId,
     networkId,
     accountId,
     password,
   }: IGetNostrParams): Promise<string> {
-    const accountIndex = await this.getCurrentAccountIndex(
-      accountId,
-      networkId,
-    );
-    console.log('====> accountIndex', accountIndex);
-    const nostr = await this.getNostrInstance(walletId, password);
-    return nostr.getPublicKeyHex();
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password,
+    });
+    if (!nostrAccount.pubKey) {
+      throw new Error('Nostr: public key not found');
+    }
+    return nostrAccount.pubKey;
   }
 
   @backgroundMethod()
@@ -100,18 +130,20 @@ export default class ServiceNostr extends ServiceBase {
     accountId,
     password,
   }: IGetNostrParams): Promise<string> {
-    const accountIndex = await this.getCurrentAccountIndex(
-      accountId,
-      networkId,
-    );
-    console.log('====> accountIndex', accountIndex);
-    const nostr = await this.getNostrInstance(walletId, password);
-    return nostr.getPubkeyEncodedByNip19();
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password,
+    });
+    return nostrAccount.address;
   }
 
   @backgroundMethod()
   async signEvent({
     walletId,
+    networkId,
+    accountId,
     password,
     event,
   }: IGetNostrParams & { event: NostrEvent }) {
@@ -119,14 +151,31 @@ export default class ServiceNostr extends ServiceBase {
       if (!validateEvent(event)) {
         throw new Error('Invalid event');
       }
-      const nostr = await this.getNostrInstance(walletId, password);
+      const nostrAccount = await this.getOrCreateNostrAccount({
+        walletId,
+        currentAccountId: accountId,
+        currentNetworkId: networkId,
+        password,
+      });
       if (!event.pubkey) {
-        event.pubkey = await nostr.getPublicKeyHex();
+        event.pubkey = nostrAccount.pubKey;
       }
       if (!event.id) {
-        event.id = nostr.getEventHash(event);
+        event.id = getEventHash(event);
       }
-      const signedEvent = await nostr.signEvent(event);
+      const vault = await this.backgroundApi.engine.getVault({
+        networkId: OnekeyNetwork.Nostr,
+        accountId: nostrAccount.id,
+      });
+      const signedEvent = await vault.keyring.signTransaction(
+        {
+          encodedTx: { event },
+          inputs: [],
+          outputs: [],
+          payload: {},
+        },
+        { password },
+      );
       return {
         data: signedEvent,
       };
@@ -142,6 +191,7 @@ export default class ServiceNostr extends ServiceBase {
     pubkey,
     plaintext,
   }: IGetNostrParams & { pubkey: string; plaintext: string }) {
+    // TODO: vault encrypt
     if (!pubkey || !plaintext) {
       throw new Error('Invalid encrypt params');
     }
@@ -159,6 +209,7 @@ export default class ServiceNostr extends ServiceBase {
     pubkey,
     ciphertext,
   }: IGetNostrParams & { pubkey: string; ciphertext: string }) {
+    // TODO: vault decrypt
     if (!pubkey || !ciphertext) {
       throw new Error('Invalid encrypt params');
     }
@@ -194,6 +245,7 @@ export default class ServiceNostr extends ServiceBase {
     password,
     sigHash,
   }: IGetNostrParams & { sigHash: string }) {
+    // TODO: vault signSchnorr
     if (!sigHash) {
       throw new Error('Invalid sigHash');
     }

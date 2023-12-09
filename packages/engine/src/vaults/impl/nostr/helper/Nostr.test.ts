@@ -4,7 +4,7 @@ import * as bip39 from 'bip39';
 import { revealableSeedFromMnemonic } from '../../../secret';
 import { getBitcoinBip32 } from '../btcForkChain/utils';
 
-import { NOSTR_ADDRESS_INDEX, NOSTR_DERIVATION_PATH, Nostr } from './nostr';
+import { NOSTR_ADDRESS_INDEX, NOSTR_DERIVATION_PATH, Nostr } from './NostrSDK';
 
 const fixtures = [
   {

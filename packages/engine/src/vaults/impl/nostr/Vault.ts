@@ -8,6 +8,8 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
+import type { DBAccount } from '../../../types/account';
+
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -19,4 +21,8 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  override addressFromBase(account: DBAccount): Promise<string> {
+    return Promise.resolve(account.address);
+  }
 }

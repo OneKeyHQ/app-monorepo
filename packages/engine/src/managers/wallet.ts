@@ -22,7 +22,8 @@ function isWalletCompatibleAllNetworks(walletId?: string | null): boolean {
 }
 
 function isNostrCredentialId(credentialId: string): boolean {
-  return credentialId.endsWith('--nostr');
+  const split = credentialId.split('--');
+  return split.length > 1 && split[1] === 'nostr';
 }
 
 export {
