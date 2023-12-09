@@ -89,7 +89,8 @@ module.exports = (env) => {
        * in their `package.json` might not work correctly.
        */
       ...Repack.getResolveOptions(platform),
-      mainFields: ['module', 'main', 'browser'],
+      mainFields: ['react-native', 'main', 'module', 'browser'],
+      aliasFields: ['react-native', 'main', 'module', 'browser'],
       fallback: {
         crypto: require.resolve(
           '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
@@ -182,6 +183,7 @@ module.exports = (env) => {
             /node_modules(.*[/\\])+metro/,
             /node_modules(.*[/\\])+abort-controller/,
             /node_modules(.*[/\\])+@callstack\/repack/,
+            /node_modules(.*[/\\])+tamagui\/(.*[/\\])/,
             /node_modules(.*[/\\])+@tamagui\/(.*[/\\])/,
           ],
           use: 'babel-loader',
