@@ -43,6 +43,7 @@ export function Layout({
   boundaryConditions = [],
   elements = [],
   scrollEnabled = true,
+  contentInsetAdjustmentBehavior = 'never',
   skipLoading = false,
   children,
 }: React.PropsWithChildren<{
@@ -50,6 +51,12 @@ export function Layout({
   suggestions?: string[];
   boundaryConditions?: string[];
   scrollEnabled?: boolean;
+  contentInsetAdjustmentBehavior?:
+    | 'always'
+    | 'never'
+    | 'automatic'
+    | 'scrollableAxes'
+    | undefined;
   skipLoading?: boolean;
   elements?: {
     title: string;
@@ -71,6 +78,7 @@ export function Layout({
           paddingBottom: 280,
         }}
         keyboardDismissMode="on-drag"
+        contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
       >
         <Stack marginHorizontal="auto" maxWidth="100%" width={576} space="$6">
           <XStack>

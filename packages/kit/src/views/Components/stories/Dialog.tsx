@@ -1,19 +1,21 @@
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 
 import {
   Button,
   Dialog,
   Form,
   Input,
+  ScrollView,
+  Stack,
   Toast,
   XStack,
   YStack,
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/Navigation';
+import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 
-import { EGalleryRoutes } from '../../../routes/Root/Tab/Developer/Gallery/routes';
+import { EGalleryRoutes } from '../../../routes/Tab/Developer/Gallery/routes';
 
 import { Layout } from './utils/Layout';
 
@@ -26,6 +28,9 @@ const CustomFooter = ({
   index: number;
   form: UseFormReturn<any>;
 }) => {
+  // test Navigation Container hooks
+  const isFocused = useIsFocused();
+  console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
     <XStack space="$4" justifyContent="center">
@@ -62,6 +67,16 @@ function ContentA({ index }: { index: number }) {
       </Form.Field>
       <CustomFooter form={form} index={index + 1} />
     </Form>
+  );
+}
+
+function ScrollContent() {
+  return (
+    <ScrollView height={200}>
+      <Stack height={150} bg="red" />
+      <Stack height={150} bg="blue" />
+      <Stack height={150} bg="black" />
+    </ScrollView>
   );
 }
 
@@ -134,6 +149,25 @@ const DialogGallery = () => (
               }
             >
               destructive
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Hide Confirm Button',
+        element: (
+          <YStack>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Lorem ipsum',
+                  onCancelText: 'Bye',
+                  description:
+                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
+                })
+              }
+            >
+              Hide Confirm Button
             </Button>
           </YStack>
         ),
@@ -293,6 +327,25 @@ const DialogGallery = () => (
               }}
             >
               Close Dialog by Hooks !
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'ScrollView Demo(not recommand, use Modal Page instead it))',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                Dialog.confirm({
+                  title: '#ScrollContent',
+                  dismissOnOverlayPress: false,
+                  disableDrag: true,
+                  renderContent: <ScrollContent />,
+                });
+              }}
+            >
+              Open ScrollContent
             </Button>
           </YStack>
         ),
