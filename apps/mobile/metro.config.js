@@ -2,7 +2,9 @@
 // Learn more https://docs.expo.dev/guides/monorepos
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const fs = require('fs-extra');
 const dynamicImports = require('./dynamicImports');
+const { fileToIdMap } = require('./map');
 // Find the project and workspace directories
 const projectRoot = __dirname;
 // This can be replaced with `find-yarn-workspace-root`
@@ -11,6 +13,14 @@ const projectRoot = __dirname;
 const config = getDefaultConfig(projectRoot);
 
 config.projectRoot = projectRoot;
+
+const fileMapCacheDirectoryPath = path.resolve(
+  __dirname,
+  'node_modules',
+  '.cache/file-map-cache',
+);
+fs.ensureDirSync(fileMapCacheDirectoryPath);
+config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
 
 // hot-reload file type
 // cjs is needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
@@ -63,8 +73,6 @@ config.resolver.nodeModulesPaths = [
 //   `asyncRequire.js`,
 // );
 
-const replacePath = (to, from = __dirname) => to.replace(`${from}/`, '');
-
 config.serializer.processModuleFilter = (() => {
   const dllArr = [];
   const busineArr = [];
@@ -95,27 +103,19 @@ config.serializer.processModuleFilter = (() => {
     true;
 })();
 
-// config.serializer.createModuleIdFactory = () => {
-//   const cacheMap = new Map();
-//   return (absolutePath) => {
-//     const moduleId = cacheMap.get(absolutePath);
-//     if (moduleId) {
-//       return moduleId;
-//     }
-//     // const relativePath = replacePath(absolutePath);
-
-//     // // business module
-//     // return mcs.options.createBusinessModuleId({
-//     //   mcs,
-//     //   cacheMap,
-//     //   absolutePath,
-//     //   relativePath,
-//     // });
-//     const relativePath = replacePath(absolutePath);
-//     cacheMap.set(absolutePath, relativePath);
-//     return relativePath;
-//   };
-// };
+config.serializer.createModuleIdFactory = () => {
+  let nextId = 0;
+  return (path) => {
+    let id = fileToIdMap.get(path);
+    if (typeof id !== 'number') {
+      // eslint-disable-next-line no-plusplus
+      nextId += 1;
+      id = nextId;
+      fileToIdMap.set(path, id);
+    }
+    return id;
+  };
+};
 
 const beforeCustomSerializer = (entryPoint, prepend, graph, bundleOptions) => {
   for (const [key, value] of graph.dependencies) {

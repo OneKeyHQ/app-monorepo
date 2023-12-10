@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const parser = require('@babel/parser');
 const { default: traverse } = require('@babel/traverse');
 const { default: generate } = require('@babel/generator');
-const { replacePath } = require('./replacePath');
+const { fileToIdMap } = require('./map');
 
 const baseJSBundle = require(path.resolve(
   __dirname,
@@ -61,13 +61,12 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
 
   for (const [key, value] of graph.dependencies) {
     const asyncTypes = [...value.inverseDependencies].map((absolutePath) => {
-      const relativePath = replacePath(absolutePath);
+      const moduleId = fileToIdMap.get(absolutePath);
       const val = graph.dependencies.get(absolutePath);
-      console.log('val', val);
       for (const [k, v] of val.dependencies) {
         if (v.absolutePath === key) {
           // 父级被拆分到某个chunk中 该模块同步引用
-          const chunkModuleId = findAllocationById(relativePath);
+          const chunkModuleId = findAllocationById(moduleId);
           if (chunkModuleId && v.data.data.asyncType === null)
             return chunkModuleId;
           return v.data.data.asyncType;
@@ -76,18 +75,18 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
       return undefined;
     });
 
-    const relativePath = replacePath(key);
+    const moduleId = fileToIdMap.get(key);
     if (asyncTypes.length === 0 || asyncTypes.some((v) => v === null)) {
-      map.get(mainModuleId).moduleIds.add(relativePath);
+      map.get(mainModuleId).moduleIds.add(moduleId);
     } else if (asyncTypes.every((v) => v === asyncFlag)) {
-      map.set(relativePath, {
-        moduleIds: new Set([relativePath]),
+      map.set(moduleId, {
+        moduleIds: new Set([moduleId]),
         modules: [],
       });
     } else if (asyncTypes.length === 1) {
-      map.get(asyncTypes[0]).moduleIds.add(relativePath);
+      map.get(asyncTypes[0]).moduleIds.add(moduleId);
     } else {
-      map.get(mainModuleId).moduleIds.add(relativePath);
+      map.get(mainModuleId).moduleIds.add(moduleId);
     }
   }
 
@@ -140,9 +139,13 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
         post: '',
         modules: val.modules,
       });
-      const hash = getContentHash(Buffer.from(code)).substr(0, chunkHashLength);
-      if (chunkModuleIdToHashMap[key] === undefined)
+      const hash = getContentHash(Buffer.from(code)).substring(
+        0,
+        chunkHashLength,
+      );
+      if (chunkModuleIdToHashMap[key] === undefined) {
         chunkModuleIdToHashMap[key] = {};
+      }
       chunkModuleIdToHashMap[key] = { ...chunkModuleIdToHashMap[key], hash };
       //   mcs.hooks.beforeOutputChunk.call({
       //     code,
@@ -153,9 +156,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
         (async () => {
           const dir = path.resolve(outputChunkDir, `${hash}.bundle`);
           await fs.writeFile(dir, code);
-          console.log(
-            `info Writing chunk bundle output to: ${replacePath(dir)}`,
-          );
+          console.log(`info Writing chunk bundle output to: ${dir}`);
         })(),
       );
     }
@@ -164,7 +165,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
 
   // inject map info
   for (const arr of map.get(mainModuleId).modules) {
-    if (arr[0] === replacePath(chunkModuleIdToHashMapPath)) {
+    if (arr[0] === fileToIdMap.get(chunkModuleIdToHashMapPath)) {
       const ast = parser.parse(arr[1]);
       traverse(ast, {
         FunctionExpression(nodePath) {
