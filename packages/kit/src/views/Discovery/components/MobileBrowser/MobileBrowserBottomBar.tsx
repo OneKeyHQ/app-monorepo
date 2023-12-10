@@ -165,6 +165,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     handleShareUrl(tab?.url ?? '');
   }, [tab?.url, handleShareUrl]);
 
+  const disabledGoBack = displayHomePage || !tab?.canGoBack;
+  const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
   return (
     <Stack
       flexDirection="row"
@@ -180,10 +182,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           variant="tertiary"
           size="medium"
           icon="ChevronLeftOutline"
-          disabled={displayHomePage || !tab?.canGoBack}
+          disabled={disabledGoBack}
+          accessible={!disabledGoBack}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goBack();
           }}
+          testID="browser-bar-go-back"
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -191,10 +195,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           variant="tertiary"
           size="medium"
           icon="ChevronRightOutline"
-          disabled={displayHomePage ? true : !tab?.canGoForward}
+          disabled={disabledGoForward}
+          accessible={!disabledGoForward}
           onPress={() => {
             (webviewRefs[id]?.innerRef as WebView)?.goForward();
           }}
+          testID="browser-bar-go-forward"
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -203,6 +209,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           size="medium"
           icon="PlusLargeOutline"
           onPress={handleAddNewTab}
+          testID="browser-bar-add"
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -215,6 +222,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           onPress={() => {
             void handleShowTabList();
           }}
+          testID="browser-bar-tabs"
         >
           <Stack
             minWidth="$5"
@@ -253,6 +261,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             size="medium"
             icon="DotHorOutline"
             disabled={displayHomePage}
+            testID="browser-bar-options"
           />
         </MobileBrowserBottomOptions>
       </Stack>

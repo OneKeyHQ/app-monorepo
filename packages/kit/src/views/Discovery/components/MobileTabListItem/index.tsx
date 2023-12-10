@@ -55,6 +55,7 @@ function MobileTabListItem({
       pressStyle={{
         scale: 0.95,
       }}
+      testID={`tab-modal-list-item-${id}`}
     >
       <YStack
         flex={1}
@@ -90,6 +91,7 @@ function MobileTabListItem({
             size="small"
             icon="CrossedSmallOutline"
             onPress={() => onCloseItem(id)}
+            testID={`tab-modal-header-close-${id}`}
           />
         </XStack>
         {/* Body */}

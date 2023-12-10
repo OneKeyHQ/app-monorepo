@@ -36,7 +36,11 @@ function HeaderBackButton({
     }
     if (showCloseButton) {
       return (
-        <HeaderIconButton onPress={props.onPress} icon="CrossedLargeOutline" />
+        <HeaderIconButton
+          onPress={props.onPress}
+          testID="header-button-close"
+          icon="CrossedLargeOutline"
+        />
       );
     }
     return null;

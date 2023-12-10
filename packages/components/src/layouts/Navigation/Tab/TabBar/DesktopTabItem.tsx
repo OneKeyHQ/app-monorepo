@@ -88,6 +88,7 @@ export function DesktopTabItem(
                 focusStyle={undefined}
                 p="$0.5"
                 m={-3}
+                testID="browser-bar-options"
               />
             )
           }
