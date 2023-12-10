@@ -48,29 +48,5 @@
     "iconBg": "decorative-surface-four",
     "title": "content__nft_profit_and_loss",
     "description": "empty__pnl"
-  },
-  {
-    "ts": [
-      {
-        "_id": "640ea889d24c4159dec9ace1",
-        "__v": 0,
-        "createdAt": "2023-03-13T04:37:29.450Z",
-        "desc": "A kyc-free, fast-acting, 24h self-service GAS purchase tool",
-        "link": "https://cryptogas.shop/ethereum?ref=41034744&address={address}",
-        "logoURI": "https://nft.onekey-asset.com/admin/upload_1678682245907.0.8465877791440557.0.png",
-        "networkId": "evm--1",
-        "title": "GasShop",
-        "updatedAt": "2023-03-13T06:07:32.080Z",
-        "version": 2
-      }
-    ],
-    "key": "GasShop",
-    "icon": {
-      "uri": "https://nft.onekey-asset.com/admin/upload_1678682245907.0.8465877791440557.0.png"
-    },
-    "title": "GasShop",
-    "description": "A kyc-free, fast-acting, 24h self-service GAS purchase tool",
-    "link": "https://cryptogas.shop/ethereum?ref=41034744&address={address}",
-    "intlDisabled": true
   }
 ]

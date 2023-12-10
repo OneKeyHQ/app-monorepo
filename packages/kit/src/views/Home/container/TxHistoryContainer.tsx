@@ -32,8 +32,6 @@ function TxHistoryListContainer(props: IProps) {
     [history.result, formatDate],
   );
 
-  console.log(historySections);
-
   return (
     <TxHistoryListView
       data={historySections}
