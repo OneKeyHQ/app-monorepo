@@ -54,9 +54,9 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
         if (val.moduleIds.has(fatherId)) {
           return key;
         }
-        return null;
       }
     }
+    return null;
   };
 
   for (const [key, value] of graph.dependencies) {
@@ -67,8 +67,9 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
         if (v.absolutePath === key) {
           // 父级被拆分到某个chunk中 该模块同步引用
           const chunkModuleId = findAllocationById(moduleId);
-          if (chunkModuleId && v.data.data.asyncType === null)
+          if (chunkModuleId && v.data.data.asyncType === null) {
             return chunkModuleId;
+          }
           return v.data.data.asyncType;
         }
       }

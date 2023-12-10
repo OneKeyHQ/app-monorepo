@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -140,6 +140,17 @@ const TabDeveloper = () => {
 
           <PartContainer title="Commit Hash">
             <Text>{process.env.COMMITHASH}</Text>
+          </PartContainer>
+
+          <PartContainer title="Commit Hash">
+            <Button
+              onPress={async () => {
+                const { test } = await import('./asyncImportTest');
+                test();
+              }}
+            >
+              Async Import Test
+            </Button>
           </PartContainer>
 
           <PartContainer title="Cold Startup Time(ms)">
