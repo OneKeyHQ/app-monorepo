@@ -3,6 +3,7 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 const fs = require('fs-extra');
+const connect = require('connect');
 const dynamicImports = require('./dynamicImports');
 const { fileToIdMap } = require('./map');
 // Find the project and workspace directories
@@ -68,10 +69,10 @@ config.resolver.nodeModulesPaths = [
 // });
 
 // `Dynamic imports` is a feature that allows you to load modules on demand.
-// config.transformer.asyncRequireModulePath = path.resolve(
-//   __dirname,
-//   `asyncRequire.js`,
-// );
+config.transformer.asyncRequireModulePath = path.resolve(
+  __dirname,
+  `asyncRequire.js`,
+);
 
 config.serializer.processModuleFilter = (() => {
   const dllArr = [];
@@ -148,5 +149,28 @@ config.serializer.customSerializer = async (
 
   return bundle;
 };
+
+const outputChunkDir = path.resolve(__dirname, 'dist/chunks');
+config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
+  connect()
+    .use(metroMiddleware)
+    .use('/async-thunks', (req, res, next) => {
+      const { url } = req;
+      const query = url.split('?').pop();
+      console.log(url, query);
+      const params = new URLSearchParams(query);
+      const hash = params.get('hash');
+      console.log('async-thunks hash:', hash);
+      const content = fs.readFileSync(
+        path.resolve(outputChunkDir, `${hash}.bundle`),
+        'utf8',
+      );
+      if (hash) {
+        res.end(content);
+      } else {
+        // res.end(JSON.stringify([...dynamicImports.asyncModules]));
+        next();
+      }
+    });
 
 module.exports = config;
