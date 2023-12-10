@@ -41,7 +41,7 @@ import {
 } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
-import { isNostrCredentialId, walletIsImported } from '../../managers/wallet';
+import { walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -1448,7 +1448,7 @@ class RealmDB implements DBAPI {
       }
 
       let exprotedCredential: ExportedCredential;
-      if (walletIsImported(credentialId) || isNostrCredentialId(credentialId)) {
+      if (walletIsImported(credentialId)) {
         const privateKeyCredentialJSON = JSON.parse(
           credential.credential,
         ) as StoredPrivateKeyCredential;
