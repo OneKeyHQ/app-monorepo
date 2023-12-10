@@ -154,7 +154,10 @@ const UpdateInfoModal: FC = () => {
     [intl],
   );
   const requestBattery = useCallback(async () => {
-    if (device?.deviceType !== 'classic') {
+    if (
+      device?.deviceType !== 'classic' &&
+      device?.deviceType !== 'classic1s'
+    ) {
       return true;
     }
     if (firstCheckBatteryRef.current) {
@@ -258,6 +261,7 @@ const UpdateInfoModal: FC = () => {
 
         if (
           findDevice.deviceType === 'classic' ||
+          findDevice.deviceType === 'classic1s' ||
           findDevice.deviceType === 'mini'
         ) {
           const shouldUpdateBootloader =
@@ -329,7 +333,10 @@ const UpdateInfoModal: FC = () => {
       })}
       primaryActionTranslationId="action__update"
       onPrimaryActionPress={async () => {
-        if (device?.deviceType === 'classic') {
+        if (
+          device?.deviceType === 'classic' ||
+          device?.deviceType === 'classic1s'
+        ) {
           const checkBatteryRes = await requestBattery();
           if (!checkBatteryRes) return;
         }

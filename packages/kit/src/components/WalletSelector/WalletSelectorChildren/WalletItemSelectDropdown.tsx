@@ -179,7 +179,11 @@ function HardwareMenuOptions({
     async (connectId?: string) => {
       if (!connectId || !hwInfo.hwWalletType) return;
       const hasHomeScreen = getHomescreenKeys(hwInfo.hwWalletType).length > 0;
-      if (hwInfo.hwWalletType === 'mini' || hwInfo.hwWalletType === 'classic') {
+      if (
+        hwInfo.hwWalletType === 'mini' ||
+        hwInfo.hwWalletType === 'classic' ||
+        hwInfo.hwWalletType === 'classic1s'
+      ) {
         setShowHomeScreenSetting(hasHomeScreen);
         return;
       }

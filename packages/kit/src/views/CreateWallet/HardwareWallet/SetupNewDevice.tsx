@@ -31,6 +31,7 @@ type RouteProps = RouteProp<
 const getSetupNewDeviceIcon = (type: IDeviceType): any => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
       return ClassicSetupNewDevicePng;
     case 'mini':
       return MiniSetupNewDevicePng;
@@ -44,6 +45,7 @@ const getSetupNewDeviceIcon = (type: IDeviceType): any => {
 const getRestoreDeviceIcon = (type: IDeviceType): any => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
       return ClassicRestoreDevicePng;
     case 'mini':
       return MiniRestoreDevicePng;
@@ -68,6 +70,7 @@ const SetupNewDeviceModal: FC = () => {
     if (!device) return null;
     switch (device.deviceType) {
       case 'classic':
+      case 'classic1s':
         return classicActivateHelp;
 
       case 'mini':

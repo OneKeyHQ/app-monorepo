@@ -169,16 +169,21 @@ const LNURLWithdraw = () => {
         isDisabled: isLoading,
         isLoading,
       }}
+      onPrimaryActionPress={() => doSubmit()}
+      secondaryActionTranslationId="action__cancel"
       onModalClose={() => {
         if (!isSendFlow) {
           dappApprove.reject();
         }
       }}
-      onPrimaryActionPress={() => doSubmit()}
-      secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
+      onSecondaryActionPress={({ close }) => {
+        if (isSendFlow) {
+          if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+          }
+        } else {
+          dappApprove.reject();
+          close();
         }
       }}
       height="auto"

@@ -33,6 +33,7 @@ export const PINCodeMaxLength = 9;
 const getEnterPinCodeAnimation = (type: IDeviceType) => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
       return EnterPinCodeOnClassic;
     case 'mini':
       return EnterPinCodeOnMini;

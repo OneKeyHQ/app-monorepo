@@ -44,7 +44,12 @@ function DeviceAdvancedSettings({
     useState<boolean>(false);
 
   const canOnDeviceInputPin = useMemo(() => {
-    if (deviceType === 'classic' || deviceType === 'mini') return true;
+    if (
+      deviceType === 'classic' ||
+      deviceType === 'classic1s' ||
+      deviceType === 'mini'
+    )
+      return true;
     return false;
   }, [deviceType]);
 

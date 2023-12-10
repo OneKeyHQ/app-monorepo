@@ -5,9 +5,11 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
@@ -104,26 +106,33 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async exchangeToken(password: string) {
+  async exchangeToken(password: string, account?: DBVariantAccount) {
     try {
-      if (!password) {
-        throw new Error('No Password');
-      }
-      const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-      const address = dbAccount.addresses.normalizedAddress;
-      const hashPubKey = bytesToHex(sha256(dbAccount.pub));
+      const usedAccount =
+        account || ((await this.getDbAccount()) as DBVariantAccount);
+      const address = usedAccount.addresses.normalizedAddress;
+      const hashPubKey = bytesToHex(sha256(usedAccount.pub));
       const network = await this.getNetwork();
-      const { entropy } = (await this.engine.dbApi.getCredential(
-        this.walletId,
-        password ?? '',
-      )) as ExportedSeedCredential;
+      let entropy: Buffer | null = null;
+      if (isHdWallet({ walletId: this.walletId })) {
+        if (!password) {
+          throw new Error('No Password');
+        }
+        entropy = (
+          (await this.engine.dbApi.getCredential(
+            this.walletId,
+            password ?? '',
+          )) as ExportedSeedCredential
+        ).entropy;
+      }
       const client = await this.getClient();
       const signTemplate = await client.fetchSignTemplate(address, 'auth');
       if (signTemplate.type !== 'auth') {
         throw new Error('Invalid auth sign template');
       }
       const timestamp = Date.now();
-      const sign = await signature({
+      const keyring = this.keyring as KeyringHd;
+      const sign = await keyring.signature({
         msgPayload: {
           ...signTemplate,
           pubkey: hashPubKey,
@@ -131,18 +140,24 @@ export default class Vault extends VaultBase {
           timestamp,
         },
         engine: this.engine,
-        path: dbAccount.addresses.realPath,
+        path: usedAccount.addresses.realPath,
         password: password ?? '',
-        entropy,
+        entropy: entropy as Buffer,
         isTestnet: network.isTestnet,
       });
-      return await client.refreshAccessToken({
+      const res = await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,
         timestamp,
         randomSeed: signTemplate.randomSeed,
       });
+      await simpleDb.utxoAccounts.updateLndToken(
+        usedAccount.addresses.normalizedAddress,
+        res.access_token,
+        res.refresh_token,
+      );
+      return res;
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);
       throw e;
