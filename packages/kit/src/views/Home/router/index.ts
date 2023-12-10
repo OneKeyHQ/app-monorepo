@@ -4,6 +4,8 @@ import { HomePageContainer } from '../container/HomePageContainer';
 
 import { ETabHomeRoutes } from './types';
 
+export * from './types';
+
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHome,

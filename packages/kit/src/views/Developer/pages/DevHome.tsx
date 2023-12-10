@@ -29,7 +29,7 @@ import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
 
 import HeaderView from './HeaderView';
 
-import type { ITabHomeParamList } from '../../Home/router/types';
+import type { ITabHomeParamList } from '../../Home/router';
 
 const FirstRoute = ({
   onContentSizeChange,
