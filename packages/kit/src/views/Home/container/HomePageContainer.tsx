@@ -6,6 +6,7 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 import { Page, Tab, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 
+import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainer } from './TokenListContainer';
 import { ToolListContainer } from './ToolListContainer';
@@ -65,6 +66,7 @@ function HomePageContainer() {
   return useMemo(
     () => (
       <Page>
+        <Page.Header headerTitle={() => <HomeHeaderContainer />} />
         <Page.Body alignItems="center">
           <Tab
             // @ts-expect-error

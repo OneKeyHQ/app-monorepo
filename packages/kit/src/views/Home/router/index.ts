@@ -1,12 +1,13 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 
-import HomePage from './pages/Home';
-import { ETabHomeRoutes } from './type';
+import { HomePageContainer } from '../container/HomePageContainer';
+
+import { ETabHomeRoutes } from './types';
 
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHome,
-    component: HomePage,
+    component: HomePageContainer,
     translationId: 'wallet__wallet',
   },
 ];
