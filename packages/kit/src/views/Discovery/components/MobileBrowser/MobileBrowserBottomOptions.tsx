@@ -29,6 +29,7 @@ function MobileBrowserBottomOptions({
               label: intl.formatMessage({ id: 'action__refresh' }),
               icon: 'RotateClockwiseOutline',
               onPress: () => onRefresh(),
+              testID: 'action-list-item-reload',
             },
             {
               label: intl.formatMessage({
@@ -38,6 +39,9 @@ function MobileBrowserBottomOptions({
               }),
               icon: isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => onBookmarkPress(!isBookmark),
+              testID: `action-list-item-${
+                !isBookmark ? 'bookmark' : 'remove-bookmark'
+              }`,
             },
             {
               label: intl.formatMessage({
@@ -45,16 +49,19 @@ function MobileBrowserBottomOptions({
               }),
               icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => onPinnedPress(!isPinned),
+              testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
             },
             {
               label: intl.formatMessage({ id: 'action__share' }),
               icon: 'ShareOutline',
               onPress: () => onShare(),
+              testID: 'action-list-item-share',
             },
             {
               label: intl.formatMessage({ id: 'action__open_in_browser' }),
               icon: 'CompassCircleOutline',
               onPress: () => onBrowserOpen(),
+              testID: 'action-list-item-open-in-browser',
             },
           ],
         },
@@ -64,6 +71,7 @@ function MobileBrowserBottomOptions({
               label: intl.formatMessage({ id: 'action__back_to_home_page' }),
               icon: 'HomeOpenOutline',
               onPress: () => onGoBackHomePage(),
+              testID: 'action-list-item-back-to-home',
             },
           ],
         },
