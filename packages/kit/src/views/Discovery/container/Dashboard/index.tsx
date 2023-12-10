@@ -29,6 +29,7 @@ function Dashboard() {
             screen: EDiscoveryModalRoutes.FakeSearchModal,
           });
         }}
+        testID="fake-search-modal"
       >
         Search Modal
       </Button>
