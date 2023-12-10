@@ -67,7 +67,7 @@ config.resolver.nodeModulesPaths = [
 //   ramGroups: [],
 // });
 
-// async import
+// `Dynamic imports` is a feature that allows you to load modules on demand.
 // config.transformer.asyncRequireModulePath = path.resolve(
 //   __dirname,
 //   `asyncRequire.js`,
@@ -129,24 +129,24 @@ const beforeCustomSerializer = (entryPoint, prepend, graph, bundleOptions) => {
   }
 };
 
-// config.serializer.customSerializer = async (
-//   entryPoint,
-//   prepend,
-//   graph,
-//   bundleOptions,
-//   ...args
-// ) => {
-//   beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
-//   const bundle = await dynamicImports(
-//     entryPoint,
-//     prepend,
-//     graph,
-//     bundleOptions,
-//   );
+config.serializer.customSerializer = async (
+  entryPoint,
+  prepend,
+  graph,
+  bundleOptions,
+  ...args
+) => {
+  beforeCustomSerializer(entryPoint, prepend, graph, bundleOptions);
+  const bundle = await dynamicImports(
+    entryPoint,
+    prepend,
+    graph,
+    bundleOptions,
+  );
 
-//   // mcs.hooks.afterCustomSerializer.call(bundle);
+  // mcs.hooks.afterCustomSerializer.call(bundle);
 
-//   return bundle;
-// };
+  return bundle;
+};
 
 module.exports = config;
