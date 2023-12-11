@@ -1,15 +1,11 @@
 import type { ComponentType, PropsWithChildren } from 'react';
 
-import type {
-  ListItemProps,
-  SelectProps,
-  SelectTriggerProps,
-  SheetProps,
-} from 'tamagui';
+import type { ListItemProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export interface ISelectTriggerProps {
@@ -28,7 +24,7 @@ export interface ISelectItemProps extends ISelectItem {
 }
 
 export interface ISelectSection {
-  items: ISelectItem[];
+  data: ISelectItem[];
   title?: string;
 }
 
@@ -36,10 +32,9 @@ export type ISelectProps = PropsWithChildren<{
   items?: ISelectItem[];
   sections?: ISelectSection[];
   placeholder?: string;
-  sheetProps?: SheetProps;
   title: string;
-  triggerProps?: SelectTriggerProps;
   value?: string;
   onChange?: (value: string) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
+  disabled?: boolean;
 }>;

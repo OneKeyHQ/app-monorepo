@@ -18,10 +18,11 @@ const composeEventHandlers =
     }
   };
 
-type ITrigger = PropsWithChildren<{ onPress?: () => void }>;
+type ITrigger = PropsWithChildren<{ onPress?: () => void; disabled?: boolean }>;
+const noop = () => undefined;
 
 function BasicTrigger(
-  { onPress: onPressInTrigger, children }: ITrigger,
+  { onPress: onPressInTrigger, disabled, children }: ITrigger,
   ref: ForwardedRef<IView>,
 ) {
   if (children) {
@@ -31,10 +32,12 @@ function BasicTrigger(
       const handleOpen = onPress
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
+
+      const handlePressWithStatus = disabled ? noop : handleOpen;
       return (
-        <Stack ref={ref} onPress={handleOpen}>
+        <Stack ref={ref} onPress={handlePressWithStatus}>
           {cloneElement(child, {
-            onPress: handleOpen,
+            onPress: handlePressWithStatus,
             ...props,
           } as IButtonProps)}
         </Stack>

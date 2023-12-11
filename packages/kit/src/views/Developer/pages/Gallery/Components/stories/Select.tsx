@@ -41,12 +41,19 @@ const SelectDefaultItem = () => {
   const [val, setVal] = useState('Apple');
 
   return (
+    <Select items={items} value={val} onChange={setVal} title="Demo Title" />
+  );
+};
+
+const SelectDisabledItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
     <Select
+      disabled
       items={items}
       value={val}
       onChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
       title="Demo Title"
     />
   );
@@ -64,55 +71,7 @@ const SelectCustomItem = () => {
       items={items}
       value={val}
       onChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
       title="Demo Title"
-    />
-  );
-};
-
-const SelectDefaultNativeItem = () => {
-  const [val, setVal] = useState('Apple');
-
-  return (
-    <Select
-      items={items}
-      value={val}
-      onChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
-      title="Demo Title"
-    />
-  );
-};
-
-const SelectCustomTriggerItem = () => {
-  const [val, setVal] = useState('');
-
-  return (
-    <Select
-      items={items}
-      value={val}
-      onChange={setVal}
-      placeholder="please select it"
-      triggerProps={{
-        width: '100%',
-        padded: false,
-        backgroundColor: '$bgActive',
-        overflow: 'hidden',
-        borderRadius: '$2',
-      }}
-      renderTrigger={(item) => (
-        <XStack w="100%" justifyContent="space-between">
-          <Text variant="$bodyMd">Fruit</Text>
-          <XStack space>
-            {item?.leading}
-            <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
-          </XStack>
-        </XStack>
-      )}
-      disablePreventBodyScroll
-      title="Custom Trigger"
     />
   );
 };
@@ -120,7 +79,7 @@ const SelectCustomTriggerItem = () => {
 const sections: ISelectSection[] = [
   {
     title: 'emoji Section',
-    items: [
+    data: [
       {
         label: 'Apple',
         value: 'Apple',
@@ -148,7 +107,7 @@ const sections: ISelectSection[] = [
   },
   {
     title: 'plain Section',
-    items: [
+    data: [
       { label: 'Apricot', value: 'Apricot' },
 
       { label: 'Melon', value: 'Melon' },
@@ -169,8 +128,6 @@ const SelectSectionsItemDemo = () => {
       sections={sections}
       value={val}
       onChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
       title="Demo Title"
     />
   );
@@ -191,6 +148,14 @@ const SelectGallery = () => (
         ),
       },
       {
+        title: 'Disabled',
+        element: (
+          <Stack space="$1">
+            <SelectDisabledItem />
+          </Stack>
+        ),
+      },
+      {
         title: 'Custom Trigger',
         element: (
           <Stack space="$1">
@@ -198,30 +163,14 @@ const SelectGallery = () => (
           </Stack>
         ),
       },
-      // {
-      //   title: '默认状态 native prop',
-      //   element: (
-      //     <Stack space="$1">
-      //       <SelectDefaultNativeItem />
-      //     </Stack>
-      //   ),
-      // },
-      // {
-      //   title: '自定义renderTrigger',
-      //   element: (
-      //     <Stack space="$1">
-      //       <SelectCustomTriggerItem />
-      //     </Stack>
-      //   ),
-      // },
-      // {
-      //   title: 'Select Sections',
-      //   element: (
-      //     <Stack space="$1">
-      //       <SelectSectionsItemDemo />
-      //     </Stack>
-      //   ),
-      // },
+      {
+        title: 'Select Sections',
+        element: (
+          <Stack space="$1">
+            <SelectSectionsItemDemo />
+          </Stack>
+        ),
+      },
     ]}
   />
 );

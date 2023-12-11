@@ -4,7 +4,7 @@ import { useMedia, withStaticProperties } from 'tamagui';
 
 import { Popover, Trigger } from '../../actions';
 import { useSafeAreaInsets } from '../../hooks';
-import { ListView } from '../../layouts';
+import { ListView, SectionList } from '../../layouts';
 import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 
@@ -15,18 +15,24 @@ import type {
   ISelectItemProps,
   ISelectProps,
   ISelectRenderTriggerProps,
+  ISelectSection,
   ISelectTriggerProps,
 } from './type';
 
 function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
-  const { changeOpenStatus, value, placeholder } = useContext(SelectContext);
+  const { changeOpenStatus, value, placeholder, disabled } =
+    useContext(SelectContext);
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
   return (
-    <Trigger onPress={handleTriggerPressed}>
+    <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {RenderTrigger ? (
-        <RenderTrigger value={value} placeholder={placeholder} />
+        <RenderTrigger
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+        />
       ) : (
         <Text>{value}</Text>
       )}
@@ -60,6 +66,11 @@ function SelectItem({
         }}
         onPress={handleSelect}
       >
+        {leading ? (
+          <Stack alignContent="center" justifyContent="center" pr="$4">
+            {leading}
+          </Stack>
+        ) : null}
         <Text
           flex={1}
           $md={{
@@ -91,8 +102,15 @@ function SelectItem({
 }
 
 function SelectContent() {
-  const { changeOpenStatus, value, isOpen, title, items, onValueChange } =
-    useContext(SelectContext);
+  const {
+    changeOpenStatus,
+    value,
+    isOpen,
+    title,
+    items,
+    onValueChange,
+    sections,
+  } = useContext(SelectContext);
   const { md } = useMedia();
   const handleSelect = useCallback(
     (itemValue: string) => {
@@ -123,6 +141,44 @@ function SelectContent() {
     ),
     [handleSelect, value],
   );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: ISelectSection }) => (
+      <Text
+        variant="$headingXs"
+        $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
+        paddingVertical="$1.5"
+        paddingHorizontal="$2"
+        color="$textSubdued"
+      >
+        {section.title}
+      </Text>
+    ),
+    [],
+  );
+
+  const renderContent = sections ? (
+    <SectionList
+      sections={sections}
+      contentContainerStyle={{
+        px: '$4',
+      }}
+      renderSectionHeader={renderSectionHeader}
+      estimatedItemSize="$4"
+      extraData={value}
+      renderItem={renderItem}
+    />
+  ) : (
+    <ListView
+      data={items}
+      contentContainerStyle={{
+        px: '$4',
+      }}
+      estimatedItemSize="$4"
+      extraData={value}
+      renderItem={renderItem}
+    />
+  );
   return (
     <Popover
       title={title || ''}
@@ -131,17 +187,7 @@ function SelectContent() {
       onFocusOutside={handleFocusOutside}
       placement="bottom-start"
       renderTrigger={<Stack pointerEvents="none" />}
-      renderContent={
-        <ListView
-          data={items}
-          contentContainerStyle={{
-            px: '$4',
-          }}
-          estimatedItemSize="$4"
-          extraData={value}
-          renderItem={renderItem}
-        />
-      }
+      renderContent={renderContent}
     />
   );
 }
@@ -153,6 +199,8 @@ function SelectFrame({
   onChange,
   children,
   title,
+  disabled,
+  sections,
 }: ISelectProps) {
   const [isOpen, changeOpenStatus] = useState(false);
   const context = useMemo(
@@ -162,10 +210,12 @@ function SelectFrame({
       value,
       onValueChange: onChange,
       items,
+      sections,
       title,
       placeholder,
+      disabled,
     }),
-    [isOpen, value, onChange, items, title, placeholder],
+    [isOpen, value, onChange, items, sections, title, placeholder, disabled],
   );
   return (
     <SelectContext.Provider value={context}>{children}</SelectContext.Provider>
@@ -174,9 +224,15 @@ function SelectFrame({
 
 function BasicSelect({ renderTrigger, ...props }: ISelectProps) {
   const defaultRenderTrigger = useCallback(
-    ({ value, placeholder }: ISelectRenderTriggerProps) => (
+    ({ value, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
-        <Input value={value} placeholder={placeholder} readonly flex={1} />
+        <Input
+          value={value}
+          disabled={disabled}
+          placeholder={placeholder}
+          readonly
+          flex={1}
+        />
         <Icon
           name="ChevronBottomSolid"
           position="absolute"
