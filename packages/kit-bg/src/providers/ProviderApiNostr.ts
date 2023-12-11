@@ -82,13 +82,7 @@ class ProviderApiNostr extends ProviderApiBase {
   public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId, networkId, accountId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
-    const existPubKey = await this.getNostrAccountPubKey({
-      request,
-      walletId,
-      networkId,
-      accountId,
-    });
-    console.log('====>>>accounts', existPubKey);
+    const existPubKey = await this.getNostrAccountPubKey(request);
     if (existPubKey) {
       return existPubKey;
     }
@@ -111,17 +105,8 @@ class ProviderApiNostr extends ProviderApiBase {
     return Promise.resolve(pubkey as string);
   }
 
-  async getNostrAccountPubKey({
-    request,
-    walletId,
-    networkId,
-    accountId,
-  }: {
-    request: IJsBridgeMessagePayload;
-    walletId: string;
-    networkId: string;
-    accountId: string;
-  }) {
+  async getNostrAccountPubKey(request: IJsBridgeMessagePayload) {
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
     const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
       {
         origin: request.origin as string,

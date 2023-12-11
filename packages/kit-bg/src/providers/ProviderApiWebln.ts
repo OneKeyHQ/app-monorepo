@@ -77,11 +77,46 @@ class ProviderApiWebln extends ProviderApiBase {
   @providerApiMethod()
   public async enable(request: IJsBridgeMessagePayload) {
     try {
+      const accountEnabled = await this.getEnabledAccount(request);
+      if (accountEnabled) {
+        return { enabled: true };
+      }
       await this.backgroundApi.serviceDapp.openConnectionModal(request);
       return { enabled: true };
     } catch (error) {
       debugLogger.providerApi.error(`webln.enable error: `, error);
       throw error;
+    }
+  }
+
+  private async getEnabledAccount(request: IJsBridgeMessagePayload) {
+    const { networkId, accountId } = getActiveWalletAccount();
+    try {
+      const accounts =
+        this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+          origin: request.origin as string,
+          impl: IMPL_LIGHTNING,
+        });
+      if (!accounts) {
+        return false;
+      }
+      const accountAddresses = accounts.map((account) => account.address);
+
+      const account = await this.backgroundApi.engine.getAccount(
+        accountId,
+        networkId,
+      );
+      if (account.addresses) {
+        const addresses = JSON.parse(account.addresses) as {
+          hashAddress?: string;
+        };
+        if (addresses.hashAddress) {
+          return accountAddresses.includes(addresses.hashAddress);
+        }
+      }
+      return false;
+    } catch {
+      return false;
     }
   }
 
