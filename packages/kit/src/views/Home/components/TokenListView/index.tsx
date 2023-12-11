@@ -1,13 +1,13 @@
 import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Stack } from '@onekeyhq/components';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
+import { useTokenListAtom } from '../../../../states/jotai/contexts/token-list';
 
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
 
 type IProps = {
-  data: IAccountToken[];
   isLoading?: boolean;
   onRefresh?: () => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -29,14 +29,17 @@ function TokenListEmpty() {
 }
 
 function TokenListView(props: IProps) {
-  const { data, onContentSizeChange } = props;
+  const { onContentSizeChange } = props;
+
+  const [tokenList] = useTokenListAtom();
+  const { tokens } = tokenList;
 
   return (
     <ListView
       h="100%"
       estimatedItemSize={76}
       scrollEnabled={false}
-      data={data}
+      data={tokens}
       ListHeaderComponent={TokenListHeader}
       ListHeaderComponentStyle={{
         mt: '$4',
@@ -44,7 +47,7 @@ function TokenListView(props: IProps) {
       }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
-      renderItem={({ item }) => <TokenListItem token={item} key={item.name} />}
+      renderItem={({ item }) => <TokenListItem token={item} key={item.$key} />}
     />
   );
 }

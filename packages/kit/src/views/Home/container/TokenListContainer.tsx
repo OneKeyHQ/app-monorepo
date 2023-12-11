@@ -1,5 +1,11 @@
+import { memo } from 'react';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useTokenListActions,
+  withTokenListProvider,
+} from '../../../states/jotai/contexts/token-list';
 import { TokenListView } from '../components/TokenListView';
 
 type IProps = {
@@ -8,25 +14,29 @@ type IProps = {
 
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
+  const { refreshTokenList, refreshTokenListMap } = useTokenListActions();
 
-  const tokens = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-      networkId: 'evm--1',
-      accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-    });
-    console.log('r', r);
-    return r;
-  }, []);
-
-  console.log(tokens);
+  const promise = usePromiseResult(async () => {
+    const r =
+      await backgroundApiProxy.serviceToken.fetchAccountTokensForDeepRefresh({
+        accountId: '',
+        networkId: 'evm--1',
+        accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+      });
+    refreshTokenList(r);
+    refreshTokenListMap(r.map);
+  }, [refreshTokenList, refreshTokenListMap]);
 
   return (
     <TokenListView
-      data={tokens.result?.data ?? []}
-      isLoading={tokens.isLoading}
+      isLoading={promise.isLoading}
       onContentSizeChange={onContentSizeChange}
     />
   );
 }
 
-export { TokenListContainer };
+const TokenListContainerWithProvider = memo(
+  withTokenListProvider<IProps>(TokenListContainer),
+);
+
+export { TokenListContainer, TokenListContainerWithProvider };

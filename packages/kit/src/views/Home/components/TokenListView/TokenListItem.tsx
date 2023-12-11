@@ -1,7 +1,9 @@
-import BigNumber from 'bignumber.js';
-
 import { Icon, ListItem } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
+import { TokenBalanceView } from './TokenBalanceView';
+import { TokenPriceView } from './TokenPriceView';
+import { TokenValueView } from './TokenValueView';
 
 type IProps = {
   token: IAccountToken;
@@ -14,10 +16,6 @@ function TokenListItem(props: IProps) {
     <ListItem
       key={token.name}
       title={token.name}
-      subtitle={`${token.balance ?? 0} ${token.symbol}`}
-      subtitleProps={{
-        numberOfLines: 1,
-      }}
       avatarProps={{
         src: token.logoURI,
         fallbackProps: {
@@ -35,16 +33,14 @@ function TokenListItem(props: IProps) {
       paddingVertical="$4"
       margin="0"
     >
-      <ListItem.Text
-        align="right"
-        primary={token.fiatValue}
-        secondary={token.price24h}
-        secondaryTextProps={{
-          tone: new BigNumber(token.price24h).isPositive()
-            ? 'success'
-            : 'critical',
-        }}
+      <TokenPriceView $key={token.$key ?? ''} align="center" flex={1} />
+      <TokenBalanceView
+        $key={token.$key ?? ''}
+        symbol={token.symbol}
+        align="center"
+        flex={1}
       />
+      <TokenValueView $key={token.$key ?? ''} align="right" flex={1} />
     </ListItem>
   );
 }

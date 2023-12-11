@@ -8,7 +8,7 @@ import { getTokens } from '@onekeyhq/components/src/hooks';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
-import { TokenListContainer } from './TokenListContainer';
+import { TokenListContainerWithProvider } from './TokenListContainer';
 import { ToolListContainer } from './ToolListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
@@ -29,7 +29,7 @@ function HomePageContainer() {
         title: intl.formatMessage({
           id: 'asset__tokens',
         }),
-        page: memo(TokenListContainer, () => true),
+        page: memo(TokenListContainerWithProvider, () => true),
       },
       {
         title: intl.formatMessage({
@@ -72,7 +72,7 @@ function HomePageContainer() {
             // @ts-expect-error
             data={tabs}
             ListHeaderComponent={<>{renderHeaderView()}</>}
-            initialScrollIndex={3}
+            initialScrollIndex={0}
             $md={{
               width: '100%',
             }}
