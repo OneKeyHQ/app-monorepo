@@ -178,7 +178,7 @@ function DemoCoverageDialogModal() {
           element: (
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: '我站在 Modal 上面',
                   description:
                     '通过 Api 打开的, 点击确定按钮会关闭 Dialog 打开一个 Modal',
