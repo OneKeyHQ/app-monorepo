@@ -177,7 +177,7 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
+          void gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
         }}
         allowpopups
         onLoadStart={onLoadStart}

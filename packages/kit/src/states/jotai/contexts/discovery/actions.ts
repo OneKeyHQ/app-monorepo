@@ -24,7 +24,6 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 
 import {
   activeTabIdAtom,
-  browserBookmarkAtom,
   browserHistoryAtom,
   contextAtomMethod,
   displayHomePageAtom,
@@ -262,12 +261,19 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
+  getBookmarkData = contextAtomMethod(async () => {
+    const bookmark =
+      (await backgroundApiProxy.simpleDb.browserBookmarks.getRawData())?.data ??
+      [];
+    return bookmark;
+  });
+
   buildBookmarkData = contextAtomMethod(
     (_, set, payload: IBrowserBookmark[]) => {
       if (!Array.isArray(payload)) {
         throw new Error('buildBookmarkData: payload must be an array');
       }
-      set(browserBookmarkAtom(), payload);
+      // set(browserBookmarkAtom(), payload);
       void backgroundApiProxy.simpleDb.browserBookmarks.setRawData({
         data: payload,
       });
@@ -275,11 +281,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   addBrowserBookmark = contextAtomMethod(
-    (get, set, payload: IBrowserBookmark) => {
+    async (_, set, payload: IBrowserBookmark) => {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const bookmark = get(browserBookmarkAtom());
+      const bookmark = await this.getBookmarkData.call(set);
       const index = bookmark.findIndex((item) => item.url === payload.url);
       if (index !== -1) {
         bookmark.splice(index, 1);
@@ -291,8 +297,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  removeBrowserBookmark = contextAtomMethod((get, set, payload: string) => {
-    const bookmark = get(browserBookmarkAtom());
+  removeBrowserBookmark = contextAtomMethod(async (_, set, payload: string) => {
+    const bookmark = await this.getBookmarkData.call(set);
     const index = bookmark.findIndex((item) => item.url === payload);
     if (index !== -1) {
       bookmark.splice(index, 1);
@@ -348,8 +354,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   gotoSite = contextAtomMethod(
-    (
-      get,
+    async (
+      _,
       set,
       {
         id,
@@ -384,7 +390,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
           browserTypeHandler === 'MultiTabBrowser';
 
-        const bookmarks = get(browserBookmarkAtom());
+        const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
           item.url.includes(validatedUrl),
         );
@@ -497,7 +503,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return;
         }
 
-        this.gotoSite.call(set, {
+        void this.gotoSite.call(set, {
           url,
           title,
           favicon,

@@ -42,12 +42,6 @@ export const {
 });
 
 /**
- * Bookmark Atom
- */
-export const { atom: browserBookmarkAtom, use: useBrowserBookmarkAtom } =
-  contextAtom<IBrowserBookmark[]>([]);
-
-/**
  * History Atom
  */
 export const { atom: browserHistoryAtom, use: useBrowserHistoryAtom } =
