@@ -10,7 +10,7 @@ import { useSwapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-import type { EModalSwapRoutes, IModalSwapParamList } from '../types';
+import type { EModalSwapRoutes, IModalSwapParamList } from '../router/Routers';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function SwapTokenSelectModal() {

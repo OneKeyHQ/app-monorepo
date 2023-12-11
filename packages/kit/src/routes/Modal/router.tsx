@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalDiscoveryStack } from './Discovery';
+import { ModalSwapStack } from './SwapModalStack';
 import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
@@ -15,6 +16,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
+  },
+  {
+    name: EModalRoutes.SwapModal,
+    children: ModalSwapStack,
   },
 ];
 

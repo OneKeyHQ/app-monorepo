@@ -1,10 +1,10 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import SwapNetworkSelectModal from '../Modals/SwapNetworkSelectModal';
-import SwapTokenSelectModal from '../Modals/SwapTokenSelectModal';
-import { EModalSwapRoutes } from '../types';
+import SwapNetworkSelectModal from '../../views/Swap/container/SwapNetworkSelectModal';
+import SwapTokenSelectModal from '../../views/Swap/container/SwapTokenSelectModal';
+import { EModalSwapRoutes } from '../../views/Swap/router/Routers';
 
-import type { IModalSwapParamList } from '../types';
+import type { IModalSwapParamList } from '../../views/Swap/router/Routers';
 
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,

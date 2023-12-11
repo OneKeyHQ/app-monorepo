@@ -15,15 +15,15 @@ import type {
   IFetchQuoteResponse,
   IFetchQuoteResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceSwap';
-import { CrossChainSwapProviders } from '@onekeyhq/kit-bg/src/services/ServiceSwap';
 import { useSwapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Root/Modal/Routes';
+import { EModalRoutes } from '../../routes/Modal/type';
 
-import { QuoteResult } from './Components/QuoteResult';
-import { EModalSwapRoutes, type IModalSwapParamList } from './types';
+import { QuoteResult } from './components/QuoteResult';
+import { withSwapProvider } from './container/WithSwapProvider';
+import { useSwapQuoteAction } from './hooks/useSwapQuote';
+import { EModalSwapRoutes, type IModalSwapParamList } from './router/Routers';
 import { validateInput } from './utils/utils';
 
 const Swap = () => {
@@ -34,11 +34,8 @@ const Swap = () => {
     { fromNetwork, toNetwork, toToken, fromToken, isOnlySupportSingleChain },
   ] = useSwapAtom();
   const [fromInputAmount, setFromInputAmount] = useState('');
-  const [quoteFetching, setQuoteFetching] = useState(false);
-  const [quotesRes, setQuotesRes] = useState<IFetchQuoteResponse[]>([]);
-  const [selectQuote, setSelectQuote] = useState<IFetchQuoteResult | null>(
-    null,
-  );
+  const { quoteFetch, quoteFetching, quotes, selectQuote, setSelectQuote } =
+    useSwapQuoteAction();
 
   const onSelectNetwork = useCallback(
     (type: 'from' | 'to') => {
@@ -68,40 +65,9 @@ const Swap = () => {
       console.log('onInputChange', text);
       setFromInputAmount(text);
       const inputAmountNumber = Number(text);
-      if (
-        Number.isNaN(inputAmountNumber) ||
-        inputAmountNumber === 0 ||
-        text === ''
-      ) {
-        if (quoteFetching)
-          await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
-        setQuoteFetching(false);
-        setSelectQuote(null);
-        return;
-      }
-
-      if (fromToken && toToken) {
-        try {
-          setQuoteFetching(true);
-          const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
-            fromToken,
-            toToken,
-            fromTokenAmount: text,
-          });
-          if (res && res?.length > 0) {
-            setQuotesRes(res);
-            setSelectQuote(res[0]?.quoteResult);
-          }
-          setQuoteFetching(false);
-        } catch (e: any) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (e?.message !== 'cancel') {
-            setQuoteFetching(false);
-          }
-        }
-      }
+      await quoteFetch(inputAmountNumber);
     },
-    [fromToken, quoteFetching, toToken],
+    [quoteFetch],
   );
 
   const onSwap = useCallback(async () => {}, []);
@@ -191,4 +157,4 @@ const Swap = () => {
   );
 };
 
-export default memo(Swap);
+export default memo(withSwapProvider(Swap));

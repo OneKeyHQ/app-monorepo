@@ -10,7 +10,7 @@ import { useSwapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-import type { EModalSwapRoutes, IModalSwapParamList } from '../types';
+import type { EModalSwapRoutes, IModalSwapParamList } from '../router/Routers';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function SwapNetworkSelectModal() {
@@ -27,7 +27,7 @@ export default function SwapNetworkSelectModal() {
 
   const onSelectNetwork = useCallback(
     async (item: ISwapNetwork) => {
-      await backgroundApiProxy.serviceSwap.selectNetwork(item, type);
+      // await backgroundApiProxy.serviceSwap.selectNetwork(item, type);
       navigation.popStack();
     },
     [navigation, type],

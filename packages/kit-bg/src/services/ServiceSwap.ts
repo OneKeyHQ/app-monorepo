@@ -37,6 +37,7 @@ export interface ISwapToken {
   logoURI?: string;
   swft_coinCode?: string;
   swft_noSupportCoins?: string;
+  unSupported?: boolean;
 }
 
 interface IFetchQuotesParams {
@@ -56,11 +57,12 @@ interface IFetchQuotesParams {
   slippagePercentage?: string;
 }
 
-export type ISwapNetwork = {
+export interface ISwapNetwork {
   networkId: string;
   protocolTypes: string;
   providers: string;
-};
+  unSupported?: boolean;
+}
 
 export type IFetchQuoteLimit = {
   max?: string;
@@ -161,7 +163,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchSwapNetworks() {
+  async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
     const baseUrl = getFiatEndpoint();
     const providers = [ESwapProvider.ONE_INCH, ESwapProvider.SWFT];
     const protocolTypes = [ESwapProtocolType.SWAP];
@@ -175,43 +177,13 @@ export default class ServiceSwap extends ServiceBase {
       { params },
     );
     if (data.code === 0 && data.data) {
-      const networks = data.data;
-      await swapAtom.set((v) => ({
-        ...v,
-        fromNetworkList: networks,
-        toNetworkList: networks,
-      }));
+      return data.data;
     }
+    return [];
   }
 
   @backgroundMethod()
-  async fetchSwapTokens(type: 'from' | 'to') {
-    const {
-      SwapNetworkTokensMap: cacheMap,
-      fromNetwork,
-      fromToken,
-      toNetwork,
-    } = await swapAtom.get();
-    const network = type === 'from' ? fromNetwork : toNetwork;
-    if (!network) {
-      return;
-    }
-    if (cacheMap && cacheMap[network.networkId]) {
-      let cacheTokens = cacheMap[network.networkId];
-      if (type === 'to' && fromToken) {
-        cacheTokens = filterTokenListByFromToken(cacheTokens, fromToken);
-      }
-      const tokensListUpdate =
-        type === 'from'
-          ? { fromTokenList: cacheTokens }
-          : { toTokenList: cacheTokens };
-
-      await swapAtom.set((v) => ({
-        ...v,
-        ...tokensListUpdate,
-      }));
-      return;
-    }
+  async fetchSwapTokens(network: ISwapNetwork) {
     const baseUrl = getFiatEndpoint();
     const params = {
       providers: network.providers,
@@ -224,21 +196,9 @@ export default class ServiceSwap extends ServiceBase {
       { params },
     );
     if (data.code === 0 && data.data) {
-      let tokens = data.data;
-      await swapAtom.set((v) => ({
-        ...v,
-        SwapNetworkTokensMap: { ...cacheMap, [network.networkId]: tokens },
-      }));
-      if (type === 'to' && fromToken) {
-        tokens = filterTokenListByFromToken(tokens, fromToken);
-      }
-      const tokensListUpdate =
-        type === 'from' ? { fromTokenList: tokens } : { toTokenList: tokens };
-      await swapAtom.set((v) => ({
-        ...v,
-        ...tokensListUpdate,
-      }));
+      return data.data;
     }
+    return [];
   }
 
   @backgroundMethod()
@@ -357,95 +317,6 @@ export default class ServiceSwap extends ServiceBase {
     console.log('fetchSwap--data', data);
     if (data.code === 0 && data.data) {
       return data.data;
-    }
-  }
-
-  // ----------- token select
-  @backgroundMethod()
-  async selectNetwork(network: ISwapNetwork, type: 'from' | 'to') {
-    const { fromNetworkList, toNetwork, fromToken, toToken } =
-      await swapAtom.get();
-    if (type === 'from') {
-      const isOnlySupportSingleChain =
-        isOnlySupportSingleChainProvider(network);
-      await swapAtom.set((v) => ({
-        ...v,
-        fromNetwork: network,
-        isOnlySupportSingleChain,
-      }));
-
-      if (isOnlySupportSingleChain) {
-        await swapAtom.set((v) => ({ ...v, toNetwork: network }));
-      } else if (toNetwork) {
-        if (
-          !checkCrossChainProviderIntersection(network, toNetwork) &&
-          !(
-            checkSingleChainProviderIntersection(network, toNetwork) &&
-            toNetwork.networkId === network.networkId
-          )
-        ) {
-          await swapAtom.set((v) => ({ ...v, toNetwork: undefined }));
-        }
-      }
-      if (fromNetworkList && fromNetworkList?.length > 0) {
-        const newToNetworkList = fromNetworkList.filter(
-          (item) =>
-            checkCrossChainProviderIntersection(network, item) ||
-            (checkSingleChainProviderIntersection(network, item) &&
-              item.networkId === network.networkId),
-        );
-        await swapAtom.set((v) => ({ ...v, toNetworkList: newToNetworkList }));
-      }
-      if (fromToken) {
-        await swapAtom.set((v) => ({ ...v, fromToken: undefined }));
-      }
-    } else {
-      await swapAtom.set((v) => ({ ...v, toNetwork: network }));
-      if (toToken) {
-        await swapAtom.set((v) => ({ ...v, toToken: undefined }));
-      }
-    }
-    const cleanTokensList =
-      type === 'from'
-        ? { fromTokenList: undefined }
-        : { toTokenList: undefined };
-    await swapAtom.set((v) => ({ ...v, ...cleanTokensList }));
-  }
-
-  @backgroundMethod()
-  async selectToken(token: ISwapToken, type: 'from' | 'to') {
-    const { toToken, fromNetwork, toNetwork } = await swapAtom.get();
-    const isOnlySupportSingleChain = isOnlySupportSingleChainProvider(token);
-    if (type === 'from') {
-      await swapAtom.set((v) => ({
-        ...v,
-        fromToken: token,
-        isOnlySupportSingleChain,
-      }));
-      if (isOnlySupportSingleChain) {
-        await swapAtom.set((v) => ({ ...v, toNetwork: fromNetwork }));
-        if (
-          toToken &&
-          (toToken.networkId !== token.networkId ||
-            !checkSingleChainProviderIntersection(token, toToken))
-        ) {
-          await swapAtom.set((v) => ({ ...v, toToken: undefined }));
-        }
-      } else if (toNetwork) {
-        if (
-          !checkCrossChainProviderIntersection(token, toNetwork) &&
-          !(
-            checkSingleChainProviderIntersection(token, toNetwork) &&
-            toNetwork.networkId === token.networkId
-          )
-        ) {
-          await swapAtom.set((v) => ({ ...v, toToken: undefined }));
-        }
-      } else if (toToken) {
-        await swapAtom.set((v) => ({ ...v, toToken: undefined }));
-      }
-    } else {
-      await swapAtom.set((v) => ({ ...v, toToken: token }));
     }
   }
 }

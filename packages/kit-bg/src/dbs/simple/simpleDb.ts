@@ -3,6 +3,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SimpleDbEntityBrowserBookmarks } from './entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from './entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from './entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntitySwapSourceNetworks } from './entity/swap/SimpleDbEntitySwapSourceNetworks';
+import { SimpleDbEntitySwapSourceTokens } from './entity/swap/SimpleDbEntitySwapSourceTokens';
+import { SimpleDbEntitySwapTokenPair } from './entity/swap/SimpleDbEntitySwapTokenPair';
 
 class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
@@ -10,6 +13,12 @@ class SimpleDb {
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
 
   browserHistory = new SimpleDbEntityBrowserHistory();
+
+  swapSourceNetworks = new SimpleDbEntitySwapSourceNetworks();
+
+  swapSourceTokens = new SimpleDbEntitySwapSourceTokens();
+
+  swapTokenPair = new SimpleDbEntitySwapTokenPair();
 }
 
 // eslint-disable-next-line import/no-mutable-exports
