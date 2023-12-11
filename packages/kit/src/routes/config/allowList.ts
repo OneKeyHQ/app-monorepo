@@ -1,9 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EGalleryRoutes } from '../../views/Developer/pages/routes';
+import { ETabHomeRoutes } from '../../views/Home/type';
 import { ERootRoutes } from '../enum';
-import { EGalleryRoutes } from '../Tab/Developer/Gallery/routes';
-import { ETabHomeRoutes } from '../Tab/Home/Routes';
-import { ETabSwapRoutes } from '../Tab/Swap/Routes';
+import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
@@ -58,7 +58,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   return {
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHomeStack1}`]:
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
       {
         showParams: true,
       },
