@@ -151,8 +151,8 @@
     "@babel/core": "7.23.5",
     "@babel/code-frame": "7.23.5",
     "@babel/generator": "7.23.5",
-    "@babel/helper-string-parser": "7.23.5",
-    "@babel/highlight": "7.23.5",
+    "@babel/traverse": "7.23.5",
+    "@babel/highlight": "7.23.4",
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
