@@ -58,8 +58,8 @@ const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
 }));
 
 if (platformEnv.isExtensionBackground) {
-  debugger;
-  throw new Error('components/locale is not allowed imported from background');
+  // debugger;
+  // throw new Error('components/locale is not allowed imported from background');
 }
 
 export { LOCALES_OPTION };

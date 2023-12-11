@@ -1,8 +1,8 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
-const checkExtUIOpen = () => {
+const checkExtUIOpen = (bridgeExtBg: JsBridgeExtBackground) => {
   const currentExtOrigin = chrome.runtime.getURL('');
-  const { ports } = backgroundApiProxy.bridgeExtBg;
+  const { ports } = bridgeExtBg;
   const oneKeyUIPort = Object.values(ports).filter(
     (port) => port.name === 'onekey@EXT_PORT_UI_TO_BG',
   );

@@ -26,15 +26,12 @@ const PasswordUpdateContainer = ({
           await backgroundApiProxy.servicePassword.encodeSensitivePassword(
             data.oldPassword,
           );
-        const updatePasswordRes =
-          await backgroundApiProxy.servicePassword.updatePassword(
-            encodeOldPassword,
-            encodeNewPassword,
-          );
-        if (updatePasswordRes) {
-          onUpdateRes(updatePasswordRes);
-          Toast.success({ title: 'password update success' });
-        }
+        await backgroundApiProxy.servicePassword.updatePassword(
+          encodeOldPassword,
+          encodeNewPassword,
+        );
+        onUpdateRes(encodeNewPassword);
+        Toast.success({ title: 'password update success' });
       } catch (e) {
         onUpdateRes('');
         console.error(e);

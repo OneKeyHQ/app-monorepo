@@ -10,7 +10,6 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-import type { IPasswordRes } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
@@ -25,19 +24,12 @@ const PasswordDemoGallery = () => {
   const theme = useTheme();
   console.log(theme);
   const handlePasswordVerify = async () => {
-    try {
-      const { status, data } =
-        await (backgroundApiProxy.servicePassword.promptPasswordVerify() as Promise<IPasswordRes>);
-      console.log('data', data);
-      if (status === EPasswordResStatus.PASS_STATUS) {
-        Toast.success({ title: '验证成功' });
-      }
-    } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const errorMessage = e?.message;
-      if (errorMessage) {
-        Toast.error({ title: errorMessage });
-      }
+    const { status, password } =
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    if (status === EPasswordResStatus.PASS_STATUS) {
+      // get password success
+      console.log('password', password);
+      Toast.success({ title: '验证成功' });
     }
   };
   return (
