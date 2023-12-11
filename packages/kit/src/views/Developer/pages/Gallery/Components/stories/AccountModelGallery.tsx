@@ -5,11 +5,13 @@ import * as crypto from 'crypto';
 import { Button, Input, Stack } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { AccountSelectorActiveAccount } from '../../../components/AccountSelector/AccountSelectorActiveAccount';
-import { AccountSelectorTrigger } from '../../../components/AccountSelector/AccountSelectorTrigger';
-import { ProviderJotaiContextDemo } from '../../../states/jotai/contexts/demo';
+import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import {
+  AccountSelectorActiveAccount,
+  AccountSelectorProviderMirror,
+  AccountSelectorTrigger,
+} from '../../../../../../components/AccountSelector';
+import { ProviderJotaiContextDemo } from '../../../../../../states/jotai/contexts/demo';
 
 import { Layout } from './utils/Layout';
 

@@ -50,16 +50,6 @@ export default function HomePageHeaderView() {
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
         <Text>Header View Simple</Text>
-        <AccountSelectorProvider
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <AccountSelectorTrigger num={0} />
-          <AccountSelectorActiveAccount num={0} />
-        </AccountSelectorProvider>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}
         <Button onPress={headerHeightCall}>切换高度</Button>
