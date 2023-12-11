@@ -8,7 +8,7 @@ export function Advance() {
       icon="SwitchOutline"
       label="Advance"
       onPress={() =>
-        Dialog.confirm({
+        Dialog.show({
           title: 'Advance',
           renderContent: (
             <Stack mx="$-5">

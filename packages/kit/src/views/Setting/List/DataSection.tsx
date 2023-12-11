@@ -62,7 +62,7 @@ const ClearCacheOnAppContent = () => {
 
 const ClearCacheOnApp = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Clear cache on App',
       renderContent: <ClearCacheOnAppContent />,
       tone: 'destructive',
@@ -80,7 +80,7 @@ const ClearCacheOnApp = () => {
 
 const CleanCacheOnWebBrowser = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Clear cache of web browser',
       description:
         'This will clear sessions, cookies, local storage files of all sites in the web browser.',
@@ -100,7 +100,7 @@ const CleanCacheOnWebBrowser = () => {
 
 const EraseData = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Erase all data',
       icon: 'ErrorOutline',
       tone: 'destructive',

@@ -57,7 +57,7 @@ export function Verification() {
       iconColor={iconColor}
       label="Verification"
       onPress={() => {
-        const dialog = Dialog.confirm({
+        const dialog = Dialog.show({
           title: 'Verification',
           renderContent: (
             <Stack borderRadius="$3" bg="$bgSubdued" p="$5">

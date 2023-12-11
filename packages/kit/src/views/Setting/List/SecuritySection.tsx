@@ -52,7 +52,7 @@ const AppLockItem = () => {
 const SetPasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(() => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'title__set_password' }),
       renderContent: (
         <PasswordSetupContainer
@@ -80,7 +80,7 @@ const SetPasswordItem = () => {
 const ChangePasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(() => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
         <PasswordUpdateContainer

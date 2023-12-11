@@ -57,7 +57,7 @@ const PasswordDemoGallery = () => {
                   if (checkPasswordSet) {
                     await handlePasswordVerify();
                   } else {
-                    const dialog = Dialog.confirm({
+                    const dialog = Dialog.show({
                       title: 'SetupPassword',
                       renderContent: (
                         <PasswordSetupContainer
@@ -80,7 +80,7 @@ const PasswordDemoGallery = () => {
               </Button>
               <Button
                 onPress={async () => {
-                  const dialog = Dialog.confirm({
+                  const dialog = Dialog.show({
                     title: 'UpdatePassword',
                     renderContent: (
                       <PasswordUpdateContainer

@@ -129,7 +129,7 @@ const ActionListDemo2 = () => (
             icon: 'PlaceholderOutline',
             destructive: true,
             onPress: () => {
-              Dialog.confirm({
+              Dialog.show({
                 title: 'Lorem ipsum',
                 description:
                   'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
@@ -184,7 +184,7 @@ const ActionListDemo3 = () => (
             icon: 'PlaceholderOutline',
             destructive: true,
             onPress: () => {
-              Dialog.confirm({
+              Dialog.show({
                 title: 'Lorem ipsum',
                 description:
                   'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
@@ -289,7 +289,7 @@ const ActionListGallery = () => (
                           icon: 'PlaceholderOutline',
                           destructive: true,
                           onPress: () => {
-                            Dialog.confirm({
+                            Dialog.show({
                               title: 'Lorem ipsum',
                               description:
                                 'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
