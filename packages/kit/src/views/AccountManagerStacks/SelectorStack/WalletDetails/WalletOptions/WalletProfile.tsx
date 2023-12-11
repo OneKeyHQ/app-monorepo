@@ -72,10 +72,9 @@ export function WalletProfile({
               scale: 1.25,
             },
             onPress: () =>
-              Dialog.confirm({
+              Dialog.show({
                 title: 'Edit Avatar',
                 estimatedContentHeight: 340,
-                logContentHeight: true,
                 renderContent: (
                   <XStack flexWrap="wrap">
                     {avatarData.map((img) => (
@@ -142,7 +141,7 @@ export function WalletProfile({
           hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
         }}
         onPress={() =>
-          Dialog.confirm({
+          Dialog.show({
             title: 'Rename',
             renderContent: (
               <Form form={form}>
