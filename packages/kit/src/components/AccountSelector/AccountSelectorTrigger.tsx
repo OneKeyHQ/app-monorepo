@@ -14,7 +14,7 @@ export function AccountSelectorTrigger({ num }: { num: number }) {
   const [ready, setReady] = useState(false);
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title,
       onClose() {
         setReady(false);
