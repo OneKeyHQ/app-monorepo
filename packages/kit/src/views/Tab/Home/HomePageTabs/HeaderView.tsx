@@ -8,6 +8,7 @@ import { EIOSFullScreenModalRoutes } from '../../../../routes/iOSFullScreen/type
 import { EModalRoutes } from '../../../../routes/Modal/type';
 import { ETabHomeRoutes } from '../../../../routes/Tab/Home/Routes';
 import { EIOSFullScreenTestModalPages } from '../../../iOSFullScreenTestModal/router/type';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
 import { ETestModalPages } from '../../../TestModal/router/type';
 
 import type { ITabHomeParamList } from '../../../../routes/Tab/Home/Routes';
@@ -39,6 +40,12 @@ export default function HomePageHeaderView() {
     });
   }, [navigation]);
 
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
   return useMemo(
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
@@ -52,6 +59,7 @@ export default function HomePageHeaderView() {
         <Button onPress={navigateFullScreenSimpleModal}>
           to TestFullScreenSimpleModal
         </Button>
+        <Button onPress={navigateOnboardingModal}>Onboarding</Button>
       </YStack>
     ),
     [
@@ -60,6 +68,7 @@ export default function HomePageHeaderView() {
       onNextPageCall,
       navigateTestSimpleModal,
       navigateFullScreenSimpleModal,
+      navigateOnboardingModal,
     ],
   );
 }

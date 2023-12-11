@@ -3,6 +3,7 @@ import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/Stack';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks';
+import { OnboardingRouter } from '../../views/Onboarding/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalDiscoveryStack } from './Discovery';
@@ -20,6 +21,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
+  },
+  {
+    name: EModalRoutes.OnboardingModal,
+    children: OnboardingRouter,
   },
 ];
 

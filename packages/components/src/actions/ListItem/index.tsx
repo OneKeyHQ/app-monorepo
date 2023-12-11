@@ -5,18 +5,21 @@ import {
   type AvatarFallbackProps,
   type AvatarImageProps,
   type AvatarProps,
-  type GetProps,
   type StackProps,
   // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
 } from 'tamagui';
 
 import { Avatar, Divider } from '../../content';
-import { Icon, Image, Stack, Text } from '../../primitives';
+import { Icon, Image, SizableText, Stack } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
-import type { IIconProps, IImageProps } from '../../primitives';
+import type {
+  IIconProps,
+  IImageProps,
+  ISizableTextProps,
+} from '../../primitives';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: StackProps;
@@ -123,8 +126,8 @@ interface IListItemTextProps extends StackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
-  primaryTextProps?: GetProps<typeof Text>;
-  secondaryTextProps?: GetProps<typeof Text>;
+  primaryTextProps?: ISizableTextProps;
+  secondaryTextProps?: ISizableTextProps;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -153,22 +156,27 @@ const ListItemText = (props: IListItemTextProps) => {
         (isValidElement(primary) ? (
           primary
         ) : (
-          <Text textAlign={align} variant="$bodyLgMedium" {...primaryTextProps}>
+          <SizableText
+            textAlign={align}
+            size="$bodyLgMedium"
+            userSelect="none"
+            {...primaryTextProps}
+          >
             {primary}
-          </Text>
+          </SizableText>
         ))}
       {secondary &&
         (isValidElement(secondary) ? (
           secondary
         ) : (
-          <Text
-            variant="$bodyMd"
-            tone="subdued"
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
             textAlign={align}
             {...secondaryTextProps}
           >
             {secondary}
-          </Text>
+          </SizableText>
         ))}
     </Stack>
   );
@@ -259,7 +267,9 @@ function ListItem(props: IListItemProps) {
           {...avatarProps}
         />
       )}
-      {icon && <Icon name={icon} color="$iconSubdued" {...iconProps} />}
+      {icon && (
+        <Icon name={icon} color="$iconSubdued" flexShrink={0} {...iconProps} />
+      )}
       {(title || subtitle) && (
         <ListItemText
           flex={1}

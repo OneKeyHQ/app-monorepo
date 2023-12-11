@@ -36,38 +36,32 @@ export function PageButtonGroup() {
   }
 
   return (
-    <Stack
-      bg="$bgApp"
-      pt="$4"
-      $sm={{
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-      $gtSm={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        p: '$4',
-      }}
-    >
-      <XStack
-        $sm={{
-          width: '100%',
-          justifyContent: 'center',
-          gap: '$5',
-        }}
-        $gtSm={{
-          justifyContent: 'flex-end',
-          gap: '$2',
-        }}
-      >
+    <Stack p="$5">
+      <XStack justifyContent="flex-end">
         {(!!cancelButtonProps || !!onCancel) && (
-          <Button onPress={onCancel} {...cancelButtonProps}>
+          <Button
+            $md={{
+              flex: 1,
+              size: 'large',
+            }}
+            $platform-native={{}}
+            onPress={onCancel}
+            {...cancelButtonProps}
+          >
             {onCancelText || 'Cancel'}
           </Button>
         )}
         {(!!confirmButtonProps || !!onConfirm) && (
-          <Button variant="primary" onPress={onConfirm} {...confirmButtonProps}>
+          <Button
+            $md={{
+              flex: 1,
+              size: 'large',
+            }}
+            $platform-native={{}}
+            variant="primary"
+            onPress={onConfirm}
+            {...confirmButtonProps}
+          >
             {onConfirmText || 'Confirm'}
           </Button>
         )}
