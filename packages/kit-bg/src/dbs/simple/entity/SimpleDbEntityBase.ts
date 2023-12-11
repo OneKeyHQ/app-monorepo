@@ -1,6 +1,7 @@
 import { Mutex } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 const SIMPLE_DB_KEY_PREFIX = 'simple_db';
@@ -25,10 +26,12 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
+  @backgroundMethod()
   clearRawDataCache() {
     this.cachedRawData = null;
   }
 
+  @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
@@ -58,6 +61,7 @@ abstract class SimpleDbEntityBase<T> {
     return data;
   }
 
+  @backgroundMethod()
   async setRawData(
     dataOrBuilder:
       | T
@@ -88,6 +92,7 @@ abstract class SimpleDbEntityBase<T> {
     });
   }
 
+  @backgroundMethod()
   async clearRawData() {
     if (this.enableCache) {
       this.clearRawDataCache();
