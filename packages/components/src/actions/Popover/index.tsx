@@ -151,6 +151,7 @@ function RawPopover({
                 size="small"
                 $platform-native={{ hitSlop: 8 }}
                 onPress={() => onOpenChange?.(false)}
+                testID="popover-btn-close"
               />
             </XStack>
 
