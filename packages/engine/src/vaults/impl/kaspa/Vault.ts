@@ -56,6 +56,8 @@ import {
 import { toTransaction } from './sdk/transaction';
 import settings from './settings';
 
+import type { Network } from '../../../types/network';
+import type { UnspentOutputInfo } from './sdk';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
@@ -129,36 +131,21 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async buildEncodedTxFromTransfer(
-    transferInfo: ITransferInfo,
-    specifiedFeeLimit?: string,
-  ): Promise<IEncodedTxKaspa> {
-    if (!transferInfo.to) {
-      throw new Error('Invalid transferInfo.to params');
-    }
-    const { to, amount, token: tokenAddress } = transferInfo;
-    if (tokenAddress)
-      throw new OneKeyInternalError('Kaspa does not support token transfer');
-
-    const client = await this.getClient();
-    const { address: from } = await this.getDbAccount();
-
-    const network = await this.getNetwork();
-    const amountValue = new BigNumber(amount)
-      .shiftedBy(network.decimals)
-      .toFixed();
-
-    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
-      throw new OneKeyInternalError('Amount is too small');
-    }
-
-    const feeRate = convertFeeValueToGwei({ value: '1', network });
-
-    const confirmUtxos = await queryConfirmUTXOs(client, from);
-
+  selectUTXOs({
+    confirmUtxos,
+    amountValue,
+    prioritys,
+    specifiedFeeLimit,
+  }: {
+    confirmUtxos: UnspentOutputInfo[];
+    amountValue: string;
+    prioritys?: { satoshis: boolean };
+    specifiedFeeLimit?: string;
+  }) {
     let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
       parseInt(amountValue),
+      prioritys,
     );
 
     const limit = specifiedFeeLimit ?? mass.toString();
@@ -167,16 +154,14 @@ export default class Vault extends VaultBase {
     if (utxos.length === confirmUtxos.length) {
       hasMaxSend = utxos
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-        .shiftedBy(-network.decimals)
-        .lte(amount);
+        .lte(amountValue);
     }
 
     if (
       !hasMaxSend &&
       utxos
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-        .shiftedBy(-network.decimals)
-        .lte(amount)
+        .lte(amountValue)
     ) {
       const newSelectUtxo = selectUTXOs(
         confirmUtxos,
@@ -186,6 +171,45 @@ export default class Vault extends VaultBase {
       utxos = newSelectUtxo.utxos;
       mass = newSelectUtxo.mass;
     }
+
+    return {
+      utxoIds,
+      utxos,
+      mass,
+      limit,
+      hasMaxSend,
+    };
+  }
+
+  async prepareAndBuildTx({
+    network,
+    confirmUtxos,
+    transferInfo,
+    specifiedFeeLimit,
+    prioritys,
+  }: {
+    network: Network;
+    confirmUtxos: UnspentOutputInfo[];
+    transferInfo: ITransferInfo;
+    specifiedFeeLimit?: string;
+    prioritys?: { satoshis: boolean };
+  }) {
+    const { to, amount } = transferInfo;
+    const amountValue = new BigNumber(amount)
+      .shiftedBy(network.decimals)
+      .toFixed();
+
+    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
+      throw new OneKeyInternalError('Amount is too small');
+    }
+
+    const { utxoIds, utxos, limit, hasMaxSend } = this.selectUTXOs({
+      confirmUtxos,
+      amountValue,
+      specifiedFeeLimit,
+      prioritys,
+    });
+    const feeRate = convertFeeValueToGwei({ value: '1', network });
 
     return {
       utxoIds,
@@ -203,6 +227,51 @@ export default class Vault extends VaultBase {
       hasMaxSend,
       mass: parseInt(limit),
     };
+  }
+
+  override async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+    specifiedFeeLimit?: string,
+  ): Promise<IEncodedTxKaspa> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    const { token: tokenAddress } = transferInfo;
+    if (tokenAddress)
+      throw new OneKeyInternalError('Kaspa does not support token transfer');
+
+    const client = await this.getClient();
+    const { address: from } = await this.getDbAccount();
+
+    const network = await this.getNetwork();
+
+    const confirmUtxos = await queryConfirmUTXOs(client, from);
+
+    let encodedTx = await this.prepareAndBuildTx({
+      network,
+      confirmUtxos,
+      transferInfo,
+      specifiedFeeLimit,
+    });
+
+    // validate tx size
+    let txn = toTransaction(encodedTx);
+    const { txSize } = txn.getMassAndSize();
+
+    if (txSize > MAX_BLOCK_SIZE) {
+      encodedTx = await this.prepareAndBuildTx({
+        network,
+        confirmUtxos,
+        transferInfo,
+        specifiedFeeLimit,
+        prioritys: { satoshis: true },
+      });
+      txn = toTransaction(encodedTx);
+      if (txn.getMassAndSize().txSize > MAX_BLOCK_SIZE) {
+        throw new OneKeyInternalError('Transaction size is too large');
+      }
+    }
+    return encodedTx;
   }
 
   override async buildUnsignedTxFromEncodedTx(
