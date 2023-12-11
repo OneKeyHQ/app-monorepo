@@ -44,7 +44,7 @@ const SelectDefaultItem = () => {
     <Select
       items={items}
       value={val}
-      onValueChange={setVal}
+      onChange={setVal}
       triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
@@ -57,10 +57,9 @@ const SelectDefaultNativeItem = () => {
 
   return (
     <Select
-      native
       items={items}
       value={val}
-      onValueChange={setVal}
+      onChange={setVal}
       triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
@@ -75,7 +74,7 @@ const SelectCustomTriggerItem = () => {
     <Select
       items={items}
       value={val}
-      onValueChange={setVal}
+      onChange={setVal}
       triggerProps={{
         width: '100%',
         padded: false,
@@ -149,7 +148,7 @@ const SelectSectionsItemDemo = () => {
     <Select
       sections={sections}
       value={val}
-      onValueChange={setVal}
+      onChange={setVal}
       triggerProps={{ width: '100%' }}
       disablePreventBodyScroll
       title="Demo Title"
@@ -171,30 +170,30 @@ const SelectGallery = () => (
           </Stack>
         ),
       },
-      {
-        title: '默认状态 native prop',
-        element: (
-          <Stack space="$1">
-            <SelectDefaultNativeItem />
-          </Stack>
-        ),
-      },
-      {
-        title: '自定义renderTrigger',
-        element: (
-          <Stack space="$1">
-            <SelectCustomTriggerItem />
-          </Stack>
-        ),
-      },
-      {
-        title: 'Select Sections',
-        element: (
-          <Stack space="$1">
-            <SelectSectionsItemDemo />
-          </Stack>
-        ),
-      },
+      // {
+      //   title: '默认状态 native prop',
+      //   element: (
+      //     <Stack space="$1">
+      //       <SelectDefaultNativeItem />
+      //     </Stack>
+      //   ),
+      // },
+      // {
+      //   title: '自定义renderTrigger',
+      //   element: (
+      //     <Stack space="$1">
+      //       <SelectCustomTriggerItem />
+      //     </Stack>
+      //   ),
+      // },
+      // {
+      //   title: 'Select Sections',
+      //   element: (
+      //     <Stack space="$1">
+      //       <SelectSectionsItemDemo />
+      //     </Stack>
+      //   ),
+      // },
     ]}
   />
 );
