@@ -41,7 +41,7 @@ import {
 } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
-import { isNostrCredentialId, walletIsImported } from '../../managers/wallet';
+import { walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -50,7 +50,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../types/wallet';
-import { getNostrCredentialId } from '../../vaults/utils/nostr/nostr';
 import {
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
@@ -253,10 +252,7 @@ class RealmDB implements DBAPI {
         ).toString('hex');
         const credentials = this.realm!.objects<CredentialSchema>('Credential');
         credentials.forEach((credentialItem) => {
-          if (
-            walletIsImported(credentialItem.id) ||
-            isNostrCredentialId(credentialItem.id)
-          ) {
+          if (walletIsImported(credentialItem.id)) {
             const privateKeyCredentialJSON: StoredPrivateKeyCredential =
               JSON.parse(credentialItem.credential);
             credentialItem.credential = JSON.stringify({
@@ -1320,10 +1316,6 @@ class RealmDB implements DBAPI {
         'Credential',
         walletId,
       );
-      const nostrCredential = this.realm!.objectForPrimaryKey<CredentialSchema>(
-        'Credential',
-        getNostrCredentialId(walletId),
-      );
       this.realm!.write(() => {
         this.realm!.delete(Array.from(wallet.accounts!));
         if (removeDevice && wallet.associatedDevice) {
@@ -1335,9 +1327,6 @@ class RealmDB implements DBAPI {
         }
         if (historyEntries.length > 0) {
           this.realm!.delete(historyEntries);
-        }
-        if (nostrCredential) {
-          this.realm!.delete(nostrCredential);
         }
       });
       return Promise.resolve();
@@ -1459,7 +1448,7 @@ class RealmDB implements DBAPI {
       }
 
       let exprotedCredential: ExportedCredential;
-      if (walletIsImported(credentialId) || isNostrCredentialId(credentialId)) {
+      if (walletIsImported(credentialId)) {
         const privateKeyCredentialJSON = JSON.parse(
           credential.credential,
         ) as StoredPrivateKeyCredential;

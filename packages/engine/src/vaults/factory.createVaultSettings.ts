@@ -18,6 +18,7 @@ import {
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_NEXA,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -120,6 +121,9 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_ALLNETWORKS) {
     return require('./impl/allnetworks/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NOSTR) {
+    return require('./impl/nostr/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

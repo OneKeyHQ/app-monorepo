@@ -21,15 +21,10 @@ function isWalletCompatibleAllNetworks(walletId?: string | null): boolean {
   return walletIsHD(walletId) || walletIsHW(walletId);
 }
 
-function isNostrCredentialId(credentialId: string): boolean {
-  return credentialId.endsWith('--nostr');
-}
-
 export {
   walletIsHD,
   walletIsHW,
   walletIsImported,
   walletCanBeRemoved,
   isWalletCompatibleAllNetworks,
-  isNostrCredentialId,
 };
