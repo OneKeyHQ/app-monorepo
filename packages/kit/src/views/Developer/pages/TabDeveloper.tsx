@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { lazy, useState } from 'react';
+import { useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -152,7 +153,6 @@ const TabDeveloper = () => {
               Async Import Test
             </Button>
           </PartContainer>
-
           <PartContainer title="Cold Startup Time(ms)">
             <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
           </PartContainer>
