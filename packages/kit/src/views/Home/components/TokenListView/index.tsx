@@ -44,7 +44,7 @@ function TokenListView(props: IProps) {
       }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
-      renderItem={({ item }) => <TokenListItem token={item} key={item.id} />}
+      renderItem={({ item }) => <TokenListItem token={item} key={item.name} />}
     />
   );
 }

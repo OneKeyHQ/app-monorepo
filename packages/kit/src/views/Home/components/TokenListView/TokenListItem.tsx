@@ -12,7 +12,7 @@ function TokenListItem(props: IProps) {
   const { token, onPress } = props;
   return (
     <ListItem
-      key={token.id}
+      key={token.name}
       title={token.name}
       subtitle={`${token.balance ?? 0} ${token.symbol}`}
       subtitleProps={{
@@ -37,10 +37,10 @@ function TokenListItem(props: IProps) {
     >
       <ListItem.Text
         align="right"
-        primary={token.value}
-        secondary={token.change}
+        primary={token.fiatValue}
+        secondary={token.price24h}
         secondaryTextProps={{
-          tone: new BigNumber(parseFloat(token.change ?? '0')).isPositive()
+          tone: new BigNumber(token.price24h).isPositive()
             ? 'success'
             : 'critical',
         }}
