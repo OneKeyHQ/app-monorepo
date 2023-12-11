@@ -59,9 +59,11 @@ function SelectItem({
         backgroundColor="$transparent"
         borderRadius="$2"
         paddingVertical="$1.5"
-        paddingHorizontal="$2"
+        px="$6"
+        py="$3"
+        hoverStyle={{ bg: '$backgroundHover' }}
         $md={{
-          paddingVertical: '$2.5',
+          py: '$2.5',
           paddingRight: 11,
         }}
         onPress={handleSelect}
@@ -97,7 +99,7 @@ function SelectItem({
         ) : null}
       </XStack>
     ),
-    [handleSelect, label, md, selectedValue, value],
+    [handleSelect, label, leading, md, selectedValue, value],
   );
 }
 
@@ -115,11 +117,12 @@ function SelectContent() {
   const handleSelect = useCallback(
     (itemValue: string) => {
       onValueChange?.(itemValue);
-      if (md) {
-        setTimeout(() => {
+      setTimeout(
+        () => {
           changeOpenStatus?.(false);
-        }, 200);
-      }
+        },
+        md ? 200 : 0,
+      );
     },
     [changeOpenStatus, md, onValueChange],
   );
@@ -146,9 +149,9 @@ function SelectContent() {
     ({ section }: { section: ISelectSection }) => (
       <Text
         variant="$headingXs"
-        $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
-        paddingVertical="$1.5"
-        paddingHorizontal="$2"
+        $md={{ variant: '$headingSm', py: '$2.5' }}
+        py="$1.5"
+        px="$6"
         color="$textSubdued"
       >
         {section.title}
@@ -160,9 +163,6 @@ function SelectContent() {
   const renderContent = sections ? (
     <SectionList
       sections={sections}
-      contentContainerStyle={{
-        px: '$4',
-      }}
       renderSectionHeader={renderSectionHeader}
       estimatedItemSize="$4"
       extraData={value}
@@ -171,9 +171,6 @@ function SelectContent() {
   ) : (
     <ListView
       data={items}
-      contentContainerStyle={{
-        px: '$4',
-      }}
       estimatedItemSize="$4"
       extraData={value}
       renderItem={renderItem}
