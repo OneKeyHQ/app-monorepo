@@ -13,7 +13,7 @@ import PasswordVerifyContainer from './PasswordVerifyContainer';
 const PasswordVerifyPromptMount = () => {
   const [{ passwordPromptPromiseId }] = usePasswordAtom();
   const showPasswordVerifyPrompt = useCallback((id: number) => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: 'ConfirmPassword',
       onClose() {
         void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
