@@ -16,7 +16,6 @@ import type {
 } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { wait } from '../../../../utils/helper';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -141,7 +140,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           sceneUrl,
           num,
         });
-      await wait(0);
 
       const selectedAccount = get(selectedAccountsAtom())[num];
       if (
