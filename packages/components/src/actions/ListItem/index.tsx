@@ -103,7 +103,7 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
         {...rest}
       >
         {source ? (
-          <Image source={source} resizeMode="center" />
+          <Image flex={1} width="100%" source={source} resizeMode="center" />
         ) : (
           <>
             <Avatar.Image src={src} />
