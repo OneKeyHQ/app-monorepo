@@ -78,7 +78,6 @@
     "use-suspender": "^2.0.0-beta.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0",
     "@babel/plugin-proposal-class-static-block": "^7.21.0",
     "@babel/plugin-proposal-private-methods": "^7.18.6",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
@@ -149,7 +148,7 @@
   },
   "resolutions": {
     "tronweb@^5.1.0": "5.1.0",
-    "@tamagui/create-context": "1.73.0",
+    "@babel/core": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
   },
   "packageManager": "yarn@3.5.0"
