@@ -284,6 +284,8 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
               screen: NostrModalRoutes.ExportPubkey,
               params: {
                 walletId,
+                networkId: network?.id ?? '',
+                accountId: account?.id ?? '',
               },
             },
           });

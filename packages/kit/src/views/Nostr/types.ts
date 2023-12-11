@@ -1,4 +1,4 @@
-import type { NostrEvent } from '@onekeyhq/engine/src/vaults/utils/nostr/types';
+import type { NostrEvent } from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { NostrModalRoutes } from '../../routes/routesEnum';
@@ -20,8 +20,12 @@ export type NostrRoutesParams = {
   [NostrModalRoutes.NostrAuthentication]: {
     onDone: (password: string) => void;
     walletId: string;
+    networkId: string;
+    accountId: string;
   };
   [NostrModalRoutes.ExportPubkey]: {
     walletId: string;
+    networkId: string;
+    accountId: string;
   };
 };

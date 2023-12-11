@@ -23,8 +23,10 @@ type NavigationProps = RouteProp<
 
 const ExportPublicKeyView: FC<{
   walletId: string;
+  networkId: string;
+  accountId: string;
   password: string;
-}> = ({ walletId, password }) => {
+}> = ({ walletId, networkId, accountId, password }) => {
   const [publicKey, setPublicKey] = useState<string>();
   const navigation = useAppNavigation();
 
@@ -34,6 +36,8 @@ const ExportPublicKeyView: FC<{
         const pubkey =
           await backgroundApiProxy.serviceNostr.getPublicKeyEncodedByNip19({
             walletId,
+            networkId,
+            accountId,
             password,
           });
         setPublicKey(pubkey);
@@ -42,7 +46,7 @@ const ExportPublicKeyView: FC<{
         navigation.goBack?.();
       }
     })();
-  }, [walletId, password, navigation]);
+  }, [walletId, networkId, accountId, password, navigation]);
 
   return (
     <PrivateOrPublicKeyPreview
@@ -55,7 +59,7 @@ const ExportPublicKeyView: FC<{
 const ExportPubkeyModal = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
-  const { walletId } = route.params;
+  const { walletId, networkId, accountId } = route.params;
 
   return (
     <Modal
@@ -64,7 +68,14 @@ const ExportPubkeyModal = () => {
       height="auto"
     >
       <Protected walletId={walletId}>
-        {(pwd) => <ExportPublicKeyView walletId={walletId} password={pwd} />}
+        {(pwd) => (
+          <ExportPublicKeyView
+            walletId={walletId}
+            networkId={networkId}
+            accountId={accountId}
+            password={pwd}
+          />
+        )}
       </Protected>
     </Modal>
   );

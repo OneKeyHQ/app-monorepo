@@ -38,7 +38,7 @@ import {
 } from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
-import { isNostrCredentialId, walletIsImported } from '../../managers/wallet';
+import { walletIsImported } from '../../managers/wallet';
 import { AccountType } from '../../types/account';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -47,7 +47,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../types/wallet';
-import { getNostrCredentialId } from '../../vaults/utils/nostr/nostr';
 import {
   DEFAULT_RPC_ENDPOINT_TO_CLEAR,
   DEFAULT_VERIFY_STRING,
@@ -332,10 +331,7 @@ class IndexedDBApi implements DBAPI {
                 const credentialItem: { id: string; credential: string } =
                   cursor.value as { id: string; credential: string };
 
-                if (
-                  walletIsImported(credentialItem.id) ||
-                  isNostrCredentialId(credentialItem.id)
-                ) {
+                if (walletIsImported(credentialItem.id)) {
                   const privateKeyCredentialJSON: StoredPrivateKeyCredential =
                     JSON.parse(credentialItem.credential);
                   credentialItem.credential = JSON.stringify({
@@ -1225,19 +1221,6 @@ class IndexedDBApi implements DBAPI {
                 });
                 walletStore.delete(walletId);
                 transaction.objectStore(CREDENTIAL_STORE_NAME).delete(walletId);
-
-                // delete nostr credential
-                const nostrId = getNostrCredentialId(walletId);
-                const getNostrCredentialRequest = transaction
-                  .objectStore(CREDENTIAL_STORE_NAME)
-                  .get(nostrId);
-                getNostrCredentialRequest.onsuccess = (_creevent) => {
-                  if (!isNil(getNostrCredentialRequest.result)) {
-                    transaction
-                      .objectStore(CREDENTIAL_STORE_NAME)
-                      .delete(nostrId);
-                  }
-                };
               };
             };
 
@@ -1408,10 +1391,7 @@ class IndexedDBApi implements DBAPI {
                 credential: string;
               };
 
-              if (
-                walletIsImported(credentialId) ||
-                isNostrCredentialId(credentialId)
-              ) {
+              if (walletIsImported(credentialId)) {
                 const privateKeyCredentialJSON = JSON.parse(
                   credential,
                 ) as StoredPrivateKeyCredential;

@@ -1,4 +1,4 @@
-import { FAKE_ALL_NETWORK } from './fakeAllNetwork';
+import { FAKE_ALL_NETWORK, FAKE_NOSTR_NETWORK } from './fakeNetwork';
 
 import type { IServerNetwork } from '../../types';
 
@@ -4253,6 +4253,7 @@ const serverPresetNetworks = [
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
+serverPresetNetworks.push(FAKE_NOSTR_NETWORK);
 
 export { serverPresetNetworks };
 
