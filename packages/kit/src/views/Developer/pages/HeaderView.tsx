@@ -2,13 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  AccountSelectorActiveAccount,
-  AccountSelectorProvider,
-  AccountSelectorTrigger,
-} from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 import { EModalRoutes } from '../../../routes/Modal/type';
