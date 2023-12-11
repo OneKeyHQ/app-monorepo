@@ -71,7 +71,7 @@ function MobileBrowserContent({
               setBackEnabled={setBackEnabled}
               setForwardEnabled={setForwardEnabled}
               addBrowserHistory={(siteInfo) => {
-                addBrowserHistory(siteInfo);
+                void addBrowserHistory(siteInfo);
               }}
               onScroll={onScroll}
             />

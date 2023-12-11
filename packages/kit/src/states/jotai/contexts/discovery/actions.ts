@@ -24,7 +24,6 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 
 import {
   activeTabIdAtom,
-  browserHistoryAtom,
   contextAtomMethod,
   displayHomePageAtom,
   webTabsAtom,
@@ -262,10 +261,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   getBookmarkData = contextAtomMethod(async () => {
-    const bookmark =
+    const bookmarks =
       (await backgroundApiProxy.simpleDb.browserBookmarks.getRawData())?.data ??
       [];
-    return bookmark;
+    return bookmarks;
   });
 
   buildBookmarkData = contextAtomMethod(
@@ -310,22 +309,28 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   /**
    * History actions
    */
+  getHistoryData = contextAtomMethod(async () => {
+    const histories =
+      (await backgroundApiProxy.simpleDb.browserHistory.getRawData())?.data ??
+      [];
+    return histories;
+  });
+
   buildHistoryData = contextAtomMethod((_, set, payload: IBrowserHistory[]) => {
     if (!Array.isArray(payload)) {
       throw new Error('buildHistoryData: payload must be an array');
     }
-    set(browserHistoryAtom(), payload);
     void backgroundApiProxy.simpleDb.browserHistory.setRawData({
       data: payload,
     });
   });
 
   addBrowserHistory = contextAtomMethod(
-    (get, set, payload: IBrowserHistory) => {
+    async (_, set, payload: IBrowserHistory) => {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const history = get(browserHistoryAtom());
+      const history = await this.getHistoryData.call(set);
       const index = history.findIndex((item) => item.url === payload.url);
       if (index !== -1) {
         history.splice(index, 1);
@@ -336,8 +341,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  removeBrowserHistory = contextAtomMethod((get, set, payload: string) => {
-    const history = get(browserHistoryAtom());
+  removeBrowserHistory = contextAtomMethod(async (_, set, payload: string) => {
+    const history = await this.getHistoryData.call(set);
     const index = history.findIndex((item) => item.url === payload);
     if (index !== -1) {
       history.splice(index, 1);
@@ -375,7 +380,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         if (userTriggered) {
-          this.addBrowserHistory.call(set, { url, title: title ?? '' });
+          void this.addBrowserHistory.call(set, { url, title: title ?? '' });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {

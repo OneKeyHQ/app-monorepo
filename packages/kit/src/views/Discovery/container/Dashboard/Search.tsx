@@ -36,7 +36,7 @@ function SearchModal() {
       setDisplayHomePage(false);
 
       // @ts-expect-error
-      openMatchDApp({ dapp: item, isNewWindow: true });
+      void openMatchDApp({ dapp: item, isNewWindow: true });
       if (platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else {

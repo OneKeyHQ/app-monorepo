@@ -90,9 +90,9 @@ function DesktopBrowserNavigationBar({
         isBookmark={tab?.isBookmark ?? false}
         onBookmarkPress={(isBookmark) => {
           if (isBookmark) {
-            addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+            void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
           } else {
-            removeBrowserBookmark(tab?.url);
+            void removeBrowserBookmark(tab?.url);
           }
           void setWebTabData({
             id,

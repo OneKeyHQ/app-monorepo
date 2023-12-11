@@ -125,9 +125,9 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
       if (isBookmark) {
-        addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+        void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
       } else {
-        removeBrowserBookmark(tab?.url);
+        void removeBrowserBookmark(tab?.url);
       }
       Toast.success({
         title: isBookmark
