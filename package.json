@@ -151,6 +151,7 @@
     "@babel/core": "7.23.5",
     "@babel/code-frame": "7.23.5",
     "@babel/generator": "7.23.5",
+    "@babel/helper-module-transforms": "7.23.3",
     "@babel/traverse": "7.23.5",
     "@babel/highlight": "7.23.4",
     "@babel/types": "7.23.5",
