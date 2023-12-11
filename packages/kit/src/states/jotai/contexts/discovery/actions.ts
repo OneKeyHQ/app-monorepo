@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { isEqual } from 'lodash';
 
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -527,75 +525,67 @@ const createActions = memoFn(() => {
 });
 
 export function useBrowserTabActions() {
-  return useMemo(() => {
-    const actions = createActions();
-    const addWebTab = actions.addWebTab.use();
-    const addBlankWebTab = actions.addBlankWebTab.use();
-    const buildWebTabs = actions.buildWebTabs.use();
-    const refreshTabs = actions.refreshTabs.use();
-    const setWebTabData = actions.setWebTabData.use();
-    const closeWebTab = actions.closeWebTab.use();
-    const closeAllWebTabs = actions.closeAllWebTabs.use();
-    const setCurrentWebTab = actions.setCurrentWebTab.use();
-    const setPinnedTab = actions.setPinnedTab.use();
-    const setDisplayHomePage = actions.setDisplayHomePage.use();
+  const actions = createActions();
+  const addWebTab = actions.addWebTab.use();
+  const addBlankWebTab = actions.addBlankWebTab.use();
+  const buildWebTabs = actions.buildWebTabs.use();
+  const refreshTabs = actions.refreshTabs.use();
+  const setWebTabData = actions.setWebTabData.use();
+  const closeWebTab = actions.closeWebTab.use();
+  const closeAllWebTabs = actions.closeAllWebTabs.use();
+  const setCurrentWebTab = actions.setCurrentWebTab.use();
+  const setPinnedTab = actions.setPinnedTab.use();
+  const setDisplayHomePage = actions.setDisplayHomePage.use();
 
-    return {
-      addWebTab,
-      addBlankWebTab,
-      buildWebTabs,
-      refreshTabs,
-      setWebTabData,
-      closeWebTab,
-      closeAllWebTabs,
-      setCurrentWebTab,
-      setPinnedTab,
-      setDisplayHomePage,
-    };
-  }, []);
+  return {
+    addWebTab,
+    addBlankWebTab,
+    buildWebTabs,
+    refreshTabs,
+    setWebTabData,
+    closeWebTab,
+    closeAllWebTabs,
+    setCurrentWebTab,
+    setPinnedTab,
+    setDisplayHomePage,
+  };
 }
 
 export function useBrowserBookmarkAction() {
-  return useMemo(() => {
-    const actions = createActions();
-    const buildBookmarkData = actions.buildBookmarkData.use();
-    const addBrowserBookmark = actions.addBrowserBookmark.use();
-    const removeBrowserBookmark = actions.removeBrowserBookmark.use();
+  const actions = createActions();
+  const buildBookmarkData = actions.buildBookmarkData.use();
+  const addBrowserBookmark = actions.addBrowserBookmark.use();
+  const removeBrowserBookmark = actions.removeBrowserBookmark.use();
 
-    return {
-      buildBookmarkData,
-      addBrowserBookmark,
-      removeBrowserBookmark,
-    };
-  }, []);
+  return {
+    buildBookmarkData,
+    addBrowserBookmark,
+    removeBrowserBookmark,
+  };
 }
 
 export function useBrowserHistoryAction() {
-  return useMemo(() => {
-    const actions = createActions();
-    const buildHistoryData = actions.buildHistoryData.use();
-    const addBrowserHistory = actions.addBrowserHistory.use();
-    const removeBrowserHistory = actions.removeBrowserHistory.use();
+  const actions = createActions();
+  const buildHistoryData = actions.buildHistoryData.use();
+  const addBrowserHistory = actions.addBrowserHistory.use();
+  const removeBrowserHistory = actions.removeBrowserHistory.use();
 
-    return {
-      buildHistoryData,
-      addBrowserHistory,
-      removeBrowserHistory,
-    };
-  }, []);
+  return {
+    buildHistoryData,
+    addBrowserHistory,
+    removeBrowserHistory,
+  };
 }
 
 export function useBrowserAction() {
-  return useMemo(() => {
-    const actions = createActions();
-    const gotoSite = actions.gotoSite.use();
-    const openMatchDApp = actions.openMatchDApp.use();
-    const onNavigation = actions.onNavigation.use();
+  const actions = createActions();
+  const gotoSite = actions.gotoSite.use();
+  const openMatchDApp = actions.openMatchDApp.use();
+  const onNavigation = actions.onNavigation.use();
 
-    return {
-      gotoSite,
-      openMatchDApp,
-      onNavigation,
-    };
-  }, []);
+  return {
+    gotoSite,
+    openMatchDApp,
+    onNavigation,
+  };
 }
