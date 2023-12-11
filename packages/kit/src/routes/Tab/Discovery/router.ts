@@ -1,7 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { Browser } from '@onekeyhq/components/src/primitives/Icon/react/outline';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import Browser from '../../../views/Discovery/container/Browser/Browser';
 import DiscoveryDashboard from '../../../views/Discovery/container/Dashboard';
 
 import { ETabDiscoveryRoutes } from './type';
