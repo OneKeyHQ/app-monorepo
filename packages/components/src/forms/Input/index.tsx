@@ -1,7 +1,19 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useMedia,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -58,16 +70,21 @@ const SIZE_MAPPINGS = {
 };
 
 const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
+  const { md } = useMedia();
+  const isWebMd = useMemo(
+    () => autoFocus && platformEnv.isRuntimeBrowser && md,
+    [autoFocus, md],
+  );
   useEffect(() => {
     // focus after the animation of Dialog and other containers is finished,
     //  to avoid the misalignment caused by the container recalculating its height
-    if (platformEnv.isWebTouchable) {
+    if (isWebMd) {
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 100);
+      }, 150);
     }
-  }, [autoFocus, inputRef]);
-  return platformEnv.isWebTouchable ? undefined : autoFocus;
+  }, [inputRef, isWebMd]);
+  return isWebMd ? undefined : autoFocus;
 };
 
 function BaseInput(
