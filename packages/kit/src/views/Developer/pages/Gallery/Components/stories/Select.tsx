@@ -52,6 +52,25 @@ const SelectDefaultItem = () => {
   );
 };
 
+const SelectCustomItem = () => {
+  const [val, setVal] = useState('');
+
+  return (
+    <Select
+      placeholder="please select one"
+      renderTrigger={({ value, placeholder }) => (
+        <Text>{value || placeholder}</Text>
+      )}
+      items={items}
+      value={val}
+      onChange={setVal}
+      triggerProps={{ width: '100%' }}
+      disablePreventBodyScroll
+      title="Demo Title"
+    />
+  );
+};
+
 const SelectDefaultNativeItem = () => {
   const [val, setVal] = useState('Apple');
 
@@ -68,13 +87,14 @@ const SelectDefaultNativeItem = () => {
 };
 
 const SelectCustomTriggerItem = () => {
-  const [val, setVal] = useState('Apple');
+  const [val, setVal] = useState('');
 
   return (
     <Select
       items={items}
       value={val}
       onChange={setVal}
+      placeholder="please select it"
       triggerProps={{
         width: '100%',
         padded: false,
@@ -167,6 +187,14 @@ const SelectGallery = () => (
         element: (
           <Stack space="$1">
             <SelectDefaultItem />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Custom Trigger',
+        element: (
+          <Stack space="$1">
+            <SelectCustomItem />
           </Stack>
         ),
       },

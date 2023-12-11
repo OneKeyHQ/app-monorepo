@@ -5,7 +5,8 @@ import { useMedia, withStaticProperties } from 'tamagui';
 import { Popover, Trigger } from '../../actions';
 import { useSafeAreaInsets } from '../../hooks';
 import { ListView } from '../../layouts';
-import { Icon, Stack, Text, YStack } from '../../primitives';
+import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { Input } from '../Input';
 
 import { SelectContext } from './context';
 
@@ -33,15 +34,20 @@ function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
   );
 }
 
-function SelectItem({ onSelect, value, label, leading }: ISelectItemProps) {
-  const { value: selectedValue } = useContext(SelectContext);
-  const media = useMedia();
+function SelectItem({
+  onSelect,
+  value,
+  label,
+  leading,
+  selectedValue,
+}: ISelectItemProps) {
+  const { md } = useMedia();
   const handleSelect = useCallback(() => {
     onSelect(value);
   }, [onSelect, value]);
   return useMemo(
     () => (
-      <YStack
+      <XStack
         key={value}
         minHeight="auto"
         backgroundColor="$transparent"
@@ -67,34 +73,37 @@ function SelectItem({ onSelect, value, label, leading }: ISelectItemProps) {
         >
           {label}
         </Text>
-
-        <Icon
-          name="CheckLargeOutline"
-          size="$4"
-          color="$iconActive"
-          {...(media.md && {
-            name: 'CheckRadioSolid',
-            size: '$6',
-          })}
-        />
-      </YStack>
+        {selectedValue === value ? (
+          <Icon
+            name="CheckLargeOutline"
+            size="$4"
+            color="$iconActive"
+            {...(md && {
+              name: 'CheckRadioSolid',
+              size: '$6',
+            })}
+          />
+        ) : null}
+      </XStack>
     ),
-    [handleSelect, label, media.md, value],
+    [handleSelect, label, md, selectedValue, value],
   );
 }
 
 function SelectContent() {
-  const { changeOpenStatus, value, isOpen, items, onValueChange } =
+  const { changeOpenStatus, value, isOpen, title, items, onValueChange } =
     useContext(SelectContext);
-
+  const { md } = useMedia();
   const handleSelect = useCallback(
     (itemValue: string) => {
       onValueChange?.(itemValue);
-      setTimeout(() => {
-        changeOpenStatus?.(false);
-      }, 10);
+      if (md) {
+        setTimeout(() => {
+          changeOpenStatus?.(false);
+        }, 200);
+      }
     },
-    [changeOpenStatus, onValueChange],
+    [changeOpenStatus, md, onValueChange],
   );
 
   const handleFocusOutside = useCallback(() => {
@@ -110,13 +119,13 @@ function SelectContent() {
 
   const renderItem = useCallback(
     ({ item }: { item: ISelectItem }) => (
-      <SelectItem {...item} onSelect={handleSelect} />
+      <SelectItem {...item} onSelect={handleSelect} selectedValue={value} />
     ),
-    [handleSelect],
+    [handleSelect, value],
   );
   return (
     <Popover
-      title=""
+      title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
       onFocusOutside={handleFocusOutside}
@@ -125,7 +134,10 @@ function SelectContent() {
       renderContent={
         <ListView
           data={items}
-          estimatedItemSize="$16"
+          contentContainerStyle={{
+            px: '$4',
+          }}
+          estimatedItemSize="$4"
           extraData={value}
           renderItem={renderItem}
         />
@@ -140,6 +152,7 @@ function SelectFrame({
   value,
   onChange,
   children,
+  title,
 }: ISelectProps) {
   const [isOpen, changeOpenStatus] = useState(false);
   const context = useMemo(
@@ -149,23 +162,34 @@ function SelectFrame({
       value,
       onValueChange: onChange,
       items,
+      title,
       placeholder,
     }),
-    [isOpen, items, onChange, value, placeholder],
+    [isOpen, value, onChange, items, title, placeholder],
   );
   return (
     <SelectContext.Provider value={context}>{children}</SelectContext.Provider>
   );
 }
 
-function BasicSelect(props: ISelectProps) {
+function BasicSelect({ renderTrigger, ...props }: ISelectProps) {
+  const defaultRenderTrigger = useCallback(
+    ({ value, placeholder }: ISelectRenderTriggerProps) => (
+      <>
+        <Input value={value} placeholder={placeholder} readonly flex={1} />
+        <Icon
+          name="ChevronBottomSolid"
+          position="absolute"
+          right="$3"
+          top="$2"
+        />
+      </>
+    ),
+    [],
+  );
   return (
     <SelectFrame {...props}>
-      <SelectTrigger
-        renderTrigger={({ value, placeholder }: ISelectRenderTriggerProps) => (
-          <Text>{value || placeholder}</Text>
-        )}
-      />
+      <SelectTrigger renderTrigger={renderTrigger || defaultRenderTrigger} />
       <SelectContent />
     </SelectFrame>
   );

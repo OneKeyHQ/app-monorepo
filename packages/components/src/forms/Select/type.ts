@@ -24,6 +24,7 @@ export interface ISelectItem {
 
 export interface ISelectItemProps extends ISelectItem {
   onSelect: (value: string) => void;
+  selectedValue?: string;
 }
 
 export interface ISelectSection {
@@ -40,5 +41,5 @@ export type ISelectProps = PropsWithChildren<{
   triggerProps?: SelectTriggerProps;
   value?: string;
   onChange?: (value: string) => void;
-  renderTrigger?: (item?: ISelectItem) => JSX.Element;
+  renderTrigger?: ISelectTriggerProps['renderTrigger'];
 }>;

@@ -8,5 +8,7 @@ export const SelectContext = createContext<{
   value?: string;
   items?: ISelectItem[];
   onValueChange?: (value: string) => void;
+  placeholder?: string;
+  title?: string;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
 }>({});
