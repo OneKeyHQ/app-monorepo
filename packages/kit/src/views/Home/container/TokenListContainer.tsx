@@ -10,7 +10,10 @@ function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
 
   const tokens = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceToken.demoFetchAccountTokens();
+    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+      networkId: 'evm-1',
+      accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+    });
     return r;
   }, []);
 
