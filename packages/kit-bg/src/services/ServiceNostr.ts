@@ -19,6 +19,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -62,6 +63,38 @@ export default class ServiceNostr extends ServiceBase {
       throw new Error('Invalid account index');
     }
     return index;
+  }
+
+  @backgroundMethod()
+  async getNostrAccount({
+    walletId,
+    currentAccountId,
+    currentNetworkId,
+  }: {
+    walletId: string;
+    currentAccountId: string;
+    currentNetworkId: string;
+  }) {
+    const accountIndex = await this.getCurrentAccountIndex(
+      currentAccountId,
+      currentNetworkId,
+    );
+    const networkId = OnekeyNetwork.nostr;
+    const path = `${getNostrPath(accountIndex)}/${NOSTR_ADDRESS_INDEX}`;
+    const accountId = `${walletId}--${path}`;
+    try {
+      const account = await this.backgroundApi.engine.getAccount(
+        accountId,
+        networkId,
+      );
+      return account;
+    } catch (e) {
+      debugLogger.backgroundApi.error(
+        'Nostr: get nostr account failed: ',
+        accountId,
+      );
+      throw e;
+    }
   }
 
   @backgroundMethod()
