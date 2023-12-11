@@ -28,10 +28,9 @@ export function Slider({
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
-  const [bgPrimaryColor, neutral5Color, borderInverseColor] = useThemeValue([
+  const [bgPrimaryColor, neutral5Color] = useThemeValue([
     'bgPrimary',
     'neutral5',
-    'borderInverse',
   ]);
 
   const handleSlideEnd = useCallback(() => {
@@ -62,12 +61,12 @@ export function Slider({
       tapToSeek
       // The style type annotation returned by the usePropsAndStyle function is incorrect, it needs to be fixed by Tamagui.
       style={style as ViewStyle}
+      pointerEvents={'auto' as any}
       minimumValue={min}
       maximumValue={max}
       step={step}
       minimumTrackTintColor={bgPrimaryColor}
       maximumTrackTintColor={neutral5Color}
-      thumbTintColor={borderInverseColor}
       onValueChange={handleValueChange}
       // "onSlideStart does not work on the Web Platform"
       // onSlideStart={onSlideStart}
