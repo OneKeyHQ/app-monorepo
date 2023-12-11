@@ -157,7 +157,7 @@ export default class Vault extends VaultBase {
   ): Promise<{ responseTime: number; latestBlock: number }> {
     const client = this.getNodeClient(url);
     const start = performance.now();
-    const { height } = await client.fetchBlockHeader();
+    const { height } = await client.fetchBlockHeaderV1beta1();
     const latestBlock = parseInt(height);
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }

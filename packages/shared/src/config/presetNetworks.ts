@@ -858,13 +858,13 @@ const serverPresetNetworks = [
         'url': 'https://lcd-celestia.keplr.app/',
       },
       {
-        'url': 'https://celestia-mainnet-grpc.autostake.com',
+        'url': 'https://public-celestia-lcd.numia.xyz',
       },
       {
-        'url': 'https://celestia-grpc.lavenderfive.com',
+        'url': 'https://celestia-rest.publicnode.com',
       },
       {
-        'url': 'https://grpc.celestia.nodestake.top',
+        'url': 'https://api.celestia.nodestake.top',
       },
     ],
     'shortcode': 'celestia',
