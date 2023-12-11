@@ -8,9 +8,9 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../dbs/local/consts';
+import { mockGetNetwork } from '../mock';
 
 import { VaultFactory } from './base/VaultFactory';
-import { mockGetNetwork } from './mock';
 
 import type { KeyringBase, KeyringBaseMock } from './base/KeyringBase';
 import type { VaultBase } from './base/VaultBase';

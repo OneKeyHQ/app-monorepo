@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { isEqual } from 'lodash';
 
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -16,10 +18,11 @@ import {
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import {
   activeTabIdAtom,
@@ -96,7 +99,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       set(webTabsMapAtom(), () => result.map);
-      void simpleDb.browserTabs.setRawData({
+      void backgroundApiProxy.simpleDb.browserTabs.setRawData({
         tabs: result.data,
       });
     },
@@ -267,7 +270,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         throw new Error('buildBookmarkData: payload must be an array');
       }
       set(browserBookmarkAtom(), payload);
-      void simpleDb.browserBookmarks.setRawData({
+      void backgroundApiProxy.simpleDb.browserBookmarks.setRawData({
         data: payload,
       });
     },
@@ -308,7 +311,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       throw new Error('buildHistoryData: payload must be an array');
     }
     set(browserHistoryAtom(), payload);
-    void simpleDb.browserHistory.setRawData({
+    void backgroundApiProxy.simpleDb.browserHistory.setRawData({
       data: payload,
     });
   });
@@ -524,67 +527,75 @@ const createActions = memoFn(() => {
 });
 
 export function useBrowserTabActions() {
-  const actions = createActions();
-  const addWebTab = actions.addWebTab.use();
-  const addBlankWebTab = actions.addBlankWebTab.use();
-  const buildWebTabs = actions.buildWebTabs.use();
-  const refreshTabs = actions.refreshTabs.use();
-  const setWebTabData = actions.setWebTabData.use();
-  const closeWebTab = actions.closeWebTab.use();
-  const closeAllWebTabs = actions.closeAllWebTabs.use();
-  const setCurrentWebTab = actions.setCurrentWebTab.use();
-  const setPinnedTab = actions.setPinnedTab.use();
-  const setDisplayHomePage = actions.setDisplayHomePage.use();
+  return useMemo(() => {
+    const actions = createActions();
+    const addWebTab = actions.addWebTab.use();
+    const addBlankWebTab = actions.addBlankWebTab.use();
+    const buildWebTabs = actions.buildWebTabs.use();
+    const refreshTabs = actions.refreshTabs.use();
+    const setWebTabData = actions.setWebTabData.use();
+    const closeWebTab = actions.closeWebTab.use();
+    const closeAllWebTabs = actions.closeAllWebTabs.use();
+    const setCurrentWebTab = actions.setCurrentWebTab.use();
+    const setPinnedTab = actions.setPinnedTab.use();
+    const setDisplayHomePage = actions.setDisplayHomePage.use();
 
-  return {
-    addWebTab,
-    addBlankWebTab,
-    buildWebTabs,
-    refreshTabs,
-    setWebTabData,
-    closeWebTab,
-    closeAllWebTabs,
-    setCurrentWebTab,
-    setPinnedTab,
-    setDisplayHomePage,
-  };
+    return {
+      addWebTab,
+      addBlankWebTab,
+      buildWebTabs,
+      refreshTabs,
+      setWebTabData,
+      closeWebTab,
+      closeAllWebTabs,
+      setCurrentWebTab,
+      setPinnedTab,
+      setDisplayHomePage,
+    };
+  }, []);
 }
 
 export function useBrowserBookmarkAction() {
-  const actions = createActions();
-  const buildBookmarkData = actions.buildBookmarkData.use();
-  const addBrowserBookmark = actions.addBrowserBookmark.use();
-  const removeBrowserBookmark = actions.removeBrowserBookmark.use();
+  return useMemo(() => {
+    const actions = createActions();
+    const buildBookmarkData = actions.buildBookmarkData.use();
+    const addBrowserBookmark = actions.addBrowserBookmark.use();
+    const removeBrowserBookmark = actions.removeBrowserBookmark.use();
 
-  return {
-    buildBookmarkData,
-    addBrowserBookmark,
-    removeBrowserBookmark,
-  };
+    return {
+      buildBookmarkData,
+      addBrowserBookmark,
+      removeBrowserBookmark,
+    };
+  }, []);
 }
 
 export function useBrowserHistoryAction() {
-  const actions = createActions();
-  const buildHistoryData = actions.buildHistoryData.use();
-  const addBrowserHistory = actions.addBrowserHistory.use();
-  const removeBrowserHistory = actions.removeBrowserHistory.use();
+  return useMemo(() => {
+    const actions = createActions();
+    const buildHistoryData = actions.buildHistoryData.use();
+    const addBrowserHistory = actions.addBrowserHistory.use();
+    const removeBrowserHistory = actions.removeBrowserHistory.use();
 
-  return {
-    buildHistoryData,
-    addBrowserHistory,
-    removeBrowserHistory,
-  };
+    return {
+      buildHistoryData,
+      addBrowserHistory,
+      removeBrowserHistory,
+    };
+  }, []);
 }
 
 export function useBrowserAction() {
-  const actions = createActions();
-  const gotoSite = actions.gotoSite.use();
-  const openMatchDApp = actions.openMatchDApp.use();
-  const onNavigation = actions.onNavigation.use();
+  return useMemo(() => {
+    const actions = createActions();
+    const gotoSite = actions.gotoSite.use();
+    const openMatchDApp = actions.openMatchDApp.use();
+    const onNavigation = actions.onNavigation.use();
 
-  return {
-    gotoSite,
-    openMatchDApp,
-    onNavigation,
-  };
+    return {
+      gotoSite,
+      openMatchDApp,
+      onNavigation,
+    };
+  }, []);
 }

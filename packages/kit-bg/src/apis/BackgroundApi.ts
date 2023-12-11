@@ -3,6 +3,8 @@
 
 // eslint-disable-next-line import/order
 
+import simpleDb from '../dbs/simple/simpleDb';
+
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
@@ -12,6 +14,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     super();
     void this.serviceBootstrap.init();
   }
+
+  simpleDb = simpleDb;
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
@@ -53,6 +57,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceDiscovery', { value });
+    return value;
+  }
+
+  get serviceAccount() {
+    const Service =
+      require('../services/ServiceAccount') as typeof import('../services/ServiceAccount');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAccount', { value });
     return value;
   }
 

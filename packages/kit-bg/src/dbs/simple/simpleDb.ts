@@ -1,16 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { SimpleDbEntityBrowserBookmarks } from './entity/SimpleDbEntityBrowserBookmarks';
-import { SimpleDbEntityBrowserHistory } from './entity/SimpleDbEntityBrowserHistory';
-import { SimpleDbEntityBrowserTabs } from './entity/SimpleDbEntityBrowserTabs';
-
-class SimpleDb {
-  browserTabs = new SimpleDbEntityBrowserTabs();
-
-  browserBookmarks = new SimpleDbEntityBrowserBookmarks();
-
-  browserHistory = new SimpleDbEntityBrowserHistory();
-}
+import { SimpleDb } from './base/SimpleDb';
 
 // eslint-disable-next-line import/no-mutable-exports
 let simpleDb: SimpleDb;
@@ -31,5 +22,7 @@ if (platformEnv.isExtensionUi) {
 if (process.env.NODE_ENV !== 'production') {
   global.$$simpleDb = simpleDb;
 }
+
+ensureRunOnBackground();
 
 export default simpleDb;

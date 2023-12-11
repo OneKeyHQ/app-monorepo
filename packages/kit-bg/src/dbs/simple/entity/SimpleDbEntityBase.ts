@@ -1,4 +1,5 @@
-import { isNil, isString } from 'lodash';
+import { Mutex } from 'async-mutex';
+import { isFunction, isNil, isString } from 'lodash';
 
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
@@ -9,6 +10,8 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 abstract class SimpleDbEntityBase<T> {
+  mutex = new Mutex();
+
   abstract readonly entityName: string;
 
   readonly enableCache: boolean = true;
@@ -55,18 +58,34 @@ abstract class SimpleDbEntityBase<T> {
     return data;
   }
 
-  async setRawData(data: T) {
-    const updatedAt = Date.now();
-    if (this.enableCache) {
-      this.cachedRawData = data;
-    }
-    const savedData: ISimpleDbEntitySavedData<T> = {
-      data,
-      updatedAt,
-    };
-    await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
-    this.updatedAt = updatedAt;
-    return data;
+  async setRawData(
+    dataOrBuilder:
+      | T
+      | ((options: { rawData: T | null | undefined }) => T)
+      | ((options: { rawData: T | null | undefined }) => Promise<T>),
+  ) {
+    return this.mutex.runExclusive(async () => {
+      const updatedAt = Date.now();
+      let data: T | undefined;
+
+      if (isFunction(dataOrBuilder)) {
+        const rawData = await this.getRawData();
+        data = await dataOrBuilder({ rawData });
+      } else {
+        data = dataOrBuilder;
+      }
+
+      if (this.enableCache) {
+        this.cachedRawData = data;
+      }
+      const savedData: ISimpleDbEntitySavedData<T> = {
+        data,
+        updatedAt,
+      };
+      await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
+      this.updatedAt = updatedAt;
+      return data;
+    });
   }
 
   async clearRawData() {
