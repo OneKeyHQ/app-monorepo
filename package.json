@@ -149,6 +149,12 @@
   "resolutions": {
     "tronweb@^5.1.0": "5.1.0",
     "@babel/core": "7.23.5",
+    "@babel/code-frame": "7.23.5",
+    "@babel/generator": "7.23.5",
+    "@babel/helper-string-parser": "7.23.5",
+    "@babel/highlight": "7.23.5",
+    "@babel/types": "7.23.5",
+    "@babel/parser": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
   },
   "packageManager": "yarn@3.5.0"
