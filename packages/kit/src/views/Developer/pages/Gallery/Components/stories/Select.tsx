@@ -35,6 +35,7 @@ const items: ISelectItem[] = [
   { label: 'Starfruit', value: 'Starfruit' },
 
   { label: 'Blueberry', value: 'Blueberry' },
+  { label: 'Banana', value: 'Banana' },
 ];
 
 const SelectDefaultItem = () => {
@@ -42,6 +43,26 @@ const SelectDefaultItem = () => {
 
   return (
     <Select items={items} value={val} onChange={setVal} title="Demo Title" />
+  );
+};
+
+const SelectLongListItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
+    <Select
+      items={new Array(1000).fill(undefined).map((_, index) => ({
+        label: String(index),
+        value: String(index),
+      }))}
+      sheetProps={{
+        snapPointsMode: 'percent',
+        snapPoints: [80],
+      }}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+    />
   );
 };
 
@@ -144,6 +165,14 @@ const SelectGallery = () => (
         element: (
           <Stack space="$1">
             <SelectDefaultItem />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Long List',
+        element: (
+          <Stack space="$1">
+            <SelectLongListItem />
           </Stack>
         ),
       },

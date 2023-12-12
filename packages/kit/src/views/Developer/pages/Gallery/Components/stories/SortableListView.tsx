@@ -17,6 +17,8 @@ export const mapIndexToData = (_d: any, index: number, array: any[]) => {
   };
 };
 
+const CELL_HEIGHT = 100;
+
 const SortableListViewGallery = () => {
   const [data, setData] = useState(new Array(15).fill({}).map(mapIndexToData));
   return (
@@ -34,7 +36,7 @@ const SortableListViewGallery = () => {
               style={{
                 backgroundColor: item.backgroundColor,
                 width: '100%',
-                height: 100,
+                height: CELL_HEIGHT,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -44,6 +46,11 @@ const SortableListViewGallery = () => {
           </SortableListView.ScaleDecorator>
         </SortableListView.ShadowDecorator>
       )}
+      getItemLayout={(_, index) => ({
+        length: CELL_HEIGHT,
+        offset: index * CELL_HEIGHT,
+        index,
+      })}
       onDragEnd={(result) => setData(result.data)}
     />
   );

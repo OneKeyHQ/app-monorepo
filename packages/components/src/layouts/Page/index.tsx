@@ -20,7 +20,7 @@ function PageContainer({ children, skipLoading, enableSafeArea }: IPageProps) {
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
-        <View style={{ flex: 1 }}>{children}</View>
+        <View style={{ flex: 1, overflow: 'scroll' }}>{children}</View>
         <BasicPageFooter />
       </BasicPage>
     ),

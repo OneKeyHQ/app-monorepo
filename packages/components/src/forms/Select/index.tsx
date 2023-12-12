@@ -17,6 +17,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
   const { changeOpenStatus, value, placeholder, disabled } =
@@ -108,6 +109,8 @@ function SelectContent() {
     items,
     onValueChange,
     sections,
+    refreshState,
+    sheetProps,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (itemValue: string) => {
@@ -150,25 +153,37 @@ function SelectContent() {
     [],
   );
 
-  const renderContent = sections ? (
-    <SectionList
-      sections={sections}
-      renderSectionHeader={renderSectionHeader}
-      estimatedItemSize="$4"
-      extraData={value}
-      renderItem={renderItem}
-      p="$1"
-      $md={{ p: '$3' }}
-    />
-  ) : (
-    <ListView
-      data={items}
-      estimatedItemSize="$4"
-      extraData={value}
-      renderItem={renderItem}
-      p="$1"
-      $md={{ p: '$3' }}
-    />
+  const keyExtractor = useCallback((item: ISelectItem) => item.value, []);
+
+  const renderContent = useMemo(
+    () => {
+      const listProps = {
+        contentContainerStyle: { flex: 1 },
+        keyExtractor,
+        estimatedItemSize: '$6',
+        extraData: value,
+        renderItem,
+        p: '$1',
+        $md: { p: '$3' },
+      };
+      return sections ? (
+        <SectionList
+          sections={sections}
+          renderSectionHeader={renderSectionHeader}
+          {...(listProps as Omit<
+            ISectionListProps<any>,
+            'sections' | 'renderSectionHeader'
+          >)}
+        />
+      ) : (
+        <ListView
+          data={items}
+          {...(listProps as Omit<IListViewProps<ISelectItem>, 'data'>)}
+        />
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshState],
   );
   return (
     <Popover
@@ -176,12 +191,19 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       onFocusOutside={handleFocusOutside}
+      keepChildrenMounted
+      sheetProps={{
+        dismissOnSnapToBottom: false,
+        snapPointsMode: 'fit',
+        ...sheetProps,
+      }}
+      floatingPanelProps={{
+        maxHeight: '60vh',
+        width: '$56',
+      }}
       placement="bottom-start"
       renderTrigger={<Stack pointerEvents="none" />}
       renderContent={renderContent}
-      floatingPanelProps={{
-        width: '$56',
-      }}
     />
   );
 }
@@ -195,11 +217,22 @@ function SelectFrame({
   title,
   disabled,
   sections,
+  sheetProps,
 }: ISelectProps) {
-  const [isOpen, changeOpenStatus] = useState(false);
+  const [openCounts, updateOpenCounts] = useState(0);
+  const changeOpenStatus = useCallback(() => {
+    updateOpenCounts((i) => i + 1);
+  }, []);
+  // eslint-disable-next-line no-bitwise
+  const isOpen = useMemo(() => (openCounts & 1) === 1, [openCounts]);
+  const refreshState = useMemo(
+    () => (isOpen ? openCounts : openCounts - 1),
+    [isOpen, openCounts],
+  );
   const context = useMemo(
     () => ({
       isOpen,
+      refreshState,
       changeOpenStatus,
       value,
       onValueChange: onChange,
@@ -208,8 +241,21 @@ function SelectFrame({
       title,
       placeholder,
       disabled,
+      sheetProps,
     }),
-    [isOpen, value, onChange, items, sections, title, placeholder, disabled],
+    [
+      isOpen,
+      refreshState,
+      changeOpenStatus,
+      value,
+      onChange,
+      items,
+      sections,
+      title,
+      placeholder,
+      disabled,
+      sheetProps,
+    ],
   );
   return (
     <SelectContext.Provider value={context}>{children}</SelectContext.Provider>

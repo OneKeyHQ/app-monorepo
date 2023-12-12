@@ -1,10 +1,13 @@
+import { StyleSheet } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
 import {
   Anchor,
   Button,
+  Group,
   Heading,
   Image,
+  ListItem,
   Page,
   SizableText,
   Stack,
@@ -91,7 +94,7 @@ export function GetStarted() {
             pb: bottom + (getTokenValue('$size.5') as number),
           })}
         >
-          By continuing to use the app, you agree to these{' '}
+          I agree to the{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002014776"
             size="$bodySm"

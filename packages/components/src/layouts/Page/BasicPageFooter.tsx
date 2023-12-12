@@ -1,4 +1,4 @@
-import { memo, useContext, useEffect } from 'react';
+import { memo, useContext, useLayoutEffect } from 'react';
 
 import { PageButtonGroup } from './PageButtonGroup';
 import { PageContext } from './PageContext';
@@ -15,7 +15,7 @@ type IPageFooterProps = IPageButtonGroupProps;
 
 export function PageContextFooter(props: IPageFooterProps) {
   const { setOptions } = useContext(PageContext);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setOptions?.({
       footerOptions: props,
     });

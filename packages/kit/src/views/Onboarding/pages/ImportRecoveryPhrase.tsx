@@ -47,6 +47,7 @@ export function ImportRecoveryPhrase() {
         <Stack p="$5" pt="$0">
           <Alert
             type="warning"
+            closable
             title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
           />
         </Stack>

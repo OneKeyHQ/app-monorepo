@@ -154,7 +154,7 @@ export const Alert: FC<IAlertProps> = ({
       ) : null}
       {closable ? (
         <IconButton
-          title="Close"
+          title="Dismiss"
           icon="CrossedSmallSolid"
           size="small"
           variant="tertiary"
