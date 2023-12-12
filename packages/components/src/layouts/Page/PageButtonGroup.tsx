@@ -4,6 +4,7 @@ import { useContext } from 'react';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
+import { useKeyboardHeight } from '../../hooks';
 
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
@@ -18,6 +19,7 @@ export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
 
 export function PageButtonGroup() {
   const { options } = useContext(PageContext);
+  const height = useKeyboardHeight();
   if (!options?.footerOptions) {
     return null;
   }
@@ -36,7 +38,7 @@ export function PageButtonGroup() {
   }
 
   return (
-    <Stack p="$5">
+    <Stack p="$5" marginBottom={height}>
       <XStack justifyContent="flex-end">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button

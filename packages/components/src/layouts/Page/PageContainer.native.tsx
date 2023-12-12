@@ -19,12 +19,16 @@ export function PageContainer({
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading} safeAreaEnabled={safeAreaEnabled}>
-        <ScrollView
-          contentContainerStyle={scrollEnabled ? { flex: 1 } : undefined}
-          scrollEnabled={scrollEnabled}
-        >
-          {children}
-        </ScrollView>
+        {scrollEnabled ? (
+          <ScrollView
+            contentContainerStyle={scrollEnabled ? { flex: 1 } : undefined}
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          children
+        )}
+
         <BasicPageFooter />
       </BasicPage>
     ),
