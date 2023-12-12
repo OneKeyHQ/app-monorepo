@@ -48,6 +48,10 @@ export type ISortableSectionListProps = Omit<
       isActive: boolean;
     }) => JSX.Element;
     keyExtractor: (item: any, index: number) => string;
+    getItemLayout: (
+      data: any,
+      index: number,
+    ) => { length: number; offset: number; index: number };
     onDragEnd: (info: { sections: ISectionType }) => void;
     contentContainerStyle?: StackStyleProps;
     ListHeaderComponent?: ReactNode;
@@ -65,6 +69,7 @@ function BaseSortableSectionList(
     sections,
     keyExtractor,
     renderItem,
+    getItemLayout,
     contentContainerStyle = {},
     ListHeaderComponent,
     ListFooterComponent,
@@ -142,10 +147,12 @@ function BaseSortableSectionList(
         <NestableDraggableFlatList
           keyExtractor={keyExtractor}
           data={section.data}
+          activationDistance={100}
           onDragEnd={(result) => {
             sections[index].data = result.data;
             onDragEnd({ sections: [...sections] });
           }}
+          getItemLayout={getItemLayout}
           renderItem={({ item, getIndex, drag, isActive }) =>
             renderItem?.({
               item,
@@ -180,6 +187,7 @@ function BaseSortableSectionList(
     renderSectionHeader,
     renderSectionFooter,
     keyExtractor,
+    getItemLayout,
     sections,
     listHeaderStyle,
     listFooterStyle,

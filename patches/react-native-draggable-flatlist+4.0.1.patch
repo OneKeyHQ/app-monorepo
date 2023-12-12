@@ -1,0 +1,47 @@
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
+index 730171f..71cfcb1 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/components/CellRendererComponent.js
+@@ -66,7 +66,14 @@ function CellRendererComponent(props) {
+   }, [translate, activeKey]);
+   const updateCellMeasurements = useStableCallback(() => {
+     const onSuccess = (x, y, w, h) => {
+-      if (isWeb && horizontal) x += scrollOffset.value;
++      // Fix the problem of inaccurate result of `measureLayout`
++      if (isWeb) {
++        if (horizontal) {
++          x += scrollOffset.value
++        } else {
++          y += scrollOffset.value
++        }
++      };
+       const cellOffset = horizontal ? x : y;
+       const cellSize = horizontal ? w : h;
+       cellDataRef.current.set(key, {
+diff --git a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+index 50b1d13..b6d9317 100644
+--- a/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
++++ b/node_modules/react-native-draggable-flatlist/lib/module/components/DraggableFlatList.js
+@@ -203,7 +203,8 @@ function DraggableFlatListInner(props) {
+       to,
+       data: newData
+     });
+-    reset();
++    // Fix the problem of flicker cells after dragging
++    setTimeout(reset)
+   });
+   const onPlaceholderIndexChange = useStableCallback(index => {
+     var _props$onPlaceholderI;
+diff --git a/node_modules/react-native-draggable-flatlist/package.json b/node_modules/react-native-draggable-flatlist/package.json
+index 4092574..cca6988 100644
+--- a/node_modules/react-native-draggable-flatlist/package.json
++++ b/node_modules/react-native-draggable-flatlist/package.json
+@@ -2,7 +2,7 @@
+   "name": "react-native-draggable-flatlist",
+   "version": "4.0.1",
+   "description": "A drag-and-drop-enabled FlatList component for React Native",
+-  "main": "lib/commonjs/index",
++  "main": "lib/module/index",
+   "module": "lib/module/index",
+   "react-native": "src/index.tsx",
+   "types": "lib/typescript/index.d.ts",
