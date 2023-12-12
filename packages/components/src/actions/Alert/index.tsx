@@ -4,7 +4,7 @@ import type { ComponentProps, FC } from 'react';
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { HeightTransition } from '../../layouts';
+import { HeightTransition } from '../../content';
 import {
   Button,
   Icon,
