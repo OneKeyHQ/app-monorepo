@@ -17,6 +17,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
   const { changeOpenStatus, value, placeholder, disabled } =
@@ -152,35 +153,34 @@ function SelectContent() {
   const keyExtractor = useCallback((item: ISelectItem) => item.value, []);
 
   const renderContent = useMemo(
-    () =>
-      sections ? (
+    () => {
+      const listProps = {
+        contentContainerStyle: {
+          $md: {
+            flex: 1,
+          },
+        },
+        keyExtractor,
+        estimatedItemSize: '$6',
+        extraData: value,
+        renderItem,
+      };
+      return sections ? (
         <SectionList
           sections={sections}
-          contentContainerStyle={{
-            $md: {
-              flex: 1,
-            },
-          }}
           renderSectionHeader={renderSectionHeader}
-          keyExtractor={keyExtractor as any}
-          estimatedItemSize="$4"
-          extraData={value}
-          renderItem={renderItem}
+          {...(listProps as Omit<
+            ISectionListProps<any>,
+            'sections' | 'renderSectionHeader'
+          >)}
         />
       ) : (
         <ListView
           data={items}
-          contentContainerStyle={{
-            $md: {
-              flex: 1,
-            },
-          }}
-          keyExtractor={keyExtractor}
-          estimatedItemSize="$4"
-          extraData={value}
-          renderItem={renderItem}
+          {...(listProps as Omit<IListViewProps<ISelectItem>, 'data'>)}
         />
-      ),
+      );
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [refreshState],
   );
