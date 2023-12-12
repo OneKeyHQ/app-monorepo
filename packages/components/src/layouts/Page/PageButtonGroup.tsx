@@ -40,10 +40,12 @@ export function PageButtonGroup() {
       <XStack justifyContent="flex-end">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
-            $md={{
-              flex: 1,
-              size: 'large',
-            }}
+            $md={
+              {
+                flex: 1,
+                size: 'large',
+              } as IButtonProps
+            }
             $platform-native={{}}
             onPress={onCancel}
             {...cancelButtonProps}
@@ -53,10 +55,12 @@ export function PageButtonGroup() {
         )}
         {(!!confirmButtonProps || !!onConfirm) && (
           <Button
-            $md={{
-              flex: 1,
-              size: 'large',
-            }}
+            $md={
+              {
+                flex: 1,
+                size: 'large',
+              } as IButtonProps
+            }
             $platform-native={{}}
             variant="primary"
             onPress={onConfirm}
