@@ -1,8 +1,8 @@
 import {
   decodePassword,
   encodeSensitiveText,
+  ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
-  isEncodedSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
@@ -43,7 +43,7 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // cachePassword ------------------------------
-  clearCachedPassword() {
+  async clearCachedPassword() {
     this.cachedPassword = undefined;
   }
 
@@ -153,11 +153,9 @@ export default class ServicePassword extends ServiceBase {
     newPassword?: string;
     skipDBVerify?: boolean;
   }): Promise<void> {
-    if (
-      !isEncodedSensitiveText(password) ||
-      (newPassword && !isEncodedSensitiveText(newPassword))
-    ) {
-      throw new Error('Passing raw password is not allowed and not safe.');
+    ensureSensitiveTextEncoded(password);
+    if (newPassword) {
+      ensureSensitiveTextEncoded(newPassword);
     }
     this.validatePasswordValidRules(password);
     if (newPassword) {
@@ -172,7 +170,7 @@ export default class ServicePassword extends ServiceBase {
   async rollbackPassword(password?: string): Promise<void> {
     if (!password) {
       await this.deleteBiologyAuthPassword();
-      this.clearCachedPassword();
+      await this.clearCachedPassword();
       await this.setPasswordSetStatus(false);
     } else {
       await this.saveBiologyAuthPassword(password);
@@ -183,11 +181,11 @@ export default class ServicePassword extends ServiceBase {
   // passwordSet check is only done the app open
   @backgroundMethod()
   async isPasswordSet(): Promise<boolean> {
-    const isPasswordSet = await localDb.isPasswordSet();
-    if (isPasswordSet) {
-      await this.setPasswordSetStatus(isPasswordSet);
+    const checkPasswordSet = await localDb.isPasswordSet();
+    if (checkPasswordSet) {
+      await this.setPasswordSetStatus(checkPasswordSet);
     }
-    return isPasswordSet;
+    return checkPasswordSet;
   }
 
   async setPasswordSetStatus(isSet: boolean): Promise<void> {

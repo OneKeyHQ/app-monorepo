@@ -44,11 +44,13 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
               text: data.password,
             });
 
-          await backgroundApiProxy.servicePassword.setPassword(encodePassword);
-          onSetupRes(encodePassword);
+          const setUpPasswordRes =
+            await backgroundApiProxy.servicePassword.setPassword(
+              encodePassword,
+            );
+          onSetupRes(setUpPasswordRes);
           Toast.success({ title: 'password set success' });
         } catch (e) {
-          onSetupRes('');
           console.log('e', e);
           console.log('e.stack', (e as Error)?.stack);
           console.error(e);

@@ -34,11 +34,9 @@ const PasswordUpdateContainer = ({
         onUpdateRes(updatedPassword);
         Toast.success({ title: 'password update success' });
       } catch (e) {
-        onUpdateRes('');
         console.error(e);
         Toast.error({ title: 'password set failed' });
       }
-
       setLoading(false);
     },
     [onUpdateRes],
