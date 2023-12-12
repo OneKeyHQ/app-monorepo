@@ -1,7 +1,5 @@
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useContext, useMemo } from 'react';
 
-import { View } from '../../optimization';
-import { Stack } from '../../primitives';
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';

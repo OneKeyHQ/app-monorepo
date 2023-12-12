@@ -14,14 +14,12 @@ export const BasicPageFooter = memo(BasicPageFooterContainer);
 type IPageFooterProps = IPageButtonGroupProps;
 
 export function PageContextFooter(props: IPageFooterProps) {
-  const { setOptions } = useContext(PageContext);
+  const { setOptions, options } = useContext(PageContext);
   useEffect(() => {
     setOptions?.({
+      ...options,
       footerOptions: props,
     });
-    return () => {
-      setOptions?.(undefined);
-    };
-  }, [props, setOptions]);
+  }, [options, props, setOptions]);
   return null;
 }
