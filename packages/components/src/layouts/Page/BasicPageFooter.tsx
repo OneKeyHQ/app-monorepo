@@ -15,12 +15,13 @@ type IPageFooterProps = IPageButtonGroupProps;
 
 export function PageContextFooter(props: IPageFooterProps) {
   const { setOptions, options } = useContext(PageContext);
+  const { onCancelText, onConfirmText, children } = props;
   useLayoutEffect(() => {
     setOptions?.({
       ...options,
       footerOptions: props,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onCancelText, onConfirmText, children]);
   return null;
 }
