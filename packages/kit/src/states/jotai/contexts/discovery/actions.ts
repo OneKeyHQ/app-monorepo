@@ -16,10 +16,11 @@ import {
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import {
   activeTabIdAtom,
@@ -96,7 +97,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       set(webTabsMapAtom(), () => result.map);
-      void simpleDb.browserTabs.setRawData({
+      void backgroundApiProxy.simpleDb.browserTabs.setRawData({
         tabs: result.data,
       });
     },
@@ -267,7 +268,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         throw new Error('buildBookmarkData: payload must be an array');
       }
       set(browserBookmarkAtom(), payload);
-      void simpleDb.browserBookmarks.setRawData({
+      void backgroundApiProxy.simpleDb.browserBookmarks.setRawData({
         data: payload,
       });
     },
@@ -308,7 +309,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       throw new Error('buildHistoryData: payload must be an array');
     }
     set(browserHistoryAtom(), payload);
-    void simpleDb.browserHistory.setRawData({
+    void backgroundApiProxy.simpleDb.browserHistory.setRawData({
       data: payload,
     });
   });

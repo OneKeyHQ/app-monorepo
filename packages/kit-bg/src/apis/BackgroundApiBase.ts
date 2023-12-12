@@ -9,6 +9,7 @@ import {
 import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
+  getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type {
@@ -252,8 +253,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const serviceName = service || '';
     const paramsArr = [].concat(params as any);
 
-    /* eslint-disable  */
-    const serviceApi = serviceName ? (this as any)[serviceName] : this;
+    const serviceApi = getBackgroundServiceApi({
+      serviceName,
+      backgroundApi: this,
+    });
+
     const methodFunc = serviceApi[method];
     if (methodFunc) {
       const resultPromise = methodFunc.call(serviceApi, ...paramsArr);
@@ -263,9 +267,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       });
       const result = await resultPromise;
       ensureSerializable(result);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     }
-    /* eslint-enable  */
 
     throwMethodNotFound(serviceName, method);
   }

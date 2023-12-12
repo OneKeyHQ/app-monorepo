@@ -176,7 +176,13 @@ module.exports = {
         'identifiers': true,
         'lang': 'en_US',
         'skipWords': require('./development/spellCheckerSkipWords.js'),
-        'skipWordIfMatch': [/bip32/i, /pbkdf2/i, /Secp256k1/i, /googleapis/i],
+        'skipWordIfMatch': [
+          /(\w|\d){50,}/i, // length>50
+          /bip32/i,
+          /pbkdf2/i,
+          /Secp256k1/i,
+          /googleapis/i,
+        ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
       },

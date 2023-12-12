@@ -17,36 +17,68 @@ import type { WritableAtom } from 'jotai';
 
 export { atom };
 
-export function createJotaiContext(options?: { isSingletonStore?: boolean }) {
-  const Context = createContext<ReturnType<typeof createStore> | null>(null);
-  let store: ReturnType<typeof createStore> | null = null;
+export type IJotaiContextStore = ReturnType<typeof createStore>;
+
+export function createJotaiContext<TContextConfig = undefined>(options?: {
+  isSingletonStore?: boolean;
+}) {
+  const Context = createContext<{
+    store: IJotaiContextStore | undefined;
+    config: TContextConfig | undefined;
+  }>({ store: undefined, config: undefined });
+
+  let singletonStore: IJotaiContextStore | undefined;
   if (options?.isSingletonStore) {
-    store = createStore();
+    singletonStore = createStore();
   }
-  function Provider({ children }: { children?: ReactNode | undefined }) {
-    const innerStore = useMemo(
-      () => (options?.isSingletonStore ? store : createStore()),
-      [],
-    );
-    return <Context.Provider value={innerStore}>{children}</Context.Provider>;
-  }
-  function useContextAtom<Value, Args extends any[], Result>(
-    atomInstance: WritableAtom<Value, Args, Result>,
-  ) {
-    const $store = useContext(Context);
-    if (!$store) {
-      throw new Error('useContextAtom ERROR: store not initialized');
-    }
-    return useAtom(atomInstance, { store: $store });
+
+  function Provider({
+    config,
+    store,
+    children,
+  }: {
+    config?: TContextConfig;
+    store?: IJotaiContextStore;
+    children?: ReactNode | undefined;
+  }) {
+    const value = useMemo(() => {
+      const s = store || singletonStore || createStore();
+      return { store: s, config };
+    }, [store, config]);
+    return <Context.Provider value={value}>{children}</Context.Provider>;
   }
   function withProvider<P>(WrappedComponent: React.ComponentType<P>) {
-    return function WithProvider(props: P) {
+    return function WithProvider(
+      props: P,
+      {
+        store,
+        config,
+      }: {
+        config?: TContextConfig;
+        store?: IJotaiContextStore;
+      } = {},
+    ) {
       return (
-        <Provider>
+        <Provider store={store} config={config}>
           <WrappedComponent {...(props as any)} />
         </Provider>
       );
     };
+  }
+
+  function useContextData() {
+    const data = useContext(Context);
+    if (!data?.store) {
+      throw new Error('useContextStore ERROR: store not initialized');
+    }
+    return data;
+  }
+  function useContextAtom<Value, Args extends any[], Result>(
+    atomInstance: WritableAtom<Value, Args, Result>,
+  ) {
+    const data = useContextData();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return useAtom(atomInstance, { store: data.store! });
   }
 
   function contextAtom<Value>(initialValue: Value) {
@@ -78,9 +110,11 @@ export function createJotaiContext(options?: { isSingletonStore?: boolean }) {
     Provider,
     withProvider,
     useContextAtom,
+    useContextData,
     contextAtom,
     contextAtomMethod,
     contextAtomComputed,
-    store,
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    store: singletonStore!,
   };
 }
