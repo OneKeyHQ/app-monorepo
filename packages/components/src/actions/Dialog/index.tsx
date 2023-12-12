@@ -11,6 +11,7 @@ import {
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  AnimatePresence,
   Sheet,
   Dialog as TMDialog,
   useMedia,
@@ -96,7 +97,7 @@ function DialogFrame({
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
-  const content = (
+  const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
       {icon && (
         <Stack
@@ -175,13 +176,7 @@ function DialogFrame({
       )}
     </Stack>
   );
-  const renderDialogContent = contextValue ? (
-    <DialogContext.Provider value={contextValue}>
-      {content}
-    </DialogContext.Provider>
-  ) : (
-    content
-  );
+
   if (media.md) {
     return (
       <>
@@ -221,52 +216,58 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog modal open={open}>
-      <TMDialog.Trigger onPress={onOpen} asChild>
-        {renderTrigger}
-      </TMDialog.Trigger>
-      <TMDialog.Portal>
-        <TMDialog.Overlay
-          key="overlay"
-          animation="quick"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-          backgroundColor="$bgBackdrop"
-          onPress={handleBackdropPress}
-        />
-        {
-          /* fix missing title warnings in html dialog element on Web */
-          platformEnv.isRuntimeBrowser ? (
-            <TMDialog.Title display="none">{title}</TMDialog.Title>
-          ) : null
-        }
-        <TMDialog.Content
-          elevate
-          key="content"
-          testID={testID}
-          animateOnly={['transform', 'opacity']}
-          animation={[
-            'quick',
+    <TMDialog open={open}>
+      <AnimatePresence>
+        {open ? (
+          <Stack
+            position={'fixed' as unknown as any}
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <TMDialog.Overlay
+              key="overlay"
+              backgroundColor="$bgBackdrop"
+              onPress={handleBackdropPress}
+            />
             {
-              opacity: {
-                overshootClamping: true,
-              },
-            },
-          ]}
-          enterStyle={{ opacity: 0, scale: 0.95 }}
-          exitStyle={{ opacity: 0, scale: 0.95 }}
-          borderRadius="$4"
-          borderWidth="$0"
-          outlineColor="$borderSubdued"
-          outlineStyle="solid"
-          outlineWidth="$px"
-          bg="$bg"
-          width={400}
-          p="$0"
-        >
-          {renderDialogContent}
-        </TMDialog.Content>
-      </TMDialog.Portal>
+              /* fix missing title warnings in html dialog element on Web */
+              platformEnv.isRuntimeBrowser ? (
+                <TMDialog.Title display="none">{title}</TMDialog.Title>
+              ) : null
+            }
+            <TMDialog.Content
+              elevate
+              key="content"
+              testID={testID}
+              animateOnly={['transform', 'opacity']}
+              animation={[
+                'quick',
+                {
+                  opacity: {
+                    overshootClamping: true,
+                  },
+                },
+              ]}
+              enterStyle={{ opacity: 0, scale: 0.85 }}
+              exitStyle={{ opacity: 0, scale: 0.85 }}
+              borderRadius="$4"
+              borderWidth="$0"
+              outlineColor="$borderSubdued"
+              outlineStyle="solid"
+              outlineWidth="$px"
+              bg="$bg"
+              width={400}
+              p="$0"
+            >
+              {renderDialogContent}
+            </TMDialog.Content>
+          </Stack>
+        ) : null}
+      </AnimatePresence>
     </TMDialog>
   );
 }
