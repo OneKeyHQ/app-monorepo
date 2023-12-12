@@ -21,6 +21,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'data'
   | 'renderItem'
   | 'keyExtractor'
+  | 'getItemLayout'
   | 'containerStyle'
   | 'contentContainerStyle'
   | 'columnWrapperStyle'
@@ -36,6 +37,10 @@ export type ISortableListViewProps<T> = Omit<
       drag: () => void;
       isActive: boolean;
     }) => JSX.Element;
+    getItemLayout: (
+      data: ArrayLike<T> | undefined | null,
+      index: number,
+    ) => { length: number; offset: number; index: number };
 
     containerStyle?: StackStyleProps;
     contentContainerStyle?: StackStyleProps;
