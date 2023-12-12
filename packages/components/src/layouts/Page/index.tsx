@@ -2,6 +2,8 @@ import { useContext, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { useKeyboardHeight } from '../../hooks';
+
 import { PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
@@ -33,6 +35,7 @@ function PageProvider({
     }),
     [options],
   );
+  console.log('__value', options, value);
   return (
     <PageContext.Provider value={value}>
       <PageContainer
@@ -53,6 +56,24 @@ export const usePageScrollEnabled = () => {
       setOptions?.({
         ...options,
         scrollEnabled: enabled,
+      });
+    },
+  };
+};
+
+export const usePageAvoidKeyboard = () => {
+  const { options = {}, setOptions } = useContext(PageContext);
+  const keyboardHeight = useKeyboardHeight();
+  const a = useContext(PageContext);
+  console.log('__aaaa', a);
+  return {
+    keyboardHeight,
+    avoidHeight: options.avoidHeight,
+    changePageAvoidHeight: (avoidHeight: number) => {
+      console.log('---avoidHeight', avoidHeight, setOptions);
+      setOptions?.({
+        ...options,
+        avoidHeight,
       });
     },
   };

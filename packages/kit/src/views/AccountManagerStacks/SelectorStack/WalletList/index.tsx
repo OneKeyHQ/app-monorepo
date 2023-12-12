@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 
@@ -44,7 +45,7 @@ export function WalletList({
 
   const handleCreateWalletPress = () => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EModalRoutes.OnboardingModal,
+      screen: EOnboardingPages.GetStarted,
     });
   };
 

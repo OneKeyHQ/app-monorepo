@@ -16,6 +16,7 @@ export function PageContainer({
   const { options = {} } = useContext(PageContext);
   const { scrollEnabled } = options;
 
+  console.log('PageContainer---', options);
   const memoPageContainer = useMemo(
     () => (
       <BasicPage skipLoading={skipLoading} safeAreaEnabled={safeAreaEnabled}>
