@@ -135,6 +135,17 @@ export class RestAPIClient {
           );
         }
 
+        if (
+          message
+            .toLowerCase()
+            .indexOf('is larger than max allowed size of 100000') !== -1
+        ) {
+          throw new OneKeyInternalError(
+            message,
+            'msg__broadcast_kaspa_tx_max_allowed_size',
+          );
+        }
+
         throw new OneKeyInternalError(message);
       });
   }
