@@ -1,7 +1,11 @@
 import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
-import { getTokenValue, useSafeAreaInsets } from '../../hooks';
+import {
+  getTokenValue,
+  useKeyboardHeight,
+  useSafeAreaInsets,
+} from '../../hooks';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
@@ -21,6 +25,7 @@ export function PageButtonGroup() {
   const { options } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
 
+  const height = useKeyboardHeight();
   if (!options?.footerOptions) {
     return null;
   }
@@ -44,14 +49,17 @@ export function PageButtonGroup() {
       {...(bottom && {
         pb: bottom + (getTokenValue('$size.5') as number),
       })}
+      marginBottom={height}
     >
       <XStack justifyContent="flex-end">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
-            $md={{
-              flex: 1,
-              size: 'large',
-            }}
+            $md={
+              {
+                flex: 1,
+                size: 'large',
+              } as IButtonProps
+            }
             $platform-native={{}}
             onPress={onCancel}
             {...cancelButtonProps}
@@ -61,10 +69,12 @@ export function PageButtonGroup() {
         )}
         {(!!confirmButtonProps || !!onConfirm) && (
           <Button
-            $md={{
-              flex: 1,
-              size: 'large',
-            }}
+            $md={
+              {
+                flex: 1,
+                size: 'large',
+              } as IButtonProps
+            }
             $platform-native={{}}
             variant="primary"
             onPress={onConfirm}

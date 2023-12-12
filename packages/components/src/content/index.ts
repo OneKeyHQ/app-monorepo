@@ -1,5 +1,6 @@
 export * from './Avatar';
 export * from './Badge';
+export * from './HeightTransition';
 export * from './BlurView';
 export * from './Empty';
 export * from './LottieView';

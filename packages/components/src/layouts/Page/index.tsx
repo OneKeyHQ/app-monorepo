@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { View } from '../../optimization';
-
-import { BasicPage } from './BasicPage';
-import { BasicPageFooter, PageContextFooter } from './BasicPageFooter';
+import { PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
+import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
@@ -16,27 +14,18 @@ import type { IPageProps } from './type';
 
 export type { IPageProps } from './type';
 
-function PageContainer({ children, skipLoading, enableSafeArea }: IPageProps) {
-  const memoPageContainer = useMemo(
-    () => (
-      <BasicPage skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
-        <View style={{ flex: 1, overflow: 'scroll' }}>{children}</View>
-        <BasicPageFooter />
-      </BasicPage>
-    ),
-    [skipLoading, enableSafeArea, children],
-  );
-  return memoPageContainer;
-}
-
 function PageProvider({
   children,
   skipLoading = false,
-  enableSafeArea = false,
+  safeAreaEnabled = false,
+  scrollEnabled = false,
 }: IPageProps) {
   const [options, setOptions] = useState<{
-    footerOptions: IPageButtonGroupProps;
-  }>();
+    footerOptions?: IPageButtonGroupProps;
+    scrollEnabled?: boolean;
+  }>({
+    scrollEnabled,
+  });
   const value = useMemo(
     () => ({
       options,
@@ -46,12 +35,28 @@ function PageProvider({
   );
   return (
     <PageContext.Provider value={value}>
-      <PageContainer skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
+      <PageContainer
+        skipLoading={skipLoading}
+        safeAreaEnabled={safeAreaEnabled}
+      >
         {children}
       </PageContainer>
     </PageContext.Provider>
   );
 }
+
+export const usePageScrollEnabled = () => {
+  const { options = {}, setOptions } = useContext(PageContext);
+  return {
+    scrollEnabled: options.scrollEnabled,
+    changeScrollEnabled: (enabled: boolean) => {
+      setOptions?.({
+        ...options,
+        scrollEnabled: enabled,
+      });
+    },
+  };
+};
 
 export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,

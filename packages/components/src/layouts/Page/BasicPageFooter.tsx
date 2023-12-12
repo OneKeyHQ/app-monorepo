@@ -14,14 +14,13 @@ export const BasicPageFooter = memo(BasicPageFooterContainer);
 type IPageFooterProps = IPageButtonGroupProps;
 
 export function PageContextFooter(props: IPageFooterProps) {
-  const { setOptions } = useContext(PageContext);
+  const { setOptions, options } = useContext(PageContext);
   useLayoutEffect(() => {
     setOptions?.({
+      ...options,
       footerOptions: props,
     });
-    return () => {
-      setOptions?.(undefined);
-    };
-  }, [props, setOptions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return null;
 }

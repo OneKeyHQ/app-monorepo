@@ -1,5 +1,4 @@
 export * from './DesktopDragZoneBox';
-export * from './HeightTransition';
 export * from './ListView';
 export * from './Navigation';
 export * from './Page';

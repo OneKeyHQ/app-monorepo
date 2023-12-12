@@ -59,12 +59,12 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
 
 export function BasicPage({
   children,
-  enableSafeArea,
+  safeAreaEnabled,
   skipLoading = false,
 }: IBasicPageProps) {
   const insets = useSafeAreaInsets();
   const styles =
-    enableSafeArea && PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad
+    safeAreaEnabled && PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad
       ? {
           paddingBottom: insets.bottom,
         }
