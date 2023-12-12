@@ -34,6 +34,17 @@ function Dashboard() {
           >
             Search Modal
           </Button>
+          <Button
+            testID="bookmark-modal"
+            onPress={() => {
+              console.log('onPress');
+              navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                screen: EDiscoveryModalRoutes.BookmarkListModal,
+              });
+            }}
+          >
+            Bookmark Modal
+          </Button>
         </YStack>
       </Page.Body>
     </Page>
