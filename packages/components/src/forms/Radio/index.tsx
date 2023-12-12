@@ -34,7 +34,7 @@ export function Radio({ value, onChange, disabled, options }: IRadioProps) {
               outlineColor: '$focusRing',
             }}
             $platform-native={{
-              hitSlop: 8,
+              hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
             }}
           >
             <RadioGroup.Indicator
