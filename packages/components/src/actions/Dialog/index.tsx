@@ -10,13 +10,7 @@ import {
 } from 'react';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  AnimatePresence,
-  Sheet,
-  Dialog as TMDialog,
-  useMedia,
-  withStaticProperties,
-} from 'tamagui';
+import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -26,7 +20,6 @@ import { useKeyboardHeight } from '../../hooks';
 import { Icon, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 import { IconButton } from '../IconButton';
-import { Trigger } from '../Trigger';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -45,8 +38,6 @@ import type { IButtonProps } from '../../primitives/Button';
 function DialogFrame({
   open,
   onClose,
-  renderTrigger,
-  onOpen,
   title,
   icon,
   description,
@@ -62,7 +53,6 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
-  contextValue,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
@@ -179,39 +169,36 @@ function DialogFrame({
 
   if (media.md) {
     return (
-      <>
-        <Trigger onPress={onOpen}>{renderTrigger}</Trigger>
-        <Sheet
-          disableDrag={disableDrag}
-          open={open}
-          position={position}
-          onPositionChange={setPosition}
-          dismissOnSnapToBottom
-          dismissOnOverlayPress={dismissOnOverlayPress}
-          onOpenChange={handleOpenChange}
-          snapPointsMode="fit"
+      <Sheet
+        disableDrag={disableDrag}
+        open={open}
+        position={position}
+        onPositionChange={setPosition}
+        dismissOnSnapToBottom
+        dismissOnOverlayPress={dismissOnOverlayPress}
+        onOpenChange={handleOpenChange}
+        snapPointsMode="fit"
+        animation="quick"
+        {...sheetProps}
+      >
+        <Sheet.Overlay
           animation="quick"
-          {...sheetProps}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+          backgroundColor="$bgBackdrop"
+        />
+        <Sheet.Frame
+          unstyled
+          testID={testID}
+          borderTopLeftRadius="$6"
+          borderTopRightRadius="$6"
+          bg="$bg"
+          paddingBottom={keyboardHeight}
         >
-          <Sheet.Overlay
-            animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            backgroundColor="$bgBackdrop"
-          />
-          <Sheet.Frame
-            unstyled
-            testID={testID}
-            borderTopLeftRadius="$6"
-            borderTopRightRadius="$6"
-            bg="$bg"
-            paddingBottom={keyboardHeight}
-          >
-            <SheetGrabber />
-            {renderDialogContent}
-          </Sheet.Frame>
-        </Sheet>
-      </>
+          <SheetGrabber />
+          {renderDialogContent}
+        </Sheet.Frame>
+      </Sheet>
     );
   }
 
@@ -374,11 +361,11 @@ export const useDialogInstance = () => {
   return dialogInstance;
 };
 
-export const Dialog = withStaticProperties(DialogFrame, {
+export const Dialog = {
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
-});
+};
 
 export type {
   IDialogShowProps,
