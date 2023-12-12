@@ -22,8 +22,8 @@ import { mockData } from './dataSource';
 function SearchModal() {
   const navigation = useAppNavigation();
   const [value, setValue] = useState('');
-  const { setDisplayHomePage } = useBrowserTabActions();
-  const { openMatchDApp } = useBrowserAction();
+  const { setDisplayHomePage } = useBrowserTabActions().current;
+  const { openMatchDApp } = useBrowserAction().current;
 
   const handleOnPress = useCallback(
     (item: {

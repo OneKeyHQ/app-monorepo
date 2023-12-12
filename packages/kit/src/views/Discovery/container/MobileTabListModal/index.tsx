@@ -113,7 +113,7 @@ function MobileTabListModal() {
   const { activeTabId } = useActiveTabId();
 
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
 
   const {
     closeAllWebTabs,
@@ -121,7 +121,7 @@ function MobileTabListModal() {
     closeWebTab,
     setPinnedTab,
     setDisplayHomePage,
-  } = useBrowserTabActions();
+  } = useBrowserTabActions().current;
 
   const triggerCloseTab = useRef(false);
   useEffect(() => {

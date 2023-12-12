@@ -28,9 +28,9 @@ function DesktopBrowserNavigationBar({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const { setPinnedTab, setWebTabData } = useBrowserTabActions();
+  const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
   const [innerRef, setInnerRef] = useState<IElectronWebView>(
     webviewRefs[id]?.innerRef as IElectronWebView,
   );
@@ -79,6 +79,28 @@ function DesktopBrowserNavigationBar({
     }
   }, [id]);
 
+  const onPressBookmark = useCallback(
+    (isBookmark: boolean) => {
+      if (isBookmark) {
+        void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+      } else {
+        void removeBrowserBookmark(tab?.url);
+      }
+      void setWebTabData({
+        id,
+        isBookmark,
+      });
+    },
+    [
+      addBrowserBookmark,
+      removeBrowserBookmark,
+      setWebTabData,
+      tab?.title,
+      tab?.url,
+      id,
+    ],
+  );
+
   return (
     <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
       <DesktopBrowserInfoBar
@@ -88,17 +110,7 @@ function DesktopBrowserNavigationBar({
         stopLoading={stopLoading}
         reload={reload}
         isBookmark={tab?.isBookmark ?? false}
-        onBookmarkPress={(isBookmark) => {
-          if (isBookmark) {
-            void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
-          } else {
-            void removeBrowserBookmark(tab?.url);
-          }
-          void setWebTabData({
-            id,
-            isBookmark,
-          });
-        }}
+        onBookmarkPress={onPressBookmark}
         isPinned={tab?.isPinned ?? false}
         onPinnedPress={(pinned) => {
           void setPinnedTab({ id, pinned });

@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+
 import { isEqual } from 'lodash';
 
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -548,7 +550,7 @@ export function useBrowserTabActions() {
   const setPinnedTab = actions.setPinnedTab.use();
   const setDisplayHomePage = actions.setDisplayHomePage.use();
 
-  return {
+  return useRef({
     addWebTab,
     addBlankWebTab,
     buildWebTabs,
@@ -559,7 +561,7 @@ export function useBrowserTabActions() {
     setCurrentWebTab,
     setPinnedTab,
     setDisplayHomePage,
-  };
+  });
 }
 
 export function useBrowserBookmarkAction() {
@@ -568,11 +570,11 @@ export function useBrowserBookmarkAction() {
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
 
-  return {
+  return useRef({
     buildBookmarkData,
     addBrowserBookmark,
     removeBrowserBookmark,
-  };
+  });
 }
 
 export function useBrowserHistoryAction() {
@@ -581,11 +583,11 @@ export function useBrowserHistoryAction() {
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
 
-  return {
+  return useRef({
     buildHistoryData,
     addBrowserHistory,
     removeBrowserHistory,
-  };
+  });
 }
 
 export function useBrowserAction() {
@@ -594,9 +596,9 @@ export function useBrowserAction() {
   const openMatchDApp = actions.openMatchDApp.use();
   const onNavigation = actions.onNavigation.use();
 
-  return {
+  return useRef({
     gotoSite,
     openMatchDApp,
     onNavigation,
-  };
+  });
 }

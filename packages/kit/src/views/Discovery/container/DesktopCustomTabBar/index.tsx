@@ -35,9 +35,9 @@ function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTabs } =
-    useBrowserTabActions();
+    useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
   const data = useMemo(() => {
     const unpinnedData = (tabs ?? []).filter((t) => !t.isPinned);
     unpinnedData.reverse();
