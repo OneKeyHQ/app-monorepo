@@ -100,6 +100,11 @@ export class IndexedDBAgent extends LocalDbAgentBase {
         ELocalDBStoreNames.AccountDerivation,
       );
 
+      const indexedAccountStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.IndexedAccount,
+      );
+
       const credentialStore = this._getOrCreateObjectStore(
         dbTx,
         ELocalDBStoreNames.Credential,
@@ -114,6 +119,7 @@ export class IndexedDBAgent extends LocalDbAgentBase {
         stores: {
           [ELocalDBStoreNames.Context]: contextStore as any,
           [ELocalDBStoreNames.Wallet]: walletStore as any,
+          [ELocalDBStoreNames.IndexedAccount]: indexedAccountStore as any,
           [ELocalDBStoreNames.Account]: accountStore as any,
           [ELocalDBStoreNames.AccountDerivation]: accountDerivationStore as any,
           [ELocalDBStoreNames.Credential]: credentialStore as any,
@@ -238,7 +244,7 @@ export class IndexedDBAgent extends LocalDbAgentBase {
       const store = this._getObjectStoreFromTx(tx, name);
       const record = await store.get(id);
       if (!record) {
-        throw new Error('record not found');
+        throw new Error(`record not found: ${name} ${id}`);
       }
       return [record as any, null];
     };
@@ -265,10 +271,19 @@ export class IndexedDBAgent extends LocalDbAgentBase {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<void> {
-    const { name, tx, records } = params;
+    const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);
     for (const record of records) {
-      await store.add(record as any);
+      let shouldAdd = true;
+      if (skipIfExists) {
+        const existingRecord = await store.get(record.id);
+        if (existingRecord) {
+          shouldAdd = false;
+        }
+      }
+      if (shouldAdd) {
+        await store.add(record as any);
+      }
     }
   }
 

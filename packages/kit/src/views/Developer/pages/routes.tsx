@@ -36,6 +36,7 @@ export enum EGalleryRoutes {
   ComponentLocalDB = 'component/localDB',
   ComponentFormatJS = 'component/formatJS',
   ComponentErrorToast = 'component/errorToast',
+  ComponentAccountModel = 'component/accountModel',
   ComponentTabview = 'component/tabView',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',
