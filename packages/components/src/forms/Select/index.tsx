@@ -105,6 +105,7 @@ function SelectContent() {
     items,
     onValueChange,
     sections,
+    refreshState,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (itemValue: string) => {
@@ -147,21 +148,30 @@ function SelectContent() {
     [],
   );
 
-  const renderContent = sections ? (
-    <SectionList
-      sections={sections}
-      renderSectionHeader={renderSectionHeader}
-      estimatedItemSize="$4"
-      extraData={value}
-      renderItem={renderItem}
-    />
-  ) : (
-    <ListView
-      data={items}
-      estimatedItemSize="$4"
-      extraData={value}
-      renderItem={renderItem}
-    />
+  const keyExtractor = useCallback((item: ISelectItem) => item.value, []);
+
+  const renderContent = useMemo(
+    () =>
+      sections ? (
+        <SectionList
+          sections={sections}
+          renderSectionHeader={renderSectionHeader}
+          keyExtractor={keyExtractor as any}
+          estimatedItemSize="$4"
+          extraData={value}
+          renderItem={renderItem}
+        />
+      ) : (
+        <ListView
+          data={items}
+          keyExtractor={keyExtractor}
+          estimatedItemSize="$4"
+          extraData={value}
+          renderItem={renderItem}
+        />
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshState],
   );
   return (
     <Popover
@@ -186,10 +196,20 @@ function SelectFrame({
   disabled,
   sections,
 }: ISelectProps) {
-  const [isOpen, changeOpenStatus] = useState(false);
+  const [openCounts, updateOpenCounts] = useState(0);
+  const changeOpenStatus = useCallback(() => {
+    updateOpenCounts((i) => i + 1);
+  }, []);
+  // eslint-disable-next-line no-bitwise
+  const isOpen = useMemo(() => (openCounts & 1) === 1, [openCounts]);
+  const refreshState = useMemo(
+    () => (isOpen ? openCounts : openCounts - 1),
+    [isOpen, openCounts],
+  );
   const context = useMemo(
     () => ({
       isOpen,
+      refreshState,
       changeOpenStatus,
       value,
       onValueChange: onChange,
@@ -199,7 +219,18 @@ function SelectFrame({
       placeholder,
       disabled,
     }),
-    [isOpen, value, onChange, items, sections, title, placeholder, disabled],
+    [
+      isOpen,
+      refreshState,
+      changeOpenStatus,
+      value,
+      onChange,
+      items,
+      sections,
+      title,
+      placeholder,
+      disabled,
+    ],
   );
   return (
     <SelectContext.Provider value={context}>{children}</SelectContext.Provider>

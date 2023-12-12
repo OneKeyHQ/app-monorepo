@@ -12,5 +12,6 @@ export const SelectContext = createContext<{
   title?: string;
   disabled?: boolean;
   sections?: ISelectSection[];
+  refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
 }>({});
