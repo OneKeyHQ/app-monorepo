@@ -82,6 +82,7 @@ const PasswordDemoGallery = () => {
                 onPress={async () => {
                   const dialog = Dialog.show({
                     title: 'UpdatePassword',
+                    estimatedContentHeight: 100,
                     renderContent: (
                       <PasswordUpdateContainer
                         onUpdateRes={(data) => {
