@@ -106,6 +106,7 @@ function SelectContent() {
     onValueChange,
     sections,
     refreshState,
+    sheetProps,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (itemValue: string) => {
@@ -155,6 +156,11 @@ function SelectContent() {
       sections ? (
         <SectionList
           sections={sections}
+          contentContainerStyle={{
+            $md: {
+              flex: 1,
+            },
+          }}
           renderSectionHeader={renderSectionHeader}
           keyExtractor={keyExtractor as any}
           estimatedItemSize="$4"
@@ -164,6 +170,11 @@ function SelectContent() {
       ) : (
         <ListView
           data={items}
+          contentContainerStyle={{
+            $md: {
+              flex: 1,
+            },
+          }}
           keyExtractor={keyExtractor}
           estimatedItemSize="$4"
           extraData={value}
@@ -179,6 +190,11 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       onFocusOutside={handleFocusOutside}
+      sheetProps={{
+        dismissOnSnapToBottom: false,
+        snapPointsMode: 'fit',
+        ...sheetProps,
+      }}
       placement="bottom-start"
       renderTrigger={<Stack pointerEvents="none" />}
       renderContent={renderContent}
@@ -195,6 +211,7 @@ function SelectFrame({
   title,
   disabled,
   sections,
+  sheetProps,
 }: ISelectProps) {
   const [openCounts, updateOpenCounts] = useState(0);
   const changeOpenStatus = useCallback(() => {
@@ -218,6 +235,7 @@ function SelectFrame({
       title,
       placeholder,
       disabled,
+      sheetProps,
     }),
     [
       isOpen,
@@ -230,6 +248,7 @@ function SelectFrame({
       title,
       placeholder,
       disabled,
+      sheetProps,
     ],
   );
   return (

@@ -186,12 +186,12 @@ function RawPopover({
   );
 }
 
-const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
+const Popover = ({ renderTrigger, sheetProps, ...rest }: IPopoverProps) => {
   // on web and WAP, we add the popover to the RNRootView
   if (platformEnv.isRuntimeBrowser) {
     return (
       <RawPopover
-        sheetProps={{ modal: true }}
+        sheetProps={{ ...sheetProps, modal: true }}
         renderTrigger={renderTrigger}
         {...rest}
       />
@@ -202,7 +202,11 @@ const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
     <>
       {renderTrigger}
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        <RawPopover renderTrigger={undefined} {...rest} />
+        <RawPopover
+          renderTrigger={undefined}
+          {...rest}
+          sheetProps={sheetProps}
+        />
       </Portal.Body>
     </>
   );

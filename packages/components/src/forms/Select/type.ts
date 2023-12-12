@@ -1,6 +1,6 @@
 import type { ComponentType, PropsWithChildren } from 'react';
 
-import type { ListItemProps } from 'tamagui';
+import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string;
@@ -37,4 +37,5 @@ export type ISelectProps = PropsWithChildren<{
   onChange?: (value: string) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   disabled?: boolean;
+  sheetProps?: SheetProps;
 }>;
