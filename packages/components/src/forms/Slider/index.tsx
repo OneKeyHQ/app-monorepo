@@ -70,7 +70,7 @@ export const Slider = ({
         position="absolute"
         size="$5"
         $platform-native={{
-          hitSlop: 8,
+          hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
         }}
         circular
         index={0}
