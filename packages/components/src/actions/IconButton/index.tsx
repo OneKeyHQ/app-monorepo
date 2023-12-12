@@ -62,7 +62,10 @@ export const IconButton = (props: IIconButtonProps) => {
       borderRadius="$full"
       disabled={disabled || loading}
       $platform-native={{
-        hitSlop: size === 'small' ? 8 : undefined,
+        hitSlop:
+          size === 'small'
+            ? { top: 8, left: 8, right: 8, bottom: 8 }
+            : undefined,
       }}
       {...(variant === 'tertiary' && {
         m: negativeMargin,
