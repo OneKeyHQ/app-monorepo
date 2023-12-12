@@ -18,6 +18,7 @@ import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/
 import ListItemGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem';
 import ListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView';
 import LocalDBGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery';
+import FormatJSGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FormatJS';
 import LottieViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView';
 import DemoRootApp from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute';
 import PasswordDemoGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordDemo';
@@ -119,6 +120,7 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
+  { name: EGalleryRoutes.ComponentFormatJS, component: FormatJSGallery },
   { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
   {
     name: EGalleryRoutes.ComponentForm,

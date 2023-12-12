@@ -1,6 +1,6 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
-import type { ResolvedIntlConfig } from '@formatjs/intl';
+import type { CustomFormats, ResolvedIntlConfig } from '@formatjs/intl';
 import type { IntlShape } from 'react-intl';
 
 class AppLocale {
@@ -12,6 +12,16 @@ class AppLocale {
 
   intl!: IntlShape;
 
+  formats: CustomFormats = {
+    date: {
+      'default': {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        hour12: false,
+      },
+    },
+  };
+
   setLocale(
     locale: ResolvedIntlConfig['locale'],
     messages: ResolvedIntlConfig['messages'],
@@ -20,6 +30,8 @@ class AppLocale {
       {
         locale,
         messages,
+        formats: this.formats,
+        defaultFormats: this.formats,
       },
       this.cache,
     );
