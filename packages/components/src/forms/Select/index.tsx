@@ -3,9 +3,8 @@ import { useCallback, useContext, useMemo, useState } from 'react';
 import { useMedia, withStaticProperties } from 'tamagui';
 
 import { Popover, Trigger } from '../../actions';
-import { useSafeAreaInsets } from '../../hooks';
 import { ListView, SectionList } from '../../layouts';
-import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
 import { Input } from '../Input';
 
 import { SelectContext } from './context';
@@ -34,7 +33,7 @@ function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
           disabled={disabled}
         />
       ) : (
-        <Text>{value}</Text>
+        <SizableText>{value}</SizableText>
       )}
     </Trigger>
   );
@@ -73,19 +72,13 @@ function SelectItem({
             {leading}
           </Stack>
         ) : null}
-        <Text
-          flex={1}
-          $md={{
-            fontSize: '$bodyLg',
-            fontWeight: '$bodyLg',
-            lineHeight: '$bodyLg',
+        <SizableText
+          $gtMd={{
+            size: '$bodyMd',
           }}
-          fontSize="$bodyMd"
-          fontWeight="$bodyMd"
-          lineHeight="$bodyMd"
         >
           {label}
-        </Text>
+        </SizableText>
         {selectedValue === value ? (
           <Icon
             name="CheckLargeOutline"
@@ -113,18 +106,12 @@ function SelectContent() {
     onValueChange,
     sections,
   } = useContext(SelectContext);
-  const { md } = useMedia();
   const handleSelect = useCallback(
     (itemValue: string) => {
       onValueChange?.(itemValue);
-      setTimeout(
-        () => {
-          changeOpenStatus?.(false);
-        },
-        md ? 200 : 0,
-      );
+      changeOpenStatus?.(false);
     },
-    [changeOpenStatus, md, onValueChange],
+    [changeOpenStatus, onValueChange],
   );
 
   const handleFocusOutside = useCallback(() => {
@@ -147,15 +134,15 @@ function SelectContent() {
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: ISelectSection }) => (
-      <Text
-        variant="$headingXs"
-        $md={{ variant: '$headingSm', py: '$2.5' }}
+      <Heading
+        size="$headingXs"
+        $md={{ size: '$headingSm', py: '$2.5' }}
         py="$1.5"
         px="$6"
         color="$textSubdued"
       >
         {section.title}
-      </Text>
+      </Heading>
     ),
     [],
   );
