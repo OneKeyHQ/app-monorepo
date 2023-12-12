@@ -8,6 +8,7 @@ import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
+import { ICoreHdCredentialEncryptHex } from '../../../types';
 import type { EAdaNetworkId, IAdaBIP32Path } from '../types';
 
 const shelleyPath = (account: number): IAdaBIP32Path => [
@@ -115,11 +116,11 @@ export const batchGetShelleyAddressByRootKey = (
   }));
 
 export const batchGetShelleyAddresses = async (
-  entropy: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   indexes: number[],
   networkId: EAdaNetworkId,
 ) => {
-  const rootKey = await getRootKey(password, entropy);
+  const rootKey = await getRootKey(password, hdCredential);
   return batchGetShelleyAddressByRootKey(rootKey, indexes, networkId);
 };

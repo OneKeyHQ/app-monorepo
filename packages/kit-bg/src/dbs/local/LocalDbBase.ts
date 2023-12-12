@@ -1,18 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Buffer } from 'buffer';
 
-import { isNil } from 'lodash';
+import { isNil, max } from 'lodash';
+import natsort from 'natsort';
 
-import coreTestsFixtures from '@onekeyhq/core/@tests/fixtures/coreTestsFixtures';
 import { decrypt, encrypt } from '@onekeyhq/core/src/secret';
-import { WrongPassword } from '@onekeyhq/shared/src/errors';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import {
+  OneKeyInternalError,
+  PasswordNotSet,
+  WrongPassword,
+} from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
-  EDBAccountType,
+  WALLET_TYPE_HD,
   WALLET_TYPE_WATCHING,
 } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -24,9 +29,9 @@ import {
   type IDBContext,
   type IDBCreateHDWalletParams,
   type IDBCreateHWWalletParams,
+  type IDBCredentialBase,
   type IDBDevicePayload,
-  type IDBExportedCredential,
-  type IDBPrivateKeyCredential,
+  type IDBIndexedAccount,
   type IDBSetAccountTemplateParams,
   type IDBSetNextAccountIdsParams,
   type IDBSetWalletNameAndAvatarParams,
@@ -96,6 +101,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
     const db = await this.readyDb;
+    // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
     return db.txUpdateRecords(params);
   }
 
@@ -223,10 +229,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         throw new WrongPassword();
       }
     }
-    throw new WrongPassword();
+    throw new PasswordNotSet();
   }
 
-  async checkPasswordSet(): Promise<boolean> {
+  async isPasswordSet(): Promise<boolean> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       return true;
@@ -292,15 +298,15 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
-  async createPassword({ password }: { password: string }): Promise<void> {
-    return this.changePassword({
+  async setPassword({ password }: { password: string }): Promise<void> {
+    return this.updatePassword({
       oldPassword: '',
       newPassword: password,
       isCreateMode: true,
     });
   }
 
-  async changePassword({
+  async updatePassword({
     oldPassword,
     newPassword,
     isCreateMode,
@@ -344,16 +350,13 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     throw new Error('Method not implemented.');
   }
 
-  async getCredential(
-    credentialId: string,
-    password: string,
-  ): Promise<IDBExportedCredential> {
-    const demoHdCredential = coreTestsFixtures.hdCredential1;
-    return Promise.resolve({
-      type: 'hd',
-      seed: bufferUtils.toBuffer(demoHdCredential.seed),
-      entropy: bufferUtils.toBuffer(demoHdCredential.entropy),
+  async getCredential(credentialId: string): Promise<IDBCredentialBase> {
+    const db = await this.readyDb;
+    const credential = await db.getRecordById({
+      name: ELocalDBStoreNames.Credential,
+      id: credentialId,
     });
+    return credential;
   }
 
   // ---------------------------------------------- wallet
@@ -399,27 +402,232 @@ ssphrase wallet
 
    */
 
-  getWallets(
+  async getWallets(
     option?:
       | {
           includeAllPassphraseWallet?: boolean | undefined;
           displayPassphraseWalletIds?: string[] | undefined;
         }
       | undefined,
-  ): Promise<IDBWallet[]> {
-    throw new Error('Method not implemented.');
+  ): Promise<{ wallets: IDBWallet[] }> {
+    const db = await this.readyDb;
+    const { records } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Wallet,
+    });
+    return {
+      wallets: records
+        .map((w) => this.refillWalletInfo({ wallet: w }))
+        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name)),
+    };
   }
 
-  getWallet(walletId: string): Promise<IDBWallet | undefined> {
-    throw new Error('Method not implemented.');
+  async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
+    const db = await this.readyDb;
+    const wallet = await db.getRecordById({
+      name: ELocalDBStoreNames.Wallet,
+      id: walletId,
+    });
+    return this.refillWalletInfo({ wallet });
+  }
+
+  refillWalletInfo({ wallet }: { wallet: IDBWallet }) {
+    let avatarInfo: IAvatar | undefined;
+    const parsedAvatar: IAvatar = JSON.parse(wallet.avatar || '{}');
+    if (Object.keys(parsedAvatar).length > 0) {
+      avatarInfo = parsedAvatar;
+    }
+    wallet.avatarInfo = avatarInfo;
+    return wallet;
   }
 
   getWalletByDeviceId(deviceId: string): Promise<IDBWallet[]> {
     throw new Error('Method not implemented.');
   }
 
-  createHDWallet(params: IDBCreateHDWalletParams): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
+  async getIndexedAccount({ id }: { id: string }) {
+    const db = await this.readyDb;
+    return db.getRecordById({
+      name: ELocalDBStoreNames.IndexedAccount,
+      id,
+    });
+  }
+
+  async getHDIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
+    const db = await this.readyDb;
+    const { records } = await db.getAllRecords({
+      name: ELocalDBStoreNames.IndexedAccount,
+    });
+    return {
+      accounts: records.filter((item) => item.walletId === walletId),
+    };
+  }
+
+  async addHDIndexedAccount({
+    walletId,
+    indexes,
+    skipIfExists,
+  }: {
+    walletId: string;
+    indexes: number[];
+    skipIfExists: boolean;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txAddHDIndexedAccount({
+        tx,
+        walletId,
+        skipIfExists,
+        indexes,
+      });
+    });
+  }
+
+  async txAddHDIndexedAccount({
+    tx,
+    walletId,
+    indexes,
+    skipIfExists,
+  }: {
+    tx: ILocalDBTransaction;
+    walletId: string;
+    indexes: number[];
+    skipIfExists: boolean;
+  }) {
+    if (!accountUtils.isHdWallet({ walletId })) {
+      throw new OneKeyInternalError({
+        message: `txAddHDIndexedAccount ERROR: not hd wallet "${walletId}"`,
+      });
+    }
+    const records: IDBIndexedAccount[] = indexes.map((index) => ({
+      id: `${walletId}--${index}`,
+      walletId,
+      index,
+      name: `Account #${index + 1}`, // TODO i18n name
+    }));
+    console.log('txAddHDIndexedAccount txAddRecords');
+    await this.txAddRecords({
+      tx,
+      skipIfExists,
+      name: ELocalDBStoreNames.IndexedAccount,
+      records,
+    });
+    console.log('txAddHDIndexedAccount txGetWallet');
+    const [wallet] = await this.txGetWallet({
+      tx,
+      walletId,
+    });
+    const { nextIndex } = wallet;
+    const maxIndex = max(indexes);
+    if (!isNil(maxIndex) && maxIndex >= nextIndex) {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (w) => {
+          w.nextIndex = maxIndex + 1;
+          return w;
+        },
+      });
+    }
+  }
+
+  async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txAddHDNextIndexedAccount({
+        tx,
+        walletId,
+      });
+    });
+  }
+
+  async txAddHDNextIndexedAccount({
+    tx,
+    walletId,
+  }: {
+    tx: ILocalDBTransaction;
+    walletId: string;
+  }) {
+    console.log('txAddHDNextIndexedAccount');
+    const [wallet] = await this.txGetWallet({
+      tx,
+      walletId,
+    });
+    console.log('txAddHDNextIndexedAccount get wallet', wallet);
+    const { nextIndex } = wallet;
+    await this.txAddHDIndexedAccount({
+      tx,
+      walletId,
+      indexes: [nextIndex],
+      skipIfExists: true,
+    });
+  }
+
+  async createHDWallet(params: IDBCreateHDWalletParams): Promise<IDBWallet> {
+    const db = await this.readyDb;
+    const { password, name, avatar, backuped, nextAccountIds, rs } = params;
+    const context = await this.getContext({ verifyPassword: password });
+    const walletId = `${WALLET_TYPE_HD}-${context.nextHD}`;
+    const walletName = name || `Wallet ${context.nextHD}`; // TODO wallet name i18n?
+    const firstAccountIndex = 0;
+
+    await db.withTransaction(async (tx) => {
+      console.log('add db wallet');
+      // add db wallet
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        records: [
+          {
+            id: walletId,
+            name: walletName,
+            avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
+            type: WALLET_TYPE_HD,
+            backuped,
+            nextAccountIds: nextAccountIds ?? {},
+            accounts: [],
+            nextIndex: firstAccountIndex,
+          },
+        ],
+      });
+      console.log('add db credential');
+      // add db credential
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        records: [
+          {
+            id: walletId,
+            // type: 'hd',
+            // TODO save object to realmDB?
+            credential: rs,
+          },
+        ],
+      });
+
+      console.log('add first indexed account');
+      // add first indexed account
+      await this.txAddHDNextIndexedAccount({
+        tx,
+        walletId,
+      });
+
+      console.log('increase nextHD');
+      // increase nextHD
+      await this.txUpdateContext({
+        tx,
+        updater: (ctx) => {
+          ctx.nextHD += 1;
+          return ctx;
+        },
+      });
+      return 1;
+    });
+
+    const dbWallet = await this.getRecordById({
+      name: ELocalDBStoreNames.Wallet,
+      id: walletId,
+    });
+    return dbWallet;
   }
 
   addHWWallet(params: IDBCreateHWWalletParams): Promise<IDBWallet> {
@@ -456,25 +664,32 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  addAccountToWallet(
-    walletId: string,
-    account: IDBAccount,
-    importedCredential?: IDBPrivateKeyCredential | undefined,
-  ): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+  async addAccountsToWallet({
+    walletId,
+    accounts,
+  }: {
+    walletId: string;
+    accounts: IDBAccount[];
+    // importedCredential?: IDBPrivateKeyCredential | undefined,}
+  }): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await db.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        records: accounts,
+        skipIfExists: true,
+      });
+      // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
+    });
   }
 
   // ---------------------------------------------- account
-  async getAccount(accountId: string): Promise<IDBAccount> {
-    return Promise.resolve({
-      address: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      coinType: '60',
-      id: "hd-1--m/44'/60'/0'/0/0",
-      name: 'EVM #1',
-      path: "m/44'/60'/0'/0/0",
-      pub: '02bd51e5b1a6e8271e1f87d2464b856790800c6c5fd38acdf1cee73857735fc8a4',
-      template: "m/44'/60'/0'/0/$$INDEX$$",
-      type: EDBAccountType.SIMPLE,
+  async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
+    const db = await this.readyDb;
+    return db.getRecordById({
+      name: ELocalDBStoreNames.Account,
+      id: accountId,
     });
   }
 
@@ -720,6 +935,7 @@ ssphrase wallet
         records: [
           {
             id,
+            // type: 'hd',
             credential: '8888',
           },
         ],

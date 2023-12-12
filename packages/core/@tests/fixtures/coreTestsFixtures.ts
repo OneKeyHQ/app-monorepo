@@ -1,6 +1,7 @@
 import type {
   ICoreApiNetworkInfo,
   ICoreApiSignBtcExtraInfo,
+  ICoreHdCredentialEncryptHex,
   IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
@@ -21,16 +22,16 @@ export type ICoreTestsAccountInfo = {
 export type ICoreTestsHdCredential = {
   password: string;
   mnemonic: string;
-  entropy: string;
-  seed: string;
+  hdCredentialHex: ICoreHdCredentialEncryptHex;
+  // entropy: string;
+  // seed: string;
 };
 const hdCredential1: ICoreTestsHdCredential = {
   password: '11111111',
   mnemonic:
     'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote',
-  entropy:
-    '9e52bc917a85268333b29f2d2d8c52d5ed7499fe05427045599035abc314f5ccc21d4e5e5c3e2f464e9c7f59c08557df46d9a43a182fe2b10ff85d90230aaa2940031ec5d7f724de6fbee266950440b72dd5f0057ba98e2d82a60186d9bf23f3',
-  seed: 'da75e3c1207030089d2372aa17d943f1d36e7d1bfa3f2e871aa11c27d34ef025300bb293e17704215ea94196190cacc22ee352b191e55e3208bd53c04fda3854c86ca13f5a86c36ad21b21cc35492c0b59793718bc49a1a821628535cc1bcf8dcbeb82d1b36e1c81c3548142f4555641913d9aa6d6bab5ae3f73f85616dacd18',
+  hdCredentialHex:
+    '78e8626a7bae1b46d968805c735a9562383609680054aa171a89eb8c62619894658ce972354b5467668f074084b135b9c41dc6570d09bb5daeb4325f3429e8ddf9b663c508464f7ee152e2e3190ef7fe036cdc1a351d2e75849aa5d0947b3137e82789b80718763b6187f710a89738655b0295518dd3d43393c7f95138699cead6a95efde511ad040a73a23ddc3a39c32ceb48793d49e93cb8e8dc4633d0402ebf23519fe9fb238f6a6e19509bab3d72b62f3d6cf588772821f6460876477c91c82dd1c1f5b9cbfd9e7a5afa87dd672e49d64959d1c03d00765d643e37b5bfe1ab3ba95537db7d4776c8b520583518f19bcd3e9fcb028c596c40defcc0f1ecf21099b14893c408e1370293278c2a311a92a519f650355376df068bb0a345e0cd',
 };
 
 export type IPrepareCoreChainTestsFixturesOptions = {
