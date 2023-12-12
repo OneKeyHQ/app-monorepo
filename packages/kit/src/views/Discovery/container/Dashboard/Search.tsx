@@ -65,7 +65,7 @@ function SearchModal() {
   }, [value]);
 
   return (
-    <Page skipLoading enableSafeArea>
+    <Page skipLoading safeAreaEnabled>
       <Page.Header
         headerTitle="Search Modal"
         headerSearchBarOptions={{

@@ -31,7 +31,7 @@ export function TestSimpleModal() {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
   return (
-    <Page enableSafeArea>
+    <Page safeAreaEnabled>
       <Page.Header
         title="test modal"
         headerShown={showHeader}
