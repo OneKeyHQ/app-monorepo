@@ -26,6 +26,8 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
+  override settings: IVaultSettings = settings;
+
   override async buildEncodedTx(options: {
     transferInfo?: ITransferInfo | undefined;
   }): Promise<IEncodedTxEvm> {
@@ -62,8 +64,6 @@ export default class Vault extends VaultBase {
 
     throw new OneKeyInternalError();
   }
-
-  override settings: IVaultSettings = settings;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,

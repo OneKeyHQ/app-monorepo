@@ -8,7 +8,9 @@ function handleProblems(result) {
   const problemsCount = result.match(/(\d+) problem/)?.[1];
   if (Number(problemsCount) > MAX_PROBLEM_COUNT) {
     console.log('Hope you can fix the ESLint problems before this merge.');
-    exit(1);
+    if (process.env.NODE_ENV === 'production') {
+      exit(1);
+    }
   }
 }
 

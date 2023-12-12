@@ -35,7 +35,13 @@ const encodeKey = `${encodeKeyPrefix}${generateUUID()}`;
 const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
-function decodePassword({ password }: { password: string }): string {
+function decodePassword({
+  password,
+  key,
+}: {
+  password: string;
+  key?: string;
+}): string {
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
@@ -46,7 +52,7 @@ function decodePassword({ password }: { password: string }): string {
       throw new Error('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return decodeSensitiveText({ encodedText: password });
+    return decodeSensitiveText({ encodedText: password, key });
   }
   if (
     process.env.NODE_ENV !== 'production' &&
@@ -61,14 +67,22 @@ function decodePassword({ password }: { password: string }): string {
   return password;
 }
 
-function encodePassword({ password }: { password: string }): string {
+function encodePassword({
+  password,
+  key,
+}: {
+  password: string;
+  key?: string;
+}): string {
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
   return encodeSensitiveText({
     text: password,
+    key,
   });
 }
 
-function encrypt(password: string, data: Buffer): Buffer {
+function encrypt(password: string, data: Buffer | string): Buffer {
+  const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
@@ -77,8 +91,22 @@ function encrypt(password: string, data: Buffer): Buffer {
   return Buffer.concat([
     salt,
     iv,
-    Buffer.from(AES_CBC.encrypt(data, key, true, iv)),
+    Buffer.from(AES_CBC.encrypt(dataBuffer, key, true, iv)),
   ]);
+}
+
+// TODO merge with encrypt
+function encryptString({
+  password,
+  data,
+  dataEncoding = 'hex',
+}: {
+  password: string;
+  data: string;
+  dataEncoding?: BufferEncoding;
+}): string {
+  const bytes = encrypt(password, bufferUtils.toBuffer(data, dataEncoding));
+  return bufferUtils.bytesToHex(bytes);
 }
 
 async function encryptAsync({
@@ -86,7 +114,7 @@ async function encryptAsync({
   data,
 }: {
   password: string;
-  data: Buffer;
+  data: Buffer | string;
 }): Promise<Buffer> {
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
@@ -106,28 +134,21 @@ async function encryptAsync({
   return Promise.resolve(encrypt(passwordDecoded, data));
 }
 
-function encryptString({
-  password,
-  data,
-}: {
-  password: string;
-  data: string;
-}): string {
-  const bytes = encrypt(password, bufferUtils.toBuffer(data, 'hex'));
-  return bufferUtils.bytesToHex(bytes);
-}
-
-function decrypt(password: string, data: Buffer): Buffer {
+function decrypt(password: string, data: Buffer | string): Buffer {
+  const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
 
-  const salt: Buffer = data.slice(0, PBKDF2_SALT_LENGTH);
+  const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  const iv: Buffer = data.slice(PBKDF2_SALT_LENGTH, ENCRYPTED_DATA_OFFSET);
+  const iv: Buffer = dataBuffer.slice(
+    PBKDF2_SALT_LENGTH,
+    ENCRYPTED_DATA_OFFSET,
+  );
 
   try {
     return Buffer.from(
-      AES_CBC.decrypt(data.slice(ENCRYPTED_DATA_OFFSET), key, true, iv),
+      AES_CBC.decrypt(dataBuffer.slice(ENCRYPTED_DATA_OFFSET), key, true, iv),
     );
   } catch (e) {
     if (!platformEnv.isJest) {
@@ -142,7 +163,7 @@ async function decryptAsync({
   data,
 }: {
   password: string;
-  data: Buffer;
+  data: Buffer | string;
 }): Promise<Buffer> {
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
@@ -165,12 +186,19 @@ async function decryptAsync({
 function decryptString({
   password,
   data,
+  resultEncoding = 'hex',
+  dataEncoding = 'hex',
 }: {
   password: string;
   data: string;
+  resultEncoding?: BufferEncoding;
+  dataEncoding?: BufferEncoding;
 }): string {
-  const bytes = decrypt(password, bufferUtils.toBuffer(data, 'hex'));
-  return bufferUtils.bytesToHex(bytes);
+  const bytes = decrypt(password, bufferUtils.toBuffer(data, dataEncoding));
+  if (resultEncoding === 'hex') {
+    return bufferUtils.bytesToHex(bytes);
+  }
+  return bufferUtils.bytesToText(bytes, resultEncoding);
 }
 
 function checkKeyPassedOnExtUi(key?: string) {
@@ -183,6 +211,12 @@ function checkKeyPassedOnExtUi(key?: string) {
 
 function isEncodedSensitiveText(text: string) {
   return text.startsWith(ENCODE_TEXT_PREFIX);
+}
+
+function ensureSensitiveTextEncoded(text: string) {
+  if (!isEncodedSensitiveText(text)) {
+    throw new Error('Not encoded sensitive text');
+  }
 }
 
 function decodeSensitiveText({
@@ -239,6 +273,7 @@ export {
   encrypt,
   encryptAsync,
   encryptString,
+  ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   isEncodedSensitiveText,
 };

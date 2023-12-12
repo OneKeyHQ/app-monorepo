@@ -1,3 +1,5 @@
+import assert from 'assert';
+
 import {
   isArray,
   isBoolean,
@@ -13,6 +15,8 @@ import platformEnv from '../platformEnv';
 import { isPromiseObject } from './promiseUtils';
 
 type IErrorType = undefined | string | Error;
+
+export { assert };
 
 export const check = (statement: any, orError?: IErrorType) => {
   if (!statement) {

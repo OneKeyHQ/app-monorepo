@@ -16,8 +16,6 @@ import {
 } from './sdkAda';
 import { EAdaNetworkId } from './types';
 
-import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
-import type { IAdaUTXO, IEncodedTxAda } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   ICoreApiGetAddressItem,
@@ -34,6 +32,8 @@ import type {
   ISignedTxPro,
   IUnsignedMessageAda,
 } from '../../types';
+import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
+import type { IAdaUTXO, IEncodedTxAda } from './types';
 
 const curve: ICurveName = 'ed25519';
 
@@ -45,14 +45,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: ICoreApiGetPrivateKeysMapHdQuery & {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { entropy } = hdCredential;
     const { path } = account;
 
-    const xprv = await generateExportedCredential(
-      password,
-      bufferUtils.toBuffer(entropy),
-      path,
-    );
+    const xprv = await generateExportedCredential(password, hdCredential, path);
     const privateKey = decodePrivateKeyByXprv(xprv);
     const privateKeyEncrypt = encrypt(password, privateKey);
 
@@ -214,7 +209,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
     const { hdCredential, password, indexes } = query;
-    const { entropy } = hdCredential;
 
     // const { pathPrefix, pathSuffix } = slicePathTemplate(query.template);
     // const indexFormatted = indexes.map((index) =>
@@ -222,7 +216,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // );
 
     const addressInfos = await batchGetShelleyAddresses(
-      bufferUtils.toBuffer(entropy),
+      hdCredential,
       password,
       indexes,
       EAdaNetworkId.MAINNET,

@@ -9,7 +9,13 @@ import {
   Text,
   XStack,
 } from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import {
+  AccountSelectorActiveAccount,
+  AccountSelectorProvider,
+  AccountSelectorTrigger,
+} from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
@@ -69,6 +75,16 @@ function HomePage() {
       />
       <Page.Body alignItems="center">
         <Text>Hello Onekey</Text>
+        <AccountSelectorProvider
+          config={{
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <AccountSelectorTrigger num={0} />
+          <AccountSelectorActiveAccount num={0} />
+        </AccountSelectorProvider>
       </Page.Body>
     </Page>
   );

@@ -44,8 +44,8 @@ import {
   type ICurveName,
   type IEncodedTx,
   type ISignedTxPro,
-  type IUnsignedMessageBtc,
   type ITxInputToSign,
+  type IUnsignedMessageBtc,
 } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
@@ -63,7 +63,7 @@ import {
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Payment, Signer, networks } from 'bitcoinjs-lib';
 import type { ISigner } from '../../base/ChainSigner';
-import type { IBip32KeyDeriver, IBip32ExtendedKey } from '../../secret';
+import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
@@ -796,13 +796,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       networkInfo: { networkChainCode },
       addressEncoding,
     } = query;
-    const { seed, entropy } = hdCredential;
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
     // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
     const { pathPrefix } = slicePathTemplate(template);
-
-    const seedBuffer = bufferUtils.toBuffer(seed);
 
     // relPaths:  ["0'", "1'"]
     const relPaths: string[] = indexes.map(
@@ -814,7 +811,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     //    ["m/49'/0'/0'", "m/49'/0'/1'"]
     const pubkeyInfos = batchGetPublicKeys(
       curveName,
-      seedBuffer,
+      hdCredential,
       password,
       pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
@@ -835,8 +832,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         addressEncoding
       ] as typeof network.bip32) || network.bip32;
 
-    const entropyBuffer = bufferUtils.toBuffer(entropy);
-    const mnemonic = mnemonicFromEntropy(entropyBuffer, password);
+    const mnemonic = mnemonicFromEntropy(hdCredential, password);
     const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
     const xpubBuffers = [
       Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
@@ -877,7 +873,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         if (isTaprootPath(pathPrefix)) {
           const rootFingerprint = generateRootFingerprint(
             curveName,
-            seedBuffer,
+            hdCredential,
             password,
           );
           const fingerprint = Number(

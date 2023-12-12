@@ -38,7 +38,6 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextHD: this.nextHD,
       verifyString: this.verifyString,
       networkOrderChanged: this.networkOrderChanged || false,
-      pendingWallets: (this.pendingWallets || []).map((walletId) => walletId),
       backupUUID: this.backupUUID,
     };
   }

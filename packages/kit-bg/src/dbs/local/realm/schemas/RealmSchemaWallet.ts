@@ -3,7 +3,7 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { RealmSchemaAccount } from './RealmSchemaAccount';
 import type { RealmSchemaDevice } from './RealmSchemaDevice';
-import type { IDBAvatar, IDBWallet, IDBWalletType } from '../../types';
+import type { IDBWallet, IDBWalletType } from '../../types';
 import type Realm from 'realm';
 
 class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
@@ -11,13 +11,15 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public name!: string;
 
-  public avatar?: string; // Use a string to store the stringified JSON object
+  public avatar?: string;
 
   public type!: IDBWalletType;
 
   public backuped?: boolean;
 
   public accounts?: Realm.Set<RealmSchemaAccount>;
+
+  public nextIndex!: number;
 
   public nextAccountIds?: Realm.Dictionary<number>;
 
@@ -37,6 +39,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       type: 'string',
       backuped: { type: 'bool', default: false },
       accounts: { type: 'set', objectType: 'Account', default: [] },
+      nextIndex: { type: 'int', default: 0 },
       nextAccountIds: {
         type: 'dictionary',
         default: {},
@@ -49,18 +52,14 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   };
 
   get record(): IDBWallet {
-    let avatar: IDBAvatar | undefined;
-    const parsedAvatar = JSON.parse(this.avatar || '{}');
-    if (Object.keys(parsedAvatar).length > 0) {
-      avatar = parsedAvatar;
-    }
     return {
       id: this.id,
       name: this.name,
-      avatar,
+      avatar: this.avatar,
       type: this.type,
       backuped: this.backuped || false,
       accounts: (this.accounts || []).map((account) => account.id),
+      nextIndex: this.nextIndex,
       nextAccountIds: Object.fromEntries(
         Object.entries(Object(this.nextAccountIds)),
       ),

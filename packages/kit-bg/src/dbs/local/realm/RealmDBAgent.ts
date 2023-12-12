@@ -32,29 +32,32 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
   realm: Realm;
 
-  async _getObjectRecordById<T extends ELocalDBStoreNames>(
+  _getObjectRecordById<T extends ELocalDBStoreNames>(
     storeName: T,
     recordId: string,
   ) {
+    checkIsDefined(storeName);
+    console.log('realmdb _getObjectRecordById ', { storeName, recordId });
     const object = this.realm.objectForPrimaryKey<IRealmDBSchemaMap[T]>(
       storeName,
       recordId as any,
     );
-    return Promise.resolve(object);
+    console.log('realmdb _getObjectRecordById ', object);
+    return object;
   }
 
-  async _getOrAddObjectRecord<T extends ELocalDBStoreNames>(
+  _getOrAddObjectRecord<T extends ELocalDBStoreNames>(
     storeName: T,
     record: IRealmDBSchemaMap[T] extends RealmObjectBase<infer U> ? U : never,
   ) {
     // @ts-ignore
     const recordId = record?.id;
-    let obj = await this._getObjectRecordById(storeName, recordId);
+    let obj = this._getObjectRecordById(storeName, recordId);
     if (!obj) {
       // this code won't auto commit create transaction, you should wrap withTransaction() outside
       this.realm.create(storeName, record as any);
     }
-    obj = await this._getObjectRecordById(storeName, recordId);
+    obj = this._getObjectRecordById(storeName, recordId);
     return obj;
   }
 
@@ -113,10 +116,10 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBTxGetRecordByIdParams<T>,
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const { id, name } = params;
-    const obj = await this._getObjectRecordById(name, id);
+    const obj = this._getObjectRecordById(name, id);
     const record = obj?.record;
     if (!record) {
-      throw new Error('record not found');
+      throw new Error(`record not found: ${name} ${id}`);
     }
     return [record as any, obj];
   }
@@ -137,10 +140,22 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<void> {
-    const { name, records } = params;
+    const { name, records, skipIfExists } = params;
     checkIsDefined(params.tx);
+    checkIsDefined(params.name);
 
-    this.realm.create(name, records);
+    records.forEach((r) => {
+      let shouldAdd = true;
+      if (skipIfExists) {
+        const existingRecord = this._getObjectRecordById(name, r.id);
+        if (existingRecord) {
+          shouldAdd = false;
+        }
+      }
+      if (shouldAdd) {
+        this.realm.create(name, r);
+      }
+    });
     return Promise.resolve(undefined);
   }
 

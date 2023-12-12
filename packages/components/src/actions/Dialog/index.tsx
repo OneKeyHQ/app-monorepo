@@ -136,10 +136,7 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
-      <Content
-        testID={testID}
-        estimatedContentHeight={estimatedContentHeight}
-      >
+      <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
       {showFooter && (

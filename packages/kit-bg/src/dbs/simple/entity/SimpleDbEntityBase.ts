@@ -1,5 +1,7 @@
-import { isNil, isString } from 'lodash';
+import { Mutex } from 'async-mutex';
+import { isFunction, isNil, isString } from 'lodash';
 
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 const SIMPLE_DB_KEY_PREFIX = 'simple_db';
@@ -9,6 +11,8 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 abstract class SimpleDbEntityBase<T> {
+  mutex = new Mutex();
+
   abstract readonly entityName: string;
 
   readonly enableCache: boolean = true;
@@ -22,10 +26,12 @@ abstract class SimpleDbEntityBase<T> {
 
   updatedAt = 0;
 
+  @backgroundMethod()
   clearRawDataCache() {
     this.cachedRawData = null;
   }
 
+  @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
@@ -55,20 +61,38 @@ abstract class SimpleDbEntityBase<T> {
     return data;
   }
 
-  async setRawData(data: T) {
-    const updatedAt = Date.now();
-    if (this.enableCache) {
-      this.cachedRawData = data;
-    }
-    const savedData: ISimpleDbEntitySavedData<T> = {
-      data,
-      updatedAt,
-    };
-    await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
-    this.updatedAt = updatedAt;
-    return data;
+  @backgroundMethod()
+  async setRawData(
+    dataOrBuilder:
+      | T
+      | ((options: { rawData: T | null | undefined }) => T)
+      | ((options: { rawData: T | null | undefined }) => Promise<T>),
+  ) {
+    return this.mutex.runExclusive(async () => {
+      const updatedAt = Date.now();
+      let data: T | undefined;
+
+      if (isFunction(dataOrBuilder)) {
+        const rawData = await this.getRawData();
+        data = await dataOrBuilder({ rawData });
+      } else {
+        data = dataOrBuilder;
+      }
+
+      if (this.enableCache) {
+        this.cachedRawData = data;
+      }
+      const savedData: ISimpleDbEntitySavedData<T> = {
+        data,
+        updatedAt,
+      };
+      await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
+      this.updatedAt = updatedAt;
+      return data;
+    });
   }
 
+  @backgroundMethod()
   async clearRawData() {
     if (this.enableCache) {
       this.clearRawDataCache();

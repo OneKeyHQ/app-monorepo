@@ -76,4 +76,10 @@ export enum EOnekeyDomain {
   ONEKEY_CN = 'onekeycn.com',
 }
 
+export enum EAccountSelectorSceneName {
+  home = 'home',
+  swap = 'swap',
+  discover = 'discover',
+}
+
 export type INotPromise<T> = T extends Promise<any> ? never : T;

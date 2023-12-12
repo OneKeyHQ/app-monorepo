@@ -5,7 +5,9 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -58,6 +60,8 @@ export interface IBackgroundApiBridge {
 export interface IBackgroundApi extends IBackgroundApiBridge {
   // walletConnect: ProviderApiWalletConnect; // TODO move to IBackgroundApiBridge
 
+  simpleDb: SimpleDb;
+
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
@@ -66,5 +70,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDiscovery: ServiceDiscovery;
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
+  serviceAccount: ServiceAccount;
   // serviceCronJob: ServiceCronJob;
 }

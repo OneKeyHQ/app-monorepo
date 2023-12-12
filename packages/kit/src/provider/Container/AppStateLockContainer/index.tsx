@@ -29,7 +29,8 @@ export function AppStateLockContainer({
     <AppStateLock
       enableWebAuth={!!webAuthCredentialId}
       onWebAuthVerify={async () => {
-        const res = await backgroundApiProxy.servicePassword.verifyWebAuth();
+        const res =
+          await backgroundApiProxy.servicePassword.getWebAuthPassword();
         if (res) {
           await handleUnlock();
         } else {
