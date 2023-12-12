@@ -1,6 +1,7 @@
 export enum EGalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component/typography',
+  ComponentSpotlightTour = 'component/SpotlightTour',
   ComponentLottieView = 'component/lottieview',
   ComponentTooltip = 'component/tooltip',
   ComponentIcon = 'component/icon',
@@ -34,6 +35,7 @@ export enum EGalleryRoutes {
   ComponentJotaiGlobal = 'component/jotaiGlobal',
   ComponentLocalDB = 'component/localDB',
   ComponentErrorToast = 'component/errorToast',
+  ComponentAccountModel = 'component/accountModel',
   ComponentTabview = 'component/tabView',
   componentQRCode = 'component/qrCode',
   ComponentWebview = 'component/webview',

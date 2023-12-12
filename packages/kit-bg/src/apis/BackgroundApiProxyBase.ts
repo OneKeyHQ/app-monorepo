@@ -2,7 +2,10 @@
 
 import { Toast } from '@onekeyhq/components';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  getBackgroundServiceApi,
+  throwMethodNotFound,
+} from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
   type EAppEventBusNames,
@@ -17,6 +20,8 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
+
+import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
 import type {
   IBackgroundApi,
@@ -34,12 +39,18 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
-export class BackgroundApiProxyBase implements IBackgroundApiBridge {
+export class BackgroundApiProxyBase
+  extends BackgroundServiceProxyBase
+  implements IBackgroundApiBridge
+{
+  override serviceNameSpace = '';
+
   constructor({
     backgroundApi,
   }: {
     backgroundApi?: any;
   } = {}) {
+    super();
     if (backgroundApi) {
       this.backgroundApi = backgroundApi as IBackgroundApi;
     }
@@ -144,9 +155,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
-      const serviceApi = serviceName
-        ? (this.backgroundApi as any)[serviceName]
-        : this.backgroundApi;
+
+      const serviceApi = getBackgroundServiceApi({
+        serviceName,
+        backgroundApi: this.backgroundApi,
+      });
+
       if (serviceApi[backgroundMethodName]) {
         const resultPromise = serviceApi[backgroundMethodName].call(
           serviceApi,

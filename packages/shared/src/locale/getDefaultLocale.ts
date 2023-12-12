@@ -4,9 +4,8 @@ import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-const locales = LOCALES_OPTION.map((locale) => locale.value);
-
 const getDefaultLocaleFunc = () => {
+  const locales = LOCALES_OPTION.map((locale) => locale.value);
   const current = LocalizationLocale;
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];

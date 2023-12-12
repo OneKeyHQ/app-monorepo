@@ -4,7 +4,7 @@ import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { mockIsAccountCompatibleWithNetwork } from '../mock';
+import { mockIsAccountCompatibleWithNetwork } from '../../mock';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 import type { IVaultFactoryOptions, IVaultOptions } from '../types';
@@ -74,7 +74,7 @@ export class VaultFactory {
   );
 
   getChainOnlyVault = memoizee(
-    (networkId: string): Promise<VaultBaseChainOnly> =>
+    ({ networkId }: { networkId: string }): Promise<VaultBaseChainOnly> =>
       // This in fact returns a watching vault.
       this.getVaultWithoutCache({ networkId, accountId: '' }),
     {
@@ -84,7 +84,13 @@ export class VaultFactory {
   );
 
   getWalletOnlyVault = memoizee(
-    (networkId: string, walletId: string): Promise<VaultBase> =>
+    ({
+      networkId,
+      walletId,
+    }: {
+      networkId: string;
+      walletId: string;
+    }): Promise<VaultBase> =>
       // This in fact returns a watching vault.
       this.getVaultWithoutCache({
         networkId,

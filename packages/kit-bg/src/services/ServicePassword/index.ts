@@ -1,6 +1,6 @@
 import {
   decodePassword,
-  encodePassword,
+  encodeSensitiveText,
   getBgSensitiveTextEncodeKey,
   isEncodedSensitiveText,
 } from '@onekeyhq/core/src/secret';
@@ -23,25 +23,26 @@ import {
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import {
-  deletePassword,
-  getPassword,
-  savePassword,
-} from './bioloygAuthPassword';
+import { biologyAuthUtils } from './biologyAuthUtils';
+import { EPasswordResStatus } from './types';
 
-export enum EPasswordResStatus {
-  CLOSE_STATUS = 'close',
-  PASS_STATUS = 'pass',
-}
-export interface IPasswordRes {
-  status: EPasswordResStatus;
-  password: string;
-}
+import type { IPasswordRes } from './types';
+
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
-  // cachePassword ------------------------------
   private cachedPassword?: string;
 
+  @backgroundMethod()
+  async encodeSensitiveText({ text }: { text: string }): Promise<string> {
+    return Promise.resolve(encodeSensitiveText({ text }));
+  }
+
+  @backgroundMethod()
+  async getBgSensitiveTextEncodeKey(): Promise<string> {
+    return Promise.resolve(getBgSensitiveTextEncodeKey());
+  }
+
+  // cachePassword ------------------------------
   clearCachedPassword() {
     this.cachedPassword = undefined;
   }
@@ -59,28 +60,44 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // biologyAuth&WebAuth ------------------------------
-  async biologyAuthSavePassword(password: string): Promise<void> {
+  async saveBiologyAuthPassword(password: string): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       throw new Error('biology is not support');
     }
-    await savePassword(password);
+    await biologyAuthUtils.savePassword(password);
   }
 
-  async biologyAuthDeletePassword(): Promise<void> {
+  async deleteBiologyAuthPassword(): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
       throw new Error('biology is not support');
     }
-    await deletePassword();
+    await biologyAuthUtils.deletePassword();
   }
 
-  async biologyAuthGetPassword(): Promise<string> {
-    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
+  async getBiologyAuthPassword(): Promise<string> {
+    const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
     if (!isSupport) {
-      throw new Error('biology is not support');
+      throw new Error('BiologyAuth not support');
     }
-    return getPassword();
+    const authRes = await biologyAuthUtils.biologyAuthenticate();
+    if (!authRes.success) {
+      throw new OneKeyError.BiologyAuthFailed();
+    }
+    const pwd = await biologyAuthUtils.getPassword();
+    return pwd;
+  }
+
+  async getWebAuthPassword(): Promise<string> {
+    const { webAuthCredentialId } = await passwordPersistAtom.get();
+    if (webAuthCredentialId && this.cachedPassword) {
+      const cred = await verifiedWebAuth(webAuthCredentialId);
+      if (cred?.id === webAuthCredentialId) {
+        return this.cachedPassword;
+      }
+    }
+    throw new OneKeyError.BiologyAuthFailed();
   }
 
   @backgroundMethod()
@@ -109,25 +126,14 @@ export default class ServicePassword extends ServiceBase {
     }));
   }
 
-  @backgroundMethod()
-  async verifyWebAuth(): Promise<string> {
-    const { webAuthCredentialId } = await passwordPersistAtom.get();
-    if (webAuthCredentialId && this.cachedPassword) {
-      const cred = await verifiedWebAuth(webAuthCredentialId);
-      if (cred?.id === webAuthCredentialId) {
-        return this.cachedPassword;
-      }
-    }
-    throw new OneKeyError.BiologyAuthFailed();
-  }
-
   // validatePassword --------------------------------
-  validatePasswordStrength(password: string): string {
+  validatePasswordValidRules(password: string): void {
     const realPassword = decodePassword({ password });
-    if (realPassword.length >= 8 && realPassword.length <= 128) {
-      return password;
+    // **** length matched
+    if (realPassword.length < 8 || realPassword.length > 128) {
+      throw new OneKeyError.PasswordStrengthValidationFailed();
     }
-    throw new OneKeyError.PasswordStrengthValidationFailed();
+    // **** other rules ....
   }
 
   validatePasswordSame(password: string, newPassword: string) {
@@ -153,9 +159,9 @@ export default class ServicePassword extends ServiceBase {
     ) {
       throw new Error('Passing raw password is not allowed and not safe.');
     }
-    this.validatePasswordStrength(password);
+    this.validatePasswordValidRules(password);
     if (newPassword) {
-      this.validatePasswordStrength(newPassword);
+      this.validatePasswordValidRules(newPassword);
       this.validatePasswordSame(password, newPassword);
     }
     if (!skipDBVerify) {
@@ -165,33 +171,23 @@ export default class ServicePassword extends ServiceBase {
 
   async rollbackPassword(password?: string): Promise<void> {
     if (!password) {
-      await this.biologyAuthDeletePassword();
+      await this.deleteBiologyAuthPassword();
       this.clearCachedPassword();
       await this.setPasswordSetStatus(false);
     } else {
-      await this.biologyAuthSavePassword(password);
+      await this.saveBiologyAuthPassword(password);
       await this.setCachedPassword(password);
     }
   }
 
-  @backgroundMethod()
-  async encodeSensitivePassword(password: string): Promise<string> {
-    return Promise.resolve(encodePassword({ password }));
-  }
-
-  @backgroundMethod()
-  async getBgSensitiveTextEncodeKey(): Promise<string> {
-    return Promise.resolve(getBgSensitiveTextEncodeKey());
-  }
-
   // passwordSet check is only done the app open
   @backgroundMethod()
-  async checkPasswordSet(): Promise<boolean> {
-    const checkPasswordSet = await localDb.checkPasswordSet();
-    if (checkPasswordSet) {
-      await this.setPasswordSetStatus(checkPasswordSet);
+  async isPasswordSet(): Promise<boolean> {
+    const isPasswordSet = await localDb.isPasswordSet();
+    if (isPasswordSet) {
+      await this.setPasswordSetStatus(isPasswordSet);
     }
-    return checkPasswordSet;
+    return isPasswordSet;
   }
 
   async setPasswordSetStatus(isSet: boolean): Promise<void> {
@@ -200,14 +196,15 @@ export default class ServicePassword extends ServiceBase {
 
   // password actions --------------
   @backgroundMethod()
-  async setPassword(password: string): Promise<void> {
+  async setPassword(password: string): Promise<string> {
     await this.validatePassword({ password, skipDBVerify: true });
     try {
       await this.unLockApp();
-      await this.biologyAuthSavePassword(password);
+      await this.saveBiologyAuthPassword(password);
       await this.setCachedPassword(password);
       await this.setPasswordSetStatus(true);
-      await localDb.createPassword({ password });
+      await localDb.setPassword({ password });
+      return password;
     } catch (e) {
       await this.rollbackPassword();
       throw e;
@@ -218,13 +215,14 @@ export default class ServicePassword extends ServiceBase {
   async updatePassword(
     oldPassword: string,
     newPassword: string,
-  ): Promise<void> {
+  ): Promise<string> {
     await this.validatePassword({ password: oldPassword, newPassword });
     try {
-      await this.biologyAuthSavePassword(newPassword);
+      await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true);
-      await localDb.changePassword({ oldPassword, newPassword });
+      await localDb.updatePassword({ oldPassword, newPassword });
+      return newPassword;
     } catch (e) {
       await this.rollbackPassword(oldPassword);
       throw e;
@@ -235,22 +233,22 @@ export default class ServicePassword extends ServiceBase {
   async verifyPassword({
     password,
     isBiologyAuth,
+    isWebAuth,
   }: {
     password: string;
     isBiologyAuth?: boolean;
+    isWebAuth?: boolean;
   }): Promise<string> {
-    let finallyPassword = password;
+    let verifyingPassword = password;
     if (isBiologyAuth) {
-      const authRes = await biologyAuth.biologyAuthenticate();
-      if (authRes.success) {
-        finallyPassword = await this.biologyAuthGetPassword();
-      } else {
-        throw new OneKeyError.BiologyAuthFailed();
-      }
+      verifyingPassword = await this.getBiologyAuthPassword();
     }
-    await this.validatePassword({ password: finallyPassword });
-    await this.setCachedPassword(finallyPassword);
-    return finallyPassword;
+    if (isWebAuth) {
+      verifyingPassword = await this.getWebAuthPassword();
+    }
+    await this.validatePassword({ password: verifyingPassword });
+    await this.setCachedPassword(verifyingPassword);
+    return verifyingPassword;
   }
 
   // ui ------------------------------
@@ -311,6 +309,7 @@ export default class ServicePassword extends ServiceBase {
     }));
   }
 
+  // lock ---------------------------
   @backgroundMethod()
   async unLockApp() {
     await passwordAtom.set((v) => ({ ...v, unLock: true }));

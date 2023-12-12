@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
+import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import {
   usePasswordAtom,
   usePasswordPersistAtom,

@@ -57,6 +57,7 @@
     "react-native-safe-area-context": "^4.7.2",
     "react-native-screens": "^3.25.0",
     "react-native-share": "^9.4.1",
+    "react-native-spotlight-tour": "^3.0.1",
     "react-native-svg": "^13.9.0",
     "react-native-tab-page-view": "https://github.com/OneKeyHQ/react-native-tab-page-view#5b43680594ac431d1b3984f34e0790962075eaed",
     "react-native-tcp-socket": "^6.0.6",

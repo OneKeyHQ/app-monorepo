@@ -7,7 +7,9 @@ import { wait } from '../utils/helper';
 
 import { useIsMounted } from './useIsMounted';
 
-type IRunnerConfig = { triggerByDeps?: boolean };
+type IRunnerConfig = {
+  triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
+};
 
 type IPromiseResultOptions<T> = {
   initResult?: T; // TODO rename to initData
@@ -16,16 +18,17 @@ type IPromiseResultOptions<T> = {
   checkIsMounted?: boolean;
   checkIsFocused?: boolean;
   debounced?: number;
+  undefinedResultIfError?: boolean;
 };
 
 export function usePromiseResult<T>(
-  method: (...args: any[]) => Promise<T>,
+  method: () => Promise<T>,
   deps: any[],
   options: { initResult: T } & IPromiseResultOptions<T>,
 ): { result: T; isLoading: boolean | undefined };
 
 export function usePromiseResult<T>(
-  method: (...args: any[]) => Promise<T>,
+  method: () => Promise<T>,
   deps: any[],
   options?: IPromiseResultOptions<T>,
 ): {
@@ -35,7 +38,7 @@ export function usePromiseResult<T>(
 };
 
 export function usePromiseResult<T>(
-  method: (...args: any[]) => Promise<T>,
+  method: () => Promise<T>,
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
 ): {
@@ -65,8 +68,13 @@ export function usePromiseResult<T>(
 
   const run = useMemo(
     () => {
-      const { watchLoading, loadingDelay, checkIsMounted, checkIsFocused } =
-        optionsRef.current;
+      const {
+        watchLoading,
+        loadingDelay,
+        checkIsMounted,
+        checkIsFocused,
+        undefinedResultIfError,
+      } = optionsRef.current;
 
       const setLoadingTrue = () => {
         if (watchLoading) setIsLoading(true);
@@ -96,6 +104,10 @@ export function usePromiseResult<T>(
             if (shouldSetState()) {
               setResult(r);
             }
+          }
+        } catch (err) {
+          if (shouldSetState() && undefinedResultIfError) {
+            setResult(undefined);
           }
         } finally {
           if (loadingDelay && watchLoading) {

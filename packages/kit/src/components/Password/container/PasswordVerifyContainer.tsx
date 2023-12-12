@@ -49,9 +49,9 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
       setStatues({ value: 'verifying' });
       try {
         const encodePassword =
-          await backgroundApiProxy.servicePassword.encodeSensitivePassword(
-            data.password,
-          );
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: data.password,
+          });
         const verifiedPassword =
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,

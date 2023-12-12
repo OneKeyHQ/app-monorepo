@@ -48,9 +48,17 @@ function bytesToUtf8(bytes: Buffer | Uint8Array): string {
   return toBuffer(bytes).toString('utf8');
 }
 
+function bytesToText(
+  bytes: Buffer | Uint8Array,
+  encoding: BufferEncoding = 'utf8',
+): string {
+  return toBuffer(bytes).toString(encoding || 'utf8');
+}
+
 export default {
   toBuffer,
   bytesToHex,
+  bytesToText,
   hexToBytes,
   textToHex,
   hexToText,

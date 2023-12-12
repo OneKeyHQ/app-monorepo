@@ -3,25 +3,24 @@ import { isNil } from 'lodash';
 import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
-  ICoreHdCredential,
-  ICoreImportedCredential,
+  ICoreHdCredentialEncryptHex,
+  ICoreImportedCredentialEncryptHex,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
-import { mockGetAccountNameInfoByTemplate } from '../mock';
 
 import { KeyringBase } from './KeyringBase';
 
 import type {
-  IDBExportedPrivateKeyCredential,
-  IDBExportedSeedCredential,
   IDBSimpleAccount,
   IDBUtxoAccount,
   IDBVariantAccount,
@@ -41,30 +40,22 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }: {
     password: string;
   }): Promise<ICoreCredentialsInfo> {
-    let hd: ICoreHdCredential | undefined;
-    let imported: ICoreImportedCredential | undefined;
+    noopObject(password);
+    let hd: ICoreHdCredentialEncryptHex | undefined;
+    let imported: ICoreImportedCredentialEncryptHex | undefined;
 
     // hd
     if (this.isKeyringHd()) {
-      const credential = (await localDb.getCredential(
+      const credential = await localDb.getCredential(
         checkIsDefined(this.walletId),
-        password,
-      )) as IDBExportedSeedCredential;
-      hd = {
-        seed: bufferUtils.bytesToHex(credential.seed),
-        entropy: bufferUtils.bytesToHex(credential.entropy),
-      };
+      );
+      hd = credential.credential;
     }
 
     // imported
     if (this.isKeyringImported()) {
-      const credential = (await localDb.getCredential(
-        this.accountId,
-        password,
-      )) as IDBExportedPrivateKeyCredential;
-      imported = {
-        privateKey: bufferUtils.bytesToHex(credential.privateKey),
-      };
+      const credential = await localDb.getCredential(this.accountId);
+      imported = credential.credential;
     }
 
     return {
@@ -235,7 +226,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { password, names, coinType, template } = params;
+    const { password, names, deriveInfo } = params;
+    const { coinType, template, namePrefix, idSuffix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
     }
@@ -255,12 +247,6 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       indexes: usedIndexes,
     });
 
-    const impl = await this.getNetworkImpl();
-    const { prefix: namePrefix, idSuffix } = mockGetAccountNameInfoByTemplate({
-      impl,
-      template,
-    });
-
     const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
     for (let index = 0; index < addressInfos.length; index += 1) {
       const { path, publicKey, address, addresses } = addressInfos[index];
@@ -273,18 +259,18 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
       const name = names?.[index] || `${namePrefix} #${usedIndexes[index] + 1}`;
 
-      let id = `${this.walletId}--${path}`;
-      // EVM LedgerLive ID:  hd-1--m/44'/60'/0'/0/0--LedgerLive
-      if (idSuffix) {
-        id = `${this.walletId}--${path}--${idSuffix}`;
-      }
+      const id = accountUtils.buildHDAccountId({
+        walletId: this.walletId,
+        path,
+        idSuffix,
+      });
 
       ret.push({
         id,
         name,
         type: accountType,
         path,
-        coinType,
+        coinType, // TODO save deriveType to account
         pub: publicKey,
         address,
         addresses,
@@ -315,17 +301,16 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const {
       password,
       indexes,
-      coinType,
+      deriveInfo,
       // purpose,
       names,
-      template,
       skipCheckAccountExist,
     } = params;
+    const { coinType, template, namePrefix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
     }
     const { addressEncoding, checkIsAccountUsed } = options;
-    const impl = await this.getNetworkImpl();
 
     const ignoreFirst = indexes[0] !== 0;
     // check first prev non-zero index account existing
@@ -344,11 +329,6 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (addressesInfo.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get address');
     }
-
-    const { prefix: namePrefix } = mockGetAccountNameInfoByTemplate({
-      impl,
-      template,
-    });
 
     const ret: IDBUtxoAccount[] = [];
     let index = 0;

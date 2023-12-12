@@ -10,7 +10,7 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
+import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
@@ -45,7 +45,7 @@ const PasswordDemoGallery = () => {
               <Button
                 onPress={async () => {
                   const checkPasswordSet =
-                    await backgroundApiProxy.servicePassword.checkPasswordSet();
+                    await backgroundApiProxy.servicePassword.isPasswordSet();
                   if (checkPasswordSet) {
                     await handlePasswordVerify();
                   } else {
@@ -109,7 +109,10 @@ const PasswordDemoGallery = () => {
                 onPress={async () => {
                   try {
                     const res =
-                      await backgroundApiProxy.servicePassword.verifyWebAuth();
+                      await backgroundApiProxy.servicePassword.verifyPassword({
+                        password: '',
+                        isWebAuth: true,
+                      });
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
                   } catch (e) {
                     console.log('e', e);

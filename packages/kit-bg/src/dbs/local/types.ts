@@ -1,4 +1,8 @@
-import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
+import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type {
   EDBAccountType,
@@ -15,6 +19,7 @@ import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAc
 import type { RealmSchemaContext } from './realm/schemas/RealmSchemaContext';
 import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredential';
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
+import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPObjectStore } from 'idb';
@@ -31,7 +36,6 @@ export type IDBContext = {
   nextHD: number;
   verifyString: string;
   networkOrderChanged?: boolean;
-  pendingWallets?: Array<string>;
   backupUUID: string;
 };
 export type IDBApiGetContextOptions = {
@@ -57,10 +61,8 @@ export type IDBStoredPrivateKeyCredential = {
 export type IDBStoredCredential =
   | IDBStoredSeedCredential
   | IDBStoredPrivateKeyCredential;
-export type IDBExportedSeedCredential = {
+export type IDBExportedSeedCredential = IBip39RevealableSeed & {
   type: 'hd';
-  entropy: Buffer;
-  seed: Buffer;
 };
 export type IDBExportedPrivateKeyCredential = {
   type: 'imported';
@@ -71,7 +73,8 @@ export type IDBExportedCredential =
   | IDBExportedPrivateKeyCredential;
 export type IDBCredentialBase = {
   id: string;
-  credential: string;
+  // type: 'imported' | 'hd';
+  credential: IBip39RevealableSeedEncryptHex;
 };
 // ---------------------------------------------- wallet
 export type IDBWalletId =
@@ -92,20 +95,27 @@ export type IDBWalletType =
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
-  accounts: Array<string>;
-  nextAccountIds: Record<string, number>; // purpose + cointype => index
+  nextIndex: number; // TODO optional
+  accounts: Array<string>; // TODO remove
+  // TODO remove
+  nextAccountIds: {
+    // 'global': 1, // imported, external, watching,
+    // purpose + cointype => index
+    [template: string]: number; // hd
+  };
   associatedDevice?: string; // alias to `deviceId`
   avatar?: IDBAvatar;
+  avatarInfo?: IAvatar; // readonly field
   deviceType?: string;
   hidden?: boolean;
   passphraseState?: string;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
-  rs: IBip39RevealableSeed;
+  rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
-  avatar?: IDBAvatar;
+  avatar?: IAvatar;
   nextAccountIds?: Record<string, number>;
 };
 export type IDBCreateHWWalletParams = {
@@ -125,10 +135,12 @@ export type IDBSetWalletNameAndAvatarParams = {
 };
 
 // ---------------------------------------------- account
-export type IDBAvatar = {
-  emoji: string | 'img'; // lazy load EmojiTypes
-  bgColor: string;
-};
+export type IDBAvatar = string;
+// IAvatar;
+// export type IDBAvatar = {
+//   emoji: string | 'img'; // lazy load EmojiTypes
+//   bgColor: string;
+// };
 export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType;
   path: string;
@@ -155,6 +167,10 @@ export type IDBVariantAccount = IDBBaseAccount & {
   addresses: Record<string, string>;
 };
 export type IDBAccount = IDBSimpleAccount | IDBUtxoAccount | IDBVariantAccount;
+export type IDBIndexedAccount = IDBBaseObjectWithName & {
+  walletId: string;
+  index: number;
+};
 export type IDBAccountDerivation = IDBBaseObject & {
   walletId: string;
   accounts: string[];
@@ -202,6 +218,7 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.Wallet]: IDBWallet;
   [ELocalDBStoreNames.Account]: IDBAccount;
   [ELocalDBStoreNames.AccountDerivation]: IDBAccountDerivation;
+  [ELocalDBStoreNames.IndexedAccount]: IDBIndexedAccount;
   [ELocalDBStoreNames.Device]: IDBDevice;
 }
 
@@ -211,6 +228,7 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.Wallet]: RealmSchemaWallet;
   [ELocalDBStoreNames.Account]: RealmSchemaAccount;
   [ELocalDBStoreNames.AccountDerivation]: RealmSchemaAccountDerivation;
+  [ELocalDBStoreNames.IndexedAccount]: RealmSchemaIndexedAccount;
   [ELocalDBStoreNames.Device]: RealmSchemaDevice;
 }
 
@@ -218,6 +236,10 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.AccountDerivation]: {
     key: string;
     value: IDBAccountDerivation;
+  };
+  [ELocalDBStoreNames.IndexedAccount]: {
+    key: string;
+    value: IDBIndexedAccount;
   };
   [ELocalDBStoreNames.Account]: {
     key: string;
@@ -265,6 +287,12 @@ export type ILocalDBTransactionStores = {
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Account[],
     ELocalDBStoreNames.Account,
+    'readwrite'
+  >;
+  [ELocalDBStoreNames.IndexedAccount]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.IndexedAccount[],
+    ELocalDBStoreNames.IndexedAccount,
     'readwrite'
   >;
   [ELocalDBStoreNames.AccountDerivation]: IDBPObjectStore<
