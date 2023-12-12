@@ -282,17 +282,10 @@ const ReceiveToken = () => {
           ) : (
             <Token
               size={4}
-              token={
-                receiveInscription
-                  ? {
-                      logoURI: network?.logoURI,
-                      name: network?.shortName,
-                    }
-                  : {
-                      logoURI: network?.logoURI,
-                      name: network?.name,
-                    }
-              }
+              token={{
+                logoURI: network?.logoURI,
+                name: network?.name,
+              }}
             />
           )}
           <Text
