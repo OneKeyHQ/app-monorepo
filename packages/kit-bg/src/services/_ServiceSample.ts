@@ -14,6 +14,7 @@ class ServiceSample extends ServiceBase {
   @backgroundMethod()
   public async sampleMethod() {
     console.log('sampleMethod');
+    return 'sampleMethod';
   }
 }
 

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
@@ -8,7 +7,7 @@ import {
   mockGetChainInfo,
   mockGetNetwork,
   mockGetWalletIdFromAccountId,
-} from '../mock';
+} from '../../mock';
 
 import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions } from '../types';
@@ -43,7 +42,7 @@ export class VaultContext {
   async getDbAccount(params?: { noCache?: boolean }): Promise<IDBAccount> {
     const { noCache } = { noCache: false, ...params };
     if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
-      this._dbAccount = await localDb.getAccount(this.accountId);
+      this._dbAccount = await localDb.getAccount({ accountId: this.accountId });
     }
 
     // let { address, type } = this._dbAccount;
@@ -82,15 +81,15 @@ export class VaultContext {
     return this._network;
   }
 
-  // TODO move to utils
   async getNetworkChainId({ hex = false }: { hex?: boolean } = {}) {
-    const [impl, chainId] = this.networkId.split(SEPERATOR);
-    return hex ? numberUtils.numberToHex(chainId) : chainId;
+    return networkUtils.getNetworkChainId({
+      networkId: this.networkId,
+      hex,
+    });
   }
 
   async getNetworkImpl() {
-    const [impl, chainId] = this.networkId.split(SEPERATOR);
-    return impl;
+    return networkUtils.getNetworkImpl({ networkId: this.networkId });
   }
 
   async getChainInfo() {

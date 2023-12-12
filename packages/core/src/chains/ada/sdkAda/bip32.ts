@@ -9,6 +9,7 @@ import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
+import { ICoreHdCredentialEncryptHex } from '../../../types';
 import type { IAdaBIP32Path } from '../types';
 
 export function toBip32StringPath(derivationPath: IAdaBIP32Path) {
@@ -27,9 +28,9 @@ export function getPathIndex(path: string) {
 
 export async function getRootKey(
   password: string,
-  entropy: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
 ): Promise<Buffer> {
-  const mnemonic = mnemonicFromEntropy(entropy, password);
+  const mnemonic = mnemonicFromEntropy(hdCredential, password);
   const rootKey = await mnemonicToRootKeypair(mnemonic, DERIVATION_SCHEME);
   return rootKey;
 }
@@ -59,11 +60,11 @@ export async function getXprvString(
 
 export async function generateExportedCredential(
   password: string,
-  entropy: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
   path: string,
 ) {
   const index = getPathIndex(path);
-  const rootKey = await getRootKey(password, entropy);
+  const rootKey = await getRootKey(password, hdCredential);
   const xprv = bech32.encode(
     'xprv',
     Buffer.concat([

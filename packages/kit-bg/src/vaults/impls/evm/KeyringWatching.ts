@@ -3,8 +3,8 @@ import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
+import { mockVerifyAddress } from '../../../mock';
 import { KeyringWatchingBase } from '../../base/KeyringWatchingBase';
-import { mockVerifyAddress } from '../../mock';
 
 import type { IDBSimpleAccount } from '../../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../../types';
