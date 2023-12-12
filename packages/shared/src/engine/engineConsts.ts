@@ -119,8 +119,6 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_ALLNETWORKS,
-  IMPL_NOSTR,
-  COINTYPE_NOSTR,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -176,6 +174,15 @@ function getSupportedImpls() {
     return PRODUCTION_IMPLS;
   }
   return SUPPORTED_IMPLS;
+}
+
+/**
+ * Protocols like Nostr are not a chain,
+ * but for the purpose of account derivation,
+ * we still treat them as a chain.
+ */
+function getSupportedFakeNetworks() {
+  return new Set([IMPL_NOSTR]);
 }
 
 export {
@@ -235,6 +242,7 @@ export {
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
+  getSupportedFakeNetworks,
 };
 
 // switch network default rpc to onekey rpc node

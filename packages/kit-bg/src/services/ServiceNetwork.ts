@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_EVM,
+  getSupportedFakeNetworks,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -502,7 +503,10 @@ class ServiceNetwork extends ServiceBase {
         });
 
       for (const network of presetNetworksList) {
-        if (getSupportedImpls().has(network.impl)) {
+        if (
+          getSupportedImpls().has(network.impl) ||
+          getSupportedFakeNetworks().has(network.impl)
+        ) {
           const existingStatus = dbNetworkMap[network.id];
           if (typeof existingStatus !== 'undefined') {
             defaultNetworkList.push([network.id, existingStatus]);

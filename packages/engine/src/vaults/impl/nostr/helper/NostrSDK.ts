@@ -66,6 +66,11 @@ export function getNostrCredentialId(walletId: string, accountIndex: number) {
   return `${walletId}--nostr--${accountIndex}`;
 }
 
+export function getNip19EncodedPubkey(pubkey: string) {
+  const words = bech32.toWords(Buffer.from(pubkey, 'hex'));
+  return bech32.encode('npub', words, 1000);
+}
+
 class Nostr {
   private walletId: string;
 

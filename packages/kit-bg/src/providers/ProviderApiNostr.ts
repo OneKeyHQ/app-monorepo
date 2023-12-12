@@ -1,6 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import { getNip19EncodedPubkey } from '@onekeyhq/engine/src/vaults/impl/nostr/helper/NostrSDK';
 import type {
   INostrRelays,
   NostrEvent,
@@ -14,7 +15,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_LIGHTNING,
+  IMPL_NOSTR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -78,12 +82,55 @@ class ProviderApiNostr extends ProviderApiBase {
   public async getPublicKey(request: IJsBridgeMessagePayload): Promise<string> {
     const { walletId, networkId, accountId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
+    const existPubKey = await this.getNostrAccountPubKey(request);
+    if (existPubKey) {
+      return existPubKey;
+    }
     const pubkey = await this.backgroundApi.serviceDapp.openModal({
       request,
       screens: [ModalRoutes.Nostr, NostrModalRoutes.GetPublicKey],
       params: { walletId, networkId, accountId },
     });
+
+    if (request.origin) {
+      this.backgroundApi.serviceDapp.saveConnectedAccounts({
+        site: {
+          origin: request.origin,
+        },
+        address: getNip19EncodedPubkey(pubkey as string),
+        networkImpl: IMPL_NOSTR,
+      });
+    }
+
     return Promise.resolve(pubkey as string);
+  }
+
+  async getNostrAccountPubKey(request: IJsBridgeMessagePayload) {
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
+    const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
+      {
+        origin: request.origin as string,
+        impl: IMPL_NOSTR,
+      },
+    );
+    if (!accounts) {
+      return null;
+    }
+    const accountNpubs = accounts.map((account) => account.address);
+    try {
+      const nostrAccount =
+        await this.backgroundApi.serviceNostr.getNostrAccount({
+          walletId,
+          currentNetworkId: networkId,
+          currentAccountId: accountId,
+        });
+      if (accountNpubs.includes(nostrAccount.address)) {
+        return nostrAccount.pubKey;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   @providerApiMethod()
