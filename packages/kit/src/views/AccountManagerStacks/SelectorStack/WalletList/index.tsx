@@ -43,7 +43,7 @@ export function WalletList({
   const navigation = useAppNavigation();
 
   const handleCreateWalletPress = () => {
-    navigation.push(EModalRoutes.OnboardingModal, {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EModalRoutes.OnboardingModal,
     });
   };
