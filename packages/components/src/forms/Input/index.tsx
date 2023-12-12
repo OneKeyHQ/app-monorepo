@@ -134,6 +134,9 @@ function BaseInput(
             borderColor={sharedStyles.borderColor}
             alignItems="center"
             px={size === 'large' ? '$2.5' : '$2'}
+            style={{
+              borderCurve: 'continuous',
+            }}
             {...(leftAddOnProps.onPress &&
               !disabled && {
                 hoverStyle: {
@@ -205,6 +208,9 @@ function BaseInput(
           focusStyle={sharedStyles.focusStyle}
           cursor={sharedStyles.cursor}
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
+          style={{
+            borderCurve: 'continuous',
+          }}
           {...props}
         />
       </Group.Item>
@@ -266,6 +272,9 @@ function BaseInput(
                         })}
                       focusable={!(disabled || loading)}
                       focusStyle={sharedStyles.focusStyle}
+                      style={{
+                        borderCurve: 'continuous',
+                      }}
                     >
                       {loading ? (
                         <YStack {...(size !== 'small' && { p: '$0.5' })}>

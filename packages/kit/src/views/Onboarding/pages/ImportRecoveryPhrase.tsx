@@ -16,8 +16,8 @@ import {
 export function ImportRecoveryPhrase() {
   const form = useForm({});
 
-  const invalidWordsLength = 2;
-  const invalidPhrase = true;
+  const invalidWordsLength = 0;
+  const invalidPhrase = false;
 
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
@@ -43,64 +43,81 @@ export function ImportRecoveryPhrase() {
     <Page>
       <Page.Header title="Import Recovery Phrase" />
       <Page.Body>
-        <Alert
-          type="warning"
-          fullBleed
-          title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-          closable
-        />
-        <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
-          <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
-            12 words
-          </Button>
-          <Button icon="BroomOutline" variant="tertiary">
-            Clear
-          </Button>
-        </XStack>
-        <Form form={form}>
-          <XStack px="$4" flexWrap="wrap">
-            {Array.from({ length: 12 }).map((_, index) => (
-              <Stack key={index} flexBasis="33.33%" p="$1">
-                <Form.Field name={`phrase${index + 1}`}>
-                  <Input pl="$8" returnKeyType="next" />
-                </Form.Field>
-                <SizableText
-                  pointerEvents="none"
-                  position="absolute"
-                  color="$textDisabled"
-                  top={11}
-                  left="$3"
-                  zIndex="$1"
-                  minWidth={17}
-                  textAlign="right"
-                >
-                  {index + 1}
-                </SizableText>
-              </Stack>
-            ))}
+        {/* warning message */}
+        <Stack p="$5" pt="$0">
+          <Alert
+            type="warning"
+            title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+          />
+        </Stack>
+
+        {/* form */}
+        <Stack p="$5" pt="$0">
+          {/* select and clear action */}
+          <XStack pb="$2" justifyContent="space-between">
+            <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
+              12 words
+            </Button>
+            <Button icon="BroomOutline" variant="tertiary">
+              Clear
+            </Button>
           </XStack>
-        </Form>
-        <HeightTransition>
-          {invalidWordsLength > 0 && (
-            <XStack pt="$1.5" px="$5" key="invalidWord">
-              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                {invalidWordsMessage(invalidWordsLength)}
-              </SizableText>
+
+          {/* inputs */}
+          <Form form={form}>
+            <XStack mx="$-1" flexWrap="wrap">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <Stack key={index} flexBasis="33.33%" p="$1">
+                  <Form.Field name={`phrase${index + 1}`}>
+                    <Input pl="$8" returnKeyType="next" />
+                  </Form.Field>
+                  <SizableText
+                    pointerEvents="none"
+                    position="absolute"
+                    color="$textDisabled"
+                    top={11}
+                    left="$3"
+                    zIndex="$1"
+                    minWidth={17}
+                    textAlign="right"
+                  >
+                    {index + 1}
+                  </SizableText>
+                </Stack>
+              ))}
             </XStack>
-          )}
-          {invalidPhrase && (
-            <XStack pt="$1.5" px="$5" key="invalidPhrase">
-              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                Invalid recovery phrase
-              </SizableText>
-            </XStack>
-          )}
-        </HeightTransition>
+          </Form>
+
+          {/* error messages */}
+          <HeightTransition>
+            {invalidWordsLength > 0 && (
+              <XStack pt="$2" key="invalidWord">
+                <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+                <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+                  {invalidWordsMessage(invalidWordsLength)}
+                </SizableText>
+              </XStack>
+            )}
+            {invalidPhrase && (
+              <XStack pt="$2" key="invalidPhrase">
+                <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+                <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+                  Invalid recovery phrase
+                </SizableText>
+              </XStack>
+            )}
+          </HeightTransition>
+        </Stack>
+
+        {/* about recovery phrase */}
         <Stack p="$5">
-          {tutorials.map(({ title, description }) => (
-            <Stack pt="$5" key={title}>
+          {tutorials.map(({ title, description }, index) => (
+            <Stack
+              key={title}
+              {...(index !== 0 && {
+                pt: '$5',
+              })}
+            >
               <Heading size="$headingSm">{title}</Heading>
               <SizableText size="$bodyMd" mt="$1" color="$textSubdued">
                 {description}

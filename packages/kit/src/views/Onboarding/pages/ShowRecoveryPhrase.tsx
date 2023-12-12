@@ -75,15 +75,14 @@ export function ShowRecoveryPhrase() {
                 x: -16,
               }}
             >
-              <Icon
-                name="ErrorSolid"
-                size="$8"
-                color="$iconCaution"
+              <Stack
                 borderRadius="$full"
                 p="$3"
                 bg="$bgCaution"
-                mx="auto"
-              />
+                alignSelf="center"
+              >
+                <Icon name="ErrorSolid" size="$8" color="$iconCaution" />
+              </Stack>
               <Heading pt="$5" pb="$3" size="$headingXl" textAlign="center">
                 Before you proceed
               </Heading>

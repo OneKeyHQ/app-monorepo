@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -16,6 +18,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 
@@ -42,11 +45,11 @@ export function WalletList({
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
 
-  const handleCreateWalletPress = () => {
-    navigation.push(EModalRoutes.OnboardingModal, {
-      screen: EModalRoutes.OnboardingModal,
+  const handleCreateWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
     });
-  };
+  }, [navigation]);
 
   return (
     <Stack

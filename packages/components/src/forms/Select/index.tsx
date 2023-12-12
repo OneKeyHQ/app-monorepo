@@ -54,17 +54,18 @@ function SelectItem({
     () => (
       <XStack
         key={value}
-        minHeight="auto"
-        backgroundColor="$transparent"
+        px="$2"
+        py="$1.5"
         borderRadius="$2"
-        paddingVertical="$1.5"
-        px="$6"
-        py="$3"
-        hoverStyle={{ bg: '$backgroundHover' }}
         $md={{
           py: '$2.5',
-          paddingRight: 11,
+          borderRadius: '$3',
         }}
+        style={{
+          borderCurve: 'continuous',
+        }}
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
       >
         {leading ? (
@@ -81,12 +82,14 @@ function SelectItem({
         </SizableText>
         {selectedValue === value ? (
           <Icon
+            ml="auto"
             name="CheckLargeOutline"
             size="$4"
             color="$iconActive"
             {...(md && {
               name: 'CheckRadioSolid',
               size: '$6',
+              mr: '$0.5',
             })}
           />
         ) : null}
@@ -138,7 +141,7 @@ function SelectContent() {
         size="$headingXs"
         $md={{ size: '$headingSm', py: '$2.5' }}
         py="$1.5"
-        px="$6"
+        px="$2"
         color="$textSubdued"
       >
         {section.title}
@@ -154,6 +157,8 @@ function SelectContent() {
       estimatedItemSize="$4"
       extraData={value}
       renderItem={renderItem}
+      p="$1"
+      $md={{ p: '$3' }}
     />
   ) : (
     <ListView
@@ -161,6 +166,8 @@ function SelectContent() {
       estimatedItemSize="$4"
       extraData={value}
       renderItem={renderItem}
+      p="$1"
+      $md={{ p: '$3' }}
     />
   );
   return (
@@ -172,6 +179,9 @@ function SelectContent() {
       placement="bottom-start"
       renderTrigger={<Stack pointerEvents="none" />}
       renderContent={renderContent}
+      floatingPanelProps={{
+        width: '$56',
+      }}
     />
   );
 }

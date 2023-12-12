@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
+import { getTokenValue, useSafeAreaInsets } from '../../hooks';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
@@ -18,6 +19,8 @@ export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
 
 export function PageButtonGroup() {
   const { options } = useContext(PageContext);
+  const { bottom } = useSafeAreaInsets();
+
   if (!options?.footerOptions) {
     return null;
   }
@@ -36,7 +39,12 @@ export function PageButtonGroup() {
   }
 
   return (
-    <Stack p="$5">
+    <Stack
+      p="$5"
+      {...(bottom && {
+        pb: bottom + (getTokenValue('$size.5') as number),
+      })}
+    >
       <XStack justifyContent="flex-end">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button

@@ -29,7 +29,7 @@ export type IHeightTransitionProps = {
   onHeightDidAnimate?: (height: number) => void;
 } & ComponentProps<typeof MotiView>;
 
-const transition = { duration: 200 } as const;
+const transition = { duration: 150 } as const;
 
 function HeightTransition({
   children,
