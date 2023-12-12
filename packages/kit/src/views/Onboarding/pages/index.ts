@@ -1,3 +1,3 @@
 export * from './GetStarted';
-export * from './RecoveryPhrase';
+export * from './ShowRecoveryPhrase';
 export * from './ImportRecoveryPhrase';

@@ -8,6 +8,7 @@ import {
   type StackProps,
   // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
+  withStaticProperties,
 } from 'tamagui';
 
 import { Avatar, Divider } from '../../content';
@@ -210,7 +211,7 @@ const ListItemCheckMark = (props: StackProps) => (
 const ListItemSeparator = () => <Divider mx="$5" />;
 
 /* ListItem */
-export interface IListItemProps extends StackProps {
+export interface IListItemProps {
   title?: string;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
@@ -222,7 +223,7 @@ export interface IListItemProps extends StackProps {
   checkMark?: boolean;
 }
 
-function ListItem(props: IListItemProps) {
+const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
   const {
     avatarProps,
     icon,
@@ -240,12 +241,14 @@ function ListItem(props: IListItemProps) {
 
   return (
     <Stack
+      ref={ref}
       flexDirection="row"
       alignItems="center"
       minHeight="$11"
       space="$3"
-      p="$2"
-      mx="$3"
+      py="$2"
+      px="$3"
+      mx="$2"
       borderRadius="$3"
       onPress={onPress}
       {...(onPress && {
@@ -288,16 +291,16 @@ function ListItem(props: IListItemProps) {
       </Unspaced>
     </Stack>
   );
-}
+});
 
-ListItem.Text = ListItemText;
-ListItem.Avatar = {
-  Component: ListItemAvatar,
-  CornerIcon: ListItemAvatarCornerIcon,
-  CornerImage: ListItemAvatarCornerImage,
-};
-ListItem.IconButton = ListItemIconButton;
-ListItem.CheckMark = ListItemCheckMark;
-ListItem.Separator = ListItemSeparator;
-
-export { ListItem };
+export const ListItem = withStaticProperties(ListItemComponent, {
+  Text: ListItemText,
+  Avatar: {
+    Component: ListItemAvatar,
+    CornerIcon: ListItemAvatarCornerIcon,
+    CornerImage: ListItemAvatarCornerImage,
+  },
+  IconButton: ListItemIconButton,
+  CheckMark: ListItemCheckMark,
+  Separator: ListItemSeparator,
+});

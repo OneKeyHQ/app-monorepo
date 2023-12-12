@@ -52,7 +52,7 @@ const phrases: string[][] = [
   ['absorb', 'abstract', 'absurd', 'abuse', 'access', 'accident'],
 ];
 
-export function RecoveryPhrase() {
+export function ShowRecoveryPhrase() {
   const [isShowPhrase, setIsShowPhrase] = useState(false);
 
   return (

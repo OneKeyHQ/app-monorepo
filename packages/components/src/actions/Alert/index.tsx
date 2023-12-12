@@ -4,7 +4,15 @@ import type { ComponentProps, FC } from 'react';
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { Button, Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { HeightTransition } from '../../layouts';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { ColorTokens } from 'tamagui';
@@ -20,14 +28,17 @@ type IAlertActionProps = {
 
 const AlertContext = createStyledContext<{
   type: IAlertType;
+  fullBleed?: boolean;
 }>({
   type: 'default',
+  fullBleed: false,
 });
 
 type IAlertProps = {
   type?: IAlertType;
-  title: string;
-  description: string;
+  fullBleed?: boolean;
+  title?: string;
+  description?: string;
   closable?: boolean;
   icon?: ComponentProps<typeof Icon>['name'];
   action?: IAlertActionProps;
@@ -67,6 +78,14 @@ const AlertFrame = styled(XStack, {
         borderColor: '$borderSubdued',
       },
     },
+    fullBleed: {
+      true: {
+        paddingHorizontal: '$5',
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
+        borderRadius: 0,
+      },
+    },
   },
 });
 
@@ -90,52 +109,58 @@ export const Alert: FC<IAlertProps> = ({
   description,
   closable,
   type,
+  fullBleed,
   action,
 }) => {
   const [show, setShow] = useState(true);
   const onClose = useCallback(() => setShow(false), []);
-  if (!show) {
-    return null;
-  }
+
   return (
-    <AlertFrame type={type}>
-      {icon ? (
-        <Stack>
-          <AlertIcon>
-            <Icon name={icon} size="$5" />
-          </AlertIcon>
-        </Stack>
-      ) : null}
-      <YStack flex={1} space="$1">
-        <Text variant="$bodyMdMedium">{title}</Text>
-        <Text variant="$bodyMd" color="$textSubdued">
-          {description}
-        </Text>
-        {action ? (
-          <XStack pt="$2" space="$4" alignItems="center">
-            <Button size="small" onPress={action.onPrimaryPress}>
-              {action.primary}
-            </Button>
-            {action.secondary ? (
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={action.onSecondaryPress}
-              >
-                {action.secondary}
+    <HeightTransition>
+      {show && (
+        <AlertFrame key="alert" type={type} fullBleed={fullBleed}>
+          {icon ? (
+            <Stack>
+              <AlertIcon>
+                <Icon name={icon} size="$5" />
+              </AlertIcon>
+            </Stack>
+          ) : null}
+          <YStack flex={1} space="$1">
+            {title && <SizableText size="$bodyMdMedium">{title}</SizableText>}
+            {description && (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {description}
+              </SizableText>
+            )}
+          </YStack>
+          {action ? (
+            <XStack space="$4" alignItems="center">
+              <Button size="small" onPress={action.onPrimaryPress}>
+                {action.primary}
               </Button>
-            ) : null}
-          </XStack>
-        ) : null}
-      </YStack>
-      {closable ? (
-        <IconButton
-          icon="CrossedSmallSolid"
-          size="small"
-          variant="tertiary"
-          onPress={onClose}
-        />
-      ) : null}
-    </AlertFrame>
+              {action.secondary ? (
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={action.onSecondaryPress}
+                >
+                  {action.secondary}
+                </Button>
+              ) : null}
+            </XStack>
+          ) : null}
+          {closable ? (
+            <IconButton
+              title="Close"
+              icon="CrossedSmallSolid"
+              size="small"
+              variant="tertiary"
+              onPress={onClose}
+            />
+          ) : null}
+        </AlertFrame>
+      )}
+    </HeightTransition>
   );
 };

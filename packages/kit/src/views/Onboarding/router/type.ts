@@ -1,11 +1,11 @@
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
-  RecoveryPhrase = 'RecoveryPhrase',
+  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
   ImportRecoveryPhrase = 'ImportRecoveryPhrase',
 }
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: undefined;
-  [EOnboardingPages.RecoveryPhrase]: undefined;
+  [EOnboardingPages.ShowRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
 };

@@ -122,7 +122,10 @@ const ListItemGallery = () => (
                   primary={item.price}
                   secondary={item.change}
                   secondaryTextProps={{
-                    tone: parseFloat(item.change) >= 0 ? 'success' : 'critical',
+                    color:
+                      parseFloat(item.change) >= 0
+                        ? '$textSuccess'
+                        : '$textCritical',
                   }}
                 />
               </ListItem>

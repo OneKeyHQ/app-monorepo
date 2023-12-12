@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { GetStarted, ImportRecoveryPhrase, RecoveryPhrase } from '../pages';
+import { GetStarted, ImportRecoveryPhrase, ShowRecoveryPhrase } from '../pages';
 
 import { EOnboardingPages } from './type';
 
@@ -15,8 +15,8 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     component: GetStarted,
   },
   {
-    name: EOnboardingPages.RecoveryPhrase,
-    component: RecoveryPhrase,
+    name: EOnboardingPages.ShowRecoveryPhrase,
+    component: ShowRecoveryPhrase,
   },
   {
     name: EOnboardingPages.ImportRecoveryPhrase,

@@ -1,6 +1,10 @@
+import { StyleSheet } from 'react-native';
+
 import {
   Anchor,
   Button,
+  Divider,
+  Group,
   Heading,
   Image,
   ListItem,
@@ -16,7 +20,7 @@ export function GetStarted() {
   const navigation = useAppNavigation();
 
   const handleCreateWalletPress = () => {
-    navigation.push(EOnboardingPages.RecoveryPhrase);
+    navigation.push(EOnboardingPages.ShowRecoveryPhrase);
   };
 
   const handleImportWalletPress = () => {
@@ -45,23 +49,44 @@ export function GetStarted() {
         >
           Set up with a OneKey Hardware Wallet?
         </Heading>
-        <YGroup>
-          <ListItem
-            onPress={handleCreateWalletPress}
-            icon="PlusCircleOutline"
-            title="Create Wallet"
-          />
-          <ListItem
-            icon="ArrowBottomCircleOutline"
-            onPress={handleImportWalletPress}
-            title="Import Wallet"
-          />
-        </YGroup>
+        <Group
+          bg="$bg"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderRadius="$3"
+          borderColor="$borderSubdued"
+          separator={<Divider />}
+        >
+          <Group.Item>
+            <ListItem
+              px="$3"
+              mx="$0"
+              onPress={handleCreateWalletPress}
+              icon="PlusCircleOutline"
+              title="Create Wallet"
+              drillIn
+            />
+          </Group.Item>
+          <Group.Item>
+            <ListItem
+              px="$3"
+              mx="$0"
+              icon="ArrowBottomCircleOutline"
+              onPress={handleImportWalletPress}
+              title="Import Wallet"
+              drillIn
+            />
+          </Group.Item>
+        </Group>
         <YGroup>
           <Button>Connect Hardware Wallet</Button>
         </YGroup>
 
-        <SizableText size="$bodySm" color="$textSubdued" mt="auto">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          mt="auto"
+          textAlign="center"
+        >
           By continuing to use the app, you agree to these{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002014776"

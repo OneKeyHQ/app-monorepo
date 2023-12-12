@@ -14,6 +14,9 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+
 import { WalletListItem } from './WalletListItem';
 
 import type { IWalletProps } from '../../types';
@@ -37,6 +40,14 @@ export function WalletList({
 }: IWalletListProps) {
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
+  const navigation = useAppNavigation();
+
+  const handleCreateWalletPress = () => {
+    navigation.push(EModalRoutes.OnboardingModal, {
+      screen: EModalRoutes.OnboardingModal,
+    });
+  };
+
   return (
     <Stack
       $gtMd={{
@@ -75,7 +86,11 @@ export function WalletList({
         ItemSeparatorComponent={ListItemSeparator}
         ListFooterComponent={
           <Stack p="$1" alignItems="center" mt="$3">
-            <ActionList
+            <IconButton
+              icon="PlusSmallOutline"
+              onPress={handleCreateWalletPress}
+            />
+            {/* <ActionList
               placement="right-start"
               renderTrigger={<IconButton icon="PlusSmallOutline" />}
               title="Add wallet"
@@ -104,7 +119,7 @@ export function WalletList({
                   },
                 },
               ]}
-            />
+            /> */}
             {media.gtMd && (
               <Text variant="$bodySm" color="$textSubdued" mt="$1">
                 Add wallet
