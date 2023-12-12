@@ -79,7 +79,7 @@ function AccountReceiveMenu(props: Props) {
 
   return (
     <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-      <BaseMenu options={options}>
+      <BaseMenu options={options} placement="bottom">
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
