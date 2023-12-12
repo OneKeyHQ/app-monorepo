@@ -155,11 +155,7 @@ function SelectContent() {
   const renderContent = useMemo(
     () => {
       const listProps = {
-        contentContainerStyle: {
-          $md: {
-            flex: 1,
-          },
-        },
+        contentContainerStyle: { flex: 1 },
         keyExtractor,
         estimatedItemSize: '$6',
         extraData: value,
@@ -190,10 +186,14 @@ function SelectContent() {
       open={isOpen}
       onOpenChange={handleOpenChange}
       onFocusOutside={handleFocusOutside}
+      keepChildrenMounted
       sheetProps={{
         dismissOnSnapToBottom: false,
         snapPointsMode: 'fit',
         ...sheetProps,
+      }}
+      floatingPanelProps={{
+        maxHeight: '60vh',
       }}
       placement="bottom-start"
       renderTrigger={<Stack pointerEvents="none" />}
