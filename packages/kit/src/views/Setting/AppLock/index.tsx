@@ -1,37 +1,29 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 
 import { Page, Stack } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItemSelect } from '../Components/ListItemSelect';
 
-const options = [
-  {
-    title: 'Immediately',
-    value: '0',
-  },
-  {
-    title: '1 min',
-    value: '1',
-  },
-  {
-    title: '5 min',
-    value: '2',
-  },
-  {
-    title: '30 min',
-    value: '3',
-  },
-  {
-    title: '1 hr',
-    value: '4',
-  },
-];
+import { useDurationOptions } from './useDurationOptions';
+
 const AppLock = () => {
-  const [value, setValue] = useState('0');
+  const [settings] = useSettingsPersistAtom();
+  const onChange = useCallback(async (value: string) => {
+    await backgroundApiProxy.serviceSetting
+      .setAppLockDuration(Number(value))
+      .catch(() => console.log('failed to set app lock duration'));
+  }, []);
+  const options = useDurationOptions();
   return (
     <Page>
       <Stack py="$2">
-        <ListItemSelect onChange={setValue} value={value} options={options} />
+        <ListItemSelect
+          onChange={onChange}
+          value={String(settings.appLockDuration)}
+          options={options}
+        />
       </Stack>
     </Page>
   );
