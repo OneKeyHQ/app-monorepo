@@ -11,14 +11,17 @@ import {
   Stack,
   XStack,
   useForm,
+  usePageAvoidKeyboard,
 } from '@onekeyhq/components';
 
-export function ImportRecoveryPhrase() {
+function PageContent() {
   const form = useForm({});
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
 
+  const { keyboardHeight, changePageAvoidHeight, avoidHeight } =
+    usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
@@ -38,95 +41,88 @@ export function ImportRecoveryPhrase() {
         'Yes. It will be stored locally and never leave your device without your explicit permission.',
     },
   ];
-
   return (
-    <Page>
-      <Page.Header title="Import Recovery Phrase" />
-      <Page.Body>
-        {/* warning message */}
-        <Stack p="$5" pt="$0">
-          <Alert
-            type="warning"
-            closable
-            title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-          />
-        </Stack>
-
-        {/* form */}
-        <Stack p="$5" pt="$0">
-          {/* select and clear action */}
-          <XStack pb="$2" justifyContent="space-between">
-            <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
-              12 words
-            </Button>
-            <Button icon="BroomOutline" variant="tertiary">
-              Clear
-            </Button>
-          </XStack>
-
-          {/* inputs */}
-          <Form form={form}>
-            <XStack mx="$-1" flexWrap="wrap">
-              {Array.from({ length: 12 }).map((_, index) => (
-                <Stack key={index} flexBasis="33.33%" p="$1">
-                  <Form.Field name={`phrase${index + 1}`}>
-                    <Input pl="$8" returnKeyType="next" />
-                  </Form.Field>
-                  <SizableText
-                    pointerEvents="none"
-                    position="absolute"
-                    color="$textDisabled"
-                    top={11}
-                    left="$3"
-                    zIndex="$1"
-                    minWidth={17}
-                    textAlign="right"
-                  >
-                    {index + 1}
-                  </SizableText>
-                </Stack>
-              ))}
-            </XStack>
-          </Form>
-
-          {/* error messages */}
-          <HeightTransition>
-            {invalidWordsLength > 0 && (
-              <XStack pt="$2" key="invalidWord">
-                <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-                <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                  {invalidWordsMessage(invalidWordsLength)}
-                </SizableText>
-              </XStack>
-            )}
-            {invalidPhrase && (
-              <XStack pt="$2" key="invalidPhrase">
-                <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-                <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                  Invalid recovery phrase
-                </SizableText>
-              </XStack>
-            )}
-          </HeightTransition>
-        </Stack>
-
-        {/* about recovery phrase */}
-        <Stack p="$5">
-          {tutorials.map(({ title, description }, index) => (
-            <Stack
-              key={title}
-              {...(index !== 0 && {
-                pt: '$5',
-              })}
-            >
-              <Heading size="$headingSm">{title}</Heading>
-              <SizableText size="$bodyMd" mt="$1" color="$textSubdued">
-                {description}
+    <Page.Body>
+      <Alert
+        type="warning"
+        fullBleed
+        title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+        closable
+      />
+      <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
+        <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
+          12 words
+        </Button>
+        <Button icon="BroomOutline" variant="tertiary">
+          Clear
+        </Button>
+      </XStack>
+      <Form form={form}>
+        <XStack px="$4" flexWrap="wrap">
+          {Array.from({ length: 12 }).map((_, index) => (
+            <Stack key={index} flexBasis="33.33%" p="$1">
+              <Form.Field name={`phrase${index + 1}`}>
+                <Input
+                  pl="$8"
+                  returnKeyType="next"
+                  onFocus={() => {
+                    changePageAvoidHeight(index > 5 ? 100 : 0);
+                  }}
+                />
+              </Form.Field>
+              <SizableText
+                pointerEvents="none"
+                position="absolute"
+                color="$textDisabled"
+                top={11}
+                left="$3"
+                zIndex="$1"
+                minWidth={17}
+                textAlign="right"
+              >
+                {index + 1}
               </SizableText>
             </Stack>
           ))}
-        </Stack>
-      </Page.Body>
+        </XStack>
+      </Form>
+      <HeightTransition>
+        {invalidWordsLength > 0 && (
+          <XStack pt="$1.5" px="$5" key="invalidWord">
+            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+              {invalidWordsMessage(invalidWordsLength)}
+            </SizableText>
+          </XStack>
+        )}
+        {invalidPhrase && (
+          <XStack pt="$1.5" px="$5" key="invalidPhrase">
+            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+              Invalid recovery phrase
+            </SizableText>
+          </XStack>
+        )}
+      </HeightTransition>
+      <Stack p="$5">
+        {tutorials.map(({ title, description }) => (
+          <Stack pt="$5" key={title}>
+            <Heading size="$headingSm">{title}</Heading>
+            <SizableText size="$bodyMd" mt="$1" color="$textSubdued">
+              {description}
+            </SizableText>
+          </Stack>
+        ))}
+      </Stack>
+    </Page.Body>
+  );
+}
+
+export function ImportRecoveryPhrase() {
+  return (
+    <Page>
+      <Page.Header title="Import Recovery Phrase" />
+      <PageContent />
       <Page.Footer onConfirm={() => console.log('confirm')} />
     </Page>
   );
