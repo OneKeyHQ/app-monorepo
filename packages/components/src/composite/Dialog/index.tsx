@@ -1,6 +1,5 @@
 import type { ForwardedRef } from 'react';
 import {
-  Children,
   createRef,
   forwardRef,
   useCallback,
@@ -16,15 +15,17 @@ import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
+import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
 import { Icon, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
-import { IconButton } from '../IconButton';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
+import { DialogForm } from './DialogForm';
 
 import type {
   IDialogCancelProps,
@@ -36,7 +37,6 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IButtonProps } from '../../primitives/Button';
-import { DialogForm } from './DialogForm';
 
 function DialogFrame({
   open,
@@ -78,6 +78,14 @@ function DialogFrame({
 
   const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
+    const form = dialogInstance.ref.current;
+    if (form) {
+      const isValidated = await form.trigger();
+      console.log(isValidated);
+      if (!isValidated) {
+        return;
+      }
+    }
     const result = await onConfirm?.({
       close: dialogInstance.close,
       getForm: () => dialogInstance.ref.current,
@@ -371,6 +379,7 @@ export const useDialogInstance = () => {
 
 export const Dialog = {
   Form: DialogForm,
+  FormField: Form.Field,
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,

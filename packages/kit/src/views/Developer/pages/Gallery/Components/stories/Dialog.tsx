@@ -273,20 +273,34 @@ const DialogGallery = () => (
             <Button
               mt="$4"
               onPress={() =>
-                Dialog.show({
+                Dialog.confirm({
                   title: 'Password',
                   description: 'input password',
                   renderContent: (
-                    <Dialog.Form>
-                      <
-                    <Input
-                      autoFocus
-                      flex={1}
-                      placeholder="only numeric value"
-                    />
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { a: '1234567' },
+                      }}
+                    >
+                      <Dialog.FormField
+                        name="a"
+                        rules={{
+                          maxLength: { value: 6, message: 'maxLength is 6' },
+                        }}
+                      >
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
                     </Dialog.Form>
                   ),
-                  onConfirm: () => {},
+                  onConfirm: (dialogInstance) => {
+                    alert(
+                      JSON.stringify(dialogInstance.getForm()?.getValues()),
+                    );
+                  },
                 })
               }
             >
@@ -296,7 +310,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog & AutoFocus Input',
+        title: 'AutoFocus Input',
         element: (
           <YStack>
             <Button
@@ -316,7 +330,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              Open Dialog Form
+              Open Dialog AutoFocus
             </Button>
           </YStack>
         ),
