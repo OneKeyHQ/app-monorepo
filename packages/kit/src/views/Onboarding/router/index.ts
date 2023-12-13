@@ -1,6 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { GetStarted, ImportRecoveryPhrase, ShowRecoveryPhrase } from '../pages';
+import {
+  ConnectHardwareWallet,
+  GetStarted,
+  ImportRecoveryPhrase,
+  ShowRecoveryPhrase,
+} from '../pages';
 
 import { EOnboardingPages } from './type';
 
@@ -21,5 +26,9 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportRecoveryPhrase,
     component: ImportRecoveryPhrase,
+  },
+  {
+    name: EOnboardingPages.ConnectHardwareWallet,
+    component: ConnectHardwareWallet,
   },
 ];

@@ -4,6 +4,7 @@ import { getTokenValue } from 'tamagui';
 import {
   Anchor,
   Button,
+  Divider,
   Group,
   Heading,
   Image,
@@ -13,6 +14,7 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
@@ -30,12 +32,16 @@ export function GetStarted() {
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
 
+  const handleConnectHardwareWallet = () => {
+    navigation.push(EOnboardingPages.ConnectHardwareWallet);
+  };
+
   return (
     <Page>
       <Page.Header headerShown={false} />
       <Page.Body>
         <Stack p="$5" flex={1}>
-          <Image
+          {/* <Image
             source={{
               width: 48,
               height: 48,
@@ -52,10 +58,22 @@ export function GetStarted() {
             maxWidth="$96"
           >
             Welcome to OneKey
-          </Heading>
+          </Heading> */}
         </Stack>
-
         <Stack space="$2" p="$5">
+          <SizableText textAlign="center" pb="$3" size="$headingLg">
+            How would you like to get started?
+          </SizableText>
+          <Button
+            icon="OnekeyBrand"
+            variant="primary"
+            $md={{
+              size: 'large',
+            }}
+            onPress={handleConnectHardwareWallet}
+          >
+            Connect Hardware Wallet
+          </Button>
           <Button
             icon="PlusCircleOutline"
             onPress={handleCreateWalletPress}
@@ -74,30 +92,21 @@ export function GetStarted() {
           >
             Import Wallet
           </Button>
-          <Button
-            icon="UsbOutline"
-            variant="primary"
-            $md={{
-              size: 'large',
-            }}
-          >
-            Connect Hardware Wallet
-          </Button>
         </Stack>
-
         <SizableText
           p="$5"
           size="$bodySm"
-          color="$textSubdued"
+          color="$textDisabled"
           textAlign="center"
           {...(bottom && {
             pb: bottom + (getTokenValue('$size.5') as number),
           })}
         >
-          I agree to the{' '}
+          By continuing to use the app, you agree to these{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002014776"
             size="$bodySm"
+            color="$textSubdued"
             target="_blank"
           >
             User Service Agreement
@@ -106,6 +115,7 @@ export function GetStarted() {
           <Anchor
             href="https://help.onekey.so/hc/articles/360002003315"
             size="$bodySm"
+            color="$textSubdued"
             target="_blank"
           >
             Privacy Policy
