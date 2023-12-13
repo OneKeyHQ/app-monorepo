@@ -3,7 +3,11 @@ import * as bip39 from 'bip39';
 
 import { getBitcoinBip32 } from '../../../utils/btcForkChain/utils';
 
-import { NOSTR_ADDRESS_INDEX, getNostrPath } from './NostrSDK';
+import {
+  NOSTR_ADDRESS_INDEX,
+  getNip19EncodedPubkey,
+  getNostrPath,
+} from './NostrSDK';
 
 const fixtures = [
   {
@@ -39,6 +43,9 @@ describe('test Nostr', () => {
         fixture.privateKey,
       );
       expect(bytesToHex(node.publicKey.slice(1, 33))).toEqual(fixture.pubkey);
+      expect(
+        getNip19EncodedPubkey(bytesToHex(node.publicKey.slice(1, 33))),
+      ).toEqual(fixture.npub);
     });
   });
 
