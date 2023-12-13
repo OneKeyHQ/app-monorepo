@@ -69,6 +69,14 @@ class ServiceSetting extends ServiceBase {
       spendDustUTXO: value,
     }));
   }
+
+  @backgroundMethod()
+  public async setAppLockDuration(value: number) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      appLockDuration: value,
+    }));
+  }
 }
 
 export default ServiceSetting;

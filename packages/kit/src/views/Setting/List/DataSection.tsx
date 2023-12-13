@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Input, ListItem } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { Section } from './Section';
 
 const ClearCacheOnAppContent = () => {
@@ -107,6 +109,9 @@ const EraseData = () => {
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "ERASE" to reset the App',
       renderContent: <Input />,
+      onConfirm() {
+        backgroundApiProxy.serviceApp.resetApp().catch(console.error);
+      },
     });
   }, []);
   const intl = useIntl();

@@ -1,9 +1,13 @@
+import RNRestart from 'react-native-restart';
+
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import * as Errors from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { DB_MAIN_CONTEXT_ID } from '../dbs/local/consts';
 import localDb from '../dbs/local/localDbInstance';
@@ -120,6 +124,30 @@ class ServiceApp extends ServiceBase {
         amount: '0.0001',
       },
     });
+  }
+
+  @backgroundMethod()
+  private restartApp() {
+    if (platformEnv.isNative) {
+      return RNRestart.restart();
+    }
+    if (platformEnv.isDesktop) {
+      return window.desktopApi?.reload?.();
+    }
+    // restartApp() MUST be called from background in Ext, UI reload will close whole Browser
+    if (platformEnv.isExtensionBackground) {
+      return chrome.runtime.reload();
+    }
+    if (platformEnv.isRuntimeBrowser) {
+      return window?.location?.reload?.();
+    }
+  }
+
+  @backgroundMethod()
+  async resetApp() {
+    await localDb.reset();
+    await appStorage.clear();
+    this.restartApp();
   }
 }
 
