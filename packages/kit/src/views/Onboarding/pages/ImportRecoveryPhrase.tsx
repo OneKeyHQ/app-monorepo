@@ -22,7 +22,6 @@ function PageContent() {
 
   const { keyboardHeight, changePageAvoidHeight, avoidHeight } =
     usePageAvoidKeyboard();
-  console.log('keyboardHeight', keyboardHeight, avoidHeight);
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
