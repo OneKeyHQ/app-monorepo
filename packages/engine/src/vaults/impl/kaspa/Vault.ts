@@ -44,6 +44,7 @@ import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
+  MAX_ORPHAN_TX_MASS,
   MAX_SOMPI,
   MINIMUM_RELAY_TRANSACTION_FEE,
   RestAPIClient,
@@ -200,7 +201,10 @@ export default class Vault extends VaultBase {
       .toFixed();
 
     if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
-      throw new OneKeyInternalError('Amount is too small');
+      throw new OneKeyInternalError(
+        'Amount is too small',
+        'msg__amount_too_small',
+      );
     }
 
     const { utxoIds, utxos, limit, hasMaxSend } = this.selectUTXOs({
@@ -256,9 +260,9 @@ export default class Vault extends VaultBase {
 
     // validate tx size
     let txn = toTransaction(encodedTx);
-    const { txSize } = txn.getMassAndSize();
+    const { mass, txSize } = txn.getMassAndSize();
 
-    if (txSize > MAX_BLOCK_SIZE) {
+    if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
       encodedTx = await this.prepareAndBuildTx({
         network,
         confirmUtxos,
@@ -267,8 +271,15 @@ export default class Vault extends VaultBase {
         prioritys: { satoshis: true },
       });
       txn = toTransaction(encodedTx);
-      if (txn.getMassAndSize().txSize > MAX_BLOCK_SIZE) {
-        throw new OneKeyInternalError('Transaction size is too large');
+      const massAndSize = txn.getMassAndSize();
+      if (
+        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+        massAndSize.txSize > MAX_BLOCK_SIZE
+      ) {
+        throw new OneKeyInternalError(
+          'Transaction size is too large',
+          'msg__broadcast_kaspa_tx_max_allowed_size',
+        );
       }
     }
     return encodedTx;
@@ -431,7 +442,10 @@ export default class Vault extends VaultBase {
     const dataFee = this.minimumRequiredTransactionRelayFee(mass);
 
     if (txSize > MAX_BLOCK_SIZE) {
-      throw new Error('Transaction size is too large');
+      throw new OneKeyInternalError(
+        'Transaction size is too large',
+        'msg__broadcast_kaspa_tx_max_allowed_size',
+      );
     }
 
     const price = convertFeeValueToGwei({ value: '1', network });
