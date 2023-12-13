@@ -18,24 +18,34 @@ import {
 
 import type { LayoutChangeEvent } from 'react-native';
 
+const useAvoidKeyboardLayout = () => {
+  const alertHeight = useRef(0);
+  const { changePageAvoidHeight } = usePageAvoidKeyboard();
+  const updateLayoutHeight = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    alertHeight.current = height;
+  }, []);
+  const changePageLayoutHeight = useCallback(() => {
+    changePageAvoidHeight(() => alertHeight.current);
+  }, [changePageAvoidHeight]);
+  return {
+    updateLayoutHeight,
+    changeLayoutHeight: changePageLayoutHeight,
+  };
+};
+
 function PageContent() {
   const form = useForm({});
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
-  const alertHeight = useRef(0);
-  const { changePageAvoidHeight } = usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
     }
     return `${length} invalid words`;
   };
-
-  const handleAlertLayout = useCallback((e: LayoutChangeEvent) => {
-    const { height } = e.nativeEvent.layout;
-    alertHeight.current = height;
-  }, []);
+  const { updateLayoutHeight, changeLayoutHeight } = useAvoidKeyboardLayout();
 
   const tutorials = [
     {
@@ -51,7 +61,7 @@ function PageContent() {
   ];
   return (
     <Page.Body>
-      <Stack onLayout={handleAlertLayout}>
+      <Stack onLayout={updateLayoutHeight}>
         <Alert
           type="warning"
           fullBleed
@@ -74,9 +84,7 @@ function PageContent() {
                 <Input
                   pl="$8"
                   returnKeyType="next"
-                  onFocus={() => {
-                    changePageAvoidHeight(() => alertHeight.current);
-                  }}
+                  onFocus={changeLayoutHeight}
                 />
               </Form.Field>
               <SizableText
