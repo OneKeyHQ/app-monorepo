@@ -1,3 +1,5 @@
+import { useCallback, useRef } from 'react';
+
 import {
   Alert,
   Button,
@@ -14,12 +16,14 @@ import {
   usePageAvoidKeyboard,
 } from '@onekeyhq/components';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 function PageContent() {
   const form = useForm({});
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
-
+  const alertHeight = useRef(0);
   const { changePageAvoidHeight } = usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
@@ -27,6 +31,11 @@ function PageContent() {
     }
     return `${length} invalid words`;
   };
+
+  const handleAlertLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    alertHeight.current = height;
+  }, []);
 
   const tutorials = [
     {
@@ -42,11 +51,13 @@ function PageContent() {
   ];
   return (
     <Page.Body>
-      <Alert
-        type="warning"
-        fullBleed
-        title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-      />
+      <Stack onLayout={handleAlertLayout}>
+        <Alert
+          type="warning"
+          fullBleed
+          title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+        />
+      </Stack>
       <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
         <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
           12 words
@@ -64,7 +75,7 @@ function PageContent() {
                   pl="$8"
                   returnKeyType="next"
                   onFocus={() => {
-                    changePageAvoidHeight(() => 90);
+                    changePageAvoidHeight(() => alertHeight.current);
                   }}
                 />
               </Form.Field>
