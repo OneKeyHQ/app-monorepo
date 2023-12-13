@@ -8,6 +8,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -17,7 +18,6 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
-import type ServiceTool from '../services/ServiceTool';
 import type ServiceValidator from '../services/ServiceValidator';
 
 class BackgroundApiProxy
@@ -50,7 +50,7 @@ class BackgroundApiProxy
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
 
-  serviceTool = this._createProxyService('serviceTool') as ServiceTool;
+  serviceDefi = this._createProxyService('serviceDefi') as ServiceDefi;
 
   serviceValidator = this._createProxyService(
     'serviceValidator',

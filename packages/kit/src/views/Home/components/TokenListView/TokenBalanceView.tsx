@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { ListItem } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../../../states/jotai/contexts/token-list';
@@ -16,7 +18,10 @@ function TokenBalanceView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <ListItem.Text primary={`${token.balanceParsed} ${symbol}`} {...rest} />
+      <ListItem.Text
+        primary={`${new BigNumber(token.balanceParsed).toFixed(2)} ${symbol}`}
+        {...rest}
+      />
     ),
     [rest, symbol, token.balanceParsed],
   );

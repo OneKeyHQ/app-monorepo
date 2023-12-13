@@ -2,8 +2,8 @@ import { Icon, ListItem } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenBalanceView } from './TokenBalanceView';
-import { TokenPriceView } from './TokenPriceView';
-import { TokenValueView } from './TokenValueView';
+// import { TokenPriceView } from './TokenPriceView';
+// import { TokenValueView } from './TokenValueView';
 
 type IProps = {
   token: IAccountToken;
@@ -33,14 +33,12 @@ function TokenListItem(props: IProps) {
       paddingVertical="$4"
       margin="0"
     >
-      <TokenPriceView $key={token.$key ?? ''} align="left" flex={1} />
       <TokenBalanceView
         $key={token.$key ?? ''}
         symbol={token.symbol}
-        align="left"
+        align="right"
         flex={1}
       />
-      <TokenValueView $key={token.$key ?? ''} align="right" flex={1} />
     </ListItem>
   );
 }

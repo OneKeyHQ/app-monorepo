@@ -6,10 +6,10 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 import { Page, Tab, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 
+import { DefiListContainer } from './DefiListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
-import { ToolListContainer } from './ToolListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
 import { WalletOverviewContainer } from './WalletOverviewContainer';
@@ -44,10 +44,8 @@ function HomePageContainer() {
         page: memo(TxHistoryListContainer, () => true),
       },
       {
-        title: intl.formatMessage({
-          id: 'form__tools',
-        }),
-        page: memo(ToolListContainer, () => true),
+        title: 'Defi',
+        page: memo(DefiListContainer, () => true),
       },
     ],
     [intl],
