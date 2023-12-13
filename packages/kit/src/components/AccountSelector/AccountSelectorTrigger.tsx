@@ -16,6 +16,7 @@ export function AccountSelectorTrigger({ num }: { num: number }) {
   const showAccountSelector = useCallback(() => {
     Dialog.show({
       title,
+      estimatedContentHeight: 490,
       onClose() {
         setReady(false);
       },
