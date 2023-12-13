@@ -20,8 +20,7 @@ function PageContent() {
   const invalidWordsLength = 0;
   const invalidPhrase = false;
 
-  const { keyboardHeight, changePageAvoidHeight, avoidHeight } =
-    usePageAvoidKeyboard();
+  const { changePageAvoidHeight } = usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
@@ -47,7 +46,6 @@ function PageContent() {
         type="warning"
         fullBleed
         title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-        closable
       />
       <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
         <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
@@ -66,7 +64,7 @@ function PageContent() {
                   pl="$8"
                   returnKeyType="next"
                   onFocus={() => {
-                    changePageAvoidHeight(index > 5 ? 100 : 0);
+                    changePageAvoidHeight(() => 90);
                   }}
                 />
               </Form.Field>

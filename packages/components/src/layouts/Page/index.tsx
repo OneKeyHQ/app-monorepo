@@ -1,8 +1,8 @@
-import { useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { useKeyboardHeight } from '../../hooks';
+import { useKeyboardEvent, useKeyboardHeight } from '../../hooks';
 
 import { PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
@@ -63,16 +63,28 @@ export const usePageScrollEnabled = () => {
 export const usePageAvoidKeyboard = () => {
   const { options = {}, setOptions } = useContext(PageContext);
   const keyboardHeight = useKeyboardHeight();
-  const a = useContext(PageContext);
+  const changePageAvoidHeight = useCallback(
+    (callback: (keyboardHeight: number) => number) => {
+      setOptions?.({
+        ...options,
+        avoidHeight: callback(keyboardHeight),
+      });
+    },
+    [keyboardHeight, options, setOptions],
+  );
+
+  useKeyboardEvent(
+    {
+      keyboardWillHide: () => {
+        changePageAvoidHeight(() => 0);
+      },
+    },
+    [options],
+  );
   return {
     keyboardHeight,
     avoidHeight: options.avoidHeight,
-    changePageAvoidHeight: (avoidHeight: number) => {
-      setOptions?.({
-        ...options,
-        avoidHeight,
-      });
-    },
+    changePageAvoidHeight,
   };
 };
 

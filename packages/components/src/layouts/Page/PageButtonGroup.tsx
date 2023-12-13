@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useContext, useEffect } from 'react';
+import { useContext } from 'react';
 
-import { Keyboard, KeyboardAvoidingView } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -13,14 +12,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getTokenValue,
   useKeyboardEvent,
-  useKeyboardHeight,
   useSafeAreaInsets,
 } from '../../hooks';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
-
-import type { KeyboardEventListener } from 'react-native';
 
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
@@ -74,7 +70,9 @@ export function PageButtonGroup() {
   }
 
   return (
-    <Animated.View style={safeKeyboardAnimationStyle}>
+    <Animated.View
+      style={platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined}
+    >
       <Stack
         p="$5"
         animation="fast"
