@@ -267,6 +267,35 @@ const DialogGallery = () => (
         ),
       },
       {
+        title: 'Dialog Form',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.show({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form>
+                      <
+                    <Input
+                      autoFocus
+                      flex={1}
+                      placeholder="only numeric value"
+                    />
+                    </Dialog.Form>
+                  ),
+                  onConfirm: () => {},
+                })
+              }
+            >
+              Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
         title: 'Dialog & AutoFocus Input',
         element: (
           <YStack>
