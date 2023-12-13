@@ -12,8 +12,8 @@ function DefiListItem(props: IProps) {
   const { defi, onPress } = props;
   return (
     <ListItem
-      key={defi.protocolName}
-      title={defi.protocolName}
+      key={defi.url}
+      title={defi.projectName}
       subtitleProps={{
         numberOfLines: 1,
       }}
