@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Button, Dialog, Portal, ScrollView } from '@onekeyhq/components';
+import { Button, Dialog, ScrollView } from '@onekeyhq/components';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
