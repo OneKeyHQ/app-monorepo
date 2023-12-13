@@ -17,8 +17,8 @@ import {
 function PageContent() {
   const form = useForm({});
 
-  const invalidWordsLength = 2;
-  const invalidPhrase = true;
+  const invalidWordsLength = 0;
+  const invalidPhrase = false;
 
   const { keyboardHeight, changePageAvoidHeight, avoidHeight } =
     usePageAvoidKeyboard();

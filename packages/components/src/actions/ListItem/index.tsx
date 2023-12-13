@@ -250,6 +250,9 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       px="$3"
       mx="$2"
       borderRadius="$3"
+      style={{
+        borderCurve: 'continuous',
+      }}
       onPress={onPress}
       {...(onPress && {
         hoverStyle: { bg: '$bgHover' },

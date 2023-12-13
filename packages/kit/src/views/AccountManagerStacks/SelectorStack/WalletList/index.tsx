@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -43,11 +45,11 @@ export function WalletList({
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
 
-  const handleCreateWalletPress = () => {
+  const handleCreateWalletPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.GetStarted,
     });
-  };
+  }, [navigation]);
 
   return (
     <Stack
