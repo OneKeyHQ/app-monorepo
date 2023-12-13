@@ -9,7 +9,7 @@ function TxHistorySectionHeader(props: IHistoryListSectionGroup) {
   const intl = useIntl();
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
   return (
-    <XStack>
+    <XStack px="$2">
       <Text color="$textSubdued">{titleText}</Text>
     </XStack>
   );

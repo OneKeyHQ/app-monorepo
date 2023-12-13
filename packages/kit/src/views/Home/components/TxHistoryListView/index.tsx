@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Empty, SectionList, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
@@ -37,7 +38,7 @@ function TxHistoryListView(props: IProps) {
         mt: '$4',
         mb: '$2',
       }}
-      scrollEnabled={false}
+      scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
       sections={data}
       renderSectionHeader={({ section }) => (

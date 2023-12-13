@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { NFTListHeader } from './NFTListHeader';
@@ -35,7 +36,7 @@ function NFTListView(props: IProps) {
     <ListView
       h="100%"
       estimatedItemSize={76}
-      scrollEnabled={false}
+      scrollEnabled={platformEnv.isWebTouchable}
       data={data}
       ListHeaderComponent={NFTListHeader}
       ListHeaderComponentStyle={{

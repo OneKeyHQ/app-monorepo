@@ -1,4 +1,5 @@
 import { Empty, ListView, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountDefi } from '@onekeyhq/shared/types/defi';
 
 import { DefiListHeader } from './DefiListHeader';
@@ -26,7 +27,7 @@ function DefiListView(props: IProps) {
     <ListView
       h="100%"
       estimatedItemSize={76}
-      scrollEnabled={false}
+      scrollEnabled={platformEnv.isWebTouchable}
       data={data}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={DefiListEmpty}

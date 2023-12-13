@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
+import { YStack } from 'tamagui';
 
 import { Page, Tab, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
@@ -19,7 +20,6 @@ import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
-import { WalletOverviewContainer } from './WalletOverviewContainer';
 
 function HomePageContainer() {
   const screenWidth = useWindowDimensions().width;
@@ -60,8 +60,19 @@ function HomePageContainer() {
 
   const renderHeaderView = useCallback(
     () => (
-      <XStack justifyContent="space-between" alignItems="center">
-        <WalletOverviewContainer />
+      <XStack justifyContent="space-between" alignItems="center" px="$2">
+        <YStack>
+          <AccountSelectorProvider
+            config={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <AccountSelectorTrigger num={0} />
+            <AccountSelectorActiveAccount num={0} />
+          </AccountSelectorProvider>
+        </YStack>
         <WalletActionsContainer />
       </XStack>
     ),
@@ -73,21 +84,12 @@ function HomePageContainer() {
       <Page>
         <Page.Header headerTitle={() => <HomeHeaderContainer />} />
         <Page.Body alignItems="center">
-          <AccountSelectorProvider
-            config={{
-              sceneName: EAccountSelectorSceneName.home,
-              sceneUrl: '',
-            }}
-            enabledNum={[0]}
-          >
-            <AccountSelectorTrigger num={0} />
-            <AccountSelectorActiveAccount num={0} />
-          </AccountSelectorProvider>
           <Tab
             // @ts-expect-error
             data={tabs}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={0}
+            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}

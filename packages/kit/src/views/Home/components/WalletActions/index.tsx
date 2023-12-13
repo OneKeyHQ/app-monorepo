@@ -8,7 +8,7 @@ type IProps = {
 };
 
 function WalletActions(props: IProps) {
-  const { onSend, onReceive } = props;
+  const { onSend } = props;
   const intl = useIntl();
   return (
     <XStack space="$4">
@@ -16,11 +16,6 @@ function WalletActions(props: IProps) {
         icon="SendSolid"
         onPress={onSend}
         title={intl.formatMessage({ id: 'action__send' })}
-      />
-      <IconButton
-        icon="QrCodeOutline"
-        onPress={onReceive}
-        title={intl.formatMessage({ id: 'action__receive' })}
       />
     </XStack>
   );

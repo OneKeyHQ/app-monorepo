@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useTokenListAtom } from '../../../../states/jotai/contexts/token-list';
 
@@ -38,7 +39,7 @@ function TokenListView(props: IProps) {
     <ListView
       h="100%"
       estimatedItemSize={76}
-      scrollEnabled={false}
+      scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
       ListHeaderComponent={TokenListHeader}
       ListHeaderComponentStyle={{
