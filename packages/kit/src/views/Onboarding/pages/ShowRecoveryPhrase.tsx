@@ -56,7 +56,7 @@ export function ShowRecoveryPhrase() {
   const [isShowPhrase, setIsShowPhrase] = useState(false);
 
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header />
       <Page.Body
         $gtMd={{

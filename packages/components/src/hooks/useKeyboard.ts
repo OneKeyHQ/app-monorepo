@@ -33,3 +33,28 @@ export function useKeyboardHeight() {
 
   return keyboardHeight;
 }
+
+export const useKeyboardEvent = ({
+  keyboardWillShow,
+  keyboardWillHide,
+}: {
+  keyboardWillShow: KeyboardEventListener;
+  keyboardWillHide: KeyboardEventListener;
+}) => {
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      'keyboardWillShow',
+      keyboardWillShow,
+    );
+
+    const hideSubscription = Keyboard.addListener(
+      'keyboardWillHide',
+      keyboardWillHide,
+    );
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+};

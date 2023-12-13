@@ -120,7 +120,7 @@ function PageContent() {
 
 export function ImportRecoveryPhrase() {
   return (
-    <Page>
+    <Page safeAreaEnabled>
       <Page.Header title="Import Recovery Phrase" />
       <PageContent />
       <Page.Footer onConfirm={() => console.log('confirm')} />
