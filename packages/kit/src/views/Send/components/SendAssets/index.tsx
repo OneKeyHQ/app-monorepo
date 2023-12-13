@@ -1,4 +1,4 @@
-import { ListItem, Stack } from '@onekeyhq/components';
+import { Icon, ListItem, Stack } from '@onekeyhq/components';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 type IProps = {
@@ -11,10 +11,15 @@ function SendAssets(props: IProps) {
   return (
     <Stack>
       <ListItem
-        key={asset.id}
         title={asset.name}
         avatarProps={{
           src: asset.logoURI,
+          fallbackProps: {
+            bg: '$bgStrong',
+            justifyContent: 'center',
+            alignItems: 'center',
+            children: <Icon name="ImageMountainSolid" />,
+          },
         }}
       />
     </Stack>

@@ -1,12 +1,12 @@
 import { memo } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { TokenListView } from '../../../components/TokenListView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/token-list';
-import { TokenListView } from '../components/TokenListView';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;

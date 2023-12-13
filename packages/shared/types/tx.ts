@@ -1,3 +1,5 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+
 import type { IToken } from './token';
 
 export enum EDecodedTxDirection {
@@ -49,8 +51,6 @@ export type IDecodedTxInteractInfo = {
   icons: string[];
   provider?: string;
 };
-
-export type IEncodedTx = any;
 
 export type IDecodedTx = {
   txid: string; // blockHash

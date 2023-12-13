@@ -15,7 +15,19 @@ function WalletActionsContainer() {
 
   const handleOnSend = useCallback(() => {
     navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendAddressInput,
+      screen: EModalSendRoutes.SendAssetInput,
+      params: {
+        networkId: 'evm--1',
+        accountId: '',
+        transfersInfo: [
+          {
+            from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+            to: '',
+            amount: '0',
+            token: '',
+          },
+        ],
+      },
     });
   }, [navigation]);
 

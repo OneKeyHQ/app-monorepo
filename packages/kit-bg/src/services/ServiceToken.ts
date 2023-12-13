@@ -3,9 +3,12 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IAccountToken,
   IFetchAccountTokensForDeepRefreshResp,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchTokenDetailParams,
+  IFetchTokenDetailResp,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -74,6 +77,17 @@ class ServiceToken extends ServiceBase {
       page,
       pageSize,
     };
+  }
+
+  @backgroundMethod()
+  public async fetchTokenDetail(params: IFetchTokenDetailParams) {
+    const endpoint = await getBaseEndpoint();
+    const client = await this.getClient();
+    const resp = await client.get<{ data: IAccountToken }>(
+      `${endpoint}/v5/account/token/detail`,
+      { params },
+    );
+    return resp.data.data;
   }
 }
 

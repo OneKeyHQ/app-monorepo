@@ -29,6 +29,7 @@ class ServiceSend extends ServiceBase {
       from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
       to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
       amount: `0.00000${random(1, 20)}`,
+      token: '',
     };
     // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> encodedTx
     // Dapp -> encodedTx

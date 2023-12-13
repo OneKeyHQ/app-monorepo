@@ -2,8 +2,9 @@ import { useIntl } from 'react-intl';
 
 import { Empty, ListView, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListAtom } from '../../../../states/jotai/contexts/token-list';
+import { useTokenListAtom } from '../../states/jotai/contexts/token-list';
 
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
@@ -11,6 +12,7 @@ import { TokenListItem } from './TokenListItem';
 type IProps = {
   isLoading?: boolean;
   onRefresh?: () => void;
+  onPress?: (token: IAccountToken) => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
@@ -30,7 +32,7 @@ function TokenListEmpty() {
 }
 
 function TokenListView(props: IProps) {
-  const { onContentSizeChange } = props;
+  const { onContentSizeChange, onPress } = props;
 
   const [tokenList] = useTokenListAtom();
   const { tokens } = tokenList;
@@ -48,7 +50,9 @@ function TokenListView(props: IProps) {
       }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
-      renderItem={({ item }) => <TokenListItem token={item} key={item.$key} />}
+      renderItem={({ item }) => (
+        <TokenListItem token={item} key={item.$key} onPress={onPress} />
+      )}
     />
   );
 }

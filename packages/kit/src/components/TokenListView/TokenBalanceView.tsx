@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { ListItem } from '@onekeyhq/components';
 
-import { useTokenListMapAtom } from '../../../../states/jotai/contexts/token-list';
+import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
 
 type IProps = {
   $key: string;

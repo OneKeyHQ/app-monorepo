@@ -150,7 +150,7 @@ export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
-  token?: string; // tokenIdOnNetwork
+  token: string; // tokenIdOnNetwork
 };
 
 // Fee ----------------------------------------------

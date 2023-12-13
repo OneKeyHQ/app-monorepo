@@ -17,6 +17,8 @@ export type ITokenFiat = {
   fiatValue: string;
 };
 
+export type IAccountToken = IToken & ITokenFiat;
+
 export type IFetchAccountTokensParams = {
   networkId: string;
   accountAddress: string;
@@ -46,4 +48,12 @@ export type IFetchAccountTokensForDeepRefreshResp = {
   total: number;
 };
 
-export type IAccountToken = IToken & ITokenFiat;
+export type IFetchTokenDetailParams = {
+  networkId: string;
+  accountAddress: string;
+  xpub?: string;
+  address: string;
+  isNative: boolean;
+};
+
+export type IFetchTokenDetailResp = IAccountToken;

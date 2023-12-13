@@ -10,7 +10,9 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceGas from '../services/ServiceGas';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
@@ -55,6 +57,12 @@ class BackgroundApiProxy
   serviceValidator = this._createProxyService(
     'serviceValidator',
   ) as ServiceValidator;
+
+  serviceNameResolver = this._createProxyService(
+    'serviceNameResolver',
+  ) as ServiceNameResolver;
+
+  serviceGas = this._createProxyService('serviceGas') as ServiceGas;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 

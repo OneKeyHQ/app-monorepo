@@ -12,7 +12,9 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceGas from '../services/ServiceGas';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
@@ -81,4 +83,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHistory: ServiceHistory;
   serviceDefi: ServiceDefi;
   serviceValidator: ServiceValidator;
+  serviceNameResolver: ServiceNameResolver;
+  serviceGas: ServiceGas;
 }

@@ -11,17 +11,31 @@ export enum EModalSendRoutes {
 }
 
 export type IModalSendParamList = {
-  [EModalSendRoutes.SendAssetInput]: undefined;
-  [EModalSendRoutes.SendAddressInput]: undefined;
+  [EModalSendRoutes.SendAssetInput]: {
+    networkId: string;
+    accountId: string;
+    transfersInfo: ITransferInfo[];
+  };
+  [EModalSendRoutes.SendAddressInput]: {
+    networkId: string;
+    accountId: string;
+    transfersInfo: ITransferInfo[];
+  };
   [EModalSendRoutes.SendAmountInput]: {
+    networkId: string;
+    accountId: string;
     transfersInfo: ITransferInfo[];
   };
   [EModalSendRoutes.SendConfirm]: {
-    unsignedTx: IUnsignedTxPro;
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
     transfersInfo: ITransferInfo[];
   };
   [EModalSendRoutes.SendProgress]: {
-    unsignedTx: IUnsignedTxPro;
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
     transfersInfo: ITransferInfo[];
   };
 };
