@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TextInput } from 'react-native';
 
 import {
   ActionList,
+  Button,
   Dialog,
+  Empty,
   IconButton,
   Input,
   ListItem,
@@ -17,13 +18,15 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,
 } from '../../router/Routes';
+import { getUrlIcon } from '../../utils/explorerUtils';
+import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
 
@@ -31,10 +34,13 @@ function BookmarkListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
+  const { removeBrowserBookmark } = useBrowserBookmarkAction();
 
-  const { isLoading, result } = usePromiseResult(
+  const [firstLoad, setFirstLoad] = useState<boolean>(true);
+  const { isLoading, result, run } = usePromiseResult(
     async () => {
       const data = await simpleDb.browserBookmarks.getRawData();
+      setFirstLoad(false);
       return (data?.data as IBrowserBookmark[]) || [];
     },
     [],
@@ -44,7 +50,26 @@ function BookmarkListModal() {
   );
 
   const dataSource = useMemo(() => result ?? [], [result]);
+
+  const displayEmptyView = useMemo(() => {
+    if (firstLoad) return false;
+    return dataSource.length === 0;
+  }, [dataSource, firstLoad]);
+
   const [editTitle, setEditTitle] = useState<string>('');
+  const onRename = useCallback(
+    (item: IBrowserBookmark) => {
+      setEditTitle('ABC');
+      console.log('Rename');
+      Dialog.show({
+        title: item.title,
+        description: item.title,
+        renderContent: <Input value={editTitle} onChangeText={setEditTitle} />,
+        onConfirm: () => {},
+      });
+    },
+    [editTitle],
+  );
 
   return (
     <Page>
@@ -62,83 +87,78 @@ function BookmarkListModal() {
         }}
       />
       <Page.Body>
-        <Input value={editTitle} onChangeText={setEditTitle} />
         <Stack flex={1}>
-          <ListView
-            height="100%"
-            estimatedItemSize="$10"
-            data={dataSource}
-            keyExtractor={(item) => item.url}
-            renderItem={({ item }) => (
-              <ListItem
-                avatarProps={{
-                  src: `${new URL(item.url ?? '').origin}/favicon.ico`,
-                  fallbackProps: {
-                    children: <Skeleton w="$10" h="$10" />,
-                  },
-                }}
-                title={item.title}
-                subtitle={item.url}
-                subtitleProps={{
-                  numberOfLines: 1,
-                }}
-                testID={`search-modal-${item.url.toLowerCase()}`}
-                onPress={() => {
-                  console.log('===>onPress');
-                }}
-              >
-                <ActionList
-                  title="Action List"
-                  placement="right-start"
-                  renderTrigger={
-                    <IconButton
-                      size="small"
-                      icon="DotHorOutline"
-                      variant="tertiary"
-                      focusStyle={undefined}
-                      p="$0.5"
-                      m={-3}
-                      testID="browser-bar-options"
-                    />
-                  }
-                  items={[
-                    {
-                      label: 'Rename',
-                      icon: 'StarSolid',
-                      onPress: () => {
-                        setEditTitle('ABC');
-                        console.log('Rename');
-                        Dialog.show({
-                          title: item.title,
-                          description: item.title,
-                          renderContent: (
-                            <Input
-                              value={editTitle}
-                              onChangeText={setEditTitle}
-                            />
-                          ),
-                          onConfirm: () => {},
-                        });
-                      },
-                      testID: `action-list-item-rename`,
+          <Button>Edit</Button>
+          {displayEmptyView ? (
+            <Stack flex={1} alignItems="center" justifyContent="center">
+              <Empty icon="CloudOffOutline" title="No Bookmarks yes." />
+            </Stack>
+          ) : (
+            <ListView
+              height="100%"
+              estimatedItemSize="$10"
+              data={dataSource}
+              keyExtractor={(item) => item.url}
+              renderItem={({ item }) => (
+                <ListItem
+                  avatarProps={{
+                    src: getUrlIcon(item.url),
+                    fallbackProps: {
+                      children: <Skeleton w="$10" h="$10" />,
                     },
-                    {
-                      label: 'Remove Bookmark',
-                      icon: 'ThumbtackSolid',
-                      onPress: () => {
-                        console.log('Remove');
+                  }}
+                  title={item.title}
+                  subtitle={item.url}
+                  subtitleProps={{
+                    numberOfLines: 1,
+                  }}
+                  testID={`search-modal-${item.url.toLowerCase()}`}
+                  onPress={() => {
+                    console.log('===>onPress');
+                  }}
+                >
+                  <ActionList
+                    title="Action List"
+                    placement="right-start"
+                    renderTrigger={
+                      <IconButton
+                        size="small"
+                        icon="DotHorOutline"
+                        variant="tertiary"
+                        focusStyle={undefined}
+                        p="$0.5"
+                        m={-3}
+                        testID="browser-bar-options"
+                      />
+                    }
+                    items={[
+                      {
+                        label: 'Rename',
+                        icon: 'StarSolid',
+                        onPress: () => {
+                          onRename(item);
+                        },
+                        testID: `action-list-item-rename`,
                       },
-                      testID: `action-list-item-rename`,
-                    },
-                  ]}
-                />
-              </ListItem>
-            )}
-          />
+                      {
+                        label: 'Remove Bookmark',
+                        icon: 'ThumbtackSolid',
+                        onPress: () => {
+                          void removeBrowserBookmark(item.url);
+                          void run();
+                        },
+                        testID: `action-list-item-rename`,
+                      },
+                    ]}
+                  />
+                </ListItem>
+              )}
+            />
+          )}
         </Stack>
       </Page.Body>
     </Page>
   );
 }
 
-export default BookmarkListModal;
+export default withBrowserProvider(BookmarkListModal);
