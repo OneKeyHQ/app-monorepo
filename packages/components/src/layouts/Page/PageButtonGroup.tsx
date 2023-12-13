@@ -77,7 +77,7 @@ export function PageButtonGroup() {
         p="$5"
         animation="fast"
         pb={getTokenValue('$size.5') as number}
-        bg="$bg"
+        bg="$bgApp"
       >
         <XStack justifyContent="flex-end">
           {(!!cancelButtonProps || !!onCancel) && (
