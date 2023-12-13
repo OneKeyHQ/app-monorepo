@@ -20,7 +20,7 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text, XStack } from '../../primitives';
+import { Icon, IStackProps, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 
 import { Content } from './Content';
@@ -37,6 +37,12 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IButtonProps } from '../../primitives/Button';
+
+// Fix the issue of the overlay layer in tamagui being too low
+const FIX_SHEET_PROPS: IStackProps = {
+  zIndex: 100001,
+  display: 'block',
+};
 
 function DialogFrame({
   open,
@@ -197,6 +203,7 @@ function DialogFrame({
         {...sheetProps}
       >
         <Sheet.Overlay
+          {...FIX_SHEET_PROPS}
           animation="quick"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
