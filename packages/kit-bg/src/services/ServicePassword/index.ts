@@ -43,6 +43,7 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // cachePassword ------------------------------
+  @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
   }
