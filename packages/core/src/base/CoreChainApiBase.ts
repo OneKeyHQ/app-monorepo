@@ -7,7 +7,9 @@ import {
   batchGetPrivateKeys,
   batchGetPublicKeys,
   decrypt,
+  decryptImportedCredential,
   ed25519,
+  encrypt,
   nistp256,
   secp256k1,
 } from '../secret';
@@ -118,8 +120,11 @@ export abstract class CoreChainApiBase {
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
       // const { relPaths } = account;
-      const { privateKey } = credentials.imported;
-      privateKeys[account.path] = privateKey;
+      const { privateKey: p } = decryptImportedCredential({
+        password,
+        credential: credentials.imported,
+      });
+      privateKeys[account.path] = bufferUtils.bytesToHex(encrypt(password, p));
     }
     if (!Object.keys(privateKeys).length) {
       throw new Error('No private keys found');
@@ -136,9 +141,7 @@ export abstract class CoreChainApiBase {
   }: ICoreApiGetPrivateKeysMapHdQuery & {
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { seed } = hdCredential;
     const { path } = account;
-    const seedBuffer = bufferUtils.toBuffer(seed);
     const pathComponents = path.split('/');
     const usedRelativePaths = relPaths || [pathComponents.pop() as string];
     const basePath = pathComponents.join('/');
@@ -151,7 +154,7 @@ export abstract class CoreChainApiBase {
 
     const keys = batchGetPrivateKeys(
       curve,
-      seedBuffer,
+      hdCredential,
       password,
       basePath,
       usedRelativePaths,
@@ -175,9 +178,7 @@ export abstract class CoreChainApiBase {
   ): Promise<ICoreApiGetAddressesResult> {
     const { curve, generateFrom } = options;
     const { template, hdCredential, password, indexes } = query;
-    const { seed } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
-    const seedBuffer = bufferUtils.toBuffer(seed);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
@@ -188,7 +189,7 @@ export abstract class CoreChainApiBase {
     if (isPrivateKeyMode) {
       pvtkeyInfos = batchGetPrivateKeys(
         curve,
-        seedBuffer,
+        hdCredential,
         password,
         pathPrefix,
         indexFormatted,
@@ -196,7 +197,7 @@ export abstract class CoreChainApiBase {
     } else {
       pubkeyInfos = batchGetPublicKeys(
         curve,
-        seedBuffer,
+        hdCredential,
         password,
         pathPrefix,
         indexFormatted,

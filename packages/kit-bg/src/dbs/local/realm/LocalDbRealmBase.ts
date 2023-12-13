@@ -72,19 +72,20 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     });
   }
 
-  private async _addSingletonWalletRecord({
+  private _addSingletonWalletRecord({
     db,
     walletId,
   }: {
     db: RealmDBAgent;
     walletId: IDBWalletIdSingleton;
   }) {
-    await db._getOrAddObjectRecord(ELocalDBStoreNames.Wallet, {
+    db._getOrAddObjectRecord(ELocalDBStoreNames.Wallet, {
       id: walletId,
       name: walletId,
       type: walletId,
       backuped: true,
       accounts: [],
+      nextIndex: 0,
       nextAccountIds: { 'global': 1 },
     });
   }

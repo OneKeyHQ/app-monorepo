@@ -91,8 +91,9 @@ export function normalizeErrorProps(
   config?: {
     defaultMessage?: string;
     defaultKey?: ILocaleIds;
+    defaultAutoToast?: boolean;
   },
-) {
+): IOneKeyError {
   let msg: string | undefined = isString(props) ? props : props?.message;
   const key =
     (isString(props) ? undefined : props?.key) ||
@@ -104,12 +105,16 @@ export function normalizeErrorProps(
       { id: key },
       (props as IOneKeyError)?.info,
     );
+    if (msg === key) {
+      msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
+    }
   }
   msg = msg || config?.defaultMessage || '';
 
   return {
     message: msg,
     key,
+    autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
     ...(isString(props) ? {} : props),
   };
 }

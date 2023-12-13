@@ -37,6 +37,8 @@ if (platformEnv.isExtensionUi) {
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
+  abstract settings: IVaultSettings;
+
   constructor(options: IVaultOptions) {
     super(options);
     this.checkVaultSettingsIsValid();
@@ -49,8 +51,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       );
     }
   }
-
-  abstract settings: IVaultSettings;
 
   // Methods not related to a single account, but implementation.
 

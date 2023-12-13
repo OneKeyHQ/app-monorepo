@@ -52,6 +52,7 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
       password: encodePassword({ password: '11111111' }),
     });
+
     // signOnly
     const signedTxWithoutBroadcast = await vault.signTransaction({
       unsignedTx,

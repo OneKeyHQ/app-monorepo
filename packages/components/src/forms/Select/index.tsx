@@ -295,7 +295,7 @@ export function Select({
             {...triggerProps}
           >
             <TMSelect.Value
-              placeholder="Something"
+              placeholder=""
               unstyled
               fontSize="$bodyLg"
               fontWeight="$bodyLg"

@@ -5,5 +5,6 @@ export enum ELocalDBStoreNames {
   Wallet = 'wallets',
   Account = 'accounts',
   AccountDerivation = 'account_derivations',
+  IndexedAccount = 'indexed_accounts',
   Device = 'devices',
 }
