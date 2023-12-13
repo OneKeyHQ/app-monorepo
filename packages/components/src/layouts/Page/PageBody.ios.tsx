@@ -10,12 +10,14 @@ export function PageBody({
   children,
   ...props
 }: PropsWithChildren<StackStyleProps>) {
+  const { options = {} } = useContext(PageContext);
+  const { avoidHeight } = options;
   return useMemo(
     () => (
-      <Stack flex={1} {...props}>
+      <Stack flex={1} {...props} bottom={avoidHeight}>
         {children}
       </Stack>
     ),
-    [children, props],
+    [avoidHeight, children, props],
   );
 }
