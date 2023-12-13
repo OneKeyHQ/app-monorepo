@@ -1,5 +1,5 @@
 import { Icon, ListItem } from '@onekeyhq/components';
-import type { IAccountNFT } from '@onekeyhq/shared/types/NFT';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
