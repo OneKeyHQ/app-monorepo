@@ -15,6 +15,7 @@ export type ISettingsPersistAtom = {
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
   spendDustUTXO: boolean;
+  appLockDuration: number;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -32,6 +33,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
+      appLockDuration: 240,
     },
   });
 
