@@ -580,4 +580,5 @@ module.exports = [
   'gitkeep',
   'COMMITHASH',
   'swipeable',
+  'nft',
 ];

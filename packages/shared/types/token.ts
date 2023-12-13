@@ -22,7 +22,7 @@ export type IFetchAccountTokensParams = {
   accountAddress: string;
   xpub?: string;
   page?: number;
-  pageSize?: 20;
+  pageSize?: number;
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];

@@ -44,7 +44,7 @@ function NFTListView(props: IProps) {
       }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={NFTListEmpty}
-      renderItem={({ item }) => <NFTListItem NFT={item} key={item.tokenId} />}
+      renderItem={({ item }) => <NFTListItem nft={item} key={item.itemId} />}
     />
   );
 }

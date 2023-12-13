@@ -24,8 +24,9 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams,
   ): Promise<IFetchAccountTokensResp> {
     const endpoint = await getBaseEndpoint();
+    const client = await this.getClient();
     try {
-      const resp = await this.client.post<{ data: IFetchAccountTokensResp }>(
+      const resp = await client.post<{ data: IFetchAccountTokensResp }>(
         `${endpoint}/v5/account/token/list`,
         params,
       );

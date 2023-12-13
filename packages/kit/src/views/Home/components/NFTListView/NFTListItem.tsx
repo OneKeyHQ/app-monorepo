@@ -1,36 +1,24 @@
-import { useMemo } from 'react';
-
 import { Icon, ListItem } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/NFT';
 
 type IProps = {
-  NFT: IAccountNFT;
+  nft: IAccountNFT;
   onPress?: (token: IAccountNFT) => void;
 };
 
-const MOCK_NETWORK_SYMBOL = 'ETH';
-
 function NFTListItem(props: IProps) {
-  const { NFT, onPress } = props;
-
-  const primaryText = useMemo(() => {
-    if (NFT.latestTradePrice && NFT.latestTradeSymbol) {
-      return `${NFT.latestTradePrice} ${NFT.latestTradeSymbol}`;
-    }
-
-    return `0 ${MOCK_NETWORK_SYMBOL}`;
-  }, [NFT.latestTradePrice, NFT.latestTradeSymbol]);
+  const { nft, onPress } = props;
 
   return (
     <ListItem
-      key={NFT.tokenId}
-      title={NFT.name}
-      subtitle={`X ${NFT.amount ?? 0}`}
+      key={nft.itemId}
+      title={nft.metadata.name}
+      subtitle={nft.collectionName}
       subtitleProps={{
         numberOfLines: 1,
       }}
       avatarProps={{
-        src: NFT.imageUri,
+        src: nft.metadata.image,
         fallbackProps: {
           bg: '$bgStrong',
           justifyContent: 'center',
@@ -39,21 +27,14 @@ function NFTListItem(props: IProps) {
         },
       }}
       onPress={() => {
-        onPress?.(NFT);
+        onPress?.(nft);
       }}
       outlineStyle="none"
       borderRadius="$0"
       paddingVertical="$4"
       margin="0"
     >
-      <ListItem.Text
-        align="right"
-        primary={primaryText}
-        secondary={NFT.value ?? '$0'}
-        secondaryTextProps={{
-          tone: 'subdued',
-        }}
-      />
+      <ListItem.Text align="right" primary={nft.amount} />
     </ListItem>
   );
 }

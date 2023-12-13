@@ -5,6 +5,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
+import { settingsPersistAtom } from '../states/jotai/atoms';
+
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -20,14 +22,21 @@ export default class ServiceBase {
     this.backgroundApi = backgroundApi;
   }
 
-  get client() {
+  backgroundApi: IBackgroundApi;
+
+  async getClient() {
     if (!this._client) {
-      this._client = axios.create({ timeout: 60 * 1000 });
+      const settings = await settingsPersistAtom.get();
+
+      this._client = axios.create({
+        headers: {
+          'x-onekey-currency': settings.currency,
+        },
+        timeout: 60 * 1000,
+      });
     }
     return this._client;
   }
-
-  backgroundApi: IBackgroundApi;
 
   @backgroundMethod()
   async getActiveWalletAccount() {

@@ -19,6 +19,7 @@ export type ISettingsPersistAtom = {
   appLockDuration: number;
   hardwareConnectSrc: EOnekeyDomain;
   endpointType: 'prod' | 'test';
+  currency: string;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -39,6 +40,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       appLockDuration: 240,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
       endpointType: 'test',
+      currency: 'usd',
     },
   });
 

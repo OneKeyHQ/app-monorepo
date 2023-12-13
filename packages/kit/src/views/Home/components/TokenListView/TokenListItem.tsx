@@ -33,11 +33,11 @@ function TokenListItem(props: IProps) {
       paddingVertical="$4"
       margin="0"
     >
-      <TokenPriceView $key={token.$key ?? ''} align="center" flex={1} />
+      <TokenPriceView $key={token.$key ?? ''} align="left" flex={1} />
       <TokenBalanceView
         $key={token.$key ?? ''}
         symbol={token.symbol}
-        align="center"
+        align="left"
         flex={1}
       />
       <TokenValueView $key={token.$key ?? ''} align="right" flex={1} />

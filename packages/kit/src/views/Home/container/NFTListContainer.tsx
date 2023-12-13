@@ -10,8 +10,11 @@ function NFTListContainer(props: IProps) {
   const { onContentSizeChange } = props;
 
   const nfts = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceNFT.demoFetchAccountNFTs();
-    return r.flatMap((item) => item.assets);
+    const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
+      networkId: 'evm--1',
+      accountAddress: '0xA9b4d559A98ff47C83B74522b7986146538cD4dF',
+    });
+    return r.data;
   }, []);
 
   return (
