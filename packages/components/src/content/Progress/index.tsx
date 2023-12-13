@@ -2,7 +2,7 @@ import { Progress as TMProgress } from 'tamagui';
 
 import type { ProgressProps as TMProgressProps } from 'tamagui';
 
-type IProgressProps = TMProgressProps;
+export type IProgressProps = TMProgressProps;
 
 export const Progress = ({ size, ...props }: IProgressProps) => (
   <TMProgress backgroundColor="$neutral5" h="$0.5" {...props}>

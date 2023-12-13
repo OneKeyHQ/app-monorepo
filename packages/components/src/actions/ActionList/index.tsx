@@ -8,24 +8,28 @@ import { ButtonFrame, Icon, Text, YStack } from '../../primitives';
 import { Popover } from '../Popover';
 import { Trigger } from '../Trigger';
 
-import type { IKeyOfIcons } from '../../primitives';
+import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
 
 interface IActionListItemProps {
   icon?: IKeyOfIcons;
+  iconProps?: IIconProps;
   label: string;
   destructive?: boolean;
   onPress?: () => void | Promise<boolean | void>;
   disabled?: boolean;
+  testID?: string;
 }
 
-function ActionListItem({
+export function ActionListItem({
   icon,
+  iconProps,
   label,
   onPress,
   destructive,
   disabled,
   onClose,
+  testID,
 }: IActionListItemProps & {
   onClose?: () => void;
 }) {
@@ -60,6 +64,7 @@ function ActionListItem({
         // },
       })}
       onPress={handlePress}
+      testID={testID}
     >
       {icon && (
         <Icon
@@ -68,12 +73,12 @@ function ActionListItem({
           mr="$3"
           $md={{ size: '$6' }}
           color={destructive ? '$iconCritical' : '$icon'}
+          {...iconProps}
         />
       )}
       <Text
         variant="$bodyMd"
         $md={{ variant: '$bodyLg' }}
-        userSelect="none"
         color={destructive ? '$textCritical' : '$text'}
       >
         {label}

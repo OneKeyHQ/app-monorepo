@@ -6,7 +6,7 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
@@ -102,6 +102,7 @@ function DesktopCustomTabBar() {
           onBookmarkPress={handleBookmarkPress}
           onPinnedPress={handlePinnedPress}
           onClose={handleCloseTab}
+          testID={`tab-list-stack-pinned-${t.id}`}
         />
       ))}
       {pinnedData.length > 0 && <Divider m="$1.5" />}
@@ -110,6 +111,7 @@ function DesktopCustomTabBar() {
         key="AddTabButton"
         label="New Tab"
         icon="PlusSmallOutline"
+        testID="browser-bar-add"
         onPress={(e) => {
           e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -130,6 +132,7 @@ function DesktopCustomTabBar() {
             onBookmarkPress={handleBookmarkPress}
             onPinnedPress={handlePinnedPress}
             onClose={handleCloseTab}
+            testID={`tab-modal-list-item-${t.id}`}
           />
         ))}
       </ScrollView>

@@ -1,4 +1,5 @@
 module.exports = [
+  'hd',
   'Jotai',
   'jotai',
   'readwrite',

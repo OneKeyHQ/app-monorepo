@@ -1,12 +1,8 @@
-import type { PropsWithChildren } from 'react';
-
 import { Stack } from '../../primitives';
 
-export function BasicPage({
-  children,
-}: PropsWithChildren<unknown> & {
-  skipLoading?: boolean;
-}) {
+import type { IBasicPageProps } from './type';
+
+export function BasicPage({ children }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
       {children}

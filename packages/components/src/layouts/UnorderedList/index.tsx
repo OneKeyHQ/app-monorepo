@@ -5,7 +5,7 @@ import { Icon, Stack, Text, XStack } from '../../primitives';
 import type { IIconProps } from '../../primitives';
 import type { StackProps, XStackProps } from 'tamagui';
 
-interface IUnOrderedListItemProps extends XStackProps {
+export interface IUnOrderedListItemProps extends XStackProps {
   icon?: IIconProps['name'];
   iconProps?: IIconProps;
 }

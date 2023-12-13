@@ -61,10 +61,15 @@ export const IconButton = (props: IIconButtonProps) => {
       p={p}
       borderRadius="$full"
       disabled={disabled || loading}
+      $platform-native={{
+        hitSlop:
+          size === 'small'
+            ? { top: 8, left: 8, right: 8, bottom: 8 }
+            : undefined,
+      }}
       {...(variant === 'tertiary' && {
         m: negativeMargin,
       })}
-      {...(size === 'small' && { hitSlop: 8 })}
       {...sharedFrameStyles}
       {...rest}
     >
@@ -88,7 +93,14 @@ export const IconButton = (props: IIconButtonProps) => {
   );
 
   if (title) {
-    return <Tooltip renderTrigger={renderIconButton()} renderContent={title} />;
+    return (
+      <Tooltip
+        renderTrigger={renderIconButton()}
+        renderContent={title}
+        placement="top"
+        {...(variant === 'tertiary' && { offset: 12 })}
+      />
+    );
   }
 
   return renderIconButton();

@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword';
+import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -13,7 +13,7 @@ import PasswordVerifyContainer from './PasswordVerifyContainer';
 const PasswordVerifyPromptMount = () => {
   const [{ passwordPromptPromiseId }] = usePasswordAtom();
   const showPasswordVerifyPrompt = useCallback((id: number) => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: 'ConfirmPassword',
       onClose() {
         void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {

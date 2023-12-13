@@ -7,5 +7,8 @@ export * from './RefreshControl';
 export * from './ScrollView';
 export * from './SearchBar';
 export * from './SectionList';
+export * from './SortableListView';
+export * from './SortableSectionList';
+export * from './SpotlightTour';
 export * from './TabView';
 export * from './UnorderedList';

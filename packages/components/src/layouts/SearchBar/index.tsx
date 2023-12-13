@@ -4,7 +4,7 @@ import { Input } from '../../forms/Input';
 
 import type { IInputProps } from '../../forms/Input';
 
-type ISearchBarProps = IInputProps;
+export type ISearchBarProps = IInputProps;
 
 export function SearchBar({
   value: defaultValue,

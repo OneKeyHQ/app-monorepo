@@ -1,4 +1,4 @@
-import type { FC, PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -23,13 +23,11 @@ export type IUIProviderProps = PropsWithChildren<{
   /**
    * default theme variant
    */
-  themeVariant: 'light' | 'dark';
+  theme: 'light' | 'dark';
   /**
    * default locale symbol
    */
   locale: ILocaleSymbol;
-
-  reduxReady?: boolean;
 
   waitFontLoaded?: boolean;
 }>;
@@ -54,23 +52,21 @@ function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
   return <>{children}</>;
 }
 
-export const ConfigProvider: FC<IUIProviderProps> = ({
+export function ConfigProvider({
   children,
-  themeVariant,
+  theme,
   locale,
-  reduxReady,
   waitFontLoaded,
-}) => {
+}: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
-      themeVariant,
-      reduxReady,
+      theme,
+      locale,
     }),
-    [themeVariant, reduxReady],
+    [theme, locale],
   );
 
-  useAppearanceTheme(themeVariant);
-
+  useAppearanceTheme(theme);
   return (
     <AppIntlProvider
       locale={locale}
@@ -81,10 +77,7 @@ export const ConfigProvider: FC<IUIProviderProps> = ({
           <ScreenSizeProvider>
             <SidebarStateProvider>
               <SafeAreaProvider>
-                <MemoizedTamaguiProvider
-                  config={config}
-                  defaultTheme={themeVariant}
-                >
+                <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
                   {children}
                   <Toaster />
                 </MemoizedTamaguiProvider>
@@ -95,4 +88,4 @@ export const ConfigProvider: FC<IUIProviderProps> = ({
       </FontProvider>
     </AppIntlProvider>
   );
-};
+}

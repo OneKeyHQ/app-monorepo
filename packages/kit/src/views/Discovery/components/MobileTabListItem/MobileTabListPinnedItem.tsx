@@ -40,7 +40,13 @@ function MobileTabListPinnedItem({
         scale: 0.95,
       }}
     >
-      <XStack bg="$bgStrong" p="$2" alignItems="center" borderRadius="$2.5">
+      <XStack
+        bg="$bgStrong"
+        p="$2"
+        alignItems="center"
+        borderRadius="$2.5"
+        testID={`tab-list-stack-pinned-${id}`}
+      >
         <Avatar size="$4" borderRadius="$1">
           <Avatar.Image src={tab?.favicon} />
           <Avatar.Fallback>

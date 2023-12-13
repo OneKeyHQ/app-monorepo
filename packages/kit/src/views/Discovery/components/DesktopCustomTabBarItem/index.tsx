@@ -14,6 +14,7 @@ function DesktopCustomTabBarItem({
   onBookmarkPress,
   onPinnedPress,
   onClose,
+  testID,
 }: {
   id: string;
   activeTabId: string | null;
@@ -21,6 +22,7 @@ function DesktopCustomTabBarItem({
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
+  testID?: string;
 }) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
@@ -36,6 +38,7 @@ function DesktopCustomTabBarItem({
       label={tab.title}
       avatarSrc={tab?.favicon}
       onActionListOpenChange={handleActionListOpenChange}
+      testID={testID}
       actionList={[
         {
           items: [
@@ -49,6 +52,9 @@ function DesktopCustomTabBarItem({
               onPress: () => {
                 onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
               },
+              testID: `action-list-item-${
+                !tab.isBookmark ? 'bookmark' : 'remove-bookmark'
+              }`,
             },
             {
               label: intl.formatMessage({
@@ -58,6 +64,7 @@ function DesktopCustomTabBarItem({
               onPress: () => {
                 onPinnedPress(tab.id, !tab.isPinned);
               },
+              testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
             },
           ],
         },
@@ -71,6 +78,9 @@ function DesktopCustomTabBarItem({
               onPress: () => {
                 onClose(id);
               },
+              testID: `action-list-item-close-${
+                tab.isPinned ? 'close-pin-tab' : 'close-tab'
+              }`,
             },
           ],
         },

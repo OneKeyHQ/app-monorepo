@@ -1,18 +1,10 @@
 import axios from 'axios';
 
 import {
-  checkCrossChainProviderIntersection,
-  checkSingleChainProviderIntersection,
-  filterTokenListByFromToken,
-  isOnlySupportSingleChainProvider,
-} from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getFiatEndpoint } from '@onekeyhq/shared/src/config/endpoint';
-
-import { swapAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 

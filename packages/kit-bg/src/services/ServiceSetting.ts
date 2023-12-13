@@ -22,6 +22,7 @@ class ServiceSetting extends ServiceBase {
   async refreshLocaleMessages() {
     const { locale: rawLocale } = await settingsPersistAtom.get();
     const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+
     const messagesBuilder = await (LOCALES[locale] as unknown as Promise<
       (() => Promise<Record<string, string>>) | Promise<Record<string, string>>
     >);
@@ -43,6 +44,30 @@ class ServiceSetting extends ServiceBase {
   public async setLocale(locale: ILocaleSymbol) {
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+  }
+
+  @backgroundMethod()
+  public async setProtectCreateTransaction(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      protectCreateTransaction: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setProtectCreateOrRemoveWallet(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      protectCreateOrRemoveWallet: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setSpendDustUTXO(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      spendDustUTXO: value,
+    }));
   }
 }
 

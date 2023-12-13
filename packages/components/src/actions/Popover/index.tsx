@@ -139,6 +139,9 @@ function RawPopover({
               paddingVertical="$4"
               justifyContent="space-between"
               alignItems="center"
+              style={{
+                borderCurve: 'continuous',
+              }}
             >
               <Text variant="$headingXl" color="$text">
                 {title}
@@ -146,8 +149,11 @@ function RawPopover({
               <IconButton
                 icon="CrossedSmallOutline"
                 size="small"
-                $platform-native={{ hitSlop: 8 }}
+                $platform-native={{
+                  hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+                }}
                 onPress={() => onOpenChange?.(false)}
+                testID="popover-btn-close"
               />
             </XStack>
 
@@ -167,6 +173,9 @@ function RawPopover({
               showsVerticalScrollIndicator={false}
               marginHorizontal="$5"
               marginBottom={bottom || '$5'}
+              style={{
+                borderCurve: 'continuous',
+              }}
             >
               <TMPopover.Adapt.Contents />
             </TMPopover.Sheet.ScrollView>

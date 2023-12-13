@@ -1,3 +1,4 @@
+import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/types';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IModalSettingParamList } from '../../views/Setting/types';
 import type { IModalSwapParamList } from '../../views/Swap/router/Routers';
@@ -8,6 +9,7 @@ export enum EModalRoutes {
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
   SwapModal = 'SwapModal',
+  AccountManagerStacks = 'AccountManagerStacks',
 }
 
 export type IModalParamList = {
@@ -15,4 +17,5 @@ export type IModalParamList = {
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.SettingModal]: IModalSettingParamList;
   [EModalRoutes.SwapModal]: IModalSwapParamList;
+  [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
 };

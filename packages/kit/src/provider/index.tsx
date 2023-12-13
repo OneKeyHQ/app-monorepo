@@ -1,5 +1,4 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { enableFreeze } from 'react-native-screens';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,8 +15,6 @@ if (platformEnv.isRuntimeBrowser) {
 }
 
 const flexStyle = { flex: 1 };
-
-enableFreeze();
 
 export function KitProvider() {
   return (

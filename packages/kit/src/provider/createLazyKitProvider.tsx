@@ -39,7 +39,7 @@ export function createLazyKitProvider({
 }: {
   displayName?: string;
 } = {}) {
-  const KitProvider = require('./KitProvider');
+  const { KitProvider } = require('.');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
-  return KitProvider.default;
+  return KitProvider;
 }

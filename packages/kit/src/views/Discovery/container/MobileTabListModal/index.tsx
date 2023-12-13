@@ -69,6 +69,7 @@ function TabToolBar({
           size="medium"
           onPress={onCloseAll}
           disabled={closeAllDisabled}
+          testID="tab-list-modal-close-all"
         >
           {intl.formatMessage({ id: 'action__close_all_tabs' })}
         </Button>
@@ -78,11 +79,17 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
+          testID="browser-bar-add"
           onPress={onAddTab}
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Button variant="tertiary" size="medium" onPress={onDone}>
+        <Button
+          variant="tertiary"
+          size="medium"
+          onPress={onDone}
+          testID="tab-list-modal-done"
+        >
           {intl.formatMessage({ id: 'action__done' })}
         </Button>
       </Stack>
@@ -243,6 +250,9 @@ function MobileTabListModal() {
                     tab.url,
                     tab.title ?? '',
                   ),
+                testID: `action-list-item-${
+                  !tab.isBookmark ? 'bookmark' : 'remove-bookmark'
+                }`,
               },
               {
                 label: intl.formatMessage({
@@ -250,11 +260,13 @@ function MobileTabListModal() {
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
+                testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
               },
               {
                 label: intl.formatMessage({ id: 'action__share' }),
                 icon: 'ShareOutline',
                 onPress: () => handleShare(tab.url),
+                testID: 'action-list-item-share',
               },
             ],
           },
@@ -268,6 +280,9 @@ function MobileTabListModal() {
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
+                testID: `action-list-item-close-${
+                  tab.isPinned ? 'close-pin-tab' : 'close-tab'
+                }`,
               },
             ],
           },

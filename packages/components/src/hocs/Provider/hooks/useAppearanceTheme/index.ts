@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IUseAppearanceTheme } from './type';
@@ -25,8 +27,10 @@ function setThemePreloadToLocalStorage(value: string, forceUpdate = true) {
   }
 }
 
-export const useAppearanceTheme: IUseAppearanceTheme = (themeVariant) => {
-  if (['dark', 'light'].includes(themeVariant)) {
-    setThemePreloadToLocalStorage(themeVariant, true);
-  }
+export const useAppearanceTheme: IUseAppearanceTheme = (theme) => {
+  useEffect(() => {
+    if (['dark', 'light'].includes(theme)) {
+      setThemePreloadToLocalStorage(theme, true);
+    }
+  }, [theme]);
 };

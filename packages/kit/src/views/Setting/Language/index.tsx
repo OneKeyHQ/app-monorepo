@@ -16,7 +16,10 @@ export default function SettingLanguageModal() {
   }, []);
   return (
     <Page>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ py: '$2' }}
+      >
         <ListItemSelect
           onChange={onChange}
           value={settings.locale}

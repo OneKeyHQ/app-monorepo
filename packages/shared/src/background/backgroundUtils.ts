@@ -359,3 +359,34 @@ export async function fetchData<T>(
   //   return fallback;
   // }
 }
+
+export function getBackgroundServiceApi({
+  serviceName,
+  backgroundApi,
+}: {
+  serviceName: string;
+  backgroundApi: any;
+}) {
+  let serviceApi: {
+    [key: string]: (...args: any[]) => any;
+  } = backgroundApi;
+  if (serviceName) {
+    if (serviceName.includes('@')) {
+      const [nameSpace, name] = serviceName.split('@');
+      if (!nameSpace) {
+        throw new Error(`service nameSpace not found: ${nameSpace}`);
+      }
+      if (!backgroundApi[nameSpace]) {
+        throw new Error(`service nameSpace not found: ${nameSpace}`);
+      }
+      serviceApi = backgroundApi[nameSpace][name];
+    } else {
+      serviceApi = backgroundApi[serviceName];
+    }
+
+    if (!serviceApi) {
+      throw new Error(`serviceApi not found: ${serviceName}`);
+    }
+  }
+  return serviceApi;
+}

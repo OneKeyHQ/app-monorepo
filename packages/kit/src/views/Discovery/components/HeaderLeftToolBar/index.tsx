@@ -1,6 +1,11 @@
-import { useMedia } from 'tamagui';
-
-import { Icon, Input, Stack, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  Stack,
+  Text,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -67,15 +72,18 @@ function HeaderLeftToolBar({
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
+          testID="browser-bar-go-back"
         />
         <HeaderIconButton
           icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
+          testID="browser-bar-go-forward"
         />
         <HeaderIconButton
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
+          testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
       <Input
@@ -87,10 +95,14 @@ function HeaderLeftToolBar({
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
+            testID: `action-header-item-${
+              !isBookmark ? 'bookmark' : 'remove-bookmark'
+            }`,
           },
           {
             iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress?.(!isPinned),
+            testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
           },
         ]}
       />

@@ -14,7 +14,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ETestModalPages } from '../router/type';
 
-import type { ITabHomeParamList } from '../../../routes/Tab/Home/Routes';
+import type { ITabHomeParamList } from '../../Home/type';
 
 export function TestSimpleModal() {
   const headerRightCall = useCallback(
@@ -31,7 +31,7 @@ export function TestSimpleModal() {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
   return (
-    <Page>
+    <Page enableSafeArea>
       <Page.Header
         title="test modal"
         headerShown={showHeader}

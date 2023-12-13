@@ -77,7 +77,7 @@ export function makeModalStackNavigatorOptions({
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
-    headerShown: false,
+    headerShown: platformEnv.isRuntimeBrowser,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),

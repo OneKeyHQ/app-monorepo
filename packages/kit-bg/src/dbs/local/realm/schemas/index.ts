@@ -5,6 +5,7 @@ import { RealmSchemaAccountDerivation } from './RealmSchemaAccountDerivation';
 import { RealmSchemaContext } from './RealmSchemaContext';
 import { RealmSchemaCredential } from './RealmSchemaCredential';
 import { RealmSchemaDevice } from './RealmSchemaDevice';
+import { RealmSchemaIndexedAccount } from './RealmSchemaIndexedAccount';
 import { RealmSchemaWallet } from './RealmSchemaWallet';
 
 import type { RealmObjectBase } from '../base/RealmObjectBase';
@@ -14,6 +15,7 @@ export const realmDBSchemasMap: Record<
   typeof RealmObjectBase<any>
 > = {
   [ELocalDBStoreNames.Account]: RealmSchemaAccount,
+  [ELocalDBStoreNames.IndexedAccount]: RealmSchemaIndexedAccount,
   [ELocalDBStoreNames.Wallet]: RealmSchemaWallet,
   [ELocalDBStoreNames.Device]: RealmSchemaDevice,
   [ELocalDBStoreNames.Context]: RealmSchemaContext,

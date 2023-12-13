@@ -57,6 +57,7 @@ function TabItemView({
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
         actionList={options.actionList}
+        testID={route.name.toLowerCase()}
       />
     ),
     [isActive, onPress, options, route.name],
@@ -104,7 +105,7 @@ export function DesktopLeftSideBar({
           }
         };
 
-        if (route.name === extraConfig?.name) {
+        if (platformEnv.isDesktop && route.name === extraConfig?.name) {
           return (
             <YStack
               flex={1}

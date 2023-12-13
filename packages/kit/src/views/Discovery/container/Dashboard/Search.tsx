@@ -8,7 +8,7 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserAction,
   useBrowserTabActions,
@@ -65,7 +65,7 @@ function SearchModal() {
   }, [value]);
 
   return (
-    <Page skipLoading>
+    <Page skipLoading enableSafeArea>
       <Page.Header
         headerTitle="Search Modal"
         headerSearchBarOptions={{
@@ -99,6 +99,7 @@ function SearchModal() {
                 subtitleProps={{
                   numberOfLines: 1,
                 }}
+                testID={`search-modal-${item.name.toLowerCase()}`}
                 onPress={() => {
                   handleOnPress(item);
                 }}

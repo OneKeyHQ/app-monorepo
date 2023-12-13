@@ -65,7 +65,7 @@ export default function MobileBottomTabBar({
 
         return (
           <Stack
-            testID="Mobile-AppTabBar-TabItem"
+            testID={route.name.toLocaleLowerCase()}
             flex={1}
             key={route.name}
             onPress={onPress}
@@ -77,9 +77,6 @@ export default function MobileBottomTabBar({
       }),
     [descriptors, navigation, routes, state.index, state.key],
   );
-  if (isHide) {
-    return null;
-  }
   return (
     <Stack
       testID="Mobile-AppTabBar"
@@ -87,6 +84,8 @@ export default function MobileBottomTabBar({
       bg="$bgApp"
       borderTopColor="$borderSubdued"
       pb={bottom}
+      // Hidden the tabBar and prevent tabBar re-rendering every time when the keyboard is popup.
+      {...(isHide && { h: 0, overflow: 'hidden' })}
     >
       <Stack
         testID="Mobile-AppTabBar-Content"

@@ -6,7 +6,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/Routes';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 
 import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';

@@ -21,18 +21,18 @@ import type {
   SelectProps as TMSelectProps,
 } from 'tamagui';
 
-interface ISelectItem {
+export interface ISelectItem {
   label: string;
   value: string;
   leading?: ListItemProps['icon'];
 }
 
-interface ISelectSection {
+export interface ISelectSection {
   items: ISelectItem[];
   title?: string;
 }
 
-interface ISelectProps extends TMSelectProps {
+export interface ISelectProps extends TMSelectProps {
   items?: ISelectItem[];
   sections?: ISelectSection[];
   sheetProps?: SheetProps;
@@ -295,10 +295,11 @@ export function Select({
             {...triggerProps}
           >
             <TMSelect.Value
-              placeholder="Something"
+              placeholder=""
               unstyled
               fontSize="$bodyLg"
               fontWeight="$bodyLg"
+              color="$text"
             />
           </TMSelect.Trigger>
         )}
@@ -330,7 +331,7 @@ export function Select({
                   <IconButton
                     icon="CrossedSmallOutline"
                     size="small"
-                    hitSlop={8}
+                    hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
                     aria-label="Close"
                     onPress={() => setOpen(false)}
                   />
@@ -420,5 +421,3 @@ export function Select({
     </Stack>
   );
 }
-
-export type { ISelectProps, ISelectItem, ISelectSection };

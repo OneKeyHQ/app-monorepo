@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import {
@@ -29,7 +29,8 @@ export function AppStateLockContainer({
     <AppStateLock
       enableWebAuth={!!webAuthCredentialId}
       onWebAuthVerify={async () => {
-        const res = await backgroundApiProxy.servicePassword.verifyWebAuth();
+        const res =
+          await backgroundApiProxy.servicePassword.getWebAuthPassword();
         if (res) {
           await handleUnlock();
         } else {
@@ -37,13 +38,15 @@ export function AppStateLockContainer({
         }
       }}
       passwordVerifyContainer={
-        <PasswordVerifyContainer
-          onVerifyRes={async (data) => {
-            if (data) {
-              await handleUnlock();
-            }
-          }}
-        />
+        <Suspense>
+          <PasswordVerifyContainer
+            onVerifyRes={async (data) => {
+              if (data) {
+                await handleUnlock();
+              }
+            }}
+          />
+        </Suspense>
       }
     />
   );
