@@ -5,6 +5,13 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab, XStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import {
+  AccountSelectorActiveAccount,
+  AccountSelectorProvider,
+  AccountSelectorTrigger,
+} from '../../../components/AccountSelector';
 
 import { DefiListContainer } from './DefiListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -66,6 +73,16 @@ function HomePageContainer() {
       <Page>
         <Page.Header headerTitle={() => <HomeHeaderContainer />} />
         <Page.Body alignItems="center">
+          <AccountSelectorProvider
+            config={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <AccountSelectorTrigger num={0} />
+            <AccountSelectorActiveAccount num={0} />
+          </AccountSelectorProvider>
           <Tab
             // @ts-expect-error
             data={tabs}
