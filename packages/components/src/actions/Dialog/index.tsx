@@ -1,11 +1,13 @@
 import type { ForwardedRef } from 'react';
 import {
+  Children,
   createRef,
   forwardRef,
   useCallback,
   useContext,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -28,12 +30,13 @@ import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
-  IDialogInstanceRef,
+  IDialogInstance,
   IDialogProps,
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IButtonProps } from '../../primitives/Button';
+import { DialogForm } from './DialogForm';
 
 function DialogFrame({
   open,
@@ -59,6 +62,7 @@ function DialogFrame({
   testID,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
+  const { dialogInstance } = useContext(DialogContext);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -74,11 +78,14 @@ function DialogFrame({
 
   const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
-    const result = await onConfirm?.();
+    const result = await onConfirm?.({
+      close: dialogInstance.close,
+      getForm: () => dialogInstance.ref.current,
+    });
     if (result || result === undefined) {
       onClose?.();
     }
-  }, [onConfirm, onClose]);
+  }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
     onCancel?.();
@@ -261,9 +268,10 @@ function DialogFrame({
 
 function BaseDialogContainer(
   { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
-  ref: ForwardedRef<IDialogInstanceRef>,
+  ref: ForwardedRef<IDialogInstance>,
 ) {
   const [isOpen, changeIsOpen] = useState(true);
+  const formRef = useRef();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
@@ -274,6 +282,7 @@ function BaseDialogContainer(
     () => ({
       dialogInstance: {
         close: handleClose,
+        ref: formRef,
       },
     }),
     [handleClose],
@@ -288,6 +297,7 @@ function BaseDialogContainer(
     ref,
     () => ({
       close: handleClose,
+      getForm: () => formRef.current,
     }),
     [handleClose],
   );
@@ -305,16 +315,13 @@ function BaseDialogContainer(
   );
 }
 
-const DialogContainer = forwardRef<IDialogInstanceRef, IDialogContainerProps>(
+const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({
-  onClose,
-  ...props
-}: IDialogShowProps): IDialogInstanceRef {
-  let instanceRef: React.RefObject<IDialogInstanceRef> | undefined =
-    createRef<IDialogInstanceRef>();
+function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+  let instanceRef: React.RefObject<IDialogInstance> | undefined =
+    createRef<IDialogInstance>();
   let portalRef:
     | {
         current: IPortalManager;
@@ -341,6 +348,7 @@ function DialogShow({
   };
   return {
     close: () => instanceRef?.current?.close(),
+    getForm: () => instanceRef?.current?.getForm(),
   };
 }
 
@@ -362,6 +370,7 @@ export const useDialogInstance = () => {
 };
 
 export const Dialog = {
+  Form: DialogForm,
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
@@ -371,4 +380,5 @@ export type {
   IDialogShowProps,
   IDialogConfirmProps,
   IDialogCancelProps,
+  IDialogInstance,
 } from './type';

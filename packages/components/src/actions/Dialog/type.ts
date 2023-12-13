@@ -1,13 +1,14 @@
-import type { PropsWithChildren } from 'react';
+import type { MutableRefObject, PropsWithChildren } from 'react';
 
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
+import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
 
 export type IDialogContextType = {
-  dialogInstance?: IDialogInstanceRef;
+  dialogInstance: IDialogInstanceRef;
 };
 
 export interface IDialogContentProps extends PropsWithChildren {
@@ -26,7 +27,7 @@ export interface IDialogProps extends TMDialogProps {
   estimatedContentHeight?: number;
   renderContent?: React.ReactNode;
   showFooter?: boolean;
-  onConfirm?: () => void | Promise<boolean>;
+  onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
@@ -41,9 +42,13 @@ export interface IDialogProps extends TMDialogProps {
   testID?: string;
 }
 
+export type IOnDialogConfirm = (
+  dialogInstance: IDialogInstance,
+) => void | Promise<boolean>;
+
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
-    onConfirm?: () => void | Promise<boolean>;
+    onConfirm?: IOnDialogConfirm;
   }
 >;
 
@@ -59,6 +64,18 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
+type IDialogForm = ReturnType<typeof useForm>;
+
 export interface IDialogInstanceRef {
   close: () => void;
+  ref: MutableRefObject<IDialogForm | undefined>;
 }
+
+export interface IDialogInstance {
+  close: () => void;
+  getForm: () => IDialogForm | undefined;
+}
+
+export type IDialogFormProps = PropsWithChildren<{
+  formProps: UseFormProps;
+}>;
