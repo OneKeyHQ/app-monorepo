@@ -1,8 +1,6 @@
-import { type PropsWithChildren, useContext, useMemo } from 'react';
+import { type PropsWithChildren, useMemo } from 'react';
 
 import { Stack } from '../../primitives';
-
-import { PageContext } from './PageContext';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 
