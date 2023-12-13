@@ -3,6 +3,7 @@ export enum EDiscoveryModalRoutes {
   SearchModal = 'SearchModal',
   FakeSearchModal = 'FakeSearchModal',
   BookmarkListModal = 'BookmarkListModal',
+  HistoryListModal = 'HistoryListModal',
 }
 
 export type IDiscoveryModalParamList = {
@@ -12,4 +13,5 @@ export type IDiscoveryModalParamList = {
   };
   [EDiscoveryModalRoutes.FakeSearchModal]: undefined;
   [EDiscoveryModalRoutes.BookmarkListModal]: undefined;
+  [EDiscoveryModalRoutes.HistoryListModal]: undefined;
 };

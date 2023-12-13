@@ -579,4 +579,5 @@ module.exports = [
   'alg',
   'gitkeep',
   'COMMITHASH',
+  'dayjs',
 ];

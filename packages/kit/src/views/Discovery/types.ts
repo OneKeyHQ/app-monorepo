@@ -11,8 +11,10 @@ export interface IDAppItemType {
 }
 
 export interface IBrowserHistory {
+  id: string;
   title: string;
   url: string;
+  createdAt: number;
 }
 
 export interface IBrowserBookmark {

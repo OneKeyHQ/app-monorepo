@@ -1,4 +1,5 @@
 import { isEqual } from 'lodash';
+import { nanoid } from 'nanoid';
 
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -315,7 +316,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBrowserHistory = contextAtomMethod(
-    (get, set, payload: IBrowserHistory) => {
+    (get, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
@@ -324,7 +325,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (index !== -1) {
         history.splice(index, 1);
       }
-      history.unshift({ url: payload.url, title: payload.title });
+      history.unshift({
+        id: nanoid(),
+        url: payload.url,
+        title: payload.title,
+        createdAt: Date.now(),
+      });
       this.buildHistoryData.call(set, history);
       console.log('===>set browserHistoryAtom: ', history);
     },
@@ -332,7 +338,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   removeBrowserHistory = contextAtomMethod((get, set, payload: string) => {
     const history = get(browserHistoryAtom());
-    const index = history.findIndex((item) => item.url === payload);
+    const index = history.findIndex((item) => item.id === payload);
     if (index !== -1) {
       history.splice(index, 1);
     }

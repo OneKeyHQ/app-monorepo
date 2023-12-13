@@ -14,13 +14,14 @@ import {
   Page,
   Skeleton,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import simpleDb from '@onekeyhq/kit-bg/src/dbs/simple/simpleDb';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   EDiscoveryModalRoutes,
   type IDiscoveryModalParamList,
@@ -39,7 +40,8 @@ function BookmarkListModal() {
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const { isLoading, result, run } = usePromiseResult(
     async () => {
-      const data = await simpleDb.browserBookmarks.getRawData();
+      const data =
+        await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
       setFirstLoad(false);
       return (data?.data as IBrowserBookmark[]) || [];
     },
@@ -91,7 +93,11 @@ function BookmarkListModal() {
           <Button>Edit</Button>
           {displayEmptyView ? (
             <Stack flex={1} alignItems="center" justifyContent="center">
-              <Empty icon="CloudOffOutline" title="No Bookmarks yes." />
+              <Empty
+                icon="CloudOffOutline"
+                title="No Bookmarks yes."
+                description="To add a bookmark, tap more in your browser."
+              />
             </Stack>
           ) : (
             <ListView
@@ -145,6 +151,11 @@ function BookmarkListModal() {
                         icon: 'ThumbtackSolid',
                         onPress: () => {
                           void removeBrowserBookmark(item.url);
+                          Toast.success({
+                            title: intl.formatMessage({
+                              id: 'msg__bookmark_removed',
+                            }),
+                          });
                           void run();
                         },
                         testID: `action-list-item-rename`,
