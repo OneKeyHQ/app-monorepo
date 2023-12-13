@@ -102,7 +102,6 @@ function BaseInput(
   }: IInputProps,
   ref: ForwardedRef<IInputRef>,
 ) {
-  console.log('----size', size);
   const {
     verticalPadding,
     horizontalPadding,
