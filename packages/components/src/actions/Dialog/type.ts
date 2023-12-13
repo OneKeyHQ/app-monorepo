@@ -18,7 +18,6 @@ export interface IDialogContentProps extends PropsWithChildren {
 export interface IDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
-  renderTrigger?: React.ReactNode;
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
