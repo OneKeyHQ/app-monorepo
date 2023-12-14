@@ -48,6 +48,7 @@ function SwipeableCellContainer({
         });
         return (
           <Animated.View
+            key={index}
             style={{
               zIndex: isRightDirection ? index : itemList.length - index,
               transform: [
