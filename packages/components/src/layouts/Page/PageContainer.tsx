@@ -19,7 +19,13 @@ export function PageContainer({
     () => (
       <BasicPage skipLoading={skipLoading} safeAreaEnabled={safeAreaEnabled}>
         <View
-          style={{ flex: 1, overflow: scrollEnabled ? 'scroll' : 'hidden' }}
+          style={
+            {
+              flex: 1,
+              // fix scroll padding in page body
+              overflowY: scrollEnabled ? 'scroll' : 'hidden',
+            } as any
+          }
         >
           {children}
         </View>
