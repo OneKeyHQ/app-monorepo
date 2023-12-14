@@ -9,6 +9,7 @@ import {
   Text,
   XStack,
 } from '@onekeyhq/components';
+
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
