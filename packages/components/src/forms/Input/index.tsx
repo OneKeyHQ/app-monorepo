@@ -40,6 +40,10 @@ export type IInputProps = {
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'>;
 
+export type IInputRef = {
+  focus: () => void;
+};
+
 const SIZE_MAPPINGS = {
   'large': {
     verticalPadding: '$2.5',
@@ -96,7 +100,7 @@ function BaseInput(
     autoFocus,
     ...props
   }: IInputProps,
-  ref: ForwardedRef<any>,
+  ref: ForwardedRef<IInputRef>,
 ) {
   const {
     verticalPadding,
@@ -312,4 +316,6 @@ function BaseInput(
   );
 }
 
-export const Input = forwardRef(BaseInput);
+const forwardRefInput = forwardRef<IInputRef, IInputProps>(BaseInput);
+
+export const Input = forwardRefInput;

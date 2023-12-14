@@ -1,3 +1,5 @@
+import { useCallback, useRef, useState } from 'react';
+
 import {
   Alert,
   Button,
@@ -6,6 +8,7 @@ import {
   Icon,
   Input,
   Page,
+  Select,
   SizableText,
   Stack,
   XStack,
@@ -15,44 +18,83 @@ import {
 
 import { Tutorials } from '../Components';
 
+import type { LayoutChangeEvent } from 'react-native';
+
+const useAvoidKeyboardLayout = () => {
+  const alertHeight = useRef(0);
+  const { changePageAvoidHeight } = usePageAvoidKeyboard();
+  const updateLayoutHeight = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    alertHeight.current = height;
+  }, []);
+  const changePageLayoutHeight = useCallback(() => {
+    changePageAvoidHeight(() => alertHeight.current);
+  }, [changePageAvoidHeight]);
+  return {
+    updateLayoutHeight,
+    changeLayoutHeight: changePageLayoutHeight,
+  };
+};
+
+const tutorials = [
+  {
+    title: 'What is a recovery phrase?',
+    description:
+      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
+  },
+  {
+    title: 'Is it safe to enter it into OneKey?',
+    description:
+      'Yes. It will be stored locally and never leave your device without your explicit permission.',
+  },
+];
+
+const phraseLengthOptions = [
+  { label: '12 words', value: 12 },
+  { label: '15 words', value: 15 },
+  { label: '18 words', value: 18 },
+  { label: '21 words', value: 21 },
+  { label: '24 words', value: 24 },
+];
+
 function PageContent() {
   const form = useForm({});
+  const [phraseLength, setPhraseLength] = useState(
+    phraseLengthOptions[0].value,
+  );
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
-
-  const { changePageAvoidHeight } = usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
     }
     return `${length} invalid words`;
   };
+  const { updateLayoutHeight, changeLayoutHeight } = useAvoidKeyboardLayout();
 
-  const tutorials = [
-    {
-      title: 'What is a recovery phrase?',
-      description:
-        'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
-    },
-    {
-      title: 'Is it safe to enter it into OneKey?',
-      description:
-        'Yes. It will be stored locally and never leave your device without your explicit permission.',
-    },
-  ];
   return (
     <Page.Body>
-      <Alert
-        type="warning"
-        fullBleed
-        title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-        closable
-      />
+      <Stack onLayout={updateLayoutHeight}>
+        <Alert
+          closable
+          type="warning"
+          fullBleed
+          title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+        />
+      </Stack>
       <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
-        <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
-          12 words
-        </Button>
+        <Select
+          title="Select a length"
+          items={phraseLengthOptions}
+          value={phraseLength}
+          onChange={setPhraseLength}
+          renderTrigger={({ value }) => (
+            <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
+              {value} words
+            </Button>
+          )}
+        />
         <Button icon="BroomOutline" variant="tertiary">
           Clear
         </Button>
@@ -65,9 +107,7 @@ function PageContent() {
                 <Input
                   pl="$8"
                   returnKeyType="next"
-                  onFocus={() => {
-                    changePageAvoidHeight(index > 5 ? 100 : 0);
-                  }}
+                  onFocus={changeLayoutHeight}
                 />
               </Form.Field>
               <SizableText

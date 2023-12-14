@@ -1,9 +1,17 @@
 import type { PropsWithChildren } from 'react';
 import { useContext } from 'react';
 
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   getTokenValue,
-  useKeyboardHeight,
+  useKeyboardEvent,
   useSafeAreaInsets,
 } from '../../hooks';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
@@ -21,14 +29,32 @@ export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
   cancelButtonProps?: IActionButtonProps;
 }
 
+const useSafeKeyboardAnimationStyle = () => {
+  const { bottom: safeBottomHeight } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value,
+  }));
+  useKeyboardEvent({
+    keyboardWillShow: (e) => {
+      const keyboardHeight = e.endCoordinates.height;
+      keyboardHeightValue.value = withTiming(keyboardHeight - safeBottomHeight);
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = withTiming(0);
+    },
+  });
+  return animatedStyles;
+};
+
 export function PageButtonGroup() {
   const { options } = useContext(PageContext);
-  const { bottom } = useSafeAreaInsets();
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
-  const height = useKeyboardHeight();
   if (!options?.footerOptions) {
     return null;
   }
+
   const {
     onCancel,
     onCancelText,
@@ -44,46 +70,49 @@ export function PageButtonGroup() {
   }
 
   return (
-    <Stack
-      p="$5"
-      {...(bottom && {
-        pb: bottom + (getTokenValue('$size.5') as number),
-      })}
-      marginBottom={height}
+    <Animated.View
+      style={platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined}
     >
-      <XStack justifyContent="flex-end">
-        {(!!cancelButtonProps || !!onCancel) && (
-          <Button
-            $md={
-              {
-                flex: 1,
-                size: 'large',
-              } as IButtonProps
-            }
-            $platform-native={{}}
-            onPress={onCancel}
-            {...cancelButtonProps}
-          >
-            {onCancelText || 'Cancel'}
-          </Button>
-        )}
-        {(!!confirmButtonProps || !!onConfirm) && (
-          <Button
-            $md={
-              {
-                flex: 1,
-                size: 'large',
-              } as IButtonProps
-            }
-            $platform-native={{}}
-            variant="primary"
-            onPress={onConfirm}
-            {...confirmButtonProps}
-          >
-            {onConfirmText || 'Confirm'}
-          </Button>
-        )}
-      </XStack>
-    </Stack>
+      <Stack
+        p="$5"
+        animation="fast"
+        pb={getTokenValue('$size.5') as number}
+        bg="$bgApp"
+      >
+        <XStack justifyContent="flex-end">
+          {(!!cancelButtonProps || !!onCancel) && (
+            <Button
+              $md={
+                {
+                  flex: 1,
+                  size: 'large',
+                } as IButtonProps
+              }
+              $platform-native={{}}
+              onPress={onCancel}
+              {...cancelButtonProps}
+            >
+              {onCancelText || 'Cancel'}
+            </Button>
+          )}
+          {(!!confirmButtonProps || !!onConfirm) && (
+            <Button
+              $md={
+                {
+                  flex: 1,
+                  size: 'large',
+                } as IButtonProps
+              }
+              $platform-native={{}}
+              variant="primary"
+              onPress={onConfirm}
+              {...confirmButtonProps}
+            >
+              {onConfirmText || 'Confirm'}
+            </Button>
+          )}
+        </XStack>
+      </Stack>
+    </Animated.View>
   );
 }

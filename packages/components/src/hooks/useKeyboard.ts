@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { DependencyList, useCallback, useEffect, useState } from 'react';
 
 import { Keyboard } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { KeyboardEventListener } from 'react-native';
 
 export { default as useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
+
+const showEventName = platformEnv.isNativeIOS
+  ? 'keyboardWillShow'
+  : 'keyboardDidShow';
+const hideEventName = platformEnv.isNativeIOS
+  ? 'keyboardWillHide'
+  : 'keyboardDidHide';
 
 export function useKeyboardHeight() {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
@@ -20,10 +29,8 @@ export function useKeyboardHeight() {
 
   useEffect(() => {
     const subscriptions = [
-      Keyboard.addListener('keyboardWillShow', handleKeyboardWillShow),
-      // Keyboard.addListener('keyboardDidShow', handleKeyboardDidShow),
-      Keyboard.addListener('keyboardWillHide', handleKeyboardWillHide),
-      // Keyboard.addListener('keyboardDidHide', handleKeyboardDidHide),
+      Keyboard.addListener(showEventName, handleKeyboardWillShow),
+      Keyboard.addListener(hideEventName, handleKeyboardWillHide),
     ];
 
     return () => {
@@ -33,3 +40,32 @@ export function useKeyboardHeight() {
 
   return keyboardHeight;
 }
+
+const noop = () => undefined;
+export const useKeyboardEvent = (
+  {
+    keyboardWillShow = noop,
+    keyboardWillHide = noop,
+  }: {
+    keyboardWillShow?: KeyboardEventListener;
+    keyboardWillHide?: KeyboardEventListener;
+  },
+  deps: DependencyList = [],
+) => {
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      showEventName,
+      keyboardWillShow,
+    );
+
+    const hideSubscription = Keyboard.addListener(
+      hideEventName,
+      keyboardWillHide,
+    );
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+};
