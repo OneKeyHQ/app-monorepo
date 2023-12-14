@@ -19,14 +19,16 @@ export type { IPageProps } from './type';
 function PageProvider({
   children,
   skipLoading = false,
-  safeAreaEnabled = false,
   scrollEnabled = false,
+  safeAreaEnabled = true,
 }: IPageProps) {
   const [options, setOptions] = useState<{
+    safeAreaEnabled?: boolean;
     footerOptions?: IPageButtonGroupProps;
     scrollEnabled?: boolean;
   }>({
     scrollEnabled,
+    safeAreaEnabled,
   });
   const value = useMemo(
     () => ({
@@ -37,12 +39,7 @@ function PageProvider({
   );
   return (
     <PageContext.Provider value={value}>
-      <PageContainer
-        skipLoading={skipLoading}
-        safeAreaEnabled={safeAreaEnabled}
-      >
-        {children}
-      </PageContainer>
+      <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
     </PageContext.Provider>
   );
 }

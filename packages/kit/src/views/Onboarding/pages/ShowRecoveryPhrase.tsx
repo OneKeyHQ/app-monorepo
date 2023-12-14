@@ -61,7 +61,7 @@ export function ShowRecoveryPhrase() {
   const [isShowPhrase, setIsShowPhrase] = useState(false);
 
   return (
-    <Page safeAreaEnabled>
+    <Page>
       <Page.Header />
       <Page.Body>
         <Heading

@@ -14,7 +14,9 @@ import {
   useKeyboardEvent,
   useSafeAreaInsets,
 } from '../../hooks';
+import { View } from '../../optimization';
 import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
+import { NavigationContext } from '../Navigation/context';
 
 import { PageContext } from './PageContext';
 
@@ -47,12 +49,19 @@ const useSafeKeyboardAnimationStyle = () => {
   return animatedStyles;
 };
 
+const useSafeAreaBottom = () => {
+  const { pageType } = useContext(NavigationContext);
+  const { safeAreaEnabled } = useContext(PageContext);
+  const { bottom } = useSafeAreaInsets();
+  return safeAreaEnabled && pageType === 'modal' ? bottom : 0;
+};
+
 export function PageButtonGroup() {
   const { options } = useContext(PageContext);
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
-
+  const bottom = useSafeAreaBottom();
   if (!options?.footerOptions) {
-    return null;
+    return bottom > 0 ? <View style={{ height: bottom }} /> : null;
   }
 
   const {
@@ -76,7 +85,7 @@ export function PageButtonGroup() {
       <Stack
         p="$5"
         animation="fast"
-        pb={getTokenValue('$size.5') as number}
+        pb={(getTokenValue('$size.5') as number) + bottom}
         bg="$bgApp"
       >
         <XStack justifyContent="flex-end">

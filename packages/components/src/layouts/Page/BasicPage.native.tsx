@@ -57,20 +57,9 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   );
 }
 
-export function BasicPage({
-  children,
-  safeAreaEnabled,
-  skipLoading = false,
-}: IBasicPageProps) {
-  const insets = useSafeAreaInsets();
-  const styles =
-    safeAreaEnabled && PlatformEnv.isNative && !PlatformEnv.isNativeIOSPad
-      ? {
-          paddingBottom: insets.bottom,
-        }
-      : {};
+export function BasicPage({ children, skipLoading = false }: IBasicPageProps) {
   return (
-    <Stack bg="$bgApp" flex={1} {...styles}>
+    <Stack bg="$bgApp" flex={1}>
       {skipLoading ? children : <LoadingScreen>{children}</LoadingScreen>}
     </Stack>
   );

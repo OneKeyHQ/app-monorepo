@@ -23,7 +23,7 @@ export function TestIOSFullModal() {
     navigation.push(EIOSFullScreenModalRoutes.iOSFullScreenTestModal);
   }, [navigation]);
   return (
-    <Page safeAreaEnabled>
+    <Page>
       <Page.Header title="test modal" headerRight={headerRightCall} />
       <Page.Body bg="burlywood">
         <XStack>

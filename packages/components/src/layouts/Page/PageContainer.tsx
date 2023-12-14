@@ -8,16 +8,12 @@ import { PageContext } from './PageContext';
 
 import type { IPageProps } from './type';
 
-export function PageContainer({
-  children,
-  skipLoading,
-  safeAreaEnabled,
-}: IPageProps) {
+export function PageContainer({ children, skipLoading }: IPageProps) {
   const { options = {} } = useContext(PageContext);
   const { scrollEnabled } = options;
   const memoPageContainer = useMemo(
     () => (
-      <BasicPage skipLoading={skipLoading} safeAreaEnabled={safeAreaEnabled}>
+      <BasicPage skipLoading={skipLoading}>
         <View
           style={
             {
@@ -32,7 +28,7 @@ export function PageContainer({
         <BasicPageFooter />
       </BasicPage>
     ),
-    [skipLoading, safeAreaEnabled, scrollEnabled, children],
+    [skipLoading, scrollEnabled, children],
   );
   return memoPageContainer;
 }
