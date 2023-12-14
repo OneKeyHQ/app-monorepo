@@ -51,9 +51,9 @@ const useSafeKeyboardAnimationStyle = () => {
 
 const useSafeAreaBottom = () => {
   const { pageType } = useContext(NavigationContext);
-  const { safeAreaEnabled } = useContext(PageContext);
+  const { options } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
-  return safeAreaEnabled && pageType === 'modal' ? bottom : 0;
+  return options?.safeAreaEnabled && pageType === 'modal' ? bottom : 0;
 };
 
 export function PageButtonGroup() {

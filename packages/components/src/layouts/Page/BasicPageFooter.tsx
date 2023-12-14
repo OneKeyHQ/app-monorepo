@@ -14,13 +14,13 @@ export const BasicPageFooter = memo(BasicPageFooterContainer);
 type IPageFooterProps = IPageButtonGroupProps;
 
 export function PageContextFooter(props: IPageFooterProps) {
-  const { setOptions, options } = useContext(PageContext);
+  const { setOptions } = useContext(PageContext);
   const { onCancelText, onConfirmText, children } = props;
   useLayoutEffect(() => {
-    setOptions?.({
+    setOptions?.((options) => ({
       ...options,
       footerOptions: props,
-    });
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onCancelText, onConfirmText, children]);
   return null;

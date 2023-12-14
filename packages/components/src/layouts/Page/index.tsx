@@ -45,29 +45,29 @@ function PageProvider({
 }
 
 export const usePageScrollEnabled = () => {
-  const { options = {}, setOptions } = useContext(PageContext);
+  const { options, setOptions } = useContext(PageContext);
   return {
-    scrollEnabled: options.scrollEnabled,
+    scrollEnabled: options?.scrollEnabled,
     changeScrollEnabled: (enabled: boolean) => {
-      setOptions?.({
-        ...options,
+      setOptions?.((value) => ({
+        ...value,
         scrollEnabled: enabled,
-      });
+      }));
     },
   };
 };
 
 export const usePageAvoidKeyboard = () => {
-  const { options = {}, setOptions } = useContext(PageContext);
+  const { options, setOptions } = useContext(PageContext);
   const keyboardHeight = useKeyboardHeight();
   const changePageAvoidHeight = useCallback(
     (callback: (keyboardHeight: number) => number) => {
-      setOptions?.({
-        ...options,
+      setOptions?.((value) => ({
+        ...value,
         avoidHeight: callback(keyboardHeight),
-      });
+      }));
     },
-    [keyboardHeight, options, setOptions],
+    [keyboardHeight, setOptions],
   );
 
   useKeyboardEvent(
@@ -76,11 +76,11 @@ export const usePageAvoidKeyboard = () => {
         changePageAvoidHeight(() => 0);
       },
     },
-    [options],
+    [],
   );
   return {
     keyboardHeight,
-    avoidHeight: options.avoidHeight,
+    avoidHeight: options?.avoidHeight,
     changePageAvoidHeight,
   };
 };
