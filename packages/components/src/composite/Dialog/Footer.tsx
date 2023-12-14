@@ -14,9 +14,9 @@ const useConfirmButtonDisabled = (
   const { getForm } = useDialogInstance();
   const [, updateStatus] = useState(0);
   useEffect(() => {
-    if (disabledOn) {
-      const form = getForm();
-      const subscription = form?.watch(() => {
+    const form = getForm();
+    if (form && disabledOn) {
+      const subscription = form.watch(() => {
         updateStatus((i) => i + 1);
       });
       return () => {
