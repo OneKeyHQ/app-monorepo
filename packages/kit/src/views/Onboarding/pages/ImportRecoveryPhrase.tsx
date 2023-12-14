@@ -115,12 +115,16 @@ function PageContent() {
               <Form.Field name={`phrase${index + 1}`}>
                 <Input
                   size={media.md ? 'large' : 'medium'}
-                  pl="$8"
+                  leftAddOnProps={{
+                    label: `${index + 1}`,
+                    minWidth: '$10',
+                    justifyContent: 'center',
+                  }}
                   returnKeyType="next"
                   onFocus={changeLayoutHeight}
                 />
               </Form.Field>
-              <SizableText
+              {/* <SizableText
                 pointerEvents="none"
                 position="absolute"
                 color="$textDisabled"
@@ -134,7 +138,7 @@ function PageContent() {
                 textAlign="right"
               >
                 {index + 1}
-              </SizableText>
+              </SizableText> */}
             </Stack>
           ))}
         </XStack>

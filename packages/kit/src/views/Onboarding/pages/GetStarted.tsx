@@ -69,8 +69,8 @@ export function GetStarted() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <Page.Body>
-        <Stack p="$5" flex={1} justifyContent="center" alignItems="center">
+      <Page.Body p="$5" space="$5">
+        <Stack flex={1} justifyContent="center" alignItems="center">
           {/* <Image
             w="$16"
             h="$16"
@@ -87,7 +87,7 @@ export function GetStarted() {
             Welcome to OneKey
           </Heading> */}
         </Stack>
-        <Stack space="$2" p="$5">
+        <Stack space="$2">
           {/* <SizableText textAlign="center" pb="$3" size="$headingLg">
             How would you like to get started?
           </SizableText> */}
@@ -153,6 +153,17 @@ export function GetStarted() {
           >
             Import Wallet
           </Button>
+          <Button
+            icon="LinkOutline"
+            onPress={handleImportWalletPress}
+            variant="tertiary"
+            m="$0"
+            $md={{
+              size: 'large',
+            }}
+          >
+            Connect 3rd-party Wallet
+          </Button>
           {/* <Button
             icon="ArrowBottomCircleOutline"
             onPress={handleImportPrivateKeyPress}
@@ -182,12 +193,11 @@ export function GetStarted() {
           </Button> */}
         </Stack>
         <SizableText
-          p="$5"
           size="$bodySm"
           color="$textDisabled"
           textAlign="center"
           {...(bottom && {
-            pb: bottom + (getTokenValue('$size.5') as number),
+            pb: bottom,
           })}
         >
           By continuing to use the app, you agree to these{' '}

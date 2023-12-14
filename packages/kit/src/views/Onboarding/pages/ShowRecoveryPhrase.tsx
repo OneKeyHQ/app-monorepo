@@ -14,36 +14,41 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
+import type { ColorTokens } from 'tamagui';
+
 interface IWaningMessage {
   icon?: IIconProps['name'];
   iconColor?: IIconProps['color'];
+  iconContainerColor?: ColorTokens;
   message?: string;
 }
 
 const messages: IWaningMessage[] = [
   {
-    icon: 'LockSolid',
+    icon: 'LockOutline',
     iconColor: '$iconInfo',
+    iconContainerColor: '$bgInfo',
     message:
-      'The recovery phrase alone gives you full access to your wallet and funds.',
+      'The recovery phrase alone gives you full access to your wallets and funds.',
   },
   {
-    icon: 'InputSolid',
+    icon: 'InputOutline',
     iconColor: '$iconSuccess',
+    iconContainerColor: '$bgSuccess',
     message:
-      'Forgot your password? Your recovery phrase restores access to your wallet',
+      'If you forget your password, you can use the recovery phrase to get back into your wallet.',
   },
   {
-    icon: 'CirclePlaceholderOffSolid',
+    icon: 'EyeOffOutline',
     iconColor: '$iconCritical',
-    message:
-      'Protect your recovery phrase — never share it or input it into unauthorized apps.',
+    iconContainerColor: '$bgCritical',
+    message: 'Never share it with anyone or enter it into any form.',
   },
   {
-    icon: 'ShieldCheckDoneSolid',
-    iconColor: '$icon',
-    message:
-      'Reminder, OneKey Support will never request your recovery phrase.',
+    icon: 'ShieldCheckDoneOutline',
+    iconColor: '$iconCaution',
+    iconContainerColor: '$bgCaution',
+    message: 'OneKey Support will never ask for your recovery phrase.',
   },
 ];
 
@@ -58,52 +63,39 @@ export function ShowRecoveryPhrase() {
   return (
     <Page safeAreaEnabled>
       <Page.Header />
-      <Page.Body
-        $gtMd={{
-          pt: '$8',
-        }}
-      >
-        <AnimatePresence>
-          {!isShowPhrase && (
+      <Page.Body>
+        <Heading
+          pt="$2"
+          pb="$4"
+          px="$6"
+          maxWidth="$96"
+          size="$heading3xl"
+          $md={{ size: '$heading2xl' }}
+        >
+          Read the following, then save the phrase securely.
+        </Heading>
+        {messages.map((item) => (
+          <ListItem key={item.message}>
             <Stack
-              key="message"
-              animation="quick"
-              maxWidth={480}
-              mx="auto"
-              exitStyle={{
-                opacity: 0,
-                x: -16,
+              p="$2"
+              borderRadius="$3"
+              bg={item.iconContainerColor}
+              style={{
+                borderCurve: 'continuous',
               }}
             >
-              <Stack
-                borderRadius="$full"
-                p="$3"
-                bg="$bgCaution"
-                alignSelf="center"
-              >
-                <Icon name="ErrorSolid" size="$8" color="$iconCaution" />
-              </Stack>
-              <Heading pt="$5" pb="$3" size="$headingXl" textAlign="center">
-                Before you proceed
-              </Heading>
-              {messages.map((item) => (
-                <ListItem
-                  alignItems="flex-start"
-                  key={item.message}
-                  icon={item.icon}
-                  iconProps={{
-                    color: item.iconColor,
-                  }}
-                  title={item.message}
-                  titleProps={{
-                    size: '$bodyLg',
-                  }}
-                  minHeight="auto"
-                />
-              ))}
+              <Icon name={item.icon} color={item.iconColor} />
             </Stack>
-          )}
-
+            <ListItem.Text
+              flex={1}
+              primary={item.message}
+              primaryTextProps={{
+                size: '$bodyLg',
+              }}
+            />
+          </ListItem>
+        ))}
+        <AnimatePresence>
           {isShowPhrase && (
             <Stack
               key="phrase"

@@ -126,7 +126,7 @@ function BaseInput(
     <Group
       orientation="horizontal"
       borderRadius={size === 'large' ? '$3' : '$2'}
-      disablePassBorderRadius={!addOns?.length}
+      disablePassBorderRadius={!addOns?.length && !leftAddOnProps}
       disabled={disabled}
       {...containerProps}
     >
