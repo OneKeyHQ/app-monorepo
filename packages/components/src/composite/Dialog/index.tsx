@@ -20,8 +20,7 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text, XStack } from '../../primitives';
-import { Button } from '../../primitives/Button';
+import { Icon, Stack, Text } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -89,7 +88,6 @@ function DialogFrame({
     const form = dialogInstance.ref.current;
     if (form) {
       const isValidated = await form.trigger();
-      console.log(isValidated);
       if (!isValidated) {
         return;
       }
@@ -359,11 +357,6 @@ const DialogCancel = (props: IDialogCancelProps) =>
     showConfirmButton: false,
   });
 
-export const useDialogInstance = () => {
-  const { dialogInstance } = useContext(DialogContext);
-  return dialogInstance;
-};
-
 export const Dialog = {
   Form: DialogForm,
   FormField: Form.Field,
@@ -371,6 +364,8 @@ export const Dialog = {
   confirm: DialogConfirm,
   cancel: DialogCancel,
 };
+
+export * from './hooks';
 
 export type {
   IDialogShowProps,

@@ -16,6 +16,9 @@ export interface IDialogContentProps extends PropsWithChildren {
   testID?: string;
 }
 
+type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
+  disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
+};
 export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive';
   showFooter?: boolean;
@@ -23,10 +26,11 @@ export interface IDialogFooterProps extends PropsWithChildren {
   showCancelButton?: boolean;
   onConfirmText?: string;
   onCancelText?: string;
-  confirmButtonProps?: IButtonProps;
-  cancelButtonProps?: IButtonProps;
+  confirmButtonProps?: IDialogButtonProps;
+  cancelButtonProps?: IDialogButtonProps;
   onConfirm?: () => void;
   onCancel?: () => void;
+  // disabledOn: () => void;
 }
 
 interface IBasicDialogProps extends TMDialogProps {

@@ -197,24 +197,110 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: '命令式 API',
+        title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
-          <YStack>
+          <YStack space="$4">
             <Button
               onPress={() =>
                 Dialog.show({
-                  title: 'Lorem ipsum',
-                  onConfirmText: 'OK',
-                  onCancelText: 'Bye',
-                  description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm() {
-                    alert('confirmed');
-                  },
+                  title: 'show',
+                  renderContent: <Text>Show</Text>,
                 })
               }
             >
-              Confirm
+              Dialog.show
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'confirm',
+                  renderContent: <Text>hide by Confirm button</Text>,
+                  onConfirm: () =>
+                    new Promise((resolve) => {
+                      setTimeout(() => {
+                        // do stuff
+                        // close the dialog.
+                        resolve(true);
+                        // or keep the dialog here.
+                        // resolve(false);
+                      }, 1500);
+                    }),
+                })
+              }
+            >
+              Dialog.confirm
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.cancel({
+                  title: 'confirm',
+                  renderContent: <Text>cancel</Text>,
+                })
+              }
+            >
+              Dialog.cancel
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Disabled Confirm Button',
+        element: (
+          <YStack space="$4">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'show',
+                  confirmButtonProps: { disabled: true },
+                  renderContent: <Text>Show</Text>,
+                })
+              }
+            >
+              disabled Button
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Only `RESET` can be accept',
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { text: 'hello' },
+                      }}
+                    >
+                      <Dialog.FormField name="text">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  confirmButtonProps: {
+                    disabledOn: ({ getForm }) => {
+                      const { getValues } = getForm() || {};
+                      if (getValues) {
+                        const { text } = getValues();
+                        return text !== 'RESET';
+                      }
+                      return true;
+                    },
+                  },
+                  onConfirm: () =>
+                    new Promise((resolve) => {
+                      setTimeout(() => {
+                        // do stuff
+                        // close the dialog.
+                        resolve(true);
+                        // or keep the dialog here.
+                        // resolve(false);
+                      }, 1500);
+                    }),
+                })
+              }
+            >
+              disabled Button with Dialog Confirm
             </Button>
           </YStack>
         ),
@@ -331,53 +417,6 @@ const DialogGallery = () => (
               }
             >
               Open Dialog AutoFocus
-            </Button>
-          </YStack>
-        ),
-      },
-      {
-        title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
-        element: (
-          <YStack space="$4">
-            <Button
-              onPress={() =>
-                Dialog.show({
-                  title: 'show',
-                  renderContent: <Text>Show</Text>,
-                })
-              }
-            >
-              Dialog.show
-            </Button>
-            <Button
-              onPress={() =>
-                Dialog.confirm({
-                  title: 'confirm',
-                  renderContent: <Text>hide by Confirm button</Text>,
-                  onConfirm: () =>
-                    new Promise((resolve) => {
-                      setTimeout(() => {
-                        // do stuff
-                        // close the dialog.
-                        resolve(true);
-                        // or keep the dialog here.
-                        // resolve(false);
-                      }, 1500);
-                    }),
-                })
-              }
-            >
-              Dialog.confirm
-            </Button>
-            <Button
-              onPress={() =>
-                Dialog.cancel({
-                  title: 'confirm',
-                  renderContent: <Text>cancel</Text>,
-                })
-              }
-            >
-              Dialog.cancel
             </Button>
           </YStack>
         ),
