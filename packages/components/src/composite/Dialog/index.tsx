@@ -37,7 +37,6 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
-import type { IButtonProps } from '../../primitives/Button';
 
 // Fix the issue of the overlay layer in tamagui being too low
 const FIX_SHEET_PROPS: IStackProps = {
