@@ -6,9 +6,19 @@ import { OneKeyHardwareError } from '../../../errors';
 import { AccountType, type DBAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { NOSTR_ADDRESS_INDEX, getNostrPath } from './helper/NostrSDK';
+import {
+  NOSTR_ADDRESS_INDEX,
+  getNostrPath,
+  validateEvent,
+} from './helper/NostrSDK';
 
-import type { IPrepareHardwareAccountsParams, ISignedTxPro } from '../../types';
+import type { DBVariantAccount } from '../../../types/account';
+import type {
+  IPrepareHardwareAccountsParams,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxNostr } from './helper/types';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
@@ -60,8 +70,103 @@ export class KeyringHardware extends KeyringHardwareBase {
     return ret;
   }
 
-  override signTransaction(): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<ISignedTxPro> {
+    debugLogger.common.info('signTransaction', unsignedTx);
+    const { encodedTx } = unsignedTx;
+    const { event } = encodedTx as IEncodedTxNostr;
+    if (!validateEvent(event)) {
+      throw new Error('Invalid event');
+    }
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    let response;
+    try {
+      response = await HardwareSDK.nostrSignEvent(connectId, deviceId, {
+        ...passphraseState,
+        path: dbAccount.path,
+        event,
+      });
+    } catch (error: any) {
+      debugLogger.hardwareSDK.error(error);
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      debugLogger.hardwareSDK.error(response.payload);
+      throw convertDeviceError(response.payload);
+    }
+
+    const { event: signedEvent } = response.payload;
+    event.sig = signedEvent.sig;
+
+    return {
+      txid: signedEvent.id ?? '',
+      rawTx: JSON.stringify(event),
+    };
+  }
+
+  async encrypt(params: {
+    pubkey: string;
+    plaintext: string;
+  }): Promise<string> {
+    const { pubkey, plaintext } = params;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    let response;
+    try {
+      response = await HardwareSDK.nostrEncryptMessage(connectId, deviceId, {
+        ...passphraseState,
+        path: dbAccount.path,
+        pubkey,
+        plaintext,
+      });
+    } catch (error: any) {
+      debugLogger.hardwareSDK.error(error);
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      debugLogger.hardwareSDK.error(response.payload);
+      throw convertDeviceError(response.payload);
+    }
+
+    return response.payload.encryptedMessage;
+  }
+
+  async decrypt(params: { pubkey: string; ciphertext: string }) {
+    const { pubkey, ciphertext } = params;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    let response;
+    try {
+      response = await HardwareSDK.nostrDecryptMessage(connectId, deviceId, {
+        ...passphraseState,
+        path: dbAccount.path,
+        pubkey,
+        ciphertext,
+      });
+    } catch (error: any) {
+      debugLogger.hardwareSDK.error(error);
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      debugLogger.hardwareSDK.error(response.payload);
+      throw convertDeviceError(response.payload);
+    }
+
+    return response.payload.decryptedMessage;
   }
 
   override signMessage(): Promise<string[]> {
