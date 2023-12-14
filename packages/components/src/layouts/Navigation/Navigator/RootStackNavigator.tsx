@@ -10,7 +10,7 @@ import {
 } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import type { ICommonNavigatorConfig } from './types';
+import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ParamListBase } from '@react-navigation/routers';
 
 type IRootStackType = 'normal' | 'modal' | 'fullScreen' | 'iOSFullScreen';
@@ -50,16 +50,16 @@ export function RootStackNavigator<
   });
 
   const getOptionsWithType = useCallback(
-    (type?: IRootStackType) => {
+    (type: IRootStackType, optionsInfo: IScreenOptionsInfo<any>) => {
       switch (type) {
         case 'modal':
-          return makeModalScreenOptions({ isVerticalLayout });
+          return makeModalScreenOptions({ isVerticalLayout, optionsInfo });
         case 'fullScreen':
           return makeFullScreenOptions();
         case 'iOSFullScreen':
           return platformEnv.isNative
             ? makeFullScreenOptions()
-            : makeModalScreenOptions({ isVerticalLayout });
+            : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
         default:
           return {};
       }
@@ -76,7 +76,10 @@ export function RootStackNavigator<
             key={name}
             name={name}
             component={component}
-            options={{ ...options, ...getOptionsWithType(type) }}
+            options={(optionsInfo) => ({
+              ...options,
+              ...getOptionsWithType(type, optionsInfo),
+            })}
           />
         )),
     [config, getOptionsWithType],

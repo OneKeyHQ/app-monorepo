@@ -1,13 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { TransitionPresets } from '@react-navigation/stack';
+import {
+  // eslint-disable-next-line spellcheck/spell-checker
+  CardStyleInterpolators,
+  TransitionPresets,
+} from '@react-navigation/stack';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
+import type { IScreenOptionsInfo } from './Navigator/types';
 import type { RouteProp } from '@react-navigation/native';
+import type { ParamListBase } from '@react-navigation/routers';
 import type { StackNavigationOptions } from '@react-navigation/stack';
 import type { VariableVal } from '@tamagui/core';
 
@@ -42,8 +48,9 @@ export function makeRootScreenOptions(options: {
   };
 }
 
-export function makeModalOpenAnimationOptions(options: {
+export function makeModalOpenAnimationOptions(info: {
   isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   if (platformEnv.isExtension) {
     return {
@@ -53,54 +60,67 @@ export function makeModalOpenAnimationOptions(options: {
     };
   }
 
-  if (options.isVerticalLayout) {
+  if (info.isVerticalLayout) {
     return {
       animationEnabled: true,
       ...TransitionPresets.ModalSlideFromBottomIOS,
     };
   }
 
-  // fallback to platform defaults animation
-  return { animationEnabled: false };
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  const currentRouteIndex = info?.optionsInfo?.navigation
+    ?.getState?.()
+    ?.routes?.findIndex?.(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (route: any) => route?.key === info?.optionsInfo?.route?.key,
+    );
+
+  return {
+    animationEnabled: true,
+    ...(currentRouteIndex > 1
+      ? TransitionPresets.BottomSheetAndroid
+      : TransitionPresets.ModalPresentationIOS),
+  };
 }
 
 export function makeModalStackNavigatorOptions({
-  navInfo,
+  optionsInfo,
+  bgColor,
+  titleColor,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
-  navInfo?: {
-    route: RouteProp<any>;
-    navigation: any;
-  };
+  optionsInfo?: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
     headerShown: platformEnv.isRuntimeBrowser,
+    animationEnabled: true,
+    // eslint-disable-next-line spellcheck/spell-checker
+    cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),
   };
 
   // Disable modal first screen navigation.replace() animation
-  if (navInfo?.route?.params?._disabledAnimationOfNavigate) {
+  if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
     options.animationEnabled = false;
   }
   return options;
 }
 
-export function makeModalScreenOptions({
-  isVerticalLayout,
-}: {
-  isVerticalLayout: boolean;
+export function makeModalScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
-    ...makeModalOpenAnimationOptions({ isVerticalLayout }),
+    ...makeModalOpenAnimationOptions(info),
   };
 }
 

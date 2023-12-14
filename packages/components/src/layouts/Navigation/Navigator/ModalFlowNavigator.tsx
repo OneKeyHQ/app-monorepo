@@ -9,10 +9,9 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
 
-import type { ICommonNavigatorConfig } from './types';
+import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ILocaleIds } from '../../../locale';
 import type { IModalNavigationOptions } from '../ScreenProps';
-import type { RouteProp } from '@react-navigation/native';
 import type { ParamListBase } from '@react-navigation/routers';
 
 export interface IModalFlowNavigatorConfig<
@@ -42,9 +41,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   const intl = useIntl();
 
   const makeScreenOptions = useCallback(
-    (navInfo: { route: RouteProp<any>; navigation: any }) => ({
+    (optionsInfo: IScreenOptionsInfo<any>) => ({
       ...makeModalStackNavigatorOptions({
-        navInfo,
+        optionsInfo,
         bgColor,
         titleColor,
       }),
