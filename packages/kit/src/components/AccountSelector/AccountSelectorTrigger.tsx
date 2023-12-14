@@ -8,14 +8,6 @@ import { useAccountSelectorContextData } from '../../states/jotai/contexts/accou
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 
-function Content({ num }: { num: number }) {
-  return (
-    <ScrollView h="$100">
-      <AccountSelectorDialog num={num} />
-    </ScrollView>
-  );
-}
-
 export function AccountSelectorTrigger({ num }: { num: number }) {
   const contextData = useAccountSelectorContextData();
   const { config } = contextData;
@@ -26,7 +18,9 @@ export function AccountSelectorTrigger({ num }: { num: number }) {
       estimatedContentHeight: 490,
       renderContent: (
         <AccountSelectorProviderMirror config={checkIsDefined(config)}>
-          <Content num={num} />
+          <ScrollView h="$100">
+            <AccountSelectorDialog num={num} />
+          </ScrollView>
         </AccountSelectorProviderMirror>
       ),
       showFooter: false,
