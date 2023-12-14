@@ -300,7 +300,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              disabled Button with Dialog Confirm
+              disabled Button with Dialog Form
             </Button>
           </YStack>
         ),
