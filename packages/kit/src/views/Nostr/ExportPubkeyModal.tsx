@@ -1,16 +1,18 @@
 import type { FC } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Modal } from '@onekeyhq/components';
+import { Modal, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { PrivateOrPublicKeyPreview } from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate/previewView';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { deviceUtils } from '../../utils/hardware';
+
+import { useExistNostrAccount } from './hooks/useExistNostrAccount';
 
 import type { NostrRoutesParams } from '../../routes';
 import type { NostrModalRoutes } from '../../routes/routesEnum';
@@ -60,13 +62,24 @@ const ExportPubkeyModal = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
   const { walletId, networkId, accountId } = route.params;
+  const { isFetchNostrAccount, existNostrAccount } = useExistNostrAccount({
+    walletId,
+    currentAccountId: accountId,
+    currentNetworkId: networkId,
+  });
 
-  return (
-    <Modal
-      footer={null}
-      header={intl.formatMessage({ id: 'title__nostr_public_key' })}
-      height="auto"
-    >
+  const content = useMemo(() => {
+    if (existNostrAccount) {
+      return (
+        <ExportPublicKeyView
+          walletId={walletId}
+          networkId={networkId}
+          accountId={accountId}
+          password=""
+        />
+      );
+    }
+    return (
       <Protected walletId={walletId}>
         {(pwd) => (
           <ExportPublicKeyView
@@ -77,6 +90,16 @@ const ExportPubkeyModal = () => {
           />
         )}
       </Protected>
+    );
+  }, [existNostrAccount, walletId, networkId, accountId]);
+
+  return (
+    <Modal
+      footer={null}
+      header={intl.formatMessage({ id: 'title__nostr_public_key' })}
+      height="auto"
+    >
+      {isFetchNostrAccount ? <Spinner size="lg" /> : content}
     </Modal>
   );
 };

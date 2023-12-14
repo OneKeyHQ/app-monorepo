@@ -22,6 +22,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';
 
+import { useExistNostrAccount } from './hooks/useExistNostrAccount';
 import { NostrModalRoutes } from './types';
 
 import type { NostrRoutesParams } from '../../routes';
@@ -44,6 +45,12 @@ const NostrGetPublicKeyModal = () => {
   const interactInfo = useInteractWithInfo({ sourceInfo });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const { existNostrAccount } = useExistNostrAccount({
+    walletId: walletId ?? '',
+    currentAccountId: accountId ?? '',
+    currentNetworkId: networkId ?? '',
+  });
 
   const closeModal = useModalClose();
 
@@ -94,16 +101,19 @@ const NostrGetPublicKeyModal = () => {
     [walletId, networkId, accountId, closeModal, intl, dappApprove],
   );
 
-  const onConfirmWithAuth = useCallback(
-    () =>
-      navigation.navigate(NostrModalRoutes.NostrAuthentication, {
-        walletId: walletId ?? '',
-        networkId: networkId ?? '',
-        accountId: accountId ?? '',
-        onDone,
-      }),
-    [walletId, networkId, accountId, navigation, onDone],
-  );
+  const onConfirmWithAuth = useCallback(() => {
+    if (existNostrAccount) {
+      onDone('');
+      return;
+    }
+
+    navigation.navigate(NostrModalRoutes.NostrAuthentication, {
+      walletId: walletId ?? '',
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+      onDone,
+    });
+  }, [walletId, networkId, accountId, navigation, onDone, existNostrAccount]);
 
   return (
     <Modal

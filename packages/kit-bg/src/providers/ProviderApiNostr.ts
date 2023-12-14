@@ -19,7 +19,10 @@ import {
   IMPL_LIGHTNING,
   IMPL_NOSTR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import {
+  isHardwareWallet,
+  isHdWallet,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -70,7 +73,9 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   private checkWalletSupport(walletId: string) {
-    if (!isHdWallet({ walletId })) {
+    const isSupportedWallet =
+      isHdWallet({ walletId }) || isHardwareWallet({ walletId });
+    if (!isSupportedWallet) {
       throw new Error(
         'The current wallet does not support Nostr, switch to an app wallet',
       );
