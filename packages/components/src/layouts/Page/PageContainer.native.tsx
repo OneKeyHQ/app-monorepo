@@ -1,5 +1,6 @@
 import { useContext, useMemo } from 'react';
 
+import { View } from '../../optimization';
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
@@ -12,15 +13,15 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
   const { options = {} } = useContext(PageContext);
   const { scrollEnabled } = options;
 
-  const memoPageContainer = useMemo(
+  return useMemo(
     () => (
       <BasicPage skipLoading={skipLoading}>
         {scrollEnabled ? (
-          <ScrollView
-            contentContainerStyle={scrollEnabled ? { flex: 1 } : undefined}
-          >
-            {children}
-          </ScrollView>
+          <View style={{ flex: 1 }}>
+            <ScrollView flex={1} height="100%">
+              {children}
+            </ScrollView>
+          </View>
         ) : (
           children
         )}
@@ -30,5 +31,4 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
     ),
     [skipLoading, scrollEnabled, children],
   );
-  return memoPageContainer;
 }
