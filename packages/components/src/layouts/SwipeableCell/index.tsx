@@ -1,24 +1,15 @@
-import {
-  forwardRef,
-  ReactElement,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { ForwardedRef } from 'react';
-import { useIntl } from 'react-intl';
-import { Animated } from 'react-native';
 
+import { usePropsAndStyle } from '@tamagui/core';
+import { Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { RectButton } from 'react-native-gesture-handler';
 
 import { Stack, XStack } from '../../primitives/Stack';
 import { Text } from '../../primitives/Text';
 
-import type { GetProps, ColorTokens } from 'tamagui';
-import type { StackProps } from '@tamagui/web/types/types';
-
-let LAST_OPENED_CELL_CLOSE_FUNCTION: () => void;
+import type { StackStyleProps } from '@tamagui/web/types/types';
+import type { ColorTokens, GetProps } from 'tamagui';
 
 type ISwipeableCellItemProps = {
   title: string;
@@ -83,24 +74,34 @@ function SwipeableCellContainer({
   );
 }
 
-export type ISwipeableCellProps = GetProps<typeof Swipeable> & {
-  swipeEnabled?: boolean;
-  rightItemList?: Array<ISwipeableCellItemProps>;
-  leftItemList?: Array<ISwipeableCellItemProps>;
+export type ISwipeableCellRef = {
+  close: () => void;
 };
+
+export type ISwipeableCellProps = GetProps<typeof Swipeable> &
+  StackStyleProps & {
+    swipeEnabled?: boolean;
+    rightItemList?: Array<ISwipeableCellItemProps>;
+    leftItemList?: Array<ISwipeableCellItemProps>;
+  };
+
+let LAST_SWIPED_CELL_CLOSE: (() => void) | undefined;
 
 function BaseSwipeableCell(
   {
     swipeEnabled = true,
     rightItemList = [],
     leftItemList = [],
-    ...rest
+    ...props
   }: ISwipeableCellProps,
-  ref: ForwardedRef<Swipeable>,
+  ref: ForwardedRef<ISwipeableCellRef>,
 ) {
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
   const innerRef = useRef<Swipeable>(null);
   useImperativeHandle(
-    ref as any,
+    ref,
     () => ({
       close: () => {
         innerRef?.current?.close();
@@ -135,7 +136,18 @@ function BaseSwipeableCell(
           close={innerRef?.current?.close}
         />
       )}
-      {...rest}
+      style={style}
+      {...restProps}
+      onSwipeableOpen={(direction, swipeable) => {
+        restProps?.onSwipeableOpen?.(direction, swipeable);
+        LAST_SWIPED_CELL_CLOSE = innerRef?.current?.close;
+      }}
+      onSwipeableWillOpen={(direction) => {
+        restProps?.onSwipeableWillOpen?.(direction);
+        if (LAST_SWIPED_CELL_CLOSE !== innerRef?.current?.close) {
+          LAST_SWIPED_CELL_CLOSE?.();
+        }
+      }}
     />
   );
 }
