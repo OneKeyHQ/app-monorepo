@@ -1,5 +1,6 @@
-import type { ComponentType, PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 
+import type { IPopoverProps } from '../../actions';
 import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
@@ -9,7 +10,7 @@ export interface ISelectRenderTriggerProps {
 }
 
 export interface ISelectTriggerProps {
-  renderTrigger?: ComponentType<ISelectRenderTriggerProps>;
+  renderTrigger?: (props: ISelectRenderTriggerProps) => ReactElement;
 }
 
 export interface ISelectItem {
@@ -38,4 +39,5 @@ export type ISelectProps = PropsWithChildren<{
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   disabled?: boolean;
   sheetProps?: SheetProps;
+  placement?: IPopoverProps['placement'];
 }>;

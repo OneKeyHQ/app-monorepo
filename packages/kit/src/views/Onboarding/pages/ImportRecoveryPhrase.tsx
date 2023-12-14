@@ -51,11 +51,11 @@ const tutorials = [
 ];
 
 const phraseLengthOptions = [
-  { label: '12 words', value: 12 },
-  { label: '15 words', value: 15 },
-  { label: '18 words', value: 18 },
-  { label: '21 words', value: 21 },
-  { label: '24 words', value: 24 },
+  { label: '12 words', value: '12' },
+  { label: '15 words', value: '15' },
+  { label: '18 words', value: '18' },
+  { label: '21 words', value: '21' },
+  { label: '24 words', value: '24' },
 ];
 
 function PageContent() {
@@ -88,6 +88,7 @@ function PageContent() {
       <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
         <Select
           title="Select a length"
+          placement="right-start"
           items={phraseLengthOptions}
           value={phraseLength}
           onChange={setPhraseLength}
