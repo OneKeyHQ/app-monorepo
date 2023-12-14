@@ -16,7 +16,12 @@ const LinearGradientGallery = () => (
             colors={['#4c669f', '#3b5998', '#192f6a']}
             height="$24"
             width="100%"
-          />
+            justifyContent="center"
+          >
+            <SizableText size="$bodyMd" color="#fff" textAlign="center">
+              Sign in
+            </SizableText>
+          </LinearGradient>
         ),
       },
     ]}
