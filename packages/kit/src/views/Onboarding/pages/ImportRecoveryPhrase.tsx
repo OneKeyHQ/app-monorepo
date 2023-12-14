@@ -13,6 +13,7 @@ import {
   Stack,
   XStack,
   useForm,
+  useMedia,
   usePageAvoidKeyboard,
 } from '@onekeyhq/components';
 
@@ -58,6 +59,7 @@ const phraseLengthOptions = [
 ];
 
 function PageContent() {
+  const media = useMedia();
   const form = useForm({});
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
@@ -101,10 +103,18 @@ function PageContent() {
       </XStack>
       <Form form={form}>
         <XStack px="$4" flexWrap="wrap">
-          {Array.from({ length: 12 }).map((_, index) => (
-            <Stack key={index} flexBasis="33.33%" p="$1">
+          {Array.from({ length: phraseLength }).map((_, index) => (
+            <Stack
+              key={index}
+              $md={{
+                flexBasis: '50%',
+              }}
+              flexBasis="33.33%"
+              p="$1"
+            >
               <Form.Field name={`phrase${index + 1}`}>
                 <Input
+                  size={media.md ? 'large' : 'medium'}
                   pl="$8"
                   returnKeyType="next"
                   onFocus={changeLayoutHeight}
@@ -115,6 +125,9 @@ function PageContent() {
                 position="absolute"
                 color="$textDisabled"
                 top={11}
+                $md={{
+                  top: 15,
+                }}
                 left="$3"
                 zIndex="$1"
                 minWidth={17}

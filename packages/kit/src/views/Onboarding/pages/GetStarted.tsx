@@ -71,7 +71,7 @@ export function GetStarted() {
       <Page.Header headerShown={false} />
       <Page.Body>
         <Stack p="$5" flex={1} justifyContent="center" alignItems="center">
-          <Image
+          {/* <Image
             w="$16"
             h="$16"
             source={require('../../../../assets/logo.png')}
@@ -85,12 +85,12 @@ export function GetStarted() {
             pt="$5"
           >
             Welcome to OneKey
-          </Heading>
+          </Heading> */}
         </Stack>
         <Stack space="$2" p="$5">
-          <SizableText textAlign="center" pb="$3" size="$headingLg">
+          {/* <SizableText textAlign="center" pb="$3" size="$headingLg">
             How would you like to get started?
-          </SizableText>
+          </SizableText> */}
           <Button
             icon="OnekeyBrand"
             variant="primary"
@@ -142,7 +142,7 @@ export function GetStarted() {
               size: 'large',
             }}
           >
-            Create Recovery Phrase
+            Create Wallet
           </Button>
           <Button
             icon="ArrowBottomCircleOutline"
@@ -151,9 +151,9 @@ export function GetStarted() {
               size: 'large',
             }}
           >
-            Import Recovery Phrase
+            Import Wallet
           </Button>
-          <Button
+          {/* <Button
             icon="ArrowBottomCircleOutline"
             onPress={handleImportPrivateKeyPress}
             $md={{
@@ -179,7 +179,7 @@ export function GetStarted() {
             }}
           >
             Connect 3rd-party Wallet
-          </Button>
+          </Button> */}
         </Stack>
         <SizableText
           p="$5"
