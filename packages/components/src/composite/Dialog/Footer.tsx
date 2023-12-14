@@ -1,9 +1,33 @@
-import { useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button, XStack } from '../../primitives';
 
+import { useDialogInstance } from './hooks';
+
 import type { IDialogFooterProps } from './type';
 import type { IButtonProps } from '../../primitives';
+
+const useConfirmButtonDisabled = (
+  props: IDialogFooterProps['confirmButtonProps'],
+) => {
+  const { disabledOn, disabled } = props || {};
+  const { getForm } = useDialogInstance();
+  const [, updateStatus] = useState(0);
+  useEffect(() => {
+    if (disabledOn) {
+      const form = getForm();
+      const subscription = form?.watch(() => {
+        updateStatus((i) => i + 1);
+      });
+      return () => {
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+      };
+    }
+  }, [disabledOn, getForm]);
+  return typeof disabled !== 'undefined' ? disabled : disabledOn?.({ getForm });
+};
 
 export function Footer({
   showFooter,
@@ -13,10 +37,16 @@ export function Footer({
   onConfirm,
   onCancel,
   onConfirmText,
-  confirmButtonProps,
+  confirmButtonProps = {},
   onCancelText,
   tone,
 }: IDialogFooterProps) {
+  const { disabled, disabledOn, ...restConfirmButtonProps } =
+    confirmButtonProps;
+  const confirmButtonDisabled = useConfirmButtonDisabled({
+    disabled,
+    disabledOn,
+  });
   if (!showFooter) {
     return null;
   }
@@ -31,7 +61,7 @@ export function Footer({
             } as IButtonProps
           }
           {...cancelButtonProps}
-          onPress={onConfirm}
+          onPress={onCancel}
         >
           {onCancelText}
         </Button>
@@ -41,13 +71,14 @@ export function Footer({
           variant={tone === 'destructive' ? 'destructive' : 'primary'}
           flex={1}
           ml="$2.5"
+          disabled={confirmButtonDisabled}
           $md={
             {
               size: 'large',
             } as IButtonProps
           }
-          {...confirmButtonProps}
-          onPress={onCancel}
+          {...restConfirmButtonProps}
+          onPress={onConfirm}
         >
           {onConfirmText}
         </Button>
