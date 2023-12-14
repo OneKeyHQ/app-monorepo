@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { useContext } from 'react';
 
 import Animated, {
@@ -21,6 +21,7 @@ import { PageContext } from './PageContext';
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
 export interface IPageButtonGroupProps extends PropsWithChildren<unknown> {
+  footerHelper?: ReactNode;
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
   onConfirmText?: string;
@@ -56,6 +57,7 @@ export function PageButtonGroup() {
   }
 
   const {
+    footerHelper,
     onCancel,
     onCancelText,
     onConfirm,
@@ -78,8 +80,17 @@ export function PageButtonGroup() {
         animation="fast"
         pb={getTokenValue('$size.5') as number}
         bg="$bgApp"
+        $gtMd={{
+          flexDirection: 'row',
+        }}
       >
-        <XStack justifyContent="flex-end">
+        {footerHelper}
+        <XStack
+          justifyContent="flex-end"
+          $gtMd={{
+            flex: 1,
+          }}
+        >
           {(!!cancelButtonProps || !!onCancel) && (
             <Button
               $md={

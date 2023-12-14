@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   Button,
+  Dialog,
   Form,
   HeightTransition,
   Icon,
@@ -16,6 +17,7 @@ import {
   useMedia,
   usePageAvoidKeyboard,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import { Tutorials } from '../Components';
 
@@ -38,11 +40,6 @@ const useAvoidKeyboardLayout = () => {
 };
 
 const tutorials = [
-  {
-    title: 'What is a recovery phrase?',
-    description:
-      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
-  },
   {
     title: 'Is it safe to enter it into OneKey?',
     description:
@@ -124,21 +121,6 @@ function PageContent() {
                   onFocus={changeLayoutHeight}
                 />
               </Form.Field>
-              {/* <SizableText
-                pointerEvents="none"
-                position="absolute"
-                color="$textDisabled"
-                top={11}
-                $md={{
-                  top: 15,
-                }}
-                left="$3"
-                zIndex="$1"
-                minWidth={17}
-                textAlign="right"
-              >
-                {index + 1}
-              </SizableText> */}
             </Stack>
           ))}
         </XStack>
@@ -161,17 +143,30 @@ function PageContent() {
           </XStack>
         )}
       </HeightTransition>
-      <Stack px="$5">
-        <Tutorials list={tutorials} />
-      </Stack>
     </Page.Body>
   );
 }
 
+const headerRight = () => (
+  <HeaderIconButton
+    icon="QuestionmarkOutline"
+    onPress={() =>
+      Dialog.show({
+        title: 'Recovery Phrase',
+        description:
+          'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
+        icon: 'Document2Outline',
+        renderContent: <Tutorials list={tutorials} />,
+        showFooter: false,
+      })
+    }
+  />
+);
+
 export function ImportRecoveryPhrase() {
   return (
     <Page scrollEnabled>
-      <Page.Header title="Import Recovery Phrase" />
+      <Page.Header title="Import Recovery Phrase" headerRight={headerRight} />
       <PageContent />
       <Page.Footer onConfirm={() => console.log('confirm')} />
     </Page>

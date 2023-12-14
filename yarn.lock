@@ -4996,6 +4996,7 @@ __metadata:
     "@svgr/cli": 6.3.1
     "@types/qrcode": ^1.4.2
     ethereum-blockies-base64: ^1.0.2
+    expo-av: ~13.4.1
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
     moti: ^0.25.3
@@ -15513,6 +15514,15 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: fe9e969567c9e5edc784d46c350bac097a86db182eff07ec14a787e88f6c581614ecfbc954f164cbf756bf2fd5614c9d111224c24c41d3c7e5a64f624c5f76ff
+  languageName: node
+  linkType: hard
+
+"expo-av@npm:~13.4.1":
+  version: 13.4.1
+  resolution: "expo-av@npm:13.4.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 0fdcda51b44d69e78b9d770f35703be1f6b650e0ed70e74ec5902872496a1900f08081558c3a970aadec90457f5c49cbc3645744e22ba6ec3aac8eb07cce48de
   languageName: node
   linkType: hard
 

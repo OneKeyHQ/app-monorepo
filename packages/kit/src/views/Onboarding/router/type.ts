@@ -1,17 +1,21 @@
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
-  ShowRecoveryPhrase = 'ShowRecoveryPhrase',
+  BeforeShowRecoveryPhrase = 'BeforeShowRecoveryPhrase',
   ImportRecoveryPhrase = 'ImportRecoveryPhrase',
-  ConnectHardwareWallet = 'ConnectHardwareWallet',
+  OneKeyHardwareWallet = 'OneKeyHardwareWallet',
+  LookingForDevices = 'LookingForDevices',
   ImportPrivateKey = 'ImportPrivateKey',
   ImportAddress = 'ImportAddress',
+  RecoveryPhrase = 'RecoveryPhrase',
 }
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: undefined;
-  [EOnboardingPages.ShowRecoveryPhrase]: undefined;
+  [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
-  [EOnboardingPages.ConnectHardwareWallet]: undefined;
+  [EOnboardingPages.OneKeyHardwareWallet]: undefined;
+  [EOnboardingPages.LookingForDevices]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
   [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.RecoveryPhrase]: undefined;
 };

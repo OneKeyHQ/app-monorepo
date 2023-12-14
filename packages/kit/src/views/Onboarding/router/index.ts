@@ -1,12 +1,14 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
 import {
-  ConnectHardwareWallet,
+  BeforeShowRecoveryPhrase,
+  OneKeyHardwareWallet,
   GetStarted,
   ImportAddress,
   ImportPrivateKey,
   ImportRecoveryPhrase,
-  ShowRecoveryPhrase,
+  RecoveryPhrase,
+  LookingForDevices,
 } from '../pages';
 
 import { EOnboardingPages } from './type';
@@ -22,16 +24,24 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     component: GetStarted,
   },
   {
-    name: EOnboardingPages.ShowRecoveryPhrase,
-    component: ShowRecoveryPhrase,
+    name: EOnboardingPages.BeforeShowRecoveryPhrase,
+    component: BeforeShowRecoveryPhrase,
+  },
+  {
+    name: EOnboardingPages.RecoveryPhrase,
+    component: RecoveryPhrase,
   },
   {
     name: EOnboardingPages.ImportRecoveryPhrase,
     component: ImportRecoveryPhrase,
   },
   {
-    name: EOnboardingPages.ConnectHardwareWallet,
-    component: ConnectHardwareWallet,
+    name: EOnboardingPages.OneKeyHardwareWallet,
+    component: OneKeyHardwareWallet,
+  },
+  {
+    name: EOnboardingPages.LookingForDevices,
+    component: LookingForDevices,
   },
   {
     name: EOnboardingPages.ImportPrivateKey,

@@ -32,7 +32,7 @@ export function GetStarted() {
   const navigation = useAppNavigation();
 
   const handleCreateWalletPress = () => {
-    navigation.push(EOnboardingPages.ShowRecoveryPhrase);
+    navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
   };
 
   const handleImportWalletPress = () => {
@@ -40,7 +40,7 @@ export function GetStarted() {
   };
 
   const handleConnectHardwareWallet = () => {
-    navigation.push(EOnboardingPages.ConnectHardwareWallet);
+    navigation.push(EOnboardingPages.LookingForDevices);
   };
 
   const handleImportPrivateKeyPress = () => {
@@ -97,41 +97,42 @@ export function GetStarted() {
             $md={{
               size: 'large',
             }}
-            onPress={() => {
-              setTimeout(() => {
-                setShowDevices(true);
-              }, 1000);
+            onPress={handleConnectHardwareWallet}
+            // onPress={() => {
+            //   setTimeout(() => {
+            //     setShowDevices(true);
+            //   }, 1000);
 
-              Dialog.show({
-                title: 'Searching for devices...',
-                showFooter: false,
-                renderContent: (
-                  <Stack mx="$-5">
-                    <HeightTransition>
-                      {DevicesData.map((item, index) => (
-                        <ListItem
-                          key={index}
-                          drillIn
-                          onPress={() => console.log('clicked')}
-                          focusable={false}
-                        >
-                          <Image
-                            width={40}
-                            height={40}
-                            style={{
-                              width: 40,
-                              height: 40,
-                            }}
-                            source={item.avatar}
-                          />
-                          <ListItem.Text flex={1} primary={item.name} />
-                        </ListItem>
-                      ))}
-                    </HeightTransition>
-                  </Stack>
-                ),
-              });
-            }}
+            //   Dialog.show({
+            //     title: 'Searching for devices...',
+            //     showFooter: false,
+            //     renderContent: (
+            //       <Stack mx="$-5">
+            //         <HeightTransition>
+            //           {DevicesData.map((item, index) => (
+            //             <ListItem
+            //               key={index}
+            //               drillIn
+            //               onPress={() => console.log('clicked')}
+            //               focusable={false}
+            //             >
+            //               <Image
+            //                 width={40}
+            //                 height={40}
+            //                 style={{
+            //                   width: 40,
+            //                   height: 40,
+            //                 }}
+            //                 source={item.avatar}
+            //               />
+            //               <ListItem.Text flex={1} primary={item.name} />
+            //             </ListItem>
+            //           ))}
+            //         </HeightTransition>
+            //       </Stack>
+            //     ),
+            //   });
+            // }}
           >
             Connect Hardware Wallet
           </Button>
