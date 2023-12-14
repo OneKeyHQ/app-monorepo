@@ -1,4 +1,5 @@
 import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/types';
+import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
 import type { IModalSettingParamList } from '../../views/Setting/types';
@@ -10,6 +11,7 @@ export enum EModalRoutes {
   TestModal = 'TestModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
+  ChainSelectorModal = 'ChainSelectorModal',
 }
 
 export type IModalParamList = {
@@ -18,4 +20,5 @@ export type IModalParamList = {
   [EModalRoutes.SettingModal]: IModalSettingParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
 };

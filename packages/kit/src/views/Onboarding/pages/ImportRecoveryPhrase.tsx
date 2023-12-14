@@ -2,7 +2,6 @@ import {
   Alert,
   Button,
   Form,
-  Heading,
   HeightTransition,
   Icon,
   Input,
@@ -14,14 +13,15 @@ import {
   usePageAvoidKeyboard,
 } from '@onekeyhq/components';
 
+import { Tutorials } from '../Components';
+
 function PageContent() {
   const form = useForm({});
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
 
-  const { keyboardHeight, changePageAvoidHeight, avoidHeight } =
-    usePageAvoidKeyboard();
+  const { changePageAvoidHeight } = usePageAvoidKeyboard();
   const invalidWordsMessage = (length: number) => {
     if (length === 1) {
       return '1 invalid word';
@@ -104,15 +104,8 @@ function PageContent() {
           </XStack>
         )}
       </HeightTransition>
-      <Stack p="$5">
-        {tutorials.map(({ title, description }) => (
-          <Stack pt="$5" key={title}>
-            <Heading size="$headingSm">{title}</Heading>
-            <SizableText size="$bodyMd" mt="$1" color="$textSubdued">
-              {description}
-            </SizableText>
-          </Stack>
-        ))}
+      <Stack px="$5">
+        <Tutorials list={tutorials} />
       </Stack>
     </Page.Body>
   );
@@ -120,7 +113,7 @@ function PageContent() {
 
 export function ImportRecoveryPhrase() {
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Import Recovery Phrase" />
       <PageContent />
       <Page.Footer onConfirm={() => console.log('confirm')} />

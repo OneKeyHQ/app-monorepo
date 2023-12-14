@@ -3,6 +3,8 @@ export enum EOnboardingPages {
   ShowRecoveryPhrase = 'ShowRecoveryPhrase',
   ImportRecoveryPhrase = 'ImportRecoveryPhrase',
   ConnectHardwareWallet = 'ConnectHardwareWallet',
+  ImportPrivateKey = 'ImportPrivateKey',
+  ImportAddress = 'ImportAddress',
 }
 
 export type IOnboardingParamList = {
@@ -10,4 +12,6 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ShowRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ConnectHardwareWallet]: undefined;
+  [EOnboardingPages.ImportPrivateKey]: undefined;
+  [EOnboardingPages.ImportAddress]: undefined;
 };

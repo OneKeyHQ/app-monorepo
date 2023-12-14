@@ -89,6 +89,9 @@ function DialogFrame({
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
+      {/* illustration */}
+
+      {/* leading icon */}
       {icon && (
         <Stack
           alignSelf="flex-start"
@@ -105,6 +108,8 @@ function DialogFrame({
           />
         </Stack>
       )}
+
+      {/* title and description */}
       <Stack p="$5" pr="$16">
         <Text variant="$headingXl" py="$px">
           {title}
@@ -115,6 +120,8 @@ function DialogFrame({
           </Text>
         )}
       </Stack>
+
+      {/* close button */}
       <IconButton
         position="absolute"
         right="$5"
@@ -127,9 +134,12 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
+      {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
+
+      {/* footer */}
       {showFooter && (
         <XStack p="$5" pt="$0">
           {showCancelButton ? (

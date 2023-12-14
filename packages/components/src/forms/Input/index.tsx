@@ -122,6 +122,7 @@ function BaseInput(
     <Group
       orientation="horizontal"
       borderRadius={size === 'large' ? '$3' : '$2'}
+      disablePassBorderRadius={!addOns?.length}
       disabled={disabled}
       {...containerProps}
     >
@@ -203,6 +204,7 @@ function BaseInput(
           borderColor={sharedStyles.borderColor}
           bg={sharedStyles.backgroundColor}
           selectionColor={selectionColor}
+          borderRadius={size === 'large' ? '$3' : '$2'}
           borderRightWidth={addOns?.length ? '$0' : '$px'}
           borderLeftWidth={leftAddOnProps ? '$0' : '$px'}
           focusStyle={sharedStyles.focusStyle}

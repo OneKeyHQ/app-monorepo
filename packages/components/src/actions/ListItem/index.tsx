@@ -197,10 +197,6 @@ const ListItemCheckMark = (props: StackProps) => (
       opacity: 0,
       scale: 0,
     }}
-    exitStyle={{
-      opacity: 0,
-      scale: 0,
-    }}
     {...props}
   >
     <Icon name="CheckRadioSolid" color="$iconActive" />
@@ -290,7 +286,9 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
       )}
       <Unspaced>
-        <AnimatePresence>{checkMark && <ListItemCheckMark />}</AnimatePresence>
+        <AnimatePresence>
+          {checkMark && <ListItemCheckMark key="checkmark" />}
+        </AnimatePresence>
       </Unspaced>
     </Stack>
   );

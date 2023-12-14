@@ -3,6 +3,8 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import {
   ConnectHardwareWallet,
   GetStarted,
+  ImportAddress,
+  ImportPrivateKey,
   ImportRecoveryPhrase,
   ShowRecoveryPhrase,
 } from '../pages';
@@ -30,5 +32,13 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ConnectHardwareWallet,
     component: ConnectHardwareWallet,
+  },
+  {
+    name: EOnboardingPages.ImportPrivateKey,
+    component: ImportPrivateKey,
+  },
+  {
+    name: EOnboardingPages.ImportAddress,
+    component: ImportAddress,
   },
 ];
