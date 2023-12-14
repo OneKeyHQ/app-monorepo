@@ -20,12 +20,13 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, IStackProps, Stack, Text, XStack } from '../../primitives';
+import { Icon, Stack, Text, XStack } from '../../primitives';
 import { Button } from '../../primitives/Button';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
+import { Footer } from './Footer';
 
 import type {
   IDialogCancelProps,
@@ -36,6 +37,7 @@ import type {
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
+import type { IStackProps } from '../../primitives';
 import type { IButtonProps } from '../../primitives/Button';
 
 // Fix the issue of the overlay layer in tamagui being too low
@@ -151,40 +153,18 @@ function DialogFrame({
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
-      {showFooter && (
-        <XStack p="$5" pt="$0">
-          {showCancelButton ? (
-            <Button
-              flex={1}
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              {...cancelButtonProps}
-              onPress={handleCancelButtonPress}
-            >
-              {onCancelText}
-            </Button>
-          ) : null}
-          {showConfirmButton ? (
-            <Button
-              variant={tone === 'destructive' ? 'destructive' : 'primary'}
-              flex={1}
-              ml="$2.5"
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              {...confirmButtonProps}
-              onPress={handleConfirmButtonPress}
-            >
-              {onConfirmText}
-            </Button>
-          ) : null}
-        </XStack>
-      )}
+      <Footer
+        tone={tone}
+        showFooter={showFooter}
+        showCancelButton={showCancelButton}
+        showConfirmButton={showConfirmButton}
+        cancelButtonProps={cancelButtonProps}
+        onConfirm={handleConfirmButtonPress}
+        onCancel={handleCancelButtonPress}
+        onConfirmText={onConfirmText}
+        confirmButtonProps={confirmButtonProps}
+        onCancelText={onCancelText}
+      />
     </Stack>
   );
 
