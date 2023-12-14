@@ -16,31 +16,39 @@ export interface IDialogContentProps extends PropsWithChildren {
   testID?: string;
 }
 
-export interface IDialogProps extends TMDialogProps {
-  onOpen?: () => void;
-  onClose?: () => void;
-  icon?: IKeyOfIcons;
-  title?: string;
-  description?: string;
+export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive';
-  /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
-  estimatedContentHeight?: number;
-  renderContent?: React.ReactNode;
   showFooter?: boolean;
-  onConfirm?: IOnDialogConfirm;
-  onCancel?: () => void;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IButtonProps;
   cancelButtonProps?: IButtonProps;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}
+
+interface IBasicDialogProps extends TMDialogProps {
+  onOpen?: () => void;
+  onClose?: () => void;
+  icon?: IKeyOfIcons;
+  title?: string;
+  description?: string;
+  /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
+  estimatedContentHeight?: number;
+  renderContent?: React.ReactNode;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
   testID?: string;
+  onConfirm?: IOnDialogConfirm;
+  onCancel?: () => void;
 }
+
+export type IDialogProps = IBasicDialogProps &
+  Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
 
 export type IOnDialogConfirm = (
   dialogInstance: IDialogInstance,
