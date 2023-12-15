@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
@@ -11,10 +12,10 @@ import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
-import type { IPageButtonGroupProps } from './PageButtonGroup';
 import type { IPageProps } from './type';
+import { FooterActions } from './FooterActions';
 
-export type { IPageProps } from './type';
+export type { IPageProps, IPageFooterProps } from './type';
 
 function PageProvider({
   children,
@@ -24,7 +25,7 @@ function PageProvider({
 }: IPageProps) {
   const [options, setOptions] = useState<{
     safeAreaEnabled?: boolean;
-    footerOptions?: IPageButtonGroupProps;
+    footerElement?: ReactElement;
     scrollEnabled?: boolean;
   }>({
     scrollEnabled,
@@ -89,5 +90,6 @@ export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
   Footer: PageContextFooter,
+  FooterActions: FooterActions,
   Close: PageClose,
 });
