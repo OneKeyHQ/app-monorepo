@@ -18,7 +18,7 @@ type IWebContentProps = IWebTab &
   };
 
 function WebContent({ id, url }: IWebContentProps) {
-  const { setWebTabData } = useBrowserTabActions();
+  const { setWebTabData } = useBrowserTabActions().current;
   const webview = useMemo(
     () => (
       <WebView

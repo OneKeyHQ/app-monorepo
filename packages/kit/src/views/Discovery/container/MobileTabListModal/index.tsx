@@ -113,7 +113,7 @@ function MobileTabListModal() {
   const { activeTabId } = useActiveTabId();
 
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
 
   const {
     closeAllWebTabs,
@@ -121,7 +121,7 @@ function MobileTabListModal() {
     closeWebTab,
     setPinnedTab,
     setDisplayHomePage,
-  } = useBrowserTabActions();
+  } = useBrowserTabActions().current;
 
   const triggerCloseTab = useRef(false);
   useEffect(() => {
@@ -174,9 +174,9 @@ function MobileTabListModal() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        addBrowserBookmark({ url, title });
+        void addBrowserBookmark({ url, title });
       } else {
-        removeBrowserBookmark(url);
+        void removeBrowserBookmark(url);
       }
       Toast.success({
         title: bookmark

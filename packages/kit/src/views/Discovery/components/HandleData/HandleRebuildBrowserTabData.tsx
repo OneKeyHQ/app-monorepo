@@ -14,7 +14,7 @@ import {
 
 function HandleRebuildTabData() {
   const result = useBrowserTabDataFromSimpleDb();
-  const { buildWebTabs } = useBrowserTabActions();
+  const { buildWebTabs } = useBrowserTabActions().current;
 
   useEffect(() => {
     if (!result.result) return;
@@ -29,7 +29,7 @@ function HandleRebuildTabData() {
 
 function HandleRebuildBookmarksData() {
   const result = useBrowserBookmarksDataFromSimpleDb();
-  const { buildBookmarkData } = useBrowserBookmarkAction();
+  const { buildBookmarkData } = useBrowserBookmarkAction().current;
 
   useEffect(() => {
     if (!result.result) return;
@@ -44,7 +44,7 @@ function HandleRebuildBookmarksData() {
 
 function HandleRebuildHistoryData() {
   const result = useBrowserHistoryDataFromSimpleDb();
-  const { buildHistoryData } = useBrowserHistoryAction();
+  const { buildHistoryData } = useBrowserHistoryAction().current;
 
   useEffect(() => {
     if (!result.result) return;
