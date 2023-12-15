@@ -1,4 +1,5 @@
 import ComponentsScreen from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components';
+import AccountModelGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery';
 import ActionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList';
 import AlertGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert';
 import BadgeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge';
@@ -148,5 +149,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentBlurView,
     component: BlurViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAccountModel,
+    component: AccountModelGallery,
   },
 ];
