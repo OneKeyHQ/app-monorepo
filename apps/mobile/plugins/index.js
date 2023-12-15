@@ -5,8 +5,8 @@ module.exports = (config, projectRoot) => {
     const path = require('path');
     const fs = require('fs-extra');
     const connect = require('connect');
-    const dynamicImports = require('./plugins/dynamicImports');
-    const { fileToIdMap } = require('./plugins/map');
+    const dynamicImports = require('./dynamicImports');
+    const { fileToIdMap } = require('./map');
     const fileMapCacheDirectoryPath = path.resolve(
       __dirname,
       'node_modules',
@@ -38,7 +38,7 @@ module.exports = (config, projectRoot) => {
     // `Dynamic imports` is a feature that allows you to load modules on demand.
     config.transformer.asyncRequireModulePath = path.resolve(
       __dirname,
-      `./plugins/asyncRequire.js`,
+      `./asyncRequire.js`,
     );
 
     // config.serializer.processModuleFilter = (() => {
