@@ -1,6 +1,5 @@
 export * from './ActionList';
 export * from './Alert';
-export * from './Dialog';
 export * from './IconButton';
 export * from './ListItem';
 export * from './Popover';

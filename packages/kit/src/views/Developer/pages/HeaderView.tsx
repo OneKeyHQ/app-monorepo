@@ -2,7 +2,13 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import {
+  AccountSelectorActiveAccount,
+  AccountSelectorProvider,
+  AccountSelectorTrigger,
+} from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -43,6 +49,16 @@ export default function HomePageHeaderView() {
   return useMemo(
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
+        <AccountSelectorProvider
+          config={{
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+        >
+          <AccountSelectorTrigger num={0} />
+          <AccountSelectorActiveAccount num={0} />
+        </AccountSelectorProvider>
         <Text>Header View Simple</Text>
         <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
         {headerHighMode && <Text py="$10">Very high</Text>}
