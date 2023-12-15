@@ -151,7 +151,7 @@ const usePhraseHintWords = (
       const key = `phrase${index + 1}`;
       const value = values[key];
       const dictWords = await queryWordFromDict(value);
-      // check word in dicts
+      // check word in dict
       if (mockWords.includes(value)) {
         setWords([]);
       } else {
@@ -208,6 +208,10 @@ function PageContent() {
     [updateWordValue],
   );
 
+  const handleClear = useCallback(() => {
+    form.reset();
+  }, [form]);
+
   return (
     <>
       <Page.Body>
@@ -232,7 +236,7 @@ function PageContent() {
               </Button>
             )}
           />
-          <Button icon="BroomOutline" variant="tertiary">
+          <Button icon="BroomOutline" variant="tertiary" onPress={handleClear}>
             Clear
           </Button>
         </XStack>
