@@ -2,11 +2,10 @@ const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const chunkModuleIdToHashMap = require('./chunkModuleIdToHashMap');
 
 const fetchModule = async (hash) => {
-  const response = await fetch(
-    `http://${global.$$metroHostIP}:8081/async-thunks?hash=${hash}`,
-  );
+  const url = `http://${global.$$metroHostIP}:8081/async-thunks?hash=${hash}`;
+  const response = await fetch(url);
   if (response.status !== 200) {
-    throw new Error('fetch module error');
+    throw new Error(`fetch module error: ${url}}`);
   } else {
     const text = await response.text();
     return text;
