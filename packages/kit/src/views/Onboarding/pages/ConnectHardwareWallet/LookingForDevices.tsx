@@ -1,12 +1,16 @@
 import {
+  Anchor,
+  Button,
   Heading,
   HeightTransition,
+  Icon,
   Image,
   ListItem,
   LottieView,
   Page,
   SizableText,
   Stack,
+  XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -86,6 +90,26 @@ export function LookingForDevices() {
             ))}
           </Stack>
         </HeightTransition>
+        <XStack
+          px="$5"
+          py="$0.5"
+          mt="auto"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Don't have OneKey yet?
+          </SizableText>
+          <Anchor
+            display="flex"
+            href="https://shop.onekey.so/"
+            target="_blank"
+            size="$bodyMdMedium"
+            p="$2"
+          >
+            Buy One
+          </Anchor>
+        </XStack>
       </Page.Body>
     </Page>
   );

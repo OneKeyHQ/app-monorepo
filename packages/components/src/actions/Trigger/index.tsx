@@ -1,6 +1,8 @@
 import type { ForwardedRef, PropsWithChildren } from 'react';
 import { Children, cloneElement, forwardRef, isValidElement } from 'react';
 
+import { debounce } from 'lodash';
+
 import { Stack } from '../../primitives';
 
 import type { IButtonProps } from '../../primitives/Button';
@@ -32,8 +34,8 @@ function BasicTrigger(
       const handleOpen = onPress
         ? composeEventHandlers(onPress, onPressInTrigger)
         : onPressInTrigger;
-
-      const handlePressWithStatus = disabled ? noop : handleOpen;
+      const debounceHandlePress = debounce(handleOpen as () => void, 10);
+      const handlePressWithStatus = disabled ? noop : debounceHandlePress;
       return (
         <Stack ref={ref} onPress={handlePressWithStatus}>
           {cloneElement(child, {

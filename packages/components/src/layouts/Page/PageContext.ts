@@ -5,12 +5,14 @@ import type { IPageButtonGroupProps } from './PageButtonGroup';
 
 export const PageContext = createContext<{
   options?: {
+    safeAreaEnabled?: boolean;
     footerOptions?: IPageButtonGroupProps;
     scrollEnabled?: boolean;
     avoidHeight?: number;
   };
   setOptions?: Dispatch<
     SetStateAction<{
+      safeAreaEnabled?: boolean;
       footerOptions?: IPageButtonGroupProps;
       scrollEnabled?: boolean;
       avoidHeight?: number;

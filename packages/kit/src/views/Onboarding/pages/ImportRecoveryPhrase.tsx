@@ -41,6 +41,11 @@ const useAvoidKeyboardLayout = () => {
 
 const tutorials = [
   {
+    title: 'What is a recovery phrase?',
+    description:
+      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
+  },
+  {
     title: 'Is it safe to enter it into OneKey?',
     description:
       'Yes. It will be stored locally and never leave your device without your explicit permission.',
@@ -48,11 +53,11 @@ const tutorials = [
 ];
 
 const phraseLengthOptions = [
-  { label: '12 words', value: 12 },
-  { label: '15 words', value: 15 },
-  { label: '18 words', value: 18 },
-  { label: '21 words', value: 21 },
-  { label: '24 words', value: 24 },
+  { label: '12 words', value: '12' },
+  { label: '15 words', value: '15' },
+  { label: '18 words', value: '18' },
+  { label: '21 words', value: '21' },
+  { label: '24 words', value: '24' },
 ];
 
 function PageContent() {
@@ -85,6 +90,7 @@ function PageContent() {
       <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
         <Select
           title="Select a length"
+          placement="bottom-start"
           items={phraseLengthOptions}
           value={phraseLength}
           onChange={setPhraseLength}
@@ -153,8 +159,6 @@ const headerRight = () => (
     onPress={() =>
       Dialog.show({
         title: 'Recovery Phrase',
-        description:
-          'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
         icon: 'Document2Outline',
         renderContent: <Tutorials list={tutorials} />,
         showFooter: false,

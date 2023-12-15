@@ -467,6 +467,8 @@ const mergedTokens = createTokens({
   color: {
     ...postfixObjKeys(lightColors, 'Light'),
     ...postfixObjKeys(darkColors, 'Dark'),
+    ...whiteA,
+    ...blackA,
   },
 });
 

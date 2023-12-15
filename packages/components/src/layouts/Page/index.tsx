@@ -19,14 +19,16 @@ export type { IPageProps } from './type';
 function PageProvider({
   children,
   skipLoading = false,
-  safeAreaEnabled = false,
   scrollEnabled = false,
+  safeAreaEnabled = true,
 }: IPageProps) {
   const [options, setOptions] = useState<{
+    safeAreaEnabled?: boolean;
     footerOptions?: IPageButtonGroupProps;
     scrollEnabled?: boolean;
   }>({
     scrollEnabled,
+    safeAreaEnabled,
   });
   const value = useMemo(
     () => ({
@@ -37,40 +39,35 @@ function PageProvider({
   );
   return (
     <PageContext.Provider value={value}>
-      <PageContainer
-        skipLoading={skipLoading}
-        safeAreaEnabled={safeAreaEnabled}
-      >
-        {children}
-      </PageContainer>
+      <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
     </PageContext.Provider>
   );
 }
 
 export const usePageScrollEnabled = () => {
-  const { options = {}, setOptions } = useContext(PageContext);
+  const { options, setOptions } = useContext(PageContext);
   return {
-    scrollEnabled: options.scrollEnabled,
+    scrollEnabled: options?.scrollEnabled,
     changeScrollEnabled: (enabled: boolean) => {
-      setOptions?.({
-        ...options,
+      setOptions?.((value) => ({
+        ...value,
         scrollEnabled: enabled,
-      });
+      }));
     },
   };
 };
 
 export const usePageAvoidKeyboard = () => {
-  const { options = {}, setOptions } = useContext(PageContext);
+  const { options, setOptions } = useContext(PageContext);
   const keyboardHeight = useKeyboardHeight();
   const changePageAvoidHeight = useCallback(
     (callback: (keyboardHeight: number) => number) => {
-      setOptions?.({
-        ...options,
+      setOptions?.((value) => ({
+        ...value,
         avoidHeight: callback(keyboardHeight),
-      });
+      }));
     },
-    [keyboardHeight, options, setOptions],
+    [keyboardHeight, setOptions],
   );
 
   useKeyboardEvent(
@@ -79,11 +76,11 @@ export const usePageAvoidKeyboard = () => {
         changePageAvoidHeight(() => 0);
       },
     },
-    [options],
+    [],
   );
   return {
     keyboardHeight,
-    avoidHeight: options.avoidHeight,
+    avoidHeight: options?.avoidHeight,
     changePageAvoidHeight,
   };
 };

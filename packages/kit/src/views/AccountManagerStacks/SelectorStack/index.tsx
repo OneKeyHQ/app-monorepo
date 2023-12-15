@@ -38,7 +38,7 @@ export function SelectorStack() {
   );
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         <WalletList

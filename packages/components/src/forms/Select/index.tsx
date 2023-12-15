@@ -19,7 +19,7 @@ import type {
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 
-function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
+function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   const { changeOpenStatus, value, placeholder, disabled } =
     useContext(SelectContext);
   const handleTriggerPressed = useCallback(() => {
@@ -27,12 +27,8 @@ function SelectTrigger({ renderTrigger: RenderTrigger }: ISelectTriggerProps) {
   }, [changeOpenStatus]);
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
-      {RenderTrigger ? (
-        <RenderTrigger
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-        />
+      {renderTrigger ? (
+        renderTrigger({ value, placeholder, disabled })
       ) : (
         <SizableText>{value}</SizableText>
       )}
@@ -100,6 +96,20 @@ function SelectItem({
   );
 }
 
+const useRenderPopoverTrigger = () => {
+  const { md } = useMedia();
+  return md ? null : (
+    <Stack
+      width="100%"
+      height="100%"
+      position="absolute"
+      left={0}
+      top={0}
+      pointerEvents="none"
+    />
+  );
+};
+
 function SelectContent() {
   const {
     changeOpenStatus,
@@ -111,6 +121,7 @@ function SelectContent() {
     sections,
     refreshState,
     sheetProps,
+    placement,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (itemValue: string) => {
@@ -185,6 +196,8 @@ function SelectContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [refreshState],
   );
+
+  const popoverTrigger = useRenderPopoverTrigger();
   return (
     <Popover
       title={title || ''}
@@ -201,8 +214,8 @@ function SelectContent() {
         maxHeight: '60vh',
         width: '$56',
       }}
-      placement="bottom-start"
-      renderTrigger={<Stack pointerEvents="none" />}
+      placement={placement}
+      renderTrigger={popoverTrigger}
       renderContent={renderContent}
     />
   );
@@ -218,6 +231,7 @@ function SelectFrame({
   disabled,
   sections,
   sheetProps,
+  placement = 'bottom-start',
 }: ISelectProps) {
   const [openCounts, updateOpenCounts] = useState(0);
   const changeOpenStatus = useCallback(() => {
@@ -242,6 +256,7 @@ function SelectFrame({
       placeholder,
       disabled,
       sheetProps,
+      placement,
     }),
     [
       isOpen,
@@ -255,10 +270,13 @@ function SelectFrame({
       placeholder,
       disabled,
       sheetProps,
+      placement,
     ],
   );
   return (
-    <SelectContext.Provider value={context}>{children}</SelectContext.Provider>
+    <SelectContext.Provider value={context}>
+      <Stack position="relative">{children}</Stack>
+    </SelectContext.Provider>
   );
 }
 
