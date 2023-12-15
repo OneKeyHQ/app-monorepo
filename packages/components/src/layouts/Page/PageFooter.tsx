@@ -74,7 +74,7 @@ function PageFooterContext(props: IPageFooterProps) {
     onConfirmText,
     confirmButtonProps,
     cancelButtonProps,
-    extraData,
+    extraData = [],
   } = props;
 
   const element = useMemo(

@@ -88,37 +88,6 @@ const WordItem = ({ word, onPress }: IWordItemProps) => {
   );
 };
 
-function PageFooter({
-  onWordSelected,
-  words,
-}: {
-  words: string[];
-  onWordSelected: (word: string) => void;
-}) {
-  const isShow = useIsKeyboardShown();
-  return (
-    <Page.Footer extraData={[words, isShow]}>
-      {isShow ? (
-        <ScrollView
-          horizontal
-          keyboardDismissMode="none"
-          keyboardShouldPersistTaps="always"
-          contentContainerStyle={{
-            px: '$4',
-            py: '$2',
-          }}
-          showsHorizontalScrollIndicator={false}
-        >
-          {words.map((word) => (
-            <WordItem word={word} onPress={onWordSelected} />
-          ))}
-        </ScrollView>
-      ) : null}
-      <Page.FooterActions onConfirm={() => console.log('confirm')} />
-    </Page.Footer>
-  );
-}
-
 const queryWordFromDict = (word: string) =>
   // mock query
   new Promise<string[]>((resolve) => {
@@ -128,7 +97,7 @@ const queryWordFromDict = (word: string) =>
     }, 100);
   });
 
-const usePhraseHintWords = (
+const usePhraseSuggestion = (
   form: ReturnType<typeof useForm>,
   selectWordIndex: MutableRefObject<number>,
 ) => {
@@ -152,7 +121,7 @@ const usePhraseHintWords = (
       const value = values[key];
       const dictWords = await queryWordFromDict(value);
       // check word in dict
-      if (mockWords.includes(value)) {
+      if (!value || mockWords.includes(value)) {
         setWords([]);
       } else {
         setWords(dictWords);
@@ -165,10 +134,55 @@ const usePhraseHintWords = (
     form.watch(debounce(watchForm, 20));
   }, [form, selectWordIndex, watchForm]);
   return {
-    hintWords: words,
+    suggestionWords: words,
     updateWordValue,
   };
 };
+
+function SuggestionList({
+  form,
+  selectWordIndex,
+}: {
+  form: ReturnType<typeof useForm>;
+  selectWordIndex: MutableRefObject<number>;
+}) {
+  const isShow = useIsKeyboardShown();
+  const { suggestionWords, updateWordValue } = usePhraseSuggestion(
+    form,
+    selectWordIndex,
+  );
+  return isShow ? (
+    <ScrollView
+      horizontal
+      keyboardDismissMode="none"
+      keyboardShouldPersistTaps="always"
+      contentContainerStyle={{
+        px: '$4',
+        py: '$2',
+      }}
+      showsHorizontalScrollIndicator={false}
+    >
+      {suggestionWords.map((word) => (
+        <WordItem key={word} word={word} onPress={updateWordValue} />
+      ))}
+    </ScrollView>
+  ) : null;
+}
+
+function PageFooter({
+  form,
+  selectWordIndex,
+}: {
+  form: ReturnType<typeof useForm>;
+  selectWordIndex: MutableRefObject<number>;
+}) {
+  return (
+    <Page.Footer>
+      <SuggestionList form={form} selectWordIndex={selectWordIndex} />
+      <Page.FooterActions onConfirm={() => console.log('confirm')} />
+    </Page.Footer>
+  );
+}
 
 function PageContent() {
   const media = useMedia();
@@ -189,23 +203,12 @@ function PageContent() {
   };
   const { scrollToInputArea } = useScrollToInputArea(alertRef);
 
-  const { hintWords, updateWordValue } = usePhraseHintWords(
-    form,
-    selectWordIndex,
-  );
   const handleInputFocus = useCallback(
     (index: number) => {
       scrollToInputArea();
       selectWordIndex.current = index;
     },
     [scrollToInputArea],
-  );
-
-  const handleWordSelect = useCallback(
-    (word: string) => {
-      updateWordValue(word);
-    },
-    [updateWordValue],
   );
 
   const handleClear = useCallback(() => {
@@ -306,7 +309,7 @@ function PageContent() {
           <Tutorials list={tutorials} />
         </Stack>
       </Page.Body>
-      <PageFooter onWordSelected={handleWordSelect} words={hintWords} />
+      <PageFooter form={form} selectWordIndex={selectWordIndex} />
     </>
   );
 }
