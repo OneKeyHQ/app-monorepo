@@ -70,7 +70,7 @@ const PageContainer = ({ children }: PropsWithChildren) => {
   );
 };
 
-export function PageContextFooter(props: IPageFooterProps) {
+export function PageFooterContext(props: IPageFooterProps) {
   const { setOptions } = useContext(PageContext);
   const { children, ...restProps } = props;
   useLayoutEffect(() => {
