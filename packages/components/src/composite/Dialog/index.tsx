@@ -39,7 +39,7 @@ import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 
 // Fix the issue of the overlay layer in tamagui being too low
-const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IStackProps = {
   zIndex: 100001,
   display: 'block',
 };

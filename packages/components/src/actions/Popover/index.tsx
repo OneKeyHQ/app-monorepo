@@ -2,6 +2,7 @@ import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
@@ -123,6 +124,7 @@ function RawPopover({
           {...sheetProps}
         >
           <TMPopover.Sheet.Overlay
+            {...FIX_SHEET_PROPS}
             backgroundColor="$bgBackdrop"
             animation="quick"
             enterStyle={{ opacity: 0 }}
