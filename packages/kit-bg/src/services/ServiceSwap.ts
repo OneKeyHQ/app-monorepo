@@ -1,5 +1,15 @@
 import axios from 'axios';
 
+import type {
+  ESwapProviders,
+  IFetchQuoteResponse,
+  IFetchQuotesParams,
+  IFetchResponse,
+  IFetchSwapResponse,
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/kit/src/views/Swap/types';
+import { EExchangeProtocol } from '@onekeyhq/kit/src/views/Swap/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -9,138 +19,6 @@ import { getFiatEndpoint } from '@onekeyhq/shared/src/config/endpoint';
 import ServiceBase from './ServiceBase';
 
 import type { CancelTokenSource } from 'axios';
-
-export enum ESwapProtocolType {
-  SWAP = 'swap',
-}
-
-export enum ESwapProvider {
-  ONE_INCH = '1inch',
-  SWFT = 'swft',
-}
-
-export interface ISwapToken {
-  networkId: string;
-  providers: string;
-  protocolTypes: string;
-  contractAddress: string; // native token ''
-  symbol: string;
-  decimals: number;
-  logoURI?: string;
-  swft_coinCode?: string;
-  swft_noSupportCoins?: string;
-  unSupported?: boolean;
-}
-
-interface IFetchQuotesParams {
-  fromNetworkId: string;
-  toNetworkId: string;
-  fromTokenAddress: string;
-  toTokenAddress: string;
-  fromTokenAmount: string;
-  protocolTypes: string;
-  providers: string;
-  fromTokenDecimals: number;
-  toTokenDecimals: number;
-  fromTokenSwftCode?: string;
-  toTokenSwftCode?: string;
-  userAddress?: string;
-  receivingAddress?: string;
-  slippagePercentage?: string;
-}
-
-export interface ISwapNetwork {
-  networkId: string;
-  protocolTypes: string;
-  providers: string;
-  unSupported?: boolean;
-}
-
-export type IFetchQuoteLimit = {
-  max?: string;
-  min?: string;
-};
-
-export interface IFetchQuoteResponse {
-  quoteResult: IFetchQuoteResult;
-  limit?: IFetchQuoteLimit;
-}
-
-export interface IFetchSwapResponse {
-  quoteResult: IFetchQuoteResult;
-  tx?: ITransaction;
-  order?: IFetchSwftOrderResponse;
-}
-
-export interface IFetchQuoteFee {
-  percentageFee: number; // oneKey fee percentage
-  protocolFees?: IFeeInfo[];
-  netWorkFees?: INetworkFee[];
-}
-
-interface IFeeTokenAsset {
-  address: string;
-  networkId: string;
-  decimals: number;
-  symbol?: string;
-  logoURI?: string;
-}
-
-export interface IFeeInfo {
-  amount: string;
-  asset?: IFeeTokenAsset;
-}
-
-export interface INetworkFee {
-  gas?: string;
-  value?: IFeeInfo;
-}
-
-export interface IEVMTransaction {
-  to: string;
-  value: string;
-  data: string;
-}
-
-export type ITransaction = IEVMTransaction;
-
-export interface IFetchQuoteInfo {
-  provider: string;
-  protocolType: string;
-  providerLogo?: string;
-  protocolLogo?: string;
-}
-
-export interface IFetchQuoteResult {
-  info: IFetchQuoteInfo;
-  toAmount: string;
-  finialAmount: string; // after protocolFees + oneKeyFee
-  fee: IFetchQuoteFee;
-  allowanceTarget?: string;
-  arrivalTime?: number;
-}
-
-export interface IFetchSwftOrderResponse {
-  platformAddr: string;
-  depositCoinAmt: string;
-  depositCoinCode: string;
-  receiveCoinAmt: string;
-  receiveCoinCode: string;
-  orderId: string;
-}
-
-interface IFetchResponse<T> {
-  code: number;
-  data: T;
-  message: string;
-}
-
-export const SingleChainSwapProviders: (ESwapProvider | string)[] = [
-  ESwapProvider.ONE_INCH,
-];
-export const CrossChainSwapProviders: (ESwapProtocolType | string)[] = [
-  ESwapProvider.SWFT,
-];
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -156,41 +34,347 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
-    const baseUrl = getFiatEndpoint();
-    const providers = [ESwapProvider.ONE_INCH, ESwapProvider.SWFT];
-    const protocolTypes = [ESwapProtocolType.SWAP];
-    const params = {
-      providers: providers.join(','),
-      protocolTypes: protocolTypes.join(','),
-    };
-    const fetchUrl = `${baseUrl}/exchange/support/networks`;
-    const { data } = await this.client.get<IFetchResponse<ISwapNetwork[]>>(
-      fetchUrl,
-      { params },
-    );
-    if (data.code === 0 && data.data) {
-      return data.data;
-    }
-    return [];
+    // const baseUrl = getFiatEndpoint();
+    // const protocol = EExchangeProtocol.SWAP;
+    // const params = {
+    //   protocol,
+    // };
+    // const fetchUrl = `${baseUrl}/exchange/networks`;
+    // const { data } = await this.client.get<IFetchResponse<ISwapNetwork[]>>(
+    //   fetchUrl,
+    //   { params },
+    // );
+    // if (data.code === 0 && data.data) {
+    //   return data.data;
+    // }
+    return [
+      {
+        networkId: 'evm--1',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--2',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--3',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--4',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--5',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--6',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+      {
+        networkId: 'evm--7',
+        protocol: EExchangeProtocol.SWAP,
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+      },
+    ];
   }
 
   @backgroundMethod()
-  async fetchSwapTokens(network: ISwapNetwork) {
-    const baseUrl = getFiatEndpoint();
-    const params = {
-      providers: network.providers,
-      protocolTypes: network.protocolTypes,
-      networkId: network.networkId,
-    };
-    const fetchUrl = `${baseUrl}/exchange/support/tokens`;
-    const { data } = await this.client.get<IFetchResponse<ISwapToken[]>>(
-      fetchUrl,
-      { params },
-    );
-    if (data.code === 0 && data.data) {
-      return data.data;
+  async fetchSwapTokens({
+    networkId,
+    keyword,
+    fromToken,
+    type,
+  }: {
+    type: 'from' | 'to';
+    networkId?: string;
+    keyword?: string;
+    fromToken?: ISwapToken;
+  }) {
+    // const baseUrl = getFiatEndpoint();
+    // const params = {
+    //   providers: fromToken?.providers,
+    //   protocol: EExchangeProtocol.SWAP,
+    //   networkId,
+    //   keyword,
+    //   type,
+    // };
+    // const fetchUrl = `${baseUrl}/exchange/tokens`;
+    // const { data } = await this.client.get<IFetchResponse<ISwapToken[]>>(
+    //   fetchUrl,
+    //   { params },
+    // );
+    // if (data?.code === 0 && data?.data) {
+    //   return data.data;
+    // }
+    if (networkId === 'evm--1') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--1',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--1',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--1',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--1',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--1',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
     }
-    return [];
+    if (networkId === 'evm--2') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--2',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH2',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--2',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH2',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    if (networkId === 'evm--3') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--3',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH3',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--3',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH3',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--3',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH3',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--3',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH3',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--3',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH3',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    if (networkId === 'evm--4') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--4',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH4',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    if (networkId === 'evm--5') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--5',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH5',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    if (networkId === 'evm--6') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--6',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH6',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    if (networkId === 'evm--7') {
+      return [
+        {
+          protocol: EExchangeProtocol.SWAP,
+          networkId: 'evm--7',
+          providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+          contractAddress: '0x00000',
+          symbol: 'ETH7',
+          decimals: 18,
+          logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+          swft_coinCode: 'ETH',
+          swft_noSupportCoins: 'ETH',
+        },
+      ];
+    }
+    return [
+      {
+        protocol: EExchangeProtocol.SWAP,
+        networkId: 'evm--1',
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+        contractAddress: '0x00000',
+        symbol: 'ETH',
+        decimals: 18,
+        logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+        swft_coinCode: 'ETH',
+        swft_noSupportCoins: 'ETH',
+      },
+      {
+        protocol: EExchangeProtocol.SWAP,
+        networkId: 'evm--2',
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+        contractAddress: '0x00000',
+        symbol: 'ETH2',
+        decimals: 18,
+        logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+        swft_coinCode: 'ETH',
+        swft_noSupportCoins: 'ETH',
+      },
+      {
+        protocol: EExchangeProtocol.SWAP,
+        networkId: 'evm--3',
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+        contractAddress: '0x00000',
+        symbol: 'ETH3',
+        decimals: 18,
+        logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+        swft_coinCode: 'ETH',
+        swft_noSupportCoins: 'ETH',
+      },
+      {
+        protocol: EExchangeProtocol.SWAP,
+        networkId: 'evm--4',
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+        contractAddress: '0x00000',
+        symbol: 'ETH4',
+        decimals: 18,
+        logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+        swft_coinCode: 'ETH',
+        swft_noSupportCoins: 'ETH',
+      },
+      {
+        protocol: EExchangeProtocol.SWAP,
+        networkId: 'evm--5',
+        providers: 'swap_1inch,swap_0x,swap_swft,swap_socket_bridge',
+        contractAddress: '0x00000',
+        symbol: 'ETH5',
+        decimals: 18,
+        logoURI: 'https://onekey-asset.s3.amazonaws.com/eth.png',
+        swft_coinCode: 'ETH',
+        swft_noSupportCoins: 'ETH',
+      },
+    ];
   }
 
   @backgroundMethod()
@@ -207,13 +391,8 @@ export default class ServiceSwap extends ServiceBase {
       this._cancelSource.cancel('quote request canceled');
     }
     const fetchUrl = `${getFiatEndpoint()}/exchange/quote`;
-    const fromProtocolTypesArr = fromToken.protocolTypes.split(',');
     const fromProvidersArr = fromToken.providers.split(',');
-    const toProtocolTypesArr = toToken.protocolTypes.split(',');
     const toProvidersArr = toToken.providers.split(',');
-    const supportedProtocolTypes = fromProtocolTypesArr.filter((item) =>
-      toProtocolTypesArr.includes(item),
-    );
     const supportedProviders = fromProvidersArr.filter((item) =>
       toProvidersArr.includes(item),
     );
@@ -227,7 +406,7 @@ export default class ServiceSwap extends ServiceBase {
       toTokenDecimals: toToken.decimals,
       fromTokenSwftCode: fromToken.swft_coinCode,
       toTokenSwftCode: toToken.swft_coinCode,
-      protocolTypes: supportedProtocolTypes.join(','),
+      protocol: EExchangeProtocol.SWAP,
       providers: supportedProviders.join(','),
     };
     console.log('fetchQuote--', params);
@@ -257,12 +436,14 @@ export default class ServiceSwap extends ServiceBase {
     toToken,
     fromTokenAmount,
     userAddress,
+    provider,
     receivingAddress,
     slippagePercentage,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
+    provider: ESwapProviders;
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: string;
@@ -275,16 +456,6 @@ export default class ServiceSwap extends ServiceBase {
     // 展示  swap 确认信息
 
     const fetchUrl = `${getFiatEndpoint()}/exchange/swap`;
-    const fromProtocolTypesArr = fromToken.protocolTypes.split(',');
-    const fromProvidersArr = fromToken.providers.split(',');
-    const toProtocolTypesArr = toToken.protocolTypes.split(',');
-    const toProvidersArr = toToken.providers.split(',');
-    const supportedProtocolTypes = fromProtocolTypesArr.filter((item) =>
-      toProtocolTypesArr.includes(item),
-    );
-    const supportedProviders = fromProvidersArr.filter((item) =>
-      toProvidersArr.includes(item),
-    );
     const params = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -295,8 +466,8 @@ export default class ServiceSwap extends ServiceBase {
       toTokenDecimals: toToken.decimals,
       fromTokenSwftCode: fromToken.swft_coinCode,
       toTokenSwftCode: toToken.swft_coinCode,
-      protocolTypes: supportedProtocolTypes.join(','),
-      providers: supportedProviders.join(','),
+      protocol: EExchangeProtocol.SWAP,
+      provider,
       userAddress,
       receivingAddress,
       slippagePercentage,

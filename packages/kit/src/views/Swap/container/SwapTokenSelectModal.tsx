@@ -1,20 +1,33 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ListItem, ListView, Page, Spinner } from '@onekeyhq/components';
-import type { ISwapToken } from '@onekeyhq/kit-bg/src/services/ServiceSwap';
-import { useSwapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  ListItem,
+  ListView,
+  Page,
+  SearchBar,
+  Spinner,
+} from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  useSwapActions,
+  useSwapNetworksAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+} from '../../../states/jotai/contexts/swap';
+import NetworkToggleGroup from '../components/SwapNetworkToggleGroup';
+import { useSwapTokenList } from '../hooks/useSwapTokens';
+
+import { withSwapProvider } from './WithSwapProvider';
 
 import type { EModalSwapRoutes, IModalSwapParamList } from '../router/Routers';
+import type { ISwapNetwork, ISwapToken } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
-export default function SwapTokenSelectModal() {
-  console.log('SwapTokenSelectModal');
+const SwapTokenSelectModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -22,27 +35,44 @@ export default function SwapTokenSelectModal() {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
   const { type } = route.params;
-  const [{ fromNetwork, toNetwork, fromTokenList, toTokenList }] =
-    useSwapAtom();
-  const [loading, setLoading] = useState(false);
+  const [swapNetworks] = useSwapNetworksAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const { selectFromToken, selectToToken } = useSwapActions();
+  const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
+    ISwapNetwork | undefined
+  >(() =>
+    type === 'from'
+      ? swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
+        )
+      : swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === toToken?.networkId,
+        ),
+  );
+  const { fetchLoading, fetchTokens, currentTokens } = useSwapTokenList(
+    type,
+    currentSelectNetwork?.networkId,
+  );
+  const onSubmitSearchKeyWord = useCallback(
+    async (keyword: string) => {
+      void fetchTokens({ networkId: currentSelectNetwork?.networkId, keyword });
+    },
+    [currentSelectNetwork?.networkId, fetchTokens],
+  );
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
-      await backgroundApiProxy.serviceSwap.selectToken(item, type);
+      if (type === 'from') {
+        void selectFromToken(item);
+      } else {
+        void selectToToken(item);
+      }
       navigation.popStack();
     },
-    [navigation, type],
+    [navigation, selectFromToken, selectToToken, type],
   );
 
-  useEffect(() => {
-    const currentNetWork = type === 'from' ? fromNetwork : toNetwork;
-    const currentTokens = type === 'from' ? fromTokenList : toTokenList;
-    if (!currentNetWork || currentTokens) return;
-    setLoading(true);
-    void backgroundApiProxy.serviceSwap.fetchSwapTokens(type).finally(() => {
-      setLoading(false);
-    });
-  }, [fromNetwork, fromTokenList, toNetwork, toTokenList, type]);
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => (
       <ListItem
@@ -59,16 +89,28 @@ export default function SwapTokenSelectModal() {
 
   return (
     <Page>
-      {loading ? (
+      <SearchBar
+        height="$12"
+        onSubmitEditing={(e) => {
+          void onSubmitSearchKeyWord(e.nativeEvent.text);
+        }}
+      />
+      <NetworkToggleGroup
+        networks={swapNetworks}
+        selectedNetwork={currentSelectNetwork}
+        onSelectNetwork={setCurrentSelectNetwork}
+      />
+      {fetchLoading ? (
         <Spinner flex={1} justifyContent="center" alignItems="center" />
       ) : (
         <ListView
-          flex={1}
-          data={type === 'from' ? fromTokenList : toTokenList}
+          data={currentTokens}
           renderItem={renderItem}
           estimatedItemSize="$10"
         />
       )}
     </Page>
   );
-}
+};
+
+export default memo(withSwapProvider(SwapTokenSelectModal));

@@ -1,5 +1,6 @@
 import { Icon, Image, Text, XStack, YStack } from '@onekeyhq/components';
-import type { IFetchQuoteResponse } from '@onekeyhq/kit-bg/src/services/ServiceSwap';
+
+import type { IFetchQuoteResponse } from '../types';
 
 interface IQuoteResultProps {
   quoteResponse: IFetchQuoteResponse;
@@ -28,10 +29,6 @@ export const QuoteResult = ({
       <XStack space="$4">
         <Text>Provider</Text>
         <Text>{quoteResult.info.provider}</Text>
-      </XStack>
-      <XStack space="$4">
-        <Text>Protocol</Text>
-        <Text>{quoteResult.info.protocolType}</Text>
       </XStack>
       <Text variant="$headingXl">Fee</Text>
       <XStack space="$4">

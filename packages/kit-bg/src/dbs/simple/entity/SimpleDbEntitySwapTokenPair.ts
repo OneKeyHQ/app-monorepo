@@ -1,6 +1,6 @@
-import { SimpleDbEntityBase } from '../SimpleDbEntityBase';
+import type { ISwapToken } from '@onekeyhq/kit/src/views/Swap/types';
 
-import type { ISwapToken } from '../../../../services/ServiceSwap';
+import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface ISwapTokenPair {
   fromToken: ISwapToken;

@@ -6,6 +6,8 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import type { SimpleDbEntitySwapTokenPair } from '../entity/SimpleDbEntitySwapTokenPair';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -40,4 +42,12 @@ export class SimpleDbProxy
   accountSelector = this._createProxyService(
     'accountSelector',
   ) as SimpleDbEntityAccountSelector;
+
+  swapNetworksSort = this._createProxyService(
+    'swapNetworksSort',
+  ) as SimpleDbEntitySwapNetworksSort;
+
+  swapTokenPair = this._createProxyService(
+    'swapTokenPair',
+  ) as SimpleDbEntitySwapTokenPair;
 }

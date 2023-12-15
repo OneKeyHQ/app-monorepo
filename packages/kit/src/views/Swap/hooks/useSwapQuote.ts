@@ -1,14 +1,14 @@
 import { useCallback, useState } from 'react';
 
-import type { IFetchQuoteResponse } from '@onekeyhq/kit-bg/src/services/ServiceSwap';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
 
-export function useSwapQuoteAction() {
+import type { IFetchQuoteResponse } from '../types';
+
+export function useSwapQuote() {
   const [quoteFetching, setQuoteFetching] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
