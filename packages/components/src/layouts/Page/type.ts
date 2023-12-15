@@ -14,7 +14,7 @@ export type IBasicPageProps = PropsWithChildren<{
 export type IPageFooterProps = PropsWithChildren<
   IFooterActionsProps & {
     /* A marker property for telling the list to re-render (since it implements PureComponent).  */
-    extraData?: any;
+    extraData?: any[];
   }
 >;
 

@@ -96,7 +96,7 @@ function PageFooterContext(props: IPageFooterProps) {
         <Placeholder />
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [extraData],
+    extraData,
   );
   useLayoutEffect(() => {
     setOptions?.((options) => ({

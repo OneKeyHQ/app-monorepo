@@ -1,13 +1,10 @@
-import type { RefObject } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import type { MutableRefObject, RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  type LayoutChangeEvent,
-  type View,
-  findNodeHandle,
-} from 'react-native';
+import { debounce } from 'lodash';
+import { type View } from 'react-native';
+import { findNodeHandle } from 'react-native';
 
-import type { IElement } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -67,26 +64,40 @@ const phraseLengthOptions = [
   { label: '24 words', value: '24' },
 ];
 
-const words = ['acacia', 'alfalfa', 'algebra', 'area', 'aphasia', 'asthma'];
-const WordItem = ({ word }: { word: string }) => (
-  <Stack
-    bg="$backgroundHover"
-    py="$1"
-    px="$2"
-    borderRadius="$2"
-    mr="$4"
-    onPress={() => {
-      console.log('123123');
-    }}
-  >
-    <SizableText>{word}</SizableText>
-  </Stack>
-);
+const mockWords = ['acacia', 'alfalfa', 'algebra', 'area', 'aphasia', 'asthma'];
 
-function PageFooter() {
+interface IWordItemProps {
+  word: string;
+  onPress: (word: string) => void;
+}
+const WordItem = ({ word, onPress }: IWordItemProps) => {
+  const handlePress = useCallback(() => {
+    onPress(word);
+  }, [onPress, word]);
+  return (
+    <Stack
+      bg="$backgroundHover"
+      py="$1"
+      px="$2"
+      borderRadius="$2"
+      mr="$4"
+      onPress={handlePress}
+    >
+      <SizableText>{word}</SizableText>
+    </Stack>
+  );
+};
+
+function PageFooter({
+  onWordSelected,
+  words,
+}: {
+  words: string[];
+  onWordSelected: (word: string) => void;
+}) {
   const isShow = useIsKeyboardShown();
   return (
-    <Page.Footer extraData={isShow}>
+    <Page.Footer extraData={[words, isShow]}>
       {isShow ? (
         <ScrollView
           horizontal
@@ -99,7 +110,7 @@ function PageFooter() {
           showsHorizontalScrollIndicator={false}
         >
           {words.map((word) => (
-            <WordItem word={word} />
+            <WordItem word={word} onPress={onWordSelected} />
           ))}
         </ScrollView>
       ) : null}
@@ -108,9 +119,61 @@ function PageFooter() {
   );
 }
 
+const queryWordFromDict = (word: string) =>
+  // mock query
+  new Promise<string[]>((resolve) => {
+    console.log(word);
+    setTimeout(() => {
+      resolve(mockWords.slice(Math.floor(mockWords.length * Math.random())));
+    }, 100);
+  });
+
+const usePhraseHintWords = (
+  form: ReturnType<typeof useForm>,
+  selectWordIndex: MutableRefObject<number>,
+) => {
+  const [words, setWords] = useState<string[]>([]);
+  const updateWordValue = useCallback(
+    (word: string) => {
+      const index = selectWordIndex.current;
+      const key = `phrase${index + 1}`;
+      form.setValue(key, word);
+    },
+    [form, selectWordIndex],
+  );
+
+  const watchForm = useCallback(
+    async (values: Record<string, string>) => {
+      const index = selectWordIndex.current;
+      if (index === -1) {
+        setWords([]);
+      }
+      const key = `phrase${index + 1}`;
+      const value = values[key];
+      const dictWords = await queryWordFromDict(value);
+      // check word in dicts
+      if (mockWords.includes(value)) {
+        setWords([]);
+      } else {
+        setWords(dictWords);
+      }
+    },
+    [selectWordIndex],
+  );
+
+  useEffect(() => {
+    form.watch(debounce(watchForm, 20));
+  }, [form, selectWordIndex, watchForm]);
+  return {
+    hintWords: words,
+    updateWordValue,
+  };
+};
+
 function PageContent() {
   const media = useMedia();
   const form = useForm({});
+  const selectWordIndex = useRef(-1);
   const alertRef = useRef<View>(null);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
@@ -125,6 +188,25 @@ function PageContent() {
     return `${length} invalid words`;
   };
   const { scrollToInputArea } = useScrollToInputArea(alertRef);
+
+  const { hintWords, updateWordValue } = usePhraseHintWords(
+    form,
+    selectWordIndex,
+  );
+  const handleInputFocus = useCallback(
+    (index: number) => {
+      scrollToInputArea();
+      selectWordIndex.current = index;
+    },
+    [scrollToInputArea],
+  );
+
+  const handleWordSelect = useCallback(
+    (word: string) => {
+      updateWordValue(word);
+    },
+    [updateWordValue],
+  );
 
   return (
     <>
@@ -167,13 +249,15 @@ function PageContent() {
               >
                 <Form.Field name={`phrase${index + 1}`}>
                   <Input
+                    autoCorrect={false}
+                    spellCheck={false}
                     size={media.md ? 'large' : 'medium'}
                     leftAddOnProps={{
                       label: `${index + 1}`,
                       minWidth: '$10',
                       justifyContent: 'center',
                     }}
-                    onFocus={scrollToInputArea}
+                    onFocus={() => handleInputFocus(index)}
                     returnKeyType="next"
                   />
                 </Form.Field>
@@ -218,7 +302,7 @@ function PageContent() {
           <Tutorials list={tutorials} />
         </Stack>
       </Page.Body>
-      <PageFooter />
+      <PageFooter onWordSelected={handleWordSelect} words={hintWords} />
     </>
   );
 }
