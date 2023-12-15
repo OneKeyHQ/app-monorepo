@@ -8,7 +8,7 @@ module.exports = (config, projectRoot) => {
     const dynamicImports = require('./dynamicImports');
     const { fileToIdMap } = require('./map');
     const fileMapCacheDirectoryPath = path.resolve(
-      __dirname,
+      projectRoot,
       'node_modules',
       '.cache/file-map-cache',
     );
@@ -120,7 +120,7 @@ module.exports = (config, projectRoot) => {
       return bundle;
     };
 
-    const outputChunkDir = path.resolve(__dirname, 'dist/chunks');
+    const outputChunkDir = path.resolve(projectRoot, 'dist/chunks');
     config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
       connect()
         .use(metroMiddleware)
