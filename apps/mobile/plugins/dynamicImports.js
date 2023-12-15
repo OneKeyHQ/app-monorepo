@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable import/no-dynamic-require */
 const path = require('path');
 const fs = require('fs-extra');
@@ -66,7 +67,6 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
       const val = graph.dependencies.get(absolutePath);
       for (const [k, v] of val.dependencies) {
         if (v.absolutePath === key) {
-          // 父级被拆分到某个chunk中 该模块同步引用
           const chunkModuleId = findAllocationById(moduleId);
           if (chunkModuleId && v.data.data.asyncType === null) {
             return chunkModuleId;
@@ -97,10 +97,10 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
     prepend,
     graph,
     bundleOptions,
-  ); // { pre, post, modules }
+  );
 
   const allocation = () => {
-    for (const [key, val] of map) val.modules.length = 0; // clear modules
+    for (const [key, val] of map) val.modules.length = 0;
     for (const [moduleId, moduleCode] of modules) {
       for (const [key, val] of map) {
         if (val.moduleIds.has(moduleId)) {
@@ -111,7 +111,6 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
     }
   };
 
-  // pre allocated
   allocation();
 
   for (const [key, val] of map) {
@@ -129,7 +128,6 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
     }
   }
 
-  // formal allocated
   allocation();
   if (map.size >= 2) {
     await fs.ensureDir(outputChunkDir);
@@ -149,11 +147,6 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
         chunkModuleIdToHashMap[key] = {};
       }
       chunkModuleIdToHashMap[key] = { ...chunkModuleIdToHashMap[key], hash };
-      //   mcs.hooks.beforeOutputChunk.call({
-      //     code,
-      //     chunkModuleIdToHashMapVal: chunkModuleIdToHashMap[key],
-      //     outputChunkFns,
-      //   });
       outputChunkFns.push(
         (async () => {
           const dir = path.resolve(outputChunkDir, `${hash}.bundle`);
@@ -165,7 +158,6 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   }
   await Promise.all(outputChunkFns);
 
-  // inject map info
   for (const arr of map.get(mainModuleId).modules) {
     if (arr[0] === fileToIdMap.get(chunkModuleIdToHashMapPath)) {
       const ast = parser.parse(arr[1]);
