@@ -5,8 +5,6 @@ import {
   stop,
 } from 'react-native-metrix';
 
-import platformEnv from '../../platformEnv';
-
 import {
   clearLogFolder,
   initLogFolder,
