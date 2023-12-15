@@ -7,13 +7,7 @@ import {
 } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import {
-  Group,
-  Input as TMInput,
-  getFontSize,
-  useMedia,
-  useThemeName,
-} from 'tamagui';
+import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -81,21 +75,25 @@ const useReadOnlyStyle = (readOnly = false) =>
   );
 
 const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
-  const { md } = useMedia();
-  const isWebMd = useMemo(
-    () => autoFocus && platformEnv.isRuntimeBrowser && md,
-    [autoFocus, md],
+  const shouldReloadAutoFocus = useMemo(
+    () => platformEnv.isRuntimeBrowser && autoFocus,
+    [autoFocus],
   );
   useEffect(() => {
     // focus after the animation of Dialog and other containers is finished,
     //  to avoid the misalignment caused by the container recalculating its height
-    if (isWebMd) {
+    if (!shouldReloadAutoFocus) {
+      return;
+    }
+    if (platformEnv.isRuntimeChrome) {
+      inputRef.current?.focus({ preventScroll: true });
+    } else {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 150);
     }
-  }, [inputRef, isWebMd]);
-  return isWebMd ? undefined : autoFocus;
+  }, [inputRef, shouldReloadAutoFocus]);
+  return shouldReloadAutoFocus ? false : autoFocus;
 };
 
 function BaseInput(
@@ -125,7 +123,7 @@ function BaseInput(
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput> | null = useRef(null);
-  const _autoFocus = useAutoFocus(inputRef, autoFocus);
+  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
   const readOnlyStyle = useReadOnlyStyle(readonly);
 
   useImperativeHandle(ref, () => ({
@@ -229,6 +227,7 @@ function BaseInput(
           style={{
             borderCurve: 'continuous',
           }}
+          autoFocus={reloadAutoFocus}
           {...readOnlyStyle}
           {...props}
         />

@@ -181,6 +181,9 @@ function ModalNavigator({
             borderTopStartRadius="$6"
             borderTopEndRadius="$6"
             animation="slow"
+            $md={{
+              mt: '20%',
+            }}
             $gtMd={{
               width: '90%',
               height: '90%',
