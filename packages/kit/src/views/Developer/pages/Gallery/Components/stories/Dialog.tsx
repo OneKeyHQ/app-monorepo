@@ -7,6 +7,7 @@ import {
   Input,
   ScrollView,
   Stack,
+  Text,
   Toast,
   XStack,
   YStack,
@@ -44,7 +45,7 @@ const CustomFooter = ({
       </Button>
       <Button
         onPress={() => {
-          Dialog.confirm({
+          Dialog.show({
             title: `#${index}`,
             // eslint-disable-next-line @typescript-eslint/no-use-before-define
             renderContent: <ContentA index={index} />,
@@ -91,7 +92,7 @@ const DialogNavigatorDemo = () => {
       <Button
         mt="$4"
         onPress={() => {
-          Dialog.confirm({
+          Dialog.show({
             title: 'Confirm whether the Dialog is always on top.',
             renderContent: <Input />,
             onConfirm: () => {},
@@ -126,7 +127,7 @@ const DialogGallery = () => (
           <YStack space="$2">
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   icon: 'PlaceholderOutline',
                   description:
@@ -139,7 +140,7 @@ const DialogGallery = () => (
             </Button>
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   icon: 'PlaceholderOutline',
                   description:
@@ -159,7 +160,7 @@ const DialogGallery = () => (
           <YStack>
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   onCancelText: 'Bye',
                   description:
@@ -178,7 +179,7 @@ const DialogGallery = () => (
           <YStack>
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   onConfirmText: 'OK',
                   onCancelText: 'Bye',
@@ -196,24 +197,110 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: '命令式 API',
+        title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
-          <YStack>
+          <YStack space="$4">
             <Button
               onPress={() =>
-                Dialog.confirm({
-                  title: 'Lorem ipsum',
-                  onConfirmText: 'OK',
-                  onCancelText: 'Bye',
-                  description:
-                    'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm() {
-                    alert('confirmed');
-                  },
+                Dialog.show({
+                  title: 'show',
+                  renderContent: <Text>Show</Text>,
                 })
               }
             >
-              Confirm
+              Dialog.show
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'confirm',
+                  renderContent: <Text>hide by Confirm button</Text>,
+                  onConfirm: () =>
+                    new Promise((resolve) => {
+                      setTimeout(() => {
+                        // do stuff
+                        // close the dialog.
+                        resolve(true);
+                        // or keep the dialog here.
+                        // resolve(false);
+                      }, 1500);
+                    }),
+                })
+              }
+            >
+              Dialog.confirm
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.cancel({
+                  title: 'confirm',
+                  renderContent: <Text>cancel</Text>,
+                })
+              }
+            >
+              Dialog.cancel
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Disabled Confirm Button',
+        element: (
+          <YStack space="$4">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'show',
+                  confirmButtonProps: { disabled: true },
+                  renderContent: <Text>Show</Text>,
+                })
+              }
+            >
+              disabled Button
+            </Button>
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Only `RESET` can be accept',
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { text: 'hello' },
+                      }}
+                    >
+                      <Dialog.FormField name="text">
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  confirmButtonProps: {
+                    disabledOn: ({ getForm }) => {
+                      const { getValues } = getForm() || {};
+                      if (getValues) {
+                        const { text } = getValues();
+                        return text !== 'RESET';
+                      }
+                      return true;
+                    },
+                  },
+                  onConfirm: () =>
+                    new Promise((resolve) => {
+                      setTimeout(() => {
+                        // do stuff
+                        // close the dialog.
+                        resolve(true);
+                        // or keep the dialog here.
+                        // resolve(false);
+                      }, 1500);
+                    }),
+                })
+              }
+            >
+              disabled Button with Dialog Form
             </Button>
           </YStack>
         ),
@@ -224,7 +311,7 @@ const DialogGallery = () => (
           <YStack>
             <Button
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
@@ -244,7 +331,7 @@ const DialogGallery = () => (
             <Button
               mt="$4"
               onPress={() =>
-                Dialog.confirm({
+                Dialog.show({
                   title: 'Lorem ipsum',
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
@@ -266,13 +353,56 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog & AutoFocus Input',
+        title: 'Dialog Form',
         element: (
           <YStack>
             <Button
               mt="$4"
               onPress={() =>
                 Dialog.confirm({
+                  title: 'Password',
+                  description: 'input password',
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        defaultValues: { a: '1234567' },
+                      }}
+                    >
+                      <Dialog.FormField
+                        name="a"
+                        rules={{
+                          maxLength: { value: 6, message: 'maxLength is 6' },
+                        }}
+                      >
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                  onConfirm: (dialogInstance) => {
+                    alert(
+                      JSON.stringify(dialogInstance.getForm()?.getValues()),
+                    );
+                  },
+                })
+              }
+            >
+              Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'AutoFocus Input',
+        element: (
+          <YStack>
+            <Button
+              mt="$4"
+              onPress={() =>
+                Dialog.show({
                   title: 'Password',
                   description: 'input password',
                   renderContent: (
@@ -286,7 +416,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              Open Dialog Form
+              Open Dialog AutoFocus
             </Button>
           </YStack>
         ),
@@ -298,7 +428,7 @@ const DialogGallery = () => (
             <Button
               mt="$4"
               onPress={() => {
-                const dialog = Dialog.confirm({
+                const dialog = Dialog.show({
                   title: '1500ms',
                   renderContent: (
                     <Input
@@ -319,7 +449,7 @@ const DialogGallery = () => (
             <Button
               mt="$4"
               onPress={() => {
-                Dialog.confirm({
+                Dialog.show({
                   title: '#1',
                   renderContent: <ContentA index={1} />,
                   showFooter: false,
@@ -337,7 +467,7 @@ const DialogGallery = () => (
           <YStack>
             <Button
               onPress={() => {
-                Dialog.confirm({
+                Dialog.show({
                   title: '#ScrollContent',
                   dismissOnOverlayPress: false,
                   disableDrag: true,

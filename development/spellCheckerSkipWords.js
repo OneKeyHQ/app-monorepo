@@ -1,4 +1,5 @@
 module.exports = [
+  'hd',
   'Jotai',
   'jotai',
   'readwrite',
@@ -578,4 +579,5 @@ module.exports = [
   'alg',
   'gitkeep',
   'COMMITHASH',
+  'swipeable',
 ];

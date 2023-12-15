@@ -19,28 +19,24 @@ const PasswordUpdateContainer = ({
       setLoading(true);
       try {
         const encodeNewPassword =
-          await backgroundApiProxy.servicePassword.encodeSensitivePassword(
-            data.newPassword,
-          );
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: data.newPassword,
+          });
         const encodeOldPassword =
-          await backgroundApiProxy.servicePassword.encodeSensitivePassword(
-            data.oldPassword,
-          );
-        const updatePasswordRes =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: data.oldPassword,
+          });
+        const updatedPassword =
           await backgroundApiProxy.servicePassword.updatePassword(
             encodeOldPassword,
             encodeNewPassword,
           );
-        if (updatePasswordRes) {
-          onUpdateRes(updatePasswordRes);
-          Toast.success({ title: 'password update success' });
-        }
+        onUpdateRes(updatedPassword);
+        Toast.success({ title: 'password update success' });
       } catch (e) {
-        onUpdateRes('');
         console.error(e);
         Toast.error({ title: 'password set failed' });
       }
-
       setLoading(false);
     },
     [onUpdateRes],

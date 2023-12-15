@@ -105,6 +105,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       type: walletId,
       backuped: true,
       accounts: [],
+      nextIndex: 0,
       nextAccountIds: { 'global': 1 },
     });
   }

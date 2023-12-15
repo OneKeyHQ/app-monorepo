@@ -65,15 +65,16 @@ export function WalletProfile({
           name: 'MenuCircleHorSolid',
           containerProps: {
             animation: 'quick',
-            hitSlop: platformEnv.isNative ? 16 : undefined,
+            hitSlop: platformEnv.isNative
+              ? { top: 16, left: 16, right: 16, bottom: 16 }
+              : undefined,
             hoverStyle: {
               scale: 1.25,
             },
             onPress: () =>
-              Dialog.confirm({
+              Dialog.show({
                 title: 'Edit Avatar',
                 estimatedContentHeight: 340,
-                logContentHeight: true,
                 renderContent: (
                   <XStack flexWrap="wrap">
                     {avatarData.map((img) => (
@@ -137,10 +138,10 @@ export function WalletProfile({
         size="small"
         variant="tertiary"
         $platform-native={{
-          hitSlop: 8,
+          hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
         }}
         onPress={() =>
-          Dialog.confirm({
+          Dialog.show({
             title: 'Rename',
             renderContent: (
               <Form form={form}>

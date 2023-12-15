@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,11 +11,14 @@ import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/conta
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+
+import { useDurationOptions } from '../AppLock/useDurationOptions';
 
 import { Section } from './Section';
 
@@ -31,6 +34,14 @@ const AppLockItem = () => {
     });
   }, [navigation]);
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const options = useDurationOptions();
+  const text = useMemo(() => {
+    const option = options.find(
+      (item) => item.value === String(settings.appLockDuration),
+    );
+    return option?.title ?? '';
+  }, [options, settings]);
   return isPasswordSet ? (
     <ListItem
       onPress={onPress}
@@ -39,7 +50,7 @@ const AppLockItem = () => {
       drillIn
     >
       <ListItem.Text
-        primary="Never"
+        primary={text}
         align="right"
         primaryTextProps={{
           tone: 'subdued',
@@ -52,7 +63,7 @@ const AppLockItem = () => {
 const SetPasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(() => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'title__set_password' }),
       renderContent: (
         <PasswordSetupContainer
@@ -80,7 +91,7 @@ const SetPasswordItem = () => {
 const ChangePasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(() => {
-    const dialog = Dialog.confirm({
+    const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
         <PasswordUpdateContainer

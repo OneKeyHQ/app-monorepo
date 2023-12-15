@@ -149,7 +149,9 @@ function RawPopover({
               <IconButton
                 icon="CrossedSmallOutline"
                 size="small"
-                $platform-native={{ hitSlop: 8 }}
+                $platform-native={{
+                  hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+                }}
                 onPress={() => onOpenChange?.(false)}
                 testID="popover-btn-close"
               />

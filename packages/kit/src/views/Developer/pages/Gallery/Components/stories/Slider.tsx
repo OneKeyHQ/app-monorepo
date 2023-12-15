@@ -89,7 +89,7 @@ const SliderGallery = () => (
           <Stack space="$2">
             <Button
               onPress={() => {
-                Dialog.confirm({
+                Dialog.show({
                   renderContent: (
                     <Stack paddingVertical={100}>
                       <Slider min={1} max={100} step={1} />

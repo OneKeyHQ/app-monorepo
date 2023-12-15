@@ -22,7 +22,16 @@ import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
 import type { ScrollView } from 'react-native-gesture-handler';
 
-type ISortableSectionRenderInfo = (info: {
+export type ISortableSectionItemInfo = (info: {
+  item: any;
+  index: number | undefined;
+  section: any;
+  getIndex: () => number | undefined;
+  drag: () => void;
+  isActive: boolean;
+}) => ReactNode | null;
+
+export type ISortableSectionRenderInfo = (info: {
   section: any;
   index: number;
 }) => ReactNode | null;
@@ -48,6 +57,10 @@ export type ISortableSectionListProps = Omit<
       isActive: boolean;
     }) => JSX.Element;
     keyExtractor: (item: any, index: number) => string;
+    getItemLayout: (
+      item: any,
+      index: number,
+    ) => { length: number; offset: number; index: number };
     onDragEnd: (info: { sections: ISectionType }) => void;
     contentContainerStyle?: StackStyleProps;
     ListHeaderComponent?: ReactNode;
@@ -65,6 +78,7 @@ function BaseSortableSectionList(
     sections,
     keyExtractor,
     renderItem,
+    getItemLayout,
     contentContainerStyle = {},
     ListHeaderComponent,
     ListFooterComponent,
@@ -142,10 +156,12 @@ function BaseSortableSectionList(
         <NestableDraggableFlatList
           keyExtractor={keyExtractor}
           data={section.data}
+          activationDistance={100}
           onDragEnd={(result) => {
             sections[index].data = result.data;
             onDragEnd({ sections: [...sections] });
           }}
+          getItemLayout={getItemLayout}
           renderItem={({ item, getIndex, drag, isActive }) =>
             renderItem?.({
               item,
@@ -180,6 +196,7 @@ function BaseSortableSectionList(
     renderSectionHeader,
     renderSectionFooter,
     keyExtractor,
+    getItemLayout,
     sections,
     listHeaderStyle,
     listFooterStyle,

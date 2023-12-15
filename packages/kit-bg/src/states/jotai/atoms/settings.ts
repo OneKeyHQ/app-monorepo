@@ -1,5 +1,6 @@
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
@@ -15,6 +16,8 @@ export type ISettingsPersistAtom = {
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
   spendDustUTXO: boolean;
+  appLockDuration: number;
+  hardwareConnectSrc: EOnekeyDomain;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -32,6 +35,8 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
+      appLockDuration: 240,
+      hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
     },
   });
 

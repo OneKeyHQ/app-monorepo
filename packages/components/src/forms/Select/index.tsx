@@ -295,10 +295,11 @@ export function Select({
             {...triggerProps}
           >
             <TMSelect.Value
-              placeholder="Something"
+              placeholder=""
               unstyled
               fontSize="$bodyLg"
               fontWeight="$bodyLg"
+              color="$text"
             />
           </TMSelect.Trigger>
         )}
@@ -330,7 +331,7 @@ export function Select({
                   <IconButton
                     icon="CrossedSmallOutline"
                     size="small"
-                    hitSlop={8}
+                    hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
                     aria-label="Close"
                     onPress={() => setOpen(false)}
                   />

@@ -13,10 +13,10 @@ export {
   useThemeName,
 } from 'tamagui';
 
-type IThemeKeys = keyof UseThemeResult;
+export type IThemeColorKeys = keyof UseThemeResult;
 const getValue = (
   theme: UseThemeResult,
-  key: IThemeKeys,
+  key: IThemeColorKeys,
   fallback?: VariableVal,
   isRawValue?: boolean,
 ): VariableVal => {
@@ -31,14 +31,14 @@ const getValue = (
 
 export const getThemeTokens = coreGetTokens;
 
-export function useThemeValue<T extends IThemeKeys[] | IThemeKeys>(
+export function useThemeValue<T extends IThemeColorKeys[] | IThemeColorKeys>(
   colorSymbol: T,
   fallback?: VariableVal,
   isRawValue?: boolean,
-): T extends IThemeKeys ? string : string[];
+): T extends IThemeColorKeys ? string : string[];
 
 export function useThemeValue(
-  colorSymbol: IThemeKeys | IThemeKeys[],
+  colorSymbol: IThemeColorKeys | IThemeColorKeys[],
   fallback?: VariableVal,
   isRawValue?: boolean,
 ): VariableVal | VariableVal[] {

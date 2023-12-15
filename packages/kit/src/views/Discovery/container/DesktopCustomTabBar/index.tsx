@@ -35,9 +35,9 @@ function DesktopCustomTabBar() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { setCurrentWebTab, closeWebTab, setPinnedTab, closeAllWebTabs } =
-    useBrowserTabActions();
+    useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
   const data = useMemo(() => {
     const unpinnedData = (tabs ?? []).filter((t) => !t.isPinned);
     unpinnedData.reverse();
@@ -63,9 +63,9 @@ function DesktopCustomTabBar() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        addBrowserBookmark({ url, title });
+        void addBrowserBookmark({ url, title });
       } else {
-        removeBrowserBookmark(url);
+        void removeBrowserBookmark(url);
       }
     },
     [addBrowserBookmark, removeBrowserBookmark],

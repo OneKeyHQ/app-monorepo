@@ -25,7 +25,7 @@ export function HomeScreen() {
       icon="AiImagesOutline"
       label="Homescreen"
       onPress={() =>
-        Dialog.confirm({
+        Dialog.show({
           title: 'Homescreen',
           renderContent: (
             <ScrollView mx="$-5" maxHeight="$96">

@@ -40,21 +40,19 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         setLoading(true);
         try {
           const encodePassword =
-            await backgroundApiProxy.servicePassword.encodeSensitivePassword(
-              data.password,
-            );
-          const updatePasswordRes =
+            await backgroundApiProxy.servicePassword.encodeSensitiveText({
+              text: data.password,
+            });
+
+          const setUpPasswordRes =
             await backgroundApiProxy.servicePassword.setPassword(
               encodePassword,
             );
-
-          if (updatePasswordRes) {
-            onSetupRes(updatePasswordRes);
-            Toast.success({ title: 'password set success' });
-          }
+          onSetupRes(setUpPasswordRes);
+          Toast.success({ title: 'password set success' });
         } catch (e) {
-          onSetupRes('');
           console.log('e', e);
+          console.log('e.stack', (e as Error)?.stack);
           console.error(e);
           Toast.error({ title: 'password set failed' });
         } finally {

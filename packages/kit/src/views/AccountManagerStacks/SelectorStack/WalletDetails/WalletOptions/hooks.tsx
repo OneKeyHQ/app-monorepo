@@ -12,7 +12,7 @@ export const useRemoveWallet = ({
   description: string;
 }) =>
   new Promise<boolean>((resolve) => {
-    Dialog.confirm({
+    Dialog.show({
       icon: 'ErrorOutline',
       tone: 'destructive',
       title,

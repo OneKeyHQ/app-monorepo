@@ -49,10 +49,10 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setWebTabData, setPinnedTab, setCurrentWebTab } =
-    useBrowserTabActions();
+    useBrowserTabActions().current;
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction();
+    useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
 
   const tabCount = useMemo(() => tabs.length, [tabs]);
@@ -125,9 +125,9 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
       if (isBookmark) {
-        addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+        void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
       } else {
-        removeBrowserBookmark(tab?.url);
+        void removeBrowserBookmark(tab?.url);
       }
       Toast.success({
         title: isBookmark

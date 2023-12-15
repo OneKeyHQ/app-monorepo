@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, Input, ListItem } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { Section } from './Section';
 
 const ClearCacheOnAppContent = () => {
@@ -62,7 +64,7 @@ const ClearCacheOnAppContent = () => {
 
 const ClearCacheOnApp = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Clear cache on App',
       renderContent: <ClearCacheOnAppContent />,
       tone: 'destructive',
@@ -80,7 +82,7 @@ const ClearCacheOnApp = () => {
 
 const CleanCacheOnWebBrowser = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Clear cache of web browser',
       description:
         'This will clear sessions, cookies, local storage files of all sites in the web browser.',
@@ -100,13 +102,36 @@ const CleanCacheOnWebBrowser = () => {
 
 const EraseData = () => {
   const onPress = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       title: 'Erase all data',
       icon: 'ErrorOutline',
       tone: 'destructive',
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "ERASE" to reset the App',
-      renderContent: <Input />,
+      renderContent: (
+        <Dialog.Form
+          formProps={{
+            defaultValues: { text: '' },
+          }}
+        >
+          <Dialog.FormField name="text">
+            <Input autoFocus flex={1} />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      confirmButtonProps: {
+        disabledOn: ({ getForm }) => {
+          const { getValues } = getForm() || {};
+          if (getValues) {
+            const { text } = getValues();
+            return text !== 'RESET';
+          }
+          return true;
+        },
+      },
+      onConfirm() {
+        backgroundApiProxy.serviceApp.resetApp().catch(console.error);
+      },
     });
   }, []);
   const intl = useIntl();

@@ -44,7 +44,7 @@ export function AboutDevice() {
       icon="InfoCircleOutline"
       label="About"
       onPress={() =>
-        Dialog.confirm({
+        Dialog.show({
           title: 'About',
           showFooter: false,
           renderContent: (
