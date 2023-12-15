@@ -145,7 +145,6 @@ function BookmarkListModal() {
                   }}
                   testID={`search-modal-${item.url.toLowerCase()}`}
                   onPress={(e) => {
-                    e.stopPropagation();
                     void openMatchDApp({
                       id: '',
                       webSite: {
