@@ -11,6 +11,7 @@ import {
   ModalRoutes,
   NostrModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   providerApiMethod,
@@ -46,6 +47,10 @@ class ProviderApiNostr extends ProviderApiBase {
   private queue: QueueItem[] = [];
 
   private processing = false;
+
+  private lastProcessingTime = 0;
+
+  private processingTimeout = getTimeDurationMs({ minute: 1 });
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -246,6 +251,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    console.log('Called decrypt by DApp: ', Date.now());
     const { walletId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
 
@@ -260,34 +266,37 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   private async processDecryptQueue() {
-    try {
-      if (this.processing || this.queue.length === 0) {
+    const currentTime = Date.now();
+
+    console.log('this.processing: ', this.processing);
+    console.log('this.queue.length: ', this.queue.length);
+    console.log(
+      `currentTime - this.lastProcessingTime < this.processingTimeoutDuration: `,
+      currentTime - this.lastProcessingTime < this.processingTimeout,
+    );
+    if (
+      this.processing ||
+      this.queue.length === 0
+      // currentTime - this.lastProcessingTime < this.processingTimeoutDuration
+    ) {
+      if (currentTime - this.lastProcessingTime < this.processingTimeout) {
         return;
       }
-
-      this.processing = true;
-
-      while (this.queue.length > 0) {
-        const { request, resolve, reject } = this.queue.shift() ?? {};
-        try {
-          const result = await this.decryptRequest(request ?? {});
-          resolve?.(result);
-        } catch (error) {
-          reject?.(error);
-        } finally {
-          if (this.queue.length === 0) {
-            this.processing = false;
-          }
-        }
-      }
-    } catch (e) {
-      debugLogger.providerApi.error(`nostr.decrypt error: `, e);
-    } finally {
-      this.processing = false;
-      if (this.queue.length > 0) {
-        this.processDecryptQueue();
-      }
     }
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const { request, resolve, reject } = this.queue.shift() ?? {};
+      try {
+        const result = await this.decryptRequest(request ?? {});
+        resolve?.(result);
+      } catch (error) {
+        reject?.(error);
+      }
+      this.lastProcessingTime = Date.now();
+    }
+    this.processing = false;
   }
 
   private async decryptRequest(
