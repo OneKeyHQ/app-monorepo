@@ -38,9 +38,7 @@ function Demo() {
       </Button>
       <Button
         onPress={async () => {
-          const {
-            data: { password },
-          } = await servicePassword.promptPasswordVerify();
+          const { password } = await servicePassword.promptPasswordVerify();
           const c = await serviceAccount.getCredentialDecrypt({
             password,
             credentialId: hdId,

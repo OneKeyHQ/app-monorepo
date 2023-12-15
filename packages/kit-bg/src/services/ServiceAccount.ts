@@ -135,9 +135,8 @@ class ServiceAccount extends ServiceBase {
     // template?: string;
     // skipCheckAccountExist?: boolean;
   }) {
-    const {
-      data: { password },
-    } = await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
     ensureSensitiveTextEncoded(password);
     if (!walletId) {
       throw new Error('walletId is required');
@@ -280,7 +279,7 @@ class ServiceAccount extends ServiceBase {
   }) {
     ensureSensitiveTextEncoded(mnemonic);
     ensureSensitiveTextEncoded(password);
-    await this.backgroundApi.servicePassword.verifyPassword(password);
+    await this.backgroundApi.servicePassword.verifyPassword({ password });
 
     let realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,

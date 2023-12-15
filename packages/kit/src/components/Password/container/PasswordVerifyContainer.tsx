@@ -28,17 +28,14 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
     }
     setStatues({ value: 'verifying' });
     try {
-      const pwd =
-        await backgroundApiProxy.servicePassword.getBiologyAuthPassword();
-      if (pwd) {
-        onVerifyRes(pwd);
-        setStatues({ value: 'verified' });
-      } else {
-        setStatues({
-          value: 'error',
-          message: intl.formatMessage({ id: 'msg__verification_failure' }),
+      const biologyAuthRes =
+        await backgroundApiProxy.servicePassword.verifyPassword({
+          password: '',
+          isBiologyAuth: true,
         });
-      }
+
+      onVerifyRes(biologyAuthRes);
+      setStatues({ value: 'verified' });
     } catch (e) {
       setStatues({
         value: 'error',
@@ -55,13 +52,12 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: data.password,
           });
-        await backgroundApiProxy.servicePassword.verifyPassword(encodePassword);
-        if (encodePassword) {
-          onVerifyRes(encodePassword);
-          setStatues({ value: 'verified' });
-        } else {
-          setStatues({ value: 'error', message: 'password error' });
-        }
+        const verifiedPassword =
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            password: encodePassword,
+          });
+        onVerifyRes(verifiedPassword);
+        setStatues({ value: 'verified' });
       } catch (e) {
         setStatues({ value: 'error', message: 'password verify error' });
       }
