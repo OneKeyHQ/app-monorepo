@@ -1,11 +1,14 @@
+import { lazy } from 'react';
+
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 
-import DevHome from './pages/DevHome';
 import DevHomeStack1 from './pages/DevHomeStack1';
 import DevHomeStack2 from './pages/DevHomeStack2';
 import { galleryScreenList } from './pages/Gallery';
 import TabDeveloper from './pages/TabDeveloper';
 import { ETabDeveloperRoutes } from './type';
+
+const DevHome = lazy(() => import('./pages/DevHome'));
 
 export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
