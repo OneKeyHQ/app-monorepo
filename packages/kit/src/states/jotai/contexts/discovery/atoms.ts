@@ -1,8 +1,6 @@
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
-  IBrowserBookmark,
-  IBrowserHistory,
   IWebTab,
   IWebTabsAtom,
 } from '@onekeyhq/kit/src/views/Discovery/types';
@@ -40,15 +38,3 @@ export const {
   const { tabs } = get(webTabsAtom());
   return tabs.length >= MaximumNumberOfTabs;
 });
-
-/**
- * Bookmark Atom
- */
-export const { atom: browserBookmarkAtom, use: useBrowserBookmarkAtom } =
-  contextAtom<IBrowserBookmark[]>([]);
-
-/**
- * History Atom
- */
-export const { atom: browserHistoryAtom, use: useBrowserHistoryAtom } =
-  contextAtom<IBrowserHistory[]>([]);

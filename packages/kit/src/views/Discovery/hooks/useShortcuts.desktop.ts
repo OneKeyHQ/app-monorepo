@@ -33,7 +33,7 @@ export const useShortcuts = () => {
   });
 
   const { activeTabId } = useActiveTabId();
-  const { closeWebTab } = useBrowserTabActions();
+  const { closeWebTab } = useBrowserTabActions().current;
 
   useEffect(() => {
     const handleShortcuts = (_: any, data: EBrowserShortcutEvents) => {

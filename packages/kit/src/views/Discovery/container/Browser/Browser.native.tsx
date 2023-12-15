@@ -48,7 +48,7 @@ function MobileBrowser() {
     return false;
   }, [displayHomePage, tabs]);
 
-  const { setDisplayHomePage } = useBrowserTabActions();
+  const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
   useEffect(() => {
     if (!firstRender.current && tabs.length === 0) {
