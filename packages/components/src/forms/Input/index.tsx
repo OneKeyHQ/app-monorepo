@@ -68,6 +68,18 @@ const SIZE_MAPPINGS = {
   },
 };
 
+const useReadOnlyStyle = (readOnly = false) =>
+  useMemo(
+    () =>
+      readOnly
+        ? {
+            editable: platformEnv.isNativeAndroid ? false : undefined,
+            pointerEvents: 'none',
+          }
+        : undefined,
+    [readOnly],
+  );
+
 const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   const { md } = useMedia();
   const isWebMd = useMemo(
@@ -114,6 +126,7 @@ function BaseInput(
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput> | null = useRef(null);
   const _autoFocus = useAutoFocus(inputRef, autoFocus);
+  const readOnlyStyle = useReadOnlyStyle(readonly);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -189,7 +202,6 @@ function BaseInput(
           unstyled
           ref={inputRef}
           flex={1}
-          autoFocus={_autoFocus}
           pointerEvents={readonly ? 'none' : undefined}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
@@ -217,6 +229,7 @@ function BaseInput(
           style={{
             borderCurve: 'continuous',
           }}
+          {...readOnlyStyle}
           {...props}
         />
       </Group.Item>
