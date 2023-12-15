@@ -30,8 +30,8 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const urlRef = useRef<string>('');
   const [showPhishingView, setShowPhishingView] = useState(false);
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
-    useBrowserTabActions();
-  const { onNavigation } = useBrowserAction();
+    useBrowserTabActions().current;
+  const { onNavigation } = useBrowserAction().current;
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;

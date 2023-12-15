@@ -6,6 +6,7 @@ import {
   useContext,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -14,26 +15,34 @@ import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
+import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text, XStack } from '../../primitives';
-import { Button } from '../../primitives/Button';
-import { IconButton } from '../IconButton';
+import { Icon, Stack, Text } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
+import { DialogForm } from './DialogForm';
+import { Footer } from './Footer';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
-  IDialogInstanceRef,
+  IDialogInstance,
   IDialogProps,
   IDialogShowProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
-import type { IButtonProps } from '../../primitives/Button';
+import type { IStackProps } from '../../primitives';
+
+// Fix the issue of the overlay layer in tamagui being too low
+const FIX_SHEET_PROPS: IStackProps = {
+  zIndex: 100001,
+  display: 'block',
+};
 
 function DialogFrame({
   open,
@@ -59,6 +68,7 @@ function DialogFrame({
   testID,
 }: IDialogProps) {
   const [position, setPosition] = useState(0);
+  const { dialogInstance } = useContext(DialogContext);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -74,11 +84,21 @@ function DialogFrame({
 
   const { bottom } = useSafeAreaInsets();
   const handleConfirmButtonPress = useCallback(async () => {
-    const result = await onConfirm?.();
+    const form = dialogInstance.ref.current;
+    if (form) {
+      const isValidated = await form.trigger();
+      if (!isValidated) {
+        return;
+      }
+    }
+    const result = await onConfirm?.({
+      close: dialogInstance.close,
+      getForm: () => dialogInstance.ref.current,
+    });
     if (result || result === undefined) {
       onClose?.();
     }
-  }, [onConfirm, onClose]);
+  }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
     onCancel?.();
@@ -138,42 +158,18 @@ function DialogFrame({
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
-
-      {/* footer */}
-      {showFooter && (
-        <XStack p="$5" pt="$0">
-          {showCancelButton ? (
-            <Button
-              flex={1}
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              {...cancelButtonProps}
-              onPress={handleCancelButtonPress}
-            >
-              {onCancelText}
-            </Button>
-          ) : null}
-          {showConfirmButton ? (
-            <Button
-              variant={tone === 'destructive' ? 'destructive' : 'primary'}
-              flex={1}
-              ml="$2.5"
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              {...confirmButtonProps}
-              onPress={handleConfirmButtonPress}
-            >
-              {onConfirmText}
-            </Button>
-          ) : null}
-        </XStack>
-      )}
+      <Footer
+        tone={tone}
+        showFooter={showFooter}
+        showCancelButton={showCancelButton}
+        showConfirmButton={showConfirmButton}
+        cancelButtonProps={cancelButtonProps}
+        onConfirm={handleConfirmButtonPress}
+        onCancel={handleCancelButtonPress}
+        onConfirmText={onConfirmText}
+        confirmButtonProps={confirmButtonProps}
+        onCancelText={onCancelText}
+      />
     </Stack>
   );
 
@@ -192,6 +188,7 @@ function DialogFrame({
         {...sheetProps}
       >
         <Sheet.Overlay
+          {...FIX_SHEET_PROPS}
           animation="quick"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
@@ -271,9 +268,10 @@ function DialogFrame({
 
 function BaseDialogContainer(
   { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
-  ref: ForwardedRef<IDialogInstanceRef>,
+  ref: ForwardedRef<IDialogInstance>,
 ) {
   const [isOpen, changeIsOpen] = useState(true);
+  const formRef = useRef();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
     onClose?.();
@@ -284,6 +282,7 @@ function BaseDialogContainer(
     () => ({
       dialogInstance: {
         close: handleClose,
+        ref: formRef,
       },
     }),
     [handleClose],
@@ -298,6 +297,7 @@ function BaseDialogContainer(
     ref,
     () => ({
       close: handleClose,
+      getForm: () => formRef.current,
     }),
     [handleClose],
   );
@@ -315,16 +315,13 @@ function BaseDialogContainer(
   );
 }
 
-const DialogContainer = forwardRef<IDialogInstanceRef, IDialogContainerProps>(
+const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({
-  onClose,
-  ...props
-}: IDialogShowProps): IDialogInstanceRef {
-  let instanceRef: React.RefObject<IDialogInstanceRef> | undefined =
-    createRef<IDialogInstanceRef>();
+function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+  let instanceRef: React.RefObject<IDialogInstance> | undefined =
+    createRef<IDialogInstance>();
   let portalRef:
     | {
         current: IPortalManager;
@@ -351,6 +348,7 @@ function DialogShow({
   };
   return {
     close: () => instanceRef?.current?.close(),
+    getForm: () => instanceRef?.current?.getForm(),
   };
 }
 
@@ -366,19 +364,19 @@ const DialogCancel = (props: IDialogCancelProps) =>
     showConfirmButton: false,
   });
 
-export const useDialogInstance = () => {
-  const { dialogInstance } = useContext(DialogContext);
-  return dialogInstance;
-};
-
 export const Dialog = {
+  Form: DialogForm,
+  FormField: Form.Field,
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
 };
 
+export * from './hooks';
+
 export type {
   IDialogShowProps,
   IDialogConfirmProps,
   IDialogCancelProps,
+  IDialogInstance,
 } from './type';
