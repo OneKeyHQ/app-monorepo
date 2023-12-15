@@ -17,7 +17,7 @@ export function PageBody({
   ...props
 }: PropsWithChildren<StackStyleProps>) {
   const avoidHeightValue = useSharedValue(0);
-  const { options = {} } = useContext(PageContext);
+  const { options } = useContext(PageContext);
   const animatedStyles = useAnimatedStyle(() => ({
     bottom: avoidHeightValue.value,
   }));

@@ -1,5 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
+import {
+  type LayoutChangeEvent,
+  type View,
+  findNodeHandle,
+} from 'react-native';
+
+import type { IElement } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -15,26 +23,25 @@ import {
   useForm,
   useIsKeyboardShown,
   useMedia,
-  usePageAvoidKeyboard,
+  usePage,
 } from '@onekeyhq/components';
 
 import { Tutorials } from '../Components';
 
-import type { LayoutChangeEvent } from 'react-native';
-
-const useAvoidKeyboardLayout = () => {
-  const alertHeight = useRef(0);
-  const { changePageAvoidHeight } = usePageAvoidKeyboard();
-  const updateLayoutHeight = useCallback((e: LayoutChangeEvent) => {
-    const { height } = e.nativeEvent.layout;
-    alertHeight.current = height;
-  }, []);
-  const changePageLayoutHeight = useCallback(() => {
-    changePageAvoidHeight(() => alertHeight.current);
-  }, [changePageAvoidHeight]);
+const useScrollToInputArea = (ref: RefObject<View>) => {
+  const { pageRef, getContentOffset } = usePage();
+  const scrollToInputArea = useCallback(() => {
+    const refHandle = findNodeHandle(ref.current);
+    if (ref.current && refHandle) {
+      ref.current?.measureLayout(refHandle, (left, top, width, height) => {
+        if (getContentOffset().y < height) {
+          pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
+        }
+      });
+    }
+  }, [getContentOffset, pageRef, ref]);
   return {
-    updateLayoutHeight,
-    changeLayoutHeight: changePageLayoutHeight,
+    scrollToInputArea,
   };
 };
 
@@ -72,6 +79,7 @@ function PageFooter() {
 function PageContent() {
   const media = useMedia();
   const form = useForm({});
+  const alertRef = useRef<View>(null);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -84,12 +92,12 @@ function PageContent() {
     }
     return `${length} invalid words`;
   };
-  const { updateLayoutHeight, changeLayoutHeight } = useAvoidKeyboardLayout();
+  const { scrollToInputArea } = useScrollToInputArea(alertRef);
 
   return (
     <>
       <Page.Body>
-        <Stack onLayout={updateLayoutHeight}>
+        <Stack ref={alertRef}>
           <Alert
             closable
             type="warning"
@@ -133,8 +141,8 @@ function PageContent() {
                       minWidth: '$10',
                       justifyContent: 'center',
                     }}
+                    onFocus={scrollToInputArea}
                     returnKeyType="next"
-                    onFocus={changeLayoutHeight}
                   />
                 </Form.Field>
                 {/* <SizableText

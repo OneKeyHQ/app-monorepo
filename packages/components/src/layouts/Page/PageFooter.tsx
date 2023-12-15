@@ -18,12 +18,10 @@ import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
-export function BasicPageFooterContainer() {
+export function BasicPageFooter() {
   const { options } = useContext(PageContext);
-  return options?.footerElement;
+  return useMemo(() => options?.footerElement, [options?.footerElement]);
 }
-
-export const BasicPageFooter = memo(BasicPageFooterContainer);
 
 const useSafeAreaBottom = () => {
   const { pageType } = useContext(NavigationContext);
