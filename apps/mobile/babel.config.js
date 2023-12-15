@@ -1,11 +1,6 @@
 const path = require('path');
 const babelTools = require('../../development/babelTools');
 
-if (process.env.NODE_ENV !== 'production') {
-  const ip = require('ip');
-  process.env.METRO_HOST_IP = ip.address();
-}
-
 module.exports = function (api) {
   api.cache(true);
   return babelTools.normalizeConfig({

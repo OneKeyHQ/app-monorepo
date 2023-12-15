@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 
+const _ = require('lodash');
+
 module.exports = (config, projectRoot) => {
   if (process.env.NODE_ENV !== 'production' && process.env.SPLIT_BUNDLE) {
     const path = require('path');
@@ -36,10 +38,30 @@ module.exports = (config, projectRoot) => {
     // });
 
     // `Dynamic imports` is a feature that allows you to load modules on demand.
-    config.transformer.asyncRequireModulePath = path.resolve(
-      __dirname,
-      `./asyncRequire.js`,
+
+    const ip = require('ip');
+    const metroServerIP = ip.address();
+    const requireTpl = fs.readFileSync(
+      path.resolve(__dirname, `./asyncRequireTpl.js`),
+      'utf8',
     );
+    const asyncRequireModulePath = path.resolve(
+      projectRoot,
+      'node_modules',
+      `.cache/tpl/asyncRequire.js`,
+    );
+    fs.ensureFileSync(asyncRequireModulePath);
+    fs.writeFileSync(
+      asyncRequireModulePath,
+      requireTpl
+        .replace('__METRO_HOST_IP__', metroServerIP)
+        .replace(
+          '__CHUNK_MODULE_ID_TO_HASH_MAP__',
+          path.join(__dirname, './chunkModuleIdToHashMap.js'),
+        ),
+      'utf8',
+    );
+    config.transformer.asyncRequireModulePath = asyncRequireModulePath;
 
     // config.serializer.processModuleFilter = (() => {
     //   const dllArr = [];

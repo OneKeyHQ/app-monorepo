@@ -24,10 +24,6 @@ const measureTime = {
   fpTimeAt: '',
 };
 
-if (platformEnv.isDev) {
-  global.$$metroHostIP = process.env.METRO_HOST_IP as string;
-}
-
 const getTimeAt = () => new Date().toISOString();
 
 export const markJsBundleLoadedTime = () => {
