@@ -106,6 +106,7 @@ export interface IActionListProps
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
   onOpenChange?: (isOpen: boolean) => void;
+  disabled?: boolean;
   defaultOpen?: boolean;
 }
 
@@ -114,6 +115,7 @@ function BasicActionList({
   sections,
   renderTrigger,
   onOpenChange,
+  disabled,
   defaultOpen = false,
   ...props
 }: IActionListProps) {
@@ -183,7 +185,9 @@ function BasicActionList({
       }}
       {...props}
       renderTrigger={
-        <Trigger onPress={handleActionListOpen}>{renderTrigger}</Trigger>
+        <Trigger onPress={handleActionListOpen} disabled={disabled}>
+          {renderTrigger}
+        </Trigger>
       }
     />
   );
