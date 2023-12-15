@@ -1,17 +1,16 @@
-import { useCallback, useContext, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   StackRouter,
   createNavigatorFactory,
   useNavigationBuilder,
 } from '@react-navigation/core';
-import { HeaderBackContext, getHeaderTitle } from '@react-navigation/elements';
 import { StackView } from '@react-navigation/stack';
 import { Animated } from 'react-native';
+import { useMedia } from 'tamagui';
 
 import { useBackHandler } from '../../../hooks';
 import { Stack } from '../../../primitives/Stack';
-import { HeaderView } from '../Header';
 
 import type {
   IModalNavigationConfig,
@@ -44,6 +43,7 @@ function ModalNavigator({
   screenOptions,
   ...rest
 }: IProps) {
+  const media = useMedia();
   const { state, descriptors, navigation, NavigationContent } =
     useNavigationBuilder<
       StackNavigationState<ParamListBase>,
@@ -56,8 +56,6 @@ function ModalNavigator({
       children,
       screenOptions,
     });
-
-  const parentHeaderBack = useContext(HeaderBackContext);
 
   const goBackCall = useCallback(() => {
     navigation.goBack();
@@ -84,31 +82,6 @@ function ModalNavigator({
     }
   }, [navigation, descriptor]);
 
-  const previousRoute = state.index > 0 ? state.routes[state.index - 1] : null;
-  const previousKey = previousRoute?.key;
-  const previousDescriptor = previousKey ? descriptors[previousKey] : undefined;
-  const headerBack = previousDescriptor
-    ? {
-        title: getHeaderTitle(
-          previousDescriptor.options,
-          previousDescriptor.route.name,
-        ),
-      }
-    : parentHeaderBack;
-
-  const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    animationType = 'none',
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    freezeOnBlur = true,
-    ...options
-  }: {
-    animationType?: 'none' | 'fade' | 'slide';
-    freezeOnBlur?: boolean;
-    disableClose?: boolean;
-  } = descriptor.options;
-  descriptor.options = { ...descriptor.options, headerShown: false };
-
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = rootNavigation?.getState?.().index ?? 0;
 
@@ -119,7 +92,6 @@ function ModalNavigator({
     ROOT_NAVIGATION_INDEX_LISTENER = rootNavigation?.addListener(
       'state',
       () => {
-        // currentRouteIndexValue.setValue(rootNavigation?.getState?.().index ?? 0);
         Animated.timing(ROOT_NAVIGATION_INDEX_VALUE, {
           duration: 150,
           toValue: rootNavigation?.getState?.().index ?? 0,
@@ -146,29 +118,31 @@ function ModalNavigator({
             height: '100%',
             alignItems: 'center',
             justifyContent: 'center',
-            transform: [
-              {
-                translateY: Animated.multiply(
-                  Animated.subtract(
-                    ROOT_NAVIGATION_INDEX_VALUE,
-                    currentRouteIndex,
-                  ),
-                  -30,
-                ),
-              },
-              {
-                scale: Animated.add(
-                  1,
-                  Animated.multiply(
-                    -0.05,
-                    Animated.subtract(
-                      ROOT_NAVIGATION_INDEX_VALUE,
-                      currentRouteIndex,
+            transform: media.gtMd
+              ? [
+                  {
+                    translateY: Animated.multiply(
+                      Animated.subtract(
+                        ROOT_NAVIGATION_INDEX_VALUE,
+                        currentRouteIndex,
+                      ),
+                      -30,
                     ),
-                  ),
-                ),
-              },
-            ],
+                  },
+                  {
+                    scale: Animated.add(
+                      1,
+                      Animated.multiply(
+                        -0.05,
+                        Animated.subtract(
+                          ROOT_NAVIGATION_INDEX_VALUE,
+                          currentRouteIndex,
+                        ),
+                      ),
+                    ),
+                  },
+                ]
+              : [],
           }}
         >
           <Stack
@@ -180,10 +154,6 @@ function ModalNavigator({
             height="100%"
             borderTopStartRadius="$6"
             borderTopEndRadius="$6"
-            animation="slow"
-            $md={{
-              mt: '20%',
-            }}
             $gtMd={{
               width: '90%',
               height: '90%',
@@ -195,15 +165,6 @@ function ModalNavigator({
               outlineColor: '$borderSubdued',
             }}
           >
-            <HeaderView
-              back={headerBack}
-              options={options}
-              route={state.routes[state.index]}
-              // @ts-expect-error
-              navigation={navigation}
-              isModelScreen
-              isFlowModelScreen
-            />
             <StackView
               {...rest}
               state={state}
