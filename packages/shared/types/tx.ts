@@ -1,5 +1,6 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
+import type { IAccountNFT } from './nft';
 import type { IToken } from './token';
 
 export enum EDecodedTxDirection {
@@ -8,6 +9,9 @@ export enum EDecodedTxDirection {
   SELF = 'SELF', // sent to self
   OTHER = 'OTHER',
 }
+
+export type IReplacedTxType = 'speedUp' | 'cancel';
+
 export enum EDecodedTxActionType {
   // Native currency transfer
   NATIVE_TRANSFER = 'NATIVE_TRANSFER',
@@ -132,12 +136,24 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   networkId: string;
 };
 
+export type IDecodedTxActionNFTTransfer = IDecodedTxActionBase & {
+  nftInfo: IAccountNFT;
+  from: string;
+  to: string;
+  amount: string;
+};
+
 export type IDecodedTxAction = {
   type: EDecodedTxActionType;
+  direction?: EDecodedTxDirection;
   hidden?: boolean;
   nativeTransfer?: IDecodedTxActionNativeTransfer;
   tokenTransfer?: IDecodedTxActionTokenTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   tokenActivate?: IDecodedTxActionTokenActivate;
+
+  // nft
+  nftTransfer?: IDecodedTxActionNFTTransfer;
+
   functionCall?: IDecodedTxActionFunctionCall;
 };

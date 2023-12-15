@@ -1,12 +1,12 @@
 import type {
-  IAccountHistory,
+  IAccountHistoryTx,
   IHistoryListSectionGroup,
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 export function convertHistoryToSectionGroups(params: {
   formatDate: (date: number) => string;
-  items?: IAccountHistory[];
+  items?: IAccountHistoryTx[];
 }): IHistoryListSectionGroup[] {
   const { items = [], formatDate } = params;
   let pendingGroup: IHistoryListSectionGroup | undefined = {

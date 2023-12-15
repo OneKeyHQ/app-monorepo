@@ -2,7 +2,13 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IAccountHistory } from '@onekeyhq/shared/types/history';
+import {
+  type IFetchAccountHistoryParams,
+  type IFetchAccountHistoryResp,
+} from '@onekeyhq/shared/types/history';
+
+import { getBaseEndpoint } from '../endpoints';
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -13,9 +19,35 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async demoFetchAccountHistory() {
-    const nfts = require('../mocks/home/history.json') as IAccountHistory[];
-    return Promise.resolve(nfts);
+  public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const { accountId, networkId } = params;
+    const client = await this.getClient();
+    const baseEndpoint = await getBaseEndpoint();
+    try {
+      const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+        `${baseEndpoint}/v5/account/history/list`,
+        params,
+      );
+
+      const vault = await vaultFactory.getVault({
+        accountId,
+        networkId,
+      });
+
+      const onChainHistoryTxs = resp.data.data.data;
+
+      // TODO: move this to refreshHistory and return onChainHistoryTxs directly
+      return await vault.buildOnChainHistoryTxs({
+        accountId,
+        networkId,
+        onChainHistoryTxs,
+        tokens: resp.data.data.tokens,
+        localHistoryTxs: [],
+      });
+    } catch (error) {
+      console.log(error);
+      return [];
+    }
   }
 }
 

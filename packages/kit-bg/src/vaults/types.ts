@@ -4,6 +4,11 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+  IOnChainHistoryTxAsset,
+} from '@onekeyhq/shared/types/history';
 
 import type {
   IAccountDeriveInfoMapEvm,
@@ -193,4 +198,12 @@ export type ISignAndSendTransactionParams = ISignTransactionParams;
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
+}
+
+export interface IBuildHistoryTxParams {
+  accountId: string;
+  networkId: string;
+  tokens: Record<string, IOnChainHistoryTxAsset>;
+  onChainHistoryTxs: IOnChainHistoryTx[];
+  localHistoryTxs: IAccountHistoryTx[];
 }
