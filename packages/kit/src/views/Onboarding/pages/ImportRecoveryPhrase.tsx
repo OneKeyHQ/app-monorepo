@@ -16,6 +16,7 @@ import {
   Icon,
   Input,
   Page,
+  ScrollView,
   Select,
   SizableText,
   Stack,
@@ -66,12 +67,41 @@ const phraseLengthOptions = [
   { label: '24 words', value: '24' },
 ];
 
+const words = ['acacia', 'alfalfa', 'algebra', 'area', 'aphasia', 'asthma'];
+const WordItem = ({ word }: { word: string }) => (
+  <Stack
+    bg="$backgroundHover"
+    py="$1"
+    px="$2"
+    borderRadius="$2"
+    mr="$4"
+    onPress={() => {
+      console.log('123123');
+    }}
+  >
+    <SizableText>{word}</SizableText>
+  </Stack>
+);
+
 function PageFooter() {
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer extraData={isShow}>
+      {isShow ? (
+        <ScrollView
+          horizontal
+          contentContainerStyle={{
+            px: '$4',
+            py: '$2',
+          }}
+          showsHorizontalScrollIndicator={false}
+        >
+          {words.map((word) => (
+            <WordItem word={word} />
+          ))}
+        </ScrollView>
+      ) : null}
       <Page.FooterActions onConfirm={() => console.log('confirm')} />
-      {isShow ? <Stack height="$10" bg="red" /> : null}
     </Page.Footer>
   );
 }
