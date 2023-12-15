@@ -59,9 +59,9 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
-  const { onNavigation, gotoSite } = useBrowserAction();
+  const { onNavigation, gotoSite } = useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
-    useBrowserTabActions();
+    useBrowserTabActions().current;
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -177,7 +177,7 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
+          void gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
         }}
         allowpopups
         onLoadStart={onLoadStart}

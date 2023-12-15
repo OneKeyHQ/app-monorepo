@@ -16,7 +16,7 @@ function DesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
-  const { addBrowserHistory } = useBrowserHistoryAction();
+  const { addBrowserHistory } = useBrowserHistoryAction().current;
   return (
     <Freeze key={id} freeze={!isActive}>
       <WebContent
