@@ -35,7 +35,7 @@ function BookmarkListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { removeBrowserBookmark } = useBrowserBookmarkAction();
+  const { removeBrowserBookmark } = useBrowserBookmarkAction().current;
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const { isLoading, result, run } = usePromiseResult(

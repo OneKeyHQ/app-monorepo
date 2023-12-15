@@ -68,7 +68,7 @@ function HistoryListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { removeBrowserHistory } = useBrowserHistoryAction();
+  const { removeBrowserHistory } = useBrowserHistoryAction().current;
 
   const [page] = useState(1);
 
