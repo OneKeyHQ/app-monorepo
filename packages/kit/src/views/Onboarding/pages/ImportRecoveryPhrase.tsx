@@ -90,6 +90,8 @@ function PageFooter() {
       {isShow ? (
         <ScrollView
           horizontal
+          keyboardDismissMode="none"
+          keyboardShouldPersistTaps="always"
           contentContainerStyle={{
             px: '$4',
             py: '$2',
