@@ -3,7 +3,7 @@ const chunkModuleIdToHashMap = require('./chunkModuleIdToHashMap');
 
 const fetchModule = async (hash) => {
   const response = await fetch(
-    `http://localhost:8081/async-thunks?hash=${hash}`,
+    `http://${global.$$metroHostIP}:8081/async-thunks?hash=${hash}`,
   );
   if (response.status !== 200) {
     throw new Error('fetch module error');

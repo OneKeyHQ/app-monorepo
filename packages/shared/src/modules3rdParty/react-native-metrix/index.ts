@@ -5,6 +5,8 @@ import {
   stop,
 } from 'react-native-metrix';
 
+import platformEnv from '../../platformEnv';
+
 import {
   clearLogFolder,
   initLogFolder,
@@ -21,6 +23,10 @@ const measureTime = {
   fpTime: PLACEHOLDER,
   fpTimeAt: '',
 };
+
+if (platformEnv.isDev) {
+  global.$$metroHostIP = process.env.METRO_HOST_IP as string;
+}
 
 const getTimeAt = () => new Date().toISOString();
 

@@ -34,6 +34,7 @@ declare global {
   var $$appSelector: any;
   var $$appStorage: any;
   var $$allAtoms: any;
+  var $$metroHostIP: string;
   var $$platformEnv: any;
   var $$debugLogger: any;
   var $$localforage: any;

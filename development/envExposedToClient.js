@@ -22,6 +22,10 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'STORYBOOK_ENABLED',
   ];
 
+  if (process.env.NODE_ENV !== 'production') {
+    transformInlineEnvironmentVariables.push('METRO_HOST_IP');
+  }
+
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');
   }

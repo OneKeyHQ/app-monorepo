@@ -125,6 +125,7 @@
     "eslint-plugin-spellcheck": "^0.0.20",
     "fake-indexeddb": "^5.0.0",
     "html-webpack-plugin": "^5.5.3",
+    "ip": "^1.1.8",
     "jest": "^29.7.0",
     "jest-expo": "^49.0.0",
     "jest-html-reporter": "^3.10.2",

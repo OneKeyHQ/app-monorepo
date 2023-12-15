@@ -41,14 +41,12 @@ if (process.env.NODE_ENV !== 'production') {
   const connect = require('connect');
   const dynamicImports = require('./plugins/dynamicImports');
   const { fileToIdMap } = require('./plugins/map');
-
   const fileMapCacheDirectoryPath = path.resolve(
     __dirname,
     'node_modules',
     '.cache/file-map-cache',
   );
   fs.ensureDirSync(fileMapCacheDirectoryPath);
-
   const workspaceRoot = path.resolve(projectRoot, '../..');
   // 1. Watch all files within the monorepo
   config.watchFolders = [workspaceRoot];
@@ -162,11 +160,15 @@ if (process.env.NODE_ENV !== 'production') {
       .use(metroMiddleware)
       .use('/async-thunks', (req, res, next) => {
         const { url } = req;
+        console.log(
+          `Fetch Module by http://${req.headers.host}${url}, user-agent:${req.headers['user-agent']}`,
+        );
         const query = url.split('?').pop();
-        console.log(url, query);
         const params = new URLSearchParams(query);
         const hash = params.get('hash');
-        console.log('async-thunks hash:', hash);
+        console.log(
+          `check the file in ${path.join(outputChunkDir, `${hash}.bundle`)}`,
+        );
         const content = fs.readFileSync(
           path.resolve(outputChunkDir, `${hash}.bundle`),
           'utf8',
