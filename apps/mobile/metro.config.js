@@ -4,8 +4,8 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 const fs = require('fs-extra');
 const connect = require('connect');
-const dynamicImports = require('./dynamicImports');
-const { fileToIdMap } = require('./map');
+const dynamicImports = require('./plugins/dynamicImports');
+const { fileToIdMap } = require('./plugins/map');
 // Find the project and workspace directories
 const projectRoot = __dirname;
 // This can be replaced with `find-yarn-workspace-root`
@@ -71,38 +71,38 @@ config.resolver.nodeModulesPaths = [
 // `Dynamic imports` is a feature that allows you to load modules on demand.
 config.transformer.asyncRequireModulePath = path.resolve(
   __dirname,
-  `asyncRequire.js`,
+  `./plugins/asyncRequire.js`,
 );
 
-config.serializer.processModuleFilter = (() => {
-  const dllArr = [];
-  const busineArr = [];
-  const timeId = null;
+// config.serializer.processModuleFilter = (() => {
+//   const dllArr = [];
+//   const busineArr = [];
+//   const timeId = null;
 
-  return (arg) =>
-    // const relativePath = replacePath(arg.path);
-    // const arr =
-    //   this.options.dll.entry.length !== 0 && isBaseDllPath(relativePath)
-    //     ? dllArr
-    //     : busineArr;
-    // arr.push(relativePath);
+//   return (arg) =>
+// const relativePath = replacePath(arg.path);
+// const arr =
+//   this.options.dll.entry.length !== 0 && isBaseDllPath(relativePath)
+//     ? dllArr
+//     : busineArr;
+// arr.push(relativePath);
 
-    // timeId && clearTimeout(timeId);
-    // timeId = setTimeout(async () => {
-    //   try {
-    //     const dllOutputPath = path.resolve(paths.outputDir, dllJsonName);
-    //     const dllContent = JSON.stringify([...new Set(dllArr)], null, 2);
-    //     await fse.writeFile(dllOutputPath, dllContent);
-    //     console.log(
-    //       `info Writing json output to: ${replacePath(dllOutputPath)}`,
-    //     );
-    //   } catch (err) {
-    //     console.error(err);
-    //   }
-    // }, 1500);
+// timeId && clearTimeout(timeId);
+// timeId = setTimeout(async () => {
+//   try {
+//     const dllOutputPath = path.resolve(paths.outputDir, dllJsonName);
+//     const dllContent = JSON.stringify([...new Set(dllArr)], null, 2);
+//     await fse.writeFile(dllOutputPath, dllContent);
+//     console.log(
+//       `info Writing json output to: ${replacePath(dllOutputPath)}`,
+//     );
+//   } catch (err) {
+//     console.error(err);
+//   }
+// }, 1500);
 
-    true;
-})();
+//     true;
+// })();
 
 config.serializer.createModuleIdFactory = () => {
   let nextId = 0;
@@ -145,8 +145,6 @@ config.serializer.customSerializer = async (
     bundleOptions,
   );
 
-  // mcs.hooks.afterCustomSerializer.call(bundle);
-
   return bundle;
 };
 
@@ -168,7 +166,6 @@ config.server.enhanceMiddleware = (metroMiddleware, metroServer) =>
       if (hash) {
         res.end(content);
       } else {
-        // res.end(JSON.stringify([...dynamicImports.asyncModules]));
         next();
       }
     });

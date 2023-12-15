@@ -10,12 +10,12 @@ const { fileToIdMap } = require('./map');
 
 const baseJSBundle = require(path.resolve(
   __dirname,
-  '../../node_modules',
+  '../../../node_modules',
   'metro/src/DeltaBundler/Serializers/baseJSBundle',
 ));
 const bundleToString = require(path.resolve(
   __dirname,
-  '../../node_modules',
+  '../../../node_modules',
   'metro/src/lib/bundleToString',
 ));
 
@@ -32,7 +32,7 @@ const chunkModuleIdToHashMapPath = path.join(
 const mainModuleId = 'main';
 
 const asyncFlag = 'async';
-const minSize = 20000;
+const minSize = 0;
 const chunkHashLength = 20;
 const outputChunkDir = path.resolve(__dirname, 'dist/chunks');
 module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
