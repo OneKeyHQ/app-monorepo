@@ -127,6 +127,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         path: dbAccount.path,
         pubkey,
         plaintext,
+        showOnOneKey: false,
       });
     } catch (error: any) {
       debugLogger.hardwareSDK.error(error);
@@ -155,6 +156,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         path: dbAccount.path,
         pubkey,
         ciphertext,
+        showOnOneKey: false,
       });
     } catch (error: any) {
       debugLogger.hardwareSDK.error(error);
@@ -169,8 +171,30 @@ export class KeyringHardware extends KeyringHardwareBase {
     return response.payload.decryptedMessage;
   }
 
-  override signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+  override async signMessage(messages: any[]): Promise<string[]> {
+    debugLogger.common.info('Nostr signSchnorr', messages);
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const result = await Promise.all(
+      messages.map(async ({ message }) => {
+        const response = await HardwareSDK.nostrSignSchnorr(
+          connectId,
+          deviceId,
+          {
+            ...passphraseState,
+            path: dbAccount.path,
+            hash: message,
+          },
+        );
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return response.payload.signature;
+      }),
+    );
+    return result;
   }
 
   override getAddress(): Promise<string> {

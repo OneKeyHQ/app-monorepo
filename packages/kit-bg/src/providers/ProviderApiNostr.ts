@@ -193,12 +193,12 @@ class ProviderApiNostr extends ProviderApiBase {
 
     try {
       const passwordCache = await this.getPasswordCache();
-      if (passwordCache) {
+      if (passwordCache || isHardwareWallet({ walletId })) {
         const encrypted = await this.backgroundApi.serviceNostr.encrypt({
           walletId,
           networkId,
           accountId,
-          password: passwordCache,
+          password: typeof passwordCache === 'string' ? passwordCache : '',
           pubkey: params.pubkey,
           plaintext: params.plaintext,
         });
@@ -253,7 +253,7 @@ class ProviderApiNostr extends ProviderApiBase {
           walletId,
           networkId,
           accountId,
-          password: passwordCache,
+          password: typeof passwordCache === 'string' ? passwordCache : '',
           pubkey: params.pubkey,
           ciphertext: params.ciphertext,
         });
