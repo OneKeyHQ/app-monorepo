@@ -111,7 +111,11 @@ function BookmarkListModal() {
       />
       <Page.Body>
         <Stack flex={1}>
-          <Button size="small">Edit</Button>
+          <Stack px="$4" flexDirection="row" justifyContent="flex-end">
+            <Button w="$20" size="small">
+              Edit
+            </Button>
+          </Stack>
           {displayEmptyView ? (
             <Stack flex={1} alignItems="center" justifyContent="center">
               <Empty

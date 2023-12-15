@@ -26,11 +26,6 @@ class ServiceDiscovery extends ServiceBase {
     }
     return history.slice(start, Math.min(history.length, end));
   }
-
-  @backgroundMethod()
-  clearBrowserHistory() {
-    return this.backgroundApi.simpleDb.browserHistory.clearRawData();
-  }
 }
 
 export default ServiceDiscovery;

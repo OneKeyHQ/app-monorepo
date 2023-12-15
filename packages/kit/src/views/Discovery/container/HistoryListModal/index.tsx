@@ -68,7 +68,8 @@ function HistoryListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { removeBrowserHistory } = useBrowserHistoryAction().current;
+  const { removeBrowserHistory, removeAllBrowserHistory } =
+    useBrowserHistoryAction().current;
 
   const [page] = useState(1);
 
@@ -96,10 +97,12 @@ function HistoryListModal() {
   }, [dataSource, firstLoad]);
 
   const handleDeleteAll = useCallback(async () => {
-    await backgroundApiProxy.serviceDiscovery.clearBrowserHistory();
-    void run();
+    await removeAllBrowserHistory();
+    setTimeout(() => {
+      void run();
+    }, 200);
     return true;
-  }, [run]);
+  }, [run, removeAllBrowserHistory]);
 
   return (
     <Page>
@@ -118,16 +121,20 @@ function HistoryListModal() {
       />
       <Page.Body>
         <Stack flex={1}>
-          <Button
-            onPress={() => {
-              Dialog.show({
-                title: 'Delete All ?',
-                onConfirm: () => handleDeleteAll(),
-              });
-            }}
-          >
-            Delete All
-          </Button>
+          <Stack px="$4" flexDirection="row" justifyContent="flex-end">
+            <Button
+              w="auto"
+              size="small"
+              onPress={() => {
+                Dialog.show({
+                  title: 'Delete All ?',
+                  onConfirm: () => handleDeleteAll(),
+                });
+              }}
+            >
+              Delete All
+            </Button>
+          </Stack>
           {displayEmptyView ? (
             <Stack flex={1} alignItems="center" justifyContent="center">
               <Empty
@@ -171,7 +178,7 @@ function HistoryListModal() {
                       void removeBrowserHistory(item.id);
                       setTimeout(() => {
                         void run();
-                      });
+                      }, 200);
                       Toast.success({
                         title: 'Remove Success',
                       });

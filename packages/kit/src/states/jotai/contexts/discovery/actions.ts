@@ -372,6 +372,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.buildHistoryData.call(set, history);
   });
 
+  removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
+    this.buildHistoryData.call(set, []);
+  });
+
   /**
    * Browser Logic
    */
@@ -604,11 +608,13 @@ export function useBrowserHistoryAction() {
   const buildHistoryData = actions.buildHistoryData.use();
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
+  const removeAllBrowserHistory = actions.removeAllBrowserHistory.use();
 
   return useRef({
     buildHistoryData,
     addBrowserHistory,
     removeBrowserHistory,
+    removeAllBrowserHistory,
   });
 }
 
