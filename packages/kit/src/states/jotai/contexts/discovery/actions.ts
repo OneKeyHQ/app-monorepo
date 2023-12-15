@@ -309,6 +309,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
   });
 
+  modifyBrowserBookmark = contextAtomMethod(
+    async (_, set, payload: IBrowserBookmark) => {
+      if (!payload.url || payload.url === homeTab.url) {
+        return;
+      }
+      const bookmark = await this.getBookmarkData.call(set);
+      const index = bookmark.findIndex((item) => item.url === payload.url);
+      if (index !== -1) {
+        bookmark[index] = payload;
+        this.buildBookmarkData.call(set, bookmark);
+      }
+    },
+  );
+
   /**
    * History actions
    */
@@ -575,11 +589,13 @@ export function useBrowserBookmarkAction() {
   const buildBookmarkData = actions.buildBookmarkData.use();
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
+  const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
 
   return useRef({
     buildBookmarkData,
     addBrowserBookmark,
     removeBrowserBookmark,
+    modifyBrowserBookmark,
   });
 }
 

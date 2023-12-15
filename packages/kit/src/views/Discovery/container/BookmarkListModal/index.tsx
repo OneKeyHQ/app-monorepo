@@ -19,13 +19,15 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
+import {
+  useBrowserAction,
+  useBrowserBookmarkAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
+import { type IDiscoveryModalParamList } from '../../router/Routes';
 import { getUrlIcon } from '../../utils/explorerUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -35,10 +37,12 @@ function BookmarkListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { removeBrowserBookmark } = useBrowserBookmarkAction().current;
+  const { removeBrowserBookmark, modifyBrowserBookmark } =
+    useBrowserBookmarkAction().current;
+  const { openMatchDApp } = useBrowserAction().current;
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
-  const { isLoading, result, run } = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       const data =
         await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
@@ -58,19 +62,36 @@ function BookmarkListModal() {
     return dataSource.length === 0;
   }, [dataSource, firstLoad]);
 
-  const [editTitle, setEditTitle] = useState<string>('');
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
-      setEditTitle('ABC');
       console.log('Rename');
-      Dialog.show({
+      Dialog.confirm({
         title: item.title,
         description: item.title,
-        renderContent: <Input value={editTitle} onChangeText={setEditTitle} />,
-        onConfirm: () => {},
+        renderContent: (
+          <Dialog.Form
+            formProps={{
+              defaultValues: { name: item.title },
+            }}
+          >
+            <Dialog.FormField name="name">
+              <Input autoFocus flex={1} />
+            </Dialog.FormField>
+          </Dialog.Form>
+        ),
+        onConfirm: (dialogInstance) => {
+          // @ts-expect-error
+          // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          const { name } = dialogInstance.getForm()?.getValues();
+          console.log(name);
+          void modifyBrowserBookmark({ ...item, title: name });
+          setTimeout(() => {
+            void run();
+          }, 200);
+        },
       });
     },
-    [editTitle],
+    [modifyBrowserBookmark, run],
   );
 
   return (
@@ -78,7 +99,7 @@ function BookmarkListModal() {
       <Page.Header
         title={intl.formatMessage({ id: 'actionn__bookmark' })}
         headerSearchBarOptions={{
-          autoFocus: true,
+          autoFocus: false,
           placeholder: 'Search',
           inputType: 'text',
           hideNavigationBar: true,
@@ -90,7 +111,7 @@ function BookmarkListModal() {
       />
       <Page.Body>
         <Stack flex={1}>
-          <Button>Edit</Button>
+          <Button size="small">Edit</Button>
           {displayEmptyView ? (
             <Stack flex={1} alignItems="center" justifyContent="center">
               <Empty
@@ -119,8 +140,21 @@ function BookmarkListModal() {
                     numberOfLines: 1,
                   }}
                   testID={`search-modal-${item.url.toLowerCase()}`}
-                  onPress={() => {
-                    console.log('===>onPress');
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    void openMatchDApp({
+                      id: '',
+                      webSite: {
+                        url: item.url,
+                        title: item.title,
+                      },
+                      isNewWindow: true,
+                    });
+                    if (platformEnv.isDesktop) {
+                      navigation.switchTab(ETabRoutes.MultiTabBrowser);
+                    } else {
+                      navigation.pop();
+                    }
                   }}
                 >
                   <ActionList

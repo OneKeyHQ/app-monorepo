@@ -36,7 +36,7 @@ export interface IGotoSiteFnParams {
 export interface IMatchDAppItemType {
   id: string;
   dapp?: IDAppItemType;
-  webSite?: IBrowserHistory;
+  webSite?: IBrowserBookmark;
   clicks?: number;
   timestamp?: number;
   isNewWindow?: boolean;
