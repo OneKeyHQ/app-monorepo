@@ -36,7 +36,6 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
-            $platform-native={{}}
             onPress={onCancel}
             {...cancelButtonProps}
           >
@@ -51,7 +50,6 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
-            $platform-native={{}}
             variant="primary"
             onPress={onConfirm}
             {...confirmButtonProps}

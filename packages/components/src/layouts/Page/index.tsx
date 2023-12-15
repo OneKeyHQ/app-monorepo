@@ -5,7 +5,8 @@ import { withStaticProperties } from 'tamagui';
 
 import { useKeyboardEvent, useKeyboardHeight } from '../../hooks';
 
-import { PageFooterContext } from './BasicPageFooter';
+import { PageFooter } from './PageFooter';
+import { FooterActions } from './PageFooterActions';
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
 import { PageContainer } from './PageContainer';
@@ -13,7 +14,6 @@ import { PageContext } from './PageContext';
 import { PageHeader } from './PageHeader';
 
 import type { IPageProps } from './type';
-import { FooterActions } from './FooterActions';
 
 export type { IPageProps, IPageFooterProps } from './type';
 
@@ -89,7 +89,7 @@ export const usePageAvoidKeyboard = () => {
 export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
-  Footer: PageFooterContext,
-  FooterActions: FooterActions,
+  Footer: PageFooter,
+  FooterActions,
   Close: PageClose,
 });

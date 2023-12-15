@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useContext, useLayoutEffect } from 'react';
+import { memo, useContext, useLayoutEffect, useMemo } from 'react';
 
 import Animated, {
   useAnimatedStyle,
@@ -13,8 +13,8 @@ import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
 import { NavigationContext } from '../Navigation/context';
 
-import { FooterActions } from './FooterActions';
 import { PageContext } from './PageContext';
+import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
@@ -38,11 +38,10 @@ const Placeholder = () => {
 };
 
 const useSafeKeyboardAnimationStyle = () => {
-  const bottom = useSafeAreaBottom();
   const { bottom: safeBottomHeight } = useSafeAreaInsets();
-  const keyboardHeightValue = useSharedValue(bottom);
+  const keyboardHeightValue = useSharedValue(0);
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value + bottom,
+    paddingBottom: keyboardHeightValue.value + safeBottomHeight,
   }));
   useKeyboardEvent({
     keyboardWillShow: (e) => {
@@ -56,11 +55,8 @@ const useSafeKeyboardAnimationStyle = () => {
   return animatedStyles;
 };
 
-const PageContainer = ({ children }: PropsWithChildren) => {
+const PageFooterContainer = ({ children }: PropsWithChildren) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
-  // if (!options?.footerElement) {
-  //   return bottom > 0 ? <View style={{ height: bottom }} /> : null;
-  // }
   return (
     <Animated.View
       style={platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined}
@@ -70,21 +66,47 @@ const PageContainer = ({ children }: PropsWithChildren) => {
   );
 };
 
-export function PageFooterContext(props: IPageFooterProps) {
+function PageFooterContext(props: IPageFooterProps) {
   const { setOptions } = useContext(PageContext);
-  const { children, ...restProps } = props;
-  useLayoutEffect(() => {
-    setOptions?.((options) => ({
-      ...options,
-      footerElement: props ? (
-        <PageContainer>
-          {children || <FooterActions {...restProps} />}
-        </PageContainer>
+  const {
+    children,
+    onCancel,
+    onCancelText,
+    onConfirm,
+    onConfirmText,
+    confirmButtonProps,
+    cancelButtonProps,
+    extraData,
+  } = props;
+
+  const element = useMemo(
+    () =>
+      props ? (
+        <PageFooterContainer>
+          {children || (
+            <FooterActions
+              onCancel={onCancel}
+              onCancelText={onCancelText}
+              onConfirm={onConfirm}
+              onConfirmText={onConfirmText}
+              confirmButtonProps={confirmButtonProps}
+              cancelButtonProps={cancelButtonProps}
+            />
+          )}
+        </PageFooterContainer>
       ) : (
         <Placeholder />
       ),
-    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props]);
+    [extraData],
+  );
+  useLayoutEffect(() => {
+    setOptions?.((options) => ({
+      ...options,
+      footerElement: element,
+    }));
+  }, [element, setOptions]);
   return null;
 }
+
+export const PageFooter = memo(PageFooterContext);

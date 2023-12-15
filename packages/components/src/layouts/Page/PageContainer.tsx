@@ -3,7 +3,7 @@ import { useContext, useMemo } from 'react';
 import { View } from '../../optimization';
 
 import { BasicPage } from './BasicPage';
-import { BasicPageFooter } from './BasicPageFooter';
+import { BasicPageFooter } from './PageFooter';
 import { PageContext } from './PageContext';
 
 import type { IPageProps } from './type';

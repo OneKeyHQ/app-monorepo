@@ -4,7 +4,7 @@ import { View } from '../../optimization';
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
-import { BasicPageFooter } from './BasicPageFooter';
+import { BasicPageFooter } from './PageFooter';
 import { PageContext } from './PageContext';
 
 import type { IPageProps } from './type';
