@@ -33,9 +33,19 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+interface QueueItem {
+  request: IJsBridgeMessagePayload;
+  resolve: (value: string | PromiseLike<string>) => void;
+  reject: (reason?: any) => void;
+}
+
 @backgroundClass()
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.webln;
+
+  private queue: QueueItem[] = [];
+
+  private processing = false;
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -236,8 +246,54 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    const { walletId, networkId, accountId } = getActiveWalletAccount();
+    const { walletId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
+
+    if (isHdWallet({ walletId })) {
+      return this.decryptRequest(request);
+    }
+
+    return new Promise((resolve, reject) => {
+      this.queue.push({ request, resolve, reject });
+      this.processDecryptQueue();
+    });
+  }
+
+  private async processDecryptQueue() {
+    try {
+      if (this.processing || this.queue.length === 0) {
+        return;
+      }
+
+      this.processing = true;
+
+      while (this.queue.length > 0) {
+        const { request, resolve, reject } = this.queue.shift() ?? {};
+        try {
+          const result = await this.decryptRequest(request ?? {});
+          resolve?.(result);
+        } catch (error) {
+          reject?.(error);
+        } finally {
+          if (this.queue.length === 0) {
+            this.processing = false;
+          }
+        }
+      }
+    } catch (e) {
+      debugLogger.providerApi.error(`nostr.decrypt error: `, e);
+    } finally {
+      this.processing = false;
+      if (this.queue.length > 0) {
+        this.processDecryptQueue();
+      }
+    }
+  }
+
+  private async decryptRequest(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
     const params = (request.data as IJsonRpcRequest)?.params as {
       pubkey: string;
       ciphertext: string;
@@ -248,7 +304,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
     try {
       const passwordCache = await this.getPasswordCache();
-      if (passwordCache) {
+      if (passwordCache || isHardwareWallet({ walletId })) {
         const decrypted = await this.backgroundApi.serviceNostr.decrypt({
           walletId,
           networkId,
