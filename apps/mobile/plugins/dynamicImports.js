@@ -35,6 +35,7 @@ const asyncFlag = 'async';
 const minSize = 0;
 const chunkHashLength = 20;
 const outputChunkDir = path.resolve(__dirname, '../dist/chunks');
+fs.remove(outputChunkDir);
 module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
   const map = new Map([
     [
