@@ -24,7 +24,7 @@ function MobileBrowserContent({
   onScroll?: (event: WebViewScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
-  const { addBrowserHistory } = useBrowserHistoryAction();
+  const { addBrowserHistory } = useBrowserHistoryAction().current;
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);
   const [, setForwardEnabled] = useState(false);
@@ -71,7 +71,7 @@ function MobileBrowserContent({
               setBackEnabled={setBackEnabled}
               setForwardEnabled={setForwardEnabled}
               addBrowserHistory={(siteInfo) => {
-                addBrowserHistory(siteInfo);
+                void addBrowserHistory(siteInfo);
               }}
               onScroll={onScroll}
             />
