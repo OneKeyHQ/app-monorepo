@@ -86,6 +86,7 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
       return;
     }
     if (platformEnv.isRuntimeChrome) {
+      // @ts-expect-error
       inputRef.current?.focus({ preventScroll: true });
     } else {
       setTimeout(() => {
@@ -200,7 +201,8 @@ function BaseInput(
           unstyled
           ref={inputRef}
           flex={1}
-          pointerEvents={readonly ? 'none' : undefined}
+          // @ts-expect-error
+          pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
