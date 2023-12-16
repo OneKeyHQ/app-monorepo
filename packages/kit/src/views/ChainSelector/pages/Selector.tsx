@@ -2,13 +2,7 @@ import { useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
-import {
-  Button,
-  IButtonProps,
-  ListItem,
-  ListView,
-  Page,
-} from '@onekeyhq/components';
+import { Button, ListItem, ListView, Page } from '@onekeyhq/components';
 
 type IChainItem = {
   chain: string;

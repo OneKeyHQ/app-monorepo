@@ -1,27 +1,18 @@
 import { useState } from 'react';
 
-import { StyleSheet } from 'react-native';
-import { getTokenValue } from 'tamagui';
-
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
   Dialog,
-  Divider,
-  Group,
-  Heading,
   HeightTransition,
   Image,
   ListItem,
   Page,
   SizableText,
-  Spinner,
   Stack,
-  XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';

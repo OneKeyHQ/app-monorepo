@@ -1,4 +1,4 @@
-import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
+import { Form, Input, Page, useForm } from '@onekeyhq/components';
 
 import { ChainSelectorTrigger, Tutorials } from '../Components';
 

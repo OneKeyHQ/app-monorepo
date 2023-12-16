@@ -6,7 +6,6 @@ import {
   Form,
   Input,
   ScrollView,
-  SizableText,
   Stack,
   Text,
   Toast,
