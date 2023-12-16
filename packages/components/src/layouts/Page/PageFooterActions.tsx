@@ -1,16 +1,18 @@
 import { getTokenValue } from '../../hooks';
-import { Button, type IButtonProps, Stack, XStack } from '../../primitives';
+import { Button, Stack, XStack } from '../../primitives';
+
+import type { IButtonProps, IStackProps } from '../../primitives';
 
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
-export interface IFooterActionsProps {
+export type IFooterActionsProps = {
   onConfirm?: () => void | Promise<boolean>;
   onCancel?: () => void;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
   cancelButtonProps?: IActionButtonProps;
-}
+} & IStackProps;
 
 export function FooterActions({
   onCancel,
@@ -36,7 +38,6 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
-            $platform-native={{}}
             onPress={onCancel}
             {...cancelButtonProps}
           >
@@ -51,7 +52,6 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
-            $platform-native={{}}
             variant="primary"
             onPress={onConfirm}
             {...confirmButtonProps}

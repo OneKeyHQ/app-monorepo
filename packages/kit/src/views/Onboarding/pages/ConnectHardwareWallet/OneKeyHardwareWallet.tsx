@@ -12,6 +12,8 @@ import {
   Stack,
 } from '@onekeyhq/components';
 
+import OneKeyAllProductsVideo from '../../../../../assets/onboarding/onekey-all-products.mp4';
+
 export function OneKeyHardwareWallet() {
   const video = useRef(null);
 
@@ -32,7 +34,7 @@ export function OneKeyHardwareWallet() {
           shouldPlay
           isLooping
           source={{
-            uri: 'https://asset.onekey-asset.com/portal/5d73d49b1a8c5c0dee9f3df46afb3e5a70e27614/shop/hero/shop-hero-animation-compressed-v2.mp4',
+            uri: OneKeyAllProductsVideo,
           }}
         />
         <Stack

@@ -1,10 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import {
-  // eslint-disable-next-line spellcheck/spell-checker
-  CardStyleInterpolators,
-  TransitionPresets,
-} from '@react-navigation/stack';
+import { TransitionPresets } from '@react-navigation/stack';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -63,7 +59,7 @@ export function makeModalOpenAnimationOptions(info: {
   if (info.isVerticalLayout) {
     return {
       animationEnabled: true,
-      ...TransitionPresets.ModalPresentationIOS,
+      ...TransitionPresets.BottomSheetAndroid,
     };
   }
 
@@ -95,10 +91,17 @@ export function makeModalStackNavigatorOptions({
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
+
     headerShown: platformEnv.isRuntimeBrowser,
     animationEnabled: true,
-    // eslint-disable-next-line spellcheck/spell-checker
-    cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+    ...TransitionPresets.SlideFromRightIOS,
+    ...makeHeaderScreenOptions({
+      navigation: optionsInfo?.navigation,
+      bgColor,
+      titleColor,
+      isModelScreen: true,
+    }),
+
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),

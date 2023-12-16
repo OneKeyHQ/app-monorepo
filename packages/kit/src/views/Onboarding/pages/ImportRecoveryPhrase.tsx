@@ -1,4 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import type { MutableRefObject, RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { debounce } from 'lodash';
+import { type View } from 'react-native';
+import { findNodeHandle } from 'react-native';
 
 import {
   Alert,
@@ -9,33 +14,34 @@ import {
   Icon,
   Input,
   Page,
+  ScrollView,
   Select,
   SizableText,
   Stack,
   XStack,
   useForm,
+  useIsKeyboardShown,
   useMedia,
-  usePageAvoidKeyboard,
+  usePage,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import { Tutorials } from '../Components';
 
-import type { LayoutChangeEvent } from 'react-native';
-
-const useAvoidKeyboardLayout = () => {
-  const alertHeight = useRef(0);
-  const { changePageAvoidHeight } = usePageAvoidKeyboard();
-  const updateLayoutHeight = useCallback((e: LayoutChangeEvent) => {
-    const { height } = e.nativeEvent.layout;
-    alertHeight.current = height;
-  }, []);
-  const changePageLayoutHeight = useCallback(() => {
-    changePageAvoidHeight(() => alertHeight.current);
-  }, [changePageAvoidHeight]);
+const useScrollToInputArea = (ref: RefObject<View>) => {
+  const { pageRef, getContentOffset } = usePage();
+  const scrollToInputArea = useCallback(() => {
+    const refHandle = findNodeHandle(ref.current);
+    if (ref.current && refHandle) {
+      ref.current?.measureLayout(refHandle, (left, top, width, height) => {
+        if (getContentOffset().y < height) {
+          pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
+        }
+      });
+    }
+  }, [getContentOffset, pageRef, ref]);
   return {
-    updateLayoutHeight,
-    changeLayoutHeight: changePageLayoutHeight,
+    scrollToInputArea,
   };
 };
 
@@ -60,9 +66,131 @@ const phraseLengthOptions = [
   { label: '24 words', value: '24' },
 ];
 
+const mockWords = ['acacia', 'alfalfa', 'algebra', 'area', 'aphasia', 'asthma'];
+
+interface IWordItemProps {
+  word: string;
+  onPress: (word: string) => void;
+}
+const WordItem = ({ word, onPress }: IWordItemProps) => {
+  const handlePress = useCallback(() => {
+    onPress(word);
+  }, [onPress, word]);
+  return (
+    <Stack
+      bg="$backgroundHover"
+      py="$1"
+      px="$2"
+      borderRadius="$2"
+      mr="$4"
+      onPress={handlePress}
+    >
+      <SizableText>{word}</SizableText>
+    </Stack>
+  );
+};
+
+const queryWordFromDict = (word: string) =>
+  // mock query
+  new Promise<string[]>((resolve) => {
+    console.log(word);
+    setTimeout(() => {
+      resolve(mockWords.slice(Math.floor(mockWords.length * Math.random())));
+    }, 100);
+  });
+
+const usePhraseSuggestion = (
+  form: ReturnType<typeof useForm>,
+  selectWordIndex: MutableRefObject<number>,
+) => {
+  const [words, setWords] = useState<string[]>([]);
+  const updateWordValue = useCallback(
+    (word: string) => {
+      const index = selectWordIndex.current;
+      const key = `phrase${index + 1}`;
+      form.setValue(key, word);
+    },
+    [form, selectWordIndex],
+  );
+
+  const watchForm = useCallback(
+    async (values: Record<string, string>) => {
+      const index = selectWordIndex.current;
+      if (index === -1) {
+        setWords([]);
+      }
+      const key = `phrase${index + 1}`;
+      const value = values[key];
+      const dictWords = await queryWordFromDict(value);
+      // check word in dict
+      if (!value || mockWords.includes(value)) {
+        setWords([]);
+      } else {
+        setWords(dictWords);
+      }
+    },
+    [selectWordIndex],
+  );
+
+  useEffect(() => {
+    form.watch(debounce(watchForm, 20));
+  }, [form, selectWordIndex, watchForm]);
+  return {
+    suggestionWords: words,
+    updateWordValue,
+  };
+};
+
+function SuggestionList({
+  form,
+  selectWordIndex,
+}: {
+  form: ReturnType<typeof useForm>;
+  selectWordIndex: MutableRefObject<number>;
+}) {
+  const isShow = useIsKeyboardShown();
+  const { suggestionWords, updateWordValue } = usePhraseSuggestion(
+    form,
+    selectWordIndex,
+  );
+  return isShow ? (
+    <ScrollView
+      horizontal
+      keyboardDismissMode="none"
+      keyboardShouldPersistTaps="always"
+      contentContainerStyle={{
+        px: '$4',
+        py: '$2',
+      }}
+      showsHorizontalScrollIndicator={false}
+    >
+      {suggestionWords.map((word) => (
+        <WordItem key={word} word={word} onPress={updateWordValue} />
+      ))}
+    </ScrollView>
+  ) : null;
+}
+
+function PageFooter({
+  form,
+  selectWordIndex,
+}: {
+  form: ReturnType<typeof useForm>;
+  selectWordIndex: MutableRefObject<number>;
+}) {
+  return (
+    <Page.Footer>
+      <SuggestionList form={form} selectWordIndex={selectWordIndex} />
+      <Page.FooterActions onConfirm={() => console.log('confirm')} />
+    </Page.Footer>
+  );
+}
+
 function PageContent() {
   const media = useMedia();
   const form = useForm({});
+  const selectWordIndex = useRef(-1);
+  const alertRef = useRef<View>(null);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -75,81 +203,113 @@ function PageContent() {
     }
     return `${length} invalid words`;
   };
-  const { updateLayoutHeight, changeLayoutHeight } = useAvoidKeyboardLayout();
+  const { scrollToInputArea } = useScrollToInputArea(alertRef);
+
+  const handleInputFocus = useCallback(
+    (index: number) => {
+      scrollToInputArea();
+      selectWordIndex.current = index;
+    },
+    [scrollToInputArea],
+  );
+
+  const handleClear = useCallback(() => {
+    form.reset();
+  }, [form]);
 
   return (
-    <Page.Body>
-      <Stack onLayout={updateLayoutHeight}>
-        <Alert
-          closable
-          type="warning"
-          fullBleed
-          title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-        />
-      </Stack>
-      <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
-        <Select
-          title="Select a length"
-          placement="bottom-start"
-          items={phraseLengthOptions}
-          value={phraseLength}
-          onChange={setPhraseLength}
-          renderTrigger={({ value }) => (
-            <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
-              {value} words
-            </Button>
-          )}
-        />
-        <Button icon="BroomOutline" variant="tertiary">
-          Clear
-        </Button>
-      </XStack>
-      <Form form={form}>
-        <XStack px="$4" flexWrap="wrap">
-          {Array.from({ length: phraseLength }).map((_, index) => (
-            <Stack
-              key={index}
-              $md={{
-                flexBasis: '50%',
-              }}
-              flexBasis="33.33%"
-              p="$1"
-            >
-              <Form.Field name={`phrase${index + 1}`}>
-                <Input
-                  size={media.md ? 'large' : 'medium'}
-                  leftAddOnProps={{
-                    label: `${index + 1}`,
-                    minWidth: '$10',
-                    justifyContent: 'center',
-                  }}
-                  returnKeyType="next"
-                  onFocus={changeLayoutHeight}
-                />
-              </Form.Field>
-            </Stack>
-          ))}
+    <>
+      <Page.Body>
+        <Stack ref={alertRef}>
+          <Alert
+            closable
+            type="warning"
+            fullBleed
+            title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+          />
+        </Stack>
+        <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
+          <Select
+            title="Select a length"
+            placement="bottom-start"
+            items={phraseLengthOptions}
+            value={phraseLength}
+            onChange={setPhraseLength}
+            renderTrigger={({ value }) => (
+              <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
+                {value} words
+              </Button>
+            )}
+          />
+          <Button icon="BroomOutline" variant="tertiary" onPress={handleClear}>
+            Clear
+          </Button>
         </XStack>
-      </Form>
-      <HeightTransition>
-        {invalidWordsLength > 0 && (
-          <XStack pt="$1.5" px="$5" key="invalidWord">
-            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-              {invalidWordsMessage(invalidWordsLength)}
-            </SizableText>
+        <Form form={form}>
+          <XStack px="$4" flexWrap="wrap">
+            {Array.from({ length: phraseLength }).map((_, index) => (
+              <Stack
+                key={index}
+                $md={{
+                  flexBasis: '50%',
+                }}
+                flexBasis="33.33%"
+                p="$1"
+              >
+                <Form.Field name={`phrase${index + 1}`}>
+                  <Input
+                    autoCorrect={false}
+                    spellCheck={false}
+                    size={media.md ? 'large' : 'medium'}
+                    leftAddOnProps={{
+                      label: `${index + 1}`,
+                      minWidth: '$10',
+                      justifyContent: 'center',
+                    }}
+                    onFocus={() => handleInputFocus(index)}
+                    returnKeyType="next"
+                  />
+                </Form.Field>
+                {/* <SizableText
+                pointerEvents="none"
+                position="absolute"
+                color="$textDisabled"
+                top={11}
+                $md={{
+                  top: 15,
+                }}
+                left="$3"
+                zIndex="$1"
+                minWidth={17}
+                textAlign="right"
+              >
+                {index + 1}
+              </SizableText> */}
+              </Stack>
+            ))}
           </XStack>
-        )}
-        {invalidPhrase && (
-          <XStack pt="$1.5" px="$5" key="invalidPhrase">
-            <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-              Invalid recovery phrase
-            </SizableText>
-          </XStack>
-        )}
-      </HeightTransition>
-    </Page.Body>
+        </Form>
+        <HeightTransition>
+          {invalidWordsLength > 0 && (
+            <XStack pt="$1.5" px="$5" key="invalidWord">
+              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+                {invalidWordsMessage(invalidWordsLength)}
+              </SizableText>
+            </XStack>
+          )}
+          {invalidPhrase && (
+            <XStack pt="$1.5" px="$5" key="invalidPhrase">
+              <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
+              <SizableText size="$bodyMd" color="$textCritical" pl="$2">
+                Invalid recovery phrase
+              </SizableText>
+            </XStack>
+          )}
+        </HeightTransition>
+      </Page.Body>
+      <PageFooter form={form} selectWordIndex={selectWordIndex} />
+    </>
   );
 }
 
@@ -172,7 +332,6 @@ export function ImportRecoveryPhrase() {
     <Page scrollEnabled>
       <Page.Header title="Import Recovery Phrase" headerRight={headerRight} />
       <PageContent />
-      <Page.Footer onConfirm={() => console.log('confirm')} />
     </Page>
   );
 }

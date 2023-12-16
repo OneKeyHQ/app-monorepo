@@ -1,19 +1,20 @@
 import type { ReactElement } from 'react';
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { useKeyboardEvent, useKeyboardHeight } from '../../hooks';
-
-import { PageFooterContext } from './BasicPageFooter';
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
 import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
+import { PageFooter } from './PageFooter';
+import { FooterActions } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 
+import type { IPageContentOptions } from './PageContext';
 import type { IPageProps } from './type';
-import { FooterActions } from './FooterActions';
+import type { IScrollViewRef } from '../ScrollView';
+import type { NativeScrollPoint } from 'react-native';
 
 export type { IPageProps, IPageFooterProps } from './type';
 
@@ -23,13 +24,16 @@ function PageProvider({
   scrollEnabled = false,
   safeAreaEnabled = true,
 }: IPageProps) {
-  const [options, setOptions] = useState<{
-    safeAreaEnabled?: boolean;
-    footerElement?: ReactElement;
-    scrollEnabled?: boolean;
-  }>({
+  const pageRef = useRef<IScrollViewRef>(null);
+  const pageOffsetRef = useRef<NativeScrollPoint>({
+    x: 0,
+    y: 0,
+  });
+  const [options, setOptions] = useState<IPageContentOptions>({
     scrollEnabled,
     safeAreaEnabled,
+    pageRef,
+    pageOffsetRef,
   });
   const value = useMemo(
     () => ({
@@ -45,51 +49,12 @@ function PageProvider({
   );
 }
 
-export const usePageScrollEnabled = () => {
-  const { options, setOptions } = useContext(PageContext);
-  return {
-    scrollEnabled: options?.scrollEnabled,
-    changeScrollEnabled: (enabled: boolean) => {
-      setOptions?.((value) => ({
-        ...value,
-        scrollEnabled: enabled,
-      }));
-    },
-  };
-};
-
-export const usePageAvoidKeyboard = () => {
-  const { options, setOptions } = useContext(PageContext);
-  const keyboardHeight = useKeyboardHeight();
-  const changePageAvoidHeight = useCallback(
-    (callback: (keyboardHeight: number) => number) => {
-      setOptions?.((value) => ({
-        ...value,
-        avoidHeight: callback(keyboardHeight),
-      }));
-    },
-    [keyboardHeight, setOptions],
-  );
-
-  useKeyboardEvent(
-    {
-      keyboardWillHide: () => {
-        changePageAvoidHeight(() => 0);
-      },
-    },
-    [],
-  );
-  return {
-    keyboardHeight,
-    avoidHeight: options?.avoidHeight,
-    changePageAvoidHeight,
-  };
-};
-
 export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
-  Footer: PageFooterContext,
-  FooterActions: FooterActions,
+  Footer: PageFooter,
+  FooterActions,
   Close: PageClose,
 });
+
+export * from './hooks';
