@@ -3,12 +3,14 @@ import {
   Heading,
   Input,
   Page,
-  SizableText,
   Stack,
   Toast,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EOnboardingPages } from '../../router/type';
 
 const phrases: string[] = [
   'abandon',
@@ -37,6 +39,11 @@ const headerRight = () => (
 
 export function RecoveryPhrase() {
   const media = useMedia();
+  const navigation = useAppNavigation();
+
+  const handleConfirmPress = () => {
+    navigation.push(EOnboardingPages.SetupWallet);
+  };
 
   return (
     <Page scrollEnabled>
@@ -77,7 +84,7 @@ export function RecoveryPhrase() {
       </Page.Body>
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
-        onConfirm={() => console.log('clicked')}
+        onConfirm={handleConfirmPress}
       />
     </Page>
   );

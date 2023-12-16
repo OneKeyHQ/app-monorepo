@@ -1,21 +1,49 @@
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
-  BeforeShowRecoveryPhrase = 'BeforeShowRecoveryPhrase',
-  ImportRecoveryPhrase = 'ImportRecoveryPhrase',
+  // connect hardware wallet
+  ConnectYourDevice = 'ConnectYourDevice',
   OneKeyHardwareWallet = 'OneKeyHardwareWallet',
-  LookingForDevices = 'LookingForDevices',
-  ImportPrivateKey = 'ImportPrivateKey',
-  ImportAddress = 'ImportAddress',
+  SetupNewWallet = 'SetupNewWallet',
+  RestoreWallet = 'RestoreWallet',
+
+  // create wallet
+  BeforeShowRecoveryPhrase = 'BeforeShowRecoveryPhrase',
   RecoveryPhrase = 'RecoveryPhrase',
+
+  // import wallet
+  ImportRecoveryPhrase = 'ImportRecoveryPhrase',
+
+  // import private key
+  ImportPrivateKey = 'ImportPrivateKey',
+
+  // import address
+  ImportAddress = 'ImportAddress',
+
+  // finalize wallet setup
+  FinalizeWalletSetup = 'FinalizeWalletSetup',
 }
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: undefined;
-  [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
-  [EOnboardingPages.ImportRecoveryPhrase]: undefined;
+  // connect hardware wallet
+  [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;
-  [EOnboardingPages.LookingForDevices]: undefined;
-  [EOnboardingPages.ImportPrivateKey]: undefined;
-  [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.SetupNewWallet]: undefined;
+  [EOnboardingPages.RestoreWallet]: undefined;
+
+  // create wallet
+  [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
   [EOnboardingPages.RecoveryPhrase]: undefined;
+
+  // import wallet
+  [EOnboardingPages.ImportRecoveryPhrase]: undefined;
+
+  // import private key
+  [EOnboardingPages.ImportPrivateKey]: undefined;
+
+  // import address
+  [EOnboardingPages.ImportAddress]: undefined;
+
+  // finalize wallet setup
+  [EOnboardingPages.FinalizeWalletSetup]: undefined;
 };

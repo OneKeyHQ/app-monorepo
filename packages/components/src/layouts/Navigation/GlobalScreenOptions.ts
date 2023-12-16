@@ -63,7 +63,7 @@ export function makeModalOpenAnimationOptions(info: {
   if (info.isVerticalLayout) {
     return {
       animationEnabled: true,
-      ...TransitionPresets.ModalSlideFromBottomIOS,
+      ...TransitionPresets.ModalPresentationIOS,
     };
   }
 

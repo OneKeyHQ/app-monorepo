@@ -1,13 +1,14 @@
-import type { PropsWithChildren } from 'react';
+import type { MutableRefObject, PropsWithChildren } from 'react';
 
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
+import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
 
 export type IDialogContextType = {
-  dialogInstance?: IDialogInstanceRef;
+  dialogInstance: IDialogInstanceRef;
 };
 
 export interface IDialogContentProps extends PropsWithChildren {
@@ -15,35 +16,51 @@ export interface IDialogContentProps extends PropsWithChildren {
   testID?: string;
 }
 
-export interface IDialogProps extends TMDialogProps {
+type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
+  disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
+};
+export interface IDialogFooterProps extends PropsWithChildren {
+  tone?: 'default' | 'destructive';
+  showFooter?: boolean;
+  showConfirmButton?: boolean;
+  showCancelButton?: boolean;
+  onConfirmText?: string;
+  onCancelText?: string;
+  confirmButtonProps?: IDialogButtonProps;
+  cancelButtonProps?: IDialogButtonProps;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  // disabledOn: () => void;
+}
+
+interface IBasicDialogProps extends TMDialogProps {
   onOpen?: () => void;
   onClose?: () => void;
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
-  tone?: 'default' | 'destructive';
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: React.ReactNode;
-  showFooter?: boolean;
-  onConfirm?: () => void | Promise<boolean>;
-  onCancel?: () => void;
-  showConfirmButton?: boolean;
-  showCancelButton?: boolean;
-  onConfirmText?: string;
-  onCancelText?: string;
-  confirmButtonProps?: IButtonProps;
-  cancelButtonProps?: IButtonProps;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
   testID?: string;
+  onConfirm?: IOnDialogConfirm;
+  onCancel?: () => void;
 }
+
+export type IDialogProps = IBasicDialogProps &
+  Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
+
+export type IOnDialogConfirm = (
+  dialogInstance: IDialogInstance,
+) => void | Promise<boolean>;
 
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
-    onConfirm?: () => void | Promise<boolean>;
+    onConfirm?: IOnDialogConfirm;
   }
 >;
 
@@ -59,6 +76,18 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
+type IDialogForm = ReturnType<typeof useForm>;
+
 export interface IDialogInstanceRef {
   close: () => void;
+  ref: MutableRefObject<IDialogForm | undefined>;
 }
+
+export interface IDialogInstance {
+  close: () => void;
+  getForm: () => IDialogForm | undefined;
+}
+
+export type IDialogFormProps = PropsWithChildren<{
+  formProps: UseFormProps;
+}>;

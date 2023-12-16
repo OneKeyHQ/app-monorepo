@@ -1,2 +1,4 @@
 export * from './OneKeyHardwareWallet';
-export * from './LookingForDevices';
+export * from './ConnectYourDevice';
+export * from './SetupNewWallet';
+export * from './RestoreWallet';

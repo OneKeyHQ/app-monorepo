@@ -5,13 +5,11 @@ import { StyleSheet } from 'react-native';
 
 import {
   Anchor,
-  Button,
   Heading,
   LinearGradient,
   Page,
   SizableText,
   Stack,
-  getTokenValue,
 } from '@onekeyhq/components';
 
 export function OneKeyHardwareWallet() {
@@ -48,7 +46,7 @@ export function OneKeyHardwareWallet() {
         >
           <Stack p="$5" pt="$10">
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,.85)']}
+              colors={['transparent', '$blackA11']}
               style={{
                 position: 'absolute',
                 left: 0,
@@ -62,7 +60,7 @@ export function OneKeyHardwareWallet() {
               <Heading size="$heading4xl" color="$whiteA12">
                 Your Secure Crypto Solution
               </Heading>
-              <SizableText pt="$3" pb="$6" color="$whiteA12">
+              <SizableText pt="$3" pb="$6" color="$whiteA11">
                 OneKey Hardware Wallet, a secure and user-friendly solution for
                 crypto management. It supports multiple cryptocurrencies and
                 ensures robust encryption for safe transactions.
@@ -74,17 +72,17 @@ export function OneKeyHardwareWallet() {
                 textDecorationLine="none"
                 py="$2"
                 px="$5"
-                bg="$whiteA2"
+                bg="$whiteA3"
                 color="$whiteA12"
                 size="$bodyLgMedium"
                 borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$whiteA3"
+                borderColor="$whiteA4"
                 borderRadius="$3"
                 hoverStyle={{
-                  bg: '$whiteA3',
+                  bg: '$whiteA4',
                 }}
                 pressStyle={{
-                  bg: '$whiteA4',
+                  bg: '$whiteA5',
                 }}
                 style={{
                   borderCurve: 'continuous',

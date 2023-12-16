@@ -160,7 +160,6 @@ const ListItemText = (props: IListItemTextProps) => {
           <SizableText
             textAlign={align}
             size="$bodyLgMedium"
-            userSelect="none"
             {...primaryTextProps}
           >
             {primary}
@@ -276,14 +275,25 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         <ListItemText
           flex={1}
           primary={title}
-          primaryTextProps={titleProps}
+          primaryTextProps={{
+            ...(props.onPress && { userSelect: 'none' }),
+            ...titleProps,
+          }}
           secondary={subtitle}
-          secondaryTextProps={subtitleProps}
+          secondaryTextProps={{
+            ...(props.onPress && { userSelect: 'none' }),
+            ...subtitleProps,
+          }}
         />
       )}
       {children}
       {drillIn && (
-        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
+        <Icon
+          name="ChevronRightSmallOutline"
+          color="$iconSubdued"
+          mx="$-1.5"
+          flexShrink={0}
+        />
       )}
       <Unspaced>
         <AnimatePresence>

@@ -1,19 +1,17 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { createContext } from 'react';
-
-import type { IPageButtonGroupProps } from './PageButtonGroup';
 
 export const PageContext = createContext<{
   options?: {
     safeAreaEnabled?: boolean;
-    footerOptions?: IPageButtonGroupProps;
+    footerElement?: ReactElement;
     scrollEnabled?: boolean;
     avoidHeight?: number;
   };
   setOptions?: Dispatch<
     SetStateAction<{
       safeAreaEnabled?: boolean;
-      footerOptions?: IPageButtonGroupProps;
+      footerElement?: ReactElement;
       scrollEnabled?: boolean;
       avoidHeight?: number;
     }>

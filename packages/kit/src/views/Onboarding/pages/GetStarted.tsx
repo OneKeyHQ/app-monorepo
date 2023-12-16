@@ -40,7 +40,7 @@ export function GetStarted() {
   };
 
   const handleConnectHardwareWallet = () => {
-    navigation.push(EOnboardingPages.LookingForDevices);
+    navigation.push(EOnboardingPages.ConnectYourDevice);
   };
 
   const handleImportPrivateKeyPress = () => {

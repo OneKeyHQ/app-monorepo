@@ -23,7 +23,7 @@ const AppStateLock = ({
       backgroundColor="$background"
     >
       <Icon name="LockOutline" size="$5" />
-      {passwordVerifyContainer}
+      <YStack minWidth="$64">{passwordVerifyContainer}</YStack>
       {enableWebAuth && (
         <IconButton icon="FaceArcSolid" onPress={onWebAuthVerify} />
       )}
