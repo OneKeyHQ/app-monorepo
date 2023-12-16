@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { ListItem, Page, Stack, Text } from '@onekeyhq/components';
+import { Page, Stack, Text } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
