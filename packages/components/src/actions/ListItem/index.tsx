@@ -217,6 +217,7 @@ export interface IListItemProps {
   iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
   checkMark?: boolean;
+  onPress?: () => void;
 }
 
 const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
