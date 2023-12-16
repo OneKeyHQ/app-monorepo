@@ -69,11 +69,11 @@ const SetPasswordItem = () => {
       title: intl.formatMessage({ id: 'title__set_password' }),
       renderContent: (
         <PasswordSetupContainer
-          onSetupRes={(data) => {
+          onSetupRes={async (data) => {
             console.log('setup data', data);
             if (data) {
+              await dialog.close();
               Toast.success({ title: '设置成功' });
-              void dialog.close();
             }
           }}
         />
@@ -97,11 +97,11 @@ const ChangePasswordItem = () => {
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
         <PasswordUpdateContainer
-          onUpdateRes={(data) => {
+          onUpdateRes={async (data) => {
             console.log('update data', data);
             if (data) {
+              await dialog.close();
               Toast.success({ title: '修改成功' });
-              dialog.close();
             }
           }}
         />
