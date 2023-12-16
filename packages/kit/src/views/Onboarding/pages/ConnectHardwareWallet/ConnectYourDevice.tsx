@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -34,11 +34,7 @@ export function ConnectYourDevice() {
   };
 
   const handleSetupNewWalletPress = () => {
-    navigation.push(EOnboardingPages.SetupNewWallet);
-  };
-
-  const handleRestoreWalletPress = () => {
-    navigation.push(EOnboardingPages.RestoreWallet);
+    navigation.push(EOnboardingPages.ActivateDevice);
   };
 
   const DevicesData = [
@@ -63,8 +59,8 @@ export function ConnectYourDevice() {
                 title="Set Up New Wallet"
                 subtitle="Configure your device to create a new wallet."
                 drillIn
-                onPress={() => {
-                  dialog.close();
+                onPress={async () => {
+                  await dialog.close();
                   handleSetupNewWalletPress();
                 }}
                 borderWidth={StyleSheet.hairlineWidth}
@@ -79,9 +75,23 @@ export function ConnectYourDevice() {
                 title="Restore Wallet"
                 subtitle="Restore your wallet using an existing recovery phrase."
                 drillIn
-                onPress={() => {
-                  dialog.close();
-                  handleRestoreWalletPress();
+                onPress={async () => {
+                  await dialog.close();
+                  const packageAlertDialog = Dialog.show({
+                    icon: 'PackageDeliveryOutline',
+                    title: 'Package Security Check',
+                    description:
+                      'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
+                    onCancel: () =>
+                      Linking.openURL('https://help.onekey.so/hc/requests/new'),
+                    onCancelText: 'Get Help',
+                    onConfirm: async () => {
+                      await packageAlertDialog.close();
+                      handleSetupNewWalletPress();
+                      return true;
+                    },
+                    onConfirmText: 'Understood',
+                  });
                 }}
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$borderSubdued"

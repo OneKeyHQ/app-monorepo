@@ -1,6 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
 import {
+  ActivateDevice,
   BeforeShowRecoveryPhrase,
   ConnectYourDevice,
   FinalizeWalletSetup,
@@ -10,8 +11,6 @@ import {
   ImportRecoveryPhrase,
   OneKeyHardwareWallet,
   RecoveryPhrase,
-  RestoreWallet,
-  SetupNewWallet,
 } from '../pages';
 
 import { EOnboardingPages } from './type';
@@ -37,12 +36,8 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     component: OneKeyHardwareWallet,
   },
   {
-    name: EOnboardingPages.SetupNewWallet,
-    component: SetupNewWallet,
-  },
-  {
-    name: EOnboardingPages.RestoreWallet,
-    component: RestoreWallet,
+    name: EOnboardingPages.ActivateDevice,
+    component: ActivateDevice,
   },
 
   // create wallet

@@ -3,8 +3,7 @@ export enum EOnboardingPages {
   // connect hardware wallet
   ConnectYourDevice = 'ConnectYourDevice',
   OneKeyHardwareWallet = 'OneKeyHardwareWallet',
-  SetupNewWallet = 'SetupNewWallet',
-  RestoreWallet = 'RestoreWallet',
+  ActivateDevice = 'ActivateDevice',
 
   // create wallet
   BeforeShowRecoveryPhrase = 'BeforeShowRecoveryPhrase',
@@ -28,8 +27,7 @@ export type IOnboardingParamList = {
   // connect hardware wallet
   [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;
-  [EOnboardingPages.SetupNewWallet]: undefined;
-  [EOnboardingPages.RestoreWallet]: undefined;
+  [EOnboardingPages.ActivateDevice]: undefined;
 
   // create wallet
   [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
