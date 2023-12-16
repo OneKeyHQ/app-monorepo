@@ -33,7 +33,7 @@ const PasswordVerifyPromptMount = () => {
                     data: { password: data },
                   },
                 );
-                dialog.close();
+                void dialog.close();
               }
             }}
           />

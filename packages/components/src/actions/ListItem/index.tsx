@@ -1,5 +1,5 @@
 import { isValidElement } from 'react';
-import type { type ComponentProps, PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import {
   AnimatePresence,

@@ -70,9 +70,9 @@ export function Verification() {
           showFooter: false,
         });
 
-        setTimeout(() => {
+        setTimeout(async () => {
           // TODO: dialog.close().then(() => doDomeThing())
-          dialog.close();
+          await dialog.close();
 
           // if official
           returnVerified();

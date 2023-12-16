@@ -52,9 +52,11 @@ const AppLockItem = () => {
       <ListItem.Text
         primary={text}
         align="right"
-        primaryTextProps={{
-          tone: 'subdued',
-        }}
+        primaryTextProps={
+          {
+            // tone: 'subdued',
+          }
+        }
       />
     </ListItem>
   ) : null;
@@ -71,7 +73,7 @@ const SetPasswordItem = () => {
             console.log('setup data', data);
             if (data) {
               Toast.success({ title: '设置成功' });
-              dialog.close();
+              void dialog.close();
             }
           }}
         />

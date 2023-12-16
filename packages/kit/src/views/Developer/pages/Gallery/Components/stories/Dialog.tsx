@@ -39,7 +39,7 @@ const CustomFooter = ({
       <Button
         onPress={() => {
           console.log(form?.getValues());
-          dialog?.close();
+          void dialog.close();
         }}
       >
         Close
@@ -482,7 +482,7 @@ const DialogGallery = () => (
                   onConfirm: () => {},
                 });
                 setTimeout(() => {
-                  dialog.close();
+                  void dialog.close();
                 }, 1500);
               }}
             >
