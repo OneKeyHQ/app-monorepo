@@ -6,6 +6,7 @@ import {
   Form,
   Input,
   ScrollView,
+  SizableText,
   Stack,
   Text,
   Toast,
@@ -391,6 +392,47 @@ const DialogGallery = () => (
               }
             >
               Open Dialog Form
+            </Button>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Execute a function call once the dialog is closed',
+        element: (
+          <YStack space="$4">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'call by Dismiss Function',
+                  description: 'onDismiss',
+                  onDismiss: () => {
+                    alert('Execute it once the dialog is closed');
+                  },
+                })
+              }
+            >
+              onDismiss Function
+            </Button>
+            <Button
+              onPress={() => {
+                const dialog = Dialog.show({
+                  title: ' Dialog.close Promise',
+                  description: ' Dialog.close Promise',
+                  showFooter: false,
+                  renderContent: (
+                    <Button
+                      onPress={async () => {
+                        await dialog.close();
+                        alert('Execute it once the dialog is closed');
+                      }}
+                    >
+                      Close
+                    </Button>
+                  ),
+                });
+              }}
+            >
+              Dialog.close Promise
             </Button>
           </YStack>
         ),

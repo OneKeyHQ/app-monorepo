@@ -76,7 +76,7 @@ function DialogFrame({
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
-        onClose?.();
+        void onClose();
       }
     },
     [onClose],
@@ -96,13 +96,13 @@ function DialogFrame({
       getForm: () => dialogInstance.ref.current,
     });
     if (result || result === undefined) {
-      onClose?.();
+      void onClose();
     }
   }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
     onCancel?.();
-    onClose?.();
+    void onClose();
   }, [onCancel, onClose]);
 
   const media = useMedia();
@@ -274,7 +274,7 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
-    onClose?.();
+    return onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
@@ -319,7 +319,11 @@ const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+function DialogShow({
+  onClose,
+  onDismiss,
+  ...props
+}: IDialogShowProps): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
   let portalRef:
@@ -327,19 +331,22 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
         current: IPortalManager;
       }
     | undefined;
-  const handleClose = () => {
-    onClose?.();
-    // Remove the React node after the animation has finished.
-    setTimeout(() => {
-      if (instanceRef) {
-        instanceRef = undefined;
-      }
-      if (portalRef) {
-        portalRef.current.destroy();
-        portalRef = undefined;
-      }
-    }, 300);
-  };
+  const handleClose = () =>
+    new Promise<void>((resolve) => {
+      onClose?.();
+      // Remove the React node after the animation has finished.
+      setTimeout(() => {
+        if (instanceRef) {
+          instanceRef = undefined;
+        }
+        if (portalRef) {
+          portalRef.current.destroy();
+          portalRef = undefined;
+        }
+        onDismiss?.();
+        resolve();
+      }, 300);
+    });
   portalRef = {
     current: Portal.Render(
       Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
@@ -347,7 +354,7 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
     ),
   };
   return {
-    close: () => instanceRef?.current?.close(),
+    close: async () => instanceRef?.current?.close(),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
