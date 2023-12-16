@@ -50,7 +50,10 @@ export function RootStackNavigator<
   });
 
   const getOptionsWithType = useCallback(
-    (type: IRootStackType, optionsInfo: IScreenOptionsInfo<any>) => {
+    (
+      type: IRootStackType | undefined,
+      optionsInfo: IScreenOptionsInfo<any>,
+    ) => {
       switch (type) {
         case 'modal':
           return makeModalScreenOptions({ isVerticalLayout, optionsInfo });
@@ -78,7 +81,7 @@ export function RootStackNavigator<
             component={component}
             options={(optionsInfo) => ({
               ...options,
-              ...getOptionsWithType(type || 'normal', optionsInfo),
+              ...getOptionsWithType(type, optionsInfo),
             })}
           />
         )),
