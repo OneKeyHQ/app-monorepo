@@ -53,7 +53,7 @@ const AppLockItem = () => {
         primary={text}
         align="right"
         primaryTextProps={{
-          tone: 'subdued',
+          // tone: 'subdued',
         }}
       />
     </ListItem>

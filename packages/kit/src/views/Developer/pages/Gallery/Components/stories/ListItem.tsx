@@ -122,7 +122,7 @@ const ListItemGallery = () => (
                   primary={item.price}
                   secondary={item.change}
                   secondaryTextProps={{
-                    tone: parseFloat(item.change) >= 0 ? 'success' : 'critical',
+                    // tone: parseFloat(item.change) >= 0 ? 'success' : 'critical',
                   }}
                 />
               </ListItem>
@@ -184,7 +184,7 @@ const ListItemGallery = () => (
                 primary="Detail"
                 align="right"
                 primaryTextProps={{
-                  tone: 'subdued',
+                  // tone: 'subdued',
                 }}
               />
             </ListItem>
@@ -200,7 +200,7 @@ const ListItemGallery = () => (
                 primary="Detail"
                 align="right"
                 primaryTextProps={{
-                  tone: 'subdued',
+                  // tone: 'subdued',
                 }}
               />
             </ListItem>
@@ -216,7 +216,7 @@ const ListItemGallery = () => (
                 primary="Detail"
                 align="right"
                 primaryTextProps={{
-                  tone: 'subdued',
+                  // tone: 'subdued',
                 }}
               />
             </ListItem>

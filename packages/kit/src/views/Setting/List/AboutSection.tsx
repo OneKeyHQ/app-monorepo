@@ -26,7 +26,7 @@ export const AboutSection = () => {
           primary="4.15"
           align="right"
           primaryTextProps={{
-            tone: 'subdued',
+            // tone: 'subdued',
           }}
         />
       </ListItem>
