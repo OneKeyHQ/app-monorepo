@@ -78,7 +78,7 @@ export function RootStackNavigator<
             component={component}
             options={(optionsInfo) => ({
               ...options,
-              ...getOptionsWithType(type, optionsInfo),
+              ...getOptionsWithType(type || 'normal', optionsInfo),
             })}
           />
         )),
