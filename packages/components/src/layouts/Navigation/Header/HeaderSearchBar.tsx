@@ -14,6 +14,7 @@ import type {
 type IHeaderSearchBarProps = {
   height?: string;
   autoFocus?: boolean;
+  isModalScreen?: boolean;
   /**
    * A callback that gets called when search bar has lost focus
    */
@@ -40,6 +41,7 @@ type IHeaderSearchBarProps = {
 
 function HeaderSearchBar({
   autoFocus,
+  isModalScreen,
   onBlur,
   onFocus,
   onChangeText,
@@ -87,14 +89,17 @@ function HeaderSearchBar({
         mb: '$4',
         mx: '$5',
         $gtMd: {
-          width: '$52',
-          mb: '$0',
-          alignSelf: 'auto',
+          ...(!isModalScreen && {
+            width: '$52',
+            alignSelf: 'auto',
+            mb: '$0',
+          }),
         },
       }}
-      {...(media.gtMd && {
-        size: 'small',
-      })}
+      {...(media.gtMd &&
+        !isModalScreen && {
+          size: 'small',
+        })}
       autoFocus={autoFocus}
       onBlur={onBlurCallback}
       onFocus={onFocusCallback}

@@ -7,11 +7,11 @@ import {
 } from 'tamagui';
 
 import { Icon } from '../Icon';
+import { SizableText } from '../SizeableText';
 import { Spinner } from '../Spinner';
-import { Text } from '../Text';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
-import type { ColorTokens, ThemeableStackProps } from 'tamagui';
+import type { ColorTokens, FontSizeTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
   size?: 'small' | 'medium' | 'large';
@@ -204,6 +204,9 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       py={variant === 'tertiary' ? '$1' : py}
       px={variant === 'tertiary' ? '$2' : px}
       borderRadius={borderRadius}
+      style={{
+        borderCurve: 'continuous',
+      }}
       disabled={disabled || loading}
       {...sharedFrameStyles}
       hoverStyle={{
@@ -224,9 +227,12 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />
       )}
       {loading && <Spinner size="small" mr="$2" color={iconColor} />}
-      <Text variant={textVariant} color={textColor || color}>
+      <SizableText
+        size={textVariant as FontSizeTokens}
+        color={textColor || color}
+      >
         {children}
-      </Text>
+      </SizableText>
       {iconAfter && (
         <ButtonIcon name={iconAfter} variant={variant} size={size} ml="$2" />
       )}

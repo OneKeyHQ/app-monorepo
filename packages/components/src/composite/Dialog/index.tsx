@@ -39,7 +39,7 @@ import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 
 // Fix the issue of the overlay layer in tamagui being too low
-const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IStackProps = {
   zIndex: 100001,
   display: 'block',
 };
@@ -76,7 +76,7 @@ function DialogFrame({
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
-        onClose?.();
+        void onClose();
       }
     },
     [onClose],
@@ -96,19 +96,22 @@ function DialogFrame({
       getForm: () => dialogInstance.ref.current,
     });
     if (result || result === undefined) {
-      onClose?.();
+      void onClose();
     }
   }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
     onCancel?.();
-    onClose?.();
+    void onClose();
   }, [onCancel, onClose]);
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
+      {/* illustration */}
+
+      {/* leading icon */}
       {icon && (
         <Stack
           alignSelf="flex-start"
@@ -125,6 +128,8 @@ function DialogFrame({
           />
         </Stack>
       )}
+
+      {/* title and description */}
       <Stack p="$5" pr="$16">
         <Text variant="$headingXl" py="$px">
           {title}
@@ -135,6 +140,8 @@ function DialogFrame({
           </Text>
         )}
       </Stack>
+
+      {/* close button */}
       <IconButton
         position="absolute"
         right="$5"
@@ -147,6 +154,7 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
+      {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
@@ -266,7 +274,7 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
-    onClose?.();
+    return onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
@@ -311,7 +319,11 @@ const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+function DialogShow({
+  onClose,
+  onDismiss,
+  ...props
+}: IDialogShowProps): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
   let portalRef:
@@ -319,19 +331,22 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
         current: IPortalManager;
       }
     | undefined;
-  const handleClose = () => {
-    onClose?.();
-    // Remove the React node after the animation has finished.
-    setTimeout(() => {
-      if (instanceRef) {
-        instanceRef = undefined;
-      }
-      if (portalRef) {
-        portalRef.current.destroy();
-        portalRef = undefined;
-      }
-    }, 300);
-  };
+  const handleClose = () =>
+    new Promise<void>((resolve) => {
+      onClose?.();
+      // Remove the React node after the animation has finished.
+      setTimeout(() => {
+        if (instanceRef) {
+          instanceRef = undefined;
+        }
+        if (portalRef) {
+          portalRef.current.destroy();
+          portalRef = undefined;
+        }
+        onDismiss?.();
+        resolve();
+      }, 300);
+    });
   portalRef = {
     current: Portal.Render(
       Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
@@ -339,7 +354,7 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
     ),
   };
   return {
-    close: () => instanceRef?.current?.close(),
+    close: async () => instanceRef?.current?.close(),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
