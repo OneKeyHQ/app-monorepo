@@ -1,4 +1,5 @@
-import { type ComponentProps, isValidElement } from 'react';
+import { isValidElement } from 'react';
+import type { type ComponentProps, PropsWithChildren } from 'react';
 
 import {
   AnimatePresence,
@@ -207,7 +208,7 @@ const ListItemCheckMark = (props: StackProps) => (
 const ListItemSeparator = () => <Divider mx="$5" />;
 
 /* ListItem */
-export interface IListItemProps {
+export type IListItemProps = PropsWithChildren<{
   title?: string;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
@@ -218,7 +219,7 @@ export interface IListItemProps {
   drillIn?: boolean;
   checkMark?: boolean;
   onPress?: () => void;
-}
+}>;
 
 const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
   const {
