@@ -38,7 +38,7 @@ const CustomFooter = ({
       <Button
         onPress={() => {
           console.log(form?.getValues());
-          dialog?.close();
+          void dialog.close();
         }}
       >
         Close
@@ -396,6 +396,47 @@ const DialogGallery = () => (
         ),
       },
       {
+        title: 'Execute a function call once the dialog is closed',
+        element: (
+          <YStack space="$4">
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'call by Dismiss Function',
+                  description: 'onDismiss',
+                  onDismiss: () => {
+                    alert('Execute it once the dialog is closed');
+                  },
+                })
+              }
+            >
+              onDismiss Function
+            </Button>
+            <Button
+              onPress={() => {
+                const dialog = Dialog.show({
+                  title: ' Dialog.close Promise',
+                  description: ' Dialog.close Promise',
+                  showFooter: false,
+                  renderContent: (
+                    <Button
+                      onPress={async () => {
+                        await dialog.close();
+                        alert('Execute it once the dialog is closed');
+                      }}
+                    >
+                      Close
+                    </Button>
+                  ),
+                });
+              }}
+            >
+              Dialog.close Promise
+            </Button>
+          </YStack>
+        ),
+      },
+      {
         title: 'AutoFocus Input',
         element: (
           <YStack>
@@ -440,7 +481,7 @@ const DialogGallery = () => (
                   onConfirm: () => {},
                 });
                 setTimeout(() => {
-                  dialog.close();
+                  void dialog.close();
                 }, 1500);
               }}
             >

@@ -64,7 +64,7 @@ const PasswordDemoGallery = () => {
                             console.log('setup data', data);
                             if (data) {
                               Toast.success({ title: '设置成功' });
-                              dialog.close();
+                              void dialog.close();
                             }
                           }}
                         />
@@ -88,7 +88,7 @@ const PasswordDemoGallery = () => {
                           console.log('update data', data);
                           if (data) {
                             Toast.success({ title: '修改成功' });
-                            dialog.close();
+                            void dialog.close();
                           }
                         }}
                       />

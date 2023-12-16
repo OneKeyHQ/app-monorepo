@@ -105,7 +105,7 @@ export function makeModalStackNavigatorOptions({
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),
-  };
+  } as any;
 
   // Disable modal first screen navigation.replace() animation
   if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {

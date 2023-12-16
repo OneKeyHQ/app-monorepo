@@ -1,26 +1,18 @@
 import { useState } from 'react';
 
-import { StyleSheet } from 'react-native';
-import { getTokenValue } from 'tamagui';
-
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
   Dialog,
-  Divider,
-  Group,
-  Heading,
   HeightTransition,
   Image,
   ListItem,
   Page,
   SizableText,
-  Spinner,
   Stack,
-  XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
@@ -94,9 +86,11 @@ export function GetStarted() {
           <Button
             icon="OnekeyBrand"
             variant="primary"
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
             onPress={handleConnectHardwareWallet}
             // onPress={() => {
             //   setTimeout(() => {
@@ -139,18 +133,22 @@ export function GetStarted() {
           <Button
             icon="PlusCircleOutline"
             onPress={handleCreateWalletPress}
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
           >
             Create Wallet
           </Button>
           <Button
             icon="ArrowBottomCircleOutline"
             onPress={handleImportWalletPress}
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
           >
             Import Wallet
           </Button>
@@ -159,9 +157,11 @@ export function GetStarted() {
             onPress={handleImportWalletPress}
             variant="tertiary"
             m="$0"
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
           >
             Connect 3rd-party Wallet
           </Button>
@@ -170,7 +170,7 @@ export function GetStarted() {
             onPress={handleImportPrivateKeyPress}
             $md={{
               size: 'large',
-            }}
+            } as IButtonProps}
           >
             Import Private Key
           </Button>
@@ -179,7 +179,7 @@ export function GetStarted() {
             onPress={handleImportAddressPress}
             $md={{
               size: 'large',
-            }}
+            } as IButtonProps}
           >
             Import Address
           </Button>
@@ -188,7 +188,7 @@ export function GetStarted() {
             onPress={handleImportWalletPress}
             $md={{
               size: 'large',
-            }}
+            } as IButtonProps}
           >
             Connect 3rd-party Wallet
           </Button> */}

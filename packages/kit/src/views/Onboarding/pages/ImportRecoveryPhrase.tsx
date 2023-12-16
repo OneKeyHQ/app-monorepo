@@ -247,7 +247,7 @@ function PageContent() {
         </XStack>
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
-            {Array.from({ length: phraseLength }).map((_, index) => (
+            {Array.from({ length: Number(phraseLength) }).map((_, index) => (
               <Stack
                 key={index}
                 $md={{

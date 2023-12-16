@@ -89,6 +89,9 @@ function ModalNavigator({
     if (ROOT_NAVIGATION_INDEX_LISTENER) {
       return;
     }
+
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     ROOT_NAVIGATION_INDEX_LISTENER = rootNavigation?.addListener(
       'state',
       () => {

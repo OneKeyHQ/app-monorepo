@@ -86,6 +86,7 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
       return;
     }
     if (platformEnv.isRuntimeChrome) {
+      // @ts-expect-error
       inputRef.current?.focus({ preventScroll: true });
     } else {
       setTimeout(() => {
@@ -200,7 +201,8 @@ function BaseInput(
           unstyled
           ref={inputRef}
           flex={1}
-          pointerEvents={readonly ? 'none' : undefined}
+          // @ts-expect-error
+          pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
@@ -260,67 +262,65 @@ function BaseInput(
             disabled={disabled}
             disablePassBorderRadius="start"
           >
-            {addOns.map(
-              ({ iconName, iconColor, testID, label, onPress, loading }) => {
-                const getIconColor = () => {
-                  if (disabled) {
-                    return '$iconDisabled';
-                  }
-                  if (iconColor) {
-                    return iconColor;
-                  }
-                  return '$iconSubdued';
-                };
+            {addOns.map(({ iconName, iconColor, label, onPress, loading }) => {
+              const getIconColor = () => {
+                if (disabled) {
+                  return '$iconDisabled';
+                }
+                if (iconColor) {
+                  return iconColor;
+                }
+                return '$iconSubdued';
+              };
 
-                return (
-                  <Group.Item>
-                    <XStack
-                      onPress={onPress}
-                      key={`${iconName || ''}-${label || ''}`}
-                      alignItems="center"
-                      px={size === 'large' ? '$2.5' : '$2'}
-                      {...(onPress &&
-                        !disabled && {
-                          hoverStyle: {
-                            bg: '$bgHover',
-                          },
-                          pressStyle: {
-                            bg: '$bgActive',
-                          },
-                        })}
-                      focusable={!(disabled || loading)}
-                      focusStyle={sharedStyles.focusStyle}
-                      style={{
-                        borderCurve: 'continuous',
-                      }}
-                    >
-                      {loading ? (
-                        <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                          <Spinner size="small" />
-                        </YStack>
-                      ) : (
-                        iconName && (
-                          <Icon
-                            name={iconName}
-                            color={getIconColor()}
-                            size={size === 'small' ? '$5' : '$6'}
-                          />
-                        )
-                      )}
-                      {label && (
-                        <SizableText
-                          size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                          ml={iconName ? '$2' : '$0'}
-                          color={disabled ? '$textDisabled' : '$textSubdued'}
-                        >
-                          {label}
-                        </SizableText>
-                      )}
-                    </XStack>
-                  </Group.Item>
-                );
-              },
-            )}
+              return (
+                <Group.Item>
+                  <XStack
+                    onPress={onPress}
+                    key={`${iconName || ''}-${label || ''}`}
+                    alignItems="center"
+                    px={size === 'large' ? '$2.5' : '$2'}
+                    {...(onPress &&
+                      !disabled && {
+                        hoverStyle: {
+                          bg: '$bgHover',
+                        },
+                        pressStyle: {
+                          bg: '$bgActive',
+                        },
+                      })}
+                    focusable={!(disabled || loading)}
+                    focusStyle={sharedStyles.focusStyle}
+                    style={{
+                      borderCurve: 'continuous',
+                    }}
+                  >
+                    {loading ? (
+                      <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                        <Spinner size="small" />
+                      </YStack>
+                    ) : (
+                      iconName && (
+                        <Icon
+                          name={iconName}
+                          color={getIconColor()}
+                          size={size === 'small' ? '$5' : '$6'}
+                        />
+                      )
+                    )}
+                    {label && (
+                      <SizableText
+                        size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+                        ml={iconName ? '$2' : '$0'}
+                        color={disabled ? '$textDisabled' : '$textSubdued'}
+                      >
+                        {label}
+                      </SizableText>
+                    )}
+                  </XStack>
+                </Group.Item>
+              );
+            })}
           </Group>
         </Group.Item>
       )}

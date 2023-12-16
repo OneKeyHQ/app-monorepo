@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react';
 
 import type { ISelectItem, ISelectSection } from './type';
+import type { IPopoverProps } from '../../actions';
 import type { SheetProps } from 'tamagui';
 
 export const SelectContext = createContext<{
@@ -16,4 +17,5 @@ export const SelectContext = createContext<{
   refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
   sheetProps?: SheetProps;
+  placement?: IPopoverProps['placement'];
 }>({});

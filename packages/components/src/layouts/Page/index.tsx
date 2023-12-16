@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { useMemo, useRef, useState } from 'react';
 
 import { withStaticProperties } from 'tamagui';

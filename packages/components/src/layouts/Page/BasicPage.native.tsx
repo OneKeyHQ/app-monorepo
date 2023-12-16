@@ -1,10 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence } from 'tamagui';
-
-import PlatformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { View } from '../../optimization';
 import { Spinner, Stack } from '../../primitives';

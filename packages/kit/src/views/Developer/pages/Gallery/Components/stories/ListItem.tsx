@@ -186,9 +186,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
             <ListItem
@@ -202,9 +200,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
             <ListItem
@@ -218,9 +214,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
           </Stack>
