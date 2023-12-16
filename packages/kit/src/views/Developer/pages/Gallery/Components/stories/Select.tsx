@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
-import { Icon, Select, Stack, Text, XStack } from '@onekeyhq/components';
+import { Icon, Select, Stack, Text } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -35,65 +35,64 @@ const items: ISelectItem[] = [
   { label: 'Starfruit', value: 'Starfruit' },
 
   { label: 'Blueberry', value: 'Blueberry' },
+  { label: 'Banana', value: 'Banana' },
 ];
 
 const SelectDefaultItem = () => {
   const [val, setVal] = useState('Apple');
 
   return (
-    <Select
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
-      title="Demo Title"
-    />
+    <Select items={items} value={val} onChange={setVal} title="Demo Title" />
   );
 };
 
-const SelectDefaultNativeItem = () => {
+const SelectLongListItem = () => {
   const [val, setVal] = useState('Apple');
 
   return (
     <Select
-      native
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
-      title="Demo Title"
-    />
-  );
-};
-
-const SelectCustomTriggerItem = () => {
-  const [val, setVal] = useState('Apple');
-
-  return (
-    <Select
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{
-        width: '100%',
-        padded: false,
-        backgroundColor: '$bgActive',
-        overflow: 'hidden',
-        borderRadius: '$2',
+      items={new Array(1000).fill(undefined).map((_, index) => ({
+        label: String(index),
+        value: String(index),
+      }))}
+      sheetProps={{
+        snapPointsMode: 'percent',
+        snapPoints: [80],
       }}
-      renderTrigger={(item) => (
-        <XStack w="100%" justifyContent="space-between">
-          <Text variant="$bodyMd">Fruit</Text>
-          <XStack space>
-            {item?.leading}
-            <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
-          </XStack>
-        </XStack>
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectDisabledItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
+    <Select
+      disabled
+      items={items}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectCustomItem = () => {
+  const [val, setVal] = useState('');
+
+  return (
+    <Select
+      placeholder="please select one"
+      renderTrigger={({ value, placeholder }) => (
+        <Text>{value || placeholder}</Text>
       )}
-      disablePreventBodyScroll
-      title="Custom Trigger"
+      items={items}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
     />
   );
 };
@@ -101,7 +100,7 @@ const SelectCustomTriggerItem = () => {
 const sections: ISelectSection[] = [
   {
     title: 'emoji Section',
-    items: [
+    data: [
       {
         label: 'Apple',
         value: 'Apple',
@@ -129,7 +128,7 @@ const sections: ISelectSection[] = [
   },
   {
     title: 'plain Section',
-    items: [
+    data: [
       { label: 'Apricot', value: 'Apricot' },
 
       { label: 'Melon', value: 'Melon' },
@@ -149,9 +148,7 @@ const SelectSectionsItemDemo = () => {
     <Select
       sections={sections}
       value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
+      onChange={setVal}
       title="Demo Title"
     />
   );
@@ -172,18 +169,26 @@ const SelectGallery = () => (
         ),
       },
       {
-        title: '默认状态 native prop',
+        title: 'Long List',
         element: (
           <Stack space="$1">
-            <SelectDefaultNativeItem />
+            <SelectLongListItem />
           </Stack>
         ),
       },
       {
-        title: '自定义renderTrigger',
+        title: 'Disabled',
         element: (
           <Stack space="$1">
-            <SelectCustomTriggerItem />
+            <SelectDisabledItem />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Custom Trigger',
+        element: (
+          <Stack space="$1">
+            <SelectCustomItem />
           </Stack>
         ),
       },
