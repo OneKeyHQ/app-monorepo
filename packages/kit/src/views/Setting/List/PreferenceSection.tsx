@@ -45,9 +45,11 @@ const ThemeListItem = () => {
       <ListItem.Text
         primary={themes[theme]}
         align="right"
-        primaryTextProps={{
-          // tone: 'subdued',
-        }}
+        primaryTextProps={
+          {
+            // tone: 'subdued',
+          }
+        }
       />
     </ListItem>
   );
@@ -82,9 +84,11 @@ const LocaleListItem = () => {
       <ListItem.Text
         primary={labels[locale]}
         align="right"
-        primaryTextProps={{
-          // tone: 'subdued',
-        }}
+        primaryTextProps={
+          {
+            // tone: 'subdued',
+          }
+        }
       />
     </ListItem>
   );
@@ -110,9 +114,11 @@ export const PreferenceSection = () => {
         <ListItem.Text
           primary="USD"
           align="right"
-          primaryTextProps={{
-            // tone: 'subdued',
-          }}
+          primaryTextProps={
+            {
+              // tone: 'subdued',
+            }
+          }
         />
       </ListItem>
       <LocaleListItem />
