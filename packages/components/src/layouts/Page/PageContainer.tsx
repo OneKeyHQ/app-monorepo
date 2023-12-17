@@ -1,6 +1,5 @@
 import { useCallback, useContext, useMemo } from 'react';
 
-import { View } from '../../optimization';
 import { ScrollView } from '../ScrollView';
 
 import { BasicPage } from './BasicPage';
@@ -25,21 +24,16 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
     () => (
       <BasicPage skipLoading={skipLoading}>
         {scrollEnabled ? (
-          <View style={{ flex: 1 }}>
-            <ScrollView
-              flex={1}
-              height="100%"
-              ref={pageRef}
-              scrollEventThrottle={30}
-              onScroll={handleScroll as any}
-            >
-              {children}
-            </ScrollView>
-          </View>
+          <ScrollView
+            ref={pageRef}
+            scrollEventThrottle={30}
+            onScroll={handleScroll as any}
+          >
+            {children}
+          </ScrollView>
         ) : (
           children
         )}
-
         <BasicPageFooter />
       </BasicPage>
     ),

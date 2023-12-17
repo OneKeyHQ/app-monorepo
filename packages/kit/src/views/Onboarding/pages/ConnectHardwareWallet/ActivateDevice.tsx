@@ -178,9 +178,7 @@ export function ActivateDevice() {
                         h: '$56',
                       }}
                       resizeMode="contain"
-                      source={{
-                        uri,
-                      }}
+                      source={uri}
                     />
                     <SizableText
                       size="$bodySmMedium"

@@ -205,6 +205,9 @@ function DialogFrame({
           borderTopRightRadius="$6"
           bg="$bg"
           paddingBottom={keyboardHeight}
+          style={{
+            borderCurve: 'continuous',
+          }}
         >
           <SheetGrabber />
           {renderDialogContent}
@@ -229,6 +232,14 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
+              animateOnly={['opacity']}
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
               onPress={handleBackdropPress}
             />
             {
