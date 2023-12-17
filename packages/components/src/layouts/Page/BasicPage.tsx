@@ -6,6 +6,7 @@ import { Stack } from '../../primitives';
 import type { IBasicPageProps } from './type';
 
 export function BasicPage({ children }: IBasicPageProps) {
+  // fix scrolling issues on md Web
   const headerHeight = useHeaderHeight();
   const windowHeight = useWindowDimensions().height;
   const height = windowHeight - headerHeight;
