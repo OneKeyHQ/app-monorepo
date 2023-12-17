@@ -10,6 +10,8 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
+const accountAddress = '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
+
 function TxHistoryListContainer(props: IProps) {
   const { onContentSizeChange } = props;
   const formatDate = useFormatDate();
@@ -18,9 +20,8 @@ function TxHistoryListContainer(props: IProps) {
     const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
       accountId: "hd-1--m/44'/60'/0'/0/0",
       networkId: 'evm--1',
-      accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+      accountAddress,
     });
-    debugger;
     return r;
   }, []);
 
@@ -41,6 +42,7 @@ function TxHistoryListContainer(props: IProps) {
     <TxHistoryListView
       data={historySections}
       isLoading={history.isLoading}
+      accountAddress={accountAddress}
       onContentSizeChange={onContentSizeChange}
     />
   );

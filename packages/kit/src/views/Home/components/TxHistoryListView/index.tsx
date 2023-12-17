@@ -10,6 +10,7 @@ import { TxHistorySectionHeader } from './TxHistorySectionHeader';
 
 type IProps = {
   data: IHistoryListSectionGroup[];
+  accountAddress: string;
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
@@ -30,7 +31,7 @@ function TxHistoryListEmpty() {
 }
 
 function TxHistoryListView(props: IProps) {
-  const { data, onContentSizeChange } = props;
+  const { data, accountAddress, onContentSizeChange } = props;
   return (
     <SectionList
       h="100%"
@@ -47,7 +48,9 @@ function TxHistoryListView(props: IProps) {
       ListHeaderComponent={TxHistoryListHeader}
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize="$10"
-      renderItem={({ item }) => <TxHistoryListItem history={item} />}
+      renderItem={({ item }) => (
+        <TxHistoryListItem historyTx={item} accountAddress={accountAddress} />
+      )}
     />
   );
 }

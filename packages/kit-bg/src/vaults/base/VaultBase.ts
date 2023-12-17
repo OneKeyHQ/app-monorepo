@@ -219,7 +219,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           extraInfo: null,
         };
 
-        decodedTx.updatedAt = onChainTx.timestamp;
+        decodedTx.updatedAt = new Date(onChainTx.timestamp * 1000).getTime();
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === EDecodedTxStatus.Confirmed;
@@ -319,8 +319,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       nativeTransfer: {
         from: transfer.from,
         to: transfer.to,
-        amount: transfer.amount,
+        amount: new BigNumber(transfer.amount).abs().toFixed(),
         amountValue: new BigNumber(transfer.amount)
+          .abs()
           .shiftedBy(token.decimals)
           .toFixed(),
         tokenInfo: token,
@@ -341,8 +342,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         tokenInfo: token,
         from: transfer.from,
         to: transfer.to,
-        amount: transfer.amount,
+        amount: new BigNumber(transfer.amount).abs().toFixed(),
         amountValue: new BigNumber(transfer.amount)
+          .abs()
           .shiftedBy(token.decimals)
           .toFixed(),
       },
@@ -362,7 +364,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         nftInfo: nft,
         from: transfer.from,
         to: transfer.to,
-        amount: transfer.amount,
+        amount: new BigNumber(transfer.amount).abs().toFixed(),
       },
     };
   }
@@ -380,8 +382,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         tokenInfo: token,
         owner: transfer.from,
         spender: transfer.to,
-        amount: transfer.amount,
+        amount: new BigNumber(transfer.amount).abs().toFixed(),
         amountValue: new BigNumber(transfer.amount)
+          .abs()
           .shiftedBy(token.decimals)
           .toFixed(),
         // TODO will be provided by the interface.
