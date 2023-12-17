@@ -21,6 +21,7 @@ import {
   XStack,
   useForm,
   useIsKeyboardShown,
+  useKeyboardEvent,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
@@ -33,13 +34,18 @@ const useScrollToInputArea = (ref: RefObject<View>) => {
   const scrollToInputArea = useCallback(() => {
     const refHandle = findNodeHandle(ref.current);
     if (ref.current && refHandle) {
-      ref.current?.measureLayout(refHandle, (left, top, width, height) => {
-        if (getContentOffset().y < height) {
-          pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
-        }
-      });
+      setTimeout(() => {
+        ref.current?.measureLayout(refHandle, (left, top, width, height) => {
+          if (getContentOffset().y < height) {
+            pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
+          }
+        });
+      }, 300);
     }
   }, [getContentOffset, pageRef, ref]);
+  useKeyboardEvent({
+    keyboardWillShow: scrollToInputArea,
+  });
   return {
     scrollToInputArea,
   };
@@ -101,21 +107,21 @@ const queryWordFromDict = (word: string) =>
 
 const usePhraseSuggestion = (
   form: ReturnType<typeof useForm>,
-  selectWordIndex: MutableRefObject<number>,
+  selectInputIndex: MutableRefObject<number>,
 ) => {
   const [words, setWords] = useState<string[]>([]);
   const updateWordValue = useCallback(
     (word: string) => {
-      const index = selectWordIndex.current;
+      const index = selectInputIndex.current;
       const key = `phrase${index + 1}`;
       form.setValue(key, word);
     },
-    [form, selectWordIndex],
+    [form, selectInputIndex],
   );
 
   const watchForm = useCallback(
     async (values: Record<string, string>) => {
-      const index = selectWordIndex.current;
+      const index = selectInputIndex.current;
       if (index === -1) {
         setWords([]);
       }
@@ -129,12 +135,20 @@ const usePhraseSuggestion = (
         setWords(dictWords);
       }
     },
-    [selectWordIndex],
+    [selectInputIndex],
   );
+
+  useKeyboardEvent({
+    keyboardWillHide: () => {
+      setTimeout(() => {
+        setWords([]);
+      });
+    },
+  });
 
   useEffect(() => {
     form.watch(debounce(watchForm, 20));
-  }, [form, selectWordIndex, watchForm]);
+  }, [form, selectInputIndex, watchForm]);
   return {
     suggestionWords: words,
     updateWordValue,
@@ -143,15 +157,15 @@ const usePhraseSuggestion = (
 
 function SuggestionList({
   form,
-  selectWordIndex,
+  selectInputIndex,
 }: {
   form: ReturnType<typeof useForm>;
-  selectWordIndex: MutableRefObject<number>;
+  selectInputIndex: MutableRefObject<number>;
 }) {
   const isShow = useIsKeyboardShown();
   const { suggestionWords, updateWordValue } = usePhraseSuggestion(
     form,
-    selectWordIndex,
+    selectInputIndex,
   );
   return isShow ? (
     <ScrollView
@@ -173,14 +187,14 @@ function SuggestionList({
 
 function PageFooter({
   form,
-  selectWordIndex,
+  selectInputIndex,
 }: {
   form: ReturnType<typeof useForm>;
-  selectWordIndex: MutableRefObject<number>;
+  selectInputIndex: MutableRefObject<number>;
 }) {
   return (
     <Page.Footer>
-      <SuggestionList form={form} selectWordIndex={selectWordIndex} />
+      <SuggestionList form={form} selectInputIndex={selectInputIndex} />
       <Page.FooterActions onConfirm={() => console.log('confirm')} />
     </Page.Footer>
   );
@@ -189,7 +203,7 @@ function PageFooter({
 function PageContent() {
   const media = useMedia();
   const form = useForm({});
-  const selectWordIndex = useRef(-1);
+  const selectInputIndex = useRef(-1);
   const alertRef = useRef<View>(null);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
@@ -203,15 +217,12 @@ function PageContent() {
     }
     return `${length} invalid words`;
   };
-  const { scrollToInputArea } = useScrollToInputArea(alertRef);
 
-  const handleInputFocus = useCallback(
-    (index: number) => {
-      scrollToInputArea();
-      selectWordIndex.current = index;
-    },
-    [scrollToInputArea],
-  );
+  useScrollToInputArea(alertRef);
+
+  const handleInputFocus = useCallback((index: number) => {
+    selectInputIndex.current = index;
+  }, []);
 
   const handleClear = useCallback(() => {
     form.reset();
@@ -308,7 +319,7 @@ function PageContent() {
           )}
         </HeightTransition>
       </Page.Body>
-      <PageFooter form={form} selectWordIndex={selectWordIndex} />
+      <PageFooter form={form} selectInputIndex={selectInputIndex} />
     </>
   );
 }

@@ -33,9 +33,7 @@ export function OneKeyHardwareWallet() {
           resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping
-          source={{
-            uri: OneKeyAllProductsVideo,
-          }}
+          source={OneKeyAllProductsVideo}
         />
         <Stack
           position="absolute"
