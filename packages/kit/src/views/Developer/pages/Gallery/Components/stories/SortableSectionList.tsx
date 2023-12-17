@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Pressable } from 'react-native';
 
-import { SortableSectionList, Text } from '@onekeyhq/components';
+import { SortableCell, SortableSectionList, Text } from '@onekeyhq/components';
 
 import { mapIndexToData } from './SortableListView';
 
@@ -36,24 +36,18 @@ const SortableSectionListGallery = () => {
         drag: () => void;
         isActive: boolean;
       }) => (
-        // Don't use `Stack.onLongPress` as it will only be called after `onPressOut`
-        <SortableSectionList.ShadowDecorator>
-          <SortableSectionList.ScaleDecorator activeScale={0.9}>
-            <Pressable
-              onLongPress={drag}
-              disabled={isActive}
-              style={{
-                backgroundColor: item.backgroundColor,
-                width: '100%',
-                height: CELL_HEIGHT,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text color="white">{item.index}</Text>
-            </Pressable>
-          </SortableSectionList.ScaleDecorator>
-        </SortableSectionList.ShadowDecorator>
+        <Pressable onLongPress={drag}>
+          <SortableCell
+            h={CELL_HEIGHT}
+            alignItems="center"
+            justifyContent="center"
+            bg={item.backgroundColor}
+            drag={drag}
+            isActive={isActive}
+          >
+            <Text color="white">{item.index}长按拖动</Text>
+          </SortableCell>
+        </Pressable>
       )}
       onDragEnd={(result) => setSections(result.sections)}
       stickySectionHeadersEnabled

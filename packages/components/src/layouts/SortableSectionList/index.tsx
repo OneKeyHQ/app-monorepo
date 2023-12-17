@@ -22,7 +22,16 @@ import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
 import type { ScrollView } from 'react-native-gesture-handler';
 
-type ISortableSectionRenderInfo = (info: {
+export type ISortableSectionItemInfo = (info: {
+  item: any;
+  index: number | undefined;
+  section: any;
+  getIndex: () => number | undefined;
+  drag: () => void;
+  isActive: boolean;
+}) => ReactNode | null;
+
+export type ISortableSectionRenderInfo = (info: {
   section: any;
   index: number;
 }) => ReactNode | null;
@@ -49,7 +58,7 @@ export type ISortableSectionListProps = Omit<
     }) => JSX.Element;
     keyExtractor: (item: any, index: number) => string;
     getItemLayout: (
-      data: any,
+      item: any,
       index: number,
     ) => { length: number; offset: number; index: number };
     onDragEnd: (info: { sections: ISectionType }) => void;

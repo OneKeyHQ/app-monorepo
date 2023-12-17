@@ -11,7 +11,10 @@ import { withStaticProperties } from 'tamagui';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
-import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
+import type {
+  DraggableFlatListProps,
+  RenderItem,
+} from 'react-native-draggable-flatlist';
 import type { FlatList } from 'react-native-gesture-handler';
 
 export type ISortableListViewRef<T> = FlatList<T>;
@@ -20,6 +23,7 @@ export type ISortableListViewProps<T> = Omit<
   DraggableFlatListProps<T>,
   | 'data'
   | 'renderItem'
+  | 'CellRendererComponent'
   | 'keyExtractor'
   | 'getItemLayout'
   | 'containerStyle'
@@ -31,14 +35,9 @@ export type ISortableListViewProps<T> = Omit<
   StackStyleProps & {
     data: T[];
     keyExtractor: (item: T, index: number) => string;
-    renderItem: (info: {
-      item: T;
-      getIndex: () => number | undefined;
-      drag: () => void;
-      isActive: boolean;
-    }) => JSX.Element;
+    renderItem: RenderItem<T>;
     getItemLayout: (
-      data: ArrayLike<T> | undefined | null,
+      item: ArrayLike<T> | undefined | null,
       index: number,
     ) => { length: number; offset: number; index: number };
 

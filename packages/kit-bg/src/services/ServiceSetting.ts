@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 
@@ -67,6 +68,22 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       spendDustUTXO: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setAppLockDuration(value: number) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      appLockDuration: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setHardwareConnectSrc(value: EOnekeyDomain) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hardwareConnectSrc: value,
     }));
   }
 }

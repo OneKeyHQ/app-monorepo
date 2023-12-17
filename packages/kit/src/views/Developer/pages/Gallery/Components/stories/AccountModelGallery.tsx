@@ -8,10 +8,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorActiveAccount,
+  AccountSelectorProvider,
   AccountSelectorProviderMirror,
   AccountSelectorTrigger,
 } from '../../../../../../components/AccountSelector';
-import { ProviderJotaiContextDemo } from '../../../../../../states/jotai/contexts/demo';
 
 import { Layout } from './utils/Layout';
 
@@ -38,9 +38,7 @@ function Demo() {
       </Button>
       <Button
         onPress={async () => {
-          const {
-            data: { password },
-          } = await servicePassword.promptPasswordVerify();
+          const { password } = await servicePassword.promptPasswordVerify();
           const c = await serviceAccount.getCredentialDecrypt({
             password,
             credentialId: hdId,
@@ -108,23 +106,29 @@ function Demo() {
 }
 
 const AccountModelGallery = () => (
-  <ProviderJotaiContextDemo>
-    <Layout
-      description="Account Model"
-      suggestions={['Account Model']}
-      boundaryConditions={['Account Model']}
-      elements={[
-        {
-          title: 'Account Model',
-          element: (
+  <Layout
+    description="Account Model"
+    suggestions={['Account Model']}
+    boundaryConditions={['Account Model']}
+    elements={[
+      {
+        title: 'Account Model',
+        element: (
+          <AccountSelectorProvider
+            config={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
             <Stack space="$1">
               <Demo />
             </Stack>
-          ),
-        },
-      ]}
-    />
-  </ProviderJotaiContextDemo>
+          </AccountSelectorProvider>
+        ),
+      },
+    ]}
+  />
 );
 
 export default AccountModelGallery;

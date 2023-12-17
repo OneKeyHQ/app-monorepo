@@ -89,4 +89,14 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
       nextAccountIds: { 'global': 1 },
     });
   }
+
+  deleteDb() {
+    try {
+      Realm.deleteFile({ path: REALM_DB_NAME });
+      return Promise.resolve();
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(error);
+    }
+  }
 }

@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { Pressable } from 'react-native';
-
-import { SortableListView, Text } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  SortableCell,
+  SortableListView,
+  SwipeableCell,
+  Text,
+} from '@onekeyhq/components';
 
 export const mapIndexToData = (_d: any, index: number, array: any[]) => {
   const getColor = (i: number, numItems = 25) => {
@@ -21,38 +26,75 @@ const CELL_HEIGHT = 100;
 
 const SortableListViewGallery = () => {
   const [data, setData] = useState(new Array(15).fill({}).map(mapIndexToData));
+  const [isEditing, setIsEditing] = useState(false);
+  const headerRight = useCallback(
+    () => (
+      <Button onPress={() => setIsEditing(!isEditing)}>
+        {!isEditing ? 'Edit' : 'Done'}
+      </Button>
+    ),
+    [isEditing, setIsEditing],
+  );
+
+  const deleteCell = useCallback(
+    (getIndex: () => number | undefined) => {
+      const index = getIndex();
+      if (index === undefined) {
+        return;
+      }
+      const reloadData = [...data];
+      reloadData.splice(index, 1);
+      setData(reloadData);
+    },
+    [data, setData],
+  );
+
   return (
-    <SortableListView
-      bg="$bgApp"
-      data={data}
-      keyExtractor={(item) => `${item.index}`}
-      renderItem={({ item, drag, isActive }) => (
-        // Don't use `Stack.onLongPress` as it will only be called after `onPressOut`
-        <SortableListView.ShadowDecorator>
-          <SortableListView.ScaleDecorator activeScale={0.9}>
-            <Pressable
-              onLongPress={drag}
-              disabled={isActive}
-              style={{
-                backgroundColor: item.backgroundColor,
-                width: '100%',
-                height: CELL_HEIGHT,
-                alignItems: 'center',
-                justifyContent: 'center',
+    <Page>
+      <Page.Header headerRight={headerRight} />
+      <SortableListView
+        bg="$bgApp"
+        data={data}
+        keyExtractor={(item) => `${item.index}`}
+        renderItem={({ item, getIndex, drag, isActive }) => (
+          <SwipeableCell
+            swipeEnabled={!isEditing}
+            rightItemList={[
+              {
+                width: 200,
+                title: 'DELETE',
+                backgroundColor: '$bgCriticalStrong',
+                onPress: ({ close }) => {
+                  close?.();
+                  deleteCell(getIndex);
+                },
+              },
+            ]}
+          >
+            <SortableCell
+              h={CELL_HEIGHT}
+              isEditing={isEditing}
+              alignItems="center"
+              justifyContent="center"
+              bg={item.backgroundColor}
+              drag={drag}
+              isActive={isActive}
+              onDeletePress={() => {
+                deleteCell(getIndex);
               }}
             >
-              <Text color="white">{item.index}</Text>
-            </Pressable>
-          </SortableListView.ScaleDecorator>
-        </SortableListView.ShadowDecorator>
-      )}
-      getItemLayout={(_, index) => ({
-        length: CELL_HEIGHT,
-        offset: index * CELL_HEIGHT,
-        index,
-      })}
-      onDragEnd={(result) => setData(result.data)}
-    />
+              <Text color="white">{item.index}可左滑拖动删除</Text>
+            </SortableCell>
+          </SwipeableCell>
+        )}
+        getItemLayout={(_, index) => ({
+          length: CELL_HEIGHT,
+          offset: index * CELL_HEIGHT,
+          index,
+        })}
+        onDragEnd={(result) => setData(result.data)}
+      />
+    </Page>
   );
 };
 
