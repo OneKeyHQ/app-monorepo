@@ -4953,6 +4953,7 @@ __metadata:
     jest-html-reporter: ^3.10.2
     jotai: ^2.5.0
     memoizee: ^0.4.15
+    mixpanel-browser: ^2.48.1
     natsort: ^2.0.3
     node-notifier: ^10.0.1
     patch-package: ^7.0.0
@@ -5182,6 +5183,7 @@ __metadata:
     https-browserify: ^1.0.0
     lottie-react: ^2.4.0
     lottie-react-native: ^6.3.0
+    mixpanel-react-native: ^2.4.0
     path-browserify: ^1.0.1
     react: 18.2.0
     react-native: 0.72.5
@@ -21324,6 +21326,20 @@ __metadata:
   version: 3.0.1
   resolution: "mitt@npm:3.0.1"
   checksum: b55a489ac9c2949ab166b7f060601d3b6d893a852515ae9eca4e11df01c013876df777ea109317622b5c1c60e8aae252558e33c8c94e14124db38f64a39614b1
+  languageName: node
+  linkType: hard
+
+"mixpanel-browser@npm:^2.48.1":
+  version: 2.48.1
+  resolution: "mixpanel-browser@npm:2.48.1"
+  checksum: c423c4170e6bfe776f6cef4c59a998cf3f51eb1b7aeec5e695fb13a9a9a463abca3945770ae7429184ffe18706b62dbd0be2c4ac55766f7e2f82f74517b1c2cc
+  languageName: node
+  linkType: hard
+
+"mixpanel-react-native@npm:^2.4.0":
+  version: 2.4.0
+  resolution: "mixpanel-react-native@npm:2.4.0"
+  checksum: 9976e3d03d0fcad0d30da1dcef261c01d91adaa689c936c45f3ad881f5bcfae1f2916482128f980fd073cdc71bb6b1f632792971673f63173d565c1329ea7e30
   languageName: node
   linkType: hard
 

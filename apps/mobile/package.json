@@ -38,6 +38,7 @@
     "https-browserify": "^1.0.0",
     "lottie-react": "^2.4.0",
     "lottie-react-native": "^6.3.0",
+    "mixpanel-react-native": "^2.4.0",
     "path-browserify": "^1.0.1",
     "react": "18.2.0",
     "react-native": "0.72.5",
