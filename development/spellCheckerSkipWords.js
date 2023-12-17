@@ -1,4 +1,6 @@
 module.exports = [
+  'mixpanel',
+  'Mixpanel',
   'hd',
   'Jotai',
   'jotai',

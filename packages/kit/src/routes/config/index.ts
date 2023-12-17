@@ -111,13 +111,11 @@ export const useRouterConfig = () =>
     registerDeepLinking();
     return {
       routerConfig: rootRouter,
-      containerProps: platformEnv.isRuntimeBrowser
-        ? ({
-            documentTitle: {
-              formatter: () => 'OneKey',
-            },
-            linking: buildLinking(rootRouter),
-          } as INavigationContainerProps)
-        : undefined,
+      containerProps: {
+        documentTitle: {
+          formatter: () => 'OneKey',
+        },
+        linking: buildLinking(rootRouter),
+      } as INavigationContainerProps,
     };
   }, []);

@@ -55,6 +55,7 @@
     "@tamagui/static": "1.79.7",
     "@tamagui/themes": "1.79.7",
     "@tamagui/toast": "1.79.7",
+    "@types/mixpanel-browser": "^2.47.5",
     "@ungap/structured-clone": "^1.2.0",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "browserify-zlib": "^0.2.0",

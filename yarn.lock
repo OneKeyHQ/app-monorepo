@@ -4909,6 +4909,7 @@ __metadata:
     "@types/jest": ^29.5.6
     "@types/lodash": ^4.14.200
     "@types/memoizee": ^0.4.10
+    "@types/mixpanel-browser": ^2.47.5
     "@types/react": ^18.2.29
     "@types/react-dom": ^18.2.13
     "@typescript-eslint/eslint-plugin": ^5.46.1
@@ -8547,6 +8548,13 @@ __metadata:
   version: 5.1.2
   resolution: "@types/minimatch@npm:5.1.2"
   checksum: 0391a282860c7cb6fe262c12b99564732401bdaa5e395bee9ca323c312c1a0f45efbf34dce974682036e857db59a5c9b1da522f3d6055aeead7097264c8705a8
+  languageName: node
+  linkType: hard
+
+"@types/mixpanel-browser@npm:^2.47.5":
+  version: 2.47.5
+  resolution: "@types/mixpanel-browser@npm:2.47.5"
+  checksum: 98fda58f1ac80e8a0e7422af8ea0fa71ec330186c5d12468d9b2ab56e257cb928f19f6eddfdf2717d48810dfa8777590f66d0e05f041766e3434e54507787647
   languageName: node
   linkType: hard
 
