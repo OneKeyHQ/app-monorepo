@@ -130,16 +130,20 @@ function DialogFrame({
       )}
 
       {/* title and description */}
-      <Stack p="$5" pr="$16">
-        <Text variant="$headingXl" py="$px">
-          {title}
-        </Text>
-        {description && (
-          <Text variant="$bodyLg" pt="$1.5">
-            {description}
-          </Text>
-        )}
-      </Stack>
+      {(title || description) && (
+        <Stack p="$5" pr="$16">
+          {title && (
+            <Text variant="$headingXl" py="$px">
+              {title}
+            </Text>
+          )}
+          {description && (
+            <Text variant="$bodyLg" pt="$1.5">
+              {description}
+            </Text>
+          )}
+        </Stack>
+      )}
 
       {/* close button */}
       <IconButton
