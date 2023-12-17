@@ -2,7 +2,10 @@ import { useIntl } from 'react-intl';
 
 import { Empty, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IHistoryListSectionGroup,
+} from '@onekeyhq/shared/types/history';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
@@ -48,8 +51,12 @@ function TxHistoryListView(props: IProps) {
       ListHeaderComponent={TxHistoryListHeader}
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize="$10"
-      renderItem={({ item }) => (
-        <TxHistoryListItem historyTx={item} accountAddress={accountAddress} />
+      renderItem={({ item }: { item: IAccountHistoryTx }) => (
+        <TxHistoryListItem
+          key={item.id}
+          historyTx={item}
+          accountAddress={accountAddress}
+        />
       )}
     />
   );

@@ -1,5 +1,4 @@
 export type IToken = {
-  $key?: string;
   name: string;
   symbol: string;
   address: string;
@@ -17,7 +16,7 @@ export type ITokenFiat = {
   fiatValue: string;
 };
 
-export type IAccountToken = IToken & ITokenFiat;
+export type IAccountToken = ITokenFiat & { info: IToken } & { $key?: string };
 
 export type IFetchAccountTokensParams = {
   networkId: string;

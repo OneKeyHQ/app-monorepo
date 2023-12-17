@@ -12,12 +12,13 @@ type IProps = {
 
 function TokenListItem(props: IProps) {
   const { token, onPress } = props;
+  const tokenInfo = token.info;
   return (
     <ListItem
-      key={token.name}
-      title={token.name}
+      key={tokenInfo.name}
+      title={tokenInfo.name}
       avatarProps={{
-        src: token.logoURI,
+        src: tokenInfo.logoURI,
         fallbackProps: {
           bg: '$bgStrong',
           justifyContent: 'center',
@@ -35,7 +36,7 @@ function TokenListItem(props: IProps) {
     >
       <TokenBalanceView
         $key={token.$key ?? ''}
-        symbol={token.symbol}
+        symbol={tokenInfo.symbol}
         align="right"
         flex={1}
       />

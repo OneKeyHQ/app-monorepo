@@ -8,7 +8,6 @@ import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
-  IFetchTokenDetailResp,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -58,7 +57,7 @@ class ServiceToken extends ServiceBase {
       [key: string]: ITokenFiat;
     } = {};
     tokens.forEach((token) => {
-      const key = `${networkId}__${accountId}__${token.address}__${token.name}`;
+      const key = `${networkId}__${accountId}__${token.info.address}__${token.info.name}`;
       token.$key = key;
       keys.push(key);
       map[key] = {
