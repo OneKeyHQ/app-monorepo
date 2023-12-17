@@ -21,6 +21,7 @@ import {
   XStack,
   useForm,
   useIsKeyboardShown,
+  useKeyboardEvent,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
@@ -33,13 +34,18 @@ const useScrollToInputArea = (ref: RefObject<View>) => {
   const scrollToInputArea = useCallback(() => {
     const refHandle = findNodeHandle(ref.current);
     if (ref.current && refHandle) {
-      ref.current?.measureLayout(refHandle, (left, top, width, height) => {
-        if (getContentOffset().y < height) {
-          pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
-        }
-      });
+      setTimeout(() => {
+        ref.current?.measureLayout(refHandle, (left, top, width, height) => {
+          if (getContentOffset().y < height) {
+            pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
+          }
+        });
+      }, 300);
     }
   }, [getContentOffset, pageRef, ref]);
+  useKeyboardEvent({
+    keyboardWillShow: scrollToInputArea,
+  });
   return {
     scrollToInputArea,
   };
@@ -203,15 +209,12 @@ function PageContent() {
     }
     return `${length} invalid words`;
   };
-  const { scrollToInputArea } = useScrollToInputArea(alertRef);
 
-  const handleInputFocus = useCallback(
-    (index: number) => {
-      scrollToInputArea();
-      selectWordIndex.current = index;
-    },
-    [scrollToInputArea],
-  );
+  useScrollToInputArea(alertRef);
+
+  const handleInputFocus = useCallback((index: number) => {
+    selectWordIndex.current = index;
+  }, []);
 
   const handleClear = useCallback(() => {
     form.reset();
