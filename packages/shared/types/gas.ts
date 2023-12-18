@@ -2,14 +2,15 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 export type IGasEIP1559 = {
   confidence: 0;
-  baseFeePerGas: string; // chainValue not GWEI
-  maxFeePerGas: string; // chainValue not GWEI
-  maxPriorityFeePerGas: string; // chainValue not GWEI
+  baseFeePerGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
   gasPrice: string;
 };
 
 export type IGasLegacy = {
-  gasPrice: string; // chainValue not GWEI
+  gasPrice: string;
+  gasLimit: string;
 };
 
 export type IEstimateGasParams = {
@@ -25,14 +26,14 @@ export type IGasBTC = {
 export type IFeeInfoUnit = {
   isEIP1559?: boolean;
   isBtcForkChain?: boolean;
-  common: {
+  common?: {
     baseFeeValue?: string;
     limit?: string;
     limitForDisplay?: string;
     limitUsed?: string;
-    feeDecimals: 0;
+    feeDecimals: number;
     feeSymbol: string;
-    nativeDecimals: 0;
+    nativeDecimals: number;
     nativeSymbol: string;
   };
   gas?: IGasLegacy;

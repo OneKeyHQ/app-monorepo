@@ -8,6 +8,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -22,7 +23,6 @@ import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
   ITransferInfo,
-  ITxUpdateFeeInfo,
   IVaultSettings,
 } from '../../types';
 
@@ -51,7 +51,7 @@ export default class Vault extends VaultBase {
 
   override async updateUnsignedTx(options: {
     unsignedTx: IUnsignedTxPro;
-    feeInfo?: ITxUpdateFeeInfo | undefined;
+    feeInfo?: IFeeInfoUnit | undefined;
   }): Promise<IUnsignedTxPro> {
     const { unsignedTx, feeInfo } = options;
     if (feeInfo) {
@@ -127,7 +127,7 @@ export default class Vault extends VaultBase {
 
   async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxEvm;
-    feeInfo: ITxUpdateFeeInfo;
+    feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;

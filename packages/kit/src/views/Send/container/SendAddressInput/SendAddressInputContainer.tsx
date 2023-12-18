@@ -158,6 +158,7 @@ function SendAddressInputContainer() {
           disabled: submitDisabled,
         }}
         onConfirmText={intl.formatMessage({ id: 'action__next' })}
+        extraData={[submitDisabled]}
       />
     </Page>
   );

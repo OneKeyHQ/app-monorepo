@@ -22,8 +22,8 @@ export function calculateTotalFeeRange(
   displayDecimals = 8,
 ) {
   const { common, gas, gasEIP1559 } = feeInfo;
-  const limit = common.limitUsed || common.limit;
-  const limitForDisplay = common.limitForDisplay ?? limit;
+  const limit = common?.limitUsed || common?.limit;
+  const limitForDisplay = common?.limitForDisplay ?? limit;
   if (feeInfo.isEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;
@@ -93,14 +93,14 @@ export function calculateTotalFeeNative({
   const { common } = feeInfo;
 
   return new BigNumber(amount)
-    .plus(common.baseFeeValue ?? 0)
+    .plus(common?.baseFeeValue ?? 0)
     .shiftedBy(
-      common.feeDecimals ??
+      common?.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
     ) // GWEI -> onChainValue
     .shiftedBy(
       -(
-        common.nativeDecimals ??
+        common?.nativeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount

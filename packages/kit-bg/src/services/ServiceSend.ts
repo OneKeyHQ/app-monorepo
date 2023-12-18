@@ -45,8 +45,8 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
       feeInfo: {
         gas: {
-          'gasLimit': '0x5208', // 21000
-          'gasPrice': '0x2a', // 42
+          gasLimit: '0x5208', // 21000
+          gasPrice: '0x2a', // 42
         },
       },
     });

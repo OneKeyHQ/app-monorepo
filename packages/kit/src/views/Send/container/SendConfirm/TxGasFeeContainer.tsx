@@ -26,7 +26,7 @@ function TxGasFeeContainer(props: IProps) {
         presetIndex: DEFAULT_PRESET_INDEX,
       });
 
-      const feeRange = calculateTotalFeeRange(r, r.common.nativeDecimals);
+      const feeRange = calculateTotalFeeRange(r, r.common?.nativeDecimals);
       const total = feeRange.max;
       const totalForDisplay = feeRange.maxForDisplay;
       const totalNative = calculateTotalFeeNative({
@@ -62,7 +62,7 @@ function TxGasFeeContainer(props: IProps) {
       <Text>Gas Fee</Text>
       <Text>
         {gasFee.result?.totalNativeForDisplay}{' '}
-        {gasFee.result?.feeInfo.common.nativeSymbol}
+        {gasFee.result?.feeInfo.common?.nativeSymbol}
       </Text>
     </XStack>
   );

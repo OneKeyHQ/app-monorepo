@@ -64,6 +64,7 @@ class ServiceGas extends ServiceBase {
       ...baseInfo,
       gas: {
         gasPrice: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as string,
+        gasLimit: baseInfo.common.limit,
       },
     };
   }

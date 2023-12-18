@@ -4,6 +4,7 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -158,21 +159,6 @@ export type ITransferInfo = {
   token: string; // tokenIdOnNetwork
 };
 
-// Fee ----------------------------------------------
-
-export interface ITxUpdateFeeInfo {
-  gas?: {
-    gasPrice?: string; // chainValue not GWEI
-    gasLimit?: string; // chainValue not GWEI
-    // gas?: string; // alias for gasLimit
-  };
-  gasEIP1559?: {
-    gasPrice?: string; // chainValue not GWEI
-    maxFeePerGas?: string; // chainValue not GWEI
-    maxPriorityFeePerGas?: string; // chainValue not GWEI
-  };
-}
-
 // Send ------------
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
@@ -183,7 +169,7 @@ export interface IBuildUnsignedTxParams {
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
-  feeInfo?: ITxUpdateFeeInfo;
+  feeInfo?: IFeeInfoUnit;
   // tokenApproveInfo
   // nonceInfo
 }
