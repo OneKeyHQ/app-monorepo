@@ -407,7 +407,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         if (userTriggered) {
-          void this.addBrowserHistory.call(set, { url, title: title ?? '' });
+          void this.addBrowserHistory.call(set, {
+            url: validateUrl,
+            title: title ?? '',
+          });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {

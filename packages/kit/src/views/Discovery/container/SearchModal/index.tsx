@@ -119,7 +119,7 @@ function SearchModal() {
               onPress={() => {
                 handleOnPress({
                   url: searchItem.title,
-                  name: searchItem.displayTitle,
+                  name: searchItem.title,
                 });
               }}
             />
