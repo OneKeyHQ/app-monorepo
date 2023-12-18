@@ -123,22 +123,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
-  async fixHistoryTx(historyTx: IAccountHistoryTx): Promise<IAccountHistoryTx> {
-    if (platformEnv.isDev && platformEnv.isDesktop) {
-      Object.assign(historyTx, {
-        _tmpCreatedAtText: new Date(
-          historyTx.decodedTx.createdAt || 0,
-        ).toLocaleString(),
-        _tmpUpdatedAtText: new Date(
-          historyTx.decodedTx.updatedAt || 0,
-        ).toLocaleString(),
-        _tmpStatus: historyTx.decodedTx.status,
-        _tmpIsFinal: historyTx.decodedTx.isFinal,
-      });
-    }
-    return Promise.resolve(historyTx);
-  }
-
   async buildHistoryTx({
     historyTxToMerge,
     encodedTx,
