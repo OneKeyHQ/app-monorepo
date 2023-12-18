@@ -37,6 +37,7 @@ import SkeletonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Com
 import SliderGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider';
 import SortableListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableListView';
 import SortableSectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList';
+import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
 import SpotlightTourGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour';
 import SwitchGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView';
@@ -76,6 +77,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSortableListView,
     component: SortableListViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSwipeableCell,
+    component: SwipeableCellGallery,
   },
   {
     name: EGalleryRoutes.ComponentSpotlightTour,

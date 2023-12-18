@@ -1,5 +1,5 @@
-import { forwardRef, useCallback, useMemo } from 'react';
-import type { ComponentType, ForwardedRef, ReactNode } from 'react';
+import { forwardRef, useMemo } from 'react';
+import type { ForwardedRef, ReactNode } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import {
@@ -17,9 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';
-import { SortableCellContainer } from '../SortableCellContainer';
 
-import type { ISortableCellContainerProps } from '../SortableCellContainer';
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ScrollViewProps, StyleProp, ViewStyle } from 'react-native';
 import type { ScrollView } from 'react-native-gesture-handler';
@@ -72,7 +70,6 @@ export type ISortableSectionListProps = Omit<
     ListFooterComponentStyle?: StackStyleProps;
     renderSectionHeader?: ISortableSectionRenderInfo;
     renderSectionFooter?: ISortableSectionRenderInfo;
-    CellRendererComponent?: ComponentType<ISortableCellContainerProps<any>>;
     stickySectionHeadersEnabled?: boolean;
   };
 
@@ -90,7 +87,6 @@ function BaseSortableSectionList(
     ListFooterComponentStyle = {},
     renderSectionHeader,
     renderSectionFooter,
-    CellRendererComponent = SortableCellContainer,
     stickySectionHeadersEnabled = false,
     onDragEnd,
     ...props
@@ -140,20 +136,6 @@ function BaseSortableSectionList(
     renderSectionFooter,
   ]);
 
-  const reloadRenderItem: ISortableSectionItemInfo = useCallback(
-    (info) => {
-      if (!CellRendererComponent) {
-        return renderItem?.(info);
-      }
-      return (
-        <CellRendererComponent {...info}>
-          {renderItem?.(info)}
-        </CellRendererComponent>
-      );
-    },
-    [renderItem, CellRendererComponent],
-  );
-
   const scrollChildList = useMemo(() => {
     const childList: [ReactNode] = [
       <Stack style={listHeaderStyle}>{ListHeaderComponent}</Stack>,
@@ -181,7 +163,7 @@ function BaseSortableSectionList(
           }}
           getItemLayout={getItemLayout}
           renderItem={({ item, getIndex, drag, isActive }) =>
-            reloadRenderItem({
+            renderItem?.({
               item,
               section,
               index: getIndex(),
@@ -219,7 +201,7 @@ function BaseSortableSectionList(
     listHeaderStyle,
     listFooterStyle,
     onDragEnd,
-    reloadRenderItem,
+    renderItem,
   ]);
 
   return (
