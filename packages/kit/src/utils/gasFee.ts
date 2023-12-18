@@ -1,6 +1,10 @@
 import BigNumber from 'bignumber.js';
 
-import type { IEIP1559Fee, IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type {
+  IFeeInfoUnit,
+  IGasEIP1559,
+  IGasLegacy,
+} from '@onekeyhq/shared/types/gas';
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -17,34 +21,31 @@ export function calculateTotalFeeRange(
   feeInfo: IFeeInfoUnit,
   displayDecimals = 8,
 ) {
-  const limit = feeInfo.limitUsed || feeInfo.limit;
-  const limitForDisplay = feeInfo.limitForDisplay ?? limit;
+  const { common, gas, gasEIP1559 } = feeInfo;
+  const limit = common.limitUsed || common.limit;
+  const limitForDisplay = common.limitForDisplay ?? limit;
   if (feeInfo.isEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
-    const priceInfo = feeInfo.price1559 as IEIP1559Fee;
+    const gasInfo = gasEIP1559 as IGasEIP1559;
     const min = new BigNumber(limit as string)
       .times(
-        new BigNumber(priceInfo.baseFeePerGas).plus(
-          priceInfo.maxPriorityFeePerGas,
-        ),
+        new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
       .toFixed(displayDecimals);
 
     const minForDisplay = new BigNumber(limitForDisplay as string)
       .times(
-        new BigNumber(priceInfo.baseFeePerGas).plus(
-          priceInfo.maxPriorityFeePerGas,
-        ),
+        new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
       .toFixed(displayDecimals);
 
     // MAX: maxFeePerGas * limit
     const max = new BigNumber(limit as string)
-      .times(priceInfo.maxFeePerGas)
+      .times(gasInfo.maxFeePerGas)
       .toFixed(displayDecimals);
 
     const maxForDisplay = new BigNumber(limitForDisplay as string)
-      .times(priceInfo.maxFeePerGas)
+      .times(gasInfo.maxFeePerGas)
       .toFixed(displayDecimals);
     return {
       min: nanToZeroString(min),
@@ -55,7 +56,7 @@ export function calculateTotalFeeRange(
   }
 
   if (feeInfo.isBtcForkChain) {
-    const fee = new BigNumber(feeInfo.btcFee ?? '0')
+    const fee = new BigNumber(feeInfo.gasBTC?.btcFee ?? '0')
       .shiftedBy(-displayDecimals)
       .toFixed(displayDecimals);
     return {
@@ -66,12 +67,11 @@ export function calculateTotalFeeRange(
     };
   }
 
-  const max = new BigNumber(limit as string)
-    .times(feeInfo.price as string)
-    .toFixed();
+  const gasInfo = gas as IGasLegacy;
+  const max = new BigNumber(limit as string).times(gasInfo.gasPrice).toFixed();
 
   const maxForDisplay = new BigNumber(limitForDisplay as string)
-    .times(feeInfo.price as string)
+    .times(gasInfo.gasPrice)
     .toFixed();
 
   return {
@@ -90,15 +90,17 @@ export function calculateTotalFeeNative({
   feeInfo: IFeeInfoUnit;
   displayDecimal?: number;
 }) {
+  const { common } = feeInfo;
+
   return new BigNumber(amount)
-    .plus(feeInfo.baseFeeValue ?? 0)
+    .plus(common.baseFeeValue ?? 0)
     .shiftedBy(
-      feeInfo.feeDecimals ??
+      common.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
     ) // GWEI -> onChainValue
     .shiftedBy(
       -(
-        feeInfo.nativeDecimals ??
+        common.nativeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount

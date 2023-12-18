@@ -167,7 +167,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = `${this.networkId}_${txid}_${this.accountId}`;
-    let historyTx: IAccountHistoryTx = {
+    const historyTx: IAccountHistoryTx = {
       id: historyId,
 
       isLocalCreated: Boolean(isLocalCreated),
@@ -176,7 +176,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
       decodedTx,
     };
-    historyTx = await this.fixHistoryTx(historyTx);
     return Promise.resolve(historyTx);
   }
 

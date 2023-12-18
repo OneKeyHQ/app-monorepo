@@ -3,13 +3,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
-  IEIP1559Fee,
   IEstimateGasParams,
   IEstimateGasResp,
   IFeeInfoUnit,
+  IGasEIP1559,
 } from '@onekeyhq/shared/types/gas';
-
-import { getBaseEndpoint } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
 
@@ -23,10 +21,9 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateGasFee(params: IEstimateGasParams) {
-    const client = this.getClient();
-    const baseEndpoint = await getBaseEndpoint();
+    const client = await this.getClient();
     const resp = await client.post<{ data: IEstimateGasResp }>(
-      `${baseEndpoint}/v5/onchain/estimate-fee`,
+      '/v5/onchain/estimate-fee',
       params,
     );
     return resp.data.data;
@@ -45,25 +42,29 @@ class ServiceGas extends ServiceBase {
 
     const baseInfo = {
       isEIP1559: gasFee.isEIP1559,
-      limit: gasFee.limit ?? DEFAULT_GAS_LIMIT,
-      limitForDisplay:
-        gasFee.limitForDisplay ?? gasFee.limit ?? DEFAULT_GAS_LIMIT,
-      feeDecimals: gasFee.feeDecimals,
-      feeSymbol: gasFee.feeSymbol,
-      nativeDecimals: gasFee.nativeDecimals,
-      nativeSymbol: gasFee.nativeSymbol,
+      common: {
+        limit: gasFee.limit ?? DEFAULT_GAS_LIMIT,
+        limitForDisplay:
+          gasFee.limitForDisplay ?? gasFee.limit ?? DEFAULT_GAS_LIMIT,
+        feeDecimals: gasFee.feeDecimals,
+        feeSymbol: gasFee.feeSymbol,
+        nativeDecimals: gasFee.nativeDecimals,
+        nativeSymbol: gasFee.nativeSymbol,
+      },
     };
 
     if (baseInfo.isEIP1559) {
       return {
         ...baseInfo,
-        price1559: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as IEIP1559Fee,
+        gasEIP1559: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as IGasEIP1559,
       };
     }
 
     return {
       ...baseInfo,
-      price: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as string,
+      gas: {
+        gasPrice: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as string,
+      },
     };
   }
 }

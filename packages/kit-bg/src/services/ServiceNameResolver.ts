@@ -12,8 +12,6 @@ import type {
   IResolveNameResp,
 } from '@onekeyhq/shared/types/name';
 
-import { getBaseEndpoint } from '../endpoints';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -156,11 +154,10 @@ class ServiceNameResolver extends ServiceBase {
       if (config.resolver) {
         resolvedNames = await config.resolver(name);
       } else {
-        const client = this.getClient();
-        const endpoint = await getBaseEndpoint();
+        const client = await this.getClient();
         const resp = await client.get<{
           data: IResolveNameResp;
-        }>(`${endpoint}/v5/account/resolve-name`, {
+        }>('/v5/account/resolve-name', {
           params: {
             name,
             networkId,

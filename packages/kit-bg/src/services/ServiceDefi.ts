@@ -7,8 +7,6 @@ import type {
   IFetchAccountDefiResp,
 } from '@onekeyhq/shared/types/defi';
 
-import { getBaseEndpoint } from '../endpoints';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -21,11 +19,10 @@ class ServiceDefi extends ServiceBase {
   public async fetchAccountDefi(
     params: IFetchAccountDefiParams,
   ): Promise<IFetchAccountDefiResp> {
-    const client = this.getClient();
-    const endpoint = await getBaseEndpoint();
+    const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountDefiResp;
-    }>(`${endpoint}/v5/account/defi/list`, {
+    }>('/v5/account/defi/list', {
       params,
     });
     return resp.data.data;

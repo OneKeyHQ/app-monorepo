@@ -7,7 +7,6 @@ import {
   type IFetchAccountHistoryResp,
 } from '@onekeyhq/shared/types/history';
 
-import { getBaseEndpoint } from '../endpoints';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -21,10 +20,9 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
-    const client = this.getClient();
-    const baseEndpoint = await getBaseEndpoint();
+    const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
-      `${baseEndpoint}/v5/account/history/list`,
+      '/v5/account/history/list',
       params,
     );
 

@@ -154,7 +154,9 @@ function SendAddressInputContainer() {
       <Page.Footer
         onCancel={() => navigation.popStack()}
         onConfirm={() => doSubmit()}
-        confirmButtonProps={{ disabled: submitDisabled }}
+        confirmButtonProps={{
+          disabled: submitDisabled,
+        }}
         onConfirmText={intl.formatMessage({ id: 'action__next' })}
       />
     </Page>

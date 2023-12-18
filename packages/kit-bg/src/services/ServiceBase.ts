@@ -5,6 +5,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
+import { getBaseEndpoint } from '../endpoints';
+
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -22,9 +24,10 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
-  getClient() {
+  async getClient(endpoint?: string) {
     if (!this._client) {
       this._client = axios.create({
+        baseURL: endpoint ?? (await getBaseEndpoint()),
         timeout: 60 * 1000,
       });
     }

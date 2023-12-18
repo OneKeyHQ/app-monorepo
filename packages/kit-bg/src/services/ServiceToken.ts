@@ -11,8 +11,6 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { getBaseEndpoint } from '../endpoints';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -25,10 +23,9 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams,
   ): Promise<IFetchAccountTokensResp> {
-    const endpoint = await getBaseEndpoint();
-    const client = this.getClient();
+    const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-      `${endpoint}/v5/account/token/list`,
+      '/v5/account/token/list',
       params,
     );
     return resp.data.data;
@@ -70,10 +67,9 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchTokenDetail(params: IFetchTokenDetailParams) {
-    const endpoint = await getBaseEndpoint();
-    const client = this.getClient();
+    const client = await this.getClient();
     const resp = await client.get<{ data: IAccountToken }>(
-      `${endpoint}/v5/account/token/detail`,
+      '/v5/account/token/detail',
       { params },
     );
     return resp.data.data;

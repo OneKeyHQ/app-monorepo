@@ -7,8 +7,6 @@ import type {
   IFetchAccountNFTsResp,
 } from '@onekeyhq/shared/types/nft';
 
-import { getBaseEndpoint } from '../endpoints';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -19,11 +17,10 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    const client = this.getClient();
-    const endpoint = await getBaseEndpoint();
+    const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`${endpoint}/v5/account/nft/list`, {
+    }>('/v5/account/nft/list', {
       params,
     });
     return resp.data.data;
