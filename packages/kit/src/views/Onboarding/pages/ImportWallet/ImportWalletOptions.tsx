@@ -59,14 +59,15 @@ export function ImportWalletOptions() {
             'Import a 12-24 word phrase to set up your multi-chain wallet.',
           onPress: () => {
             const dialog = Dialog.show({
-              icon: 'Shield2CheckOutline',
+              tone: 'warning',
+              icon: 'ErrorOutline',
               title: 'Security Alert',
               description:
                 "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
               renderContent: (
                 <Stack>
                   <Button
-                    variant="primary"
+                    variant="secondary"
                     onPress={async () => {
                       await dialog.close();
                       handleImportRecoveryPhrasePress();
@@ -75,6 +76,8 @@ export function ImportWalletOptions() {
                     Acknowledged
                   </Button>
                   <Button
+                    variant="tertiary"
+                    m="0"
                     mt="$2.5"
                     onPress={async () => {
                       await dialog.close();

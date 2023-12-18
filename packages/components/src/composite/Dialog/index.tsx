@@ -37,6 +37,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { ColorTokens } from 'tamagui';
 
 // Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
@@ -106,12 +107,33 @@ function DialogFrame({
     void onClose();
   }, [onCancel, onClose]);
 
+  const getColors = (): {
+    iconWrapperBg: ColorTokens;
+    iconColor: ColorTokens;
+  } => {
+    if (tone === 'destructive') {
+      return {
+        iconWrapperBg: '$bgCritical',
+        iconColor: '$iconCritical',
+      };
+    }
+    if (tone === 'warning') {
+      return {
+        iconWrapperBg: '$bgCaution',
+        iconColor: '$iconCaution',
+      };
+    }
+
+    return {
+      iconWrapperBg: '$bgStrong',
+      iconColor: '$icon',
+    };
+  };
+
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      {/* illustration */}
-
       {/* leading icon */}
       {icon && (
         <Stack
@@ -120,13 +142,9 @@ function DialogFrame({
           ml="$5"
           mt="$5"
           borderRadius="$full"
-          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          bg={getColors().iconWrapperBg}
         >
-          <Icon
-            name={icon}
-            size="$8"
-            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-          />
+          <Icon name={icon} size="$8" color={getColors().iconColor} />
         </Stack>
       )}
 
