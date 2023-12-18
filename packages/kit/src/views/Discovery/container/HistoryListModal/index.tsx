@@ -149,7 +149,7 @@ function HistoryListModal() {
               estimatedItemSize="$10"
               sections={dataSource}
               renderSectionHeader={({ section: { title } }) => (
-                <Stack bg="$bg">
+                <Stack bg="$bg" p="$3">
                   <Text variant="$headingXs">{title}</Text>
                 </Stack>
               )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,10 +10,12 @@ import {
   IconButton,
   Input,
   ListItem,
-  ListView,
   Page,
   Skeleton,
+  SortableCell,
+  SortableListView,
   Stack,
+  SwipeableCell,
   Toast,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -37,16 +39,18 @@ function BookmarkListModal() {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { removeBrowserBookmark, modifyBrowserBookmark } =
+  const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
   const { openMatchDApp } = useBrowserAction().current;
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
-  const { result, run } = usePromiseResult(
+  const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
+  const { run } = usePromiseResult(
     async () => {
       const data =
         await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
       setFirstLoad(false);
+      setDataSource((data?.data as IBrowserBookmark[]) || []);
       return (data?.data as IBrowserBookmark[]) || [];
     },
     [],
@@ -54,8 +58,6 @@ function BookmarkListModal() {
       watchLoading: true,
     },
   );
-
-  const dataSource = useMemo(() => result ?? [], [result]);
 
   const displayEmptyView = useMemo(() => {
     if (firstLoad) return false;
@@ -94,6 +96,30 @@ function BookmarkListModal() {
     [modifyBrowserBookmark, run],
   );
 
+  const [isEditing, setIsEditing] = useState(false);
+  const deleteCell = useCallback(
+    async (getIndex: () => number | undefined) => {
+      const index = getIndex();
+      if (index === undefined) {
+        return;
+      }
+      await removeBrowserBookmark(dataSource[index].url);
+      setTimeout(() => {
+        void run();
+      }, 200);
+    },
+    [removeBrowserBookmark, run, dataSource],
+  );
+  const onSortBookmarks = useCallback(
+    (data: IBrowserBookmark[]) => {
+      buildBookmarkData(data);
+      setDataSource(data);
+    },
+    [buildBookmarkData],
+  );
+
+  const CELL_HEIGHT = 44;
+
   return (
     <Page>
       <Page.Header
@@ -112,7 +138,13 @@ function BookmarkListModal() {
       <Page.Body>
         <Stack flex={1}>
           <Stack px="$4" flexDirection="row" justifyContent="flex-end">
-            <Button w="$20" size="small">
+            <Button
+              w="$20"
+              size="small"
+              onPress={() => {
+                setIsEditing((prev) => !prev);
+              }}
+            >
               Edit
             </Button>
           </Stack>
@@ -125,81 +157,112 @@ function BookmarkListModal() {
               />
             </Stack>
           ) : (
-            <ListView
-              height="100%"
-              estimatedItemSize="$10"
+            <SortableListView
               data={dataSource}
               keyExtractor={(item) => item.url}
-              renderItem={({ item }) => (
-                <ListItem
-                  avatarProps={{
-                    src: getUrlIcon(item.url),
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
+              getItemLayout={(_, index) => ({
+                length: CELL_HEIGHT,
+                offset: index * CELL_HEIGHT,
+                index,
+              })}
+              onDragEnd={(ret) => onSortBookmarks(ret.data)}
+              renderItem={({ item, getIndex, drag, isActive }) => (
+                <SwipeableCell
+                  swipeEnabled={!isEditing}
+                  rightItemList={[
+                    {
+                      width: 200,
+                      title: 'DELETE',
+                      backgroundColor: '$bgCriticalStrong',
+                      onPress: ({ close }) => {
+                        close?.();
+                        void deleteCell(getIndex);
+                      },
                     },
-                  }}
-                  title={item.title}
-                  subtitle={item.url}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  testID={`search-modal-${item.url.toLowerCase()}`}
-                  onPress={(e) => {
-                    void openMatchDApp({
-                      id: '',
-                      webSite: {
-                        url: item.url,
-                        title: item.title,
-                      },
-                      isNewWindow: true,
-                    });
-                    if (platformEnv.isDesktop) {
-                      navigation.switchTab(ETabRoutes.MultiTabBrowser);
-                    } else {
-                      navigation.pop();
-                    }
-                  }}
+                  ]}
                 >
-                  <ActionList
-                    title="Action List"
-                    placement="right-start"
-                    renderTrigger={
-                      <IconButton
-                        size="small"
-                        icon="DotHorOutline"
-                        variant="tertiary"
-                        focusStyle={undefined}
-                        p="$0.5"
-                        m={-3}
-                        testID="browser-bar-options"
+                  <SortableCell
+                    h={CELL_HEIGHT}
+                    isEditing={isEditing}
+                    alignItems="center"
+                    justifyContent="center"
+                    drag={drag}
+                    isActive={isActive}
+                    onDeletePress={() => {
+                      void deleteCell(getIndex);
+                    }}
+                  >
+                    <ListItem
+                      avatarProps={{
+                        src: getUrlIcon(item.url),
+                        fallbackProps: {
+                          children: <Skeleton w="$10" h="$10" />,
+                        },
+                      }}
+                      title={item.title}
+                      subtitle={item.url}
+                      subtitleProps={{
+                        numberOfLines: 1,
+                      }}
+                      testID={`search-modal-${item.url.toLowerCase()}`}
+                      onPress={() => {
+                        void openMatchDApp({
+                          id: '',
+                          webSite: {
+                            url: item.url,
+                            title: item.title,
+                          },
+                          isNewWindow: true,
+                        });
+                        if (platformEnv.isDesktop) {
+                          navigation.switchTab(ETabRoutes.MultiTabBrowser);
+                        } else {
+                          navigation.pop();
+                        }
+                      }}
+                    >
+                      <ActionList
+                        title="Action List"
+                        placement="right-start"
+                        renderTrigger={
+                          <IconButton
+                            size="small"
+                            icon="DotHorOutline"
+                            variant="tertiary"
+                            focusStyle={undefined}
+                            p="$0.5"
+                            m={-3}
+                            testID="browser-bar-options"
+                          />
+                        }
+                        items={[
+                          {
+                            label: 'Rename',
+                            icon: 'StarSolid',
+                            onPress: () => {
+                              onRename(item);
+                            },
+                            testID: `action-list-item-rename`,
+                          },
+                          {
+                            label: 'Remove Bookmark',
+                            icon: 'ThumbtackSolid',
+                            onPress: () => {
+                              void removeBrowserBookmark(item.url);
+                              Toast.success({
+                                title: intl.formatMessage({
+                                  id: 'msg__bookmark_removed',
+                                }),
+                              });
+                              void run();
+                            },
+                            testID: `action-list-item-rename`,
+                          },
+                        ]}
                       />
-                    }
-                    items={[
-                      {
-                        label: 'Rename',
-                        icon: 'StarSolid',
-                        onPress: () => {
-                          onRename(item);
-                        },
-                        testID: `action-list-item-rename`,
-                      },
-                      {
-                        label: 'Remove Bookmark',
-                        icon: 'ThumbtackSolid',
-                        onPress: () => {
-                          void removeBrowserBookmark(item.url);
-                          Toast.success({
-                            title: intl.formatMessage({
-                              id: 'msg__bookmark_removed',
-                            }),
-                          });
-                          void run();
-                        },
-                        testID: `action-list-item-rename`,
-                      },
-                    ]}
-                  />
-                </ListItem>
+                    </ListItem>
+                  </SortableCell>
+                </SwipeableCell>
               )}
             />
           )}
