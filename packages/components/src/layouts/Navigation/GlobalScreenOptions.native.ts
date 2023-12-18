@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeHeaderScreenOptions } from './Header';
 
+import type { IScreenOptionsInfo } from './Navigator/types';
 import type { IStackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
 import type { VariableVal } from '@tamagui/core';
@@ -26,8 +27,9 @@ export function makeRootScreenOptions(_: {
   };
 }
 
-export function makeModalOpenAnimationOptions(_: {
+export function makeModalOpenAnimationOptions(info: {
   isVerticalLayout?: boolean;
+  optionsInfo?: IScreenOptionsInfo<any>;
 }): IStackNavigationOptions {
   if (platformEnv.isNativeIOS) {
     return {
@@ -47,17 +49,14 @@ export function makeModalOpenAnimationOptions(_: {
 }
 
 export function makeModalStackNavigatorOptions({
-  navInfo,
+  optionsInfo,
   bgColor,
   titleColor,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
-  navInfo?: {
-    route: RouteProp<any>;
-    navigation: any;
-  };
+  optionsInfo?: IScreenOptionsInfo<any>;
 }): IStackNavigationOptions {
   let options: IStackNavigationOptions = {};
 
@@ -70,7 +69,7 @@ export function makeModalStackNavigatorOptions({
       // Android Pad modal needs to be commented out
       ...makeHeaderScreenOptions({
         isModelScreen: true,
-        navigation: navInfo?.navigation,
+        navigation: optionsInfo?.navigation,
         bgColor,
         titleColor,
       }),
@@ -93,7 +92,7 @@ export function makeModalStackNavigatorOptions({
       animation: 'slide_from_right',
       ...makeHeaderScreenOptions({
         isModelScreen: true,
-        navigation: navInfo?.navigation,
+        navigation: optionsInfo?.navigation,
         bgColor,
         titleColor,
       }),
@@ -103,22 +102,21 @@ export function makeModalStackNavigatorOptions({
   }
 
   // Disable modal first screen navigation.replace() animation
-  if (navInfo?.route?.params?._disabledAnimationOfNavigate) {
+  if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
     options.animation = 'none';
   }
   return options;
 }
 
-export function makeModalScreenOptions({
-  isVerticalLayout,
-}: {
-  isVerticalLayout: boolean;
+export function makeModalScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
 }): IStackNavigationOptions {
   return {
     headerShown: false,
     // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
     presentation: 'modal',
-    ...makeModalOpenAnimationOptions({ isVerticalLayout }),
+    ...makeModalOpenAnimationOptions(info),
   };
 }
 

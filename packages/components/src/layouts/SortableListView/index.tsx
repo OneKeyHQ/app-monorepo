@@ -1,5 +1,5 @@
-import { forwardRef } from 'react';
-import type { ForwardedRef } from 'react';
+import { forwardRef, useCallback } from 'react';
+import type { ComponentType, ForwardedRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import DraggableFlatList, {
@@ -9,6 +9,9 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 import { withStaticProperties } from 'tamagui';
 
+import { SortableCellContainer } from '../SortableCellContainer';
+
+import type { ISortableCellContainerProps } from '../SortableCellContainer';
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
@@ -46,6 +49,7 @@ export type ISortableListViewProps<T> = Omit<
     columnWrapperStyle?: StackStyleProps;
     ListHeaderComponentStyle?: StackStyleProps;
     ListFooterComponentStyle?: StackStyleProps;
+    CellRendererComponent?: ComponentType<ISortableCellContainerProps<T>>;
   };
 
 function BaseSortableListView<T>(
@@ -53,6 +57,7 @@ function BaseSortableListView<T>(
     data,
     keyExtractor,
     renderItem,
+    CellRendererComponent = SortableCellContainer,
     containerStyle = {},
     contentContainerStyle = {},
     columnWrapperStyle,
@@ -98,6 +103,19 @@ function BaseSortableListView<T>(
       resolveValues: 'auto',
     },
   );
+  const reloadRenderItem: RenderItem<T> = useCallback(
+    (info) => {
+      if (!CellRendererComponent) {
+        return renderItem(info);
+      }
+      return (
+        <CellRendererComponent {...info}>
+          {renderItem(info)}
+        </CellRendererComponent>
+      );
+    },
+    [renderItem, CellRendererComponent],
+  );
   return (
     <DraggableFlatList<T>
       ref={ref}
@@ -109,7 +127,7 @@ function BaseSortableListView<T>(
       contentContainerStyle={rawContentContainerStyle}
       data={data}
       keyExtractor={keyExtractor}
-      renderItem={renderItem}
+      renderItem={reloadRenderItem}
       {...restProps}
     />
   );

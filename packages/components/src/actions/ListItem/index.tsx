@@ -1,22 +1,27 @@
-import { type ComponentProps, isValidElement } from 'react';
+import { isValidElement } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import {
   AnimatePresence,
   type AvatarFallbackProps,
   type AvatarImageProps,
   type AvatarProps,
-  type GetProps,
   type StackProps,
   // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
+  withStaticProperties,
 } from 'tamagui';
 
 import { Avatar, Divider } from '../../content';
-import { Icon, Image, Stack, Text } from '../../primitives';
+import { Icon, Image, SizableText, Stack } from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
-import type { IIconProps, IImageProps } from '../../primitives';
+import type {
+  IIconProps,
+  IImageProps,
+  ISizableTextProps,
+} from '../../primitives';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: StackProps;
@@ -123,8 +128,8 @@ interface IListItemTextProps extends StackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
-  primaryTextProps?: GetProps<typeof Text>;
-  secondaryTextProps?: GetProps<typeof Text>;
+  primaryTextProps?: ISizableTextProps;
+  secondaryTextProps?: ISizableTextProps;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -153,22 +158,26 @@ const ListItemText = (props: IListItemTextProps) => {
         (isValidElement(primary) ? (
           primary
         ) : (
-          <Text textAlign={align} variant="$bodyLgMedium" {...primaryTextProps}>
+          <SizableText
+            textAlign={align}
+            size="$bodyLgMedium"
+            {...primaryTextProps}
+          >
             {primary}
-          </Text>
+          </SizableText>
         ))}
       {secondary &&
         (isValidElement(secondary) ? (
           secondary
         ) : (
-          <Text
-            variant="$bodyMd"
-            tone="subdued"
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
             textAlign={align}
             {...secondaryTextProps}
           >
             {secondary}
-          </Text>
+          </SizableText>
         ))}
     </Stack>
   );
@@ -188,10 +197,6 @@ const ListItemCheckMark = (props: StackProps) => (
       opacity: 0,
       scale: 0,
     }}
-    exitStyle={{
-      opacity: 0,
-      scale: 0,
-    }}
     {...props}
   >
     <Icon name="CheckRadioSolid" color="$iconActive" />
@@ -202,7 +207,7 @@ const ListItemCheckMark = (props: StackProps) => (
 const ListItemSeparator = () => <Divider mx="$5" />;
 
 /* ListItem */
-export interface IListItemProps extends StackProps {
+export type IListItemProps = PropsWithChildren<{
   title?: string;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
@@ -212,9 +217,10 @@ export interface IListItemProps extends StackProps {
   iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
   checkMark?: boolean;
-}
+  onPress?: () => void;
+}>;
 
-function ListItem(props: IListItemProps) {
+const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
   const {
     avatarProps,
     icon,
@@ -232,13 +238,18 @@ function ListItem(props: IListItemProps) {
 
   return (
     <Stack
+      ref={ref}
       flexDirection="row"
       alignItems="center"
       minHeight="$11"
       space="$3"
-      p="$2"
-      mx="$3"
+      py="$2"
+      px="$3"
+      mx="$2"
       borderRadius="$3"
+      style={{
+        borderCurve: 'continuous',
+      }}
       onPress={onPress}
       {...(onPress && {
         hoverStyle: { bg: '$bgHover' },
@@ -259,35 +270,50 @@ function ListItem(props: IListItemProps) {
           {...avatarProps}
         />
       )}
-      {icon && <Icon name={icon} color="$iconSubdued" {...iconProps} />}
+      {icon && (
+        <Icon name={icon} color="$iconSubdued" flexShrink={0} {...iconProps} />
+      )}
       {(title || subtitle) && (
         <ListItemText
           flex={1}
           primary={title}
-          primaryTextProps={titleProps}
+          primaryTextProps={{
+            ...(props.onPress && { userSelect: 'none' }),
+            ...titleProps,
+          }}
           secondary={subtitle}
-          secondaryTextProps={subtitleProps}
+          secondaryTextProps={{
+            ...(props.onPress && { userSelect: 'none' }),
+            ...subtitleProps,
+          }}
         />
       )}
       {children}
       {drillIn && (
-        <Icon name="ChevronRightSmallOutline" color="$iconSubdued" mx="$-1.5" />
+        <Icon
+          name="ChevronRightSmallOutline"
+          color="$iconSubdued"
+          mx="$-1.5"
+          flexShrink={0}
+        />
       )}
       <Unspaced>
-        <AnimatePresence>{checkMark && <ListItemCheckMark />}</AnimatePresence>
+        <AnimatePresence>
+          {checkMark && <ListItemCheckMark key="checkmark" />}
+        </AnimatePresence>
       </Unspaced>
     </Stack>
   );
-}
+});
 
-ListItem.Text = ListItemText;
-ListItem.Avatar = {
-  Component: ListItemAvatar,
-  CornerIcon: ListItemAvatarCornerIcon,
-  CornerImage: ListItemAvatarCornerImage,
-};
-ListItem.IconButton = ListItemIconButton;
-ListItem.CheckMark = ListItemCheckMark;
-ListItem.Separator = ListItemSeparator;
-
-export { ListItem };
+export const ListItem = withStaticProperties(ListItemComponent, {
+  Text: ListItemText,
+  Avatar: {
+    Component: ListItemAvatar,
+    CornerIcon: ListItemAvatarCornerIcon,
+    CornerImage: ListItemAvatarCornerImage,
+  },
+  IconButton: ListItemIconButton,
+  CheckMark: ListItemCheckMark,
+  Separator: ListItemSeparator,
+});
