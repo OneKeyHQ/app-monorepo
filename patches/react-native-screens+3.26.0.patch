@@ -130,7 +130,7 @@ index 74f1804..aebed6e 100644
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1ed4914..1bb4d87 100644
+index 4b24cff..0e1703f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -282,6 +282,38 @@ index f10671e..20e0d45 100644
        [screen notifyFinishTransitioning];
      }
    }
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm b/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
+index 6fc0542..a1f946f 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
+@@ -186,16 +186,17 @@ - (void)animateSlideFromBottomWithTransitionContext:(id<UIViewControllerContextT
+   if (_operation == UINavigationControllerOperationPush) {
+     toViewController.view.transform = topBottomTransform;
+     [[transitionContext containerView] addSubview:toViewController.view];
+-    [UIView animateWithDuration:[self transitionDuration:transitionContext]
+-        animations:^{
+-          fromViewController.view.transform = CGAffineTransformIdentity;
+-          toViewController.view.transform = CGAffineTransformIdentity;
+-        }
+-        completion:^(BOOL finished) {
+-          fromViewController.view.transform = CGAffineTransformIdentity;
+-          toViewController.view.transform = CGAffineTransformIdentity;
+-          [transitionContext completeTransition:![transitionContext transitionWasCancelled]];
+-        }];
++    UIViewPropertyAnimator *modalAnimator = [[UIViewPropertyAnimator alloc] initWithDuration:[self transitionDuration:transitionContext] timingParameters:[[UISpringTimingParameters alloc] initWithMass:3 stiffness:1000 damping:500 initialVelocity:CGVectorMake(0, 0)]];
++    [modalAnimator addAnimations:^{
++      fromViewController.view.transform = CGAffineTransformIdentity;
++      toViewController.view.transform = CGAffineTransformIdentity;
++    }];
++    [modalAnimator addCompletion:^(UIViewAnimatingPosition finalPosition) {
++      fromViewController.view.transform = CGAffineTransformIdentity;
++      toViewController.view.transform = CGAffineTransformIdentity;
++      [transitionContext completeTransition:![transitionContext transitionWasCancelled]];
++    }];
++    [modalAnimator startAnimation];
+   } else if (_operation == UINavigationControllerOperationPop) {
+     toViewController.view.transform = CGAffineTransformIdentity;
+     [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 index 4fa7506..e908622 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
