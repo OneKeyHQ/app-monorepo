@@ -102,6 +102,12 @@ function SearchModal() {
           onChangeText: ({ nativeEvent }) => {
             setSearchValue(nativeEvent.text);
           },
+          onSearchButtonPress: () => {
+            handleOnPress({
+              url: searchItem.title,
+              name: searchItem.title,
+            });
+          },
         }}
       />
       <Page.Body>

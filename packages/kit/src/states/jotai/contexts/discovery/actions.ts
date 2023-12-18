@@ -408,7 +408,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
         if (userTriggered) {
           void this.addBrowserHistory.call(set, {
-            url: validateUrl,
+            url: validatedUrl,
             title: title ?? '',
           });
         }
