@@ -10,12 +10,9 @@ export enum EOnboardingPages {
   RecoveryPhrase = 'RecoveryPhrase',
 
   // import wallet
+  ImportWalletOptions = 'ImportWalletOptions',
   ImportRecoveryPhrase = 'ImportRecoveryPhrase',
-
-  // import private key
   ImportPrivateKey = 'ImportPrivateKey',
-
-  // import address
   ImportAddress = 'ImportAddress',
 
   // finalize wallet setup
@@ -34,12 +31,9 @@ export type IOnboardingParamList = {
   [EOnboardingPages.RecoveryPhrase]: undefined;
 
   // import wallet
+  [EOnboardingPages.ImportWalletOptions]: undefined;
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
-
-  // import private key
   [EOnboardingPages.ImportPrivateKey]: undefined;
-
-  // import address
   [EOnboardingPages.ImportAddress]: undefined;
 
   // finalize wallet setup

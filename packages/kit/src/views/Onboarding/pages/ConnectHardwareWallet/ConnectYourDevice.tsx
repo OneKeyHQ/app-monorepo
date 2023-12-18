@@ -1,11 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Linking, StyleSheet } from 'react-native';
 
 import {
   Anchor,
+  Button,
   Dialog,
   HeightTransition,
+  Icon,
   ListItem,
   LottieView,
   Page,
@@ -27,26 +29,153 @@ const headerRight = (onPress: () => void) => (
 );
 
 const FirmwareAuthenticationDialogContent = ({
-  firmwareState,
+  onContinue,
 }: {
-  firmwareState: 'unknown' | 'official' | 'unofficial' | 'failed';
-}) => (
-  <Stack
-    borderRadius="$3"
-    p="$5"
-    bg="$bgSubdued"
-    style={{ borderCurve: 'continuous' }}
-  >
-    {firmwareState === 'unknown' && <Spinner size="large" />}
-    <SizableText textAlign="center" mt="$5">
-      {firmwareState === 'unknown' && 'Verifying official firmware'}
-    </SizableText>
-  </Stack>
-);
+  onContinue: () => void;
+}) => {
+  const [result, setResult] = useState('unknown'); // unknown, official, unofficial, error
+  const [confirmOnDevice, setIsConfirmOnDevice] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setIsConfirmOnDevice(true);
+      setTimeout(() => {
+        setResult('official');
+      }, 3000);
+    }, 3000);
+  });
+
+  return (
+    <Stack>
+      <HeightTransition initialHeight={106}>
+        <Stack
+          borderRadius="$3"
+          p="$5"
+          bg="$bgSubdued"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$transparent"
+          {...(result === 'official' && {
+            bg: '$bgSuccessSubdued',
+            borderColor: '$borderSuccessSubdued',
+          })}
+          {...(result === 'unofficial' && {
+            bg: '$bgCriticalSubdued',
+            borderColor: '$borderCriticalSubdued',
+          })}
+          {...(result === 'error' && {
+            bg: '$bgCautionSubdued',
+            borderColor: '$borderCautionSubdued',
+          })}
+          style={{ borderCurve: 'continuous' }}
+        >
+          {!confirmOnDevice ? (
+            <XStack alignItems="center">
+              <Stack
+                w="$16"
+                h="$16"
+                bg="$bgStrong"
+                borderRadius="$2"
+                style={{ borderCurve: 'continuous' }}
+                justifyContent="center"
+                alignItems="center"
+              >
+                <LottieView
+                  width={64}
+                  height={64}
+                  source={require('../../../../../assets/animations/confirm-on-classic.json')}
+                />
+              </Stack>
+              <SizableText textAlign="center" pl="$4">
+                Confirm on device
+              </SizableText>
+            </XStack>
+          ) : (
+            <Stack>
+              <Stack justifyContent="center" alignItems="center">
+                {result === 'unknown' ? (
+                  <Spinner size="large" />
+                ) : (
+                  <Icon
+                    name="BadgeVerifiedSolid"
+                    size="$9"
+                    color="$iconSuccess"
+                    {...(result === 'unofficial' && {
+                      name: 'ErrorSolid',
+                      color: '$iconCritical',
+                    })}
+                    {...(result === 'error' && {
+                      name: 'ErrorSolid',
+                      color: '$iconCaution',
+                    })}
+                  />
+                )}
+              </Stack>
+
+              <SizableText
+                textAlign="center"
+                mt="$5"
+                {...(result === 'official' && {
+                  color: '$textSuccess',
+                })}
+                {...(result === 'unofficial' && {
+                  color: '$textCritical',
+                })}
+                {...(result === 'error' && {
+                  color: '$textCaution',
+                })}
+              >
+                {result === 'unknown' && 'Verifying official firmware'}
+                {result === 'official' &&
+                  'Your device is running official firmware'}
+                {result === 'unofficial' && 'Unofficial firmware detected!'}
+                {result === 'error' &&
+                  'Unable to verify firmware: internet connection required'}
+              </SizableText>
+            </Stack>
+          )}
+        </Stack>
+        {result !== 'unknown' && (
+          <Stack pt="$5">
+            <Button
+              $md={{
+                size: 'large',
+              }}
+              variant="primary"
+              {...(result === 'official' && {
+                onPress: onContinue,
+              })}
+              {...(result === 'unofficial' && {
+                onPress: async () => {
+                  await Linking.openURL(
+                    'https://help.onekey.so/hc/requests/new',
+                  );
+                },
+              })}
+              {...(result === 'error' && {
+                onPress: async () => {
+                  setResult('unknown');
+                },
+              })}
+            >
+              {result === 'official' && 'Continue'}
+              {result === 'unofficial' && 'Contact OneKey Support'}
+              {result === 'error' && 'Retry'}
+            </Button>
+          </Stack>
+        )}
+        {result === 'error' && (
+          <Stack pt="$3">
+            <Button variant="tertiary" m="$0" onPress={onContinue}>
+              Continue Anyway
+            </Button>
+          </Stack>
+        )}
+      </HeightTransition>
+    </Stack>
+  );
+};
 
 export function ConnectYourDevice() {
-  const [firmwareState, setFirmwareState] = useState('unknown'); // unknown, verified, unverified, failed
-
   const navigation = useAppNavigation();
 
   const handleHeaderRightPress = () => {
@@ -122,21 +251,18 @@ export function ConnectYourDevice() {
   }, [handleSetupNewWalletPress]);
 
   const handleFirmwareAuthentication = () => {
-    const firmwareAuthenticationDialog = Dialog.confirm({
+    const firmwareAuthenticationDialog = Dialog.show({
       title: 'Firmware Authentication',
       renderContent: (
-        <FirmwareAuthenticationDialogContent firmwareState={firmwareState} />
+        <FirmwareAuthenticationDialogContent
+          onContinue={async () => {
+            await firmwareAuthenticationDialog.close();
+            handleNotActivatedDevicePress();
+          }}
+        />
       ),
-      onConfirm: () => console.log('confirm'),
-      onConfirmText: 'Continue',
-      confirmButtonProps: {
-        disabled: true,
-      },
+      showFooter: false,
     });
-
-    setTimeout(() => {
-      setFirmwareState('verified');
-    }, 2000);
   };
 
   const handleCheckingDevice = () => {
@@ -170,7 +296,7 @@ export function ConnectYourDevice() {
     {
       title: 'OneKey Mini',
       src: require('../../../../../assets/wallet/avatar/Mini.png'),
-      onPress: handleNotActivatedDevicePress,
+      onPress: handleWalletItemPress,
     },
     {
       title: 'OneKey Touch',
@@ -232,6 +358,10 @@ export function ConnectYourDevice() {
           </SizableText>
           <Anchor
             display="flex"
+            color="$textInteractive"
+            hoverStyle={{
+              color: '$textInteractiveHover',
+            }}
             href="https://shop.onekey.so/"
             target="_blank"
             size="$bodyMdMedium"

@@ -11,7 +11,7 @@ interface ITutorials {
 
 export function Tutorials({ list }: ITutorials) {
   return (
-    <Stack>
+    <Stack mt="$10">
       {list.map(({ title, description }, index) => (
         <Stack
           key={title}
@@ -19,8 +19,8 @@ export function Tutorials({ list }: ITutorials) {
             mt: '$5',
           })}
         >
-          <Heading size="$headingMd">{title}</Heading>
-          <SizableText mt="$1.5" color="$textSubdued">
+          <Heading size="$headingSm">{title}</Heading>
+          <SizableText size="$bodyMd" mt="$1.5" color="$textSubdued">
             {description}
           </SizableText>
         </Stack>

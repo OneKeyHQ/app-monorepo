@@ -3,6 +3,7 @@ import type { MutableRefObject, PropsWithChildren } from 'react';
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
+  DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
@@ -44,6 +45,7 @@ interface IBasicDialogProps extends TMDialogProps {
   renderContent?: React.ReactNode;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
+  floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
   testID?: string;

@@ -22,7 +22,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack space="$6">{children}</YStack>
+        <YStack space="$5">{children}</YStack>
       </TMForm>
     </FormProvider>
   );

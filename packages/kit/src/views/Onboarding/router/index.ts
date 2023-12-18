@@ -9,6 +9,7 @@ import {
   ImportAddress,
   ImportPrivateKey,
   ImportRecoveryPhrase,
+  ImportWalletOptions,
   OneKeyHardwareWallet,
   RecoveryPhrase,
 } from '../pages';
@@ -52,17 +53,17 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
 
   // import wallet
   {
+    name: EOnboardingPages.ImportWalletOptions,
+    component: ImportWalletOptions,
+  },
+  {
     name: EOnboardingPages.ImportRecoveryPhrase,
     component: ImportRecoveryPhrase,
   },
-
-  // import private key
   {
     name: EOnboardingPages.ImportPrivateKey,
     component: ImportPrivateKey,
   },
-
-  // import address
   {
     name: EOnboardingPages.ImportAddress,
     component: ImportAddress,

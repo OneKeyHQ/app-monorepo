@@ -1,10 +1,8 @@
 import {
-  Button,
   Heading,
   Input,
   Page,
   Stack,
-  Toast,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -27,27 +25,17 @@ const phrases: string[] = [
   'accident',
 ];
 
-const headerRight = () => (
-  <Button
-    icon="ClipboardOutline"
-    variant="tertiary"
-    onPress={() => Toast.success({ title: 'Copied' })}
-  >
-    Copy
-  </Button>
-);
-
 export function RecoveryPhrase() {
   const media = useMedia();
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {
-    navigation.push(EOnboardingPages.SetupWallet);
+    navigation.push(EOnboardingPages.FinalizeWalletSetup);
   };
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerRight={headerRight} />
+      <Page.Header />
       <Page.Body p="$5" pt="$0">
         <Heading
           pt="$2"
