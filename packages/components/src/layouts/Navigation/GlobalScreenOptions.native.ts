@@ -164,6 +164,7 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
     headerShown: false,
     presentation: 'card',
     gestureEnabled: true,
+    gestureDirection: 'vertical',
     ...makeModalOpenAnimationOptions({ isVerticalLayout: true }),
   };
 }
