@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import {
