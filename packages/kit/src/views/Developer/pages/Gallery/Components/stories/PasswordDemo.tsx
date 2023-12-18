@@ -53,9 +53,10 @@ const PasswordDemoGallery = () => {
                       title: 'SetupPassword',
                       renderContent: (
                         <PasswordSetupContainer
-                          onSetupRes={(data) => {
+                          onSetupRes={async (data) => {
                             console.log('setup data', data);
                             if (data) {
+                              await dialog.close();
                               Toast.success({ title: '设置成功' });
                               void dialog.close();
                             }
@@ -77,9 +78,10 @@ const PasswordDemoGallery = () => {
                     estimatedContentHeight: 100,
                     renderContent: (
                       <PasswordUpdateContainer
-                        onUpdateRes={(data) => {
+                        onUpdateRes={async (data) => {
                           console.log('update data', data);
                           if (data) {
+                            await dialog.close();
                             Toast.success({ title: '修改成功' });
                             void dialog.close();
                           }
