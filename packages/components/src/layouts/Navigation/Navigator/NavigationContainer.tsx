@@ -7,8 +7,8 @@ import type { GetProps } from 'tamagui';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
-export const navigationRef = createRef<NavigationContainerRef<any>>();
+export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
-  return <RNNavigationContainer {...props} ref={navigationRef} />;
+  return <RNNavigationContainer {...props} ref={rootNavigationRef} />;
 }

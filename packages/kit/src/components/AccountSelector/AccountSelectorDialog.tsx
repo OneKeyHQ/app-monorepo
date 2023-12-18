@@ -174,7 +174,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
       <Select
         items={getNetworksItems()}
         value={selectedAccount.networkId}
-        onValueChange={(id) =>
+        onChange={(id) =>
           actions.current.updateSelectedAccount({
             num,
             builder: (v) => ({
@@ -183,8 +183,6 @@ export function AccountSelectorDialog({ num }: { num: number }) {
             }),
           })
         }
-        triggerProps={{ width: '100%' }}
-        disablePreventBodyScroll
         title="网络"
       />
 
@@ -197,7 +195,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
       <Select
         items={deriveInfoItems}
         value={selectedAccount.deriveType}
-        onValueChange={(type) =>
+        onChange={(type) =>
           actions.current.updateSelectedAccount({
             num,
             builder: (v) => ({
@@ -206,8 +204,6 @@ export function AccountSelectorDialog({ num }: { num: number }) {
             }),
           })
         }
-        triggerProps={{ width: '100%' }}
-        disablePreventBodyScroll
         title="派生类型"
       />
 

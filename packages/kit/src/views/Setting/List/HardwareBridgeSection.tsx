@@ -52,9 +52,11 @@ export const HardwareBridgeSection = () => {
         <ListItem.Text
           primary={settings.hardwareConnectSrc}
           align="right"
-          primaryTextProps={{
-            tone: 'subdued',
-          }}
+          primaryTextProps={
+            {
+              // tone: 'subdued',
+            }
+          }
         />
       </ListItem>
       <ListItem

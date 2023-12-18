@@ -42,7 +42,7 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                dialog.close();
+                void dialog.close();
               }}
             />
           </Suspense>
@@ -70,7 +70,7 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                dialog.close();
+                void dialog.close();
               }}
             />
           </Suspense>

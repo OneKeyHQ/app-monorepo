@@ -86,14 +86,16 @@ function HeaderView({
   return (
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
-        $gtMd={{
-          flexDirection: 'row',
-        }}
         alignItems="center"
         backgroundColor="$bgApp"
         // borderBottomWidth={StyleSheet.hairlineWidth}
         // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
+        {...(!isModelScreen && {
+          $gtMd: {
+            flexDirection: 'row',
+          },
+        })}
       >
         <Stack
           alignSelf="stretch"
@@ -143,6 +145,7 @@ function HeaderView({
             onBlur={headerSearchBarOptions?.onBlur}
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+            isModalScreen={isModelScreen}
           />
         )}
       </Stack>

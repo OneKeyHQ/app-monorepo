@@ -2,7 +2,6 @@ import type { ForwardedRef } from 'react';
 import { forwardRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
-import { setupReactNative } from '@tamagui/web';
 import { ScrollView as ScrollViewNative } from 'react-native';
 
 import type { StackProps } from '@tamagui/web/types';
@@ -11,10 +10,6 @@ import type {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-
-setupReactNative({
-  ScrollView: ScrollViewNative,
-});
 
 export type IScrollViewProps = Omit<
   ScrollViewNativeProps,

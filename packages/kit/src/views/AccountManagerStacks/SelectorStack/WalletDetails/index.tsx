@@ -123,7 +123,7 @@ export function WalletDetails({
               <ListItem
                 title="Empty state. Nostrud est eiusmod pariatur cupidatat mollit qui laborum. Consectetur nisi pariatur minim ipsum."
                 titleProps={{
-                  variant: '$bodyLg',
+                  size: '$bodyLg',
                 }}
               />
             )}
@@ -190,7 +190,7 @@ export function WalletDetails({
             <ListItem.Text
               primary="Add account"
               primaryTextProps={{
-                variant: '$bodyLg',
+                size: '$bodyLg',
               }}
             />
           </ListItem>

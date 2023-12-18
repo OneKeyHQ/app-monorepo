@@ -64,15 +64,21 @@ export function TourStart({ show }: { show: boolean }) {
   return null;
 }
 
-export type ITourTriggerProps = PropsWithChildren;
+export type ITourTriggerProps = PropsWithChildren<{
+  disabled?: boolean;
+}>;
 
-export function TourTrigger({ children }: ITourTriggerProps) {
+export function TourTrigger({ children, disabled }: ITourTriggerProps) {
   const { start } = useSpotlightTour();
   const handlePress = useCallback(() => {
     start();
   }, [start]);
 
-  return <Trigger onPress={handlePress}>{children}</Trigger>;
+  return (
+    <Trigger onPress={handlePress} disabled={disabled}>
+      {children}
+    </Trigger>
+  );
 }
 
 export type ITourStep = TourStepType;
