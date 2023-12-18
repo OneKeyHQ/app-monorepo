@@ -1,7 +1,6 @@
-import type { MutableRefObject, RefObject } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
 import { type View } from 'react-native';
 import { findNodeHandle } from 'react-native';
 
@@ -152,10 +151,10 @@ function PhaseInput({
   onInputFocus,
   onInputBlur,
 }: {
-  value: string;
+  value?: string;
   index: number;
   onInputChange: (value: string) => string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   onInputFocus: (index: number) => void;
   onInputBlur: (index: number) => void;
 }) {
