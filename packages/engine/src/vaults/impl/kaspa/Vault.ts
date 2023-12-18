@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 import type {
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
   IDecodedTxLegacy,
   IEncodedTxUpdateOptions,
@@ -58,7 +59,13 @@ import { toTransaction } from './sdk/transaction';
 import settings from './settings';
 
 import type { Network } from '../../../types/network';
-import type { UnspentOutputInfo } from './sdk';
+import type { Token } from '../../../types/token';
+import type {
+  GetTransactionInput,
+  GetTransactionOutput,
+  GetTransactionResponse,
+  UnspentOutputInfo,
+} from './sdk';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
@@ -541,6 +548,70 @@ export default class Vault extends VaultBase {
     return txids.map((txid) => txStatuses.get(txid));
   }
 
+  convertInputUtxos(
+    utxos: GetTransactionInput[],
+    mineAddress: string,
+    tokenInfo: Token,
+  ) {
+    return utxos.map((utxo) => ({
+      address: utxo.previous_outpoint_address,
+      balance: new BigNumber(utxo.previous_outpoint_amount?.toString())
+        .shiftedBy(-tokenInfo.decimals)
+        .toFixed(),
+      balanceValue: utxo.previous_outpoint_amount?.toString(),
+      symbol: tokenInfo.symbol,
+      isMine: utxo.previous_outpoint_address === mineAddress,
+    }));
+  }
+
+  convertOutputUtxos(
+    utxos: GetTransactionOutput[],
+    mineAddress: string,
+    tokenInfo: Token,
+  ) {
+    return utxos.map((utxo) => ({
+      address: utxo.script_public_key_address,
+      balance: new BigNumber(utxo.amount?.toString())
+        .shiftedBy(-tokenInfo.decimals)
+        .toFixed(),
+      balanceValue: utxo.amount?.toString(),
+      symbol: tokenInfo.symbol,
+      isMine: utxo.script_public_key_address === mineAddress,
+    }));
+  }
+
+  determineFromAddress(
+    mineAddress: string,
+    hasSenderIncludeMine: boolean,
+    hasReceiverIncludeMine: boolean,
+    inputs: GetTransactionInput[],
+  ) {
+    if (hasSenderIncludeMine && !hasReceiverIncludeMine) {
+      return mineAddress;
+    }
+    if (!hasSenderIncludeMine && hasReceiverIncludeMine) {
+      return (
+        inputs.find((input) => input.previous_outpoint_address !== mineAddress)
+          ?.previous_outpoint_address || 'kaspa:00000000'
+      );
+    }
+    return mineAddress;
+  }
+
+  determineToAddresses(
+    mineAddress: string,
+    hasSenderIncludeMine: boolean,
+    hasReceiverIncludeMine: boolean,
+    outputs: GetTransactionOutput[],
+  ) {
+    if (hasSenderIncludeMine && !hasReceiverIncludeMine) {
+      return outputs
+        .filter((output) => output.script_public_key_address !== mineAddress)
+        .map((output) => output.script_public_key_address);
+    }
+    return [mineAddress];
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
@@ -572,86 +643,59 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
+      const mineAddress = dbAccount.address;
       try {
         const { inputs, outputs } = tx;
-        const actions = [];
+        const actions: IDecodedTxAction[] = [];
 
-        const senderExistsInput = inputs.find(
-          (input) => input.previous_outpoint_address === dbAccount.address,
+        const hasSenderIncludeMine = inputs.some(
+          (input) => input.previous_outpoint_address === mineAddress,
         );
-        const receiverExistsOutput = outputs.find(
-          (output) => output.script_public_key_address === dbAccount.address,
-        );
-
-        let from = '';
-        let to = '';
-        if (receiverExistsOutput && !senderExistsInput) {
-          // receive
-          try {
-            from = inputs[0].previous_outpoint_address;
-          } catch (e) {
-            // mint miner
-            from = 'kaspa:00000000';
-          }
-
-          to = dbAccount.address;
-        } else if (senderExistsInput && receiverExistsOutput) {
-          // send and send self
-          from = dbAccount.address;
-
-          const filterOutputs = outputs.filter(
-            (output) => output.script_public_key_address !== dbAccount.address,
-          );
-
-          if (filterOutputs.length > 0) {
-            to = filterOutputs[0].script_public_key_address;
-          } else {
-            to = dbAccount.address;
-          }
-        } else {
-          // continue;
-          return await Promise.resolve(null);
-        }
-
-        const currentOutput = outputs.find(
-          (output) => output.script_public_key_address === to,
+        const hasReceiverIncludeMine = outputs.some(
+          (output) => output.script_public_key_address === mineAddress,
         );
 
-        if (!currentOutput) {
-          return await Promise.resolve(null);
-        }
+        const utxoFrom = this.convertInputUtxos(inputs, mineAddress, token);
+        const utxoTo = this.convertOutputUtxos(outputs, mineAddress, token);
 
-        const nativeTransfer: IDecodedTxActionNativeTransfer = {
-          tokenInfo: token,
-          utxoFrom: inputs.map((input) => ({
-            address: input.previous_outpoint_address,
-            balance: new BigNumber(input.previous_outpoint_amount.toString())
-              .shiftedBy(-decimals)
-              .toFixed(),
-            balanceValue: input.previous_outpoint_amount?.toString() ?? '0',
-            symbol,
-            isMine: true,
-          })),
-          utxoTo: outputs.map((output) => ({
-            address: output.script_public_key_address,
-            balance: new BigNumber(output.amount.toString())
-              .shiftedBy(-decimals)
-              .toFixed(),
-            balanceValue: output.amount.toString(),
-            symbol,
-            isMine: output.script_public_key_address === dbAccount.address,
-          })),
-          from,
-          to,
-          amount: new BigNumber(currentOutput.amount.toString())
-            .shiftedBy(-decimals)
-            .toFixed(),
-          amountValue: currentOutput.amount.toString(),
-          extraInfo: null,
-        };
-        actions.push({
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer,
+        const from = this.determineFromAddress(
+          mineAddress,
+          hasSenderIncludeMine,
+          hasReceiverIncludeMine,
+          inputs,
+        );
+        const toAddresses = this.determineToAddresses(
+          mineAddress,
+          hasSenderIncludeMine,
+          hasReceiverIncludeMine,
+          outputs,
+        );
+
+        toAddresses.forEach((to) => {
+          const totalAmountValue = utxoTo
+            .filter((utxo) => utxo.address === to)
+            .reduce(
+              (sum, utxo) => sum.plus(new BigNumber(utxo.balanceValue)),
+              new BigNumber(0),
+            );
+          const calculateAmount = totalAmountValue
+            .shiftedBy(-token.decimals)
+            .toFixed();
+          const calculateAmountValue = totalAmountValue.toString();
+
+          actions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            nativeTransfer: {
+              tokenInfo: token,
+              utxoFrom,
+              utxoTo,
+              from,
+              to,
+              amount: calculateAmount,
+              amountValue: calculateAmountValue,
+              extraInfo: null,
+            },
+          });
         });
 
         let nativeFee = '';
@@ -661,10 +705,15 @@ export default class Vault extends VaultBase {
             new BigNumber(0),
           );
 
-          const outputAmount = tx.outputs.reduce(
-            (acc, output) => acc.plus(output.amount.toString()),
-            new BigNumber(0),
-          );
+          const outputAmount = tx.outputs
+            .filter(
+              (output) =>
+                output.script_public_key_address === dbAccount.address,
+            )
+            .reduce(
+              (acc, output) => acc.plus(output.amount.toString()),
+              new BigNumber(0),
+            );
 
           if (inputAmount.isLessThanOrEqualTo(0)) {
             nativeFee = '0';
