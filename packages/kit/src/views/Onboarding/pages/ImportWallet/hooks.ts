@@ -84,7 +84,7 @@ export const useSuggestion = (
       }
       const text = value.toLowerCase().trim();
       const words = fetchSuggestions(text);
-      openStatusRef.current = words.length > 1;
+      openStatusRef.current = words.length > 0;
       if (words.length === 1 && text === words[0]) {
         return text.slice(0, value.length - 1);
       }
