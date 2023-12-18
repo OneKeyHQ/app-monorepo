@@ -118,12 +118,23 @@ export const useSuggestion = (
     },
   });
 
+  const checkIsValid = useCallback(() => {
+    const value = getFormValue();
+    const result = isValidWord(value);
+    if (!result) {
+      updateInputValueWithLock('');
+      openStatusRef.current = false;
+    }
+  }, [getFormValue, isValidWord, updateInputValueWithLock]);
+
   const onInputFocus = useCallback(
     (index: number) => {
-      // scroll to input.
+      if (openStatusRef.current && index !== selectInputIndex.current) {
+        checkIsValid();
+      }
       selectInputIndex.current = index;
     },
-    [selectInputIndex],
+    [checkIsValid, selectInputIndex],
   );
 
   const onInputBlur = useCallback(
@@ -131,19 +142,13 @@ export const useSuggestion = (
       if (openStatusRef.current && index === selectInputIndex.current) {
         return;
       }
-      const value = getFormValue();
-      const result = isValidWord(value);
-      if (!result) {
-        const key = `phrase${index + 1}`;
-        form.setValue(key, '');
-      }
-      updateSuggestions([]);
       if (index === selectInputIndex.current) {
+        checkIsValid();
         selectInputIndex.current = -1;
       }
       openStatusRef.current = false;
     },
-    [form, getFormValue, isValidWord, selectInputIndex, updateSuggestions],
+    [checkIsValid, selectInputIndex],
   );
   return {
     suggestions,
