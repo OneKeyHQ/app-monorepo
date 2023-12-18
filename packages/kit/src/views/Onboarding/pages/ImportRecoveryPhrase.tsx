@@ -26,8 +26,11 @@ import {
   usePage,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Tutorials } from '../Components';
+
+import { useSuggestion } from './hooks';
 
 const useScrollToInputArea = (ref: RefObject<View>) => {
   const { pageRef, getContentOffset } = usePage();
@@ -72,13 +75,12 @@ const phraseLengthOptions = [
   { label: '24 words', value: '24' },
 ];
 
-const mockWords = ['acacia', 'alfalfa', 'algebra', 'area', 'aphasia', 'asthma'];
-
 interface IWordItemProps {
   word: string;
   onPress: (word: string) => void;
 }
-const WordItem = ({ word, onPress }: IWordItemProps) => {
+
+function WordItem({ word, onPress }: IWordItemProps) {
   const handlePress = useCallback(() => {
     onPress(word);
   }, [onPress, word]);
@@ -94,80 +96,16 @@ const WordItem = ({ word, onPress }: IWordItemProps) => {
       <SizableText>{word}</SizableText>
     </Stack>
   );
-};
-
-const queryWordFromDict = (word: string) =>
-  // mock query
-  new Promise<string[]>((resolve) => {
-    console.log(word);
-    setTimeout(() => {
-      resolve(mockWords.slice(Math.floor(mockWords.length * Math.random())));
-    }, 100);
-  });
-
-const usePhraseSuggestion = (
-  form: ReturnType<typeof useForm>,
-  selectInputIndex: MutableRefObject<number>,
-) => {
-  const [words, setWords] = useState<string[]>([]);
-  const updateWordValue = useCallback(
-    (word: string) => {
-      const index = selectInputIndex.current;
-      const key = `phrase${index + 1}`;
-      form.setValue(key, word);
-    },
-    [form, selectInputIndex],
-  );
-
-  const watchForm = useCallback(
-    async (values: Record<string, string>) => {
-      const index = selectInputIndex.current;
-      if (index === -1) {
-        setWords([]);
-      }
-      const key = `phrase${index + 1}`;
-      const value = values[key];
-      const dictWords = await queryWordFromDict(value);
-      // check word in dict
-      if (!value || mockWords.includes(value)) {
-        setWords([]);
-      } else {
-        setWords(dictWords);
-      }
-    },
-    [selectInputIndex],
-  );
-
-  useKeyboardEvent({
-    keyboardWillHide: () => {
-      setTimeout(() => {
-        setWords([]);
-      });
-    },
-  });
-
-  useEffect(() => {
-    form.watch(debounce(watchForm, 20));
-  }, [form, selectInputIndex, watchForm]);
-  return {
-    suggestionWords: words,
-    updateWordValue,
-  };
-};
+}
 
 function SuggestionList({
-  form,
-  selectInputIndex,
+  suggestions,
+  updateInputValue,
 }: {
-  form: ReturnType<typeof useForm>;
-  selectInputIndex: MutableRefObject<number>;
+  suggestions: string[];
+  updateInputValue: (text: string) => void;
 }) {
-  const isShow = useIsKeyboardShown();
-  const { suggestionWords, updateWordValue } = usePhraseSuggestion(
-    form,
-    selectInputIndex,
-  );
-  return isShow ? (
+  return (
     <ScrollView
       horizontal
       keyboardDismissMode="none"
@@ -178,30 +116,87 @@ function SuggestionList({
       }}
       showsHorizontalScrollIndicator={false}
     >
-      {suggestionWords.map((word) => (
-        <WordItem key={word} word={word} onPress={updateWordValue} />
+      {suggestions.slice(0, 10).map((word) => (
+        <WordItem key={word} word={word} onPress={updateInputValue} />
       ))}
     </ScrollView>
-  ) : null;
+  );
 }
 
 function PageFooter({
-  form,
-  selectInputIndex,
+  suggestions,
+  updateInputValue,
 }: {
-  form: ReturnType<typeof useForm>;
-  selectInputIndex: MutableRefObject<number>;
+  suggestions: string[];
+  updateInputValue: (text: string) => void;
 }) {
+  const isShow = useIsKeyboardShown();
   return (
-    <Page.Footer>
-      <SuggestionList form={form} selectInputIndex={selectInputIndex} />
+    <Page.Footer extraData={[isShow, suggestions]}>
+      {isShow ? (
+        <SuggestionList
+          suggestions={suggestions}
+          updateInputValue={updateInputValue}
+        />
+      ) : null}
       <Page.FooterActions onConfirm={() => console.log('confirm')} />
     </Page.Footer>
   );
 }
 
-function PageContent() {
+function PhaseInput({
+  index,
+  onChange,
+  value,
+  onInputChange,
+  onInputFocus,
+  onInputBlur,
+}: {
+  value: string;
+  index: number;
+  onInputChange: (value: string) => string;
+  onChange: (value: string) => void;
+  onInputFocus: (index: number) => void;
+  onInputBlur: (index: number) => void;
+}) {
   const media = useMedia();
+  const handleInputFocus = useCallback(() => {
+    onInputFocus(index);
+  }, [index, onInputFocus]);
+  const handleInputBlur = useCallback(() => {
+    onInputBlur(index);
+  }, [index, onInputBlur]);
+
+  const handleChangeText = useCallback(
+    (v: string) => {
+      const text = onInputChange(v);
+      onChange(text);
+    },
+    [onChange, onInputChange],
+  );
+
+  if (platformEnv.isNative) {
+    return (
+      <Input
+        value={value}
+        autoCorrect={false}
+        spellCheck={false}
+        size={media.md ? 'large' : 'medium'}
+        leftAddOnProps={{
+          label: `${index + 1}`,
+          minWidth: '$10',
+          justifyContent: 'center',
+        }}
+        onChangeText={handleChangeText}
+        onFocus={handleInputFocus}
+        onBlur={handleInputBlur}
+        returnKeyType="next"
+      />
+    );
+  }
+}
+
+function PageContent() {
   const form = useForm({});
   const selectInputIndex = useRef(-1);
   const alertRef = useRef<View>(null);
@@ -220,9 +215,13 @@ function PageContent() {
 
   useScrollToInputArea(alertRef);
 
-  const handleInputFocus = useCallback((index: number) => {
-    selectInputIndex.current = index;
-  }, []);
+  const {
+    suggestions,
+    updateInputValue,
+    onInputFocus,
+    onInputBlur,
+    onInputChange,
+  } = useSuggestion(form, selectInputIndex);
 
   const handleClear = useCallback(() => {
     form.reset();
@@ -268,34 +267,13 @@ function PageContent() {
                 p="$1"
               >
                 <Form.Field name={`phrase${index + 1}`}>
-                  <Input
-                    autoCorrect={false}
-                    spellCheck={false}
-                    size={media.md ? 'large' : 'medium'}
-                    leftAddOnProps={{
-                      label: `${index + 1}`,
-                      minWidth: '$10',
-                      justifyContent: 'center',
-                    }}
-                    onFocus={() => handleInputFocus(index)}
-                    returnKeyType="next"
+                  <PhaseInput
+                    index={index}
+                    onInputBlur={onInputBlur}
+                    onInputChange={onInputChange}
+                    onInputFocus={onInputFocus}
                   />
                 </Form.Field>
-                {/* <SizableText
-                pointerEvents="none"
-                position="absolute"
-                color="$textDisabled"
-                top={11}
-                $md={{
-                  top: 15,
-                }}
-                left="$3"
-                zIndex="$1"
-                minWidth={17}
-                textAlign="right"
-              >
-                {index + 1}
-              </SizableText> */}
               </Stack>
             ))}
           </XStack>
@@ -319,7 +297,10 @@ function PageContent() {
           )}
         </HeightTransition>
       </Page.Body>
-      <PageFooter form={form} selectInputIndex={selectInputIndex} />
+      <PageFooter
+        suggestions={suggestions}
+        updateInputValue={updateInputValue}
+      />
     </>
   );
 }
