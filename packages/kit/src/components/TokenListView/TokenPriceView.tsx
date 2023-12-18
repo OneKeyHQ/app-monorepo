@@ -22,9 +22,9 @@ function TokenPriceView(props: IProps) {
         primary={new BigNumber(token.price).toFixed(2)}
         secondary={`${new BigNumber(token.price24h).toFixed(2)}%`}
         secondaryTextProps={{
-          tone: new BigNumber(token.price24h).isPositive()
-            ? 'success'
-            : 'critical',
+          color: new BigNumber(token.price24h).isPositive()
+            ? '$textSuccess'
+            : '$textCritical',
         }}
         {...rest}
       />

@@ -39,7 +39,6 @@ import SortableListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gal
 import SortableSectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList';
 import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
 import SpotlightTourGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour';
-import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
 import SwitchGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView';
 import TextAreaGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TextArea';
