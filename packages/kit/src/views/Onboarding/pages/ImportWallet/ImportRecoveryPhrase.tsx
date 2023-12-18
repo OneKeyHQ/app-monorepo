@@ -1,14 +1,10 @@
-import type { MutableRefObject, RefObject } from 'react';
+import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
-import { type View } from 'react-native';
-import { findNodeHandle } from 'react-native';
 
 import {
-  Alert,
   Button,
-  Dialog,
   Form,
   HeightTransition,
   Icon,
@@ -23,33 +19,9 @@ import {
   useIsKeyboardShown,
   useKeyboardEvent,
   useMedia,
-  usePage,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import { Tutorials } from '../../Components';
-
-const useScrollToInputArea = (ref: RefObject<View>) => {
-  const { pageRef, getContentOffset } = usePage();
-  const scrollToInputArea = useCallback(() => {
-    const refHandle = findNodeHandle(ref.current);
-    if (ref.current && refHandle) {
-      setTimeout(() => {
-        ref.current?.measureLayout(refHandle, (left, top, width, height) => {
-          if (getContentOffset().y < height) {
-            pageRef?.scrollTo({ x: 0, y: top + height, animated: true });
-          }
-        });
-      }, 300);
-    }
-  }, [getContentOffset, pageRef, ref]);
-  useKeyboardEvent({
-    keyboardWillShow: scrollToInputArea,
-  });
-  return {
-    scrollToInputArea,
-  };
-};
 
 const tutorials = [
   {
@@ -204,7 +176,6 @@ function PageContent() {
   const media = useMedia();
   const form = useForm({});
   const selectInputIndex = useRef(-1);
-  const alertRef = useRef<View>(null);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -218,8 +189,6 @@ function PageContent() {
     return `${length} invalid words`;
   };
 
-  useScrollToInputArea(alertRef);
-
   const handleInputFocus = useCallback((index: number) => {
     selectInputIndex.current = index;
   }, []);
@@ -231,16 +200,7 @@ function PageContent() {
   return (
     <>
       <Page.Body>
-        <Stack ref={alertRef}>
-          <Alert
-            closable
-            type="warning"
-            fullBleed
-            title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
-            mb="$5"
-          />
-        </Stack>
-        <XStack px="$5" pb="$2" justifyContent="space-between">
+        <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
           <Select
             title="Select a length"
             placement="bottom-start"
@@ -313,30 +273,17 @@ function PageContent() {
             </XStack>
           )}
         </HeightTransition>
+        <Tutorials px="$5" list={tutorials} />
       </Page.Body>
       <PageFooter form={form} selectInputIndex={selectInputIndex} />
     </>
   );
 }
 
-const headerRight = () => (
-  <HeaderIconButton
-    icon="QuestionmarkOutline"
-    onPress={() =>
-      Dialog.show({
-        title: 'Recovery Phrase',
-        icon: 'Document2Outline',
-        renderContent: <Tutorials list={tutorials} />,
-        showFooter: false,
-      })
-    }
-  />
-);
-
 export function ImportRecoveryPhrase() {
   return (
     <Page scrollEnabled>
-      <Page.Header title="Import Recovery Phrase" headerRight={headerRight} />
+      <Page.Header title="Import Recovery Phrase" />
       <PageContent />
     </Page>
   );

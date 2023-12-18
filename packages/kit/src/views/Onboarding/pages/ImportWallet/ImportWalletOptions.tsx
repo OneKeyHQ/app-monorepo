@@ -2,6 +2,8 @@ import { StyleSheet } from 'react-native';
 
 import type { IIconProps, IListItemProps } from '@onekeyhq/components';
 import {
+  Button,
+  Dialog,
   Divider,
   Group,
   Heading,
@@ -30,6 +32,10 @@ type IOptionSection = {
 export function ImportWalletOptions() {
   const navigation = useAppNavigation();
 
+  const handleConnectHardwareWalletPress = () => {
+    navigation.push(EOnboardingPages.ConnectYourDevice);
+  };
+
   const handleImportRecoveryPhrasePress = () => {
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
@@ -51,7 +57,37 @@ export function ImportWalletOptions() {
           icon: 'Document2Outline',
           description:
             'Import a 12-24 word phrase to set up your multi-chain wallet.',
-          onPress: handleImportRecoveryPhrasePress,
+          onPress: () => {
+            const dialog = Dialog.show({
+              icon: 'Shield2CheckOutline',
+              title: 'Security Alert',
+              description:
+                "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
+              renderContent: (
+                <Stack>
+                  <Button
+                    variant="primary"
+                    onPress={async () => {
+                      await dialog.close();
+                      handleImportRecoveryPhrasePress();
+                    }}
+                  >
+                    Acknowledged
+                  </Button>
+                  <Button
+                    mt="$2.5"
+                    onPress={async () => {
+                      await dialog.close();
+                      handleConnectHardwareWalletPress();
+                    }}
+                  >
+                    Connect Hardware Wallet
+                  </Button>
+                </Stack>
+              ),
+              showFooter: false,
+            });
+          },
         },
       ],
     },

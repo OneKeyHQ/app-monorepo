@@ -1,4 +1,5 @@
-import { Heading, Icon, SizableText, Stack } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { Heading, SizableText, Stack } from '@onekeyhq/components';
 
 interface IListItem {
   title?: string;
@@ -9,9 +10,9 @@ interface ITutorials {
   list: IListItem[];
 }
 
-export function Tutorials({ list }: ITutorials) {
+export function Tutorials({ list, ...rest }: ITutorials & IStackProps) {
   return (
-    <Stack mt="$10">
+    <Stack mt="$10" {...rest}>
       {list.map(({ title, description }, index) => (
         <Stack
           key={title}
