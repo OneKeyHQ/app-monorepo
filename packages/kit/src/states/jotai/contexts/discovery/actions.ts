@@ -16,6 +16,7 @@ import type {
 import {
   browserTypeHandler,
   crossWebviewLoadUrl,
+  getUrlIcon,
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
@@ -469,9 +470,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return this.gotoSite.call(set, {
           url: webSite.url,
           title: webSite.title,
-          // TODO: get favicon from url
-          // @ts-expect-error
-          favicon: webSite.favicon,
+          favicon: getUrlIcon(webSite.url),
           isNewWindow,
           userTriggered: true,
         });
@@ -591,12 +590,14 @@ export function useBrowserTabActions() {
 export function useBrowserBookmarkAction() {
   const actions = createActions();
   const buildBookmarkData = actions.buildBookmarkData.use();
+  const getBookmarkData = actions.getBookmarkData.use();
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
   const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
 
   return useRef({
     buildBookmarkData,
+    getBookmarkData,
     addBrowserBookmark,
     removeBrowserBookmark,
     modifyBrowserBookmark,
@@ -606,12 +607,14 @@ export function useBrowserBookmarkAction() {
 export function useBrowserHistoryAction() {
   const actions = createActions();
   const buildHistoryData = actions.buildHistoryData.use();
+  const getHistoryData = actions.getHistoryData.use();
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
   const removeAllBrowserHistory = actions.removeAllBrowserHistory.use();
 
   return useRef({
     buildHistoryData,
+    getHistoryData,
     addBrowserHistory,
     removeBrowserHistory,
     removeAllBrowserHistory,

@@ -92,7 +92,7 @@ function MobileBrowser() {
               url={tab?.url ?? ''}
               onSearch={() => {
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  screen: EDiscoveryModalRoutes.FakeSearchModal,
+                  screen: EDiscoveryModalRoutes.SearchModal,
                 });
               }}
             />

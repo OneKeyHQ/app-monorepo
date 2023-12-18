@@ -17,7 +17,7 @@ function Dashboard() {
             onPress={() => {
               console.log('onPress');
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                screen: EDiscoveryModalRoutes.FakeSearchModal,
+                screen: EDiscoveryModalRoutes.SearchModal,
               });
             }}
           >
@@ -28,7 +28,7 @@ function Dashboard() {
             onPress={() => {
               console.log('onPress');
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                screen: EDiscoveryModalRoutes.FakeSearchModal,
+                screen: EDiscoveryModalRoutes.SearchModal,
               });
             }}
           >
