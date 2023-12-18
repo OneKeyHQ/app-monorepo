@@ -51,7 +51,7 @@ export function Selector() {
   return (
     <Page>
       <Page.Header
-        title="Select chain"
+        title="Select Chain"
         headerRight={() =>
           getHeaderRightComponent(isEditMode, handleEditButtonPress)
         }
@@ -72,10 +72,9 @@ export function Selector() {
               title={item.name}
               {...(!isEditMode && {
                 onPress: () => handleListItemPress(item.chain),
-                checkMark: selectedChain === item.chain,
               })}
             >
-              <AnimatePresence>
+              <AnimatePresence exitBeforeEnter>
                 {isEditMode && (
                   <ListItem.IconButton
                     title="Move to top"
@@ -86,6 +85,15 @@ export function Selector() {
                       scale: 0,
                     }}
                     icon="AlignTopOutline"
+                  />
+                )}
+                {!isEditMode && selectedChain === item.chain && (
+                  <ListItem.CheckMark
+                    key="checkmark"
+                    enterStyle={{
+                      opacity: 0,
+                      scale: 0,
+                    }}
                   />
                 )}
               </AnimatePresence>

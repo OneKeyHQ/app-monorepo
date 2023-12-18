@@ -1,75 +1,92 @@
-import {
-  Icon,
-  Page,
-  SizableText,
-  Spinner,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { useEffect, useState } from 'react';
 
-interface IStepProps {
-  state: 'pending' | 'inProgress' | 'done' | 'error';
-  title: string;
-}
+import { AnimatePresence } from 'tamagui';
 
-const steps: IStepProps[] = [
-  {
-    state: 'inProgress',
-    title: 'Verifying official firmware on your hardware wallet',
-  },
-  {
-    state: 'pending',
-    title: 'Creating your wallet',
-  },
-  {
-    state: 'pending',
-    title: 'Generating your accounts',
-  },
-  {
-    state: 'pending',
-    title: 'Encrypting your data',
-  },
-  {
-    state: 'pending',
-    title: 'Your wallet is now ready',
-  },
-];
+import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
+
+import useAppNavigation from '../../../hooks/useAppNavigation';
 
 export function FinalizeWalletSetup() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const navigation = useAppNavigation();
+
+  const steps = [
+    'Creating your wallet',
+    'Generating your accounts',
+    'Encrypting your data',
+    'Your wallet is now ready',
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentStep((prevStep) => {
+        if (prevStep < steps.length - 1) {
+          return prevStep + 1;
+        }
+        clearInterval(interval);
+        return prevStep;
+      });
+    }, 3000);
+
+    if (currentStep === steps.length - 1) {
+      setTimeout(() => {
+        navigation.popStack();
+      }, 1000);
+    }
+
+    return () => clearInterval(interval);
+  }, [currentStep, navigation, steps.length]);
+
   return (
     <Page>
       <Page.Header title="Finalize Wallet Setup" />
-      <Page.Body p="$5">
-        {steps.map(({ state, title }, index) => (
-          <XStack
-            key={title}
-            {...(index !== 0 && {
-              mt: '$5',
-            })}
-          >
-            <Stack h="$6" w="$6" justifyContent="center" alignItems="center">
-              {state === 'pending' && (
-                <Icon
-                  name="CirclePlaceholderOnOutline"
-                  color="$iconSubdued"
-                  flexShrink={0}
-                />
+      <Page.Body p="$5" justifyContent="center" alignItems="center">
+        <Stack w="$16" h="$16" justifyContent="center" alignItems="center">
+          <AnimatePresence exitBeforeEnter>
+            {currentStep === steps.length - 1 ? (
+              <Stack
+                key="CheckRadioSolid"
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  scale: 0,
+                }}
+              >
+                <Icon name="CheckRadioSolid" color="$iconSuccess" size="$16" />
+              </Stack>
+            ) : (
+              <Spinner
+                key="spinner"
+                size="large"
+                animation="quick"
+                exitStyle={{
+                  opacity: 0,
+                  scale: 0,
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </Stack>
+        <AnimatePresence exitBeforeEnter>
+          {steps.map((item, index) => (
+            <>
+              {currentStep === index && (
+                <Heading
+                  key={item}
+                  mt="$5"
+                  size="$headingMd"
+                  animation="quick"
+                  enterStyle={{
+                    opacity: 0,
+                    x: 12,
+                  }}
+                >
+                  {steps[currentStep]}
+                </Heading>
               )}
-              {state === 'inProgress' && <Spinner size="small" />}
-            </Stack>
-            <SizableText pl="$4" size="$bodyLgMedium">
-              {title}
-            </SizableText>
-          </XStack>
-        ))}
-
-        {/* 
-          1. 防伪校验
-          2. 正在创建钱包
-          3. 正在生成账户
-          4. 正在加密数据
-          5. 完成
-        */}
+            </>
+          ))}
+        </AnimatePresence>
       </Page.Body>
     </Page>
   );

@@ -105,22 +105,25 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert: FC<IAlertProps> = ({
-  icon,
-  title,
-  description,
-  closable,
-  type,
-  fullBleed,
-  action,
-}) => {
+export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
+  const {
+    icon,
+    title,
+    description,
+    closable,
+    type,
+    fullBleed,
+    action,
+    ...rest
+  } = props;
+
   const [show, setShow] = useState(true);
   const onClose = useCallback(() => setShow(false), []);
 
   if (!show) return null;
 
   return (
-    <AlertFrame key="alert" type={type} fullBleed={fullBleed}>
+    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
       {icon ? (
         <Stack>
           <AlertIcon>
@@ -163,4 +166,4 @@ export const Alert: FC<IAlertProps> = ({
       ) : null}
     </AlertFrame>
   );
-};
+});

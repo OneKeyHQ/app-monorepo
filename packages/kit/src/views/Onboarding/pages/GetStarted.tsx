@@ -28,7 +28,7 @@ export function GetStarted() {
   };
 
   const handleImportWalletPress = () => {
-    navigation.push(EOnboardingPages.ImportRecoveryPhrase);
+    navigation.push(EOnboardingPages.ImportWalletOptions);
   };
 
   const handleConnectHardwareWallet = () => {
@@ -201,12 +201,13 @@ export function GetStarted() {
             pb: bottom,
           })}
         >
-          By continuing to use the app, you agree to these{' '}
+          By using this app, you agree to our{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002014776"
             size="$bodySm"
             color="$textSubdued"
             target="_blank"
+            textDecorationLine="none"
           >
             User Service Agreement
           </Anchor>{' '}
@@ -216,6 +217,7 @@ export function GetStarted() {
             size="$bodySm"
             color="$textSubdued"
             target="_blank"
+            textDecorationLine="none"
           >
             Privacy Policy
           </Anchor>

@@ -62,6 +62,7 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
@@ -148,6 +149,7 @@ function DialogFrame({
       {/* close button */}
       <IconButton
         position="absolute"
+        zIndex={1}
         right="$5"
         top="$5"
         icon="CrossedSmallOutline"
@@ -209,7 +211,7 @@ function DialogFrame({
             borderCurve: 'continuous',
           }}
         >
-          <SheetGrabber />
+          {!disableDrag && <SheetGrabber />}
           {renderDialogContent}
         </Sheet.Frame>
       </Sheet>
@@ -271,6 +273,7 @@ function DialogFrame({
               bg="$bg"
               width={400}
               p="$0"
+              {...floatingPanelProps}
             >
               {renderDialogContent}
             </TMDialog.Content>

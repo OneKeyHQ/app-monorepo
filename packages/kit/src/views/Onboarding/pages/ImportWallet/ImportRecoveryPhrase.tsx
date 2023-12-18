@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
-import { Tutorials } from '../Components';
+import { Tutorials } from '../../Components';
 
 const useScrollToInputArea = (ref: RefObject<View>) => {
   const { pageRef, getContentOffset } = usePage();
@@ -237,9 +237,10 @@ function PageContent() {
             type="warning"
             fullBleed
             title='Do not import recovery phrase from hardware wallet. Go back and use "Connect Hardware Wallet" instead.'
+            mb="$5"
           />
         </Stack>
-        <XStack px="$5" pt="$5" pb="$2" justifyContent="space-between">
+        <XStack px="$5" pb="$2" justifyContent="space-between">
           <Select
             title="Select a length"
             placement="bottom-start"
@@ -247,12 +248,21 @@ function PageContent() {
             value={phraseLength}
             onChange={setPhraseLength}
             renderTrigger={({ value }) => (
-              <Button iconAfter="ChevronDownSmallOutline" variant="tertiary">
+              <Button
+                iconAfter="ChevronDownSmallOutline"
+                size="small"
+                variant="tertiary"
+              >
                 {value} words
               </Button>
             )}
           />
-          <Button icon="BroomOutline" variant="tertiary" onPress={handleClear}>
+          <Button
+            icon="BroomOutline"
+            size="small"
+            variant="tertiary"
+            onPress={handleClear}
+          >
             Clear
           </Button>
         </XStack>
@@ -281,21 +291,6 @@ function PageContent() {
                     returnKeyType="next"
                   />
                 </Form.Field>
-                {/* <SizableText
-                pointerEvents="none"
-                position="absolute"
-                color="$textDisabled"
-                top={11}
-                $md={{
-                  top: 15,
-                }}
-                left="$3"
-                zIndex="$1"
-                minWidth={17}
-                textAlign="right"
-              >
-                {index + 1}
-              </SizableText> */}
               </Stack>
             ))}
           </XStack>
