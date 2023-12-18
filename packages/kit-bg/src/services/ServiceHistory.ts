@@ -22,7 +22,7 @@ class ServiceHistory extends ServiceBase {
     const { accountId, networkId } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
-      '/v5/account/history/list',
+      '/wallet/v1/account/history/list',
       params,
     );
 

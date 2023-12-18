@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useFormatDate from '../../../hooks/useFormatData';
+import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { convertHistoryToSectionGroups } from '../../../utils/history';
 import { TxHistoryListView } from '../components/TxHistoryListView';

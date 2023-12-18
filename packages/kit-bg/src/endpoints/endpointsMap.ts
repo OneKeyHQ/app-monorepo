@@ -1,7 +1,14 @@
-const endpointsMap: Record<'base', { prod: string; test: string }> = {
-  base: {
-    prod: '',
-    test: 'http://18.138.227.191:9008/api',
+const endpointsMap: Record<
+  'test' | 'prod',
+  { http: string; websocket: string }
+> = {
+  test: {
+    http: 'http://18.138.227.191:9008',
+    websocket: '',
+  },
+  prod: {
+    http: '',
+    websocket: '',
   },
 };
 

@@ -1,16 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { YStack } from 'tamagui';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Form, Page, useForm } from '@onekeyhq/components';
+import { Form, Page, YStack, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { AddressInput } from '../../../../components/AddressInput';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../../routes/Modal/type';
 import { SendAssets } from '../../components/SendAssets';
@@ -36,8 +34,8 @@ function SendAddressInputContainer() {
   const transferInfo = transfersInfo[0];
 
   const useFormReturn = useForm<ISendAddressFormValues>({
-    mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
       to: transfersInfo[0].to || '',
     },
@@ -53,14 +51,9 @@ function SendAddressInputContainer() {
     return [r.info];
   }, [networkId, transferInfo.from, transferInfo.token]);
 
-  const { formState, handleSubmit } = useFormReturn;
+  const { formState, handleSubmit, getValues, getFieldState } = useFormReturn;
 
   const resolvedAddress = '';
-
-  const { isLoading, formValues, isValid } =
-    useFormOnChangeDebounced<ISendAddressFormValues>({
-      useFormReturn,
-    });
 
   const handleConfirm = useCallback(
     (values: ISendAddressFormValues) => {
@@ -84,12 +77,16 @@ function SendAddressInputContainer() {
     [accountId, navigation, networkId, transfersInfo],
   );
 
-  const submitDisabled =
-    isLoading ||
-    !formValues?.to ||
-    !isValid ||
-    formState.isValidating ||
-    isValidatingAddress;
+  const submitDisabled = useMemo(() => {
+    const formValues = getValues();
+    const toFieldState = getFieldState('to');
+    return (
+      !formValues?.to ||
+      toFieldState.invalid ||
+      formState.isValidating ||
+      isValidatingAddress
+    );
+  }, [formState.isValidating, getFieldState, getValues, isValidatingAddress]);
 
   const doSubmit = handleSubmit(handleConfirm);
 

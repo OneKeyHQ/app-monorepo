@@ -22,7 +22,7 @@ class ServiceDefi extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountDefiResp;
-    }>('/v5/account/defi/list', {
+    }>('/wallet/v1/account/defi/list', {
       params,
     });
     return resp.data.data;

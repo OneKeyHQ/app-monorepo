@@ -25,7 +25,7 @@ class ServiceToken extends ServiceBase {
   ): Promise<IFetchAccountTokensResp> {
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-      '/v5/account/token/list',
+      '/wallet/v1/account/token/list',
       params,
     );
     return resp.data.data;
@@ -69,7 +69,7 @@ class ServiceToken extends ServiceBase {
   public async fetchTokenDetail(params: IFetchTokenDetailParams) {
     const client = await this.getClient();
     const resp = await client.get<{ data: IAccountToken }>(
-      '/v5/account/token/detail',
+      '/wallet/v1/account/token/detail',
       { params },
     );
     return resp.data.data;

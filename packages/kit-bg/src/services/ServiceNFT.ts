@@ -20,7 +20,7 @@ class ServiceNFT extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>('/v5/account/nft/list', {
+    }>('/wallet/v1/account/nft/list', {
       params,
     });
     return resp.data.data;
