@@ -1,4 +1,5 @@
 import ComponentsScreen from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components';
+import AccountModelGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery';
 import ActionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList';
 import AlertGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert';
 import BadgeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge';
@@ -15,6 +16,7 @@ import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/C
 import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
 import JotaiContextGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery';
+import LinearGradientGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient';
 import ListItemGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem';
 import ListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView';
 import LocalDBGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery';
@@ -148,5 +150,13 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentBlurView,
     component: BlurViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentLinearGradientGallery,
+    component: LinearGradientGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAccountModel,
+    component: AccountModelGallery,
   },
 ];
