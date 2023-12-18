@@ -228,9 +228,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
         />
         <Button
           onPress={async () => {
-            const {
-              data: { password },
-            } = await servicePassword.promptPasswordVerify();
+            const { password } = await servicePassword.promptPasswordVerify();
             const mnemonic = await servicePassword.encodeSensitiveText({
               text,
             });
