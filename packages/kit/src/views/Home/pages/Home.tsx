@@ -3,11 +3,11 @@ import { useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Avatar,
+  Group,
   Icon,
   Page,
   Skeleton,
   Text,
-  XStack,
 } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -30,7 +30,8 @@ function HomePage() {
       <Page.Header
         // eslint-disable-next-line react/no-unstable-nested-components
         headerTitle={() => (
-          <XStack
+          <Group
+            flexDirection="row"
             alignItems="center"
             p="$1.5"
             mx="$-1.5"
@@ -64,7 +65,7 @@ function HomePage() {
               size="$5"
               color="$iconSubdued"
             />
-          </XStack>
+          </Group>
         )}
       />
       <Page.Body alignItems="center">
