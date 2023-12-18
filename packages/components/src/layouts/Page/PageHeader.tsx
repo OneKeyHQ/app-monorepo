@@ -48,7 +48,7 @@ function HeaderRightContainerHOC(Component?: ComponentType) {
   // eslint-disable-next-line react/no-unstable-nested-components
   return function HeaderRightContainer(...props: any) {
     return (
-      <XStack>
+      <XStack alignSelf="center">
         <Component {...props} />
       </XStack>
     );
