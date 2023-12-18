@@ -1,23 +1,48 @@
-import { ListItem, Page, Stack, Text } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
-const HardwareSdkUrl = () => (
-  <Page>
-    <ListItem title="onekey.so" subtitle="Default" />
-    <ListItem
-      title="onekeycn.so"
-      subtitle="Optimized for mainland China network"
-    />
-    <Stack px="$5">
-      <Text>
-        The hardware bridge is a local server designed for communication between
-        the App and hardware. Due to cross-domain issues in communication
-        between Web and plugins, the hardware SDK needs to be deployed on the
-        OneKey official website while hardware bridge and SDK are built in the
-        desktop App. The Bridge only responds to requests from the official
-        OneKey domain.
-      </Text>
-    </Stack>
-  </Page>
-);
+import { Page, Stack, Text } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { ListItemSelect } from '../Components/ListItemSelect';
+
+const useBridgeOptions = () => {
+  const intl = useIntl();
+  return [
+    {
+      title: EOnekeyDomain.ONEKEY_SO,
+      subtitle: intl.formatMessage({ id: 'form__default' }),
+      value: EOnekeyDomain.ONEKEY_SO,
+    },
+    {
+      title: EOnekeyDomain.ONEKEY_CN,
+      subtitle: intl.formatMessage({
+        id: 'form__optimized_for_china_mainland_network',
+      }),
+      value: EOnekeyDomain.ONEKEY_CN,
+    },
+  ];
+};
+
+const HardwareSdkUrl = () => {
+  const intl = useIntl();
+  const options = useBridgeOptions();
+  const [settings] = useSettingsPersistAtom();
+  return (
+    <Page>
+      <ListItemSelect
+        options={options}
+        value={settings.hardwareConnectSrc as string}
+        onChange={(value) =>
+          backgroundApiProxy.serviceSetting.setHardwareConnectSrc(value)
+        }
+      />
+      <Stack px="$5">
+        <Text>{intl.formatMessage({ id: 'form__hardware_bridge_desc' })}</Text>
+      </Stack>
+    </Page>
+  );
+};
 
 export default HardwareSdkUrl;

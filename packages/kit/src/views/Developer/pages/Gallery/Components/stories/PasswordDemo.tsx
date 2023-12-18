@@ -24,19 +24,12 @@ const PasswordDemoGallery = () => {
   const theme = useTheme();
   console.log(theme);
   const handlePasswordVerify = async () => {
-    try {
-      const { status, data } =
-        await backgroundApiProxy.servicePassword.promptPasswordVerify();
-      console.log('data', data);
-      if (status === EPasswordResStatus.PASS_STATUS) {
-        Toast.success({ title: '验证成功' });
-      }
-    } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const errorMessage = e?.message;
-      if (errorMessage) {
-        Toast.error({ title: errorMessage });
-      }
+    const { status, password } =
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    if (status === EPasswordResStatus.PASS_STATUS) {
+      // get password success
+      console.log('password', password);
+      Toast.success({ title: '验证成功' });
     }
   };
   return (
@@ -60,9 +53,10 @@ const PasswordDemoGallery = () => {
                       title: 'SetupPassword',
                       renderContent: (
                         <PasswordSetupContainer
-                          onSetupRes={(data) => {
+                          onSetupRes={async (data) => {
                             console.log('setup data', data);
                             if (data) {
+                              await dialog.close();
                               Toast.success({ title: '设置成功' });
                               void dialog.close();
                             }
@@ -84,9 +78,10 @@ const PasswordDemoGallery = () => {
                     estimatedContentHeight: 100,
                     renderContent: (
                       <PasswordUpdateContainer
-                        onUpdateRes={(data) => {
+                        onUpdateRes={async (data) => {
                           console.log('update data', data);
                           if (data) {
+                            await dialog.close();
                             Toast.success({ title: '修改成功' });
                             void dialog.close();
                           }
@@ -116,7 +111,10 @@ const PasswordDemoGallery = () => {
                 onPress={async () => {
                   try {
                     const res =
-                      await backgroundApiProxy.servicePassword.getWebAuthPassword();
+                      await backgroundApiProxy.servicePassword.verifyPassword({
+                        password: '',
+                        isWebAuth: true,
+                      });
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
                   } catch (e) {
                     console.log('e', e);
