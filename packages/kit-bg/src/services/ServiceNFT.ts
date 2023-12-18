@@ -19,24 +19,14 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    try {
-      const client = await this.getClient();
-      const endpoint = await getBaseEndpoint();
-      const resp = await client.get<{
-        data: IFetchAccountNFTsResp;
-      }>(`${endpoint}/v5/account/nft/list`, {
-        params,
-      });
-      return resp.data.data;
-    } catch (e) {
-      console.log(e);
-      return {
-        data: [],
-        page: 1,
-        pageSize: 20,
-        total: 0,
-      };
-    }
+    const client = this.getClient();
+    const endpoint = await getBaseEndpoint();
+    const resp = await client.get<{
+      data: IFetchAccountNFTsResp;
+    }>(`${endpoint}/v5/account/nft/list`, {
+      params,
+    });
+    return resp.data.data;
   }
 }
 

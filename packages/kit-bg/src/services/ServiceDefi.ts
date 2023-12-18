@@ -21,7 +21,7 @@ class ServiceDefi extends ServiceBase {
   public async fetchAccountDefi(
     params: IFetchAccountDefiParams,
   ): Promise<IFetchAccountDefiResp> {
-    const client = await this.getClient();
+    const client = this.getClient();
     const endpoint = await getBaseEndpoint();
     const resp = await client.get<{
       data: IFetchAccountDefiResp;

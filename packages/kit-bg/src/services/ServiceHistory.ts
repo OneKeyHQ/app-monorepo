@@ -21,33 +21,28 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
-    const client = await this.getClient();
+    const client = this.getClient();
     const baseEndpoint = await getBaseEndpoint();
-    try {
-      const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
-        `${baseEndpoint}/v5/account/history/list`,
-        params,
-      );
+    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+      `${baseEndpoint}/v5/account/history/list`,
+      params,
+    );
 
-      const vault = await vaultFactory.getVault({
-        accountId,
-        networkId,
-      });
+    const vault = await vaultFactory.getVault({
+      accountId,
+      networkId,
+    });
 
-      const onChainHistoryTxs = resp.data.data.data;
+    const onChainHistoryTxs = resp.data.data.data;
 
-      // TODO: move this to refreshHistory and return onChainHistoryTxs directly
-      return await vault.buildOnChainHistoryTxs({
-        accountId,
-        networkId,
-        onChainHistoryTxs,
-        tokens: resp.data.data.tokens,
-        localHistoryTxs: [],
-      });
-    } catch (error) {
-      console.log(error);
-      return [];
-    }
+    // TODO: move this to refreshHistory and return onChainHistoryTxs directly
+    return vault.buildOnChainHistoryTxs({
+      accountId,
+      networkId,
+      onChainHistoryTxs,
+      tokens: resp.data.data.tokens,
+      localHistoryTxs: [],
+    });
   }
 }
 

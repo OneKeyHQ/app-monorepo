@@ -26,22 +26,12 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams,
   ): Promise<IFetchAccountTokensResp> {
     const endpoint = await getBaseEndpoint();
-    const client = await this.getClient();
-    try {
-      const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-        `${endpoint}/v5/account/token/list`,
-        params,
-      );
-      return resp.data.data;
-    } catch (e) {
-      console.log(e);
-      return {
-        data: [],
-        page: 1,
-        pageSize: 20,
-        total: 0,
-      };
-    }
+    const client = this.getClient();
+    const resp = await client.post<{ data: IFetchAccountTokensResp }>(
+      `${endpoint}/v5/account/token/list`,
+      params,
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()
@@ -81,7 +71,7 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async fetchTokenDetail(params: IFetchTokenDetailParams) {
     const endpoint = await getBaseEndpoint();
-    const client = await this.getClient();
+    const client = this.getClient();
     const resp = await client.get<{ data: IAccountToken }>(
       `${endpoint}/v5/account/token/detail`,
       { params },

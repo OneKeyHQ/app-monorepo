@@ -16,7 +16,7 @@ export type ITokenFiat = {
   fiatValue: string;
 };
 
-export type IAccountToken = ITokenFiat & { info: IToken } & { $key?: string };
+export type IAccountToken = ITokenFiat & { info: IToken } & { $key: string };
 
 export type IFetchAccountTokensParams = {
   networkId: string;

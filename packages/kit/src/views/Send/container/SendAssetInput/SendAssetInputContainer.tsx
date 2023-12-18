@@ -48,7 +48,7 @@ function SendAssetInputContainer() {
     (token: IAccountToken) => {
       const updatedTransfersInfo = transfersInfo.map((transferInfo) => ({
         ...transferInfo,
-        token: token.address,
+        token: token.info.address,
       }));
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendAddressInput,

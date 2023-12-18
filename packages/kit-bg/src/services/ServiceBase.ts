@@ -5,8 +5,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
-import { settingsPersistAtom } from '../states/jotai/atoms';
-
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -24,14 +22,9 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
-  async getClient() {
+  getClient() {
     if (!this._client) {
-      const settings = await settingsPersistAtom.get();
-
       this._client = axios.create({
-        headers: {
-          'x-onekey-currency': settings.currency,
-        },
         timeout: 60 * 1000,
       });
     }

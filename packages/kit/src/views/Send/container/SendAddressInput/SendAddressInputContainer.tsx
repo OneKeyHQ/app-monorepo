@@ -50,7 +50,7 @@ function SendAddressInputContainer() {
       address: transferInfo.token,
       isNative: !transferInfo.token,
     });
-    return [r];
+    return [r.info];
   }, [networkId, transferInfo.from, transferInfo.token]);
 
   const { formState, handleSubmit } = useFormReturn;

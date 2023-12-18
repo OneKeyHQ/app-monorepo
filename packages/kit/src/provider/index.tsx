@@ -3,6 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import '../utils/axiosInterceptor';
 
 import { Container } from './Container';
 import { SplashProvider } from './SplashProvider';
