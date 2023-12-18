@@ -11,6 +11,12 @@ export type ICommonScreenOptions = {
   showHeader?: boolean;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type IScreenOptionsInfo<T extends string> = {
+  route: RouteProp<any>;
+  navigation: any;
+};
+
 export interface ITabSubNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase = ParamListBase,

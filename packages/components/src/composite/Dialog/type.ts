@@ -35,7 +35,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
 
 interface IBasicDialogProps extends TMDialogProps {
   onOpen?: () => void;
-  onClose?: () => void;
+  onClose: () => Promise<void>;
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
@@ -64,7 +64,12 @@ export type IDialogContainerProps = PropsWithChildren<
   }
 >;
 
-export type IDialogShowProps = Omit<IDialogContainerProps, 'name'>;
+export interface IDialogShowProps
+  extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
+  onClose?: () => void;
+  /* Run it after dialog is closed  */
+  onDismiss?: () => void;
+}
 
 export type IDialogConfirmProps = Omit<
   IDialogShowProps,
@@ -79,12 +84,12 @@ export type IDialogCancelProps = Omit<
 type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
-  close: () => void;
+  close: () => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
 }
 
 export interface IDialogInstance {
-  close: () => void;
+  close: () => Promise<void> | void;
   getForm: () => IDialogForm | undefined;
 }
 

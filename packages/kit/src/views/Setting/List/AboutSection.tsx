@@ -25,9 +25,11 @@ export const AboutSection = () => {
         <ListItem.Text
           primary="4.15"
           align="right"
-          primaryTextProps={{
-            tone: 'subdued',
-          }}
+          primaryTextProps={
+            {
+              // tone: 'subdued',
+            }
+          }
         />
       </ListItem>
       <ListItem

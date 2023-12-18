@@ -5,8 +5,8 @@ import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
-import { HeightTransition } from '../../layouts';
-import { Label, Text, YStack } from '../../primitives';
+import { HeightTransition } from '../../content';
+import { Label, SizableText, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -117,10 +117,10 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
           )}
           <HeightTransition>
             {error?.message && (
-              <Text
+              <SizableText
                 key={error?.message}
                 color="$textCritical"
-                variant="$bodyMd"
+                size="$bodyMd"
                 pt="$1.5"
                 animation="quick"
                 enterStyle={{
@@ -133,13 +133,13 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
                 }}
               >
                 {error.message}
-              </Text>
+              </SizableText>
             )}
           </HeightTransition>
           {description ? (
-            <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
+            <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}
-            </Text>
+            </SizableText>
           ) : null}
         </Fieldset>
       )}

@@ -7,24 +7,19 @@ import {
 } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import {
-  Group,
-  Input as TMInput,
-  getFontSize,
-  useMedia,
-  useThemeName,
-} from 'tamagui';
+import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../hooks';
-import { Icon, Spinner, Text, XStack, YStack } from '../../primitives';
+import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 
 import { getSharedInputStyles } from './sharedStyles';
 
+import type { IInputAddOnProps } from './InputAddOnItem';
 import type { IKeyOfIcons } from '../../primitives';
 import type { TextInput } from 'react-native';
-import type { ColorTokens, GetProps } from 'tamagui';
+import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
 
@@ -33,17 +28,15 @@ export type IInputProps = {
   size?: 'small' | 'medium' | 'large';
   leftIconName?: IKeyOfIcons;
   error?: boolean;
-  addOns?: {
-    iconName?: IKeyOfIcons;
-    iconColor?: ColorTokens;
-    label?: string;
-    testID?: string;
-    onPress?: () => void;
-    loading?: boolean;
-  }[];
+  leftAddOnProps?: IInputAddOnProps;
+  addOns?: IInputAddOnProps[];
   containerProps?: GetProps<typeof Group>;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'>;
+
+export type IInputRef = {
+  focus: () => void;
+};
 
 const SIZE_MAPPINGS = {
   'large': {
@@ -69,27 +62,45 @@ const SIZE_MAPPINGS = {
   },
 };
 
+const useReadOnlyStyle = (readOnly = false) =>
+  useMemo(
+    () =>
+      readOnly
+        ? {
+            editable: platformEnv.isNativeAndroid ? false : undefined,
+            pointerEvents: 'none',
+          }
+        : undefined,
+    [readOnly],
+  );
+
 const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
-  const { md } = useMedia();
-  const isWebMd = useMemo(
-    () => autoFocus && platformEnv.isRuntimeBrowser && md,
-    [autoFocus, md],
+  const shouldReloadAutoFocus = useMemo(
+    () => platformEnv.isRuntimeBrowser && autoFocus,
+    [autoFocus],
   );
   useEffect(() => {
     // focus after the animation of Dialog and other containers is finished,
     //  to avoid the misalignment caused by the container recalculating its height
-    if (isWebMd) {
+    if (!shouldReloadAutoFocus) {
+      return;
+    }
+    if (platformEnv.isRuntimeChrome) {
+      // @ts-expect-error
+      inputRef.current?.focus({ preventScroll: true });
+    } else {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 150);
     }
-  }, [inputRef, isWebMd]);
-  return isWebMd ? undefined : autoFocus;
+  }, [inputRef, shouldReloadAutoFocus]);
+  return shouldReloadAutoFocus ? false : autoFocus;
 };
 
 function BaseInput(
   {
     size = 'medium',
+    leftAddOnProps,
     leftIconName,
     addOns,
     disabled,
@@ -100,7 +111,7 @@ function BaseInput(
     autoFocus,
     ...props
   }: IInputProps,
-  ref: ForwardedRef<any>,
+  ref: ForwardedRef<IInputRef>,
 ) {
   const {
     verticalPadding,
@@ -113,7 +124,8 @@ function BaseInput(
   const sharedStyles = getSharedInputStyles({ disabled, editable, error });
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput> | null = useRef(null);
-  const _autoFocus = useAutoFocus(inputRef, autoFocus);
+  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
+  const readOnlyStyle = useReadOnlyStyle(readonly);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -126,18 +138,71 @@ function BaseInput(
     <Group
       orientation="horizontal"
       borderRadius={size === 'large' ? '$3' : '$2'}
-      disablePassBorderRadius={!addOns?.length}
+      disablePassBorderRadius={!addOns?.length && !leftAddOnProps}
       disabled={disabled}
       {...containerProps}
     >
+      {/* left addon */}
+      {leftAddOnProps && (
+        <Group.Item>
+          <XStack
+            bg="$bgSubdued"
+            borderWidth={sharedStyles.borderWidth}
+            borderColor={sharedStyles.borderColor}
+            alignItems="center"
+            px={size === 'large' ? '$2.5' : '$2'}
+            style={{
+              borderCurve: 'continuous',
+            }}
+            {...(leftAddOnProps.onPress &&
+              !disabled && {
+                hoverStyle: {
+                  bg: '$bgHover',
+                },
+                pressStyle: {
+                  bg: '$bgActive',
+                },
+              })}
+            {...(leftAddOnProps.onPress && {
+              focusable: !disabled || !leftAddOnProps.loading,
+            })}
+            focusStyle={sharedStyles.focusStyle}
+            {...leftAddOnProps}
+          >
+            {leftAddOnProps.loading ? (
+              <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                <Spinner size="small" />
+              </YStack>
+            ) : (
+              leftAddOnProps.iconName && (
+                <Icon
+                  name={leftAddOnProps.iconName}
+                  color={leftAddOnProps.iconColor}
+                  size={size === 'small' ? '$5' : '$6'}
+                />
+              )
+            )}
+            {leftAddOnProps.label && (
+              <SizableText
+                size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+                ml={leftAddOnProps.iconName ? '$2' : '$0'}
+                color={disabled ? '$textDisabled' : '$textSubdued'}
+              >
+                {leftAddOnProps.label}
+              </SizableText>
+            )}
+          </XStack>
+        </Group.Item>
+      )}
+
       {/* input */}
       <Group.Item>
         <TMInput
           unstyled
           ref={inputRef}
           flex={1}
-          autoFocus={_autoFocus}
-          pointerEvents={readonly ? 'none' : undefined}
+          // @ts-expect-error
+          pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
           https://github.com/facebook/react-native/issues/28012
@@ -157,9 +222,15 @@ function BaseInput(
           selectionColor={selectionColor}
           borderRadius={size === 'large' ? '$3' : '$2'}
           borderRightWidth={addOns?.length ? '$0' : '$px'}
+          borderLeftWidth={leftAddOnProps ? '$0' : '$px'}
           focusStyle={sharedStyles.focusStyle}
           cursor={sharedStyles.cursor}
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
+          style={{
+            borderCurve: 'continuous',
+          }}
+          autoFocus={reloadAutoFocus}
+          {...readOnlyStyle}
           {...props}
         />
       </Group.Item>
@@ -182,8 +253,8 @@ function BaseInput(
       {addOns?.length && (
         <Group.Item>
           <Group
-            orientation="horizontal"
             borderRadius={size === 'large' ? '$3' : '$2'}
+            orientation="horizontal"
             borderWidth="$px"
             borderLeftWidth="$0"
             borderColor={sharedStyles.borderColor}
@@ -191,65 +262,65 @@ function BaseInput(
             disabled={disabled}
             disablePassBorderRadius="start"
           >
-            {addOns.map(
-              ({ iconName, iconColor, testID, label, onPress, loading }) => {
-                const getIconColor = () => {
-                  if (disabled) {
-                    return '$iconDisabled';
-                  }
-                  if (iconColor) {
-                    return iconColor;
-                  }
-                  return '$iconSubdued';
-                };
+            {addOns.map(({ iconName, iconColor, label, onPress, loading }) => {
+              const getIconColor = () => {
+                if (disabled) {
+                  return '$iconDisabled';
+                }
+                if (iconColor) {
+                  return iconColor;
+                }
+                return '$iconSubdued';
+              };
 
-                return (
-                  <Group.Item>
-                    <XStack
-                      onPress={onPress}
-                      key={`${iconName || ''}-${label || ''}`}
-                      alignItems="center"
-                      px={size === 'large' ? '$2.5' : '$2'}
-                      {...(onPress &&
-                        !disabled && {
-                          hoverStyle: {
-                            bg: '$bgHover',
-                          },
-                          pressStyle: {
-                            bg: '$bgActive',
-                          },
-                        })}
-                      focusable={!(disabled || loading)}
-                      focusStyle={sharedStyles.focusStyle}
-                      testID={testID}
-                    >
-                      {loading ? (
-                        <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                          <Spinner size="small" />
-                        </YStack>
-                      ) : (
-                        iconName && (
-                          <Icon
-                            name={iconName}
-                            color={getIconColor()}
-                            size={size === 'small' ? '$5' : '$6'}
-                          />
-                        )
-                      )}
-                      {label && (
-                        <Text
-                          variant={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                          ml={iconName ? '$2' : '$0'}
-                          color={disabled ? '$textDisabled' : '$textSubdued'}
-                        >
-                          {label}
-                        </Text>
-                      )}
-                    </XStack>
-                  </Group.Item>
-                );
-              },
-            )}
+              return (
+                <Group.Item>
+                  <XStack
+                    onPress={onPress}
+                    key={`${iconName || ''}-${label || ''}`}
+                    alignItems="center"
+                    px={size === 'large' ? '$2.5' : '$2'}
+                    {...(onPress &&
+                      !disabled && {
+                        hoverStyle: {
+                          bg: '$bgHover',
+                        },
+                        pressStyle: {
+                          bg: '$bgActive',
+                        },
+                      })}
+                    focusable={!(disabled || loading)}
+                    focusStyle={sharedStyles.focusStyle}
+                    style={{
+                      borderCurve: 'continuous',
+                    }}
+                  >
+                    {loading ? (
+                      <YStack {...(size !== 'small' && { p: '$0.5' })}>
+                        <Spinner size="small" />
+                      </YStack>
+                    ) : (
+                      iconName && (
+                        <Icon
+                          name={iconName}
+                          color={getIconColor()}
+                          size={size === 'small' ? '$5' : '$6'}
+                        />
+                      )
+                    )}
+                    {label && (
+                      <SizableText
+                        size={size === 'small' ? '$bodyMd' : '$bodyLg'}
+                        ml={iconName ? '$2' : '$0'}
+                        color={disabled ? '$textDisabled' : '$textSubdued'}
+                      >
+                        {label}
+                      </SizableText>
+                    )}
+                  </XStack>
+                </Group.Item>
+              );
+            })}
           </Group>
         </Group.Item>
       )}
@@ -257,4 +328,6 @@ function BaseInput(
   );
 }
 
-export const Input = forwardRef(BaseInput);
+const forwardRefInput = forwardRef<IInputRef, IInputProps>(BaseInput);
+
+export const Input = forwardRefInput;
