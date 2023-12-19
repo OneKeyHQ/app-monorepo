@@ -1,24 +1,18 @@
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { Pressable } from 'react-native';
 import {
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
-import Animated, {
-  SlideInLeft,
-  SlideInRight,
-  SlideOutLeft,
-  SlideOutRight,
-} from 'react-native-reanimated';
+import { AnimatePresence } from 'tamagui';
 
 import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack } from '../../primitives/Stack';
 
 import type { StackProps } from '@tamagui/web/types/types';
 import type { PressableProps, View } from 'react-native';
-import type { GetProps } from 'tamagui';
+import type { GetProps, TamaguiElement } from 'tamagui';
 
 export type ISortableCellProps = StackProps & {
   isEditing?: boolean;
@@ -42,32 +36,43 @@ function BaseSortableCell(
     onDeletePress,
     ...rest
   }: ISortableCellProps,
-  ref: ForwardedRef<View> | undefined,
+  ref: ForwardedRef<TamaguiElement> | undefined,
 ) {
   return (
     <ShadowDecorator {...shadowProps}>
       <ScaleDecorator {...scaleProps}>
         <XStack w="100%" alignItems="center">
-          {isEditing && (
-            <Animated.View entering={SlideInLeft} exiting={SlideOutLeft}>
+          <AnimatePresence exitBeforeEnter>
+            {isEditing && (
               <IconButton
                 onPress={onDeletePress}
                 icon="MinusCircleSolid"
                 variant="destructive"
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  scale: 0,
+                }}
               />
-            </Animated.View>
-          )}
+            )}
+          </AnimatePresence>
 
-          <Stack flex={1} {...rest} />
+          <Stack ref={ref} flex={1} {...rest} />
 
           {/* Don't use `Stack.onLongPress` as it will only be called after `onPressOut` */}
-          {isEditing && (
-            <Animated.View entering={SlideInRight} exiting={SlideOutRight}>
-              <Pressable ref={ref} onLongPress={drag} disabled={isActive}>
-                <IconButton icon="MenuOutline" />
-              </Pressable>
-            </Animated.View>
-          )}
+          <AnimatePresence exitBeforeEnter>
+            {isEditing && (
+              <IconButton
+                icon="MenuOutline"
+                onPressIn={drag}
+                animation="quick"
+                enterStyle={{
+                  opacity: 0,
+                  scale: 0,
+                }}
+              />
+            )}
+          </AnimatePresence>
         </XStack>
       </ScaleDecorator>
     </ShadowDecorator>
