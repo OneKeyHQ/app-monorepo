@@ -42,7 +42,7 @@ const tutorials = [
       'Yes. It will be stored locally and never leave your device without your explicit permission.',
   },
   {
-    title: "Why can't I type full words",
+    title: "Why can't I type full words?",
     description:
       'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
   },
@@ -60,6 +60,7 @@ interface IWordItemProps {
   word: string;
   onPress: (word: string) => void;
   buttonRef: any;
+  number: number;
 }
 
 function WordItem({
@@ -67,6 +68,7 @@ function WordItem({
   onPress,
   tabIndex = -1,
   buttonRef,
+  number,
   ...rest
 }: IWordItemProps & Omit<IButtonProps, 'onPress' | 'children'>) {
   const handlePress = useCallback(() => {
@@ -82,6 +84,20 @@ function WordItem({
       {...rest}
     >
       {word}
+      {!platformEnv.isNative && (
+        <SizableText
+          position="absolute"
+          size="$bodySmMedium"
+          right="$-2"
+          top="$-1.5"
+          bg="$bg"
+          color="$textSubdued"
+          px="$1"
+          borderRadius="$full"
+        >
+          {number}
+        </SizableText>
+      )}
     </Button>
   );
 }
@@ -101,12 +117,13 @@ function SuggestionList({
     .slice(0, 10)
     .map((word, index) => (
       <WordItem
+        number={index + 1}
         buttonRef={index === 0 ? firstButtonRef : undefined}
         tabIndex={isFocusable ? 0 : -1}
         key={word}
         word={word}
         onPress={onPressItem}
-        m="$1"
+        m="$1.5"
       />
     ));
 
@@ -117,7 +134,7 @@ function SuggestionList({
         keyboardDismissMode="none"
         keyboardShouldPersistTaps="always"
         contentContainerStyle={{
-          p: '$1',
+          p: '$1.5',
         }}
         showsHorizontalScrollIndicator={false}
       >
@@ -127,7 +144,7 @@ function SuggestionList({
   }
 
   return (
-    <XStack flexWrap="wrap" p="$1">
+    <XStack flexWrap="wrap" p="$1.5">
       {wordItems}
     </XStack>
   );
