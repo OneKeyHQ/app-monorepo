@@ -1,7 +1,12 @@
 import type { RefObject } from 'react';
 import { forwardRef, useCallback, useRef, useState } from 'react';
 
-import type { IButtonProps, IElement, IInputProps } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IElement,
+  IInputProps,
+  IPageFooterProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Form,
@@ -108,7 +113,7 @@ function SuggestionList({
   firstButtonRef?: RefObject<IElement>;
 }) {
   const wordItems = suggestions
-    .slice(0, 10)
+    .slice(0, 9)
     .map((word, index) => (
       <WordItem
         number={index + 1}
@@ -147,9 +152,11 @@ function SuggestionList({
 function PageFooter({
   suggestions,
   updateInputValue,
+  onConfirm,
 }: {
   suggestions: string[];
   updateInputValue: (text: string) => void;
+  onConfirm: IPageFooterProps['onConfirm'];
 }) {
   const isShow = useIsKeyboardShown();
   return (
@@ -160,7 +167,7 @@ function PageFooter({
           onPressItem={updateInputValue}
         />
       ) : null}
-      <Page.FooterActions onConfirm={() => console.log('confirm')} />
+      <Page.FooterActions onConfirm={onConfirm} />
     </Page.Footer>
   );
 }
@@ -313,7 +320,11 @@ function BasicPhaseInput(
 
 const PhaseInput = forwardRef(BasicPhaseInput);
 
-export function PhaseInputArea() {
+export function PhaseInputArea({
+  onConfirm,
+}: {
+  onConfirm: (values: string[]) => void;
+}) {
   const form = useForm({});
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
@@ -327,6 +338,10 @@ export function PhaseInputArea() {
     }
     return `${length} invalid words`;
   };
+
+  const handlePageFooterConfirm = useCallback(() => {
+    onConfirm(Object.values(form.getValues() as string[]));
+  }, [form, onConfirm]);
 
   // useScrollToInputArea(alertRef);
 
@@ -426,6 +441,7 @@ export function PhaseInputArea() {
       <PageFooter
         suggestions={suggestions}
         updateInputValue={updateInputValue}
+        onConfirm={handlePageFooterConfirm}
       />
     </>
   );
