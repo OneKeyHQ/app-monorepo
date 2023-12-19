@@ -1,3 +1,5 @@
+import type { ILocaleIds } from '@onekeyhq/components';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsonRpcRequest,
@@ -83,3 +85,10 @@ export enum EAccountSelectorSceneName {
 }
 
 export type INotPromise<T> = T extends Promise<any> ? never : T;
+
+export enum EHomeTab {
+  TOKENS = 'tokens',
+  NFT = 'nft',
+  HISTORY = 'history',
+  TOOLS = 'tools',
+}
