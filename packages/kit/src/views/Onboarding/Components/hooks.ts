@@ -88,7 +88,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       if (!value) {
         resetSuggestions();
       }
-      const text = value.toLowerCase().trim().slice(0, 3);
+      const text = value.toLowerCase().trim().slice(0, 4);
       const words = fetchSuggestions(text);
       openStatusRef.current = words.length > 0;
       if (words.length === 1 && text === words[0]) {
