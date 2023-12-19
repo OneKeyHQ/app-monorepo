@@ -15,6 +15,9 @@ export enum EOnboardingPages {
   ImportPrivateKey = 'ImportPrivateKey',
   ImportAddress = 'ImportAddress',
 
+  // connect 3rd-party wallet
+  ConnectWallet = 'ConnectWallet',
+
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
 }
@@ -35,6 +38,9 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
   [EOnboardingPages.ImportAddress]: undefined;
+
+  // connect 3rd-party wallet
+  [EOnboardingPages.ConnectWallet]: undefined;
 
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: undefined;

@@ -120,12 +120,12 @@ export function ImportWalletOptions() {
         {options.map(({ sectionTitle, data }, index) => (
           <Stack
             key={sectionTitle}
-            {...(index !== 0 && { mt: '$2.5' })}
+            {...(index !== 0 && { mt: '$5' })}
             {...(index === options.length - 1 && { pb: '$5' })}
           >
-            <Heading size="$headingSm" color="$textSubdued" py="$2.5">
+            {/* <Heading size="$headingSm" color="$textSubdued" py="$2.5">
               {sectionTitle}
-            </Heading>
+            </Heading> */}
             <Group
               bg="$bgSubdued"
               borderWidth={StyleSheet.hairlineWidth}

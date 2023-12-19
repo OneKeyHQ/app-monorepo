@@ -59,7 +59,7 @@ export function RecoveryPhrase() {
           $md={{ size: '$heading2xl' }}
           maxWidth={560}
         >
-          Tap to display words and record your phrases in order
+          Tap to display words and write down your phrases in order
         </Heading>
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (

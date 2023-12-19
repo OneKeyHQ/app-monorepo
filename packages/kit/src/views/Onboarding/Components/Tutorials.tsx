@@ -20,7 +20,7 @@ export function Tutorials({ list, ...rest }: ITutorials & IStackProps) {
             mt: '$5',
           })}
         >
-          <Heading size="$headingSm">{title}</Heading>
+          <Heading size="$bodyMdMedium">{title}</Heading>
           <SizableText size="$bodyMd" mt="$1.5" color="$textSubdued">
             {description}
           </SizableText>

@@ -3,6 +3,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import {
   ActivateDevice,
   BeforeShowRecoveryPhrase,
+  ConnectWallet,
   ConnectYourDevice,
   FinalizeWalletSetup,
   GetStarted,
@@ -67,6 +68,12 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportAddress,
     component: ImportAddress,
+  },
+
+  // connect 3rd-party wallet
+  {
+    name: EOnboardingPages.ConnectWallet,
+    component: ConnectWallet,
   },
 
   // finalize wallet setup

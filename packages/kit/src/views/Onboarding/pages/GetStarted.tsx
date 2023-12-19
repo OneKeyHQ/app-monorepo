@@ -1,11 +1,17 @@
 import { useState } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
   Dialog,
+  Divider,
+  Group,
+  Heading,
   HeightTransition,
+  Icon,
   Image,
   ListItem,
   Page,
@@ -13,6 +19,7 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
@@ -35,12 +42,8 @@ export function GetStarted() {
     navigation.push(EOnboardingPages.ConnectYourDevice);
   };
 
-  const handleImportPrivateKeyPress = () => {
-    navigation.push(EOnboardingPages.ImportPrivateKey);
-  };
-
-  const handleImportAddressPress = () => {
-    navigation.push(EOnboardingPages.ImportAddress);
+  const handleConnectWalletPress = () => {
+    navigation.push(EOnboardingPages.ConnectWallet);
   };
 
   const DevicesData = [
@@ -61,100 +64,142 @@ export function GetStarted() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <Page.Body p="$5" space="$5">
+      <Page.Body p="$5">
         <Stack flex={1} justifyContent="center" alignItems="center">
-          {/* <Image
+          <Image
             w="$16"
             h="$16"
-            source={require('../../../../assets/logo.png')}
+            source={require('../../../../assets/logo-decorated.png')}
           />
 
           <Heading
             size="$heading3xl"
             $gtMd={{
-              size: '$heading4xl',
+              size: '$heading3xl',
             }}
             pt="$5"
+            textAlign="center"
           >
-            Welcome to OneKey
-          </Heading> */}
+            Simplify Crypto, Amplify Security
+          </Heading>
         </Stack>
-        <Stack space="$2">
-          {/* <SizableText textAlign="center" pb="$3" size="$headingLg">
-            How would you like to get started?
-          </SizableText> */}
-          <Button
-            icon="OnekeyBrand"
-            variant="primary"
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
+        <Stack
+          py="$5"
+          $gtMd={{
+            px: '$5',
+          }}
+        >
+          <ListItem
+            m="0"
+            px="$4"
+            py="$3.5"
+            bg="$bgPrimary"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderRadius="$3"
+            borderColor="$transparent"
             onPress={handleConnectHardwareWallet}
-            // onPress={() => {
-            //   setTimeout(() => {
-            //     setShowDevices(true);
-            //   }, 1000);
+            hoverStyle={{
+              bg: '$bgPrimaryHover',
+            }}
+            pressStyle={{
+              bg: '$bgPrimaryActive',
+            }}
+          >
+            <Stack
+              alignSelf="flex-start"
+              bg="$whiteA2"
+              $theme-dark={{
+                bg: '$blackA2',
+              }}
+              p="$2"
+              borderRadius="$2"
+              style={{ borderCurve: 'continuous' }}
+            >
+              <Icon
+                name={platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline'}
+                color="$iconInverse"
+              />
+            </Stack>
+            <ListItem.Text
+              userSelect="none"
+              flex={1}
+              primary="Connect Hardware Wallet"
+              primaryTextProps={{
+                color: '$textInverse',
+              }}
+              secondary="Your secure crypto solution"
+              secondaryTextProps={{
+                color: '$textInverseSubdued',
+              }}
+            />
+            <ListItem.DrillIn
+              color="$whiteA6"
+              $theme-dark={{
+                color: '$blackA6',
+              }}
+            />
+          </ListItem>
 
-            //   Dialog.show({
-            //     title: 'Searching for devices...',
-            //     showFooter: false,
-            //     renderContent: (
-            //       <Stack mx="$-5">
-            //         <HeightTransition>
-            //           {DevicesData.map((item, index) => (
-            //             <ListItem
-            //               key={index}
-            //               drillIn
-            //               onPress={() => console.log('clicked')}
-            //               focusable={false}
-            //             >
-            //               <Image
-            //                 width={40}
-            //                 height={40}
-            //                 style={{
-            //                   width: 40,
-            //                   height: 40,
-            //                 }}
-            //                 source={item.avatar}
-            //               />
-            //               <ListItem.Text flex={1} primary={item.name} />
-            //             </ListItem>
-            //           ))}
-            //         </HeightTransition>
-            //       </Stack>
-            //     ),
-            //   });
-            // }}
+          <Group
+            bg="$bgSubdued"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderRadius="$3"
+            borderColor="$borderSubdued"
+            separator={<Divider />}
+            my="$5"
           >
-            Connect Hardware Wallet
-          </Button>
+            <ListItem
+              m="0"
+              px="$4"
+              py="$3.5"
+              drillIn
+              onPress={handleCreateWalletPress}
+            >
+              <Stack
+                alignSelf="flex-start"
+                bg="$bgStrong"
+                p="$2"
+                borderRadius="$2"
+                style={{ borderCurve: 'continuous' }}
+              >
+                <Icon name="PlusCircleOutline" />
+              </Stack>
+              <ListItem.Text
+                userSelect="none"
+                flex={1}
+                primary="Create Wallet"
+                secondary="Create new recovery phrase"
+              />
+            </ListItem>
+            <ListItem
+              m="0"
+              px="$4"
+              py="$3.5"
+              drillIn
+              onPress={handleImportWalletPress}
+            >
+              <Stack
+                alignSelf="flex-start"
+                bg="$bgStrong"
+                p="$2"
+                borderRadius="$2"
+                style={{ borderCurve: 'continuous' }}
+              >
+                <Icon name="ArrowBottomCircleOutline" />
+              </Stack>
+              <ListItem.Text
+                userSelect="none"
+                flex={1}
+                primary="Import Wallet"
+                secondary="Import recovery phrase, private key or address"
+                secondaryTextProps={{
+                  numberOfLines: 1,
+                }}
+              />
+            </ListItem>
+          </Group>
           <Button
-            icon="PlusCircleOutline"
-            onPress={handleCreateWalletPress}
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-          >
-            Create Wallet
-          </Button>
-          <Button
-            icon="ArrowBottomCircleOutline"
-            onPress={handleImportWalletPress}
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-          >
-            Import Wallet
-          </Button>
-          <Button
-            icon="LinkOutline"
-            onPress={handleImportWalletPress}
+            onPress={handleConnectWalletPress}
             variant="tertiary"
             m="$0"
             $md={
@@ -165,33 +210,6 @@ export function GetStarted() {
           >
             Connect 3rd-party Wallet
           </Button>
-          {/* <Button
-            icon="ArrowBottomCircleOutline"
-            onPress={handleImportPrivateKeyPress}
-            $md={{
-              size: 'large',
-            } as IButtonProps}
-          >
-            Import Private Key
-          </Button>
-          <Button
-            icon="ArrowBottomCircleOutline"
-            onPress={handleImportAddressPress}
-            $md={{
-              size: 'large',
-            } as IButtonProps}
-          >
-            Import Address
-          </Button>
-          <Button
-            icon="ArrowBottomCircleOutline"
-            onPress={handleImportWalletPress}
-            $md={{
-              size: 'large',
-            } as IButtonProps}
-          >
-            Connect 3rd-party Wallet
-          </Button> */}
         </Stack>
         <SizableText
           size="$bodySm"
@@ -200,6 +218,10 @@ export function GetStarted() {
           {...(bottom && {
             pb: bottom,
           })}
+          $md={{
+            maxWidth: 300,
+            mx: 'auto',
+          }}
         >
           By using this app, you agree to our{' '}
           <Anchor
