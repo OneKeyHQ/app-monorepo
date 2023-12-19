@@ -211,12 +211,6 @@ function BasicPhaseInput(
     [suggestionsRef],
   );
 
-  const autoFocusFirstButton = useDebouncedCallback((text = '') => {
-    if (isAutoFocusable(text)) {
-      firstButtonRef.current?.focus();
-    }
-  }, 5);
-
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
   }, [index, onInputFocus]);
@@ -228,9 +222,8 @@ function BasicPhaseInput(
     (v: string) => {
       const text = onInputChange(v);
       onChange?.(text);
-      autoFocusFirstButton(text);
     },
-    [autoFocusFirstButton, onChange, onInputChange],
+    [onChange, onInputChange],
   );
 
   const handleOpenChange = useCallback(

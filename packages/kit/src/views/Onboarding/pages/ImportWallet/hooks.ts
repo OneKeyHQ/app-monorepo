@@ -1,7 +1,7 @@
-import type { MutableRefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
+import { shuffle } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
@@ -33,7 +33,7 @@ export const useSearchWords = () => {
         const suggestionWords = wordLists.filter((text: string) =>
           text.startsWith(value),
         );
-        ref.current.set(value, suggestionWords);
+        ref.current.set(value, shuffle(suggestionWords));
         updateSuggestions(suggestionWords);
       }
       return suggestionsRef.current;
