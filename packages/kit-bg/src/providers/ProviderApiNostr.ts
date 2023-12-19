@@ -34,7 +34,7 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-interface QueueItem {
+interface HardwareDecryptionQueueItem {
   request: IJsBridgeMessagePayload;
   resolve: (value: string | PromiseLike<string>) => void;
   reject: (reason?: any) => void;
@@ -44,13 +44,25 @@ interface QueueItem {
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.webln;
 
-  private queue: QueueItem[] = [];
+  /**
+   * Queue for hardware decryption.
+   */
+  private hardwareDecryptionQueue: HardwareDecryptionQueueItem[] = [];
 
-  private processing = false;
+  /**
+   * Indicates whether decryption is currently being processed.
+   */
+  private decryptionProcessing = false;
 
-  private lastProcessingTime = 0;
+  /**
+   * The timestamp of the last decryption processing time.
+   */
+  private lastDecryptionProcessingTime = 0;
 
-  private processingTimeout = getTimeDurationMs({ minute: 1 });
+  /**
+   * The duration in milliseconds for the decryption timeout.
+   */
+  private decryptionTimeout = getTimeDurationMs({ minute: 1 });
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -251,16 +263,17 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    console.log('Called decrypt by DApp: ', Date.now());
     const { walletId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
 
+    // Directly decrypts the request
     if (isHdWallet({ walletId })) {
       return this.decryptRequest(request);
     }
 
+    // If the active wallet is a hardware wallet, adds the request to the decryption queue and processes it asynchronously.
     return new Promise((resolve, reject) => {
-      this.queue.push({ request, resolve, reject });
+      this.hardwareDecryptionQueue.push({ request, resolve, reject });
       this.processDecryptQueue();
     });
   }
@@ -268,35 +281,33 @@ class ProviderApiNostr extends ProviderApiBase {
   private async processDecryptQueue() {
     const currentTime = Date.now();
 
-    console.log('this.processing: ', this.processing);
-    console.log('this.queue.length: ', this.queue.length);
-    console.log(
-      `currentTime - this.lastProcessingTime < this.processingTimeoutDuration: `,
-      currentTime - this.lastProcessingTime < this.processingTimeout,
-    );
     if (
-      this.processing ||
-      this.queue.length === 0
-      // currentTime - this.lastProcessingTime < this.processingTimeoutDuration
+      this.decryptionProcessing ||
+      this.hardwareDecryptionQueue.length === 0
     ) {
-      if (currentTime - this.lastProcessingTime < this.processingTimeout) {
+      if (
+        currentTime - this.lastDecryptionProcessingTime <
+        this.decryptionTimeout
+      ) {
         return;
       }
+      debugLogger.providerApi.debug('Decrypt timeout, processing again');
     }
 
-    this.processing = true;
+    this.decryptionProcessing = true;
 
-    while (this.queue.length > 0) {
-      const { request, resolve, reject } = this.queue.shift() ?? {};
+    while (this.hardwareDecryptionQueue.length > 0) {
+      const { request, resolve, reject } =
+        this.hardwareDecryptionQueue.shift() ?? {};
       try {
         const result = await this.decryptRequest(request ?? {});
         resolve?.(result);
       } catch (error) {
         reject?.(error);
       }
-      this.lastProcessingTime = Date.now();
+      this.lastDecryptionProcessingTime = Date.now();
     }
-    this.processing = false;
+    this.decryptionProcessing = false;
   }
 
   private async decryptRequest(
