@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import {
@@ -7,6 +8,7 @@ import {
   Icon,
   Input,
   Page,
+  Popover,
   ScrollView,
   Select,
   SizableText,
@@ -68,10 +70,10 @@ function WordItem({ word, onPress }: IWordItemProps) {
 
 function SuggestionList({
   suggestions,
-  updateInputValue,
+  onPressItem,
 }: {
   suggestions: string[];
-  updateInputValue: (text: string) => void;
+  onPressItem: (text: string) => void;
 }) {
   return (
     <ScrollView
@@ -85,7 +87,7 @@ function SuggestionList({
       showsHorizontalScrollIndicator={false}
     >
       {suggestions.slice(0, 10).map((word) => (
-        <WordItem key={word} word={word} onPress={updateInputValue} />
+        <WordItem key={word} word={word} onPress={onPressItem} />
       ))}
     </ScrollView>
   );
@@ -104,7 +106,7 @@ function PageFooter({
       {isShow ? (
         <SuggestionList
           suggestions={suggestions}
-          updateInputValue={updateInputValue}
+          onPressItem={updateInputValue}
         />
       ) : null}
       <Page.FooterActions onConfirm={() => console.log('confirm')} />
@@ -119,6 +121,10 @@ function PhaseInput({
   onInputChange,
   onInputFocus,
   onInputBlur,
+  suggestionsRef,
+  updateInputValue,
+  selectInputIndex,
+  openStatusRef,
 }: {
   value?: string;
   index: number;
@@ -126,6 +132,10 @@ function PhaseInput({
   onChange?: (value: string) => void;
   onInputFocus: (index: number) => void;
   onInputBlur: (index: number) => void;
+  suggestionsRef: RefObject<string[]>;
+  selectInputIndex: RefObject<number>;
+  openStatusRef: RefObject<boolean>;
+  updateInputValue: (text: string) => void;
 }) {
   const media = useMedia();
   const handleInputFocus = useCallback(() => {
@@ -138,7 +148,7 @@ function PhaseInput({
   const handleChangeText = useCallback(
     (v: string) => {
       const text = onInputChange(v);
-      onChange(text);
+      onChange?.(text);
     },
     [onChange, onInputChange],
   );
@@ -162,6 +172,37 @@ function PhaseInput({
       />
     );
   }
+  return (
+    <Popover
+      title=""
+      open={!!openStatusRef.current && selectInputIndex.current === index}
+      renderContent={
+        <SuggestionList
+          suggestions={suggestionsRef.current || []}
+          onPressItem={updateInputValue}
+        />
+      }
+      renderTrigger={
+        <Stack>
+          <Input
+            value={value}
+            autoCorrect={false}
+            spellCheck={false}
+            size={media.md ? 'large' : 'medium'}
+            leftAddOnProps={{
+              label: `${index + 1}`,
+              minWidth: '$10',
+              justifyContent: 'center',
+            }}
+            onChangeText={handleChangeText}
+            onFocus={handleInputFocus}
+            onBlur={handleInputBlur}
+            returnKeyType="next"
+          />
+        </Stack>
+      }
+    />
+  );
 }
 
 function PageContent() {
@@ -188,6 +229,8 @@ function PageContent() {
     onInputFocus,
     onInputBlur,
     onInputChange,
+    suggestionsRef,
+    openStatusRef,
   } = useSuggestion(form, selectInputIndex);
 
   const handleClear = useCallback(() => {
@@ -240,6 +283,10 @@ function PageContent() {
                     onInputBlur={onInputBlur}
                     onInputChange={onInputChange}
                     onInputFocus={onInputFocus}
+                    suggestionsRef={suggestionsRef}
+                    updateInputValue={updateInputValue}
+                    openStatusRef={openStatusRef}
+                    selectInputIndex={selectInputIndex}
                   />
                 </Form.Field>
               </Stack>

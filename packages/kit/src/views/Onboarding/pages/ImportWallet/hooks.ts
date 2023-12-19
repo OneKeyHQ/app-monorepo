@@ -62,7 +62,10 @@ export const useSuggestion = (
     updateSuggestions,
     resetSuggestions,
     isValidWord,
+    suggestionsRef,
   } = useSearchWords();
+
+  const openStatusRef = useRef(false);
 
   const updateInputValue = useCallback(
     (word: string) => {
@@ -77,9 +80,11 @@ export const useSuggestion = (
     (value: string) => {
       if (!value) {
         resetSuggestions();
+        openStatusRef.current = false;
       }
       const text = value.toLowerCase().trim();
       const words = fetchSuggestions(text);
+      openStatusRef.current = words.length > 0;
       if (words.length === 1 && text === words[0]) {
         return text.slice(0, value.length - 1);
       }
@@ -98,6 +103,7 @@ export const useSuggestion = (
 
   const updateInputValueWithLock = useCallback(
     (word: string) => {
+      openStatusRef.current = false;
       updateInputValue(word);
       resetSuggestions();
     },
@@ -112,32 +118,45 @@ export const useSuggestion = (
     },
   });
 
+  const checkIsValid = useCallback(() => {
+    const value = getFormValue();
+    const result = isValidWord(value);
+    if (!result) {
+      updateInputValueWithLock('');
+      openStatusRef.current = false;
+    }
+  }, [getFormValue, isValidWord, updateInputValueWithLock]);
+
   const onInputFocus = useCallback(
     (index: number) => {
-      // scroll to input.
+      if (openStatusRef.current && index !== selectInputIndex.current) {
+        checkIsValid();
+      }
       selectInputIndex.current = index;
     },
-    [selectInputIndex],
+    [checkIsValid, selectInputIndex],
   );
 
   const onInputBlur = useCallback(
     async (index: number) => {
-      const value = getFormValue();
-      const result = isValidWord(value);
-      if (!result) {
-        const key = `phrase${index + 1}`;
-        form.setValue(key, '');
+      if (openStatusRef.current && index === selectInputIndex.current) {
+        return;
       }
-      updateSuggestions([]);
-      selectInputIndex.current = -1;
+      if (index === selectInputIndex.current) {
+        checkIsValid();
+        selectInputIndex.current = -1;
+      }
+      openStatusRef.current = false;
     },
-    [form, getFormValue, isValidWord, selectInputIndex, updateSuggestions],
+    [checkIsValid, selectInputIndex],
   );
   return {
     suggestions,
     onInputFocus,
     onInputBlur,
+    suggestionsRef,
     updateInputValue: updateInputValueWithLock,
+    openStatusRef,
     onInputChange,
   };
 };
