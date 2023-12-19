@@ -13,6 +13,9 @@ import {
   AccountSelectorProvider,
   AccountSelectorTrigger,
 } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { EOnboardingPages } from '../../Onboarding/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -78,6 +81,17 @@ function HomePageContainer() {
     ),
     [],
   );
+
+  const navigation = useAppNavigation();
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
+  useMemo(() => {
+    navigateOnboardingModal();
+  }, [navigateOnboardingModal]);
 
   return useMemo(
     () => (
