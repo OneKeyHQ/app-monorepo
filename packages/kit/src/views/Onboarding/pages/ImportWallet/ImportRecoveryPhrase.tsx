@@ -54,13 +54,20 @@ interface IWordItemProps {
 function WordItem({
   word,
   onPress,
+  tabIndex = -1,
   ...rest
 }: IWordItemProps & Omit<IButtonProps, 'onPress' | 'children'>) {
   const handlePress = useCallback(() => {
     onPress(word);
   }, [onPress, word]);
   return (
-    <Button size="small" onPress={handlePress} focusable={false} {...rest}>
+    <Button
+      size="small"
+      onPress={handlePress}
+      focusable
+      tabIndex={tabIndex}
+      {...rest}
+    >
       {word}
     </Button>
   );
@@ -69,14 +76,22 @@ function WordItem({
 function SuggestionList({
   suggestions,
   onPressItem,
+  isFocusable = false,
 }: {
   suggestions: string[];
   onPressItem: (text: string) => void;
+  isFocusable?: boolean;
 }) {
   const wordItems = suggestions
     .slice(0, 10)
     .map((word) => (
-      <WordItem key={word} word={word} onPress={onPressItem} m="$1" />
+      <WordItem
+        tabIndex={isFocusable ? 0 : -1}
+        key={word}
+        word={word}
+        onPress={onPressItem}
+        m="$1"
+      />
     ));
 
   if (platformEnv.isNative) {
@@ -142,7 +157,7 @@ function PhaseInput({
   onInputFocus: (index: number) => void;
   onInputBlur: (index: number) => void;
   suggestionsRef: RefObject<string[]>;
-  selectInputIndex: RefObject<number>;
+  selectInputIndex: number;
   openStatusRef: RefObject<boolean>;
   updateInputValue: (text: string) => void;
 }) {
@@ -162,10 +177,13 @@ function PhaseInput({
     [onChange, onInputChange],
   );
 
+  const suggestions = suggestionsRef.current ?? [];
+
   if (platformEnv.isNative) {
     return (
       <Input
         value={value}
+        secureTextEntry={selectInputIndex !== index}
         autoCorrect={false}
         spellCheck={false}
         size={media.md ? 'large' : 'medium'}
@@ -185,17 +203,31 @@ function PhaseInput({
     <Popover
       title="Select Word"
       placement="bottom-start"
-      open={!!openStatusRef.current && selectInputIndex.current === index}
+      usingSheet={false}
+      floatingPanelProps={{
+        onEscapeKeyDown: () => {
+          console.log('onEscapeKeyDown');
+        },
+        onPointerDownOutside: () => {
+          console.log('onPointerDownOutside');
+        },
+      }}
+      open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <SuggestionList
-          suggestions={suggestionsRef.current || []}
-          onPressItem={updateInputValue}
-        />
+        <Stack>
+          <SuggestionList
+            suggestions={suggestions}
+            onPressItem={updateInputValue}
+            isFocusable={suggestions.length === 1 || value?.length === 3}
+          />
+        </Stack>
       }
       renderTrigger={
         <Stack>
           <Input
             value={value}
+            secureTextEntry={selectInputIndex !== index}
+            autoComplete="off"
             autoCorrect={false}
             spellCheck={false}
             size={media.md ? 'large' : 'medium'}
@@ -217,7 +249,6 @@ function PhaseInput({
 
 function PageContent() {
   const form = useForm({});
-  const selectInputIndex = useRef(-1);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -241,7 +272,8 @@ function PageContent() {
     onInputChange,
     suggestionsRef,
     openStatusRef,
-  } = useSuggestion(form, selectInputIndex);
+    selectInputIndex,
+  } = useSuggestion(form);
 
   const handleClear = useCallback(() => {
     form.reset();

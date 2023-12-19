@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -13,6 +13,7 @@ import {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
+import { EOnboardingPages } from '../../Onboarding/router/type';
 
 import type { ITabHomeParamList } from '../type';
 
@@ -24,6 +25,15 @@ function HomePage() {
       screen: EAccountManagerStacksRoutes.SelectorStack,
     });
   }, [navigation]);
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
+  useMemo(() => {
+    navigateOnboardingModal();
+  }, [navigateOnboardingModal]);
 
   return (
     <Page>
