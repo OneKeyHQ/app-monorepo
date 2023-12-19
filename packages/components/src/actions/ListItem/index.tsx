@@ -1,5 +1,5 @@
-import { isValidElement } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
+import { isValidElement } from 'react';
 
 import {
   AnimatePresence,
@@ -7,7 +7,6 @@ import {
   type AvatarImageProps,
   type AvatarProps,
   type StackProps,
-  // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
   withStaticProperties,
 } from 'tamagui';

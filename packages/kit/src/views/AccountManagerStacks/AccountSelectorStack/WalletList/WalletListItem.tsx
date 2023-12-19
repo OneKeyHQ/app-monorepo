@@ -1,4 +1,5 @@
 import { Stack, Text, useMedia } from '@onekeyhq/components';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { WalletAvatar } from './WalletAvatar';
 
@@ -9,11 +10,13 @@ interface IWalletListItemProps extends StackProps {
   selected?: boolean;
   walletAvatarProps?: IWalletAvatarProps;
   walletName?: string;
+  wallet: IDBWallet | undefined;
 }
 
 export function WalletListItem({
   selected,
   walletAvatarProps,
+  wallet,
   walletName,
   ...rest
 }: IWalletListItemProps) {
@@ -42,7 +45,7 @@ export function WalletListItem({
           })}
       {...rest}
     >
-      <WalletAvatar {...walletAvatarProps} />
+      {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
       {media.gtMd && (
         <Text
           flex={1}

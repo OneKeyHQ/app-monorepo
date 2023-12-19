@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -12,31 +14,55 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { emptyArray } from '@onekeyhq/shared/src/consts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletListItem } from './WalletListItem';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '../../../../states/jotai/contexts/accountSelector';
 
-import type { IWalletProps } from '../../types';
+import { WalletListItem } from './WalletListItem';
 
 function ListItemSeparator() {
   return <Stack h="$3" />;
 }
 
 interface IWalletListProps {
-  selectedWalletId?: IWalletProps['id'];
-  primaryWallets?: IWalletProps[];
-  othersWallet?: IWalletProps;
-  onWalletPress?: (id: IWalletProps['id']) => void;
+  num: number;
 }
 
-export function WalletList({
-  primaryWallets,
-  othersWallet,
-  onWalletPress,
-  selectedWalletId,
-}: IWalletListProps) {
+export function WalletList({ num }: IWalletListProps) {
+  const { serviceAccount } = backgroundApiProxy;
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
+  const actions = useAccountSelectorActions();
+
+  const { selectedAccount } = useSelectedAccount({ num });
+
+  const { result: walletsResult } = usePromiseResult(
+    () => serviceAccount.getHDWallets(),
+    [serviceAccount],
+  );
+  const wallets = walletsResult?.wallets ?? emptyArray;
+
+  const onWalletPress = useCallback(
+    (focusedWallet: IAccountSelectorFocusedWallet) => {
+      actions.current.updateSelectedAccount({
+        num,
+        builder: (account) => ({
+          ...account,
+          focusedWallet,
+        }),
+      });
+    },
+    [actions, num],
+  );
+
   return (
     <Stack
       $gtMd={{
@@ -58,17 +84,18 @@ export function WalletList({
       {/* Primary wallets */}
       <ListView
         estimatedItemSize="$10"
-        data={primaryWallets}
-        extraData={selectedWalletId}
-        renderItem={({ item }: { item: IWalletProps }) => (
+        data={wallets}
+        extraData={selectedAccount.focusedWallet}
+        renderItem={({ item }: { item: IDBWallet }) => (
           <WalletListItem
             key={item.id}
             walletName={item.name}
-            selected={item.id === selectedWalletId}
+            wallet={item}
+            selected={item.id === selectedAccount.focusedWallet}
             onPress={() => onWalletPress && onWalletPress(item.id)}
             walletAvatarProps={{
-              img: item.img,
-              status: item.status,
+              wallet: item,
+              status: 'default', // 'default' | 'connected';
             }}
           />
         )}
@@ -114,18 +141,18 @@ export function WalletList({
         }
       />
       {/* Others */}
-      {othersWallet && (
-        <Stack pb={bottom}>
-          <WalletListItem
-            walletName={othersWallet.name}
-            selected={othersWallet.id === selectedWalletId}
-            onPress={() => onWalletPress && onWalletPress(othersWallet.id)}
-            walletAvatarProps={{
-              img: othersWallet.img,
-            }}
-          />
-        </Stack>
-      )}
+      <Stack pb={bottom}>
+        <WalletListItem
+          walletName="Others"
+          selected={false}
+          wallet={undefined}
+          onPress={() => onWalletPress && onWalletPress('$$other')}
+          walletAvatarProps={{
+            img: 'cardDividers',
+            wallet: undefined,
+          }}
+        />
+      </Stack>
     </Stack>
   );
 }
