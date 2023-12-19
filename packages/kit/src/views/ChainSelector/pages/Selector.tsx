@@ -107,7 +107,8 @@ export function Selector() {
                 drag={drag}
                 isEditing={isEditMode}
                 isActive={isActive}
-                mx={20}
+                flex={undefined}
+                px={15}
                 onDeletePress={() => deleteItem(getIndex)}
               >
                 <AnimatePresence exitBeforeEnter>
