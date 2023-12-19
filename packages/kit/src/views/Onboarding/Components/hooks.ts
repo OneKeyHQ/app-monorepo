@@ -136,7 +136,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const onInputFocus = useCallback(
     (index: number) => {
-      console.log('onInputFocus', index);
       if (openStatusRef.current && index !== selectInputIndex) {
         checkIsValid();
       }
