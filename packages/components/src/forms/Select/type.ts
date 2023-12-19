@@ -11,7 +11,7 @@ export interface ISelectRenderTriggerProps {
 }
 
 export interface ISelectTriggerProps {
-  renderTrigger?: (props: ISelectRenderTriggerProps) => ReactElement;
+  renderTrigger: (props: ISelectRenderTriggerProps) => ReactElement;
 }
 
 export interface ISelectItem {

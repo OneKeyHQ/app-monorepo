@@ -29,11 +29,11 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
     selectedItemRef.current.value === value
       ? selectedItemRef.current.label
       : value;
-  return renderTrigger ? (
+  return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({ value, label, placeholder, disabled })}
     </Trigger>
-  ) : null;
+  );
 }
 
 function SelectItem({
@@ -129,16 +129,13 @@ function SelectContent() {
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
-      selectedItemRef.current = item;
+      selectedItemRef.current.value = item.value;
+      selectedItemRef.current.label = item.label;
       onValueChange?.(item.value);
       changeOpenStatus?.(false);
     },
     [changeOpenStatus, onValueChange, selectedItemRef],
   );
-
-  const handleFocusOutside = useCallback(() => {
-    changeOpenStatus?.(false);
-  }, [changeOpenStatus]);
 
   const handleOpenChange = useCallback(
     (openStatus: boolean) => {
@@ -208,7 +205,6 @@ function SelectContent() {
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      onFocusOutside={handleFocusOutside}
       keepChildrenMounted
       sheetProps={{
         dismissOnSnapToBottom: false,
