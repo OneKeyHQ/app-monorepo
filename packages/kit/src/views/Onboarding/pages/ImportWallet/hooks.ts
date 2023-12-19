@@ -52,10 +52,7 @@ export const useSearchWords = () => {
   };
 };
 
-export const useSuggestion = (
-  form: ReturnType<typeof useForm>,
-  selectInputIndex: MutableRefObject<number>,
-) => {
+export const useSuggestion = (form: ReturnType<typeof useForm>) => {
   const {
     fetchSuggestions,
     suggestions,
@@ -65,12 +62,13 @@ export const useSuggestion = (
     suggestionsRef,
   } = useSearchWords();
 
+  const [selectInputIndex, setSelectInputIndex] = useState(-1);
+
   const openStatusRef = useRef(false);
 
   const updateInputValue = useCallback(
     (word: string) => {
-      const index = selectInputIndex.current;
-      const key = `phrase${index + 1}`;
+      const key = `phrase${selectInputIndex + 1}`;
       form.setValue(key, word);
     },
     [form, selectInputIndex],
@@ -94,8 +92,7 @@ export const useSuggestion = (
   );
 
   const getFormValue = useCallback(() => {
-    const index = selectInputIndex.current;
-    const key = `phrase${index + 1}`;
+    const key = `phrase${selectInputIndex + 1}`;
     const values = form.getValues() as Record<string, string>;
     const value = values[key];
     return value;
@@ -129,22 +126,22 @@ export const useSuggestion = (
 
   const onInputFocus = useCallback(
     (index: number) => {
-      if (openStatusRef.current && index !== selectInputIndex.current) {
+      if (openStatusRef.current && index !== selectInputIndex) {
         checkIsValid();
       }
-      selectInputIndex.current = index;
+      setSelectInputIndex(index);
     },
     [checkIsValid, selectInputIndex],
   );
 
   const onInputBlur = useCallback(
     async (index: number) => {
-      if (openStatusRef.current && index === selectInputIndex.current) {
+      if (openStatusRef.current && index === selectInputIndex) {
         return;
       }
-      if (index === selectInputIndex.current) {
+      if (index === selectInputIndex) {
         checkIsValid();
-        selectInputIndex.current = -1;
+        setSelectInputIndex(-1);
       }
       openStatusRef.current = false;
     },
@@ -158,5 +155,6 @@ export const useSuggestion = (
     updateInputValue: updateInputValueWithLock,
     openStatusRef,
     onInputChange,
+    selectInputIndex,
   };
 };

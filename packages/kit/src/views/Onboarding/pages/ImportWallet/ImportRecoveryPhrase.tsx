@@ -142,7 +142,7 @@ function PhaseInput({
   onInputFocus: (index: number) => void;
   onInputBlur: (index: number) => void;
   suggestionsRef: RefObject<string[]>;
-  selectInputIndex: RefObject<number>;
+  selectInputIndex: number;
   openStatusRef: RefObject<boolean>;
   updateInputValue: (text: string) => void;
 }) {
@@ -166,6 +166,7 @@ function PhaseInput({
     return (
       <Input
         value={value}
+        secureTextEntry={selectInputIndex !== index}
         autoCorrect={false}
         spellCheck={false}
         size={media.md ? 'large' : 'medium'}
@@ -185,7 +186,7 @@ function PhaseInput({
     <Popover
       title="Select Word"
       placement="bottom-start"
-      open={!!openStatusRef.current && selectInputIndex.current === index}
+      open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
         <SuggestionList
           suggestions={suggestionsRef.current || []}
@@ -196,6 +197,8 @@ function PhaseInput({
         <Stack>
           <Input
             value={value}
+            secureTextEntry={selectInputIndex !== index}
+            autoComplete="off"
             autoCorrect={false}
             spellCheck={false}
             size={media.md ? 'large' : 'medium'}
@@ -217,7 +220,6 @@ function PhaseInput({
 
 function PageContent() {
   const form = useForm({});
-  const selectInputIndex = useRef(-1);
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -241,7 +243,8 @@ function PageContent() {
     onInputChange,
     suggestionsRef,
     openStatusRef,
-  } = useSuggestion(form, selectInputIndex);
+    selectInputIndex,
+  } = useSuggestion(form);
 
   const handleClear = useCallback(() => {
     form.reset();
