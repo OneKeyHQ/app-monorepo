@@ -239,9 +239,14 @@ function BasicPhaseInput(
           e.preventDefault();
           e.stopPropagation();
         }
+      } else if (e.keyCode > 48 && e.keyCode < 57) {
+        const suggestionIndex = e.keyCode - 48;
+        updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
+        e.preventDefault();
+        e.stopPropagation();
       }
     },
-    [openStatusRef],
+    [openStatusRef, suggestionsRef, updateInputValue],
   ) as unknown as IInputProps['onKeyPress'];
 
   const suggestions = suggestionsRef.current ?? [];
