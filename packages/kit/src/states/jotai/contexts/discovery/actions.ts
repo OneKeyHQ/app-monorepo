@@ -21,7 +21,6 @@ import {
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -71,9 +70,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   /**
    * Browser web tab action
    */
-  setDisplayHomePage = contextAtomMethod((get, set, payload: boolean) => {
-    const v = get(displayHomePageAtom());
-    console.log('displayHomePageAtom: ', v);
+  setDisplayHomePage = contextAtomMethod((_, set, payload: boolean) => {
     set(displayHomePageAtom(), payload);
   });
 
@@ -141,12 +138,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addWebTab = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
-    // 记录函数执行时间
     const startTime = performance.now();
     const { tabs } = get(webTabsAtom());
     if (!payload.id || payload.id === homeTab.id) {
-      // TODO: nanoid will crash on native, replace by nanoid
-      payload.id = generateUUID();
+      payload.id = nanoid();
     }
     payload.timestamp = Date.now();
     this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
@@ -295,7 +290,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
       bookmark.push({ url: payload.url, title: payload.title });
       this.buildBookmarkData.call(set, bookmark);
-      console.log('===>set browserBookmarkAtom: ', bookmark);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
     },
   );
@@ -360,7 +354,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         createdAt: Date.now(),
       });
       this.buildHistoryData.call(set, history);
-      console.log('===>set browserHistoryAtom: ', history);
     },
   );
 
