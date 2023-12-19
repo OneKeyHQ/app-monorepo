@@ -579,8 +579,11 @@ ssphrase wallet
     const db = await this.readyDb;
     const { password, name, avatar, backuped, nextAccountIds, rs } = params;
     const context = await this.getContext({ verifyPassword: password });
-    const walletId = `${WALLET_TYPE_HD}-${context.nextHD}`;
-    const walletName = name || `Wallet ${context.nextHD}`; // TODO wallet name i18n?
+    const walletId = accountUtils.buildHdWalletId({
+      nextHD: context.nextHD,
+    });
+    // TODO wallet name i18n?
+    const walletName = name || `Wallet ${context.nextHD}`;
     const firstAccountIndex = 0;
 
     let addedHdAccountIndex = -1;
