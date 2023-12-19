@@ -28,14 +28,17 @@ axios.interceptors.request.use(async (config) => {
     theme = Appearance.getColorScheme() ?? defaultColorScheme;
   }
 
+  // Be consistent with backend platform definition
+  // https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
+  const platform = platformEnv.appPlatform;
+  const channel = platformEnv.appChannel;
+  const headerPlatform = [platform, channel].filter(Boolean).join('-');
+
   config.headers.set('X-Onekey-Request-ID', generateUUID());
   config.headers.set('X-Onekey-Request-Currency', settings.currency);
   config.headers.set('X-Onekey-Request-Locale', locale);
   config.headers.set('X-Onekey-Request-Theme', theme);
-  config.headers.set(
-    'X-Onekey-Request-Platform',
-    platformEnv.distributionChannel,
-  );
+  config.headers.set('X-Onekey-Request-Platform', headerPlatform);
   config.headers.set('X-Onekey-Request-Version', platformEnv.version);
   config.headers.set('X-Onekey-Request-Build-Number', platformEnv.buildNumber);
 
