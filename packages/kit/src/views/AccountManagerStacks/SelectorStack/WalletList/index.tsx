@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
+  ActionList,
   IconButton,
   ListView,
   Page,
@@ -44,9 +45,21 @@ export function WalletList({
   const { bottom } = useSafeAreaInsets();
   const navigation = useAppNavigation();
 
+  const handleConnectHardwareWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectYourDevice,
+    });
+  }, [navigation]);
+
   const handleCreateWalletPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.GetStarted,
+      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+    });
+  }, [navigation]);
+
+  const handleImportWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportRecoveryPhrase,
     });
   }, [navigation]);
 
@@ -88,40 +101,34 @@ export function WalletList({
         ItemSeparatorComponent={ListItemSeparator}
         ListFooterComponent={
           <Stack p="$1" alignItems="center" mt="$3">
-            <IconButton
+            {/* <IconButton
               icon="PlusSmallOutline"
               onPress={handleCreateWalletPress}
-            />
-            {/* <ActionList
+            /> */}
+            <ActionList
               placement="right-start"
               renderTrigger={<IconButton icon="PlusSmallOutline" />}
               title="Add wallet"
               items={[
                 {
-                  label: 'Connect hardware wallet',
+                  label: 'Connect Hardware Wallet',
                   icon: platformEnv.isNative
                     ? 'BluetoothOutline'
                     : 'UsbOutline',
-                  onPress: () => {
-                    console.log('action1');
-                  },
+                  onPress: handleConnectHardwareWalletPress,
                 },
                 {
-                  label: 'Create new wallet',
+                  label: 'Create New Wallet',
                   icon: 'Ai2StarOutline',
-                  onPress: () => {
-                    console.log('action2');
-                  },
+                  onPress: handleCreateWalletPress,
                 },
                 {
-                  label: 'Import wallet',
+                  label: 'Import Recovery Phrase',
                   icon: 'DownloadOutline',
-                  onPress: () => {
-                    console.log('action2');
-                  },
+                  onPress: handleImportWalletPress,
                 },
               ]}
-            /> */}
+            />
             {media.gtMd && (
               <Text variant="$bodySm" color="$textSubdued" mt="$1">
                 Add wallet

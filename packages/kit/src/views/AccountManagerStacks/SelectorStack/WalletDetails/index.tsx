@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 // eslint-disable-next-line spellcheck/spell-checker
 import makeBlockie from 'ethereum-blockies-base64';
@@ -16,6 +16,10 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
 
 import { WalletOptions } from './WalletOptions';
 
@@ -42,6 +46,34 @@ export function WalletDetails({
 }: IWalletDetailsProps) {
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
+  const navigation = useAppNavigation();
+
+  const pushImportPrivateKeyModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportPrivateKey,
+    });
+  }, [navigation]);
+
+  const pushImportAddressModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportAddress,
+    });
+  }, [navigation]);
+
+  const pushConnectWalletModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectWallet,
+    });
+  }, [navigation]);
+
+  const getAddAccountPressEvent = (type: any) => {
+    if (type === 'Private key') return pushImportPrivateKeyModal();
+    if (type === 'Watchlist') return pushImportAddressModal();
+    if (type === 'External') return pushConnectWalletModal();
+
+    return console.log('clicked');
+  };
+
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
@@ -175,8 +207,8 @@ export function WalletDetails({
             </AnimatePresence>
           </ListItem>
         )}
-        renderSectionFooter={() => (
-          <ListItem onPress={() => alert('add')}>
+        renderSectionFooter={({ section }: { section: IAccountGroupProps }) => (
+          <ListItem onPress={() => getAddAccountPressEvent(section.title)}>
             <Stack
               bg="$bgStrong"
               borderRadius="$2"
@@ -188,6 +220,7 @@ export function WalletDetails({
               <Icon name="PlusSmallOutline" />
             </Stack>
             <ListItem.Text
+              userSelect="none"
               primary="Add account"
               primaryTextProps={{
                 size: '$bodyLg',
