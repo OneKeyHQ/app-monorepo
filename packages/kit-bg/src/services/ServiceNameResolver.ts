@@ -20,69 +20,43 @@ class ServiceNameResolver extends ServiceBase {
 
   @backgroundMethod()
   async resolveName({ name, networkId }: IResolveNameParams) {
-    try {
-      const client = await this.getClient();
-      const resp = await client.get<{
-        data: IResolveNameResp;
-      }>('/wallet/v1/account/resolve-name', {
-        params: {
-          name,
-          networkId,
-        },
-      });
-      const resolvedNames = resp.data.data.name;
+    const client = await this.getClient();
+    const resp = await client.get<{
+      data: IResolveNameResp;
+    }>('/wallet/v1/account/resolve-name', {
+      params: {
+        name,
+        networkId,
+      },
+    });
+    const resolved = resp.data.data;
+    const { showSymbol, name: resolvedNames } = resolved;
 
-      if (!resolvedNames) {
-        return {
-          success: false,
-          message: 'message__fetching_error',
-        };
-      }
+    /** only filter address type from dot bit */
+    const addressNames = resolvedNames.filter(
+      (item) => item.type === 'address',
+    );
 
-      if (!resolvedNames.length) {
-        return {
-          success: false,
-          message: 'form__address_no_supported_address',
-        };
-      }
+    const groupedNames = map(
+      groupBy(addressNames, 'subtype'),
+      (items, symbol) => ({
+        title: symbol?.toUpperCase?.(),
+        options: map(items, (item) => ({
+          value: `${item.key}-${item.value}`,
+          label: accountUtils.shortenAddress({
+            address: item.value,
+          }),
+          badge: item.label,
+        })),
+      }),
+    );
 
-      /** only filter address type from dot bit */
-      const addressNames = resolvedNames.filter(
-        (item) => item.type === 'address',
-      );
-
-      const groupedNames = map(
-        groupBy(addressNames, 'subtype'),
-        (items, symbol) => ({
-          title: symbol?.toUpperCase?.(),
-          options: map(items, (item) => ({
-            value: `${item.key}-${item.value}`,
-            label: accountUtils.shortenAddress({
-              address: item.value,
-            }),
-            badge: item.label,
-          })),
-        }),
-      );
-
-      if (!addressNames.length) {
-        return {
-          success: false,
-          message: 'form__address_no_supported_address',
-        };
-      }
-
-      return {
-        success: true,
-        names: groupedNames,
-        length: addressNames.length,
-      };
-    } catch (e) {
-      return {
-        success: false,
-        message: 'message__fetching_error',
-      };
-    }
+    return {
+      success: true,
+      names: groupedNames,
+      length: addressNames.length,
+      showSymbol,
+    };
   }
 }
 
