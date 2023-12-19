@@ -129,15 +129,15 @@ const sections: ISelectSection[] = [
   {
     title: 'plain Section',
     data: [
-      { label: 'Apricot1', value: 'Apricot' },
+      { label: 'Apricot1', value: 'Apricot1' },
 
-      { label: 'Melon2', value: 'Melon' },
+      { label: 'Melon2', value: 'Melon2' },
 
-      { label: 'Honeydew3', value: 'Honeydew' },
+      { label: 'Honeydew3', value: 'Honeydew3' },
 
-      { label: 'Starfruit4', value: 'Starfruit' },
+      { label: 'Starfruit4', value: 'Starfruit4' },
 
-      { label: 'Blueberry5', value: 'Blueberry' },
+      { label: 'Blueberry5', value: 'Blueberry5' },
     ],
   },
 ];
