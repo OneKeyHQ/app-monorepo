@@ -2,37 +2,39 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-export function useDurationOptions() {
+import { ELockDuration } from './const';
+
+export function useOptions() {
   const intl = useIntl();
   return useMemo(
     () => [
       {
         title: intl.formatMessage({ id: 'form__always' }),
-        value: '0',
+        value: ELockDuration.Always,
       },
       {
         title: intl.formatMessage({ id: 'form__str_minute' }, { '0': 1 }),
-        value: '1',
+        value: ELockDuration.Minute,
       },
       {
         title: intl.formatMessage({ id: 'form__str_minute' }, { '0': 5 }),
-        value: '5',
+        value: ELockDuration.Minute5,
       },
       {
         title: intl.formatMessage({ id: 'form__str_minute' }, { '0': 30 }),
-        value: '30',
+        value: ELockDuration.Minute30,
       },
       {
         title: intl.formatMessage({ id: 'form__str_hour' }, { '0': 1 }),
-        value: '60',
+        value: ELockDuration.Hour,
       },
       {
         title: intl.formatMessage({ id: 'form__str_hour' }, { '0': 4 }),
-        value: '240',
+        value: ELockDuration.Hour4,
       },
       {
         title: 'Never',
-        value: '10000000000000',
+        value: ELockDuration.Never,
       },
     ],
     [intl],
