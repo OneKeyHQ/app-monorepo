@@ -26,7 +26,7 @@ export function VerifyRecoveryPhrase({
   };
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Verify your Recovery Phrase" />
       <PhaseInputArea onConfirm={handleConfirmPress} />
     </Page>
