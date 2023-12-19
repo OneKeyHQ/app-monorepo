@@ -1,6 +1,12 @@
+import { useCallback } from 'react';
+
 import { AnimatePresence } from 'tamagui';
 
 import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
+
+import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../../routes/Modal/type';
+import { EOnboardingPages } from '../../../../Onboarding/router/type';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';
@@ -15,6 +21,14 @@ import type { IWalletDetailsProps } from '..';
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
 export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
+  const navigation = useAppNavigation();
+
+  const handleBackupPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+    });
+  }, [navigation]);
+
   return (
     <HeightTransition>
       <AnimatePresence>
@@ -43,7 +57,7 @@ export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
               <WalletOptionItem
                 icon="Shield2CheckOutline"
                 label="Backup"
-                onPress={() => console.log('clicked')}
+                onPress={handleBackupPress}
               />
             )}
             <RemoveWallet wallet={wallet} />
