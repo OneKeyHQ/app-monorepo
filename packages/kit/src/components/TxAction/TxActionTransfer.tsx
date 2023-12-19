@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Icon, ListItem } from '@onekeyhq/components';
@@ -34,7 +35,9 @@ export function getTxActionTransferInfo(props: ITxActionProps) {
     transferIcon = nativeTransfer?.tokenInfo.logoURI ?? '';
     transferAmount = nativeTransfer?.amount ?? '';
     transferSymbol = nativeTransfer?.tokenInfo.symbol ?? '';
-    transferValue = nativeTransfer?.amountValue ?? '';
+    transferValue = new BigNumber(nativeTransfer?.tokenInfo.price ?? 0)
+      .times(nativeTransfer?.amount ?? 0)
+      .toFixed(2);
     transferFrom = nativeTransfer?.from ?? '';
     transferTo = nativeTransfer?.to ?? '';
   }
@@ -44,7 +47,9 @@ export function getTxActionTransferInfo(props: ITxActionProps) {
     transferIcon = tokenTransfer?.tokenInfo.logoURI ?? '';
     transferAmount = tokenTransfer?.amount ?? '';
     transferSymbol = tokenTransfer?.tokenInfo.symbol ?? '';
-    transferValue = tokenTransfer?.amountValue ?? '';
+    transferValue = new BigNumber(tokenTransfer?.tokenInfo.price ?? 0)
+      .times(tokenTransfer?.amount ?? 0)
+      .toFixed(2);
     transferFrom = tokenTransfer?.from ?? '';
     transferTo = tokenTransfer?.to ?? '';
   }

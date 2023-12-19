@@ -253,18 +253,22 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           );
         } // token
         else if (transfer.token !== '') {
+          const transferToken = token as IOnChainHistoryTxToken;
           actions.push(
-            this.buildHistoryNativeTransferAction({
+            this.buildHistoryTokenTransferAction({
               transfer,
-              token: (token as IOnChainHistoryTxToken).info,
+              token: transferToken.info,
+              price: transferToken.price,
             }),
           );
         } // native token
         else {
+          const transferToken = token as IOnChainHistoryTxToken;
           actions.push(
             this.buildHistoryNativeTransferAction({
               transfer,
-              token: (token as IOnChainHistoryTxToken).info,
+              token: transferToken.info,
+              price: transferToken.price,
             }),
           );
         }
@@ -293,9 +297,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   buildHistoryNativeTransferAction({
     transfer,
     token,
+    price,
   }: {
     transfer: IOnChainHistoryTxTransfer;
     token: IToken;
+    price: number;
   }) {
     return {
       type: EDecodedTxActionType.NATIVE_TRANSFER,
@@ -307,7 +313,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           .abs()
           .shiftedBy(token.decimals)
           .toFixed(),
-        tokenInfo: token,
+        tokenInfo: {
+          ...token,
+          price,
+        },
       },
     };
   }
@@ -315,14 +324,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   buildHistoryTokenTransferAction({
     transfer,
     token,
+    price,
   }: {
     transfer: IOnChainHistoryTxTransfer;
     token: IToken;
+    price: number;
   }) {
     return {
       type: EDecodedTxActionType.TOKEN_TRANSFER,
       tokenTransfer: {
-        tokenInfo: token,
         from: transfer.from,
         to: transfer.to,
         amount: new BigNumber(transfer.amount).abs().toFixed(),
@@ -330,6 +340,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           .abs()
           .shiftedBy(token.decimals)
           .toFixed(),
+        tokenInfo: {
+          ...token,
+          price,
+        },
       },
     };
   }

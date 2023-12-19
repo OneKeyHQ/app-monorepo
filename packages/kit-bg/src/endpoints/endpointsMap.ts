@@ -7,7 +7,8 @@ const endpointsMap: Record<
     websocket: '',
   },
   prod: {
-    http: '',
+    // TODO: change to prod endpoint
+    http: 'http://18.138.227.191:9008',
     websocket: '',
   },
 };

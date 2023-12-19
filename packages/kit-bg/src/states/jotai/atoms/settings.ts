@@ -39,7 +39,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       spendDustUTXO: false,
       appLockDuration: 240,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
-      endpointType: 'test',
+      endpointType: 'prod',
       currency: 'usd',
     },
   });

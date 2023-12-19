@@ -105,7 +105,7 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionNativeTransfer = IDecodedTxActionBase & {
-  tokenInfo: IToken;
+  tokenInfo: IToken & { price?: number };
   from: string;
   to: string;
   amount: string;
@@ -113,7 +113,7 @@ export type IDecodedTxActionNativeTransfer = IDecodedTxActionBase & {
   isInscribeTransfer?: boolean;
 };
 export type IDecodedTxActionTokenTransfer = IDecodedTxActionBase & {
-  tokenInfo: IToken;
+  tokenInfo: IToken & { price?: number };
   from: string;
   to: string;
   amount: string;
