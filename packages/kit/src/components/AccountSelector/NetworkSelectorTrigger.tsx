@@ -31,7 +31,7 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
       <Select
         items={getNetworksItems()}
         value={selectedAccount.networkId}
-        onValueChange={(id) =>
+        onChange={(id) =>
           actions.current.updateSelectedAccount({
             num,
             builder: (v) => ({
@@ -40,8 +40,6 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
             }),
           })
         }
-        triggerProps={{ width: '100%' }}
-        disablePreventBodyScroll
         title="网络"
       />
     </>
