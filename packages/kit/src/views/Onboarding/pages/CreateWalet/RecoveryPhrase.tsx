@@ -53,6 +53,8 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   return (
     <Input
       caretHidden
+      showSoftInputOnFocus={false}
+      keyboardType="numeric"
       secureTextEntry={secureTextEntry}
       onFocus={handleFocus}
       onBlur={handleBlur}
