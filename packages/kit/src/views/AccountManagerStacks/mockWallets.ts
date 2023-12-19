@@ -172,6 +172,8 @@ export const MockOthersWallet: IWalletProps = {
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
         },
       ],
+      emptyText:
+        'No private key accounts. Add a new account to manage your assets.',
     },
     {
       title: 'Watchlist',
@@ -191,10 +193,14 @@ export const MockOthersWallet: IWalletProps = {
             'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
         },
       ],
+      emptyText:
+        'Your watchlist is empty. Import a address to start monitoring.',
     },
     {
       title: 'External',
       data: [],
+      emptyText:
+        'No external wallets connected. Link a third-party wallet to view here.',
     },
   ],
 };

@@ -151,9 +151,9 @@ export function WalletDetails({
                 )}
               </SectionList.SectionHeader>
             )}
-            {section.data.length === 0 && (
+            {section.data.length === 0 && section.emptyText && (
               <ListItem
-                title="Empty state. Nostrud est eiusmod pariatur cupidatat mollit qui laborum. Consectetur nisi pariatur minim ipsum."
+                title={section.emptyText}
                 titleProps={{
                   size: '$bodyLg',
                 }}
