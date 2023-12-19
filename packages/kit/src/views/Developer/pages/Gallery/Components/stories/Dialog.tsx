@@ -5,7 +5,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
-  Checkbox,
   Dialog,
   Form,
   IconButton,
