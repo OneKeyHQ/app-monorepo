@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { Tutorials } from '../../Components';
 import { EOnboardingPages } from '../../router/type';
 
 const phrases: string[] = [
@@ -23,6 +24,19 @@ const phrases: string[] = [
   'abuse',
   'access',
   'accident',
+];
+
+const tutorials = [
+  {
+    title: "Why Can't I Copy All Phrases Together?",
+    description:
+      'To prevent malware from capturing clipboard contents, mass copying is disabled for enhanced security.',
+  },
+  {
+    title: 'Why One Word at a Time?',
+    description:
+      'Limiting display to one word at a time safeguards against screen recording threats.',
+  },
 ];
 
 export function RecoveryPhrase() {
@@ -43,8 +57,9 @@ export function RecoveryPhrase() {
           px="$1"
           size="$heading3xl"
           $md={{ size: '$heading2xl' }}
+          maxWidth={560}
         >
-          Write down your phrases in order
+          Tap to display words and record your phrases in order
         </Heading>
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
@@ -69,6 +84,7 @@ export function RecoveryPhrase() {
             </Stack>
           ))}
         </XStack>
+        <Tutorials list={tutorials} />
       </Page.Body>
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
