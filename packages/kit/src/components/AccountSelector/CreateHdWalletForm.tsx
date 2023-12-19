@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Text, TextArea } from '@onekeyhq/components';
+import { Button, Text, TextArea, Toast } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -42,6 +42,8 @@ export function CreateHdWalletForm() {
             });
 
           console.log('hd wallet created: ', wallet);
+
+          Toast.success({ title: `创建成功: ${wallet.name}` });
 
           actions.current.updateSelectedAccount({
             num: 0,
