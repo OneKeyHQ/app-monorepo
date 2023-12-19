@@ -1,14 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
-import {
-  Button,
-  ListItem,
-  Page,
-  SortableCell,
-  SortableListView,
-} from '@onekeyhq/components';
+import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
 
 type IChainItem = {
   chain: string;
@@ -42,7 +34,7 @@ function getHeaderRightComponent(
   );
 }
 
-const CELL_HEIGHT = 70;
+const CELL_HEIGHT = 48;
 
 export function Selector() {
   const [data, setData] = useState(DATA);
@@ -56,19 +48,6 @@ export function Selector() {
   const handleEditButtonPress = () => {
     setIsEditMode(!isEditMode);
   };
-
-  const deleteItem = useCallback(
-    (getIndex: () => number | undefined) => {
-      const index = getIndex();
-      if (index === undefined) {
-        return;
-      }
-      const reloadData = [...data];
-      reloadData.splice(index, 1);
-      setData(reloadData);
-    },
-    [data, setData],
-  );
 
   return (
     <Page>
@@ -91,7 +70,7 @@ export function Selector() {
             index,
           })}
           onDragEnd={(result) => setData(result.data)}
-          renderItem={({ item, drag, isActive, getIndex }) => (
+          renderItem={({ item, drag }) => (
             <ListItem
               h={CELL_HEIGHT}
               avatarProps={{
@@ -103,38 +82,39 @@ export function Selector() {
                 onPress: () => handleListItemPress(item.chain),
               })}
             >
-              <SortableCell
-                drag={drag}
-                isEditing={isEditMode}
-                isActive={isActive}
-                flex={undefined}
-                px={15}
-                onDeletePress={() => deleteItem(getIndex)}
-              >
-                <AnimatePresence exitBeforeEnter>
-                  {isEditMode && (
-                    <ListItem.IconButton
-                      title="Move to top"
-                      key="moveToTop"
-                      animation="quick"
-                      enterStyle={{
-                        opacity: 0,
-                        scale: 0,
-                      }}
-                      icon="AlignTopOutline"
-                    />
-                  )}
-                  {!isEditMode && selectedChain === item.chain && (
-                    <ListItem.CheckMark
-                      key="checkmark"
-                      enterStyle={{
-                        opacity: 0,
-                        scale: 0,
-                      }}
-                    />
-                  )}
-                </AnimatePresence>
-              </SortableCell>
+              {isEditMode && (
+                <ListItem.IconButton
+                  title="Move to top"
+                  key="moveToTop"
+                  animation="quick"
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0,
+                  }}
+                  icon="AlignTopOutline"
+                />
+              )}
+              {isEditMode && (
+                <ListItem.IconButton
+                  key="darg"
+                  animation="quick"
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0,
+                  }}
+                  icon="DragOutline"
+                  onPressIn={drag}
+                />
+              )}
+              {!isEditMode && selectedChain === item.chain && (
+                <ListItem.CheckMark
+                  key="checkmark"
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0,
+                  }}
+                />
+              )}
             </ListItem>
           )}
         />
