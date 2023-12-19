@@ -166,6 +166,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     openStatusRef,
     onInputChange,
     selectInputIndex,
+    focusNextInput,
     closePopover: resetSuggestions,
   };
 };

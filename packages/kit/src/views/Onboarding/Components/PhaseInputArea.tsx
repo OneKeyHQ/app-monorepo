@@ -8,7 +8,8 @@ import {
   useState,
 } from 'react';
 
-import { Dimensions, type TextInput } from 'react-native';
+import { compact } from 'lodash';
+import { Dimensions } from 'react-native';
 
 import type {
   IButtonProps,
@@ -38,6 +39,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
+
+import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
@@ -180,6 +183,8 @@ function BasicPhaseInput(
     selectInputIndex,
     openStatusRef,
     closePopover,
+    onReturnKeyPressed,
+    getReturnKeyLabel,
   }: {
     value?: string;
     index: number;
@@ -192,6 +197,8 @@ function BasicPhaseInput(
     openStatusRef: RefObject<boolean>;
     updateInputValue: (text: string) => void;
     closePopover: () => void;
+    onReturnKeyPressed: (index: number) => void;
+    getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions;
   },
   ref: any,
 ) {
@@ -206,6 +213,11 @@ function BasicPhaseInput(
       inputRef.current?.focus();
     },
   }));
+
+  const handleGetReturnKeyLabel = useCallback(
+    () => getReturnKeyLabel(index),
+    [getReturnKeyLabel, index],
+  );
 
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
@@ -276,8 +288,11 @@ function BasicPhaseInput(
     [openStatusRef, suggestionsRef, updateInputValue],
   ) as unknown as IInputProps['onKeyPress'];
 
-  const suggestions = suggestionsRef.current ?? [];
+  const handleSubmitEnding = useCallback(() => {
+    onReturnKeyPressed(index);
+  }, [index, onReturnKeyPressed]);
 
+  const suggestions = suggestionsRef.current ?? [];
   if (platformEnv.isNative) {
     return (
       <Input
@@ -295,7 +310,8 @@ function BasicPhaseInput(
         onChangeText={handleChangeText}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
-        returnKeyType="next"
+        returnKeyType={handleGetReturnKeyLabel()}
+        onSubmitEditing={handleSubmitEnding}
       />
     );
   }
@@ -383,7 +399,29 @@ export function PhaseInputArea({
     openStatusRef,
     selectInputIndex,
     closePopover,
+    focusNextInput,
   } = useSuggestion(form);
+
+  const handleReturnKeyPressed = useCallback(
+    (index: number) => {
+      if (index === Number(phraseLength) - 1) {
+        handlePageFooterConfirm();
+      } else {
+        void focusNextInput();
+      }
+    },
+    [focusNextInput, handlePageFooterConfirm, phraseLength],
+  );
+
+  const getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions =
+    useCallback(
+      (index: number) =>
+        index === Number(phraseLength) - 1 ||
+        compact(Object.values(form.getValues())).length === Number(phraseLength)
+          ? 'done'
+          : 'next',
+      [form, phraseLength],
+    );
 
   const handleClear = useCallback(() => {
     form.reset();
@@ -444,6 +482,8 @@ export function PhaseInputArea({
                     openStatusRef={openStatusRef}
                     selectInputIndex={selectInputIndex}
                     closePopover={closePopover}
+                    onReturnKeyPressed={handleReturnKeyPressed}
+                    getReturnKeyLabel={getReturnKeyLabel}
                   />
                 </Form.Field>
               </Stack>
