@@ -1,5 +1,14 @@
 import type { RefObject } from 'react';
-import { forwardRef, useCallback, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { Dimensions, type TextInput } from 'react-native';
 
 import type {
   IButtonProps,
@@ -23,29 +32,12 @@ import {
   useForm,
   useIsKeyboardShown,
   useMedia,
+  usePage,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
-
-const tutorials = [
-  {
-    title: 'What is a recovery phrase?',
-    description:
-      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
-  },
-  {
-    title: 'Is it safe to enter it into OneKey?',
-    description:
-      'Yes. It will be stored locally and never leave your device without your explicit permission.',
-  },
-  {
-    title: "Why can't I type full words?",
-    description:
-      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
-  },
-];
 
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
@@ -172,6 +164,9 @@ function PageFooter({
   );
 }
 
+const { height: windowHeight } = Dimensions.get('window');
+const visibleHeight = windowHeight / 3;
+
 function BasicPhaseInput(
   {
     index,
@@ -200,13 +195,42 @@ function BasicPhaseInput(
   },
   ref: any,
 ) {
+  const inputRef: RefObject<TextInput> | null = useRef(null);
   const media = useMedia();
+  const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFFocusable] = useState(false);
 
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
+
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
-  }, [index, onInputFocus]);
+    if (platformEnv.isNative && pageRef) {
+      inputRef.current?.measure(
+        (
+          x: number,
+          y: number,
+          width: number,
+          height: number,
+          pageX: number,
+          pageY: number,
+        ) => {
+          console.log(x, y, pageX, pageY, getContentOffset());
+          if (pageY > visibleHeight) {
+            pageRef.scrollTo({
+              x: 0,
+              y: getContentOffset().y + pageY - visibleHeight,
+              animated: true,
+            });
+          }
+        },
+      );
+    }
+  }, [getContentOffset, index, onInputFocus, pageRef]);
   const handleInputBlur = useCallback(() => {
     onInputBlur(index);
   }, [index, onInputBlur]);
@@ -258,7 +282,7 @@ function BasicPhaseInput(
     return (
       <Input
         value={value}
-        ref={ref}
+        ref={inputRef}
         secureTextEntry={selectInputIndex !== index}
         autoCorrect={false}
         spellCheck={false}
@@ -293,7 +317,7 @@ function BasicPhaseInput(
       renderTrigger={
         <Stack>
           <Input
-            ref={ref}
+            ref={inputRef}
             value={value}
             secureTextEntry={selectInputIndex !== index}
             autoComplete="off"
@@ -322,8 +346,12 @@ const PhaseInput = forwardRef(BasicPhaseInput);
 
 export function PhaseInputArea({
   onConfirm,
+  tutorials,
+  showPhraseLengthSelector = true,
 }: {
   onConfirm: (values: string[]) => void;
+  showPhraseLengthSelector?: boolean;
+  tutorials: { title: string; description: string }[];
 }) {
   const form = useForm({});
   const [phraseLength, setPhraseLength] = useState(
@@ -365,22 +393,26 @@ export function PhaseInputArea({
     <>
       <Page.Body>
         <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
-          <Select
-            title="Select a length"
-            placement="bottom-start"
-            items={phraseLengthOptions}
-            value={phraseLength}
-            onChange={setPhraseLength}
-            renderTrigger={({ value }) => (
-              <Button
-                iconAfter="ChevronDownSmallOutline"
-                size="small"
-                variant="tertiary"
-              >
-                {value} words
-              </Button>
-            )}
-          />
+          {showPhraseLengthSelector ? (
+            <Select
+              title="Select a length"
+              placement="bottom-start"
+              items={phraseLengthOptions}
+              value={phraseLength}
+              onChange={setPhraseLength}
+              renderTrigger={({ value }) => (
+                <Button
+                  iconAfter="ChevronDownSmallOutline"
+                  size="small"
+                  variant="tertiary"
+                >
+                  {value} words
+                </Button>
+              )}
+            />
+          ) : (
+            <Stack flex={1} />
+          )}
           <Button
             icon="BroomOutline"
             size="small"

@@ -6,7 +6,6 @@ import {
   Dialog,
   Divider,
   Group,
-  Heading,
   Icon,
   ListItem,
   Page,

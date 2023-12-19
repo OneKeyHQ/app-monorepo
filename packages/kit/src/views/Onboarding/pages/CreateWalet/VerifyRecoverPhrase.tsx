@@ -9,6 +9,13 @@ import { EOnboardingPages } from '../../router/type';
 
 import type { IOnboardingParamList } from '../../router/type';
 
+const tutorials = [
+  {
+    title: "Why can't I type full words?",
+    description:
+      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
+  },
+];
 export function VerifyRecoveryPhrase({
   route,
 }: IPageScreenProps<
@@ -26,9 +33,13 @@ export function VerifyRecoveryPhrase({
   };
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Verify your Recovery Phrase" />
-      <PhaseInputArea onConfirm={handleConfirmPress} />
+      <PhaseInputArea
+        onConfirm={handleConfirmPress}
+        showPhraseLengthSelector={false}
+        tutorials={tutorials}
+      />
     </Page>
   );
 }

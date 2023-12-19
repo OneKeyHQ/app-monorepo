@@ -1,5 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-const SvgOpenaichatgpt = (props: SvgProps) => (
+const SvgOpenaiChatgpt = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
       fill="currentColor"
@@ -7,4 +7,4 @@ const SvgOpenaichatgpt = (props: SvgProps) => (
     />
   </Svg>
 );
-export default SvgOpenaichatgpt;
+export default SvgOpenaiChatgpt;

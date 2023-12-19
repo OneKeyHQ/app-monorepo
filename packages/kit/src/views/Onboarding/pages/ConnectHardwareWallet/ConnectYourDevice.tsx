@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Linking, StyleSheet } from 'react-native';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -137,9 +138,11 @@ const FirmwareAuthenticationDialogContent = ({
         {result !== 'unknown' && (
           <Stack pt="$5">
             <Button
-              $md={{
-                size: 'large',
-              }}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
               variant="primary"
               {...(result === 'official' && {
                 onPress: onContinue,

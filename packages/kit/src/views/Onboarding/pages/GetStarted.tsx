@@ -6,11 +6,9 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
-  Dialog,
   Divider,
   Group,
   Heading,
-  HeightTransition,
   Icon,
   Image,
   ListItem,
@@ -26,7 +24,6 @@ import { EOnboardingPages } from '../router/type';
 
 export function GetStarted() {
   const { bottom } = useSafeAreaInsets();
-  const [showDevices, setShowDevices] = useState(false);
 
   const navigation = useAppNavigation();
 
@@ -45,21 +42,6 @@ export function GetStarted() {
   const handleConnectWalletPress = () => {
     navigation.push(EOnboardingPages.ConnectWallet);
   };
-
-  const DevicesData = [
-    {
-      name: 'OneKey Classic',
-      avatar: require('../../../../assets/wallet/avatar/Classic.png'),
-    },
-    {
-      name: 'OneKey Mini',
-      avatar: require('../../../../assets/wallet/avatar/Mini.png'),
-    },
-    {
-      name: 'OneKey Touch',
-      avatar: require('../../../../assets/wallet/avatar/Touch.png'),
-    },
-  ];
 
   return (
     <Page>
