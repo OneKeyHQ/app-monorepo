@@ -41,6 +41,11 @@ const tutorials = [
     description:
       'Yes. It will be stored locally and never leave your device without your explicit permission.',
   },
+  {
+    title: "Why can't I type full words",
+    description:
+      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
+  },
 ];
 
 const phraseLengthOptions = [
