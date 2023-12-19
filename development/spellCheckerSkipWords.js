@@ -581,4 +581,5 @@ module.exports = [
   'COMMITHASH',
   'dayjs',
   'swipeable',
+  'nft',
 ];
