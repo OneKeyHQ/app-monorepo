@@ -29,24 +29,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
-const tutorials = [
-  {
-    title: 'What is a recovery phrase?',
-    description:
-      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
-  },
-  {
-    title: 'Is it safe to enter it into OneKey?',
-    description:
-      'Yes. It will be stored locally and never leave your device without your explicit permission.',
-  },
-  {
-    title: "Why can't I type full words?",
-    description:
-      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
-  },
-];
-
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
   { label: '15 words', value: '15' },
@@ -322,8 +304,12 @@ const PhaseInput = forwardRef(BasicPhaseInput);
 
 export function PhaseInputArea({
   onConfirm,
+  tutorials,
+  showPhraseLengthSelector = true,
 }: {
   onConfirm: (values: string[]) => void;
+  showPhraseLengthSelector?: boolean;
+  tutorials: { title: string; description: string }[];
 }) {
   const form = useForm({});
   const [phraseLength, setPhraseLength] = useState(
@@ -365,22 +351,26 @@ export function PhaseInputArea({
     <>
       <Page.Body>
         <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
-          <Select
-            title="Select a length"
-            placement="bottom-start"
-            items={phraseLengthOptions}
-            value={phraseLength}
-            onChange={setPhraseLength}
-            renderTrigger={({ value }) => (
-              <Button
-                iconAfter="ChevronDownSmallOutline"
-                size="small"
-                variant="tertiary"
-              >
-                {value} words
-              </Button>
-            )}
-          />
+          {showPhraseLengthSelector ? (
+            <Select
+              title="Select a length"
+              placement="bottom-start"
+              items={phraseLengthOptions}
+              value={phraseLength}
+              onChange={setPhraseLength}
+              renderTrigger={({ value }) => (
+                <Button
+                  iconAfter="ChevronDownSmallOutline"
+                  size="small"
+                  variant="tertiary"
+                >
+                  {value} words
+                </Button>
+              )}
+            />
+          ) : (
+            <Stack flex={1} />
+          )}
           <Button
             icon="BroomOutline"
             size="small"
