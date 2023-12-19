@@ -82,7 +82,7 @@ export const useSuggestion = (
         resetSuggestions();
         openStatusRef.current = false;
       }
-      const text = value.toLowerCase().trim();
+      const text = value.toLowerCase().trim().slice(0, 3);
       const words = fetchSuggestions(text);
       openStatusRef.current = words.length > 0;
       if (words.length === 1 && text === words[0]) {
