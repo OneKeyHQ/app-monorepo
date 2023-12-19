@@ -147,7 +147,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const onInputBlur = useCallback(
     async (index: number) => {
-      console.log('onInputBlur', index);
       if (openStatusRef.current && index === selectInputIndex) {
         return;
       }

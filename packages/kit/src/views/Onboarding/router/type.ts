@@ -33,7 +33,9 @@ export type IOnboardingParamList = {
   // create wallet
   [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
   [EOnboardingPages.RecoveryPhrase]: undefined;
-  [EOnboardingPages.VerifyRecoverPhrase]: undefined;
+  [EOnboardingPages.VerifyRecoverPhrase]: {
+    phrases: string[];
+  };
 
   // import wallet
   [EOnboardingPages.ImportWalletOptions]: undefined;

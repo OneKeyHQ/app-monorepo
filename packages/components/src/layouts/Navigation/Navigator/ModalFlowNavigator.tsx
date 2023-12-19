@@ -29,7 +29,7 @@ export interface IModalFlowNavigatorConfig<
 export const makeModalComponent =
   (Component: ComponentType<any>) =>
   // eslint-disable-next-line react/display-name
-  (...props: any[]) => {
+  (props: any) => {
     const value = useMemo(
       () =>
         ({

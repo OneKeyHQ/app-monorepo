@@ -44,7 +44,9 @@ export function RecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {
-    navigation.push(EOnboardingPages.VerifyRecoverPhrase);
+    navigation.push(EOnboardingPages.VerifyRecoverPhrase, {
+      phrases,
+    });
   };
 
   return (
