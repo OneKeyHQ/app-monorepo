@@ -89,6 +89,7 @@ input {
 
 button,
 input,
+[role='button'],
 /* `Select` and `Toggle` are typically wrapped by a `Group`, so we handle them consistently. */
 .is_GroupFrame {
   -webkit-app-region: no-drag;
