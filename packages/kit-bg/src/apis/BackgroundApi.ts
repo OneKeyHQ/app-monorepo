@@ -81,9 +81,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceSend() {
-    const Service =
+    const ServiceSend =
       require('../services/ServiceSend') as typeof import('../services/ServiceSend');
-    const value = new Service.default({
+    const value = new ServiceSend.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceSend', { value });
@@ -97,6 +97,76 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceBootstrap', { value });
+    return value;
+  }
+
+  get serviceToken() {
+    const ServiceToken =
+      require('../services/ServiceToken') as typeof import('../services/ServiceToken');
+    const value = new ServiceToken.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceToken', { value });
+    return value;
+  }
+
+  get serviceNFT() {
+    const ServiceNFT =
+      require('../services/ServiceNFT') as typeof import('../services/ServiceNFT');
+    const value = new ServiceNFT.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNFT', { value });
+    return value;
+  }
+
+  get serviceHistory() {
+    const ServiceHistory =
+      require('../services/ServiceHistory') as typeof import('../services/ServiceHistory');
+    const value = new ServiceHistory.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHistory', { value });
+    return value;
+  }
+
+  get serviceDefi() {
+    const ServiceDefi =
+      require('../services/ServiceDefi') as typeof import('../services/ServiceDefi');
+    const value = new ServiceDefi.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDefi', { value });
+    return value;
+  }
+
+  get serviceValidator() {
+    const ServiceValidator =
+      require('../services/ServiceValidator') as typeof import('../services/ServiceValidator');
+    const value = new ServiceValidator.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceValidator', { value });
+    return value;
+  }
+
+  get serviceNameResolver() {
+    const ServiceNameResolver =
+      require('../services/ServiceNameResolver') as typeof import('../services/ServiceNameResolver');
+    const value = new ServiceNameResolver.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNameResolver', { value });
+    return value;
+  }
+
+  get serviceGas() {
+    const ServiceGas =
+      require('../services/ServiceGas') as typeof import('../services/ServiceGas');
+    const value = new ServiceGas.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceGas', { value });
     return value;
   }
 }

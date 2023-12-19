@@ -6,7 +6,7 @@ import type { IButtonProps, IStackProps } from '../../primitives';
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: () => void | Promise<boolean>;
+  onConfirm?: () => void | Promise<boolean | void>;
   onCancel?: () => void;
   onConfirmText?: string;
   onCancelText?: string;

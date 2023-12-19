@@ -5,6 +5,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
+import { getEndpoint } from '../endpoints';
+
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
 
@@ -20,14 +22,17 @@ export default class ServiceBase {
     this.backgroundApi = backgroundApi;
   }
 
-  get client() {
+  backgroundApi: IBackgroundApi;
+
+  async getClient(endpoint?: string) {
     if (!this._client) {
-      this._client = axios.create({ timeout: 60 * 1000 });
+      this._client = axios.create({
+        baseURL: endpoint ?? (await getEndpoint()).http,
+        timeout: 60 * 1000,
+      });
     }
     return this._client;
   }
-
-  backgroundApi: IBackgroundApi;
 
   @backgroundMethod()
   async getActiveWalletAccount() {
