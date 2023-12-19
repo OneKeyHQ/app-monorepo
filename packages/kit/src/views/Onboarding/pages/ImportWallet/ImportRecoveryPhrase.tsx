@@ -1,5 +1,5 @@
-import type { RefObject } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import type { ForwardedRef, RefObject } from 'react';
+import { forwardRef, useCallback, useRef, useState } from 'react';
 
 import { TextInputKeyPressEventData } from 'react-native';
 
@@ -154,31 +154,34 @@ function PageFooter({
   );
 }
 
-function PhaseInput({
-  index,
-  onChange,
-  value,
-  onInputChange,
-  onInputFocus,
-  onInputBlur,
-  suggestionsRef,
-  updateInputValue,
-  selectInputIndex,
-  openStatusRef,
-  closePopover,
-}: {
-  value?: string;
-  index: number;
-  onInputChange: (value: string) => string;
-  onChange?: (value: string) => void;
-  onInputFocus: (index: number) => void;
-  onInputBlur: (index: number) => void;
-  suggestionsRef: RefObject<string[]>;
-  selectInputIndex: number;
-  openStatusRef: RefObject<boolean>;
-  updateInputValue: (text: string) => void;
-  closePopover: () => void;
-}) {
+function BasicPhaseInput(
+  {
+    index,
+    onChange,
+    value,
+    onInputChange,
+    onInputFocus,
+    onInputBlur,
+    suggestionsRef,
+    updateInputValue,
+    selectInputIndex,
+    openStatusRef,
+    closePopover,
+  }: {
+    value?: string;
+    index: number;
+    onInputChange: (value: string) => string;
+    onChange?: (value: string) => void;
+    onInputFocus: (index: number) => void;
+    onInputBlur: (index: number) => void;
+    suggestionsRef: RefObject<string[]>;
+    selectInputIndex: number;
+    openStatusRef: RefObject<boolean>;
+    updateInputValue: (text: string) => void;
+    closePopover: () => void;
+  },
+  ref: any,
+) {
   const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFFocusable] = useState(false);
@@ -247,6 +250,7 @@ function PhaseInput({
     return (
       <Input
         value={value}
+        ref={ref}
         secureTextEntry={selectInputIndex !== index}
         autoCorrect={false}
         spellCheck={false}
@@ -281,6 +285,7 @@ function PhaseInput({
       renderTrigger={
         <Stack>
           <Input
+            ref={ref}
             value={value}
             secureTextEntry={selectInputIndex !== index}
             autoComplete="off"
@@ -304,6 +309,8 @@ function PhaseInput({
     />
   );
 }
+
+const PhaseInput = forwardRef(BasicPhaseInput);
 
 function PageContent() {
   const form = useForm({});

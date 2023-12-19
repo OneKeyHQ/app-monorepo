@@ -2,6 +2,7 @@ import type { MutableRefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
+import { InteractionManager } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
 
@@ -66,6 +67,14 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     updateSuggestions([]);
   }, [updateSuggestions]);
 
+  const focusNextInput = useCallback(async () => {
+    await InteractionManager.runAfterInteractions();
+    const key = `phrase${selectInputIndex + 2}`;
+    setTimeout(() => {
+      form.setFocus(key);
+    }, 300);
+  }, [form, selectInputIndex]);
+
   const updateInputValue = useCallback(
     (word: string) => {
       const key = `phrase${selectInputIndex + 1}`;
@@ -101,8 +110,11 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     (word: string) => {
       updateInputValue(word);
       resetSuggestions();
+      if (word.length > 0) {
+        void focusNextInput();
+      }
     },
-    [resetSuggestions, updateInputValue],
+    [focusNextInput, resetSuggestions, updateInputValue],
   );
 
   useKeyboardEvent({
@@ -124,6 +136,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const onInputFocus = useCallback(
     (index: number) => {
+      console.log('onInputFocus', index);
       if (openStatusRef.current && index !== selectInputIndex) {
         checkIsValid();
       }
@@ -134,6 +147,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const onInputBlur = useCallback(
     async (index: number) => {
+      console.log('onInputBlur', index);
       if (openStatusRef.current && index === selectInputIndex) {
         return;
       }
