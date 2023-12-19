@@ -18,6 +18,7 @@ import type {
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string;
+  usingSheet?: boolean;
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
   floatingPanelProps?: YStackProps;
@@ -33,6 +34,7 @@ function RawPopover({
   sheetProps,
   onOpenChange,
   onFocusOutside,
+  usingSheet = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -116,74 +118,76 @@ function RawPopover({
       </TMPopover.Content>
 
       {/* sheet */}
-      <TMPopover.Adapt when="md">
-        <TMPopover.Sheet
-          dismissOnSnapToBottom
-          animation="quick"
-          snapPointsMode="fit"
-          {...sheetProps}
-        >
-          <TMPopover.Sheet.Overlay
-            {...FIX_SHEET_PROPS}
-            backgroundColor="$bgBackdrop"
+      {usingSheet && (
+        <TMPopover.Adapt when="md">
+          <TMPopover.Sheet
+            dismissOnSnapToBottom
             animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-          <TMPopover.Sheet.Frame unstyled>
-            {/* header */}
-            <XStack
-              borderTopLeftRadius="$6"
-              borderTopRightRadius="$6"
-              backgroundColor="$bg"
-              marginHorizontal="$5"
-              paddingHorizontal="$5"
-              paddingVertical="$4"
-              justifyContent="space-between"
-              alignItems="center"
-              style={{
-                borderCurve: 'continuous',
-              }}
-            >
-              <Text variant="$headingXl" color="$text">
-                {title}
-              </Text>
-              <IconButton
-                icon="CrossedSmallOutline"
-                size="small"
-                $platform-native={{
-                  hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+            snapPointsMode="fit"
+            {...sheetProps}
+          >
+            <TMPopover.Sheet.Overlay
+              {...FIX_SHEET_PROPS}
+              backgroundColor="$bgBackdrop"
+              animation="quick"
+              enterStyle={{ opacity: 0 }}
+              exitStyle={{ opacity: 0 }}
+            />
+            <TMPopover.Sheet.Frame unstyled>
+              {/* header */}
+              <XStack
+                borderTopLeftRadius="$6"
+                borderTopRightRadius="$6"
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+                paddingVertical="$4"
+                justifyContent="space-between"
+                alignItems="center"
+                style={{
+                  borderCurve: 'continuous',
                 }}
-                onPress={() => onOpenChange?.(false)}
-                testID="popover-btn-close"
-              />
-            </XStack>
+              >
+                <Text variant="$headingXl" color="$text">
+                  {title}
+                </Text>
+                <IconButton
+                  icon="CrossedSmallOutline"
+                  size="small"
+                  $platform-native={{
+                    hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+                  }}
+                  onPress={() => onOpenChange?.(false)}
+                  testID="popover-btn-close"
+                />
+              </XStack>
 
-            {/* divider */}
-            <YStack
-              backgroundColor="$bg"
-              marginHorizontal="$5"
-              paddingHorizontal="$5"
-            >
-              <Divider />
-            </YStack>
+              {/* divider */}
+              <YStack
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+              >
+                <Divider />
+              </YStack>
 
-            <TMPopover.Sheet.ScrollView
-              borderBottomLeftRadius="$6"
-              borderBottomRightRadius="$6"
-              backgroundColor="$bg"
-              showsVerticalScrollIndicator={false}
-              marginHorizontal="$5"
-              marginBottom={bottom || '$5'}
-              style={{
-                borderCurve: 'continuous',
-              }}
-            >
-              <TMPopover.Adapt.Contents />
-            </TMPopover.Sheet.ScrollView>
-          </TMPopover.Sheet.Frame>
-        </TMPopover.Sheet>
-      </TMPopover.Adapt>
+              <TMPopover.Sheet.ScrollView
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                showsVerticalScrollIndicator={false}
+                marginHorizontal="$5"
+                marginBottom={bottom || '$5'}
+                style={{
+                  borderCurve: 'continuous',
+                }}
+              >
+                <TMPopover.Adapt.Contents />
+              </TMPopover.Sheet.ScrollView>
+            </TMPopover.Sheet.Frame>
+          </TMPopover.Sheet>
+        </TMPopover.Adapt>
+      )}
     </TMPopover>
   );
 }

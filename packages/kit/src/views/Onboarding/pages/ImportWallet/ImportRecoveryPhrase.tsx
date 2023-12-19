@@ -54,13 +54,20 @@ interface IWordItemProps {
 function WordItem({
   word,
   onPress,
+  tabIndex = -1,
   ...rest
 }: IWordItemProps & Omit<IButtonProps, 'onPress' | 'children'>) {
   const handlePress = useCallback(() => {
     onPress(word);
   }, [onPress, word]);
   return (
-    <Button size="small" onPress={handlePress} focusable={false} {...rest}>
+    <Button
+      size="small"
+      onPress={handlePress}
+      focusable
+      tabIndex={tabIndex}
+      {...rest}
+    >
       {word}
     </Button>
   );
@@ -69,14 +76,22 @@ function WordItem({
 function SuggestionList({
   suggestions,
   onPressItem,
+  isFocusable = false,
 }: {
   suggestions: string[];
   onPressItem: (text: string) => void;
+  isFocusable?: boolean;
 }) {
   const wordItems = suggestions
     .slice(0, 10)
     .map((word) => (
-      <WordItem key={word} word={word} onPress={onPressItem} m="$1" />
+      <WordItem
+        tabIndex={isFocusable ? 0 : -1}
+        key={word}
+        word={word}
+        onPress={onPressItem}
+        m="$1"
+      />
     ));
 
   if (platformEnv.isNative) {
@@ -162,6 +177,8 @@ function PhaseInput({
     [onChange, onInputChange],
   );
 
+  const suggestions = suggestionsRef.current ?? [];
+
   if (platformEnv.isNative) {
     return (
       <Input
@@ -186,11 +203,13 @@ function PhaseInput({
     <Popover
       title="Select Word"
       placement="bottom-start"
+      usingSheet={false}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
         <SuggestionList
-          suggestions={suggestionsRef.current || []}
+          suggestions={suggestions}
           onPressItem={updateInputValue}
+          isFocusable={suggestions.length === 1 || value?.length === 3}
         />
       }
       renderTrigger={
