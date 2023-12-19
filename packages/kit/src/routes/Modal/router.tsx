@@ -6,6 +6,7 @@ import { AccountManagerStacks } from '../../views/AccountManagerStacks';
 import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalDiscoveryStack } from './Discovery';
+import { ModalSendStack } from './Send';
 import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
@@ -20,6 +21,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AccountManagerStacks,
     children: AccountManagerStacks,
+  },
+  {
+    name: EModalRoutes.SendModal,
+    children: ModalSendStack,
   },
 ];
 

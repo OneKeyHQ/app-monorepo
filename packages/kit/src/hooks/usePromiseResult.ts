@@ -108,6 +108,8 @@ export function usePromiseResult<T>(
         } catch (err) {
           if (shouldSetState() && undefinedResultIfError) {
             setResult(undefined);
+          } else {
+            throw err;
           }
         } finally {
           if (loadingDelay && watchLoading) {
