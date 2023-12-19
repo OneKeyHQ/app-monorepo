@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LastActivityTracker } from '../components/LastActivityTracker';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import '../utils/axiosInterceptor';
 
 import { Container } from './Container';
 import { SplashProvider } from './SplashProvider';
