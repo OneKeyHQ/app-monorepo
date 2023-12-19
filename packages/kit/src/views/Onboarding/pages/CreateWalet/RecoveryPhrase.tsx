@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react';
+
 import {
   Input,
   Page,
@@ -39,8 +41,34 @@ const tutorials = [
   },
 ];
 
-export function RecoveryPhrase() {
+function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
+  const [secureTextEntry, changeSecureTextEntry] = useState(true);
+  const handleFocus = useCallback(() => {
+    changeSecureTextEntry(false);
+  }, []);
+  const handleBlur = useCallback(() => {
+    changeSecureTextEntry(true);
+  }, []);
+  return (
+    <Input
+      caretHidden
+      secureTextEntry={secureTextEntry}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      value={text}
+      editable={false}
+      size={media.md ? 'large' : 'medium'}
+      leftAddOnProps={{
+        label: `${index + 1}`,
+        minWidth: '$10',
+        justifyContent: 'center',
+      }}
+    />
+  );
+}
+
+export function RecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {
@@ -66,16 +94,7 @@ export function RecoveryPhrase() {
               flexBasis="33.33%"
               p="$1"
             >
-              <Input
-                value={phrase}
-                editable={false}
-                size={media.md ? 'large' : 'medium'}
-                leftAddOnProps={{
-                  label: `${index + 1}`,
-                  minWidth: '$10',
-                  justifyContent: 'center',
-                }}
-              />
+              <FocusDisplayInput text={phrase} index={index} />
             </Stack>
           ))}
         </XStack>
