@@ -83,7 +83,12 @@ function buildIndexedAccountId({
   return `${walletId}--${index}`;
 }
 
+function buildHdWalletId({ nextHD }: { nextHD: number }) {
+  return `${WALLET_TYPE_HD}-${nextHD}`;
+}
+
 export default {
+  buildHdWalletId,
   isHdWallet,
   buildHDAccountId,
   buildIndexedAccountId,
