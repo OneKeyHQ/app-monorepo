@@ -72,6 +72,9 @@ export class SwftcQuoter implements Quoter {
           destinationTransactionHash: receipt.transactionId,
         };
       }
+      if (receipt.tradeState === 'refund_complete') {
+        return { status: 'failed' };
+      }
       if (receipt.transactionId) {
         return { destinationTransactionHash: receipt.transactionId };
       }

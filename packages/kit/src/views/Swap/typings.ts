@@ -385,7 +385,11 @@ export type SwftcTransactionState =
   | 'wait_receive_confirm'
   | 'receive_complete';
 
-export type SwftcTradeState = 'wait_deposits' | 'complete' | 'exchange';
+export type SwftcTradeState =
+  | 'wait_deposits'
+  | 'complete'
+  | 'exchange'
+  | 'refund_complete';
 
 export interface SwftcTransactionReceipt {
   orderId: string;
