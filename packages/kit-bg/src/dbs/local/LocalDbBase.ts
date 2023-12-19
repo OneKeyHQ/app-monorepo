@@ -4,13 +4,14 @@ import { Buffer } from 'buffer';
 import { isNil, max } from 'lodash';
 import natsort from 'natsort';
 
-import { decrypt, encrypt } from '@onekeyhq/core/src/secret';
+import { decrypt, encrypt, sha256 } from '@onekeyhq/core/src/secret';
 import {
   OneKeyInternalError,
   PasswordNotSet,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -498,12 +499,23 @@ ssphrase wallet
         message: `txAddHDIndexedAccount ERROR: not hd wallet "${walletId}"`,
       });
     }
-    const records: IDBIndexedAccount[] = indexes.map((index) => ({
-      id: accountUtils.buildIndexedAccountId({ walletId, index }),
-      walletId,
-      index,
-      name: `Account #${index + 1}`, // TODO i18n name
-    }));
+    const records: IDBIndexedAccount[] = indexes.map((index) => {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index,
+      });
+      const hashBuffer = sha256(
+        bufferUtils.toBuffer(indexedAccountId, 'utf-8'),
+      );
+      const idHash = bufferUtils.bytesToHex(hashBuffer);
+      return {
+        id: indexedAccountId,
+        idHash,
+        walletId,
+        index,
+        name: `Account #${index + 1}`, // TODO i18n name
+      };
+    });
     console.log('txAddHDIndexedAccount txAddRecords');
     await this.txAddRecords({
       tx,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 // eslint-disable-next-line spellcheck/spell-checker
+import makeBlockie from 'ethereum-blockies-base64';
 import { AnimatePresence } from 'tamagui';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -187,7 +188,7 @@ export function WalletDetails({
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              // src: makeBlockie(item.evmAddress || item.address || ''),
+              src: makeBlockie(item.idHash || item.id),
               fallbackProps: {
                 children: <Skeleton w="$10" h="$10" />,
               },

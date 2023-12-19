@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import makeBlockie from 'ethereum-blockies-base64';
+
 import {
   Avatar,
   Button,
@@ -29,7 +31,7 @@ import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, indexedAccount, account },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
@@ -62,11 +64,14 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       maxWidth="$40"
     >
       <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image src="https://placehold.co/120x120?text=A" />
+        <Avatar.Image
+          src={makeBlockie(indexedAccount?.idHash ?? account?.address ?? '--')}
+        />
         <Avatar.Fallback>
           <Skeleton w="$6" h="$6" />
         </Avatar.Fallback>
       </Avatar>
+
       <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
         {activeAccountName}
       </Text>
