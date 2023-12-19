@@ -1,10 +1,9 @@
 import type { RefObject } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { debounce } from 'lodash';
-import { View } from 'react-native';
+import { TextInputKeyPressEventData } from 'react-native';
 
-import type { IButtonProps, IElement } from '@onekeyhq/components';
+import type { IButtonProps, IElement, IInputProps } from '@onekeyhq/components';
 import {
   Button,
   Form,
@@ -24,9 +23,12 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useDebouncedCallback } from '../../../../hooks/useDebounce';
 import { Tutorials } from '../../Components';
 
 import { useSuggestion } from './hooks';
+
+import type { NativeSyntheticEvent } from 'react-native';
 
 const tutorials = [
   {
@@ -82,23 +84,19 @@ function WordItem({
 function SuggestionList({
   suggestions,
   onPressItem,
+  firstButtonRef,
   isFocusable = false,
 }: {
   suggestions: string[];
   onPressItem: (text: string) => void;
   isFocusable?: boolean;
+  firstButtonRef?: RefObject<IElement>;
 }) {
-  const ref = useRef<IElement>(null);
-  useEffect(() => {
-    if (isFocusable) {
-      ref.current?.focus();
-    }
-  }, [isFocusable]);
   const wordItems = suggestions
     .slice(0, 10)
     .map((word, index) => (
       <WordItem
-        buttonRef={index === 0 ? ref : undefined}
+        buttonRef={index === 0 ? firstButtonRef : undefined}
         tabIndex={isFocusable ? 0 : -1}
         key={word}
         word={word}
@@ -177,15 +175,22 @@ function PhaseInput({
   closePopover: () => void;
 }) {
   const media = useMedia();
-  const contentRef = useRef<IElement>(null);
+  const firstButtonRef = useRef<IElement>(null);
+  const [tabFocusable, setTabFFocusable] = useState(false);
 
-  const isFocusable = useCallback(
+  const isAutoFocusable = useCallback(
     (text = '') => {
       const suggestions = suggestionsRef.current ?? [];
       return suggestions.length === 1 || text.length === 3;
     },
     [suggestionsRef],
   );
+
+  const autoFocusFirstButton = useDebouncedCallback((text = '') => {
+    if (isAutoFocusable(text)) {
+      firstButtonRef.current?.focus();
+    }
+  }, 5);
 
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
@@ -198,19 +203,38 @@ function PhaseInput({
     (v: string) => {
       const text = onInputChange(v);
       onChange?.(text);
+      autoFocusFirstButton(text);
     },
-    [onChange, onInputChange],
+    [autoFocusFirstButton, onChange, onInputChange],
   );
 
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
-      console.log(isOpen);
       if (!isOpen) {
         closePopover();
+        setTabFFocusable(false);
       }
     },
     [closePopover],
   );
+
+  const handleKeyPress = useCallback(
+    (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => {
+      if (e.keyCode === 9) {
+        if (openStatusRef.current) {
+          firstButtonRef.current?.focus();
+          setTabFFocusable(true);
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    },
+    [openStatusRef],
+  ) as unknown as IInputProps['onKeyPress'];
 
   const suggestions = suggestionsRef.current ?? [];
 
@@ -242,13 +266,12 @@ function PhaseInput({
       onOpenChange={handleOpenChange}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <Stack ref={contentRef}>
-          <SuggestionList
-            suggestions={suggestions}
-            onPressItem={updateInputValue}
-            isFocusable={isFocusable(value)}
-          />
-        </Stack>
+        <SuggestionList
+          firstButtonRef={firstButtonRef}
+          suggestions={suggestions}
+          onPressItem={updateInputValue}
+          isFocusable={isAutoFocusable(value) || tabFocusable}
+        />
       }
       renderTrigger={
         <Stack>
@@ -258,6 +281,7 @@ function PhaseInput({
             autoComplete="off"
             autoCorrect={false}
             spellCheck={false}
+            onKeyPress={handleKeyPress}
             size={media.md ? 'large' : 'medium'}
             leftAddOnProps={{
               label: `${index + 1}`,
