@@ -187,7 +187,6 @@ function PhaseInput({
     [suggestionsRef],
   );
 
-
   const handleInputFocus = useCallback(() => {
     onInputFocus(index);
   }, [index, onInputFocus]);
@@ -269,6 +268,7 @@ function PhaseInput({
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
             returnKeyType="next"
+            data-1p-ignore
           />
         </Stack>
       }
