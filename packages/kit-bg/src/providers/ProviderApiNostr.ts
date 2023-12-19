@@ -11,6 +11,7 @@ import {
   ModalRoutes,
   NostrModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   providerApiMethod,
@@ -19,7 +20,10 @@ import {
   IMPL_LIGHTNING,
   IMPL_NOSTR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import {
+  isHardwareWallet,
+  isHdWallet,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -30,9 +34,35 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
+interface HardwareDecryptionQueueItem {
+  request: IJsBridgeMessagePayload;
+  resolve: (value: string | PromiseLike<string>) => void;
+  reject: (reason?: any) => void;
+}
+
 @backgroundClass()
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.webln;
+
+  /**
+   * Queue for hardware decryption.
+   */
+  private hardwareDecryptionQueue: HardwareDecryptionQueueItem[] = [];
+
+  /**
+   * Indicates whether decryption is currently being processed.
+   */
+  private decryptionProcessing = false;
+
+  /**
+   * The timestamp of the last decryption processing time.
+   */
+  private lastDecryptionProcessingTime = 0;
+
+  /**
+   * The duration in milliseconds for the decryption timeout.
+   */
+  private decryptionTimeout = getTimeDurationMs({ minute: 1 });
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
@@ -70,7 +100,9 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   private checkWalletSupport(walletId: string) {
-    if (!isHdWallet({ walletId })) {
+    const isSupportedWallet =
+      isHdWallet({ walletId }) || isHardwareWallet({ walletId });
+    if (!isSupportedWallet) {
       throw new Error(
         'The current wallet does not support Nostr, switch to an app wallet',
       );
@@ -188,12 +220,12 @@ class ProviderApiNostr extends ProviderApiBase {
 
     try {
       const passwordCache = await this.getPasswordCache();
-      if (passwordCache) {
+      if (passwordCache || isHardwareWallet({ walletId })) {
         const encrypted = await this.backgroundApi.serviceNostr.encrypt({
           walletId,
           networkId,
           accountId,
-          password: passwordCache,
+          password: typeof passwordCache === 'string' ? passwordCache : '',
           pubkey: params.pubkey,
           plaintext: params.plaintext,
         });
@@ -231,8 +263,57 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    const { walletId, networkId, accountId } = getActiveWalletAccount();
+    const { walletId } = getActiveWalletAccount();
     this.checkWalletSupport(walletId);
+
+    // Directly decrypts the request
+    if (isHdWallet({ walletId })) {
+      return this.decryptRequest(request);
+    }
+
+    // If the active wallet is a hardware wallet, adds the request to the decryption queue and processes it asynchronously.
+    return new Promise((resolve, reject) => {
+      this.hardwareDecryptionQueue.push({ request, resolve, reject });
+      this.processDecryptQueue();
+    });
+  }
+
+  private async processDecryptQueue() {
+    const currentTime = Date.now();
+
+    if (
+      this.decryptionProcessing ||
+      this.hardwareDecryptionQueue.length === 0
+    ) {
+      if (
+        currentTime - this.lastDecryptionProcessingTime <
+        this.decryptionTimeout
+      ) {
+        return;
+      }
+      debugLogger.providerApi.debug('Decrypt timeout, processing again');
+    }
+
+    this.decryptionProcessing = true;
+
+    while (this.hardwareDecryptionQueue.length > 0) {
+      const { request, resolve, reject } =
+        this.hardwareDecryptionQueue.shift() ?? {};
+      try {
+        const result = await this.decryptRequest(request ?? {});
+        resolve?.(result);
+      } catch (error) {
+        reject?.(error);
+      }
+      this.lastDecryptionProcessingTime = Date.now();
+    }
+    this.decryptionProcessing = false;
+  }
+
+  private async decryptRequest(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    const { walletId, networkId, accountId } = getActiveWalletAccount();
     const params = (request.data as IJsonRpcRequest)?.params as {
       pubkey: string;
       ciphertext: string;
@@ -243,12 +324,12 @@ class ProviderApiNostr extends ProviderApiBase {
 
     try {
       const passwordCache = await this.getPasswordCache();
-      if (passwordCache) {
+      if (passwordCache || isHardwareWallet({ walletId })) {
         const decrypted = await this.backgroundApi.serviceNostr.decrypt({
           walletId,
           networkId,
           accountId,
-          password: passwordCache,
+          password: typeof passwordCache === 'string' ? passwordCache : '',
           pubkey: params.pubkey,
           ciphertext: params.ciphertext,
         });

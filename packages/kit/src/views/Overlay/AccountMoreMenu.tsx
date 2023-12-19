@@ -21,6 +21,7 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  isHardwareWallet,
   isHdWallet,
   isPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
@@ -197,6 +198,11 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
     type: 'sell',
   });
 
+  const displayNostrOption = useMemo(
+    () => isHdWallet({ walletId }) || isHardwareWallet({ walletId }),
+    [walletId],
+  );
+
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -275,7 +281,7 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
         },
         icon: 'GasIllus',
       },
-      isHdWallet({ walletId }) && {
+      displayNostrOption && {
         id: 'title__nostr',
         onPress: () => {
           navigation.navigate(RootRoutes.Modal, {
@@ -311,6 +317,7 @@ const AccountMoreMenu: FC<Props> = ({ iconBoxFlex, isSmallView }) => {
       navigation,
       copyAddress,
       openAddressDetails,
+      displayNostrOption,
     ],
   );
 
