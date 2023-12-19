@@ -124,7 +124,7 @@ const EraseData = () => {
           const { getValues } = getForm() || {};
           if (getValues) {
             const { text } = getValues();
-            return text !== 'RESET';
+            return text !== 'ERASE';
           }
           return true;
         },
