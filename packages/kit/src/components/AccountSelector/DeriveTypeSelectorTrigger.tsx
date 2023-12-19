@@ -56,7 +56,7 @@ export function DeriveTypeSelectorTrigger({ num }: { num: number }) {
       <Select
         items={deriveInfoItems}
         value={selectedAccount.deriveType}
-        onValueChange={(type) =>
+        onChange={(type) =>
           actions.current.updateSelectedAccount({
             num,
             builder: (v) => ({
@@ -65,8 +65,6 @@ export function DeriveTypeSelectorTrigger({ num }: { num: number }) {
             }),
           })
         }
-        triggerProps={{ width: '100%' }}
-        disablePreventBodyScroll
         title="派生类型"
       />
     </>

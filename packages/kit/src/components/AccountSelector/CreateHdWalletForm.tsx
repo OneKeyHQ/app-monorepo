@@ -31,9 +31,7 @@ export function CreateHdWalletForm() {
       />
       <Button
         onPress={async () => {
-          const {
-            data: { password },
-          } = await servicePassword.promptPasswordVerify();
+          const { password } = await servicePassword.promptPasswordVerify();
           const mnemonic = await servicePassword.encodeSensitiveText({
             text,
           });
