@@ -204,13 +204,23 @@ function PhaseInput({
       title="Select Word"
       placement="bottom-start"
       usingSheet={false}
+      floatingPanelProps={{
+        onEscapeKeyDown: () => {
+          console.log('onEscapeKeyDown');
+        },
+        onPointerDownOutside: () => {
+          console.log('onPointerDownOutside');
+        },
+      }}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <SuggestionList
-          suggestions={suggestions}
-          onPressItem={updateInputValue}
-          isFocusable={suggestions.length === 1 || value?.length === 3}
-        />
+        <Stack>
+          <SuggestionList
+            suggestions={suggestions}
+            onPressItem={updateInputValue}
+            isFocusable={suggestions.length === 1 || value?.length === 3}
+          />
+        </Stack>
       }
       renderTrigger={
         <Stack>

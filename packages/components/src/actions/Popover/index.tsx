@@ -11,9 +11,9 @@ import { IconButton } from '../IconButton';
 
 import type { FocusOutsideEvent } from '@tamagui/dismissable/types';
 import type {
+  PopoverContentTypeProps,
   SheetProps,
   PopoverProps as TMPopoverProps,
-  YStackProps,
 } from 'tamagui';
 
 export interface IPopoverProps extends TMPopoverProps {
@@ -21,7 +21,7 @@ export interface IPopoverProps extends TMPopoverProps {
   usingSheet?: boolean;
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
-  floatingPanelProps?: YStackProps;
+  floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
   onFocusOutside?: (event: FocusOutsideEvent) => void;
 }
