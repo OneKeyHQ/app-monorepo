@@ -11,21 +11,20 @@ import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/conta
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import { useDurationOptions } from '../AppLock/useDurationOptions';
+import { useOptions } from '../AppLock/useOptions';
 
 import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
 
 const AppLockItem = () => {
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
@@ -34,14 +33,13 @@ const AppLockItem = () => {
     });
   }, [navigation]);
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
-  const options = useDurationOptions();
+  const options = useOptions();
   const text = useMemo(() => {
     const option = options.find(
-      (item) => item.value === String(settings.appLockDuration),
+      (item) => item.value === String(appLockDuration),
     );
     return option?.title ?? '';
-  }, [options, settings]);
+  }, [options, appLockDuration]);
   return isPasswordSet ? (
     <ListItem
       onPress={onPress}

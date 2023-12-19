@@ -3,7 +3,7 @@ import { Suspense, useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import {
-  usePasswordAtom,
+  useAppIsLockedAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -11,29 +11,36 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
 import AppStateLock from './components/AppStateLock';
+import { AppStateUpdater } from './components/AppStateUpdater';
 
 export function AppStateLockContainer({
   children,
 }: PropsWithChildren<unknown>) {
-  const [{ unLock }] = usePasswordAtom();
-  const [{ isPasswordSet, webAuthCredentialId }] = usePasswordPersistAtom();
+  const [isLocked] = useAppIsLockedAtom();
+  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
-
-  if (unLock || !isPasswordSet) {
-    return children;
+  if (!isLocked) {
+    return (
+      <>
+        {children}
+        <AppStateUpdater />
+      </>
+    );
   }
 
   return (
     <AppStateLock
       enableWebAuth={!!webAuthCredentialId}
       onWebAuthVerify={async () => {
-        const res =
-          await backgroundApiProxy.servicePassword.getWebAuthPassword();
-        if (res) {
+        try {
+          await backgroundApiProxy.servicePassword.verifyPassword({
+            isWebAuth: true,
+            password: '',
+          });
           await handleUnlock();
-        } else {
+        } catch (e) {
           Toast.error({ title: '请输入密码' });
         }
       }}

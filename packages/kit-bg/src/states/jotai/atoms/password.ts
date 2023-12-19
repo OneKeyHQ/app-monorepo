@@ -1,4 +1,6 @@
+import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/AppLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { EAtomNames } from '../atomNames';
@@ -20,12 +22,20 @@ export const { target: passwordAtom, use: usePasswordAtom } =
 export type IPasswordPersistAtom = {
   isPasswordSet: boolean;
   webAuthCredentialId: string;
+  // Is the application not locked manually by the user
+  manualLocking: boolean;
+  appLockDuration: number;
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
-  globalAtom({
+  globalAtom<IPasswordPersistAtom>({
     persist: true,
     name: EAtomNames.passwordPersistAtom,
-    initialValue: { isPasswordSet: false, webAuthCredentialId: '' },
+    initialValue: {
+      isPasswordSet: false,
+      webAuthCredentialId: '',
+      manualLocking: false,
+      appLockDuration: 240,
+    },
   });
 
 export const {
@@ -48,3 +58,21 @@ export const {
     isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
   return { authType, isSupport, isEnable };
 });
+
+export const { target: appIsLocked, use: useAppIsLockedAtom } =
+  globalAtomComputed((get) => {
+    const { isPasswordSet, manualLocking, appLockDuration } = get(
+      passwordPersistAtom.atom(),
+    );
+    const { unLock } = get(passwordAtom.atom());
+    if (isPasswordSet) {
+      if (manualLocking) {
+        return true;
+      }
+      if (platformEnv.isWeb) {
+        return !unLock && String(appLockDuration) !== ELockDuration.Never;
+      }
+      return !unLock;
+    }
+    return false;
+  });
