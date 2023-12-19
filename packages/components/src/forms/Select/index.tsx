@@ -166,7 +166,10 @@ function SelectContent() {
     [],
   );
 
-  const keyExtractor = useCallback((item: ISelectItem) => item.value, []);
+  const keyExtractor = useCallback(
+    (item: ISelectItem, index: number) => `${item.value}-${index}`,
+    [],
+  );
 
   const renderContent = useMemo(
     () => {
