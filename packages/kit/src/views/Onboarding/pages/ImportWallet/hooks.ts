@@ -5,6 +5,7 @@ import wordLists from 'bip39/src/wordlists/english.json';
 import { InteractionManager } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import { shuffle } from 'lodash';
 
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -33,7 +34,7 @@ export const useSearchWords = () => {
         const suggestionWords = wordLists.filter((text: string) =>
           text.startsWith(value),
         );
-        ref.current.set(value, suggestionWords);
+        ref.current.set(value, shuffle(suggestionWords));
         updateSuggestions(suggestionWords);
       }
       return suggestionsRef.current;
