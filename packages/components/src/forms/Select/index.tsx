@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { useMedia, withStaticProperties } from 'tamagui';
 
@@ -20,20 +20,20 @@ import type {
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
-  const { changeOpenStatus, value, placeholder, disabled } =
+  const { changeOpenStatus, value, placeholder, disabled, selectedItemRef } =
     useContext(SelectContext);
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
-  return (
+  const label =
+    selectedItemRef.current.value === value
+      ? selectedItemRef.current.label
+      : value;
+  return renderTrigger ? (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
-      {renderTrigger ? (
-        renderTrigger({ value, placeholder, disabled })
-      ) : (
-        <SizableText>{value}</SizableText>
-      )}
+      {renderTrigger({ value, label, placeholder, disabled })}
     </Trigger>
-  );
+  ) : null;
 }
 
 function SelectItem({
@@ -45,8 +45,11 @@ function SelectItem({
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
-    onSelect(value);
-  }, [onSelect, value]);
+    onSelect({
+      value,
+      label,
+    });
+  }, [label, onSelect, value]);
   return useMemo(
     () => (
       <XStack
@@ -122,13 +125,15 @@ function SelectContent() {
     refreshState,
     sheetProps,
     placement,
+    selectedItemRef,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
-    (itemValue: string) => {
-      onValueChange?.(itemValue);
+    (item: ISelectItem) => {
+      selectedItemRef.current = item;
+      onValueChange?.(item.value);
       changeOpenStatus?.(false);
     },
-    [changeOpenStatus, onValueChange],
+    [changeOpenStatus, onValueChange, selectedItemRef],
   );
 
   const handleFocusOutside = useCallback(() => {
@@ -231,9 +236,11 @@ function SelectFrame({
   disabled,
   sections,
   sheetProps,
+  defaultItem = {} as ISelectItem,
   placement = 'bottom-start',
 }: ISelectProps) {
   const [openCounts, updateOpenCounts] = useState(0);
+  const selectedItemRef = useRef<ISelectItem>(defaultItem);
   const changeOpenStatus = useCallback(() => {
     updateOpenCounts((i) => i + 1);
   }, []);
@@ -252,6 +259,7 @@ function SelectFrame({
       onValueChange: onChange,
       items,
       sections,
+      selectedItemRef,
       title,
       placeholder,
       disabled,
@@ -282,10 +290,10 @@ function SelectFrame({
 
 function BasicSelect({ renderTrigger, ...props }: ISelectProps) {
   const defaultRenderTrigger = useCallback(
-    ({ value, placeholder, disabled }: ISelectRenderTriggerProps) => (
+    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
         <Input
-          value={value}
+          value={label}
           disabled={disabled}
           placeholder={placeholder}
           readonly

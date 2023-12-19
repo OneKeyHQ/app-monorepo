@@ -5,6 +5,7 @@ import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string;
+  label?: string;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -20,7 +21,7 @@ export interface ISelectItem {
 }
 
 export interface ISelectItemProps extends ISelectItem {
-  onSelect: (value: string) => void;
+  onSelect: (item: ISelectItem) => void;
   selectedValue?: string;
 }
 
@@ -30,6 +31,7 @@ export interface ISelectSection {
 }
 
 export type ISelectProps = PropsWithChildren<{
+  defaultItem?: ISelectItem;
   items?: ISelectItem[];
   sections?: ISelectSection[];
   placeholder?: string;

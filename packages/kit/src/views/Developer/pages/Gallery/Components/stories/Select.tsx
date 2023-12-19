@@ -6,36 +6,36 @@ import { Icon, Select, Stack, Text } from '@onekeyhq/components';
 import { Layout } from './utils/Layout';
 
 const items: ISelectItem[] = [
+  { label: 'Banana0', value: 'Banana' },
   {
-    label: 'Apple',
+    label: 'Apple1',
     value: 'Apple',
   },
 
   {
-    label: 'Pear',
+    label: 'Pear2',
     value: 'Pear',
   },
 
   {
-    label: 'Blackberry',
+    label: 'Blackberry3',
     value: 'Blackberry',
   },
 
   {
-    label: 'Peach',
+    label: 'Peach4',
     value: 'Peach',
   },
 
-  { label: 'Apricot', value: 'Apricot' },
+  { label: 'Apricot5', value: 'Apricot' },
 
-  { label: 'Melon', value: 'Melon' },
+  { label: 'Melon6', value: 'Melon' },
 
-  { label: 'Honeydew', value: 'Honeydew' },
+  { label: 'Honeydew7', value: 'Honeydew' },
 
-  { label: 'Starfruit', value: 'Starfruit' },
+  { label: 'Starfruit8', value: 'Starfruit' },
 
-  { label: 'Blueberry', value: 'Blueberry' },
-  { label: 'Banana', value: 'Banana' },
+  { label: 'Blueberry9', value: 'Blueberry' },
 ];
 
 const SelectDefaultItem = () => {
@@ -102,25 +102,25 @@ const sections: ISelectSection[] = [
     title: 'emoji Section',
     data: [
       {
-        label: 'Apple',
+        label: 'Apple🍎',
         value: 'Apple',
         leading: <Text variant="$bodyMdMedium">😀</Text>,
       },
 
       {
-        label: 'Pear',
+        label: 'Pear🌰',
         value: 'Pear',
         leading: <Text variant="$bodyMdMedium">🚅</Text>,
       },
 
       {
-        label: 'Blackberry',
+        label: 'Blackberry🫐',
         value: 'Blackberry',
         leading: <Text variant="$bodyMdMedium">🚆</Text>,
       },
 
       {
-        label: 'Peach',
+        label: 'Peach🍑',
         value: 'Peach',
         leading: <Icon name="AccessibilityEyeOutline" size="$5" />,
       },
@@ -129,15 +129,15 @@ const sections: ISelectSection[] = [
   {
     title: 'plain Section',
     data: [
-      { label: 'Apricot', value: 'Apricot' },
+      { label: 'Apricot1', value: 'Apricot' },
 
-      { label: 'Melon', value: 'Melon' },
+      { label: 'Melon2', value: 'Melon' },
 
-      { label: 'Honeydew', value: 'Honeydew' },
+      { label: 'Honeydew3', value: 'Honeydew' },
 
-      { label: 'Starfruit', value: 'Starfruit' },
+      { label: 'Starfruit4', value: 'Starfruit' },
 
-      { label: 'Blueberry', value: 'Blueberry' },
+      { label: 'Blueberry5', value: 'Blueberry' },
     ],
   },
 ];
@@ -149,6 +149,22 @@ const SelectSectionsItemDemo = () => {
       sections={sections}
       value={val}
       onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectDefaultValue = () => {
+  const [val, setVal] = useState('Apple');
+  return (
+    <Select
+      sections={sections}
+      value={val}
+      onChange={setVal}
+      defaultItem={{
+        label: 'Apple🍎',
+        value: 'Apple',
+      }}
       title="Demo Title"
     />
   );
@@ -197,6 +213,14 @@ const SelectGallery = () => (
         element: (
           <Stack space="$1">
             <SelectSectionsItemDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'default value with Label',
+        element: (
+          <Stack space="$1">
+            <SelectDefaultValue />
           </Stack>
         ),
       },
