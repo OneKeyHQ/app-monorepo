@@ -3,7 +3,6 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react';
