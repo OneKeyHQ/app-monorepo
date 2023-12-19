@@ -6,6 +6,7 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Avatar,
+  Group,
   Icon,
   ListView,
   Page,
@@ -14,7 +15,6 @@ import {
   Stack,
   Tab,
   Text,
-  XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +25,7 @@ import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
 
 import HeaderView from './HeaderView';
 
-import type { ITabHomeParamList } from '../../Home/type';
+import type { ITabHomeParamList } from '../../Home/router';
 
 const FirstRoute = ({
   onContentSizeChange,
@@ -144,7 +144,8 @@ function HomePage() {
       <Page>
         <Page.Header
           headerTitle={() => (
-            <XStack
+            <Group
+              flexDirection="row"
               alignItems="center"
               p="$1.5"
               mx="$-1.5"
@@ -178,7 +179,7 @@ function HomePage() {
                 size="$5"
                 color="$iconSubdued"
               />
-            </XStack>
+            </Group>
           )}
         />
         <Page.Body alignItems="center">
