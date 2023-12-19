@@ -14,6 +14,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -44,7 +45,7 @@ export function WalletList({ num }: IWalletListProps) {
 
   const { selectedAccount } = useSelectedAccount({ num });
 
-  const { result: walletsResult } = usePromiseResult(
+  const { result: walletsResult, run: reloadWallets } = usePromiseResult(
     () => serviceAccount.getHDWallets(),
     [serviceAccount],
   );
@@ -119,8 +120,24 @@ export function WalletList({ num }: IWalletListProps) {
                 {
                   label: 'Create new wallet',
                   icon: 'Ai2StarOutline',
-                  onPress: () => {
+                  onPress: async () => {
                     console.log('action2');
+
+                    const { wallet, indexedAccount } =
+                      await serviceAccount.createHDWallet({
+                        mnemonic: generateMnemonic(),
+                      });
+
+                    actions.current.updateSelectedAccount({
+                      num: 0,
+                      builder: (v) => ({
+                        ...v,
+                        indexedAccountId: indexedAccount.id,
+                        walletId: wallet.id,
+                        focusedWallet: wallet.id,
+                      }),
+                    });
+                    await reloadWallets();
                   },
                 },
                 {

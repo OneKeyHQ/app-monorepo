@@ -31,14 +31,9 @@ export function CreateHdWalletForm() {
       />
       <Button
         onPress={async () => {
-          const { password } = await servicePassword.promptPasswordVerify();
-          const mnemonic = await servicePassword.encodeSensitiveText({
-            text,
-          });
           const { wallet, indexedAccount } =
             await serviceAccount.createHDWallet({
-              mnemonic,
-              password,
+              mnemonic: text,
             });
 
           console.log('hd wallet created: ', wallet);

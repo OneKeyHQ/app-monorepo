@@ -276,16 +276,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({
-    mnemonic,
-    password,
-  }: {
-    mnemonic: string;
-    password: string;
-  }) {
-    ensureSensitiveTextEncoded(mnemonic);
+  async createHDWallet({ mnemonic }: { mnemonic: string }) {
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify();
     ensureSensitiveTextEncoded(password);
-    await this.backgroundApi.servicePassword.verifyPassword({ password });
+
+    // eslint-disable-next-line no-param-reassign
+    mnemonic = await servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    ensureSensitiveTextEncoded(mnemonic);
 
     let realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,

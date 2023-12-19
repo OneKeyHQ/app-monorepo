@@ -459,7 +459,9 @@ ssphrase wallet
       name: ELocalDBStoreNames.IndexedAccount,
     });
     return {
-      accounts: records.filter((item) => item.walletId === walletId),
+      accounts: records
+        .filter((item) => item.walletId === walletId)
+        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name)),
     };
   }
 
