@@ -153,31 +153,33 @@ const ListItemText = (props: IListItemTextProps) => {
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
-      {primary &&
-        (isValidElement(primary) ? (
-          primary
-        ) : (
-          <SizableText
-            textAlign={align}
-            size="$bodyLgMedium"
-            {...primaryTextProps}
-          >
-            {primary}
-          </SizableText>
-        ))}
-      {secondary &&
-        (isValidElement(secondary) ? (
-          secondary
-        ) : (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign={align}
-            {...secondaryTextProps}
-          >
-            {secondary}
-          </SizableText>
-        ))}
+      <>
+        {primary &&
+          (isValidElement(primary) ? (
+            primary
+          ) : (
+            <SizableText
+              textAlign={align}
+              size="$bodyLgMedium"
+              {...primaryTextProps}
+            >
+              {primary}
+            </SizableText>
+          ))}
+        {secondary &&
+          (isValidElement(secondary) ? (
+            secondary
+          ) : (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign={align}
+              {...secondaryTextProps}
+            >
+              {secondary}
+            </SizableText>
+          ))}
+      </>
     </Stack>
   );
 };

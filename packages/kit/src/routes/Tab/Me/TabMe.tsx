@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProvider } from '../../../components/AccountSelector';
+import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
@@ -34,10 +37,25 @@ const TabMe = () => {
           <Button onPress={onPress}>
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
+
+          <CreateHdWalletForm />
         </YStack>
       </Page.Body>
     </Page>
   );
 };
 
-export default TabMe;
+function TabMeContainer() {
+  return (
+    <AccountSelectorProvider
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <TabMe />
+    </AccountSelectorProvider>
+  );
+}
+
+export default TabMeContainer;
