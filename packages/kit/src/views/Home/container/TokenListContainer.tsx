@@ -14,7 +14,8 @@ type IProps = {
 
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
-  const { refreshTokenList, refreshTokenListMap } = useTokenListActions();
+  const { refreshTokenList, refreshTokenListMap } =
+    useTokenListActions().current;
 
   const promise = usePromiseResult(async () => {
     const r =
