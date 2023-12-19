@@ -1,11 +1,10 @@
-import type { MutableRefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
+import { shuffle } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
-import { shuffle } from 'lodash';
 
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
