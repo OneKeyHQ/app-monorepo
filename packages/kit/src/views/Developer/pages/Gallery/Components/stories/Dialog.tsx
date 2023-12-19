@@ -69,9 +69,11 @@ function CreateHiddenWalletDemo() {
               {/* TODO: add loading state while waiting for result */}
               <Button
                 mt="$5"
-                $md={{
-                  size: 'large',
-                }}
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
                 variant="primary"
                 onPress={async () => {
                   await dialog.close();
@@ -95,9 +97,11 @@ function CreateHiddenWalletDemo() {
               <Button
                 m="$0"
                 mt="$2"
-                $md={{
-                  size: 'large',
-                }}
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
                 variant="tertiary"
               >
                 Enter on Device
@@ -743,9 +747,11 @@ const DialogGallery = () => (
                       {/* TODO: add loading state while waiting for result */}
                       <Button
                         mt="$5"
-                        $md={{
-                          size: 'large',
-                        }as IButtonProps}
+                        $md={
+                          {
+                            size: 'large',
+                          } as IButtonProps
+                        }
                         variant="primary"
                         onPress={() =>
                           Toast.error({
@@ -758,9 +764,11 @@ const DialogGallery = () => (
                       <Button
                         m="$0"
                         mt="$2"
-                        $md={{
-                          size: 'large',
-                        }as IButtonProps}
+                        $md={
+                          {
+                            size: 'large',
+                          } as IButtonProps
+                        }
                         variant="tertiary"
                       >
                         Enter on Device
