@@ -62,7 +62,6 @@ export function CreateHdWalletForm() {
           await serviceAccount.createHDWallet({
             // mnemonic: text,
             mnemonic,
-            password: '11111111',
           });
         }}
       >

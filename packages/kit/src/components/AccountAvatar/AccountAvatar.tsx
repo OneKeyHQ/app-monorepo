@@ -1,4 +1,1 @@
-function AccountAvatar(){
-
-    return 
-}
+function AccountAvatar() {}
