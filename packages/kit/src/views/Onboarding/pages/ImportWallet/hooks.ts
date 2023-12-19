@@ -39,15 +39,11 @@ export const useSearchWords = () => {
     },
     [updateSuggestions],
   );
-  const resetSuggestions = useCallback(() => {
-    updateSuggestions([]);
-  }, [updateSuggestions]);
   return {
     fetchSuggestions,
     suggestionsRef,
     suggestions,
     updateSuggestions,
-    resetSuggestions,
     isValidWord,
   };
 };
@@ -57,7 +53,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     fetchSuggestions,
     suggestions,
     updateSuggestions,
-    resetSuggestions,
     isValidWord,
     suggestionsRef,
   } = useSearchWords();
@@ -65,6 +60,11 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
   const [selectInputIndex, setSelectInputIndex] = useState(-1);
 
   const openStatusRef = useRef(false);
+
+  const resetSuggestions = useCallback(() => {
+    openStatusRef.current = false;
+    updateSuggestions([]);
+  }, [updateSuggestions]);
 
   const updateInputValue = useCallback(
     (word: string) => {
@@ -78,7 +78,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     (value: string) => {
       if (!value) {
         resetSuggestions();
-        openStatusRef.current = false;
       }
       const text = value.toLowerCase().trim().slice(0, 3);
       const words = fetchSuggestions(text);
@@ -100,7 +99,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const updateInputValueWithLock = useCallback(
     (word: string) => {
-      openStatusRef.current = false;
       updateInputValue(word);
       resetSuggestions();
     },
@@ -156,5 +154,6 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     openStatusRef,
     onInputChange,
     selectInputIndex,
+    closePopover: resetSuggestions,
   };
 };
