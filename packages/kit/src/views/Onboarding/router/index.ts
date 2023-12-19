@@ -13,6 +13,7 @@ import {
   ImportWalletOptions,
   OneKeyHardwareWallet,
   RecoveryPhrase,
+  VerifyRecoveryPhrase,
 } from '../pages';
 
 import { EOnboardingPages } from './type';
@@ -50,6 +51,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.RecoveryPhrase,
     component: RecoveryPhrase,
+  },
+  {
+    name: EOnboardingPages.VerifyRecoverPhrase,
+    component: VerifyRecoveryPhrase,
   },
 
   // import wallet

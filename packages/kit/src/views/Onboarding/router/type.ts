@@ -8,6 +8,7 @@ export enum EOnboardingPages {
   // create wallet
   BeforeShowRecoveryPhrase = 'BeforeShowRecoveryPhrase',
   RecoveryPhrase = 'RecoveryPhrase',
+  VerifyRecoverPhrase = 'VerifyRecoverPhrase',
 
   // import wallet
   ImportWalletOptions = 'ImportWalletOptions',
@@ -32,6 +33,7 @@ export type IOnboardingParamList = {
   // create wallet
   [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
   [EOnboardingPages.RecoveryPhrase]: undefined;
+  [EOnboardingPages.VerifyRecoverPhrase]: undefined;
 
   // import wallet
   [EOnboardingPages.ImportWalletOptions]: undefined;

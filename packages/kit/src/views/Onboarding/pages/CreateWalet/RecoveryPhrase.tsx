@@ -1,7 +1,7 @@
 import {
-  Heading,
   Input,
   Page,
+  SizableText,
   Stack,
   XStack,
   useMedia,
@@ -44,23 +44,16 @@ export function RecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {
-    navigation.push(EOnboardingPages.FinalizeWalletSetup);
+    navigation.push(EOnboardingPages.VerifyRecoverPhrase);
   };
 
   return (
     <Page scrollEnabled>
-      <Page.Header />
+      <Page.Header title="Write Down Your Phrases" />
       <Page.Body p="$5" pt="$0">
-        <Heading
-          pt="$2"
-          pb="$4"
-          px="$1"
-          size="$heading3xl"
-          $md={{ size: '$heading2xl' }}
-          maxWidth={560}
-        >
+        <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
           Tap to display words and write down your phrases in order
-        </Heading>
+        </SizableText>
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
             <Stack

@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Form,
@@ -50,21 +51,18 @@ interface IWordItemProps {
   onPress: (word: string) => void;
 }
 
-function WordItem({ word, onPress }: IWordItemProps) {
+function WordItem({
+  word,
+  onPress,
+  ...rest
+}: IWordItemProps & Omit<IButtonProps, 'onPress' | 'children'>) {
   const handlePress = useCallback(() => {
     onPress(word);
   }, [onPress, word]);
   return (
-    <Stack
-      bg="$backgroundHover"
-      py="$1"
-      px="$2"
-      borderRadius="$2"
-      mr="$4"
-      onPress={handlePress}
-    >
-      <SizableText>{word}</SizableText>
-    </Stack>
+    <Button size="small" onPress={handlePress} focusable={false} {...rest}>
+      {word}
+    </Button>
   );
 }
 
@@ -75,21 +73,32 @@ function SuggestionList({
   suggestions: string[];
   onPressItem: (text: string) => void;
 }) {
+  const wordItems = suggestions
+    .slice(0, 10)
+    .map((word) => (
+      <WordItem key={word} word={word} onPress={onPressItem} m="$1" />
+    ));
+
+  if (platformEnv.isNative) {
+    return (
+      <ScrollView
+        horizontal
+        keyboardDismissMode="none"
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={{
+          p: '$1',
+        }}
+        showsHorizontalScrollIndicator={false}
+      >
+        {wordItems}
+      </ScrollView>
+    );
+  }
+
   return (
-    <ScrollView
-      horizontal
-      keyboardDismissMode="none"
-      keyboardShouldPersistTaps="always"
-      contentContainerStyle={{
-        px: '$4',
-        py: '$2',
-      }}
-      showsHorizontalScrollIndicator={false}
-    >
-      {suggestions.slice(0, 10).map((word) => (
-        <WordItem key={word} word={word} onPress={onPressItem} />
-      ))}
-    </ScrollView>
+    <XStack flexWrap="wrap" p="$1">
+      {wordItems}
+    </XStack>
   );
 }
 
@@ -174,7 +183,8 @@ function PhaseInput({
   }
   return (
     <Popover
-      title=""
+      title="Select Word"
+      placement="bottom-start"
       open={!!openStatusRef.current && selectInputIndex.current === index}
       renderContent={
         <SuggestionList

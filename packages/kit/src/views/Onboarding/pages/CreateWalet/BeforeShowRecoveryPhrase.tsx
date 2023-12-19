@@ -1,5 +1,5 @@
 import type { IIconProps } from '@onekeyhq/components';
-import { Heading, Icon, ListItem, Page, Stack } from '@onekeyhq/components';
+import { Icon, ListItem, Page, SizableText, Stack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../../router/type';
@@ -42,11 +42,6 @@ const messages: IWaningMessage[] = [
   },
 ];
 
-const phrases: string[][] = [
-  ['abandon', 'ability', 'able', 'about', 'above', 'absent'],
-  ['absorb', 'abstract', 'absurd', 'abuse', 'access', 'accident'],
-];
-
 export function BeforeShowRecoveryPhrase() {
   const navigation = useAppNavigation();
 
@@ -56,18 +51,11 @@ export function BeforeShowRecoveryPhrase() {
 
   return (
     <Page safeAreaEnabled>
-      <Page.Header />
+      <Page.Header title="Before You Proceed" />
       <Page.Body>
-        <Heading
-          pt="$2"
-          pb="$4"
-          px="$6"
-          maxWidth="$96"
-          size="$heading3xl"
-          $md={{ size: '$heading2xl' }}
-        >
+        <SizableText pt="$2" pb="$4" px="$6" size="$bodyLgMedium">
           Read the following, then save the phrase securely.
-        </Heading>
+        </SizableText>
         {messages.map((item) => (
           <ListItem key={item.message}>
             <Stack
