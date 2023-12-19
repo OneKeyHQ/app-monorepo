@@ -1,21 +1,21 @@
 import { useCallback } from 'react';
 
 import { Page, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItemSelect } from '../Components/ListItemSelect';
 
-import { useDurationOptions } from './useDurationOptions';
+import { useOptions } from './useOptions';
 
 const AppLock = () => {
-  const [settings] = useSettingsPersistAtom();
+  const [settings] = usePasswordPersistAtom();
   const onChange = useCallback(async (value: string) => {
-    await backgroundApiProxy.serviceSetting
+    await backgroundApiProxy.servicePassword
       .setAppLockDuration(Number(value))
       .catch(() => console.log('failed to set app lock duration'));
   }, []);
-  const options = useDurationOptions();
+  const options = useOptions();
   return (
     <Page>
       <Stack py="$2">
