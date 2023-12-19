@@ -2,21 +2,36 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import axios from 'axios';
 import { forEach } from 'lodash';
+import { Appearance } from 'react-native';
 
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
+
+import { defaultColorScheme } from '../hooks/useSystemColorScheme';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 axios.interceptors.request.use(async (config) => {
   const settings = await settingsPersistAtom.get();
+
+  let { locale, theme } = settings;
+
+  if (locale === 'system') {
+    locale = getDefaultLocale();
+  }
+
+  if (theme === 'system') {
+    theme = Appearance.getColorScheme() ?? defaultColorScheme;
+  }
+
   config.headers.set('X-Onekey-Request-ID', generateUUID());
   config.headers.set('X-Onekey-Request-Currency', settings.currency);
-  config.headers.set('X-Onekey-Request-Locale', settings.locale);
-  config.headers.set('X-Onekey-Request-Theme', settings.theme);
+  config.headers.set('X-Onekey-Request-Locale', locale);
+  config.headers.set('X-Onekey-Request-Theme', theme);
   config.headers.set(
     'X-Onekey-Request-Platform',
     platformEnv.distributionChannel,
