@@ -63,7 +63,6 @@
     "ejs-loader": "^0.5.0",
     "eslint": "^8.25.0",
     "expo": "~49.0.13",
-    "expo-status-bar": "~1.6.0",
     "jotai": "^2.5.0",
     "memoizee": "^0.4.15",
     "natsort": "^2.0.3",

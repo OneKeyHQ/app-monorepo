@@ -27,7 +27,7 @@ export function WalletListItem({
       alignItems="center"
       mx="$2"
       p="$1"
-      borderRadius="$2"
+      borderRadius="$3"
       style={{
         borderCurve: 'continuous',
       }}
