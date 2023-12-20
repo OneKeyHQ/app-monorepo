@@ -1,11 +1,11 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { createContext } from 'react';
 
 import type { ISelectItem, ISelectSection } from './type';
 import type { IPopoverProps } from '../../actions';
 import type { SheetProps } from 'tamagui';
 
-export const SelectContext = createContext<{
+type IContextType = {
   isOpen?: boolean;
   value?: string;
   items?: ISelectItem[];
@@ -18,4 +18,6 @@ export const SelectContext = createContext<{
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
   sheetProps?: SheetProps;
   placement?: IPopoverProps['placement'];
-}>({});
+  selectedItemRef: MutableRefObject<ISelectItem>;
+};
+export const SelectContext = createContext<IContextType>({} as IContextType);
