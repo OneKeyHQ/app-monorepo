@@ -93,11 +93,23 @@ function DialogFrame({
         return;
       }
     }
-    const result = await onConfirm?.({
-      close: dialogInstance.close,
-      getForm: () => dialogInstance.ref.current,
-    });
-    if (result || result === undefined) {
+
+    const result = onConfirm
+      ? await new Promise<boolean>((resolve) => {
+          void Promise.resolve(
+            onConfirm({
+              close: dialogInstance.close,
+              preventClose: () => {
+                resolve(false);
+              },
+              getForm: () => dialogInstance.ref.current,
+            }),
+          ).then(() => {
+            resolve(true);
+          });
+        })
+      : true;
+    if (result) {
       void onClose();
     }
   }, [onConfirm, dialogInstance, onClose]);
@@ -413,6 +425,7 @@ export const Dialog = {
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
+  Footer,
 };
 
 export * from './hooks';

@@ -307,15 +307,15 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.confirm({
                   title: 'confirm',
-                  renderContent: <Text>hide by Confirm button</Text>,
+                  renderContent: <Text>wait 1500ms</Text>,
                   onConfirm: () =>
                     new Promise((resolve) => {
                       setTimeout(() => {
                         // do stuff
                         // close the dialog.
-                        resolve(true);
+                        resolve();
                         // or keep the dialog here.
-                        // resolve(false);
+                        // reject();
                       }, 1500);
                     }),
                 })
@@ -385,7 +385,7 @@ const DialogGallery = () => (
                       setTimeout(() => {
                         // do stuff
                         // close the dialog.
-                        resolve(true);
+                        resolve();
                         // or keep the dialog here.
                         // resolve(false);
                       }, 1500);
@@ -412,7 +412,7 @@ const DialogGallery = () => (
                     return new Promise((resolve) => {
                       setTimeout(() => {
                         alert('loaded successful');
-                        resolve(true);
+                        resolve();
                       }, 3000);
                     });
                   },
@@ -429,10 +429,10 @@ const DialogGallery = () => (
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
-                    return new Promise((resolve) => {
+                    return new Promise<void>((_, reject) => {
                       setTimeout(() => {
                         alert('loaded failed');
-                        resolve(false);
+                        reject();
                       }, 3000);
                       return false;
                     });

@@ -57,8 +57,10 @@ export type IDialogProps = IBasicDialogProps &
   Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
 
 export type IOnDialogConfirm = (
-  dialogInstance: IDialogInstance,
-) => void | Promise<boolean>;
+  dialogInstance: IDialogInstance & {
+    preventClose: () => void;
+  },
+) => void | Promise<void>;
 
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
