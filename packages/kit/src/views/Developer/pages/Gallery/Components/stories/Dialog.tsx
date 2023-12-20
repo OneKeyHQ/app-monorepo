@@ -629,6 +629,57 @@ const DialogGallery = () => (
             >
               Close Dialog by Hooks !
             </Button>
+            <Button
+              mt="$4"
+              onPress={() => {
+                Dialog.show({
+                  title: 'the dialog cannot be closed by onConfirm Button',
+                  onConfirm: () =>
+                    new Promise((resolve, reject) => {
+                      reject();
+                    }),
+                });
+              }}
+            >
+              the dialog cannot be closed by onConfirm Button
+            </Button>
+            <Button
+              mt="$4"
+              onPress={() => {
+                Dialog.show({
+                  title: 'the dialog cannot be closed by onConfirm Button',
+                  onConfirm: ({ close }) =>
+                    new Promise((resolve) => {
+                      setTimeout(async () => {
+                        await close();
+                        console.log('closed');
+                      }, 100);
+                      setTimeout(() => {
+                        resolve();
+                      }, 99999999);
+                    }),
+                });
+              }}
+            >
+              close func
+            </Button>
+            <Button
+              mt="$4"
+              onPress={() => {
+                Dialog.show({
+                  title: 'preventClose',
+                  onConfirm: ({ preventClose }) =>
+                    new Promise((resolve) => {
+                      setTimeout(async () => {
+                        preventClose();
+                        resolve();
+                      }, 100);
+                    }),
+                });
+              }}
+            >
+              preventClose func
+            </Button>
           </YStack>
         ),
       },
