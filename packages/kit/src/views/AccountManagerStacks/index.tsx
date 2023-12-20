@@ -1,19 +1,16 @@
-import { lazy } from 'react';
-
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
+import { AccountSelectorStackPage } from './AccountSelectorStack';
 import { EAccountManagerStacksRoutes } from './types';
 
 import type { IAccountManagerStacksParamList } from './types';
-
-const SelectorStack = lazy(() => import('./SelectorStack'));
 
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
 >[] = [
   {
-    name: EAccountManagerStacksRoutes.SelectorStack,
-    component: SelectorStack,
+    name: EAccountManagerStacksRoutes.AccountSelectorStack,
+    component: AccountSelectorStackPage,
   },
 ];
