@@ -1,7 +1,9 @@
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type {
   ICategory,
   IDApp,
@@ -38,13 +40,23 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchDiscoveryHomePageData() {
-    const client = await this.getClient(this.getEndPoint());
-    const res = await client.get<{ data: IDiscoveryHomePageData }>(
-      '/api/v2/discover/dapp/homepage',
-    );
-    return res.data.data;
+  fetchDiscoveryHomePageData() {
+    return this._fetchDiscoveryHomePageData();
   }
+
+  _fetchDiscoveryHomePageData = memoizee(
+    async () => {
+      const client = await this.getClient(this.getEndPoint());
+      const res = await client.get<{ data: IDiscoveryHomePageData }>(
+        '/api/v2/discover/dapp/homepage',
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 5 }),
+    },
+  );
 
   @backgroundMethod()
   async searchDApp(keyword: string) {
@@ -75,17 +87,16 @@ class ServiceDiscovery extends ServiceBase {
   @backgroundMethod()
   async fetchDAppListByCategory(listParams: IDiscoveryListParams) {
     const client = await this.getClient(this.getEndPoint());
-    const res = await client.get<{ data: ICategory[] }>(
-      '/api/v2/discover/dapp/list',
-      {
-        params: {
-          cursor: listParams.cursor,
-          limit: listParams.limit ?? 20,
-          category: listParams.category,
-          network: listParams.network,
-        },
+    const res = await client.get<{
+      data: { data: IDApp[]; next: string };
+    }>('/api/v2/discover/dapp/list', {
+      params: {
+        cursor: listParams.cursor,
+        limit: listParams.limit ?? 20,
+        category: listParams.category,
+        network: listParams.network,
       },
-    );
+    });
     return res.data.data;
   }
 }

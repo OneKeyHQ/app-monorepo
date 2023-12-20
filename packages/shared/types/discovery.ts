@@ -1,6 +1,14 @@
 export interface IDiscoveryHomePageData {
-  banners: any[]; // TODO: Replace 'any' with a more specific type if possible
+  banners: IDiscoveryBanner[];
   categories: ICategory[];
+}
+
+export interface IDiscoveryBanner {
+  _id: string;
+  src: string;
+  href: string;
+  hrefType: string;
+  useSystemBrowser: boolean;
 }
 
 export interface ICategory {
