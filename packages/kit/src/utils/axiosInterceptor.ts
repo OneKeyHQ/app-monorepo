@@ -4,6 +4,7 @@ import axios from 'axios';
 import { forEach } from 'lodash';
 import { Appearance } from 'react-native';
 
+import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
 import { settingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
@@ -16,6 +17,13 @@ import { defaultColorScheme } from '../hooks/useSystemColorScheme';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 axios.interceptors.request.use(async (config) => {
+  try {
+    const isOneKeyDomain = await checkIsOneKeyDomain(config.baseURL ?? '');
+    if (!isOneKeyDomain) return config;
+  } catch (e) {
+    return config;
+  }
+
   const settings = await settingsPersistAtom.get();
 
   let { locale, theme } = settings;
@@ -45,8 +53,17 @@ axios.interceptors.request.use(async (config) => {
   return config;
 });
 
-axios.interceptors.response.use((response) => {
-  const { data }: { data: IOneKeyAPIBaseResponse } = response;
+axios.interceptors.response.use(async (response) => {
+  const { config } = response;
+  try {
+    const isOneKeyDomain = await checkIsOneKeyDomain(config.baseURL ?? '');
+    if (!isOneKeyDomain) return response;
+  } catch (e) {
+    return response;
+  }
+
+  const data = response.data as IOneKeyAPIBaseResponse;
+
   if (data.code !== 0) {
     throw new OneKeyError({
       autoToast: true,
