@@ -44,6 +44,7 @@ const PasswordUpdate = ({
   onUpdatePassword,
 }: IPasswordUpdateProps) => {
   const form = useForm<IPasswordUpdateForm>({
+    reValidateMode: 'onSubmit',
     defaultValues: {
       newPassword: '',
       oldPassword: '',
@@ -53,7 +54,7 @@ const PasswordUpdate = ({
   const [secureReentry, setSecureReentry] = useState(true);
   const intl = useIntl();
   return (
-    <Form form={form}>
+    <Form form={form} validateOnBlur={false}>
       <Form.Field name="oldPassword" rules={oldRules}>
         <Input
           size="large"

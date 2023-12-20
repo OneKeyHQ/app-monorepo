@@ -95,7 +95,7 @@ class ServiceSetting extends ServiceBase {
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
     const client = await this.getClient();
     const res = await client.get<{ data: ICurrencyItem[] }>(
-      'https://rest.onekeytest.com/gateway/currency-list',
+      '/gateway/currency-list',
     );
     return res.data.data;
   }

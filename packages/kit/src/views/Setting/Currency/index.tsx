@@ -5,6 +5,7 @@ import {
   Page,
   SearchBar,
   SectionList,
+  Spinner,
   Stack,
 } from '@onekeyhq/components';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
@@ -66,10 +67,14 @@ const CurrencyItem: FC<{ item: ICurrencyItem }> = ({ item }) => {
 
 export default function SettingCurrencyModal() {
   const [text, onChangeText] = useState('');
-  const currencyListResult = usePromiseResult<ICurrencyItem[]>(async () => {
-    const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
-    return items;
-  }, []);
+  const currencyListResult = usePromiseResult<ICurrencyItem[]>(
+    async () => {
+      const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
+      return items;
+    },
+    [],
+    { watchLoading: true },
+  );
 
   const sections = useMemo(() => {
     if (!currencyListResult.result) {
@@ -119,15 +124,21 @@ export default function SettingCurrencyModal() {
   );
   return (
     <Page>
-      <SectionList
-        estimatedItemSize="$6"
-        ListHeaderComponent={
-          <ListHeaderComponent text={text} onChangeText={onChangeText} />
-        }
-        sections={sections ?? emptySections}
-        renderItem={renderItem}
-        renderSectionHeader={renderSectionHeader}
-      />
+      {currencyListResult?.isLoading ? (
+        <Stack h="$48" justifyContent="center" alignItems="center">
+          <Spinner />
+        </Stack>
+      ) : (
+        <SectionList
+          estimatedItemSize="$6"
+          ListHeaderComponent={
+            <ListHeaderComponent text={text} onChangeText={onChangeText} />
+          }
+          sections={sections ?? emptySections}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+        />
+      )}
     </Page>
   );
 }
