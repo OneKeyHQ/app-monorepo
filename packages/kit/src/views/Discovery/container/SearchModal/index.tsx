@@ -21,7 +21,9 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { getUrlIcon } from '../../utils/explorerUtils';
@@ -66,19 +68,32 @@ function SearchModal() {
     return histories.slice(0, 8);
   }, [getHistoryData]);
 
-  const searchItem = useMemo(
-    () => ({
-      favicon: 'https://google.com',
-      title: searchValue,
-      displayTitle: `Search "${searchValue}"`,
-      id: 'searchValue',
-    }),
-    [searchValue],
-  );
+  const { result: searchResult } = usePromiseResult(async () => {
+    const ret = await backgroundApiProxy.serviceDiscovery.searchDApp(
+      searchValue,
+    );
+    return ret;
+  }, [searchValue]);
 
-  const displaySearchItem = useMemo(
-    () => searchValue.length > 0,
-    [searchValue],
+  const searchList = useMemo<IDApp[]>(() => {
+    if (!searchValue) {
+      return [];
+    }
+    return [
+      {
+        _id: 'search-value',
+        dappradarId: '',
+        name: `Search "${searchValue}"`,
+        url: '',
+        logo: getUrlIcon('https://google.com'),
+      } as IDApp,
+      ...(searchResult ?? []),
+    ];
+  }, [searchResult, searchValue]);
+
+  const displaySearchList = useMemo(
+    () => Array.isArray(searchList) && searchList.length > 0,
+    [searchList],
   );
   const displayBookmarkList = useMemo(
     () => (bookmarkData ?? []).length > 0,
@@ -90,7 +105,7 @@ function SearchModal() {
   );
 
   return (
-    <Page skipLoading enableSafeArea>
+    <Page skipLoading safeAreaEnabled>
       <Page.Header
         headerTitle="Search Modal"
         headerSearchBarOptions={{
@@ -104,30 +119,34 @@ function SearchModal() {
           },
           onSearchButtonPress: () => {
             handleOnPress({
-              url: searchItem.title,
-              name: searchItem.title,
+              url: searchValue,
+              name: searchValue,
             });
           },
         }}
       />
       <Page.Body>
         <Stack flex={1}>
-          {displaySearchItem && (
-            <ListItem
-              avatarProps={{
-                src: getUrlIcon(searchItem.favicon),
-                fallbackProps: {
-                  children: <Skeleton w="$10" h="$10" />,
-                },
-              }}
-              title={searchItem.displayTitle}
-              testID="search-modal-search-item"
-              onPress={() => {
-                handleOnPress({
-                  url: searchItem.title,
-                  name: searchItem.title,
-                });
-              }}
+          {displaySearchList && (
+            <ListView
+              estimatedItemSize="$10"
+              data={searchList}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <ListItem
+                  avatarProps={{
+                    src: item.logo || item.originLogo || getUrlIcon(item.url),
+                    fallbackProps: {
+                      children: <Skeleton w="$10" h="$10" />,
+                    },
+                  }}
+                  title={item.name}
+                  subtitleProps={{
+                    numberOfLines: 1,
+                  }}
+                  onPress={() => {}}
+                />
+              )}
             />
           )}
           {displayBookmarkList && (

@@ -64,7 +64,11 @@ class ServiceDiscovery extends ServiceBase {
       return [];
     }
     const client = await this.getClient(this.getEndPoint());
-    const res = await client.get<{ data: IDApp[] }>(
+    const {
+      data: {
+        data: { data: dapps },
+      },
+    } = await client.get<{ data: { data: IDApp[]; next: string } }>(
       '/api/v2/discover/dapp/search',
       {
         params: {
@@ -72,7 +76,7 @@ class ServiceDiscovery extends ServiceBase {
         },
       },
     );
-    return res.data.data;
+    return dapps;
   }
 
   @backgroundMethod()
