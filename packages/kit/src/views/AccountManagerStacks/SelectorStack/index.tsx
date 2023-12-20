@@ -10,7 +10,7 @@ import { WalletList } from './WalletList';
 
 const mergedWallets = [...MockPrimaryWallets, MockOthersWallet];
 
-export function SelectorStack() {
+export default function SelectorStack() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState(
     MockPrimaryWallets[0].id,

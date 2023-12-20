@@ -11,6 +11,7 @@
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "native-bundle": "react-native start",
+    "split-bundle": "SPLIT_BUNDLE=1 react-native start",
     "native-bundle:analyze": "react-native-bundle-visualizer"
   },
   "devDependencies": {
