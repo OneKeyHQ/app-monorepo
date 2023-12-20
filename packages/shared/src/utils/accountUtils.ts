@@ -73,9 +73,25 @@ function buildAccountSelectorSceneId({
   return sceneName;
 }
 
+function buildIndexedAccountId({
+  walletId,
+  index,
+}: {
+  walletId: string;
+  index: number;
+}) {
+  return `${walletId}--${index}`;
+}
+
+function buildHdWalletId({ nextHD }: { nextHD: number }) {
+  return `${WALLET_TYPE_HD}-${nextHD}`;
+}
+
 export default {
+  buildHdWalletId,
   isHdWallet,
   buildHDAccountId,
+  buildIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
   buildAccountSelectorSceneId,

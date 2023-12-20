@@ -4,13 +4,14 @@ import { Buffer } from 'buffer';
 import { isNil, max } from 'lodash';
 import natsort from 'natsort';
 
-import { decrypt, encrypt } from '@onekeyhq/core/src/secret';
+import { decrypt, encrypt, sha256 } from '@onekeyhq/core/src/secret';
 import {
   OneKeyInternalError,
   PasswordNotSet,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -458,7 +459,9 @@ ssphrase wallet
       name: ELocalDBStoreNames.IndexedAccount,
     });
     return {
-      accounts: records.filter((item) => item.walletId === walletId),
+      accounts: records
+        .filter((item) => item.walletId === walletId)
+        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name)),
     };
   }
 
@@ -498,12 +501,23 @@ ssphrase wallet
         message: `txAddHDIndexedAccount ERROR: not hd wallet "${walletId}"`,
       });
     }
-    const records: IDBIndexedAccount[] = indexes.map((index) => ({
-      id: `${walletId}--${index}`,
-      walletId,
-      index,
-      name: `Account #${index + 1}`, // TODO i18n name
-    }));
+    const records: IDBIndexedAccount[] = indexes.map((index) => {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index,
+      });
+      const hashBuffer = sha256(
+        bufferUtils.toBuffer(indexedAccountId, 'utf-8'),
+      );
+      const idHash = bufferUtils.bytesToHex(hashBuffer);
+      return {
+        id: indexedAccountId,
+        idHash,
+        walletId,
+        index,
+        name: `Account #${index + 1}`, // TODO i18n name
+      };
+    });
     console.log('txAddHDIndexedAccount txAddRecords');
     await this.txAddRecords({
       tx,
@@ -532,12 +546,16 @@ ssphrase wallet
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
     const db = await this.readyDb;
+    let indexedAccountId = '';
     await db.withTransaction(async (tx) => {
-      await this.txAddHDNextIndexedAccount({
+      ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
-      });
+      }));
     });
+    return {
+      indexedAccountId,
+    };
   }
 
   async txAddHDNextIndexedAccount({
@@ -560,16 +578,29 @@ ssphrase wallet
       indexes: [nextIndex],
       skipIfExists: true,
     });
+    return {
+      nextIndex,
+      indexedAccountId: accountUtils.buildIndexedAccountId({
+        walletId,
+        index: nextIndex,
+      }),
+    };
   }
 
-  async createHDWallet(params: IDBCreateHDWalletParams): Promise<IDBWallet> {
+  async createHDWallet(
+    params: IDBCreateHDWalletParams,
+  ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
     const db = await this.readyDb;
     const { password, name, avatar, backuped, nextAccountIds, rs } = params;
     const context = await this.getContext({ verifyPassword: password });
-    const walletId = `${WALLET_TYPE_HD}-${context.nextHD}`;
-    const walletName = name || `Wallet ${context.nextHD}`; // TODO wallet name i18n?
+    const walletId = accountUtils.buildHdWalletId({
+      nextHD: context.nextHD,
+    });
+    // TODO wallet name i18n?
+    const walletName = name || `Wallet ${context.nextHD}`;
     const firstAccountIndex = 0;
 
+    let addedHdAccountIndex = -1;
     await db.withTransaction(async (tx) => {
       console.log('add db wallet');
       // add db wallet
@@ -606,10 +637,11 @@ ssphrase wallet
 
       console.log('add first indexed account');
       // add first indexed account
-      await this.txAddHDNextIndexedAccount({
+      const { nextIndex } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
       });
+      addedHdAccountIndex = nextIndex;
 
       console.log('increase nextHD');
       // increase nextHD
@@ -620,14 +652,19 @@ ssphrase wallet
           return ctx;
         },
       });
-      return 1;
     });
 
-    const dbWallet = await this.getRecordById({
-      name: ELocalDBStoreNames.Wallet,
-      id: walletId,
+    const dbWallet = await this.getWallet({
+      walletId,
     });
-    return dbWallet;
+
+    const dbIndexedAccount = await this.getIndexedAccount({
+      id: accountUtils.buildIndexedAccountId({
+        walletId: dbWallet.id,
+        index: addedHdAccountIndex,
+      }),
+    });
+    return { wallet: dbWallet, indexedAccount: dbIndexedAccount };
   }
 
   addHWWallet(params: IDBCreateHWWalletParams): Promise<IDBWallet> {

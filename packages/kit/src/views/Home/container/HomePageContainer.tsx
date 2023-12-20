@@ -11,17 +11,18 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   AccountSelectorActiveAccount,
   AccountSelectorProvider,
+  AccountSelectorProviderMirror,
   AccountSelectorTrigger,
+  AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 
 import { DefiListContainer } from './DefiListContainer';
-import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
 
-function HomePageContainer() {
+function HomePage() {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
@@ -62,16 +63,8 @@ function HomePageContainer() {
     () => (
       <XStack justifyContent="space-between" alignItems="center" px="$2">
         <YStack>
-          <AccountSelectorProvider
-            config={{
-              sceneName: EAccountSelectorSceneName.home,
-              sceneUrl: '',
-            }}
-            enabledNum={[0]}
-          >
-            <AccountSelectorTrigger num={0} />
-            <AccountSelectorActiveAccount num={0} />
-          </AccountSelectorProvider>
+          <AccountSelectorTrigger num={0} />
+          <AccountSelectorActiveAccount num={0} />
         </YStack>
         <WalletActionsContainer />
       </XStack>
@@ -79,10 +72,24 @@ function HomePageContainer() {
     [],
   );
 
+  const headerTitle = useCallback(
+    () => (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+      >
+        <AccountSelectorTriggerHome num={0} />
+      </AccountSelectorProviderMirror>
+    ),
+    [],
+  );
+
   return useMemo(
     () => (
       <Page>
-        <Page.Header headerTitle={() => <HomeHeaderContainer />} />
+        <Page.Header headerTitle={headerTitle} />
         <Page.Body alignItems="center">
           <Tab
             // @ts-expect-error
@@ -105,7 +112,21 @@ function HomePageContainer() {
         </Page.Body>
       </Page>
     ),
-    [screenWidth, sideBarWidth, onRefresh, renderHeaderView, tabs],
+    [headerTitle, tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
+  );
+}
+
+function HomePageContainer() {
+  return (
+    <AccountSelectorProvider
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HomePage />
+    </AccountSelectorProvider>
   );
 }
 

@@ -19,21 +19,16 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
-import localDb from '../dbs/local/localDbInstance';
-import { vaultFactory } from '../vaults/factory';
+import localDb from '../../dbs/local/localDbInstance';
+import { vaultFactory } from '../../vaults/factory';
 import {
   getVaultSettings,
   getVaultSettingsAccountDeriveInfo,
-} from '../vaults/settings';
+} from '../../vaults/settings';
+import ServiceBase from '../ServiceBase';
 
-import ServiceBase from './ServiceBase';
-
-import type {
-  IDBAccount,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '../dbs/local/types';
-import type { IAccountDeriveTypes } from '../vaults/types';
+import type { IDBAccount, IDBIndexedAccount } from '../../dbs/local/types';
+import type { IAccountDeriveTypes } from '../../vaults/types';
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -63,6 +58,17 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWallets() {
     return localDb.getWallets();
+  }
+
+  @backgroundMethod()
+  async getHDWallets() {
+    const r = await this.getWallets();
+    const wallets = r.wallets.filter((wallet) =>
+      accountUtils.isHdWallet({ walletId: wallet.id }),
+    );
+    return {
+      wallets,
+    };
   }
 
   @backgroundMethod()
@@ -270,16 +276,16 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({
-    mnemonic,
-    password,
-  }: {
-    mnemonic: string;
-    password: string;
-  }) {
-    ensureSensitiveTextEncoded(mnemonic);
+  async createHDWallet({ mnemonic }: { mnemonic: string }) {
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify();
     ensureSensitiveTextEncoded(password);
-    await this.backgroundApi.servicePassword.verifyPassword({ password });
+
+    // eslint-disable-next-line no-param-reassign
+    mnemonic = await servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    ensureSensitiveTextEncoded(mnemonic);
 
     let realMnemonic = decodeSensitiveText({
       encodedText: mnemonic,
@@ -296,16 +302,14 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    let dbWallet: IDBWallet = await localDb.createHDWallet({
+    const result = await localDb.createHDWallet({
       password,
       rs,
       backuped: false,
       avatar: randomAvatar(),
     });
 
-    dbWallet = await this.getWallet({ walletId: dbWallet.id });
-
-    return dbWallet;
+    return result;
   }
 }
 

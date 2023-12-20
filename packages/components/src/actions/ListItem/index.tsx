@@ -1,5 +1,5 @@
-import { isValidElement } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
+import { isValidElement } from 'react';
 
 import {
   AnimatePresence,
@@ -7,7 +7,6 @@ import {
   type AvatarImageProps,
   type AvatarProps,
   type StackProps,
-  // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
   withStaticProperties,
 } from 'tamagui';
@@ -154,31 +153,33 @@ const ListItemText = (props: IListItemTextProps) => {
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
-      {primary &&
-        (isValidElement(primary) ? (
-          primary
-        ) : (
-          <SizableText
-            textAlign={align}
-            size="$bodyLgMedium"
-            {...primaryTextProps}
-          >
-            {primary}
-          </SizableText>
-        ))}
-      {secondary &&
-        (isValidElement(secondary) ? (
-          secondary
-        ) : (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign={align}
-            {...secondaryTextProps}
-          >
-            {secondary}
-          </SizableText>
-        ))}
+      <>
+        {primary &&
+          (isValidElement(primary) ? (
+            primary
+          ) : (
+            <SizableText
+              textAlign={align}
+              size="$bodyLgMedium"
+              {...primaryTextProps}
+            >
+              {primary}
+            </SizableText>
+          ))}
+        {secondary &&
+          (isValidElement(secondary) ? (
+            secondary
+          ) : (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign={align}
+              {...secondaryTextProps}
+            >
+              {secondary}
+            </SizableText>
+          ))}
+      </>
     </Stack>
   );
 };

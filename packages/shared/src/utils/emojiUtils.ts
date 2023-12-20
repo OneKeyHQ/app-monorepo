@@ -1,3 +1,8 @@
+import {
+  HdWalletAvatarImageNames,
+  type IHdWalletAvatarImageNames,
+} from './avatarUtils';
+
 export const emojiList = [
   '😀',
   '😃',
@@ -1901,11 +1906,16 @@ export const colors = [
 ];
 
 export type IAvatar = {
-  emoji: IEmojiTypes | 'img';
+  emoji?: IEmojiTypes | 'img';
+  img: IHdWalletAvatarImageNames;
   bgColor: string;
 };
 
-export const defaultAvatar: IAvatar = { emoji: '🤑', bgColor: '#55A9D9' };
+export const defaultAvatar: IAvatar = {
+  img: 'bear',
+  emoji: '🤑',
+  bgColor: '#55A9D9',
+};
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
@@ -1914,6 +1924,9 @@ function getRandomInt(max: number) {
 export function randomAvatar(): IAvatar {
   return {
     emoji: randomList[getRandomInt(randomList.length)],
+    img: HdWalletAvatarImageNames[
+      getRandomInt(HdWalletAvatarImageNames.length)
+    ],
     bgColor: colors[getRandomInt(colors.length)],
   };
 }

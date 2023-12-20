@@ -15,10 +15,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  WalletAvatar,
-  WalletAvatarImages,
-} from '../../WalletList/WalletAvatar';
+import { WalletAvatarImages } from '../../WalletList/WalletAvatar';
 
 import type { IWalletDetailsProps } from '..';
 import type { IWalletAvatarProps } from '../../WalletList/WalletAvatar';
@@ -94,7 +91,7 @@ export function WalletProfile({
                           setSelectedAvatar(img);
                         }}
                       >
-                        <WalletAvatar size="$12" img={img} />
+                        {/* <WalletAvatar size="$12" img={img} /> */}
                         <AnimatePresence>
                           {selectedAvatar === img && (
                             <Stack

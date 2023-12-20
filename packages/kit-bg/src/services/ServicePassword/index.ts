@@ -66,10 +66,9 @@ export default class ServicePassword extends ServiceBase {
   // biologyAuth&WebAuth ------------------------------
   async saveBiologyAuthPassword(password: string): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
-    if (!isSupport) {
-      throw new Error('biology is not support');
+    if (isSupport) {
+      await biologyAuthUtils.savePassword(password);
     }
-    await biologyAuthUtils.savePassword(password);
   }
 
   async deleteBiologyAuthPassword(): Promise<void> {
