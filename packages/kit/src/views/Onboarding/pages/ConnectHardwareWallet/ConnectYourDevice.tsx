@@ -235,7 +235,6 @@ export function ConnectYourDevice() {
                 onConfirm: async () => {
                   await packageAlertDialog.close();
                   handleSetupNewWalletPress();
-                  return true;
                 },
                 onConfirmText: 'Understood',
               });
