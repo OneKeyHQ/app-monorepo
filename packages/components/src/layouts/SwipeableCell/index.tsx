@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useCallback, useRef } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { usePropsAndStyle } from '@tamagui/core';
@@ -18,6 +18,10 @@ type ISwipeableCellItemProps = {
   onPress: ({ close }: { close?: () => void }) => void;
 };
 
+type ISwipeableSwipeDirection = 'left' | 'right';
+
+type ISwipeableSwipeProgress = Animated.AnimatedInterpolation<string | number>;
+
 function SwipeableCellContainer({
   close,
   progress,
@@ -25,7 +29,7 @@ function SwipeableCellContainer({
   itemList,
 }: {
   close?: () => void;
-  progress: Animated.AnimatedInterpolation<string | number>;
+  progress: ISwipeableSwipeProgress;
   isRightDirection: boolean;
   itemList: Array<ISwipeableCellItemProps>;
 }) {
@@ -113,42 +117,56 @@ function BaseSwipeableCell(
   if (!swipeEnabled) {
     innerRef?.current?.close();
   }
+  const onSwipeableOpen = useCallback(
+    (direction: ISwipeableSwipeDirection, swipeable: Swipeable) => {
+      restProps?.onSwipeableOpen?.(direction, swipeable);
+      LAST_SWIPED_CELL_CLOSE = innerRef?.current?.close;
+    },
+    [restProps],
+  );
+  const onSwipeableWillOpen = useCallback(
+    (direction: ISwipeableSwipeDirection) => {
+      restProps?.onSwipeableWillOpen?.(direction);
+      if (LAST_SWIPED_CELL_CLOSE !== innerRef?.current?.close) {
+        LAST_SWIPED_CELL_CLOSE?.();
+      }
+    },
+    [restProps],
+  );
+  const renderActionList = useCallback(
+    (progress: ISwipeableSwipeProgress, isRightDirection: boolean) => (
+      <SwipeableCellContainer
+        progress={progress}
+        itemList={!isRightDirection ? leftItemList : rightItemList}
+        isRightDirection={isRightDirection}
+        close={innerRef?.current?.close}
+      />
+    ),
+    [leftItemList, rightItemList],
+  );
+  const renderLeftActionList = useCallback(
+    (progress: ISwipeableSwipeProgress) => renderActionList(progress, false),
+    [renderActionList],
+  );
+  const renderRightActionList = useCallback(
+    (progress: ISwipeableSwipeProgress) => renderActionList(progress, true),
+    [renderActionList],
+  );
   return (
     <Swipeable
       ref={innerRef}
-      friction={2}
+      friction={1}
+      dragOffsetFromLeftEdge={20}
       enableTrackpadTwoFingerGesture
       overshootLeft={false}
       overshootRight={false}
       enabled={swipeEnabled}
-      renderLeftActions={(progress) => (
-        <SwipeableCellContainer
-          progress={progress}
-          itemList={leftItemList}
-          isRightDirection={false}
-          close={innerRef?.current?.close}
-        />
-      )}
-      renderRightActions={(progress) => (
-        <SwipeableCellContainer
-          progress={progress}
-          itemList={rightItemList}
-          isRightDirection
-          close={innerRef?.current?.close}
-        />
-      )}
+      renderLeftActions={renderLeftActionList}
+      renderRightActions={renderRightActionList}
       style={style}
       {...restProps}
-      onSwipeableOpen={(direction, swipeable) => {
-        restProps?.onSwipeableOpen?.(direction, swipeable);
-        LAST_SWIPED_CELL_CLOSE = innerRef?.current?.close;
-      }}
-      onSwipeableWillOpen={(direction) => {
-        restProps?.onSwipeableWillOpen?.(direction);
-        if (LAST_SWIPED_CELL_CLOSE !== innerRef?.current?.close) {
-          LAST_SWIPED_CELL_CLOSE?.();
-        }
-      }}
+      onSwipeableOpen={onSwipeableOpen}
+      onSwipeableWillOpen={onSwipeableWillOpen}
     />
   );
 }
