@@ -5,6 +5,8 @@ import { themes } from '@tamagui/themes';
 import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import {
+  brand,
+  brandDark,
   caution,
   cautionDark,
   critical,
@@ -155,10 +157,11 @@ const animations = createAnimations({
 
 const { whiteA } = primitiveWhiteA;
 const { blackA } = primitiveBlackA;
-const { gray, grayA, brandA } = primitive;
-const { grayDark, grayDarkA, brandDarkA } = primitiveDark;
+const { gray, grayA } = primitive;
+const { grayDark, grayDarkA } = primitiveDark;
 
 const lightColors = {
+  ...brand,
   ...primary,
   ...neutral,
   ...success,
@@ -236,8 +239,8 @@ const lightColors = {
   textDisabled: neutral.neutral9,
   textInfo: info.info11,
   textInfoStrong: info.info12,
-  textInteractive: brandA.brandA11,
-  textInteractiveHover: brandA.brandA12,
+  textInteractive: brand.brand11,
+  textInteractiveHover: brand.brand12,
   textInverse: grayDarkA.grayA12,
   textInverseSubdued: grayDarkA.grayA11,
   textOnBrightColor: gray.gray12,
@@ -250,6 +253,7 @@ const lightColors = {
 };
 
 const darkColors: typeof lightColors = {
+  ...brandDark,
   ...primaryDark,
   ...neutralDark,
   ...successDark,
@@ -260,7 +264,7 @@ const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
   bgHover: neutralDark.neutral3,
   bgActive: neutralDark.neutral4,
-  bgBackdrop: grayA.grayA11,
+  bgBackdrop: grayA.grayA8,
   bgCaution: cautionDark.caution3,
   bgCautionStrong: cautionDark.caution9,
   bgCautionSubdued: cautionDark.caution2,
@@ -327,8 +331,8 @@ const darkColors: typeof lightColors = {
   textDisabled: neutralDark.neutral9,
   textInfo: infoDark.info11,
   textInfoStrong: infoDark.info12,
-  textInteractive: brandDarkA.brandA11,
-  textInteractiveHover: brandDarkA.brandA12,
+  textInteractive: brandDark.brand11,
+  textInteractiveHover: brandDark.brand12,
   textInverse: grayA.grayA12,
   textInverseSubdued: grayA.grayA11,
   textOnBrightColor: gray.gray12,

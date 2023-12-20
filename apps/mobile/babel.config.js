@@ -19,6 +19,7 @@ module.exports = function (api) {
             importsWhitelist: [],
             logTimings: true,
             disableExtraction: process.env.NODE_ENV === 'development',
+            experimentalFlattenThemesOnNative: true,
           },
         ],
         [

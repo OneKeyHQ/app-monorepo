@@ -54,6 +54,12 @@ function generateSemanticColorsWithDefaultCount<
 /* 
   Light color theme
 */
+export const brand = generateSemanticColorsWithDefaultCount(
+  'brandA',
+  'brand',
+  'light',
+);
+
 export const primary = generateSemanticColorsWithDefaultCount(
   'grayA',
   'primary',
@@ -93,6 +99,12 @@ export const info = generateSemanticColorsWithDefaultCount(
 /* 
   Dark color theme
 */
+export const brandDark = generateSemanticColorsWithDefaultCount(
+  'brandDarkA',
+  'brand',
+  'dark',
+);
+
 export const primaryDark = generateSemanticColorsWithDefaultCount(
   'grayDarkA',
   'primary',

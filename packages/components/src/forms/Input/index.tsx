@@ -18,7 +18,12 @@ import { getSharedInputStyles } from './sharedStyles';
 
 import type { IInputAddOnProps } from './InputAddOnItem';
 import type { IKeyOfIcons } from '../../primitives';
-import type { TextInput } from 'react-native';
+import type {
+  HostComponent,
+  MeasureLayoutOnSuccessCallback,
+  MeasureOnSuccessCallback,
+  TextInput,
+} from 'react-native';
 import type { GetProps } from 'tamagui';
 
 type ITMInputProps = GetProps<typeof TMInput>;
@@ -131,6 +136,20 @@ function BaseInput(
     focus: () => {
       inputRef.current?.focus();
     },
+    measureLayout: (
+      relativeToNativeComponentRef:
+        | React.ElementRef<HostComponent<unknown>>
+        | number,
+      onSuccess: MeasureLayoutOnSuccessCallback,
+      onFail?: () => void,
+    ) =>
+      inputRef.current?.measureLayout(
+        relativeToNativeComponentRef,
+        onSuccess,
+        onFail,
+      ),
+    measure: (callback: MeasureOnSuccessCallback) =>
+      inputRef.current?.measure(callback),
   }));
 
   const selectionColor = useThemeValue('bgPrimary');

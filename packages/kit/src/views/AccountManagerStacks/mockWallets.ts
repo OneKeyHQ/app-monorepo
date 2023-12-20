@@ -80,6 +80,8 @@ export const MockOthersWallet: IWalletProps = {
   accounts: [
     {
       data: [],
+      emptyText:
+        'No external wallets connected. Link a third-party wallet to view here.',
     },
   ],
 };

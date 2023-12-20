@@ -56,7 +56,7 @@ function useAppNavigation<
       params?: IModalParamList[T][keyof IModalParamList[T]];
     },
   ) => {
-    navigation.navigate(ERootRoutes.Modal, {
+    navigation.push(ERootRoutes.Modal, {
       screen: route,
       params,
     });
@@ -69,7 +69,7 @@ function useAppNavigation<
       params?: IIOSFullScreenModalParamList[T][keyof IIOSFullScreenModalParamList[T]];
     },
   ) => {
-    navigation.navigate(ERootRoutes.iOSFullScreen, {
+    navigation.push(ERootRoutes.iOSFullScreen, {
       screen: route,
       params,
     });

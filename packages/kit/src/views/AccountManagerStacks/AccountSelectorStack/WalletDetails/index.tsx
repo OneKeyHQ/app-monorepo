@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 // eslint-disable-next-line spellcheck/spell-checker
 import makeBlockie from 'ethereum-blockies-base64';
@@ -23,11 +23,15 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '../../../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
+
+import { WalletOptions } from './WalletOptions';
 
 import type {
   IAccountGroupProps,
@@ -54,8 +58,6 @@ export function WalletDetails({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-
-  const navigation = useAppNavigation();
 
   const { result: focusedWalletInfo } = usePromiseResult(async () => {
     if (
@@ -96,6 +98,34 @@ export function WalletDetails({
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
+  const navigation = useAppNavigation();
+
+  const pushImportPrivateKeyModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportPrivateKey,
+    });
+  }, [navigation]);
+
+  const pushImportAddressModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportAddress,
+    });
+  }, [navigation]);
+
+  const pushConnectWalletModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectWallet,
+    });
+  }, [navigation]);
+
+  const getAddAccountPressEvent = (type: any) => {
+    if (type === 'Private key') return pushImportPrivateKeyModal();
+    if (type === 'Watchlist') return pushImportAddressModal();
+    if (type === 'External') return pushConnectWalletModal();
+
+    return console.log('clicked');
+  };
+
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
@@ -173,9 +203,9 @@ export function WalletDetails({
                 )}
               </SectionList.SectionHeader>
             )}
-            {section.data.length === 0 && (
+            {section.data.length === 0 && section.emptyText && (
               <ListItem
-                title="Empty state. Nostrud est eiusmod pariatur cupidatat mollit qui laborum. Consectetur nisi pariatur minim ipsum."
+                title={section.emptyText}
                 titleProps={{
                   size: '$bodyLg',
                 }}
@@ -244,9 +274,11 @@ export function WalletDetails({
             </AnimatePresence>
           </ListItem>
         )}
-        renderSectionFooter={() => (
+        renderSectionFooter={({ section }: { section: IAccountGroupProps }) => (
           <ListItem
             onPress={async () => {
+              // getAddAccountPressEvent(section.title)
+              // to Private key
               if (!focusedWalletInfo) {
                 return;
               }
@@ -277,6 +309,7 @@ export function WalletDetails({
               <Icon name="PlusSmallOutline" />
             </Stack>
             <ListItem.Text
+              userSelect="none"
               primary="Add account"
               primaryTextProps={{
                 size: '$bodyLg',

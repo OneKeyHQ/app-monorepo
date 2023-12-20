@@ -204,6 +204,17 @@ const ListItemCheckMark = (props: StackProps) => (
   </Stack>
 );
 
+// DrillIn
+const ListItemDrillIn = (props: IIconProps) => (
+  <Icon
+    name="ChevronRightSmallOutline"
+    color="$iconSubdued"
+    mx="$-1.5"
+    flexShrink={0}
+    {...props}
+  />
+);
+
 // Separator
 const ListItemSeparator = () => <Divider mx="$5" />;
 
@@ -290,14 +301,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         />
       )}
       {children}
-      {drillIn && (
-        <Icon
-          name="ChevronRightSmallOutline"
-          color="$iconSubdued"
-          mx="$-1.5"
-          flexShrink={0}
-        />
-      )}
+      {drillIn && <ListItemDrillIn />}
       <Unspaced>
         <AnimatePresence>
           {checkMark && <ListItemCheckMark key="checkmark" />}
@@ -317,4 +321,5 @@ export const ListItem = withStaticProperties(ListItemComponent, {
   IconButton: ListItemIconButton,
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
+  DrillIn: ListItemDrillIn,
 });

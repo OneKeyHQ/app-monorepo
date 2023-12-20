@@ -15,6 +15,9 @@ import {
   AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { EOnboardingPages } from '../../Onboarding/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -72,6 +75,17 @@ function HomePage() {
     [],
   );
 
+  const navigation = useAppNavigation();
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
+  useMemo(() => {
+    navigateOnboardingModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror

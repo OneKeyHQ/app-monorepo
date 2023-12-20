@@ -1,5 +1,3 @@
-import type { ILocaleIds } from '@onekeyhq/components';
-
 import type {
   IInjectedProviderNamesStrings,
   IJsonRpcRequest,

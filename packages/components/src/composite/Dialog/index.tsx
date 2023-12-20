@@ -37,6 +37,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { ColorTokens } from 'tamagui';
 
 // Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
@@ -62,6 +63,7 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
@@ -105,12 +107,33 @@ function DialogFrame({
     void onClose();
   }, [onCancel, onClose]);
 
+  const getColors = (): {
+    iconWrapperBg: ColorTokens;
+    iconColor: ColorTokens;
+  } => {
+    if (tone === 'destructive') {
+      return {
+        iconWrapperBg: '$bgCritical',
+        iconColor: '$iconCritical',
+      };
+    }
+    if (tone === 'warning') {
+      return {
+        iconWrapperBg: '$bgCaution',
+        iconColor: '$iconCaution',
+      };
+    }
+
+    return {
+      iconWrapperBg: '$bgStrong',
+      iconColor: '$icon',
+    };
+  };
+
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      {/* illustration */}
-
       {/* leading icon */}
       {icon && (
         <Stack
@@ -119,13 +142,9 @@ function DialogFrame({
           ml="$5"
           mt="$5"
           borderRadius="$full"
-          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          bg={getColors().iconWrapperBg}
         >
-          <Icon
-            name={icon}
-            size="$8"
-            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-          />
+          <Icon name={icon} size="$8" color={getColors().iconColor} />
         </Stack>
       )}
 
@@ -148,6 +167,7 @@ function DialogFrame({
       {/* close button */}
       <IconButton
         position="absolute"
+        zIndex={1}
         right="$5"
         top="$5"
         icon="CrossedSmallOutline"
@@ -205,8 +225,11 @@ function DialogFrame({
           borderTopRightRadius="$6"
           bg="$bg"
           paddingBottom={keyboardHeight}
+          style={{
+            borderCurve: 'continuous',
+          }}
         >
-          <SheetGrabber />
+          {!disableDrag && <SheetGrabber />}
           {renderDialogContent}
         </Sheet.Frame>
       </Sheet>
@@ -229,6 +252,14 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
+              animateOnly={['opacity']}
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
               onPress={handleBackdropPress}
             />
             {
@@ -260,6 +291,7 @@ function DialogFrame({
               bg="$bg"
               width={400}
               p="$0"
+              {...floatingPanelProps}
             >
               {renderDialogContent}
             </TMDialog.Content>

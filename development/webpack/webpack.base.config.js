@@ -234,6 +234,28 @@ module.exports = ({ platform, basePath, configName }) => ({
             resolve: { fullySpecified: false },
           },
           {
+            test: /(@?expo-linear-gradient).*\.(ts|js)x?$/,
+            exclude: [/react-native-logs/, /react-native-modalize/],
+            use: {
+              loader: 'babel-loader',
+              options: {
+                babelrc: false,
+                configFile: true,
+                sourceType: 'unambiguous',
+                root: basePath,
+                compact: !isDev,
+                sourceMaps: isDev,
+                inputSourceMap: isDev,
+                cacheCompression: false,
+                cacheDirectory: path.resolve(
+                  basePath,
+                  'node_modules/.cache/babel-loader',
+                ),
+              },
+            },
+            resolve: { fullySpecified: false },
+          },
+          {
             test: /\.(css)$/,
             use: [
               'style-loader',

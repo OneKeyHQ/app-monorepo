@@ -9,7 +9,7 @@ export { default as Instagram } from './Instagram';
 export { default as Linkedin } from './Linkedin';
 export { default as Medium } from './Medium';
 export { default as Onekey } from './Onekey';
-export { default as SvgOpenaichatgpt } from './Openai,chatgpt';
+export { default as OpenaiChatgpt } from './OpenaiChatgpt';
 export { default as Patreon } from './Patreon';
 export { default as Pinterest } from './Pinterest';
 export { default as Producthunt } from './Producthunt';
