@@ -12,12 +12,10 @@ export type IFetchAccountDefiParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
 };
 export type IFetchAccountDefiResp = {
   data: IAccountDefi[];
-  page: number;
-  pageSize: number;
-  total: number;
+  next: string;
 };

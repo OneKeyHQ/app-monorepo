@@ -1,17 +1,23 @@
 import { random } from 'lodash';
 
 import { encodePassword } from '@onekeyhq/core/src/secret';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type { ITransferInfo } from '../vaults/types';
+import type {
+  IBroadcastTransactionParams,
+  IBuildUnsignedTxParams,
+  ISignAndSendTransactionParams,
+  ITransferInfo,
+  IUpdateUnsignedTxParams,
+} from '../vaults/types';
 
 @backgroundClass()
 class ServiceSend extends ServiceBase {
@@ -21,9 +27,11 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async demoSendEvmTx() {
+    const networkId = 'evm--5';
+    const accountId = "hd-1--m/44'/60'/0'/0/0";
     const vault = await vaultFactory.getVault({
-      networkId: 'evm--5',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId,
+      accountId,
     });
     const transferInfo: ITransferInfo = {
       from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
@@ -31,14 +39,12 @@ class ServiceSend extends ServiceBase {
       amount: `0.00000${random(1, 20)}`,
       token: '',
     };
-    // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> encodedTx
-    // Dapp -> encodedTx
-    const encodedTx = await vault.buildEncodedTx({
+
+    // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> unsignedTx
+    // PageSendConfirm
+    let unsignedTx = await vault.buildUnsignedTx({
       transfersInfo: [transferInfo],
     });
-
-    // PageSendConfirm
-    let unsignedTx = await vault.buildUnsignedTx({ encodedTx });
 
     // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
     unsignedTx = await vault.updateUnsignedTx({
@@ -52,7 +58,9 @@ class ServiceSend extends ServiceBase {
     });
 
     // PageSendConfirm -> password auth -> send tx
-    const signedTx = await vault.signAndSendTransaction({
+    const signedTx = await this.signAndSendTransaction({
+      networkId,
+      accountId,
       unsignedTx,
       password: encodePassword({ password: '11111111' }),
     });
@@ -64,7 +72,6 @@ class ServiceSend extends ServiceBase {
     });
     console.log({
       vault,
-      encodedTx,
       unsignedTx,
       signedTx,
       transferInfo,
@@ -74,25 +81,51 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async buildEncodedTx({
-    transfersInfo,
-  }: {
-    transfersInfo: ITransferInfo[];
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId: 'evm--5',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
-    });
-    return vault.buildEncodedTx({ transfersInfo });
+  public async buildUnsignedTx(
+    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+  ) {
+    const { networkId, accountId, transfersInfo } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.buildUnsignedTx({ transfersInfo });
   }
 
   @backgroundMethod()
-  public async buildUnsignedTx({ encodedTx }: { encodedTx: IEncodedTx }) {
-    const vault = await vaultFactory.getVault({
-      networkId: 'evm--5',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
+  public async updateUnsignedTx(
+    params: ISendTxBaseParams & IUpdateUnsignedTxParams,
+  ) {
+    const { networkId, accountId, unsignedTx, feeInfo } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.updateUnsignedTx({ unsignedTx, feeInfo });
+  }
+
+  @backgroundMethod()
+  public async broadcastTransaction(params: IBroadcastTransactionParams) {
+    const { networkId, signedTx } = params;
+    const client = await this.getClient();
+    const resp = await client.post<{
+      data: { result: string };
+    }>('/wallet/v1/onchain/send-transaction', {
+      networkId,
+      tx: signedTx.rawTx,
     });
-    return vault.buildUnsignedTx({ encodedTx });
+
+    return resp.data.data.result;
+  }
+
+  @backgroundMethod()
+  public async signAndSendTransaction(
+    params: ISendTxBaseParams & ISignAndSendTransactionParams,
+  ) {
+    const { networkId, accountId, unsignedTx, password, signOnly } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const signedTx = await vault.signTransaction({
+      unsignedTx,
+      password,
+    });
+    if (signOnly) {
+      return { ...signedTx, encodedTx: unsignedTx.encodedTx };
+    }
+    return this.broadcastTransaction({ networkId, signedTx });
   }
 }
 
