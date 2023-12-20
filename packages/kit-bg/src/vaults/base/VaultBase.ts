@@ -40,7 +40,6 @@ import type {
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
   IBuildUnsignedTxParams,
-  ISignAndSendTransactionParams,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
   IVaultOptions,
@@ -401,19 +400,5 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       ...signedTx,
       encodedTx: signedTx.encodedTx ?? unsignedTx.encodedTx,
     };
-  }
-
-  // DO NOT override this method, override broadcastTransaction instead.
-  async signAndSendTransaction(
-    params: ISignAndSendTransactionParams,
-  ): Promise<ISignedTxPro> {
-    const { unsignedTx } = params;
-    const signedTx = await this.signTransaction(params);
-    return this.broadcastTransaction({
-      signedTx: {
-        ...signedTx,
-        encodedTx: signedTx.encodedTx ?? unsignedTx.encodedTx,
-      },
-    });
   }
 }

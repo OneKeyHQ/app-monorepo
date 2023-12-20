@@ -32,12 +32,10 @@ function SendAmountInputContainer() {
       amount,
     }));
 
-    const encodedTx = await backgroundApiProxy.serviceSend.buildEncodedTx({
-      transfersInfo: updatedTransfersInfo,
-    });
-
     const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-      encodedTx,
+      accountId,
+      networkId,
+      transfersInfo: updatedTransfersInfo,
     });
     setIsLoading(false);
 
