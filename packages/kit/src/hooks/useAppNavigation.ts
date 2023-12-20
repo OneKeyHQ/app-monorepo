@@ -62,11 +62,11 @@ function useAppNavigation<
     });
   };
 
-  const pushFullModal = <T extends EIOSFullScreenModalRoutes>(
+  const pushFullModal = <T extends EModalRoutes>(
     route: T,
     params?: {
-      screen: keyof IIOSFullScreenModalParamList[T];
-      params?: IIOSFullScreenModalParamList[T][keyof IIOSFullScreenModalParamList[T]];
+      screen: keyof IModalParamList[T];
+      params?: IModalParamList[T][keyof IModalParamList[T]];
     },
   ) => {
     navigation.push(ERootRoutes.iOSFullScreen, {
