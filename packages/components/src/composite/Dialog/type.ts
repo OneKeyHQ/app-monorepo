@@ -10,6 +10,10 @@ import type {
 
 export type IDialogContextType = {
   dialogInstance: IDialogInstanceRef;
+  footerRef: {
+    notifyUpdate?: () => void;
+    props?: IDialogFooterProps;
+  };
 };
 
 export interface IDialogContentProps extends PropsWithChildren {
@@ -29,7 +33,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   onCancelText?: string;
   confirmButtonProps?: IDialogButtonProps;
   cancelButtonProps?: IDialogButtonProps;
-  onConfirm?: () => void;
+  onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
   // disabledOn: () => void;
 }
@@ -57,8 +61,10 @@ export type IDialogProps = IBasicDialogProps &
   Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
 
 export type IOnDialogConfirm = (
-  dialogInstance: IDialogInstance,
-) => void | Promise<boolean>;
+  dialogInstance: IDialogInstance & {
+    preventClose: () => void;
+  },
+) => void | Promise<void>;
 
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
