@@ -9,7 +9,8 @@ const SearchModal = lazy(
 );
 
 const MobileTabListModal = lazy(
-  () => import('@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal'),
+  () =>
+    import('@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal'),
 );
 
 const FakeSearchModal = lazy(

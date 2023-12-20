@@ -1,12 +1,14 @@
-import type { IWalletAvatarProps } from './SelectorStack/WalletList/WalletAvatar';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
+import type { IWalletAvatarProps } from './AccountSelectorStack/WalletList/WalletAvatar';
 import type { AvatarImageProps } from 'tamagui';
 
 export enum EAccountManagerStacksRoutes {
-  SelectorStack = 'SelectorStack',
+  AccountSelectorStack = 'AccountSelectorStack',
 }
 
 export type IAccountManagerStacksParamList = {
-  [EAccountManagerStacksRoutes.SelectorStack]: undefined;
+  [EAccountManagerStacksRoutes.AccountSelectorStack]: undefined;
 };
 
 export type IAccountProps = {
@@ -20,7 +22,8 @@ export type IAccountProps = {
 export type IAccountGroupProps = {
   title?: string;
   isHiddenWalletData?: boolean;
-  data: IAccountProps[];
+  emptyText?: string;
+  data: IDBIndexedAccount[];
 };
 
 export type IWalletProps = {

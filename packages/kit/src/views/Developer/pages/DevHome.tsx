@@ -135,7 +135,7 @@ function HomePage() {
 
   const navigateAccountManagerStacks = useCallback(() => {
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.SelectorStack,
+      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
     });
   }, [navigation]);
 

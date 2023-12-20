@@ -70,7 +70,6 @@ export function Footer({
         <Button
           variant={tone === 'destructive' ? 'destructive' : 'primary'}
           flex={1}
-          ml="$2.5"
           disabled={confirmButtonDisabled}
           $md={
             {
@@ -78,6 +77,9 @@ export function Footer({
             } as IButtonProps
           }
           {...restConfirmButtonProps}
+          {...(showCancelButton && {
+            ml: '$2.5',
+          })}
           onPress={onConfirm}
         >
           {onConfirmText}
