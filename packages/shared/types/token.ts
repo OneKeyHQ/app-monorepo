@@ -22,8 +22,8 @@ export type IFetchAccountTokensParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];
@@ -31,9 +31,7 @@ export type IFetchAccountTokensParams = {
 
 export type IFetchAccountTokensResp = {
   data: IAccountToken[];
-  page: number;
-  pageSize: number;
-  total: number;
+  next: string;
 };
 
 export type IFetchAccountTokensForDeepRefreshResp = {
@@ -42,9 +40,7 @@ export type IFetchAccountTokensForDeepRefreshResp = {
   map: {
     [key: string]: ITokenFiat;
   };
-  page: number;
-  pageSize: number;
-  total: number;
+  next: string;
 };
 
 export type IFetchTokenDetailParams = {

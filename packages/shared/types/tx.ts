@@ -47,6 +47,11 @@ export enum EDecodedTxStatus {
   Offline = 'Offline',
 }
 
+export type ISendTxBaseParams = {
+  networkId: string;
+  accountId: string;
+};
+
 export type IDecodedTxInteractInfo = {
   // Dapp info
   name: string;

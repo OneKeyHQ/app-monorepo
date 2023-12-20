@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+
 import { isEqual } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -46,8 +48,8 @@ export function useTokenListActions() {
   const refreshTokenList = actions.refreshTokenList.use();
   const refreshTokenListMap = actions.refreshTokenListMap.use();
 
-  return {
+  return useRef({
     refreshTokenList,
     refreshTokenListMap,
-  };
+  });
 }

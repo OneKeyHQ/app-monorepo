@@ -1,5 +1,4 @@
 import type {
-  IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
@@ -165,7 +164,7 @@ export interface IBuildEncodedTxParams {
   // swapInfo
 }
 export interface IBuildUnsignedTxParams {
-  encodedTx: IEncodedTx;
+  transfersInfo: ITransferInfo[];
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
@@ -174,13 +173,16 @@ export interface IUpdateUnsignedTxParams {
   // nonceInfo
 }
 export interface IBroadcastTransactionParams {
+  networkId: string;
   signedTx: ISignedTxPro;
 }
 export interface ISignTransactionParams {
   unsignedTx: IUnsignedTxPro;
   password: string;
 }
-export type ISignAndSendTransactionParams = ISignTransactionParams;
+export type ISignAndSendTransactionParams = ISignTransactionParams & {
+  signOnly?: boolean;
+};
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;

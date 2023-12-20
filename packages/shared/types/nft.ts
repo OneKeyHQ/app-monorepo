@@ -28,14 +28,11 @@ export type IAccountNFT = {
 export type IFetchAccountNFTsParams = {
   networkId: string;
   accountAddress: string;
-  xpub?: string;
-  page?: number;
-  pageSize?: number;
+  cursor?: string;
+  limit?: number;
 };
 
 export type IFetchAccountNFTsResp = {
   data: IAccountNFT[];
-  page: number;
-  pageSize: number;
-  total: number;
+  next: string;
 };
