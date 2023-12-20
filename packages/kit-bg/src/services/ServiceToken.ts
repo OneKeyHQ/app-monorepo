@@ -38,7 +38,7 @@ class ServiceToken extends ServiceBase {
     const { accountId, networkId } = params;
     const resp = await this.fetchAccountTokens(params);
     const tokens = resp.data;
-    const { total, page, pageSize } = resp;
+    const { next } = resp;
     const keys: string[] = [];
     const map: {
       [key: string]: ITokenFiat;
@@ -59,9 +59,7 @@ class ServiceToken extends ServiceBase {
       tokens,
       keys,
       map,
-      total,
-      page,
-      pageSize,
+      next,
     };
   }
 
