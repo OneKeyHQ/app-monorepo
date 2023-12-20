@@ -363,9 +363,11 @@ export function PhaseInputArea({
   onConfirm,
   tutorials,
   showPhraseLengthSelector = true,
+  showClearAllButton = true,
 }: {
   onConfirm: (values: string[]) => void;
   showPhraseLengthSelector?: boolean;
+  showClearAllButton?: boolean;
   tutorials: { title: string; description: string }[];
 }) {
   const form = useForm({});
@@ -447,17 +449,17 @@ export function PhaseInputArea({
                 </Button>
               )}
             />
-          ) : (
-            <Stack flex={1} />
-          )}
-          <Button
-            icon="BroomOutline"
-            size="small"
-            variant="tertiary"
-            onPress={handleClear}
-          >
-            Clear
-          </Button>
+          ) : null}
+          {showClearAllButton ? (
+            <Button
+              icon="BroomOutline"
+              size="small"
+              variant="tertiary"
+              onPress={handleClear}
+            >
+              Clear
+            </Button>
+          ) : null}
         </XStack>
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">

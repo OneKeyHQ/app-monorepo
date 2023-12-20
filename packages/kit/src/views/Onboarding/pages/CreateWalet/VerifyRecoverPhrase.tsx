@@ -38,6 +38,7 @@ export function VerifyRecoveryPhrase({
       <PhaseInputArea
         onConfirm={handleConfirmPress}
         showPhraseLengthSelector={false}
+        showClearAllButton={false}
         tutorials={tutorials}
       />
     </Page>
