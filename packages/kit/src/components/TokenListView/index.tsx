@@ -45,8 +45,7 @@ function TokenListView(props: IProps) {
       data={tokens}
       ListHeaderComponent={TokenListHeader}
       ListHeaderComponentStyle={{
-        mt: '$4',
-        mb: '$2',
+        p: '$5',
       }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}

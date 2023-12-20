@@ -4,8 +4,19 @@ import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 import { YStack } from 'tamagui';
 
-import { Page, Tab, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Image,
+  Page,
+  Popover,
+  Stack,
+  Tab,
+  Text,
+  XStack,
+} from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -46,14 +57,14 @@ function HomePage() {
         page: memo(NFTListContainer, () => true),
       },
       {
+        title: 'Defi',
+        page: memo(DefiListContainer, () => true),
+      },
+      {
         title: intl.formatMessage({
           id: 'transaction__history',
         }),
         page: memo(TxHistoryListContainer, () => true),
-      },
-      {
-        title: 'Defi',
-        page: memo(DefiListContainer, () => true),
       },
     ],
     [intl],
@@ -61,13 +72,60 @@ function HomePage() {
 
   const renderHeaderView = useCallback(
     () => (
-      <XStack justifyContent="space-between" alignItems="center" px="$2">
-        <YStack>
-          <AccountSelectorTrigger num={0} />
-          <AccountSelectorActiveAccount num={0} />
-        </YStack>
-        <WalletActionsContainer />
-      </XStack>
+      // <XStack justifyContent="space-between" alignItems="center" px="$2">
+      //   <YStack>
+      //     <AccountSelectorTrigger num={0} />
+      //     <AccountSelectorActiveAccount num={0} />
+      //   </YStack>
+      //   <WalletActionsContainer />
+      // </XStack>
+      <Stack
+        p="$5"
+        $gtMd={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <Stack>
+          <XStack>
+            <XStack alignItems="center" p="$1" bg="$bgStrong" borderRadius="$2">
+              <Image
+                w="$5"
+                h="$5"
+                source={{
+                  uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+                }}
+              />
+              <Text pl="$2" variant="$bodyMd">
+                Bitcoin
+                {/* 0xbe52...73f3 */}
+              </Text>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                size="$5"
+              />
+            </XStack>
+          </XStack>
+
+          <Stack mt="$1">
+            <Text variant="$heading5xl">$1000</Text>
+          </Stack>
+        </Stack>
+        <XStack space="$2.5">
+          <Button size="small" icon="ArrowTopOutline">
+            Send
+          </Button>
+          <Button size="small" icon="ArrowBottomOutline">
+            Receive
+          </Button>
+          <Button size="small" icon="SwitchHorOutline">
+            Swap
+          </Button>
+          <Button size="small" icon="DotHorOutline" pr="$0.5" />
+        </XStack>
+      </Stack>
     ),
     [],
   );
@@ -86,6 +144,34 @@ function HomePage() {
     [],
   );
 
+  const headerRight = () => (
+    <Popover
+      title="Wallets"
+      renderTrigger={
+        <Stack>
+          <HeaderIconButton icon="SettingsOutline" />
+        </Stack>
+      }
+      renderContent={
+        <XStack justifyContent="space-between" alignItems="center" px="$2">
+          <YStack>
+            <AccountSelectorProvider
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <AccountSelectorTrigger num={0} />
+              <AccountSelectorActiveAccount num={0} />
+            </AccountSelectorProvider>
+          </YStack>
+          <WalletActionsContainer />
+        </XStack>
+      }
+    />
+  );
+
   return useMemo(
     () => (
       <Page>
@@ -101,8 +187,8 @@ function HomePage() {
               width: '100%',
             }}
             $gtMd={{
-              width: screenWidth - sideBarWidth - 150,
-              maxWidth: 1024,
+              width: screenWidth - sideBarWidth,
+              // maxWidth: 1024,
             }}
             refreshControl={
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
