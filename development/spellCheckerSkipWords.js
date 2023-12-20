@@ -1,4 +1,6 @@
 module.exports = [
+  'Blockie',
+  'Unspaced',
   'hd',
   'Jotai',
   'jotai',

@@ -142,6 +142,16 @@ const TabDeveloper = () => {
             <Text>{process.env.COMMITHASH}</Text>
           </PartContainer>
 
+          <PartContainer title="Commit Hash">
+            <Button
+              onPress={async () => {
+                const { test } = await import('./asyncImportTest');
+                test();
+              }}
+            >
+              Async Import Test
+            </Button>
+          </PartContainer>
           <PartContainer title="Cold Startup Time(ms)">
             <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
           </PartContainer>
