@@ -25,7 +25,7 @@ import { Icon, Stack, Text } from '../../primitives';
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
-import { Footer } from './Footer';
+import { Footer, FooterAction } from './Footer';
 
 import type {
   IDialogCancelProps,
@@ -69,8 +69,8 @@ function DialogFrame({
   showCancelButton = true,
   testID,
 }: IDialogProps) {
+  const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const { dialogInstance } = useContext(DialogContext);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -85,39 +85,12 @@ function DialogFrame({
   );
 
   const { bottom } = useSafeAreaInsets();
-  const handleConfirmButtonPress = useCallback(async () => {
-    const form = dialogInstance.ref.current;
-    if (form) {
-      const isValidated = await form.trigger();
-      if (!isValidated) {
-        return;
-      }
-    }
-
-    const result = onConfirm
-      ? await new Promise<boolean>((resolve) => {
-          void Promise.resolve(
-            onConfirm({
-              close: dialogInstance.close,
-              preventClose: () => {
-                resolve(false);
-              },
-              getForm: () => dialogInstance.ref.current,
-            }),
-          ).then(() => {
-            resolve(true);
-          });
-        })
-      : true;
-    if (result) {
-      void onClose();
-    }
-  }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
-    onCancel?.();
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.();
     void onClose();
-  }, [onCancel, onClose]);
+  }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const getColors = (): {
     iconWrapperBg: ColorTokens;
@@ -200,7 +173,7 @@ function DialogFrame({
         showCancelButton={showCancelButton}
         showConfirmButton={showConfirmButton}
         cancelButtonProps={cancelButtonProps}
-        onConfirm={handleConfirmButtonPress}
+        onConfirm={onConfirm}
         onCancel={handleCancelButtonPress}
         onConfirmText={onConfirmText}
         confirmButtonProps={confirmButtonProps}
@@ -332,6 +305,10 @@ function BaseDialogContainer(
         close: handleClose,
         ref: formRef,
       },
+      footerRef: {
+        notifyUpdate: undefined,
+        props: undefined,
+      },
     }),
     [handleClose],
   );
@@ -425,7 +402,7 @@ export const Dialog = {
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
-  Footer,
+  Footer: FooterAction,
 };
 
 export * from './hooks';

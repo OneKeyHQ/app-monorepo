@@ -1,10 +1,13 @@
+import { useCallback, useState } from 'react';
+
 import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, ICheckedState } from '@onekeyhq/components';
 import {
   Alert,
   Button,
+  Checkbox,
   Dialog,
   Form,
   IconButton,
@@ -205,6 +208,39 @@ const DialogNavigatorDemo = () => {
   );
 };
 
+function ContentFooter({
+  onConfirm,
+}: {
+  onConfirm: (value: ICheckedState) => void;
+}) {
+  const [checkState, setCheckState] = useState(false as ICheckedState);
+  const handleConfirm = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          onConfirm(checkState);
+          resolve();
+        }, 1500);
+      }),
+    [checkState, onConfirm],
+  );
+
+  const handleCancel = useCallback(() => {
+    console.log('cancel');
+  }, []);
+  return (
+    <YStack>
+      <Checkbox value={checkState} label="Read it" onChange={setCheckState} />
+      <Dialog.Footer
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        onConfirmText="Accept(wait 1.5s)"
+        onCancelText="Noop"
+      />
+    </YStack>
+  );
+}
+
 const DialogGallery = () => (
   <Layout
     description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
@@ -276,6 +312,7 @@ const DialogGallery = () => (
                   title: 'Lorem ipsum',
                   onConfirmText: 'OK',
                   onCancelText: 'Bye',
+                  showFooter: false,
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
                   onConfirm() {
@@ -593,6 +630,28 @@ const DialogGallery = () => (
               Close Dialog by Hooks !
             </Button>
           </YStack>
+        ),
+      },
+      {
+        title: 'Dialog Footer within renderContent',
+        element: (
+          <Button
+            mt="$4"
+            onPress={() => {
+              Dialog.show({
+                title: '#1',
+                renderContent: (
+                  <ContentFooter
+                    onConfirm={(value) => {
+                      console.log(value);
+                    }}
+                  />
+                ),
+              });
+            }}
+          >
+            Dialog Footer within renderContent
+          </Button>
         ),
       },
       {
