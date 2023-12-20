@@ -4948,6 +4948,7 @@ __metadata:
     expo-status-bar: ~1.6.0
     fake-indexeddb: ^5.0.0
     html-webpack-plugin: ^5.5.3
+    ip: ^1.1.8
     jest: ^29.7.0
     jest-expo: ^49.0.0
     jest-html-reporter: ^3.10.2
@@ -17914,7 +17915,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ip@npm:^1.1.5":
+"ip@npm:^1.1.5, ip@npm:^1.1.8":
   version: 1.1.8
   resolution: "ip@npm:1.1.8"
   checksum: a2ade53eb339fb0cbe9e69a44caab10d6e3784662285eb5d2677117ee4facc33a64679051c35e0dfdb1a3983a51ce2f5d2cb36446d52e10d01881789b76e28fb
