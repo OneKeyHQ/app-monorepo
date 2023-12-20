@@ -74,6 +74,7 @@ function SelectItem({
           </Stack>
         ) : null}
         <SizableText
+          userSelect="none"
           $gtMd={{
             size: '$bodyMd',
           }}

@@ -1,5 +1,5 @@
-import { isValidElement } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
+import { isValidElement } from 'react';
 
 import {
   AnimatePresence,
@@ -7,7 +7,6 @@ import {
   type AvatarImageProps,
   type AvatarProps,
   type StackProps,
-  // eslint-disable-next-line spellcheck/spell-checker
   Unspaced,
   withStaticProperties,
 } from 'tamagui';
@@ -154,31 +153,33 @@ const ListItemText = (props: IListItemTextProps) => {
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
-      {primary &&
-        (isValidElement(primary) ? (
-          primary
-        ) : (
-          <SizableText
-            textAlign={align}
-            size="$bodyLgMedium"
-            {...primaryTextProps}
-          >
-            {primary}
-          </SizableText>
-        ))}
-      {secondary &&
-        (isValidElement(secondary) ? (
-          secondary
-        ) : (
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign={align}
-            {...secondaryTextProps}
-          >
-            {secondary}
-          </SizableText>
-        ))}
+      <>
+        {primary &&
+          (isValidElement(primary) ? (
+            primary
+          ) : (
+            <SizableText
+              textAlign={align}
+              size="$bodyLgMedium"
+              {...primaryTextProps}
+            >
+              {primary}
+            </SizableText>
+          ))}
+        {secondary &&
+          (isValidElement(secondary) ? (
+            secondary
+          ) : (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign={align}
+              {...secondaryTextProps}
+            >
+              {secondary}
+            </SizableText>
+          ))}
+      </>
     </Stack>
   );
 };
@@ -201,6 +202,17 @@ const ListItemCheckMark = (props: StackProps) => (
   >
     <Icon name="CheckRadioSolid" color="$iconActive" />
   </Stack>
+);
+
+// DrillIn
+const ListItemDrillIn = (props: IIconProps) => (
+  <Icon
+    name="ChevronRightSmallOutline"
+    color="$iconSubdued"
+    mx="$-1.5"
+    flexShrink={0}
+    {...props}
+  />
 );
 
 // Separator
@@ -289,14 +301,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         />
       )}
       {children}
-      {drillIn && (
-        <Icon
-          name="ChevronRightSmallOutline"
-          color="$iconSubdued"
-          mx="$-1.5"
-          flexShrink={0}
-        />
-      )}
+      {drillIn && <ListItemDrillIn />}
       <Unspaced>
         <AnimatePresence>
           {checkMark && <ListItemCheckMark key="checkmark" />}
@@ -316,4 +321,5 @@ export const ListItem = withStaticProperties(ListItemComponent, {
   IconButton: ListItemIconButton,
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
+  DrillIn: ListItemDrillIn,
 });

@@ -39,7 +39,7 @@ const items: ISelectItem[] = [
 ];
 
 const SelectDefaultItem = () => {
-  const [val, setVal] = useState('Apple');
+  const [val, setVal] = useState(items[1].value);
 
   return (
     <Select items={items} value={val} onChange={setVal} title="Demo Title" />
