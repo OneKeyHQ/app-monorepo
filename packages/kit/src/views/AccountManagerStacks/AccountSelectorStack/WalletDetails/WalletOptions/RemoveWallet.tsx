@@ -1,9 +1,9 @@
 import { useWalletActions } from './hooks';
 import { WalletOptionItem } from './WalletOptionItem';
 
-import type { IWalletDetailsProps } from '..';
+import type { IWalletProps } from '../../../types';
 
-export function RemoveWallet({ wallet }: IWalletDetailsProps) {
+export function RemoveWallet({ wallet }: { wallet?: IWalletProps }) {
   function getTitleAndDescription() {
     if (wallet?.type === 'hw') {
       return {

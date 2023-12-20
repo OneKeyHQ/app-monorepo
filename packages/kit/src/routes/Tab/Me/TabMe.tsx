@@ -8,8 +8,11 @@ import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProvider } from '../../../components/AccountSelector';
+import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
@@ -55,10 +58,25 @@ const TabMe = () => {
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
+
+          <CreateHdWalletForm />
         </YStack>
       </Page.Body>
     </Page>
   );
 };
 
-export default TabMe;
+function TabMeContainer() {
+  return (
+    <AccountSelectorProvider
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <TabMe />
+    </AccountSelectorProvider>
+  );
+}
+
+export default TabMeContainer;

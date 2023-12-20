@@ -8,38 +8,38 @@ import { Layout } from './utils/Layout';
 const items: ISelectItem[] = [
   {
     label: 'Apple',
-    value: 'Apple',
+    value: 'apple',
   },
 
   {
     label: 'Pear',
-    value: 'Pear',
+    value: 'pear',
   },
 
   {
     label: 'Blackberry',
-    value: 'Blackberry',
+    value: 'blackberry',
   },
 
   {
     label: 'Peach',
-    value: 'Peach',
+    value: 'peach',
   },
 
-  { label: 'Apricot', value: 'Apricot' },
+  { label: 'Apricot', value: 'apricot' },
 
-  { label: 'Melon', value: 'Melon' },
+  { label: 'Melon', value: 'melon' },
 
-  { label: 'Honeydew', value: 'Honeydew' },
+  { label: 'Honeydew', value: 'honeydew' },
 
-  { label: 'Starfruit', value: 'Starfruit' },
+  { label: 'Starfruit', value: 'starfruit' },
 
-  { label: 'Blueberry', value: 'Blueberry' },
-  { label: 'Banana', value: 'Banana' },
+  { label: 'Blueberry', value: 'blueberry' },
+  { label: 'Banana', value: 'banana' },
 ];
 
 const SelectDefaultItem = () => {
-  const [val, setVal] = useState('Apple');
+  const [val, setVal] = useState(items[1].value);
 
   return (
     <Select items={items} value={val} onChange={setVal} title="Demo Title" />
