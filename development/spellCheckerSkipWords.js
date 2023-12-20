@@ -582,4 +582,6 @@ module.exports = [
   'dayjs',
   'swipeable',
   'nft',
+  'dappradar',
+  'dapps',
 ];
