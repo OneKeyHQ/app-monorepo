@@ -8,7 +8,7 @@ const endpointsMap: Record<IEndpointEnv, IEndpoint> = {
   },
   prod: {
     // TODO: change to prod endpoint
-    http: 'https://rest.onekeytest.com',
+    http: 'https://rest.onekeycn.com',
     websocket: '',
   },
 };

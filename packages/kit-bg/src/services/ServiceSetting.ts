@@ -95,7 +95,7 @@ class ServiceSetting extends ServiceBase {
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
     const client = await this.getClient();
     const res = await client.get<{ data: ICurrencyItem[] }>(
-      '/gateway/currency-list',
+      '/gateway/v1/currency/list',
     );
     return res.data.data;
   }
