@@ -23,6 +23,7 @@ const PasswordSetup = ({
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const form = useForm<IPasswordSetupForm>({
+    reValidateMode: 'onSubmit',
     defaultValues: {
       password: '',
       confirmPassword: '',
@@ -32,7 +33,7 @@ const PasswordSetup = ({
   const [secureReentry, setSecureReentry] = useState(true);
 
   return (
-    <Form form={form}>
+    <Form form={form} validateOnBlur={false}>
       <Form.Field
         name="password"
         rules={{

@@ -3,7 +3,7 @@ import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, ListItem, Toast } from '@onekeyhq/components';
+import { Dialog, ListItem } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
@@ -68,10 +68,8 @@ const SetPasswordItem = () => {
       renderContent: (
         <PasswordSetupContainer
           onSetupRes={async (data) => {
-            console.log('setup data', data);
             if (data) {
               await dialog.close();
-              Toast.success({ title: '设置成功' });
             }
           }}
         />
@@ -96,10 +94,8 @@ const ChangePasswordItem = () => {
       renderContent: (
         <PasswordUpdateContainer
           onUpdateRes={async (data) => {
-            console.log('update data', data);
             if (data) {
               await dialog.close();
-              Toast.success({ title: '修改成功' });
             }
           }}
         />

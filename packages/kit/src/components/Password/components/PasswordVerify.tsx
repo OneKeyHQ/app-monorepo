@@ -42,6 +42,7 @@ const PasswordVerify = ({
   onInputPasswordAuth,
 }: IPasswordVerifyProps) => {
   const form = useForm<IPasswordVerifyForm>({
+    reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
 
@@ -101,7 +102,6 @@ const PasswordVerify = ({
   }, [form, status]);
 
   useLayoutEffect(() => {
-    console.log('manualLocking', manualLocking);
     if (isEnable && !passwordInput && !manualLocking) {
       void onBiologyAuth();
     }
@@ -120,7 +120,7 @@ const PasswordVerify = ({
   }, [isEnable, onBiologyAuth, passwordInput]);
 
   return (
-    <Form form={form}>
+    <Form form={form} validateOnBlur={false}>
       <Form.Field
         name="password"
         rules={{
@@ -138,6 +138,7 @@ const PasswordVerify = ({
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
+          onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
         />
       </Form.Field>

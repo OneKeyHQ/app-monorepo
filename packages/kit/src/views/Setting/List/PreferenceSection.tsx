@@ -94,7 +94,7 @@ const LocaleListItem = () => {
   );
 };
 
-export const PreferenceSection = () => {
+const CurrencyListItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
@@ -103,26 +103,23 @@ export const PreferenceSection = () => {
     });
   }, [navigation]);
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   return (
-    <Section title="PREFERENCE">
-      <ListItem
-        icon="DollarOutline"
-        title={intl.formatMessage({ id: 'form__default_currency' })}
-        drillIn
-        onPress={onPress}
-      >
-        <ListItem.Text
-          primary="USD"
-          align="right"
-          primaryTextProps={
-            {
-              // tone: 'subdued',
-            }
-          }
-        />
-      </ListItem>
-      <LocaleListItem />
-      <ThemeListItem />
-    </Section>
+    <ListItem
+      icon="DollarOutline"
+      title={intl.formatMessage({ id: 'form__default_currency' })}
+      drillIn
+      onPress={onPress}
+    >
+      <ListItem.Text primary={settings.currency.toUpperCase()} align="right" />
+    </ListItem>
   );
 };
+
+export const PreferenceSection = () => (
+  <Section title="PREFERENCE">
+    <CurrencyListItem />
+    <LocaleListItem />
+    <ThemeListItem />
+  </Section>
+);
