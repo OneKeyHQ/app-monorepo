@@ -10,9 +10,7 @@ import {
   AccountSelectorTrigger,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EIOSFullScreenTestModalPages } from '../../iOSFullScreenTestModal/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
 import { ETestModalPages } from '../../TestModal/router/type';
 import { ETabDeveloperRoutes } from '../type';
@@ -42,8 +40,8 @@ export default function HomePageHeaderView() {
   }, [navigation]);
 
   const navigateFullScreenSimpleModal = useCallback(() => {
-    navigation.pushFullModal(EIOSFullScreenModalRoutes.iOSFullScreenTestModal, {
-      screen: EIOSFullScreenTestModalPages.TestFullSimpleModal,
+    navigation.pushFullModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
     });
   }, [navigation]);
 
@@ -73,10 +71,10 @@ export default function HomePageHeaderView() {
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
-        <Button onPress={navigateFullScreenSimpleModal}>
-          to TestFullScreenSimpleModal
-        </Button>
         <Button onPress={navigateOnboardingModal}>Onboarding</Button>
+        <Button onPress={navigateFullScreenSimpleModal}>
+          to fullScreen Onboarding
+        </Button>
       </YStack>
     ),
     [
