@@ -282,6 +282,24 @@ index f10671e..20e0d45 100644
        [screen notifyFinishTransitioning];
      }
    }
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index 7961d53..7d80fe6 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+@@ -646,6 +646,13 @@ - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer
+   // RNSPanGestureRecognizer will receive events iff topScreen.fullScreenSwipeEnabled == YES;
+   // Events are filtered in gestureRecognizer:shouldReceivePressOrTouchEvent: method
+   if ([gestureRecognizer isKindOfClass:[RNSPanGestureRecognizer class]]) {
++  	// We cannot only simply filter this `fullScreenSwipe` gesture by `location + gestureResponseDistance`, so we also need to rely on `swipeDirection + translationInView`.
++	RNSPanGestureRecognizer *panGestureRecognizer = (RNSPanGestureRecognizer *)gestureRecognizer;
++	CGPoint translation = [panGestureRecognizer translationInView:panGestureRecognizer.view];
++	if (((abs(translation.x) - abs(translation.y)) * (topScreen.swipeDirection == RNSScreenSwipeDirectionHorizontal ? 1 : -1)) <= 0) {
++	  return NO;
++	}
++	
+     if ([self isInGestureResponseDistance:gestureRecognizer topScreen:topScreen]) {
+       _isFullWidthSwiping = YES;
+       [self cancelTouchesInParent];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm b/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
 index 6fc0542..a1f946f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackAnimator.mm
@@ -315,7 +333,7 @@ index 6fc0542..a1f946f 100644
      toViewController.view.transform = CGAffineTransformIdentity;
      [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 4fa7506..e908622 100644
+index 4fa7506..f91da95 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 @@ -475,7 +475,22 @@ + (void)updateViewController:(UIViewController *)vc
@@ -342,6 +360,15 @@ index 4fa7506..e908622 100644
    } else {
      // system default is UIRectEdgeAll
      vc.edgesForExtendedLayout = UIRectEdgeAll;
+@@ -581,6 +596,8 @@ + (void)updateViewController:(UIViewController *)vc
+ #endif
+   navitem.leftBarButtonItem = nil;
+   navitem.rightBarButtonItem = nil;
++  // We also need to reset the `title` to address the issue of incorrect position of the `rightBarButtonItem`
++  navitem.title = nil;
+   navitem.titleView = nil;
+ 
+   for (RNSScreenStackHeaderSubview *subview in config.reactSubviews) {
 diff --git a/node_modules/react-native-screens/ios/RNSSearchBar.h b/node_modules/react-native-screens/ios/RNSSearchBar.h
 index 9ac04c0..10a914b 100644
 --- a/node_modules/react-native-screens/ios/RNSSearchBar.h
