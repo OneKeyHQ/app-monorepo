@@ -1,12 +1,27 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Modal, Spinner } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  Image,
+  Modal,
+  Spinner,
+  Text,
+  ToastManager,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+import BlurQRCode from '@onekeyhq/kit/assets/blur-qrcode.png';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { PrivateOrPublicKeyPreview } from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate/previewView';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -29,8 +44,14 @@ const ExportPublicKeyView: FC<{
   accountId: string;
   password: string;
 }> = ({ walletId, networkId, accountId, password }) => {
+  const intl = useIntl();
   const [publicKey, setPublicKey] = useState<string>();
+  const [hardwareConfirmed, setHardwareConfirmed] = useState(false);
+  const [ignoreDeviceCheck, setIgnoreDeviceCheck] = useState(false);
+  const [isLoadingForHardware, setIsLoadingForHardware] = useState(false);
   const navigation = useAppNavigation();
+  const isVerticalLayout = useIsVerticalLayout();
+  const isHwWallet = isHardwareWallet({ walletId });
 
   useEffect(() => {
     (async () => {
@@ -45,10 +66,131 @@ const ExportPublicKeyView: FC<{
         setPublicKey(pubkey);
       } catch (e) {
         deviceUtils.showErrorToast(e);
-        navigation.goBack?.();
+        setTimeout(() => {
+          navigation.goBack?.();
+        }, 200);
       }
     })();
   }, [walletId, networkId, accountId, password, navigation]);
+
+  const onCheckPubkey = useCallback(async () => {
+    setIsLoadingForHardware(true);
+    try {
+      const npub = await backgroundApiProxy.serviceNostr.validateNpubOnHardware(
+        {
+          walletId,
+          networkId,
+          accountId,
+          password: '',
+        },
+      );
+      const isSameNpub = publicKey === npub;
+      if (!isSameNpub) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__address_is_inconsistent_please_check_manually',
+            }),
+          },
+          { type: 'default' },
+        );
+      }
+      setHardwareConfirmed(true);
+    } catch (e) {
+      deviceUtils.showErrorToast(e);
+    } finally {
+      setIsLoadingForHardware(false);
+    }
+  }, [walletId, networkId, accountId, publicKey, intl]);
+
+  const renderHiddenAddress = useMemo(
+    () => (
+      <Box flexDirection="column" alignItems="center" justifyContent="center">
+        <Box
+          borderRadius="24px"
+          alignItems="center"
+          justifyContent="center"
+          w={{ base: platformEnv.isExtension ? 240 : 296, md: 208 }}
+          h={{ base: platformEnv.isExtension ? 240 : 296, md: 208 }}
+          bgColor="white"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="border-default"
+          overflow="hidden"
+        >
+          <Image
+            source={BlurQRCode}
+            w={{ base: 296, md: 208 }}
+            h={{ base: 296, md: 208 }}
+          />
+          <Center
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            p={4}
+          >
+            <Text
+              typography={{ sm: 'Body1', md: 'Body2' }}
+              color="#000"
+              opacity={80}
+              textAlign="center"
+            >
+              {intl.formatMessage({
+                id: 'content__check_the_address_on_device',
+              })}
+            </Text>
+          </Center>
+        </Box>
+        <Box
+          alignItems="center"
+          mt={isVerticalLayout ? '32px' : '24px'}
+          mx="auto"
+          maxWidth="full"
+        >
+          <Text
+            mt="8px"
+            maxW="256px"
+            color="text-subdued"
+            textAlign="center"
+            typography={{ sm: 'Body1', md: 'Body2' }}
+            w="full"
+            maxWidth="full"
+          >
+            {isLoadingForHardware ? publicKey : shortenAddress(publicKey ?? '')}
+          </Text>
+          <Button
+            mt="24px"
+            type="primary"
+            size={isVerticalLayout ? 'lg' : 'base'}
+            isLoading={isLoadingForHardware}
+            onPress={() => onCheckPubkey()}
+          >
+            {intl.formatMessage({
+              id: 'action__check_address',
+            })}
+          </Button>
+          <Button
+            mt={4}
+            size={isVerticalLayout ? 'lg' : 'base'}
+            onPress={() => setIgnoreDeviceCheck(true)}
+          >
+            {intl.formatMessage({
+              id: 'action__dont_have_device',
+            })}
+          </Button>
+        </Box>
+      </Box>
+    ),
+    [intl, isVerticalLayout, publicKey, isLoadingForHardware, onCheckPubkey],
+  );
+
+  const shouldHiddenAddress =
+    isHwWallet && !hardwareConfirmed && !ignoreDeviceCheck;
+
+  if (shouldHiddenAddress) {
+    return <>{renderHiddenAddress}</>;
+  }
 
   return (
     <PrivateOrPublicKeyPreview

@@ -19,6 +19,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -133,7 +134,7 @@ export default class ServiceNostr extends ServiceBase {
         return account;
       } catch (createError) {
         console.error(createError);
-        throw new Error('Create nostr account failed');
+        throw createError;
       }
     }
   }
@@ -331,5 +332,31 @@ export default class ServiceNostr extends ServiceBase {
       `${getFiatEndpoint()}/nostr/getRelays`,
     );
     return data;
+  }
+
+  @backgroundMethod()
+  async validateNpubOnHardware({
+    walletId,
+    networkId,
+    accountId,
+  }: IGetNostrParams) {
+    if (!isHardwareWallet({ walletId })) {
+      throw new Error('Wallet is not hardware wallet');
+    }
+    const nostrAccount = await this.getOrCreateNostrAccount({
+      walletId,
+      currentAccountId: accountId,
+      currentNetworkId: networkId,
+      password: '',
+    });
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: OnekeyNetwork.nostr,
+      accountId: nostrAccount.id,
+    })) as VaultNostr;
+    const npub = await vault.keyring.getAddress({
+      path: nostrAccount.path,
+      showOnOneKey: true,
+    });
+    return npub;
   }
 }
