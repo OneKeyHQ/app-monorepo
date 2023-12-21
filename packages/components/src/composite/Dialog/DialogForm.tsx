@@ -1,8 +1,7 @@
 import { useContext, useMemo } from 'react';
 
-import { useForm } from 'react-hook-form';
-
 import { Form } from '../../forms/Form';
+import { useForm } from '../../hooks';
 
 import { DialogContext } from './context';
 

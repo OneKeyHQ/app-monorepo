@@ -40,21 +40,12 @@ const composeEventHandlers =
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
-  validateField: () => void,
   error: Error,
 ) => {
-  const { onBlur, onChange, onChangeText } = child.props as {
-    onBlur?: () => void;
+  const { onChange, onChangeText } = child.props as {
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
   };
-  const handleBlur = () => {
-    if (onBlur) {
-      onBlur();
-    }
-    validateField();
-  };
-  field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
     case TextArea: {
@@ -88,12 +79,8 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
 function Field({ name, label, description, rules, children }: IFieldProps) {
   const {
     control,
-    trigger,
     formState: { errors },
   } = useFormContext();
-  const validateField = useCallback(() => {
-    void trigger(name);
-  }, [name, trigger]);
   const error = errors[name] as unknown as Error;
   return (
     <Controller
@@ -109,10 +96,7 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
           )}
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(
-                  child,
-                  getChildProps(child, field, validateField, error),
-                )
+              ? cloneElement(child, getChildProps(child, field, error))
               : child,
           )}
           <HeightTransition>
