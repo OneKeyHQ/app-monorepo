@@ -34,7 +34,7 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   const index = networks.findIndex((item) => item.networkId === networkId);
   if (index !== -1) {
     const item = networks.splice(index, 1)[0];
-    networks.unshift(item);
+    networks.splice(1, 0, item);
   }
   return networks;
 }

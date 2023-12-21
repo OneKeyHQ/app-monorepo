@@ -10,6 +10,16 @@ export enum ESwapProviders {
   SOCKET_BRIDGE = 'swap_socket_bridge',
 }
 
+// token & network
+export interface ISwapNetwork {
+  networkId: string;
+  name?: string;
+  symbol?: string;
+  shortcode?: string;
+  logoURI?: string;
+  protocol: string;
+  providers: string;
+}
 export interface ISwapToken {
   networkId: string;
   providers: string;
@@ -18,9 +28,11 @@ export interface ISwapToken {
   symbol: string;
   decimals: number;
   logoURI?: string;
-  swft_coinCode?: string;
-  swft_noSupportCoins?: string;
+  swapSwftCode?: string;
+  swapSwftUnSupportCode?: string;
 }
+
+// quote
 
 export interface IFetchQuotesParams {
   fromNetworkId: string;
@@ -39,33 +51,33 @@ export interface IFetchQuotesParams {
   slippagePercentage?: string;
 }
 
-export interface ISwapNetwork {
-  networkId: string;
-  logoURI?: string;
-  protocol: string;
-  providers: string;
-}
-
-export type IFetchQuoteLimit = {
-  max?: string;
-  min?: string;
-};
-
-export interface IFetchQuoteResponse {
-  quoteResult: IFetchQuoteResult;
+export interface IFetchQuoteResult {
+  info: IFetchQuoteInfo;
+  toAmount: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
+  fee: IFetchQuoteFee;
+  instantRate: string;
+  allowanceResult?: IAllowanceResult;
+  estimatedTime?: string;
   limit?: IFetchQuoteLimit;
 }
 
-export interface IFetchSwapResponse {
-  quoteResult: IFetchQuoteResult;
-  tx?: ITransaction;
-  order?: IFetchSwftOrderResponse;
+export interface IAllowanceResult {
+  allowanceTarget: string;
+  amount: string;
 }
 
+export interface IFetchQuoteInfo {
+  provider: string;
+  providerName: string;
+  providerLogo?: string;
+}
+export interface IFetchQuoteLimit {
+  max?: string;
+  min?: string;
+}
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
   protocolFees?: IFeeInfo[];
-  netWorkFees?: INetworkFee[];
 }
 
 interface IFeeTokenAsset {
@@ -81,9 +93,11 @@ export interface IFeeInfo {
   asset?: IFeeTokenAsset;
 }
 
-export interface INetworkFee {
-  gas?: string;
-  value?: IFeeInfo;
+// build_tx
+export interface IFetchBuildTxResponse {
+  quoteResult: IFetchQuoteResult;
+  tx?: ITransaction;
+  order?: IFetchBuildTxOrderResponse;
 }
 
 export interface IEVMTransaction {
@@ -94,27 +108,10 @@ export interface IEVMTransaction {
 
 export type ITransaction = IEVMTransaction;
 
-export interface IFetchQuoteInfo {
-  provider: string;
-  providerName?: string;
-  providerLogo?: string;
-}
-
-export interface IFetchQuoteResult {
-  info: IFetchQuoteInfo;
-  toAmount: string;
-  finialAmount: string; // after protocolFees + oneKeyFee
-  fee: IFetchQuoteFee;
-  allowanceTarget?: string;
-  arrivalTime?: number;
-}
-
-export interface IFetchSwftOrderResponse {
+export interface IFetchBuildTxOrderResponse {
   platformAddr: string;
   depositCoinAmt: string;
   depositCoinCode: string;
-  receiveCoinAmt: string;
-  receiveCoinCode: string;
   orderId: string;
 }
 

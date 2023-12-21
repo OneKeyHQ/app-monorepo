@@ -1,44 +1,42 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
+
+import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
+  useSwapQuoteFetchingAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import type { IFetchQuoteResponse } from '../types';
-
 export function useSwapQuote() {
-  const [quoteFetching, setQuoteFetching] = useState(false);
+  const [quoteFetching, setQuoteFetching] = useSwapQuoteFetchingAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [quotes, setQuotes] = useState<IFetchQuoteResponse[]>([]);
-  const [selectQuote, setSelectQuote] = useState<
-    IFetchQuoteResponse | undefined
-  >();
+  const [, setQuoteList] = useSwapQuoteListAtom();
   const quoteFetch = useCallback(
     async (fromAmount: number) => {
-      if (Number.isNaN(fromAmount) || fromAmount === 0) {
-        if (quoteFetching)
-          await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
-        setQuoteFetching(false);
-        setQuotes([]);
-        return;
-      }
-
-      if (fromToken && toToken) {
+      if (
+        fromToken &&
+        toToken &&
+        !Number.isNaN(fromAmount) &&
+        fromAmount !== 0
+      ) {
         try {
           setQuoteFetching(true);
           const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
             fromToken,
             toToken,
-            fromTokenAmount: fromAmount.toFixed(6),
+            fromTokenAmount: fromAmount.toString(),
           });
           if (res && res?.length > 0) {
-            setQuotes(res);
-            if (!selectQuote) {
-              setSelectQuote(res[0]);
-            }
+            res.sort((a, b) => {
+              const bBN = new BigNumber(b.toAmount);
+              const aBN = new BigNumber(a.toAmount);
+              return bBN.comparedTo(aBN);
+            });
+            setQuoteList(res);
           }
           setQuoteFetching(false);
         } catch (e: any) {
@@ -47,15 +45,16 @@ export function useSwapQuote() {
             setQuoteFetching(false);
           }
         }
+      } else {
+        await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+        setQuoteFetching(false);
+        setQuoteList([]);
       }
     },
-    [fromToken, quoteFetching, selectQuote, toToken],
+    [fromToken, setQuoteFetching, setQuoteList, toToken],
   );
   return {
     quoteFetching,
-    quotes,
     quoteFetch,
-    selectQuote,
-    setSelectQuote,
   };
 }

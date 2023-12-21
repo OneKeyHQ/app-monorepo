@@ -55,25 +55,32 @@ export function useSwapTokenList(
     }: {
       networkId?: string;
       keyword?: string;
-      fromToken?: ISwapToken;
     }) => {
+      if (fetchLoading) return;
       setFetchLoading(true);
-      const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+      const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId,
         type: selectTokenModalType,
         keyword,
         fromToken,
       });
-      setCurrentTokens(tokens);
+
+      setCurrentTokens(result);
       setFetchLoading(false);
     },
-    [fromToken, selectTokenModalType],
+    [fetchLoading, fromToken, selectTokenModalType],
   );
   const { isLoading } = usePromiseResult(
     async () => {
-      await fetchTokens({ networkId: currentNetworkId });
+      const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+        networkId: currentNetworkId,
+        type: selectTokenModalType,
+        fromToken,
+      });
+      setCurrentTokens(result);
+      setFetchLoading(false);
     },
-    [currentNetworkId, fetchTokens],
+    [currentNetworkId, fromToken, selectTokenModalType],
     { watchLoading: true },
   );
 
