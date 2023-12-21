@@ -184,7 +184,6 @@ function DemoCoverageDialogModal() {
                     '通过 Api 打开的, 点击确定按钮会关闭 Dialog 打开一个 Modal',
                   onConfirm() {
                     navigation.pushModal(ERootModalRoutes.DemoLockedModal);
-                    return Promise.resolve(true);
                   },
                 })
               }
