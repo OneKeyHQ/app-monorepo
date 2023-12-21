@@ -4,12 +4,15 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   ICategory,
   IDApp,
   IDiscoveryHomePageData,
   IDiscoveryListParams,
 } from '@onekeyhq/shared/types/discovery';
+
+import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
 
@@ -32,7 +35,10 @@ class ServiceDiscovery extends ServiceBase {
     if (start >= history.length) {
       return [];
     }
-    return history.slice(start, Math.min(history.length, end));
+    const data = history.slice(start, Math.min(history.length, end));
+    return Promise.all(
+      data.map(async (i) => ({ ...i, logo: await this.getWebsiteIcon(i.url) })),
+    );
   }
 
   @backgroundMethod()
@@ -98,6 +104,15 @@ class ServiceDiscovery extends ServiceBase {
       },
     });
     return res.data.data;
+  }
+
+  @backgroundMethod()
+  async getWebsiteIcon(url: string, size = 64) {
+    const hostName = uriUtils.getHostNameFromUrl({ url });
+    if (!hostName) return '';
+
+    const endpoints = await getEndpoints();
+    return `${endpoints.http}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
   }
 }
 

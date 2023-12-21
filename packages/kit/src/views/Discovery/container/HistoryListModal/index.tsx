@@ -22,11 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
-import { getUrlIcon } from '../../utils/explorerUtils';
+import { type IDiscoveryModalParamList } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -101,7 +97,6 @@ function HistoryListModal() {
     setTimeout(() => {
       void run();
     }, 200);
-    return true;
   }, [run, removeAllBrowserHistory]);
 
   return (
@@ -157,7 +152,7 @@ function HistoryListModal() {
                 <ListItem
                   key={item.id}
                   avatarProps={{
-                    src: getUrlIcon(item.url),
+                    src: item.logo,
                     fallbackProps: {
                       children: <Skeleton w="$10" h="$10" />,
                     },

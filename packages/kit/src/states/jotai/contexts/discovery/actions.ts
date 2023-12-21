@@ -16,7 +16,6 @@ import type {
 import {
   browserTypeHandler,
   crossWebviewLoadUrl,
-  getUrlIcon,
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
@@ -175,15 +174,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabToModify.timestamp = Date.now();
             if (value === 'about:blank' && payload.id) {
               homeResettingFlags[payload.id] = tabToModify.timestamp;
-            }
-            if (!payload.favicon) {
-              try {
-                tabToModify.favicon = `${
-                  new URL(tabToModify.url ?? '').origin
-                }/favicon.ico`;
-              } catch {
-                // ignore
-              }
             }
           }
         }
@@ -461,12 +451,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   openMatchDApp = contextAtomMethod(
-    (_, set, { dApp, webSite, isNewWindow }: IMatchDAppItemType) => {
+    async (_, set, { dApp, webSite, isNewWindow }: IMatchDAppItemType) => {
       if (webSite) {
         return this.gotoSite.call(set, {
           url: webSite.url,
           title: webSite.title,
-          favicon: getUrlIcon(webSite.url),
+          favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
+            webSite.url,
+          ),
           isNewWindow,
           userTriggered: true,
         });

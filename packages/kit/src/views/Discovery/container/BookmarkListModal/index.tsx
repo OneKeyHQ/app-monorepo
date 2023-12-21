@@ -30,7 +30,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { type IDiscoveryModalParamList } from '../../router/Routes';
-import { getUrlIcon } from '../../utils/explorerUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
@@ -49,8 +48,14 @@ function BookmarkListModal() {
     async () => {
       const data =
         await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
+      const bookmarks = await Promise.all(
+        (data?.data ?? []).map(async (i) => ({
+          ...i,
+          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+        })),
+      );
       setFirstLoad(false);
-      setDataSource((data?.data as IBrowserBookmark[]) || []);
+      setDataSource((bookmarks as IBrowserBookmark[]) || []);
       return (data?.data as IBrowserBookmark[]) || [];
     },
     [],
@@ -194,7 +199,7 @@ function BookmarkListModal() {
                   >
                     <ListItem
                       avatarProps={{
-                        src: getUrlIcon(item.url),
+                        src: item.logo,
                         fallbackProps: {
                           children: <Skeleton w="$10" h="$10" />,
                         },

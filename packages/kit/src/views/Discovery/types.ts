@@ -7,11 +7,13 @@ export interface IBrowserHistory {
   title: string;
   url: string;
   createdAt: number;
+  logo?: string;
 }
 
 export interface IBrowserBookmark {
   title: string;
   url: string;
+  logo?: string;
 }
 
 export interface IGotoSiteFnParams {

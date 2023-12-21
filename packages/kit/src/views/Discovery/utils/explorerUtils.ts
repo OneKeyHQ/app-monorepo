@@ -105,12 +105,3 @@ export function dismissWebviewKeyboard(id?: string) {
     }
   }
 }
-
-export function getUrlIcon(url: string, size = 64) {
-  const hostName = uriUtils.getHostNameFromUrl({ url });
-  if (!hostName) {
-    return '';
-  }
-  // TODO: use base url from config
-  return `http://18.138.227.191:9010/api/v2/discover/icon?hostname=${hostName}&size=${size}`;
-}

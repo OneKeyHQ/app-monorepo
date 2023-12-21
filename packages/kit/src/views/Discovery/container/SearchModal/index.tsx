@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   IconButton,
@@ -26,7 +26,6 @@ import type { IDApp } from '@onekeyhq/shared/types/discovery';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import { getUrlIcon } from '../../utils/explorerUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IMatchDAppItemType } from '../../types';
@@ -61,12 +60,24 @@ function SearchModal() {
 
   const { result: bookmarkData } = usePromiseResult(async () => {
     const bookmarks = await getBookmarkData();
-    return bookmarks.slice(0, 8);
+    const slicedBookmarks = bookmarks.slice(0, 8);
+    return Promise.all(
+      slicedBookmarks.map(async (i) => ({
+        ...i,
+        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+      })),
+    );
   }, [getBookmarkData]);
 
   const { result: historyData } = usePromiseResult(async () => {
     const histories = await getHistoryData();
-    return histories.slice(0, 8);
+    const slicedHistory = histories.slice(0, 8);
+    return Promise.all(
+      slicedHistory.map(async (i) => ({
+        ...i,
+        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+      })),
+    );
   }, [getHistoryData]);
 
   const { result: searchResult } = usePromiseResult(async () => {
@@ -76,21 +87,28 @@ function SearchModal() {
     return ret;
   }, [searchValue]);
 
-  const searchList = useMemo<IDApp[]>(() => {
-    if (!searchValue) {
-      return [];
-    }
-    return [
-      {
-        _id: SEARCH_ITEM_ID,
-        dappradarId: '',
-        name: `Search "${searchValue}"`,
-        url: '',
-        logo: getUrlIcon('https://google.com'),
-      } as IDApp,
-      ...(searchResult ?? []),
-    ];
-  }, [searchResult, searchValue]);
+  const [searchList, setSearchList] = useState<IDApp[]>([]);
+  useEffect(() => {
+    void (async () => {
+      if (!searchValue) {
+        setSearchList([]);
+        return;
+      }
+      const logo = await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
+        'https://google.com',
+      );
+      setSearchList([
+        {
+          _id: SEARCH_ITEM_ID,
+          dappradarId: '',
+          name: `Search "${searchValue}"`,
+          url: '',
+          logo,
+        } as IDApp,
+        ...(searchResult ?? []),
+      ]);
+    })();
+  }, [searchValue, searchResult]);
 
   const displaySearchList = useMemo(
     () => Array.isArray(searchList) && searchList.length > 0,
@@ -138,7 +156,7 @@ function SearchModal() {
               renderItem={({ item }) => (
                 <ListItem
                   avatarProps={{
-                    src: item.logo || item.originLogo || getUrlIcon(item.url),
+                    src: item.logo || item.originLogo,
                     fallbackProps: {
                       children: <Skeleton w="$10" h="$10" />,
                     },
@@ -210,7 +228,7 @@ function SearchModal() {
                     }}
                   >
                     <ListItem.Avatar.Component
-                      src={getUrlIcon(item.url)}
+                      src={item.logo}
                       fallbackProps={{
                         children: <Skeleton w="$10" h="$10" />,
                       }}
@@ -262,7 +280,7 @@ function SearchModal() {
                 renderItem={({ item }) => (
                   <ListItem
                     avatarProps={{
-                      src: getUrlIcon(item.url),
+                      src: item.logo,
                       fallbackProps: {
                         children: <Skeleton w="$10" h="$10" />,
                       },

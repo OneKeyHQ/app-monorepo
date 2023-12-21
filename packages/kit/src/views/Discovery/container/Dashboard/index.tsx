@@ -37,7 +37,6 @@ import type {
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import { getUrlIcon } from '../../utils/explorerUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark, IBrowserHistory } from '../../types';
@@ -259,7 +258,7 @@ function DashboardHeader({
             onPress={() => {}}
           >
             <ListItem.Avatar.Component
-              src={getUrlIcon(item.url)}
+              src={item.logo}
               fallbackProps={{
                 children: <Skeleton w="$10" h="$10" />,
               }}
@@ -294,13 +293,25 @@ function Dashboard() {
   const { result: bookmarkData, run: refreshBrowserBookmark } =
     usePromiseResult(async () => {
       const bookmarks = await getBookmarkData();
-      return bookmarks.slice(0, 8);
+      const slicedBookmarks = bookmarks.slice(0, 8);
+      return Promise.all(
+        slicedBookmarks.map(async (i) => ({
+          ...i,
+          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+        })),
+      );
     }, [getBookmarkData]);
 
   const { result: historyData, run: refreshBrowserHistory } =
     usePromiseResult(async () => {
       const histories = await getHistoryData();
-      return histories.slice(0, 8);
+      const slicedHistory = histories.slice(0, 8);
+      return Promise.all(
+        slicedHistory.map(async (i) => ({
+          ...i,
+          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+        })),
+      );
     }, [getHistoryData]);
 
   const handleSearchBarPress = useCallback(() => {
