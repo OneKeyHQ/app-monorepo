@@ -44,7 +44,7 @@ class ServiceDiscovery extends ServiceBase {
     async () => {
       const client = await this.getClient();
       const res = await client.get<{ data: IDiscoveryHomePageData }>(
-        '/api/v2/discover/dapp/homepage',
+        '/utility/v1/discover/dapp/homepage',
       );
       return res.data.data;
     },
@@ -65,7 +65,7 @@ class ServiceDiscovery extends ServiceBase {
         data: { data: dapps },
       },
     } = await client.get<{ data: { data: IDApp[]; next: string } }>(
-      '/api/v2/discover/dapp/search',
+      '/utility/v1/discover/dapp/search',
       {
         params: {
           keyword,
@@ -79,7 +79,7 @@ class ServiceDiscovery extends ServiceBase {
   async fetchCategoryList() {
     const client = await this.getClient();
     const res = await client.get<{ data: ICategory[] }>(
-      '/api/v2/discover/category/list',
+      '/utility/v1/discover/category/list',
     );
     return res.data.data;
   }
@@ -89,7 +89,7 @@ class ServiceDiscovery extends ServiceBase {
     const client = await this.getClient();
     const res = await client.get<{
       data: { data: IDApp[]; next: string };
-    }>('/api/v2/discover/dapp/list', {
+    }>('/utility/v1/discover/dapp/list', {
       params: {
         cursor: listParams.cursor,
         limit: listParams.limit ?? 20,

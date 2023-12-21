@@ -20,7 +20,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
   useBrowserHistoryAction,
@@ -289,15 +291,17 @@ function Dashboard() {
   }, []);
   const { getBookmarkData } = useBrowserBookmarkAction().current;
   const { getHistoryData } = useBrowserHistoryAction().current;
-  const { result: bookmarkData } = usePromiseResult(async () => {
-    const bookmarks = await getBookmarkData();
-    return bookmarks.slice(0, 8);
-  }, [getBookmarkData]);
+  const { result: bookmarkData, run: refreshBrowserBookmark } =
+    usePromiseResult(async () => {
+      const bookmarks = await getBookmarkData();
+      return bookmarks.slice(0, 8);
+    }, [getBookmarkData]);
 
-  const { result: historyData } = usePromiseResult(async () => {
-    const histories = await getHistoryData();
-    return histories.slice(0, 8);
-  }, [getHistoryData]);
+  const { result: historyData, run: refreshBrowserHistory } =
+    usePromiseResult(async () => {
+      const histories = await getHistoryData();
+      return histories.slice(0, 8);
+    }, [getHistoryData]);
 
   const handleSearchBarPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -315,6 +319,13 @@ function Dashboard() {
     },
     [navigation],
   );
+
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus) {
+      void refreshBrowserBookmark();
+      void refreshBrowserHistory();
+    }
+  });
 
   const data = useMemo(
     () => [
