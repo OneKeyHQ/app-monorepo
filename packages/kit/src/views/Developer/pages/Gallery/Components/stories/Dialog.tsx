@@ -398,7 +398,15 @@ const DialogGallery = () => (
                         defaultValues: { text: 'hello' },
                       }}
                     >
-                      <Dialog.FormField name="text">
+                      <Dialog.FormField
+                        name="text"
+                        rules={{
+                          required: {
+                            value: true,
+                            message: 'requied input text',
+                          },
+                        }}
+                      >
                         <Input
                           autoFocus
                           flex={1}
@@ -431,6 +439,47 @@ const DialogGallery = () => (
               }
             >
               disabled Button with Dialog Form
+            </Button>
+
+            <Button
+              onPress={() =>
+                Dialog.confirm({
+                  title: 'Only `RESET` can be accept',
+                  onConfirm: ({ getForm }) => {
+                    const form = getForm();
+                    if (form) {
+                      console.log(form.getValues() as { text: string });
+                    }
+                  },
+                  renderContent: (
+                    <Dialog.Form
+                      formProps={{
+                        mode: 'onSubmit',
+                        reValidateMode: 'onSubmit',
+                        defaultValues: { text: '' },
+                      }}
+                    >
+                      <Dialog.FormField
+                        name="text"
+                        rules={{
+                          required: {
+                            value: true,
+                            message: 'requied input text',
+                          },
+                        }}
+                      >
+                        <Input
+                          autoFocus
+                          flex={1}
+                          placeholder="only numeric value"
+                        />
+                      </Dialog.FormField>
+                    </Dialog.Form>
+                  ),
+                })
+              }
+            >
+              validate on Submit(not on blur)
             </Button>
           </YStack>
         ),
