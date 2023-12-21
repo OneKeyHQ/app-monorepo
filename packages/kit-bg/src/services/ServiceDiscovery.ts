@@ -35,10 +35,6 @@ class ServiceDiscovery extends ServiceBase {
     return history.slice(start, Math.min(history.length, end));
   }
 
-  private getEndPoint() {
-    return 'http://18.138.227.191:9010';
-  }
-
   @backgroundMethod()
   fetchDiscoveryHomePageData() {
     return this._fetchDiscoveryHomePageData();
@@ -46,7 +42,7 @@ class ServiceDiscovery extends ServiceBase {
 
   _fetchDiscoveryHomePageData = memoizee(
     async () => {
-      const client = await this.getClient(this.getEndPoint());
+      const client = await this.getClient();
       const res = await client.get<{ data: IDiscoveryHomePageData }>(
         '/api/v2/discover/dapp/homepage',
       );
@@ -63,7 +59,7 @@ class ServiceDiscovery extends ServiceBase {
     if (!keyword) {
       return [];
     }
-    const client = await this.getClient(this.getEndPoint());
+    const client = await this.getClient();
     const {
       data: {
         data: { data: dapps },
@@ -81,7 +77,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async fetchCategoryList() {
-    const client = await this.getClient(this.getEndPoint());
+    const client = await this.getClient();
     const res = await client.get<{ data: ICategory[] }>(
       '/api/v2/discover/category/list',
     );
@@ -90,7 +86,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async fetchDAppListByCategory(listParams: IDiscoveryListParams) {
-    const client = await this.getClient(this.getEndPoint());
+    const client = await this.getClient();
     const res = await client.get<{
       data: { data: IDApp[]; next: string };
     }>('/api/v2/discover/dapp/list', {
