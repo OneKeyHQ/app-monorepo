@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { Dialog } from '@onekeyhq/components';
 
 import {
@@ -10,19 +12,18 @@ import {
 } from '../components/Hardware';
 
 const mockListenDeviceResult = () => {
-  let rejectFunc: () => void | undefined;
+  const actions: (() => void | undefined)[] = [];
   return {
     run: () =>
       new Promise<void>((resolve, reject) => {
-        rejectFunc = reject;
-        setTimeout(() => {
-          resolve();
-        }, 3500);
+        actions[0] = resolve;
+        actions[1] = reject;
       }),
+    confirm: () => {
+      actions?.[0]();
+    },
     cancel: () => {
-      if (rejectFunc) {
-        rejectFunc();
-      }
+      actions?.[1]();
     },
   };
 };
@@ -38,26 +39,15 @@ const confirmOnClassic = async () => {
       mb: 'auto',
     },
     renderContent: <ConfirmOnClassic />,
-    onCancel: () => {
+    onDismiss: () => {
       event.cancel();
     },
   });
+  setTimeout(async () => {
+    event.confirm();
+    await dialog.close();
+  }, 3500);
   await event.run();
-  await dialog.close();
-};
-
-const confirmByPin = async () => {
-  const event = mockListenDeviceResult();
-  const dialog = Dialog.show({
-    title: 'Enter PIN',
-    showFooter: false,
-    renderContent: <EnterPin />,
-    onCancel: () => {
-      event.cancel();
-    },
-  });
-  await event.run();
-  await dialog.close();
 };
 
 const confirmPinOnDevice = async () => {
@@ -70,27 +60,40 @@ const confirmPinOnDevice = async () => {
       event.cancel();
     },
   });
+  setTimeout(async () => {
+    event.confirm();
+    await dialog.close();
+  }, 3500);
   await event.run();
-  await dialog.close();
 };
 
-const confirmPhrase = async () => {
+const confirmByPin = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
-    title: 'Enter Passphrase',
+    title: 'Enter PIN',
     showFooter: false,
-    renderContent: <EnterPhase />,
-    onCancel: () => {
+    renderContent: (
+      <EnterPin
+        onConfirm={async () => {
+          event.confirm();
+          await dialog.close();
+        }}
+        switchOnDevice={async () => {
+          await dialog.close();
+          await confirmPinOnDevice();
+        }}
+      />
+    ),
+    onDismiss: () => {
       event.cancel();
     },
   });
   await event.run();
-  await dialog.close();
 };
 
 const confirmPhraseOnDevice = async () => {
   const event = mockListenDeviceResult();
-  const dialog = Dialog.show({
+  Dialog.show({
     title: 'Enter Passphrase on Device',
     showFooter: false,
     renderContent: <EnterPassphraseOnDevice />,
@@ -99,28 +102,61 @@ const confirmPhraseOnDevice = async () => {
     },
   });
   await event.run();
-  await dialog.close();
 };
 
-const confirmPassphrase = async () => {
+const confirmPhrase = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
-    title: 'Enter Passphrase on Device',
+    title: 'Enter Passphrase',
     showFooter: false,
-    renderContent: <ConfirmPassphrase />,
+    renderContent: (
+      <EnterPhase
+        onConfirm={async () => {
+          event.confirm();
+          await dialog.close();
+        }}
+        switchOnDevice={async () => {
+          await dialog.close();
+          await confirmPinOnDevice();
+        }}
+      />
+    ),
     onCancel: () => {
       event.cancel();
     },
   });
   await event.run();
-  await dialog.close();
+};
+
+const confirmPassphrase = async () => {
+  const event = mockListenDeviceResult();
+  const dialog = Dialog.show({
+    title: 'Confirm Passphrase',
+    showFooter: false,
+    renderContent: (
+      <ConfirmPassphrase
+        onConfirm={async () => {
+          event.confirm();
+          await dialog.close();
+        }}
+        switchOnDevice={async () => {
+          await dialog.close();
+          await confirmPinOnDevice();
+        }}
+      />
+    ),
+    onCancel: () => {
+      event.cancel();
+    },
+  });
+  await event.run();
 };
 
 export const useConfirmOnHardWare = () => ({
-  confirmOnClassic,
-  confirmByPin,
-  confirmPinOnDevice,
-  confirmPhrase,
-  confirmPhraseOnDevice,
-  confirmPassphrase,
+  confirmOnClassic: useCallback(confirmOnClassic, []),
+  confirmByPin: useCallback(confirmByPin, []),
+  confirmPinOnDevice: useCallback(confirmPinOnDevice, []),
+  confirmPhrase: useCallback(confirmPhrase, []),
+  confirmPhraseOnDevice: useCallback(confirmPhraseOnDevice, []),
+  confirmPassphrase: useCallback(confirmPassphrase, []),
 });

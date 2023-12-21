@@ -43,7 +43,13 @@ export function ConfirmOnClassic() {
   );
 }
 
-export function EnterPin() {
+export function EnterPin({
+  onConfirm,
+  switchOnDevice,
+}: {
+  onConfirm: () => void;
+  switchOnDevice: () => void;
+}) {
   return (
     <Stack>
       <Stack
@@ -113,11 +119,12 @@ export function EnterPin() {
           } as IButtonProps
         }
         variant="primary"
-        onPress={() =>
+        onPress={() => {
           Toast.error({
             title: 'Wrong PIN',
-          })
-        }
+          });
+          onConfirm();
+        }}
       >
         Confirm
       </Button>
@@ -130,6 +137,7 @@ export function EnterPin() {
           } as IButtonProps
         }
         variant="tertiary"
+        onPress={switchOnDevice}
       >
         Enter on Device
       </Button>
@@ -147,7 +155,13 @@ export function EnterPinOnDevice() {
   );
 }
 
-export function EnterPhase() {
+export function EnterPhase({
+  onConfirm,
+  switchOnDevice,
+}: {
+  onConfirm: () => void;
+  switchOnDevice: () => void;
+}) {
   const form = useForm();
   const media = useMedia();
   const dialog = useDialogInstance();
@@ -193,7 +207,9 @@ export function EnterPhase() {
             title: 'Keep Your Wallet Accessible?',
             description:
               'Save this wallet to your device to maintain access after the app is closed. Unsaved wallets will be removed automatically.',
-            onConfirm: () => console.log('confirmed'),
+            onConfirm: () => {
+              onConfirm();
+            },
             onConfirmText: 'Save Wallet',
             confirmButtonProps: {
               variant: 'secondary',
@@ -214,6 +230,7 @@ export function EnterPhase() {
           } as IButtonProps
         }
         variant="tertiary"
+        onPress={switchOnDevice}
       >
         Enter on Device
       </Button>
@@ -231,7 +248,13 @@ export function EnterPassphraseOnDevice() {
   );
 }
 
-export function ConfirmPassphrase() {
+export function ConfirmPassphrase({
+  onConfirm,
+  switchOnDevice,
+}: {
+  onConfirm: () => void;
+  switchOnDevice: () => void;
+}) {
   return (
     <Stack>
       {/* TODO: switch size to large when media.md */}
@@ -245,6 +268,7 @@ export function ConfirmPassphrase() {
           } as IButtonProps
         }
         variant="primary"
+        onPress={onConfirm}
       >
         Confirm
       </Button>
@@ -257,6 +281,7 @@ export function ConfirmPassphrase() {
           } as IButtonProps
         }
         variant="tertiary"
+        onPress={switchOnDevice}
       >
         Enter on Device
       </Button>
