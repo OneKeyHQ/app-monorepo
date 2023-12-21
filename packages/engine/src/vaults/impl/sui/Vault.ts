@@ -339,7 +339,7 @@ export default class Vault extends VaultBase {
               inputs,
               gasConfig.payment,
             );
-            if (action) {
+            if (action && typeof action.recipient === 'string') {
               let actionKey = 'nativeTransfer';
               if (!action.isNative) {
                 actionKey = 'tokenTransfer';
@@ -396,7 +396,11 @@ export default class Vault extends VaultBase {
                       }
                     }
                   } else if (argInput.type === 'object') {
-                    args.push(argInput.value);
+                    try {
+                      args.push(JSON.stringify(argInput.value));
+                    } catch (e) {
+                      args.push('unable to parse object');
+                    }
                   }
                   break;
 
