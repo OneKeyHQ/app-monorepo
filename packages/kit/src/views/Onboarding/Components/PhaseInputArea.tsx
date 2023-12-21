@@ -277,7 +277,7 @@ function BasicPhaseInput(
           e.preventDefault();
           e.stopPropagation();
         }
-      } else if (e.keyCode > 48 && e.keyCode < 57) {
+      } else if (e.keyCode > 48 && e.keyCode < 58) {
         const suggestionIndex = e.keyCode - 48;
         updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
         e.preventDefault();
@@ -292,28 +292,29 @@ function BasicPhaseInput(
   }, [index, onReturnKeyPressed]);
 
   const isShowValue = selectInputIndex !== index && value?.length;
-
+  const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
+
+  const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
+    value: displayValue,
+    ref: inputRef,
+    keyboardType: 'ascii-capable',
+    autoCapitalize: 'none',
+    autoCorrect: false,
+    spellCheck: false,
+    size: media.md ? 'large' : 'medium',
+    leftAddOnProps: {
+      label: `${index + 1}`,
+      minWidth: '$10',
+      justifyContent: 'center',
+    },
+    onChangeText: handleChangeText,
+    onFocus: handleInputFocus,
+    onBlur: handleInputBlur,
+    returnKeyType: handleGetReturnKeyLabel(),
+  };
   if (platformEnv.isNative) {
-    return (
-      <Input
-        value={isShowValue ? '••••' : value}
-        ref={inputRef}
-        autoCorrect={false}
-        spellCheck={false}
-        size={media.md ? 'large' : 'medium'}
-        leftAddOnProps={{
-          label: `${index + 1}`,
-          minWidth: '$10',
-          justifyContent: 'center',
-        }}
-        onChangeText={handleChangeText}
-        onFocus={handleInputFocus}
-        onBlur={handleInputBlur}
-        returnKeyType={handleGetReturnKeyLabel()}
-        onSubmitEditing={handleSubmitEnding}
-      />
-    );
+    return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
   }
   return (
     <Popover
@@ -332,26 +333,7 @@ function BasicPhaseInput(
       }
       renderTrigger={
         <Stack>
-          <Input
-            ref={inputRef}
-            value={value}
-            secureTextEntry={selectInputIndex !== index}
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-            onKeyPress={handleKeyPress}
-            size={media.md ? 'large' : 'medium'}
-            leftAddOnProps={{
-              label: `${index + 1}`,
-              minWidth: '$10',
-              justifyContent: 'center',
-            }}
-            onChangeText={handleChangeText}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            returnKeyType="next"
-            data-1p-ignore
-          />
+          <Input {...inputProps} onKeyPress={handleKeyPress} data-1p-ignore />
         </Stack>
       }
     />
