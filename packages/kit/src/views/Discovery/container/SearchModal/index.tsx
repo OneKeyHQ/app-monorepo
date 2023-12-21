@@ -5,8 +5,8 @@ import {
   ListItem,
   ListView,
   Page,
+  ScrollView,
   Skeleton,
-  Stack,
   Text,
   XStack,
   YStack,
@@ -29,6 +29,10 @@ import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { getUrlIcon } from '../../utils/explorerUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
+import type { IMatchDAppItemType } from '../../types';
+
+const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+
 function SearchModal() {
   const navigation = useAppNavigation();
   const [searchValue, setSearchValue] = useState('');
@@ -37,16 +41,13 @@ function SearchModal() {
   const { getBookmarkData } = useBrowserBookmarkAction().current;
   const { getHistoryData } = useBrowserHistoryAction().current;
 
-  const handleOnPress = useCallback(
-    (item: { url: string; name: string }) => {
+  const handleOpenWebSite = useCallback(
+    ({ dApp, webSite }: IMatchDAppItemType) => {
       setDisplayHomePage(false);
 
       void openMatchDApp({
-        id: '',
-        webSite: {
-          url: item.url,
-          title: item.name,
-        },
+        webSite,
+        dApp,
         isNewWindow: true,
       });
       if (platformEnv.isDesktop) {
@@ -81,7 +82,7 @@ function SearchModal() {
     }
     return [
       {
-        _id: 'search-value',
+        _id: SEARCH_ITEM_ID,
         dappradarId: '',
         name: `Search "${searchValue}"`,
         url: '',
@@ -118,15 +119,17 @@ function SearchModal() {
             setSearchValue(nativeEvent.text);
           },
           onSearchButtonPress: () => {
-            handleOnPress({
-              url: searchValue,
-              name: searchValue,
+            handleOpenWebSite({
+              webSite: {
+                url: searchValue,
+                title: searchValue,
+              },
             });
           },
         }}
       />
       <Page.Body>
-        <Stack flex={1}>
+        <ScrollView>
           {displaySearchList && (
             <ListView
               estimatedItemSize="$10"
@@ -144,7 +147,20 @@ function SearchModal() {
                   subtitleProps={{
                     numberOfLines: 1,
                   }}
-                  onPress={() => {}}
+                  onPress={() => {
+                    if (item._id === SEARCH_ITEM_ID) {
+                      handleOpenWebSite({
+                        webSite: {
+                          url: searchValue,
+                          title: searchValue,
+                        },
+                      });
+                    } else {
+                      handleOpenWebSite({
+                        dApp: item,
+                      });
+                    }
+                  }}
                 />
               )}
             />
@@ -185,9 +201,11 @@ function SearchModal() {
                     justifyContent="center"
                     p="$4"
                     onPress={() => {
-                      handleOnPress({
-                        url: item.url,
-                        name: item.title,
+                      handleOpenWebSite({
+                        webSite: {
+                          url: item.url,
+                          title: item.title,
+                        },
                       });
                     }}
                   >
@@ -250,15 +268,16 @@ function SearchModal() {
                       },
                     }}
                     title={item.title}
-                    // subtitle={item.}
                     subtitleProps={{
                       numberOfLines: 1,
                     }}
                     testID={`search-modal-${item.title.toLowerCase()}`}
                     onPress={() => {
-                      handleOnPress({
-                        url: item.url,
-                        name: item.title,
+                      handleOpenWebSite({
+                        webSite: {
+                          url: item.url,
+                          title: item.title,
+                        },
                       });
                     }}
                   />
@@ -266,7 +285,7 @@ function SearchModal() {
               />
             </>
           )}
-        </Stack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );

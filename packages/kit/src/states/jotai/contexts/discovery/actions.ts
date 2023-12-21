@@ -461,7 +461,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   openMatchDApp = contextAtomMethod(
-    (_, set, { dapp, webSite, isNewWindow }: IMatchDAppItemType) => {
+    (_, set, { dApp, webSite, isNewWindow }: IMatchDAppItemType) => {
       if (webSite) {
         return this.gotoSite.call(set, {
           url: webSite.url,
@@ -471,12 +471,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           userTriggered: true,
         });
       }
-      if (dapp) {
+      if (dApp) {
         return this.gotoSite.call(set, {
-          url: dapp.url,
-          title: dapp.name,
-          dAppId: dapp._id,
-          favicon: dapp.logoURL,
+          url: dApp.url,
+          title: dApp.name,
+          dAppId: dApp._id,
+          favicon: dApp.logo || dApp.originLogo,
           userTriggered: true,
           isNewWindow,
         });
