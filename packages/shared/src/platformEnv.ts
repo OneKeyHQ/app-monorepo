@@ -3,23 +3,27 @@ import { Platform } from 'react-native';
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!
  */
-export type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
-export type IDistributionChannel =
-  | 'ext-chrome'
-  | 'ext-firefox'
-  | 'desktop-mac'
-  | 'desktop-mac-arm64'
-  | 'desktop-win'
-  | 'desktop-win-ms-store'
-  | 'desktop-linux'
-  | 'desktop-linux-snap'
-  | 'native-ios'
-  | 'native-ios-store'
-  | 'native-android'
-  | 'native-android-google'
-  | 'native-android-huawei'
-  | 'native-ios-pad'
-  | 'native-ios-pad-store';
+export type IAppPlatform =
+  | 'extension'
+  | 'ios'
+  | 'android'
+  | 'desktop'
+  | 'web'
+  | 'webEmbed';
+export type IAppChannel =
+  | 'chrome'
+  | 'firefox'
+  | 'edge'
+  | 'phone'
+  | 'pad'
+  | 'apk'
+  | 'googlePlay'
+  | 'huaweiStore'
+  | 'macosARM'
+  | 'macosX86'
+  | 'win'
+  | 'winStore'
+  | 'linux';
 
 export type IPlatformEnv = {
   isNewRouteMode: boolean;
@@ -40,6 +44,7 @@ export type IPlatformEnv = {
 
   /** running in the browsers */
   isWeb?: boolean;
+  isWebTouchable?: boolean;
   isWebEmbed?: boolean;
   /** running in the desktop system APP */
   isDesktop?: boolean;
@@ -75,8 +80,8 @@ export type IPlatformEnv = {
   isNativeAndroidGooglePlay?: boolean;
   isNativeAndroidHuawei?: boolean;
 
-  symbol: IPlatform | undefined;
-  distributionChannel: IDistributionChannel | undefined;
+  appPlatform: IAppPlatform | undefined;
+  appChannel: IAppChannel | undefined;
 
   isManifestV3?: boolean;
   isExtensionBackground?: boolean;
@@ -110,6 +115,7 @@ const {
   isNative,
   isExtChrome,
   isExtFirefox,
+  isExtEdge,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -121,6 +127,7 @@ const {
   isNative: boolean;
   isExtChrome: boolean;
   isExtFirefox: boolean;
+  isExtEdge: boolean;
 } = require('./buildTimeEnv.js');
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
@@ -146,32 +153,32 @@ const isNativeAndroidHuawei =
 const isMas = isDesktop && window?.desktopApi?.isMas;
 
 // for platform building by file extension
-const getPlatformSymbol = (): IPlatform | undefined => {
+const getAppPlatform = (): IAppPlatform | undefined => {
   if (isWeb) return 'web';
   if (isWebEmbed) return 'webEmbed';
   if (isDesktop) return 'desktop';
-  if (isExtension) return 'ext';
-  if (isNative) return 'native';
+  if (isExtension) return 'extension';
+  if (isNativeIOS) return 'ios';
+  if (isNativeAndroid) return 'android';
 };
 
-const getDistributionChannel = (): IDistributionChannel | undefined => {
-  if (isExtChrome) return 'ext-chrome';
-  if (isExtFirefox) return 'ext-firefox';
+const getAppChannel = (): IAppChannel | undefined => {
+  if (isExtChrome) return 'chrome';
+  if (isExtFirefox) return 'firefox';
+  if (isExtEdge) return 'edge';
 
-  if (isDesktopMacArm64) return 'desktop-mac-arm64';
-  if (isDesktopMac) return 'desktop-mac';
-  if (isDesktopWinMsStore) return 'desktop-win-ms-store';
-  if (isDesktopWin) return 'desktop-win';
-  if (isDesktopLinuxSnap) return 'desktop-linux-snap';
-  if (isDesktopLinux) return 'desktop-linux';
+  if (isNativeIOSPad) return 'pad';
+  if (isNativeIOSPhone) return 'phone';
 
-  if (isNativeIOSPadStore) return 'native-ios-pad-store';
-  if (isNativeIOSPad) return 'native-ios-pad';
-  if (isNativeIOSStore) return 'native-ios-store';
-  if (isNativeIOS) return 'native-ios';
-  if (isNativeAndroidGooglePlay) return 'native-android-google';
-  if (isNativeAndroidHuawei) return 'native-android-huawei';
-  if (isNativeAndroid) return 'native-android';
+  if (isNativeAndroidHuawei) return 'huaweiStore';
+  if (isNativeAndroidGooglePlay) return 'googlePlay';
+  if (isNativeAndroid) return 'apk';
+
+  if (isDesktopWinMsStore) return 'winStore';
+  if (isDesktopWin) return 'win';
+  if (isDesktopMacArm64) return 'macosARM';
+  if (isDesktopMac) return 'macosX86';
+  if (isDesktopLinux) return 'linux';
 };
 
 const isRuntimeBrowser: boolean = typeof window !== 'undefined' && !isNative;
@@ -228,6 +235,10 @@ const checkIsRuntimeChrome = (): boolean => {
   // not Google Chrome
   return false;
 };
+
+const isWebTouchable =
+  isRuntimeBrowser &&
+  ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
 const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
@@ -295,6 +306,7 @@ const platformEnv: IPlatformEnv = {
   isProduction,
 
   isWeb,
+  isWebTouchable,
   isWebEmbed,
   isDesktop,
   isExtension,
@@ -320,8 +332,8 @@ const platformEnv: IPlatformEnv = {
   isNativeAndroidGooglePlay,
   isNativeAndroidHuawei,
 
-  symbol: getPlatformSymbol(),
-  distributionChannel: getDistributionChannel(),
+  appPlatform: getAppPlatform(),
+  appChannel: getAppChannel(),
 
   isManifestV3,
   isExtensionBackground,

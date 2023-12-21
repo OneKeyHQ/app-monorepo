@@ -303,6 +303,7 @@ class Helper {
             txid: params.tx_hash,
             rawTx: params.serialized_signed_tx,
             txKey: params.tx_key,
+            encodedTx: null,
           });
         },
         error_fn: (params) => {

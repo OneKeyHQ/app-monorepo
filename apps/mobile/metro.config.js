@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 // Learn more https://docs.expo.dev/guides/monorepos
 const { getDefaultConfig } = require('expo/metro-config');
 // const path = require('path');
@@ -20,6 +21,7 @@ config.resolver.sourceExts = [
   'cjs',
   'min.js',
 ];
+// https://www.npmjs.com/package/node-libs-react-native
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   crypto: require.resolve(
@@ -32,6 +34,7 @@ config.resolver.extraNodeModules = {
   https: require.resolve('https-browserify'),
   net: require.resolve('react-native-tcp-socket'),
   tls: require.resolve('react-native-tcp-socket'),
+  zlib: require.resolve('browserify-zlib'),
 };
 
 // 1. Watch all files within the monorepo
@@ -44,4 +47,6 @@ config.resolver.extraNodeModules = {
 // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
 // config.resolver.disableHierarchicalLookup = true;
 
-module.exports = config;
+const splitCodePlugin = require('./plugins');
+
+module.exports = splitCodePlugin(config, projectRoot);

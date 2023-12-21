@@ -69,6 +69,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const txid = '';
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid,
       rawTx: Buffer.from(rawTxBytes).toString('base64'),
     };

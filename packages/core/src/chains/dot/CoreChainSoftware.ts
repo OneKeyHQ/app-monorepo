@@ -5,7 +5,7 @@ import { merge } from 'lodash';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { encrypt, mnemonicFromEntropy } from '../../secret';
@@ -65,11 +65,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const pathComponents = account.path.split('/');
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');
-      const { entropy } = credentials.hd;
-      const mnemonic = mnemonicFromEntropy(
-        bufferUtils.toBuffer(entropy),
-        password,
-      );
+      const mnemonic = mnemonicFromEntropy(credentials.hd, password);
       const keys = usedRelativePaths.map((relPath) => {
         const path = `${basePath}/${relPath}`;
 
@@ -88,8 +84,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
       // const { relPaths } = account;
-      const { privateKey } = credentials.imported;
-      privateKeys[account.path] = privateKey;
+      privateKeys[account.path] = credentials.imported;
     }
     if (!Object.keys(privateKeys).length) {
       throw new Error('No private keys found');
@@ -125,9 +120,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txid = '';
     const rawTx = ''; // build rawTx on high level which requires network
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid,
       rawTx,
-      signature: addHexPrefix(bufferUtils.bytesToHex(txSignature)),
+      signature: hexUtils.addHexPrefix(bufferUtils.bytesToHex(txSignature)),
     };
   }
 
@@ -143,7 +139,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       DOT_TYPE_PREFIX.ed25519,
       bufferToU8a(signature),
     );
-    return addHexPrefix(bufferUtils.bytesToHex(txSignature));
+    return hexUtils.addHexPrefix(bufferUtils.bytesToHex(txSignature));
   }
 
   override async getAddressFromPrivate(
@@ -175,15 +171,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
     const { template, hdCredential, password, indexes } = query;
-    const { entropy } = hdCredential;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const mnemonic = mnemonicFromEntropy(
-      bufferUtils.toBuffer(entropy),
-      password,
-    );
+    const mnemonic = mnemonicFromEntropy(hdCredential, password);
 
     const publicKeys = indexFormatted.map((index) => {
       const path = `${pathPrefix}/${index}`;

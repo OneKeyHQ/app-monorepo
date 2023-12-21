@@ -3,7 +3,7 @@
 // eslint-disable-next-line max-classes-per-file
 import * as mimeTypes from 'mime-types';
 
-type XMLHttpRequestResponseType =
+type IXMLHttpRequestResponseType =
   | ''
   | 'arraybuffer'
   | 'blob'
@@ -166,7 +166,7 @@ export class XMLHttpRequestEventTarget extends EventTarget {
 
 export class XMLHttpRequestUpload extends XMLHttpRequestEventTarget {}
 
-enum State {
+enum EXhrState {
   UNSENT = 0,
   OPENED = 1,
   HEADERS_RECEIVED = 2,
@@ -195,11 +195,11 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
 
   #responseObject: any = null;
 
-  #responseType: XMLHttpRequestResponseType = '';
+  #responseType: IXMLHttpRequestResponseType = '';
 
   #sendFlag = false;
 
-  #state = State.UNSENT;
+  #state = EXhrState.UNSENT;
 
   #timedoutFlag = false;
 
@@ -269,7 +269,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     const loaded = this.#receivedBytes.length;
     const total = extractLength(this.#response) ?? 0;
     this.dispatchEvent(new ProgressEvent('progress', { loaded, total }));
-    this.#state = State.DONE;
+    this.#state = EXhrState.DONE;
     this.#sendFlag = false;
     this.dispatchEvent(new Event('readystatechange'));
     this.dispatchEvent(new ProgressEvent('load', { loaded, total }));
@@ -290,7 +290,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   #requestErrorSteps(event: string) {
-    this.#state = State.DONE;
+    this.#state = EXhrState.DONE;
     this.#sendFlag = false;
     this.dispatchEvent(new Event('readystatechange'));
     if (!this.#uploadCompleteFlag) {
@@ -345,12 +345,14 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
 
   get response(): any {
     if (this.#responseType === '' || this.#responseType === 'text') {
-      if (!(this.#state === State.LOADING || this.#state === State.DONE)) {
+      if (
+        !(this.#state === EXhrState.LOADING || this.#state === EXhrState.DONE)
+      ) {
         return '';
       }
       return this.#getTextResponse();
     }
-    if (this.#state !== State.DONE) {
+    if (this.#state !== EXhrState.DONE) {
       return null;
     }
     if (this.#responseObject instanceof Error) {
@@ -400,21 +402,23 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
         'InvalidStateError',
       );
     }
-    if (!(this.#state === State.LOADING || this.#state === State.DONE)) {
+    if (
+      !(this.#state === EXhrState.LOADING || this.#state === EXhrState.DONE)
+    ) {
       return '';
     }
     return this.#getTextResponse();
   }
 
-  get responseType(): XMLHttpRequestResponseType {
+  get responseType(): IXMLHttpRequestResponseType {
     return this.#responseType;
   }
 
-  set responseType(value: XMLHttpRequestResponseType) {
+  set responseType(value: IXMLHttpRequestResponseType) {
     if (value === 'document') {
       return;
     }
-    if (this.#state === State.LOADING || this.#state === State.DONE) {
+    if (this.#state === EXhrState.LOADING || this.#state === EXhrState.DONE) {
       throw new DOMException(
         'The response type cannot be changed when loading or done',
         'InvalidStateError',
@@ -434,7 +438,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
         'InvalidStateError',
       );
     }
-    if (this.#state !== State.DONE) {
+    if (this.#state !== EXhrState.DONE) {
       return null;
     }
     if (this.#setDocumentResponse instanceof Error) {
@@ -469,7 +473,9 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   set withCredentials(value: boolean) {
-    if (!(this.#state === State.UNSENT || this.#state === State.OPENED)) {
+    if (
+      !(this.#state === EXhrState.UNSENT || this.#state === EXhrState.OPENED)
+    ) {
       throw new DOMException(
         'The request is not unsent or opened',
         'InvalidStateError',
@@ -484,14 +490,14 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   abort(): void {
     this.#terminate();
     if (
-      (this.#state === State.OPENED && this.#sendFlag) ||
-      this.#state === State.HEADERS_RECEIVED ||
-      this.#state === State.LOADING
+      (this.#state === EXhrState.OPENED && this.#sendFlag) ||
+      this.#state === EXhrState.HEADERS_RECEIVED ||
+      this.#state === EXhrState.LOADING
     ) {
       this.#requestErrorSteps('abort');
     }
-    if (this.#state === State.DONE) {
-      this.#state = State.UNSENT;
+    if (this.#state === EXhrState.DONE) {
+      this.#state = EXhrState.UNSENT;
       this.#response = undefined;
     }
   }
@@ -574,12 +580,12 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     this.#url = parsedUrl;
     this.#headers = new Headers();
     this.#response = undefined;
-    this.#state = State.OPENED;
+    this.#state = EXhrState.OPENED;
     this.dispatchEvent(new Event('readystatechange'));
   }
 
   overrideMimeType(mime: string): void {
-    if (this.#state === State.LOADING || this.#state === State.DONE) {
+    if (this.#state === EXhrState.LOADING || this.#state === EXhrState.DONE) {
       throw new DOMException(
         'The request is in an invalid state',
         'InvalidStateError',
@@ -590,7 +596,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   send(body: BodyInit | null = null): void {
-    if (this.#state !== State.OPENED) {
+    if (this.#state !== EXhrState.OPENED) {
       throw new DOMException('Invalid state', 'InvalidStateError');
     }
     if (this.#sendFlag) {
@@ -622,7 +628,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     this.#upload.dispatchEvent(
       new ProgressEvent('loadstart', { loaded: 0, total: 0 }),
     );
-    if (this.#state !== State.OPENED || !this.#sendFlag) {
+    if (this.#state !== EXhrState.OPENED || !this.#sendFlag) {
       return;
     }
     const processRequestEndOfBody = () => {
@@ -645,9 +651,9 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     };
     const processResponse = async (response: Response) => {
       this.#response = response;
-      this.#state = State.HEADERS_RECEIVED;
+      this.#state = EXhrState.HEADERS_RECEIVED;
       this.dispatchEvent(new Event('readystatechange'));
-      if (this.#state !== State.HEADERS_RECEIVED) {
+      if (this.#state !== EXhrState.HEADERS_RECEIVED) {
         return;
       }
       if (response.body == null) {
@@ -661,8 +667,8 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
         // was <= 50ms ago, the problem is that often chunks arrive under that
         // and a client doesn't get a progress event, which then causes it to
         // "hang" when long polling
-        if (this.#state === State.HEADERS_RECEIVED) {
-          this.#state = State.LOADING;
+        if (this.#state === EXhrState.HEADERS_RECEIVED) {
+          this.#state = EXhrState.LOADING;
         }
         this.dispatchEvent(new Event('readystatechange'));
         this.dispatchEvent(
@@ -713,7 +719,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   setRequestHeader(name: string, value: string): void {
-    if (this.#state !== State.OPENED) {
+    if (this.#state !== EXhrState.OPENED) {
       throw new DOMException('Invalid state', 'InvalidStateError');
     }
     if (this.#sendFlag) {
@@ -723,43 +729,43 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
   }
 
   get DONE() {
-    return State.DONE;
+    return EXhrState.DONE;
   }
 
   get HEADERS_RECEIVED() {
-    return State.HEADERS_RECEIVED;
+    return EXhrState.HEADERS_RECEIVED;
   }
 
   get LOADING() {
-    return State.LOADING;
+    return EXhrState.LOADING;
   }
 
   get OPENED() {
-    return State.OPENED;
+    return EXhrState.OPENED;
   }
 
   get UNSENT() {
-    return State.UNSENT;
+    return EXhrState.UNSENT;
   }
 
   static get DONE() {
-    return State.DONE;
+    return EXhrState.DONE;
   }
 
   static get HEADERS_RECEIVED() {
-    return State.HEADERS_RECEIVED;
+    return EXhrState.HEADERS_RECEIVED;
   }
 
   static get LOADING() {
-    return State.LOADING;
+    return EXhrState.LOADING;
   }
 
   static get OPENED() {
-    return State.OPENED;
+    return EXhrState.OPENED;
   }
 
   static get UNSENT() {
-    return State.UNSENT;
+    return EXhrState.UNSENT;
   }
 }
 

@@ -8,7 +8,7 @@ import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
 import type { IMoneroApi } from './types';
-import type { SignedTx } from '../../../types';
+import type { ISignedTx } from '../../../types';
 
 async function getMoneroApi(): Promise<IMoneroApi> {
   const moneroCoreInstance = await getMoneroCoreInstance();
@@ -55,7 +55,7 @@ async function getMoneroApi(): Promise<IMoneroApi> {
     return Promise.resolve(fee);
   };
 
-  const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
+  const sendFunds = async (args: any, scanUrl: string): Promise<ISignedTx> => {
     const signedTx = await helper.sendFunds(args, scanUrl);
     return signedTx;
   };

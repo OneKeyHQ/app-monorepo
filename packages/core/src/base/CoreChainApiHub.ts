@@ -1,4 +1,4 @@
-import CoreChainAda from '../chains/ada';
+// import CoreChainAda from '../chains/ada';
 // import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
 // import CoreChainBch from '../chains/bch';
@@ -7,7 +7,7 @@ import CoreChainAda from '../chains/ada';
 // import CoreChainCosmos from '../chains/cosmos';
 // import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
-// import CoreChainEvm from '../chains/evm';
+import CoreChainEvm from '../chains/evm';
 // import CoreChainFil from '../chains/fil';
 // import CoreChainKaspa from '../chains/kaspa';
 // import CoreChainLtc from '../chains/ltc';
@@ -21,9 +21,9 @@ import CoreChainAda from '../chains/ada';
 // import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  ada = new CoreChainAda();
+  // ada = new CoreChainAda();
 
-  // evm = new CoreChainEvm();
+  evm = new CoreChainEvm();
 
   // btc = new CoreChainBtc();
 

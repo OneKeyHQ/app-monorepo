@@ -1,21 +1,21 @@
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Page, useThemeValue } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
   IStackNavigationOptions,
-} from '@onekeyhq/components/src/Navigation';
+} from '@onekeyhq/components/src/layouts/Navigation';
 
-import { ERootRoutes } from '../routes/Root/Routes';
+import { ERootRoutes } from '../routes/enum';
 
 import type {
-  EModalRoutes,
-  IModalParamList,
-} from '../routes/Root/Modal/Routes';
-import type { ETabRoutes, ITabStackParamList } from '../routes/Root/Tab/Routes';
+  EIOSFullScreenModalRoutes,
+  IIOSFullScreenModalParamList,
+} from '../routes/iOSFullScreen/type';
+import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
+import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 
 function useAppNavigation<
   P extends
@@ -23,7 +23,6 @@ function useAppNavigation<
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
-  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
 
   const popStack = () => {
     navigation.getParent()?.goBack?.();
@@ -57,57 +56,47 @@ function useAppNavigation<
       params?: IModalParamList[T][keyof IModalParamList[T]];
     },
   ) => {
-    navigation.navigate(ERootRoutes.Modal, {
+    navigation.push(ERootRoutes.Modal, {
       screen: route,
       params,
     });
   };
 
-  const iosHeaderStyle = Platform.select<IStackNavigationOptions>({
-    ios: {
-      headerStyle: {
-        backgroundColor: bgColor,
-      },
-      headerTintColor: titleColor,
+  const pushFullModal = <T extends EIOSFullScreenModalRoutes>(
+    route: T,
+    params?: {
+      screen: keyof IIOSFullScreenModalParamList[T];
+      params?: IIOSFullScreenModalParamList[T][keyof IIOSFullScreenModalParamList[T]];
     },
-  });
+  ) => {
+    navigation.push(ERootRoutes.iOSFullScreen, {
+      screen: route,
+      params,
+    });
+  };
 
-  const searchTextColor = titleColor;
   const intl = useIntl();
-  const searchCancelText = intl.formatMessage({ id: 'action__cancel' });
+  const textColor = useThemeValue('text');
 
   function setOptions(options: Partial<IStackNavigationOptions>) {
-    const { headerSearchBarOptions, ...otherOptions } = options;
-
-    let newHeaderSearchBarOptions: IStackNavigationOptions = {};
-    if (headerSearchBarOptions) {
-      newHeaderSearchBarOptions = {
-        headerSearchBarOptions: {
-          // always show search bar on iOS
-          hideNavigationBar: false,
-          // @ts-expect-error
-          hideWhenScrolling: false,
-          cancelButtonText: searchCancelText,
-          textColor: searchTextColor,
-          ...headerSearchBarOptions,
-        },
-      };
-    }
-
-    navigation.setOptions({
-      ...iosHeaderStyle,
-      ...otherOptions,
-      ...newHeaderSearchBarOptions,
-    });
+    const reloadOptions = Page.Header.usePageHeaderSearchOptions(
+      options,
+      intl,
+      { searchTextColor: textColor },
+    );
+    navigation.setOptions(reloadOptions);
   }
 
   return {
     navigation,
     reset: navigation.reset,
     dispatch: navigation.dispatch,
-    push: navigation.navigate,
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    push: navigation.push,
+    navigate: navigation.navigate,
     switchTab,
     pushModal,
+    pushFullModal,
     pop,
     popStack,
     setOptions,

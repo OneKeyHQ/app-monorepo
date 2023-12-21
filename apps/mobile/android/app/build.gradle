@@ -1,8 +1,5 @@
 plugins {
     id "com.android.application"
-    id "onekey.android.application"
-    id "onekey.android.application.flavors"
-    id "onekey.android.application.version"
 }
 apply plugin: "com.facebook.react"
 
@@ -121,6 +118,15 @@ android {
                 abiFilters "arm64-v8a"
             }
         }
+    }
+    flavorDimensions "dimension"
+    productFlavors {
+    	google {
+    		dimension "dimension"
+    	}
+    	prod {
+    		dimension "dimension"
+    	}
     }
 }
 

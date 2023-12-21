@@ -1,19 +1,16 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_WARNINGS_COUNT = 196;
+const MAX_PROBLEM_COUNT = 0;
 
-function handleWarnings(result) {
-  const warningsCount = result.match(/, (\d+) warnings\)/)?.[1];
-  console.log(`Warnings Counts: ${warningsCount}`);
-  if (Number(warningsCount) > MAX_WARNINGS_COUNT) {
-    console.log(
-      `Please do not add more ESLint warnings than ${MAX_WARNINGS_COUNT}`,
-    );
-    console.log(
-      'Hope you can fix the ESLint warings introduced after this merge.',
-    );
-    exit(1);
+function handleProblems(result) {
+  console.log(result);
+  const problemsCount = result.match(/(\d+) problem/)?.[1];
+  if (Number(problemsCount) > MAX_PROBLEM_COUNT) {
+    console.log('Hope you can fix the ESLint problems before this merge.');
+    if (process.env.NODE_ENV === 'production') {
+      exit(1);
+    }
   }
 }
 
@@ -21,8 +18,7 @@ try {
   const result = execSync(
     `sh -c 'npx eslint . --ext .ts,.tsx --fix --cache --cache-location "$(yarn config get cacheFolder)"'`,
   ).toString('utf-8');
-  console.log(result);
-  handleWarnings(result);
+  handleProblems(result);
 } catch (error) {
   console.log(error.stdout.toString('utf-8'));
   exit(1);

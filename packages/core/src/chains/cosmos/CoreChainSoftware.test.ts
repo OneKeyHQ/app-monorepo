@@ -92,6 +92,7 @@ const {
         } as any,
       },
       signedTx: {
+        'encodedTx': null,
         'txid': '',
         'rawTx':
           'CpEBCo4BChwvY29zbW9zLmJhbmsudjFiZXRhMS5Nc2dTZW5kEm4KLWNvc21vczFrbDBkbjBydHdrNDZoOXpjbWF6eXlycnV0YTI5MGNyaDd3dDZxcBItY29zbW9zMWtsMGRuMHJ0d2s0Nmg5emNtYXp5eXJydXRhMjkwY3JoN3d0NnFwGg4KBXVhdG9tEgUxMDAwMBJlCk4KRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEDNSrDBY1/CIrgeRBEh0J5NApj0bfBD7OV21pIy5SIt0QSBAoCCH8SEwoNCgV1YXRvbRIEMjM5NBCI7AUaQOYpQZZf8Mx6ABGNmQUnTWx9C9Vj4ZMHhAnr2e84kHh6Q4/GnEE4cEi2A4E1/3ow5NgvkZDD1iCA+O/2V6L+FzQ=',

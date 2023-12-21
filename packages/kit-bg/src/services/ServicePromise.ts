@@ -7,22 +7,22 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-export type PromiseContainerCallbackCreate = {
+export type IPromiseContainerCallbackCreate = {
   resolve: (value: unknown) => void;
   reject: (value: unknown) => void;
   data?: any;
 };
-export type PromiseContainerCallback = PromiseContainerCallbackCreate & {
+export type IPromiseContainerCallback = IPromiseContainerCallbackCreate & {
   id: number;
   created: number;
 };
 
-export type PromiseContainerResolve = {
+export type IPromiseContainerResolve = {
   id: number | string;
   data?: unknown;
 };
 
-export type PromiseContainerReject = {
+export type IPromiseContainerReject = {
   id: number | string;
   error?: unknown;
 };
@@ -37,7 +37,7 @@ class ServicePromise extends ServiceBase {
     this._rejectExpiredCallbacks();
   }
 
-  private callbacks: Array<PromiseContainerCallback> = [];
+  private callbacks: Array<IPromiseContainerCallback> = [];
 
   // TODO increase timeout as hardware sign transaction may take a long time
   //    can set timeout for each callback
@@ -47,7 +47,7 @@ class ServicePromise extends ServiceBase {
     resolve,
     reject,
     data,
-  }: PromiseContainerCallbackCreate) {
+  }: IPromiseContainerCallbackCreate) {
     latestId += 1;
     if (latestId <= 0) {
       throw new Error(
@@ -72,7 +72,7 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  rejectCallback({ id, error }: PromiseContainerReject) {
+  rejectCallback({ id, error }: IPromiseContainerReject) {
     this._processCallback({
       method: 'reject',
       id,
@@ -81,7 +81,7 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  resolveCallback({ id, data }: PromiseContainerResolve) {
+  resolveCallback({ id, data }: IPromiseContainerResolve) {
     this._processCallback({
       method: 'resolve',
       id,
@@ -91,12 +91,12 @@ class ServicePromise extends ServiceBase {
 
   @backgroundMethod()
   async testHelloWorld(name: string) {
-    return Promise.resolve(`hello world:${name} ${Date.now()}`);
+    return Promise.resolve(`hello world @@@@:   ${name} ${Date.now()}`);
   }
 
   @backgroundMethod()
   testHelloWorld2(name: string) {
-    return Promise.resolve(`hello world:${name} ${Date.now()}`);
+    return Promise.resolve(`hello world %%%%:   ${name} ${Date.now()}`);
   }
 
   _processCallback({

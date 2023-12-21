@@ -4,6 +4,4 @@ import '@onekeyhq/shared/src/web/index.css';
 
 import { KitProvider } from '@onekeyhq/kit';
 
-console.log('KitProvider', KitProvider);
-
 export default KitProvider;

@@ -3,7 +3,7 @@
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
 
-import { OneKeyErrorClassNames } from '../types/errorTypes';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
 import { OneKeyError } from './baseErrors';
@@ -13,9 +13,23 @@ import type { IOneKeyError } from '../types/errorTypes';
 const map = {
   hello: 'world',
 };
-type LocaleKeyInfoMap = typeof map;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type ILocaleKeyInfoMap = typeof map;
 
 // Generic errors.
+export class NotAutoPrintError extends Error {}
+
+export class IncorrectPassword extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: IncorrectPassword',
+        defaultKey: 'form__password_invalid',
+      }),
+    );
+  }
+}
+
 export class NotImplemented extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -38,50 +52,6 @@ export class OneKeyInternalError extends OneKeyError {
   }
 }
 
-export class OneKeyValidatorError<
-  K extends keyof LocaleKeyInfoMap = any,
-> extends OneKeyError<LocaleKeyInfoMap[K]> {
-  override className = OneKeyErrorClassNames.OneKeyValidatorError;
-
-  constructor({
-    key,
-    info,
-    message,
-  }: {
-    key: K;
-    info?: LocaleKeyInfoMap[K];
-    message?: string;
-  }) {
-    super({
-      key: (key as any) || ('onekey_error_validator' as ILocaleIds),
-      info,
-      message,
-    });
-  }
-}
-
-export class OneKeyValidatorTip<
-  K extends keyof LocaleKeyInfoMap = any,
-> extends OneKeyError<LocaleKeyInfoMap[K]> {
-  override className = OneKeyErrorClassNames.OneKeyValidatorTip;
-
-  constructor({
-    key,
-    info,
-    message,
-  }: {
-    key: K;
-    info?: LocaleKeyInfoMap[K];
-    message?: string;
-  }) {
-    super({
-      key: (key as any) || ('onekey_tip_validator' as ILocaleIds),
-      info,
-      message,
-    });
-  }
-}
-
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -99,6 +69,19 @@ export class WrongPassword extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
         defaultKey: 'msg__engine__incorrect_password',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class PasswordNotSet extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PasswordNotSet',
+        defaultKey: 'msg__engine__password_not_set' as any,
+        defaultAutoToast: true,
       }),
     );
   }
@@ -177,40 +160,12 @@ export class MinimumBalanceRequired extends OneKeyError<IMinimumBalanceRequiredI
   }
 }
 
-export type IRecipientHasNotActivatedInfo = {
-  '0': string; // tokenName
-};
-export class RecipientHasNotActivated extends OneKeyError<IRecipientHasNotActivatedInfo> {
-  constructor(props?: IOneKeyError<IRecipientHasNotActivatedInfo>) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'RecipientHasNotActived',
-        defaultKey: 'msg__recipient_hasnt_activated_str',
-      }),
-    );
-  }
-}
-
 export class InvalidAddress extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidAddress',
         defaultKey: 'msg__engine__incorrect_address',
-      }),
-    );
-  }
-}
-
-export type IInvalidSameAddressInfo = {
-  '0': string;
-};
-export class InvalidSameAddress extends OneKeyError<IInvalidSameAddressInfo> {
-  constructor(props?: IOneKeyError<IInvalidSameAddressInfo> | string) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'InvalidSameAddress',
-        defaultKey: 'form__address_cannot_send_to_myself',
       }),
     );
   }
@@ -239,7 +194,6 @@ export class InvalidTokenAddress extends OneKeyError {
 }
 
 export type IInvalidTransferValueInfo = {
-  // '0': string; // bad practice, use constructor
   amount: string;
   unit: string;
 };
@@ -268,7 +222,7 @@ export class TransferValueTooSmall extends OneKeyError {
 // **** only for Native Token  InsufficientBalance
 export class InsufficientBalance extends OneKeyError {
   override className =
-    OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
+    EOneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
 
   // For situations that utxo selection failed.
   constructor(props?: IOneKeyError) {
@@ -280,6 +234,7 @@ export class InsufficientBalance extends OneKeyError {
     );
   }
 }
+
 export type IStringLengthRequirementInfo = {
   minLength: string | number;
   maxLength: string | number;
@@ -306,6 +261,7 @@ export class WalletNameLengthError extends StringLengthRequirement {
     );
   }
 }
+
 export type IAccountNameLengthErrorInfo = {
   name: string;
   minLength: number;
@@ -344,25 +300,19 @@ export class AccountAlreadyExists extends OneKeyError {
   }
 }
 
-export type IPreviousAccountIsEmptyInfo = {
-  '0': string; // accountLabel
-};
-export class PreviousAccountIsEmpty extends OneKeyError<IPreviousAccountIsEmptyInfo> {
-  constructor(props: IOneKeyError<IPreviousAccountIsEmptyInfo>) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'PreviousAccountIsEmpty',
-        defaultKey: 'content__previous_str_account_is_empty',
-      }),
-    );
-  }
-}
-
 export type INumberLimitInfo = {
   limit: string | number;
 };
 export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
-  constructor({ limit, key }: { limit: number; key?: ILocaleIds }) {
+  constructor({
+    limit,
+    key,
+    defaultMessage,
+  }: {
+    limit: number;
+    key?: ILocaleIds;
+    defaultMessage?: string;
+  }) {
     const info: INumberLimitInfo = { limit: limit.toString() };
     const keyWithDefault: ILocaleIds =
       key || ('generic_number_limitation' as any);
@@ -373,7 +323,7 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
           key: keyWithDefault,
         },
         {
-          defaultMessage: 'NumberLimit',
+          defaultMessage: defaultMessage ?? 'NumberLimit',
           defaultKey: keyWithDefault,
         },
       ),
@@ -385,7 +335,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine_too_many_watching_accounts',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyWatchingAccounts' });
   }
 }
 
@@ -394,7 +344,7 @@ export class TooManyExternalAccounts extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine_too_many_external_accounts',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyExternalAccounts' });
   }
 }
 
@@ -403,7 +353,7 @@ export class TooManyImportedAccounts extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine__too_many_imported_accounts',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyImportedAccounts' });
   }
 }
 
@@ -412,7 +362,7 @@ export class TooManyHDWallets extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine__too_many_hd_wallets',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyHDWallets' });
   }
 }
 
@@ -421,7 +371,7 @@ export class TooManyHWWallets extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine__too_many_hw_wallets',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyHWWallets' });
   }
 }
 
@@ -430,7 +380,7 @@ export class TooManyHWPassphraseWallets extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine__too_many_hw_passphrase_wallets' as any,
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'TooManyHWPassphraseWallets' });
   }
 }
 
@@ -439,7 +389,7 @@ export class PendingQueueTooLong extends NumberLimit {
     limit: number,
     key: ILocaleIds = 'msg__engine__pending_queue_too_long',
   ) {
-    super({ limit, key });
+    super({ limit, key, defaultMessage: 'PendingQueueTooLong' });
   }
 }
 
@@ -546,19 +496,6 @@ export class InvoiceExpiredError extends OneKeyError {
     );
   }
 }
-export type IMaxSendAmountErrorInfo = {
-  '0': number;
-};
-export class MaxSendAmountError extends OneKeyError<IMaxSendAmountErrorInfo> {
-  constructor(props?: IOneKeyError<IMaxSendAmountErrorInfo>) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'MaxSendAmountError',
-        defaultKey: 'msg__the_sending_amount_cannot_exceed_int_sats',
-      }),
-    );
-  }
-}
 
 export class TaprootAddressError extends OneKeyError {
   constructor(props?: IOneKeyError) {
@@ -568,25 +505,6 @@ export class TaprootAddressError extends OneKeyError {
         defaultKey:
           'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address',
       }),
-    );
-  }
-}
-export type IInscribeFileTooLargeErrorInfo = {
-  '0': string; // '0': '200KB'
-};
-export class InscribeFileTooLargeError extends OneKeyError<IInscribeFileTooLargeErrorInfo> {
-  constructor(props?: IOneKeyError<IInscribeFileTooLargeErrorInfo>) {
-    super(
-      normalizeErrorProps(
-        {
-          info: { '0': '200KB' },
-          ...props,
-        },
-        {
-          defaultMessage: 'InscribeFileTooLargeError',
-          defaultKey: 'msg__file_size_should_less_than_str',
-        },
-      ),
     );
   }
 }
@@ -624,21 +542,6 @@ export class AllNetworksUpToThreeLimitsError extends OneKeyError {
   }
 }
 
-export class TestAppError2 extends OneKeyError {
-  override className = OneKeyErrorClassNames.OneKeyAbortError;
-
-  // override key is bad practice, use constructor
-  override key: ILocaleIds = 'Handling_Fee';
-}
-
-export class TestAppError3 extends OneKeyError {
-  override className = OneKeyErrorClassNames.OneKeyAbortError;
-
-  constructor(props?: IOneKeyError | string) {
-    super(normalizeErrorProps(props));
-  }
-}
-
 export type IInsufficientGasFeeInfo = {
   token: string;
   amount: string;
@@ -648,7 +551,6 @@ export class InsufficientGasFee extends OneKeyError<IInsufficientGasFeeInfo> {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InsufficientGasFee',
-        // TODO use key with named parameter
         defaultKey: 'msg__suggest_reserving_str_as_gas_fee',
       }),
     );

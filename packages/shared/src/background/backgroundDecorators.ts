@@ -8,10 +8,13 @@ const INTERNAL_METHOD_PREFIX = 'INTERNAL_';
 const PROVIDER_API_METHOD_PREFIX = 'PROVIDER_API_';
 
 // Is a any record, but namely use `PropertyDescriptor['value']`
-export type UnknownTarget = Record<string, PropertyDescriptor['value']>;
-export type UnknownFunc = (...args: unknown[]) => unknown;
+export type IBackgroundUnknownTarget = Record<
+  string,
+  PropertyDescriptor['value']
+>;
+export type IBackgroundUnknownFunc = (...args: unknown[]) => unknown;
 
-const isFunction = (fn?: any): fn is UnknownFunc =>
+const isFunction = (fn?: any): fn is IBackgroundUnknownFunc =>
   !!fn && {}.toString.call(fn) === '[object Function]';
 
 function backgroundClass() {
@@ -37,7 +40,7 @@ function backgroundClass() {
 
 function createBackgroundMethodDecorator({ prefix }: { prefix: string }) {
   return function (
-    target: UnknownTarget,
+    target: IBackgroundUnknownTarget,
     methodName: string,
     descriptor: PropertyDescriptor,
   ) {
@@ -68,7 +71,7 @@ function providerApiMethod() {
 
 function permissionRequired() {
   return function (
-    _: UnknownTarget,
+    _: IBackgroundUnknownTarget,
     __: string,
     descriptor: PropertyDescriptor,
   ) {
@@ -122,11 +125,11 @@ function bindThis() {
 }
 
 export {
-  bindThis,
-  backgroundClass,
-  permissionRequired,
-  backgroundMethod,
-  providerApiMethod,
   INTERNAL_METHOD_PREFIX,
   PROVIDER_API_METHOD_PREFIX,
+  backgroundClass,
+  backgroundMethod,
+  bindThis,
+  permissionRequired,
+  providerApiMethod,
 };

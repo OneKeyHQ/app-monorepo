@@ -44,6 +44,7 @@ const {
         'Fee': '12',
       },
       signedTx: {
+        'encodedTx': null,
         'txid':
           'BF618968B811CB92DD148F27A35410CB0C460262ADC9FAA1069AD2FAC86F713C',
         'rawTx':

@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
+import { isString } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
@@ -11,22 +12,30 @@ import { JOTAI_RESET } from './types';
 
 import type {
   AsyncStorage,
-  SetStateActionWithReset,
+  IJotaiSetStateActionWithReset,
   SyncStorage,
   WritableAtom,
 } from './types';
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
-    const r = await appStorage.getItem(key);
+    let data: string | null = await appStorage.getItem(key);
+    if (isString(data)) {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        console.error(e);
+        data = null;
+      }
+    }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return r ?? initialValue;
+    return data ?? initialValue;
   }
 
   async setItem(key: string, newValue: any): Promise<void> {
-    const r = await appStorage.getItem(key);
+    const r = await this.getItem(key, undefined);
     if (r !== newValue) {
-      await appStorage.setItem(key, newValue);
+      await appStorage.setItem(key, JSON.stringify(newValue));
     }
   }
 
@@ -53,7 +62,7 @@ export function atomWithStorage<Value>(
   unstable_options?: { unstable_getOnInit?: boolean },
 ): WritableAtom<
   Value | Promise<Value>,
-  [SetStateActionWithReset<Value | Promise<Value>>],
+  [IJotaiSetStateActionWithReset<Value | Promise<Value>>],
   Promise<void>
 >;
 
@@ -62,7 +71,7 @@ export function atomWithStorage<Value>(
   initialValue: Value,
   storage?: SyncStorage<Value>,
   unstable_options?: { unstable_getOnInit?: boolean },
-): WritableAtom<Value, [SetStateActionWithReset<Value>], void>;
+): WritableAtom<Value, [IJotaiSetStateActionWithReset<Value>], void>;
 
 // TODO rename to atomPro
 // - support async storage
@@ -87,7 +96,11 @@ export function atomWithStorage<Value>(
 
   const anAtom = atom(
     (get) => get(baseAtom),
-    (get, set, update: SetStateActionWithReset<Value | Promise<Value>>) => {
+    (
+      get,
+      set,
+      update: IJotaiSetStateActionWithReset<Value | Promise<Value>>,
+    ) => {
       const nextValue =
         typeof update === 'function'
           ? (

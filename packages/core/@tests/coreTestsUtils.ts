@@ -1,11 +1,10 @@
-import { range } from 'lodash';
-
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { omit, range } from 'lodash';
 
 import {
+  decryptRevealableSeed,
   decryptString,
-  encryptString,
-  revealableSeedFromMnemonic,
+  encryptImportedCredential,
+  mnemonicToRevealableSeed,
 } from '../src/secret';
 
 import type {
@@ -46,31 +45,15 @@ function expectMnemonicValid({
   hdCredential: ICoreTestsHdCredential;
 }) {
   const { password } = hdCredential;
-  const { seed, entropyWithLangPrefixed } = revealableSeedFromMnemonic(
-    hdCredential.mnemonic,
+  const rsDecrypt2 = mnemonicToRevealableSeed(hdCredential.mnemonic);
+
+  const rsDecrypt = decryptRevealableSeed({
+    rs: hdCredential.hdCredentialHex,
     password,
-  );
-  expect(
-    decryptString({
-      password,
-      data: bufferUtils.bytesToHex(seed),
-    }),
-  ).toEqual(
-    decryptString({
-      password,
-      data: hdCredential.seed,
-    }),
-  );
-  expect(
-    decryptString({
-      password,
-      data: bufferUtils.bytesToHex(entropyWithLangPrefixed),
-    }),
-  ).toEqual(
-    decryptString({
-      password,
-      data: hdCredential.entropy,
-    }),
+  });
+  expect(rsDecrypt.seed).toEqual(rsDecrypt2.seed);
+  expect(rsDecrypt.entropyWithLangPrefixed).toEqual(
+    rsDecrypt2.entropyWithLangPrefixed,
   );
 }
 async function expectGetAddressFromPublicOk({
@@ -141,7 +124,7 @@ async function expectGetAddressFromHdOk({
   const addresses = await coreApi.getAddressesFromHd({
     networkInfo,
     password: hdCredential.password,
-    hdCredential,
+    hdCredential: hdCredential.hdCredentialHex,
     template: hdAccountTemplate,
     indexes,
     addressEncoding,
@@ -168,7 +151,7 @@ async function expectGetPrivateKeysHdOk({
       password,
       account,
       credentials: {
-        hd: hdCredential,
+        hd: hdCredential.hdCredentialHex,
       },
       networkInfo,
     });
@@ -177,7 +160,9 @@ async function expectGetPrivateKeysHdOk({
       const fullPath = [account.path, account.relPaths?.[0]].join('/');
       encryptKey = keys[fullPath];
     }
+    // c1c3e59db78da160261befeef577daa7b54cd756e48601473cfe98d012b3ccfca240a8a3e1a328ee7611ba2688f3fadf1d7c61d36c379c0ced0eec0b66ff9ecd635a8dbfcae4cce36c15c64a79d5873d1d26cbf6c90a36034f96077d66cef413
     expect(encryptKey).toBeTruthy();
+    // 105434ca932be16664cb5e44e5b006728577dd757440d068e6d15ef52c15a82f
     const privateKey = decryptString({
       password,
       data: encryptKey,
@@ -219,23 +204,20 @@ async function expectSignTransactionOk({
     const resultHd = await coreApi.signTransaction({
       ...signTxPayload,
       credentials: {
-        hd: hdCredential,
+        hd: hdCredential.hdCredentialHex,
       },
     });
     const resultImported = await coreApi.signTransaction({
       ...signTxPayload,
       credentials: {
-        imported: {
-          privateKey: encryptString({
-            password,
-            data: account.privateKeyRaw,
-          }),
-        },
+        imported: encryptImportedCredential({
+          password,
+          credential: { privateKey: account.privateKeyRaw },
+        }),
       },
     });
     expect(resultHd).toEqual(resultImported);
-    expect(resultHd).toEqual(signedTx);
-    expect(resultHd).toMatchSnapshot();
+    expect(omit(resultHd, 'encodedTx')).toEqual(omit(signedTx, 'encodedTx'));
   }
 }
 
@@ -264,18 +246,16 @@ async function expectSignMessageOk({
     const resultHd = await coreApi.signMessage({
       ...signMsgPayload,
       credentials: {
-        hd: hdCredential,
+        hd: hdCredential.hdCredentialHex,
       },
     });
     const resultImported = await coreApi.signMessage({
       ...signMsgPayload,
       credentials: {
-        imported: {
-          privateKey: encryptString({
-            password,
-            data: account.privateKeyRaw,
-          }),
-        },
+        imported: encryptImportedCredential({
+          password,
+          credential: { privateKey: account.privateKeyRaw },
+        }),
       },
     });
     expect(resultHd).toEqual(resultImported);

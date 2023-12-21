@@ -42,9 +42,10 @@ import {
   type ICoreApiSignMsgPayload,
   type ICoreApiSignTxPayload,
   type ICurveName,
+  type IEncodedTx,
   type ISignedTxPro,
+  type ITxInputToSign,
   type IUnsignedMessageBtc,
-  type InputToSign,
 } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
@@ -59,15 +60,15 @@ import {
   tweakSigner,
 } from './sdkBtc';
 
+import type { PsbtInput } from 'bip174/src/lib/interfaces';
+import type { Payment, Signer, networks } from 'bitcoinjs-lib';
+import type { ISigner } from '../../base/ChainSigner';
+import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
   IBtcForkUTXO,
 } from './types';
-import type { ISigner } from '../../base/ChainSigner';
-import type { Bip32KeyDeriver, ExtendedKey } from '../../secret';
-import type { PsbtInput } from 'bip174/src/lib/interfaces';
-import type { Payment, Signer, networks } from 'bitcoinjs-lib';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
@@ -233,7 +234,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const ret: Record<string, string> = {};
 
-    const startExtendedKey: ExtendedKey = {
+    const startExtendedKey: IBip32ExtendedKey = {
       chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
       key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
     };
@@ -359,6 +360,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       inputs,
       outputs,
+      // @ts-expect-error
       payload: { opReturn },
     } = unsignedTx;
 
@@ -370,7 +372,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const psbt = this.getPsbt({ network });
 
     // eslint-disable-next-line no-plusplus
+    // @ts-expect-error
     for (let i = 0; i < inputs.length; ++i) {
+      // @ts-expect-error
       const input = inputs[i];
       const utxo = input.utxo as IBtcForkUTXO;
       check(utxo);
@@ -442,6 +446,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       });
     }
 
+    // @ts-expect-error
     outputs.forEach((output) => {
       psbt.addOutput({
         address: output.address,
@@ -474,7 +479,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const deriver = new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
       secp256k1,
-    ) as Bip32KeyDeriver;
+    ) as IBip32KeyDeriver;
 
     // imported account return "" key as root privateKey
     const privateKey = privateKeys[''];
@@ -484,7 +489,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       key: xprv.slice(46, 78),
     };
 
-    const cache: Record<string, ExtendedKey> = {};
+    const cache: Record<string, IBip32ExtendedKey> = {};
 
     relPaths?.forEach((relPath) => {
       const pathComponents = relPath.split('/');
@@ -565,11 +570,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   async signBip322MessageSimple({
+    encodedTx,
     account,
     message,
     signers,
     psbtNetwork,
   }: {
+    encodedTx: IEncodedTx | null;
     account: ICoreApiSignAccount;
     message: string;
     signers: Partial<{ [address: string]: ISigner }>;
@@ -617,6 +624,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     await this.signPsbt({
+      encodedTx,
       psbt: psbtToSign,
       signers,
       inputsToSign,
@@ -639,15 +647,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   async signPsbt({
+    encodedTx,
     network,
     psbt,
     signers,
     inputsToSign,
   }: {
+    encodedTx: IEncodedTx | null;
     network: IBtcForkNetwork;
     psbt: Psbt;
     signers: Partial<{ [address: string]: ISigner }>;
-    inputsToSign: InputToSign[];
+    inputsToSign: ITxInputToSign[];
   }) {
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
@@ -660,6 +670,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       psbt.signInput(input.index, bitcoinSigner, input.sighashTypes);
     }
     return {
+      encodedTx,
       txid: '',
       rawTx: '',
       psbtHex: psbt.toHex(),
@@ -785,13 +796,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       networkInfo: { networkChainCode },
       addressEncoding,
     } = query;
-    const { seed, entropy } = hdCredential;
 
     // template:  "m/49'/0'/$$INDEX$$'/0/0"
     // { pathPrefix: "m/49'/0'", pathSuffix: "{index}'/0/0" }
     const { pathPrefix } = slicePathTemplate(template);
-
-    const seedBuffer = bufferUtils.toBuffer(seed);
 
     // relPaths:  ["0'", "1'"]
     const relPaths: string[] = indexes.map(
@@ -803,7 +811,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     //    ["m/49'/0'/0'", "m/49'/0'/1'"]
     const pubkeyInfos = batchGetPublicKeys(
       curveName,
-      seedBuffer,
+      hdCredential,
       password,
       pathPrefix, // m/49'/0'
       relPaths, // 0'   1'
@@ -824,8 +832,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         addressEncoding
       ] as typeof network.bip32) || network.bip32;
 
-    const entropyBuffer = bufferUtils.toBuffer(entropy);
-    const mnemonic = mnemonicFromEntropy(entropyBuffer, password);
+    const mnemonic = mnemonicFromEntropy(hdCredential, password);
     const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
     const xpubBuffers = [
       Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
@@ -866,7 +873,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         if (isTaprootPath(pathPrefix)) {
           const rootFingerprint = generateRootFingerprint(
             curveName,
-            seedBuffer,
+            hdCredential,
             password,
           );
           const fingerprint = Number(
@@ -918,6 +925,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (psbtHex && inputsToSign) {
       const psbt = Psbt.fromHex(psbtHex, { network });
       return this.signPsbt({
+        encodedTx: unsignedTx.encodedTx,
         network,
         psbt,
         signers,
@@ -933,7 +941,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     // eslint-disable-next-line no-plusplus
+    // @ts-expect-error
     for (let i = 0; i < unsignedTx.inputs.length; ++i) {
+      // @ts-expect-error
       const { address } = unsignedTx.inputs[i];
       const signer = this.pickSigner(signers, address);
       const psbtInput = psbt.data.inputs[0];
@@ -950,6 +960,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const tx = psbt.extractTransaction();
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid: tx.getId(),
       rawTx: tx.toHex(),
       psbtHex: undefined,
@@ -984,6 +995,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     if (unsignedMsg.type === EMessageTypesBtc.BIP322_SIMPLE) {
       const buffer = await this.signBip322MessageSimple({
+        encodedTx: null,
         account,
         message: unsignedMsg.message,
         signers,

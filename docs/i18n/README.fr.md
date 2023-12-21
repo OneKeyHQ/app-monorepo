@@ -29,12 +29,12 @@ Développez un code commercial différent en exécutant les commandes suivantes 
 
 #### Première méthode : pour les développeurs communautaires
 
-Configurez les clés pertinentes dans `packages/app/android/lib-keys-secret/src/main/cpp/keys.c`, ou utilisez les options par défaut. Certaines API peuvent présenter des limitations.
+Configurez les clés pertinentes dans `apps/android/lib-keys-secret/src/main/cpp/keys.c`, ou utilisez les options par défaut. Certaines API peuvent présenter des limitations.
 
 #### Deuxième voie : pour les développeurs officiels
 
-1. allez dans le dépôt de cryptage et récupérez le fichier `debug.keystore` et mettez-le dans le répertoire `packages/app/android/keystores`, si vous ne l'avez pas, créez-le vous-même.
-2. allez dans le dépôt de cryptage et récupérez le fichier `keys.secret` et mettez-le dans le répertoire `packages/app/android`.
+1. allez dans le dépôt de cryptage et récupérez le fichier `debug.keystore` et mettez-le dans le répertoire `apps/android/keystores`, si vous ne l'avez pas, créez-le vous-même.
+2. allez dans le dépôt de cryptage et récupérez le fichier `keys.secret` et mettez-le dans le répertoire `apps/android`.
 
 ## 🗂 Structure de répertoires de dépôts multiples
 
@@ -42,10 +42,10 @@ Les dépôts sont organisés selon le modèle monorepo afin de centraliser et de
 
 - `packages/components` pour les composants de l'interface utilisateur.
 - `packages/kit` contient le contenu réutilisable de l'interface utilisateur au niveau de la page.
-- `packages/app` Code APP
-- `packages/desktop` Code électronique du bureau
-- `packages/web` code côté web
-- `packages/ext` Code côté plugin
+- `apps` Code APP
+- `apps/desktop` Code électronique du bureau
+- `apps/web` code côté web
+- `apps/ext` Code côté plugin
 
 ## 🧲 Installer les dépendances
 
@@ -53,7 +53,7 @@ Chaque sous-répertoire sous le répertoire `packages/` est un projet séparé, 
 
 Lorsque vous avez besoin d'installer une dépendance pour un sous-répertoire, utilisez simplement `yarn workspace @onekeyhq/web add axios`. Avec un préfixe comme `yarn workspace @onekeyhq/web`, le module axios peut éventuellement être installé dans le répertoire racine du sous-projet web.
 
-Certaines des dépendances ont des parties natives, vous devrez donc aller dans le répertoire `packages/app/ios` et lancer `pod install` après avoir installé les dépendances JS.
+Certaines des dépendances ont des parties natives, vous devrez donc aller dans le répertoire `apps/ios` et lancer `pod install` après avoir installé les dépendances JS.
 
 ## 😷 Questions fréquemment posées
 

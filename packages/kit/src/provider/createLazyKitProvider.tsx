@@ -13,8 +13,8 @@ export function createLazyKitProviderLegacy({
     useEffect(() => {
       setTimeout(() => {
         // KitProviderMock index
-        void import('./KitProvider').then((module) => {
-          const KitProvider = module.default;
+        void import('.').then((module) => {
+          const { KitProvider } = module;
           setCmp(<KitProvider {...propsRef.current} />);
         });
       }, 0);
@@ -39,7 +39,7 @@ export function createLazyKitProvider({
 }: {
   displayName?: string;
 } = {}) {
-  const KitProvider = require('./KitProvider');
+  const { KitProvider } = require('.');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
-  return KitProvider.default;
+  return KitProvider;
 }

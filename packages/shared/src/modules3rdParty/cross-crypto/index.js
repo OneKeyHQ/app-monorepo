@@ -1,7 +1,12 @@
+console.log('================ cross-crypto (web)');
+
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = global.crypto.getRandomValues;
   global.crypto.getRandomValues = function (...args) {
-    console.log('------------ call global.crypto.getRandomValues (web)');
+    console.log(
+      '------------ call global.crypto.getRandomValues (web)',
+      getRandomValuesOld,
+    );
     return getRandomValuesOld.apply(global.crypto, args);
   };
 }

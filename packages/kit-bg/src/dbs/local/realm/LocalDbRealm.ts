@@ -1,4 +1,7 @@
-import { LocalDbBase } from '../LocalDbBase';
+import { LocalDbRealmBase } from './LocalDbRealmBase';
 
-// @ts-ignore
-export class LocalDbRealm extends LocalDbBase {}
+export class LocalDbRealm extends LocalDbRealmBase {
+  reset(): Promise<void> {
+    return this.deleteDb();
+  }
+}

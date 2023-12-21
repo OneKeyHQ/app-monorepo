@@ -3,6 +3,4 @@ import '@onekeyhq/shared/src/polyfills';
 
 import { KitProvider } from '@onekeyhq/kit';
 
-console.log('KitProvider', KitProvider);
-
 export default KitProvider;

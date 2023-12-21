@@ -1,1 +1,1 @@
-export { default as KitProvider } from './provider/KitProvider';
+export { KitProvider } from './provider';

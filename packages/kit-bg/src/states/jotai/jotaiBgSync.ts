@@ -10,6 +10,10 @@ import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 export class JotaiBgSync {
   backgroundApiProxy!: BackgroundApiProxy;
 
+  get backgroundApi() {
+    return this.backgroundApiProxy?.backgroundApi || this.backgroundApiProxy;
+  }
+
   setBackgroundApi(backgroundApi: BackgroundApiProxy) {
     this.backgroundApiProxy = backgroundApi;
   }
@@ -24,7 +28,7 @@ export class JotaiBgSync {
     if (!platformEnv.isExtensionUi) {
       return;
     }
-    return this.backgroundApiProxy.setAtomValue(name, payload);
+    return this.backgroundApi.setAtomValue(name, payload);
   }
 
   // allAtoms: Promise<{
@@ -35,7 +39,7 @@ export class JotaiBgSync {
     if (!platformEnv.isExtensionUi) {
       return;
     }
-    const { states } = await this.backgroundApiProxy.getAtomStates();
+    const { states } = await this.backgroundApi.getAtomStates();
     await jotaiInitFromUi({ states });
   }
 
@@ -54,7 +58,10 @@ export class JotaiBgSync {
       name,
       payload,
     };
-    this.backgroundApiProxy.backgroundApi?.bridgeExtBg?.requestToAllUi({
+    if (!this.backgroundApi.bridgeExtBg) {
+      throw new Error('backgroundApi.bridgeExtBg is not ready');
+    }
+    this.backgroundApi.bridgeExtBg.requestToAllUi({
       method: GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,
       params: p,
     });

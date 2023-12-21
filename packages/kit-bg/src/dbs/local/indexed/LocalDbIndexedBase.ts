@@ -3,42 +3,41 @@ import { difference, isNil } from 'lodash';
 
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import { LocalDbBase } from '../LocalDbBase';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  INDEXED_DB_NAME,
+  INDEXED_DB_VERSION,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '../types';
+} from '../consts';
+import { LocalDbBase } from '../LocalDbBase';
+import { ELocalDBStoreNames } from '../localDBStoreNames';
 
-import {
-  EIndexedDBStoreNames,
-  INDEXED_DB_NAME,
-  INDEXED_DB_VERSION,
-} from './types';
+import { IndexedDBAgent } from './IndexedDBAgent';
 
-import type { IIndexedDBSchema } from './types';
+import type { IDBWalletIdSingleton, IIndexedDBSchemaMap } from '../types';
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export abstract class LocalDbIndexedBase extends LocalDbBase {
   constructor() {
     super();
-    this.readyDb = this._openIndexedDb();
+    this.readyDb = this._openDb();
   }
 
-  readyDb: Promise<IDBPDatabase<IIndexedDBSchema>>;
+  protected override readyDb: Promise<IndexedDBAgent>;
 
   // ---------------------------------------------- private methods
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async _handleDbUpgrade(options: {
-    db: IDBPDatabase<IIndexedDBSchema>;
+    db: IDBPDatabase<IIndexedDBSchemaMap>;
     oldVersion: number;
     newVersion: number | null;
     transaction: IDBPTransaction<
-      IIndexedDBSchema,
-      EIndexedDBStoreNames[],
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames[],
       'versionchange'
     >;
   }) {
@@ -46,10 +45,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     const currentStoreNames = db.objectStoreNames;
 
     // create new stores
-    const storeNamesToAdd = Object.values(EIndexedDBStoreNames);
+    const storeNamesToAdd = Object.values(ELocalDBStoreNames);
     for (const v of storeNamesToAdd) {
       this._getOrCreateObjectStoreAtVersionChange(db, transaction, v);
     }
+
+    // TODO  migrate old data to new stores
 
     // delete removed stores
     const storeNamesToRemove = difference(currentStoreNames, storeNamesToAdd);
@@ -60,10 +61,10 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     return null;
   }
 
-  private async _openIndexedDb() {
+  private async _openDb() {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
-    const db = await openDB<IIndexedDBSchema>(
+    const indexed = await openDB<IIndexedDBSchemaMap>(
       INDEXED_DB_NAME,
       INDEXED_DB_VERSION,
       {
@@ -80,94 +81,87 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     );
 
     // add initial records to store
-    await this._getOrAddRecord(db, EIndexedDBStoreNames.context, {
-      id: DB_MAIN_CONTEXT_ID,
-      nextHD: 1,
-      verifyString: DEFAULT_VERIFY_STRING,
-      backupUUID: generateUUID(),
-    });
-    await this._addSingletonWallets(db);
 
+    const db = new IndexedDBAgent(indexed);
+    await this._initDBRecords(db);
     return db;
   }
 
-  private async _addSingletonWalletEntry({
-    objectStore,
+  private async _addSingletonWalletRecord({
+    walletStore,
     walletId,
   }: {
-    objectStore: IDBPObjectStore<
-      IIndexedDBSchema,
-      EIndexedDBStoreNames.wallets[],
-      EIndexedDBStoreNames.wallets,
+    walletStore: IDBPObjectStore<
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames.Wallet[],
+      ELocalDBStoreNames.Wallet,
       'readwrite'
     >;
-    walletId:
-      | typeof WALLET_TYPE_IMPORTED
-      | typeof WALLET_TYPE_WATCHING
-      | typeof WALLET_TYPE_EXTERNAL;
+    walletId: IDBWalletIdSingleton;
   }) {
-    const wallet = await objectStore.get(walletId);
-    if (isNil(wallet)) {
-      await objectStore.add({
-        id: walletId,
-        name: walletId,
-        type: walletId,
-        backuped: true,
-        accounts: [],
-        nextAccountIds: { 'global': 1 },
-      });
-    }
+    await this._getOrAddRecord(walletStore, {
+      id: walletId,
+      name: walletId,
+      type: walletId,
+      backuped: true,
+      accounts: [],
+      nextIndex: 0,
+      nextAccountIds: { 'global': 1 },
+    });
   }
 
-  private async _addSingletonWallets(db: IDBPDatabase<IIndexedDBSchema>) {
-    const tx = db.transaction(
-      [
-        // EIndexedDBStoreNames.accounts,
-        EIndexedDBStoreNames.wallets,
-      ],
-      'readwrite',
-    );
-    // const accountStore = tx.objectStore(EIndexedDBStoreNames.accounts);
-    const walletStore = tx.objectStore(EIndexedDBStoreNames.wallets);
+  private async _initDBRecords(db: IndexedDBAgent) {
+    const { tx } = db._buildTransactionAndStores({
+      db: db.indexed,
+      alwaysCreate: true,
+    });
+    if (!tx.stores) {
+      throw new Error('tx.stores is undefined');
+    }
+    const { context: contextStore, wallets: walletStore } = tx.stores;
     await Promise.all([
-      this._addSingletonWalletEntry({
-        objectStore: walletStore,
+      this._getOrAddRecord(contextStore, {
+        id: DB_MAIN_CONTEXT_ID,
+        nextHD: 1,
+        verifyString: DEFAULT_VERIFY_STRING,
+        backupUUID: generateUUID(),
+      }),
+      this._addSingletonWalletRecord({
+        walletStore,
         walletId: WALLET_TYPE_IMPORTED,
       }),
-      this._addSingletonWalletEntry({
-        objectStore: walletStore,
+      this._addSingletonWalletRecord({
+        walletStore,
         walletId: WALLET_TYPE_WATCHING,
       }),
-      this._addSingletonWalletEntry({
-        objectStore: walletStore,
+      this._addSingletonWalletRecord({
+        walletStore,
         walletId: WALLET_TYPE_EXTERNAL,
       }),
     ]);
   }
 
-  private _getObjectStoreAtVersionChange<T extends EIndexedDBStoreNames>(
+  private _getObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
     tx: IDBPTransaction<
-      IIndexedDBSchema,
-      EIndexedDBStoreNames[],
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames[],
       'versionchange'
     >,
     storeName: T,
-  ): IDBPObjectStore<IIndexedDBSchema, T[], T, 'versionchange'> {
+  ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> {
     const store = tx.objectStore(storeName);
     return store;
   }
 
-  private _getOrCreateObjectStoreAtVersionChange<
-    T extends EIndexedDBStoreNames,
-  >(
-    db: IDBPDatabase<IIndexedDBSchema>,
+  private _getOrCreateObjectStoreAtVersionChange<T extends ELocalDBStoreNames>(
+    db: IDBPDatabase<IIndexedDBSchemaMap>,
     tx: IDBPTransaction<
-      IIndexedDBSchema,
-      EIndexedDBStoreNames[],
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames[],
       'versionchange'
     >,
     storeName: T,
-  ): IDBPObjectStore<IIndexedDBSchema, T[], T, 'versionchange'> {
+  ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> {
     try {
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
       // const dd = await store.get('');
@@ -181,38 +175,16 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     }
   }
 
-  private _getObjectStore<T extends EIndexedDBStoreNames>(
-    db: IDBPDatabase<IIndexedDBSchema>,
-    storeName: T,
-  ): IDBPObjectStore<IIndexedDBSchema, T[], T, 'readwrite'> {
-    const tx = db.transaction([storeName], 'readwrite');
-    const store = tx.objectStore(storeName);
-    return store;
-  }
-
-  private _getOrCreateObjectStore<T extends EIndexedDBStoreNames>(
-    db: IDBPDatabase<IIndexedDBSchema>,
-    storeName: T,
-  ): IDBPObjectStore<IIndexedDBSchema, T[], T, 'readwrite'> {
-    try {
-      const store = this._getObjectStore(db, storeName);
-      // const dd = await store.get('');
-      return store;
-    } catch {
-      db.createObjectStore(storeName, {
-        keyPath: 'id',
-      });
-      const store = this._getObjectStore(db, storeName);
-      return store;
-    }
-  }
-
-  private async _getOrAddRecord<T extends EIndexedDBStoreNames>(
-    db: IDBPDatabase<IIndexedDBSchema>,
-    storeName: T,
-    record: IIndexedDBSchema[T]['value'],
-  ): Promise<IIndexedDBSchema[T]['value'] | undefined> {
-    const store = this._getOrCreateObjectStore(db, storeName);
+  private async _getOrAddRecord<T extends ELocalDBStoreNames>(
+    store: IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'readwrite'>,
+    record: IIndexedDBSchemaMap[T]['value'],
+  ): Promise<IIndexedDBSchemaMap[T]['value'] | undefined> {
+    /* get store like this
+    const store = this._getOrCreateObjectStore(
+      db,
+      ELocalDBStoreNames.context,
+    );
+    */
     // @ts-ignore
     const recordId = record.id;
     let existsRecord = await store.get(recordId);
@@ -223,50 +195,13 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     return existsRecord;
   }
 
+  // ---------------------------------------------- base methods
+
   // ---------------------------------------------- public methods
 
   async deleteIndexedDb() {
     const db = await this.readyDb;
-    db.close();
+    db.indexed.close();
     return deleteDB(INDEXED_DB_NAME);
   }
-
-  async getObjectStore<T extends EIndexedDBStoreNames>(
-    storeName: T,
-  ): Promise<IDBPObjectStore<IIndexedDBSchema, T[], T, 'readwrite'>> {
-    const db = await this.readyDb;
-    return this._getOrCreateObjectStore(db, storeName);
-  }
-
-  async getRecordById<T extends EIndexedDBStoreNames>(
-    storeName: T,
-    recordId: string,
-  ): Promise<IIndexedDBSchema[T]['value'] | undefined> {
-    const db = await this.readyDb;
-    const store = this._getOrCreateObjectStore(db, storeName);
-    const existsRecord = await store.get(recordId);
-    return existsRecord;
-  }
 }
-
-// function startTransaction<T extends EIndexedDBStoreNames[]>(
-//   db: IDBPDatabase<OneKeyDBSchema>,
-//   storeNames: T,
-// ) {
-//   const tx = db.transaction(storeNames, 'readwrite');
-//   const result = storeNames.map(
-//     (storeName, i) =>
-//       tx.objectStore(storeName) as IDBPObjectStore<
-//         OneKeyDBSchema,
-//         T,
-//         Extract<T[number], string>,
-//         'readwrite'
-//       >,
-//   );
-//   return result;
-// }
-
-// const [a, b] = startTransaction({} as any, [
-//   EIndexedDBStoreNames.context,
-//   EIndexedDBStoreNames.accounts,
-// ]);

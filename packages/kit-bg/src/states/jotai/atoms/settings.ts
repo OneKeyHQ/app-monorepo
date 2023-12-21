@@ -1,5 +1,6 @@
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
@@ -12,6 +13,13 @@ export type ISettingsPersistAtom = {
   buildNumber?: string;
   instanceId: string;
   isBiologyAuthSwitchOn: boolean;
+  protectCreateTransaction: boolean;
+  protectCreateOrRemoveWallet: boolean;
+  spendDustUTXO: boolean;
+
+  hardwareConnectSrc: EOnekeyDomain;
+  endpointType: 'prod' | 'test';
+  currency: string;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -24,9 +32,29 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
-      isBiologyAuthSwitchOn: true,
+      isBiologyAuthSwitchOn: false,
+      protectCreateTransaction: false,
+      protectCreateOrRemoveWallet: false,
+      spendDustUTXO: false,
+      hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
+      endpointType: 'prod',
+      currency: 'usd',
     },
   });
+
+type ISettingsLastActivityPersistAtom = {
+  time: number;
+};
+
+export const {
+  target: settingsLastActivityAtom,
+  use: useSettingsLastActivityAtom,
+} = globalAtom<ISettingsLastActivityPersistAtom>({
+  name: EAtomNames.settingsLastActivityAtom,
+  initialValue: {
+    time: Date.now(),
+  },
+});
 
 // extract high frequency refresh data to another atom
 export type ISettingsTimeNowAtom = string;

@@ -1,3 +1,5 @@
+import assert from 'assert';
+
 import {
   isArray,
   isBoolean,
@@ -12,9 +14,11 @@ import platformEnv from '../platformEnv';
 
 import { isPromiseObject } from './promiseUtils';
 
-type ErrorType = undefined | string | Error;
+type IErrorType = undefined | string | Error;
 
-const check = (statement: any, orError?: ErrorType) => {
+export { assert };
+
+export const check = (statement: any, orError?: IErrorType) => {
   if (!statement) {
     // eslint-disable-next-line no-param-reassign
     orError = orError || 'Invalid statement';
@@ -24,7 +28,7 @@ const check = (statement: any, orError?: ErrorType) => {
     throw orError;
   }
 };
-const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
+export const checkIsDefined = <T>(something?: T, orError?: IErrorType): T => {
   check(
     typeof something !== 'undefined',
     orError || 'Expect defined but actually undefined',
@@ -32,7 +36,7 @@ const checkIsDefined = <T>(something?: T, orError?: ErrorType): T => {
   return something as T;
 };
 
-const checkIsUndefined = (something: any, orError?: ErrorType) => {
+export const checkIsUndefined = (something: any, orError?: IErrorType) => {
   check(
     typeof something === 'undefined',
     orError || `Expect undefined but actually ${something as string}`,
@@ -116,4 +120,15 @@ export function ensurePromiseObject(
   }
 }
 
-export { check, checkIsDefined, checkIsUndefined };
+export function ensureRunOnBackground() {
+  // eslint-disable-next-line import/no-named-as-default-member
+  if (!platformEnv.isJest && platformEnv.isExtensionUi) {
+    throw new Error('this code can not run on UI');
+  }
+}
+
+export function ensureRunOnNative() {
+  if (!platformEnv.isJest && !platformEnv.isNative) {
+    throw new Error('this code can not run on non-native');
+  }
+}

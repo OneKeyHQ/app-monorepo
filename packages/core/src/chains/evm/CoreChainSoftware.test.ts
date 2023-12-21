@@ -58,6 +58,7 @@ const {
         'nonce': 2,
       },
       signedTx: {
+        encodedTx: null,
         'txid':
           '0xe5c2d7a1a627352e918f3d7c239bba5173e98d11b023536c1bff3f235e874a71',
         'rawTx':
@@ -82,6 +83,7 @@ const {
         'nonce': 2,
       },
       signedTx: {
+        encodedTx: null,
         'txid':
           '0x296e582a7ed1437fcede237af47f7b522692d88b64200f97c7549d6b2532dc39',
         'rawTx':

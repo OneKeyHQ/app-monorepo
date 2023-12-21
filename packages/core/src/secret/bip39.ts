@@ -1,41 +1,56 @@
 import * as crypto from 'crypto';
 
-import * as bip39 from 'bip39';
+import {
+  entropyToMnemonic,
+  generateMnemonic,
+  mnemonicToEntropy,
+  mnemonicToSeedSync,
+  validateMnemonic,
+  wordlists,
+} from 'bip39';
 
 import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-export type RevealableSeed = {
-  entropyWithLangPrefixed: Buffer;
-  seed: Buffer;
+import type { ICoreHdCredentialEncryptHex } from '../types';
+
+export type IBip39RevealableSeed = {
+  entropyWithLangPrefixed: string;
+  seed: string;
 };
+// JSON.stringify(IBip39RevealableSeed) -> utf8 text -> hex -> encrypt -> encrypt hex
+export type IBip39RevealableSeedEncryptHex = ICoreHdCredentialEncryptHex;
 
 function mnemonicToRevealableSeed(
   mnemonic: string,
   passphrase?: string,
-): RevealableSeed {
+): IBip39RevealableSeed {
   try {
-    const entropyHexStr = bip39.mnemonicToEntropy(
-      mnemonic,
-      bip39.wordlists.english,
-    );
+    const entropyHexStr = mnemonicToEntropy(mnemonic, wordlists.english);
     const entropyLength: number = entropyHexStr.length / 2;
-    const seed: Buffer = bip39.mnemonicToSeedSync(mnemonic, passphrase);
+    const seed: Buffer = mnemonicToSeedSync(mnemonic, passphrase);
     return {
-      entropyWithLangPrefixed: Buffer.concat([
-        Buffer.from([1]), // langCode is always 1 for english wordlist.
-        Buffer.from([entropyLength]),
-        Buffer.from(entropyHexStr, 'hex'),
-        crypto.randomBytes(32 - entropyLength), // Always pad entropy to 32 bytes.
-      ]),
-      seed,
+      entropyWithLangPrefixed: bufferUtils.bytesToHex(
+        Buffer.concat([
+          Buffer.from([1]), // langCode is always 1 for english wordlist.
+          Buffer.from([entropyLength]),
+          Buffer.from(entropyHexStr, 'hex'),
+          crypto.randomBytes(32 - entropyLength), // Always pad entropy to 32 bytes.
+        ]),
+      ),
+      seed: bufferUtils.bytesToHex(seed),
     };
   } catch {
     throw new InvalidMnemonic();
   }
 }
 
-function revealEntropy(entropyWithLangPrefixed: Buffer): string {
+function revealEntropyToMnemonic(
+  entropyWithLangPrefixed: Buffer | string,
+): string {
+  // eslint-disable-next-line no-param-reassign
+  entropyWithLangPrefixed = bufferUtils.toBuffer(entropyWithLangPrefixed);
   const langCode: number = entropyWithLangPrefixed[0];
   const entropyLength: number = entropyWithLangPrefixed[1];
   check(
@@ -43,10 +58,15 @@ function revealEntropy(entropyWithLangPrefixed: Buffer): string {
     langCode == 1 && [16, 20, 24, 28, 32].includes(entropyLength),
     'invalid entropy',
   );
-  return bip39.entropyToMnemonic(
+  return entropyToMnemonic(
     entropyWithLangPrefixed.slice(2, 2 + entropyLength),
-    bip39.wordlists.english,
+    wordlists.english,
   );
 }
 
-export { mnemonicToRevealableSeed, revealEntropy };
+export {
+  generateMnemonic,
+  mnemonicToRevealableSeed,
+  revealEntropyToMnemonic,
+  validateMnemonic,
+};

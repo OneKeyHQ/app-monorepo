@@ -8,10 +8,7 @@ import {
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type {
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiWebln extends ProviderApiBase {
@@ -33,9 +30,7 @@ class ProviderApiWebln extends ProviderApiBase {
     info.send(data);
   }
 
-  public override notifyDappChainChanged(
-    info: IProviderBaseBackgroundNotifyInfo,
-  ): void {
+  public override notifyDappChainChanged(): void {
     throw new Error('Method not implemented.');
   }
 
@@ -46,7 +41,7 @@ class ProviderApiWebln extends ProviderApiBase {
 
   // WEBLN API
   @providerApiMethod()
-  public async enable(request: IJsBridgeMessagePayload) {
+  public async enable() {
     try {
       console.log('=====>>>>Call WebLN Enable Method');
       return { enabled: true };

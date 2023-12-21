@@ -58,7 +58,7 @@ export type IServerNetwork = {
   decimals: number;
   feeMeta: INetworkFeeInfo;
   defaultEnabled: boolean;
-  support: string[];
+  support?: string[];
   balance2FeeDecimals: number;
   status: ENetworkStatus;
   clientApi?: Record<string, string>;
@@ -67,9 +67,26 @@ export type IServerNetwork = {
   priceConfigs: INetworkPriceConfig[];
   explorers: INetworkExplorerConfig[];
   extensions: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export enum EOnekeyDomain {
   ONEKEY_SO = 'onekey.so',
   ONEKEY_CN = 'onekeycn.com',
+}
+
+export enum EAccountSelectorSceneName {
+  home = 'home',
+  swap = 'swap',
+  discover = 'discover',
+}
+
+export type INotPromise<T> = T extends Promise<any> ? never : T;
+
+export enum EHomeTab {
+  TOKENS = 'tokens',
+  NFT = 'nft',
+  HISTORY = 'history',
+  TOOLS = 'tools',
 }

@@ -7,7 +7,6 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { getMoneroApi } from './sdkXmr';
 import { MoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
 
-import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -19,6 +18,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
+import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 
 const curve: ICurveName = 'ed25519';
 
@@ -93,7 +93,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       sendFundsArgs,
       checkIsDefined(scanUrl),
     );
-    return signedTx;
+    return { ...signedTx, encodedTx: unsignedTx.encodedTx };
   }
 
   override async signMessage(): Promise<string> {

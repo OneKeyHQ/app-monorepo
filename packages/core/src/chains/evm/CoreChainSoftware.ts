@@ -64,7 +64,7 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
 
     const rawTx: string = serialize(tx, signature);
     const txid: string = keccak256(rawTx);
-    return { txid, rawTx };
+    return { encodedTx: unsignedTx.encodedTx, txid, rawTx };
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {

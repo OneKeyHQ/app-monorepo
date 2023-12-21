@@ -1,19 +1,25 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
-import cloneDeep from 'lodash/cloneDeep';
 
-import store, { appSelector, persistor } from '@onekeyhq/kit/src/store';
 import {
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IDispatchActionBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
-  DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-  buildReduxBatchAction,
+  GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
+  getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type {
+  EAppEventBusNames,
+  IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EEventBusBroadcastMethodNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -22,6 +28,7 @@ import {
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsTimeNowAtom } from '../states/jotai/atoms';
+import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
 import {
@@ -51,9 +58,27 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
     this.cycleDepsCheck();
-    this._initBackgroundPersistor();
+    jotaiBgSync.setBackgroundApi(this as any);
     this.allAtoms = jotaiInit();
     this.startDemoNowTimeUpdateInterval();
+    if (process.env.NODE_ENV !== 'production') {
+      global.$backgroundApi = this;
+    }
+    // this.startDemoNowTimeUpdateInterval();
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.bgToUi,
+      async (type, payload) => {
+        const params: IGlobalEventBusSyncBroadcastParams = {
+          $$isFromBgEventBusSyncBroadcast: true,
+          type,
+          payload,
+        };
+        this.bridgeExtBg?.requestToAllUi({
+          method: GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
+          params,
+        });
+      },
+    );
   }
 
   allAtoms: Promise<{
@@ -91,19 +116,18 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     await atom.set(value);
   }
 
-  cycleDepsCheck() {
-    if (!this.persistor || !this.store || !this.appSelector) {
-      const msg = `background cycle deps ERROR: redux store failed, some reducer may reference backgroundApiProxy`;
-      alert(msg);
-      throw new Error(msg);
-    }
+  @backgroundMethod()
+  async emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean> {
+    appEventBus.emit(type, payload);
+    return Promise.resolve(true);
   }
 
-  persistor = persistor;
-
-  store = store;
-
-  appSelector = appSelector;
+  cycleDepsCheck() {
+    //
+  }
 
   bridge: JsBridgeBase | null = null;
 
@@ -118,59 +142,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   // @ts-ignore
   _persistorUnsubscribe: () => void;
-
-  _handlePersistorState = () => {
-    const persistorState = this.persistor.getState();
-    if (persistorState.bootstrapped) {
-      // TODO dispatch persistorState.bootstrapped
-      // this.dispatch('persistor/bootstrapped');
-      if (this._persistorUnsubscribe) {
-        this._persistorUnsubscribe();
-      }
-    }
-  };
-
-  _initBackgroundPersistor() {
-    this._persistorUnsubscribe = this.persistor.subscribe(
-      this._handlePersistorState,
-    );
-  }
-
-  @bindThis()
-  @backgroundMethod()
-  dispatch(...actions: any[]) {
-    if (!actions || !actions.length) {
-      return;
-    }
-    // eslint-disable-next-line no-param-reassign
-    actions = actions.filter(Boolean);
-    const actionData = buildReduxBatchAction(...actions);
-
-    if (actionData) {
-      // * update background store
-      this.store.dispatch(actionData);
-
-      // * broadcast action to Ext ui
-      //    packages/ext/src/ui/uiJsBridge.ts
-      const params: IDispatchActionBroadcastParams = {
-        actions,
-        $isDispatchFromBackground: true,
-      };
-      this.bridgeExtBg?.requestToAllUi({
-        method: DISPATCH_ACTION_BROADCAST_METHOD_NAME,
-        params,
-      } as IJsonRpcRequest);
-    }
-  }
-
-  // getStoreState
-  @bindThis()
-  @backgroundMethod()
-  getState(): Promise<{ state: any; bootstrapped: boolean }> {
-    const state = cloneDeep(this.store.getState());
-    const { bootstrapped } = this.persistor.getState();
-    return Promise.resolve({ state, bootstrapped });
-  }
 
   connectBridge(bridge: JsBridgeBase) {
     if (platformEnv.isExtension) {
@@ -282,8 +253,11 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     const serviceName = service || '';
     const paramsArr = [].concat(params as any);
 
-    /* eslint-disable  */
-    const serviceApi = serviceName ? (this as any)[serviceName] : this;
+    const serviceApi = getBackgroundServiceApi({
+      serviceName,
+      backgroundApi: this,
+    });
+
     const methodFunc = serviceApi[method];
     if (methodFunc) {
       const resultPromise = methodFunc.call(serviceApi, ...paramsArr);
@@ -293,9 +267,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       });
       const result = await resultPromise;
       ensureSerializable(result);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     }
-    /* eslint-enable  */
 
     throwMethodNotFound(serviceName, method);
   }

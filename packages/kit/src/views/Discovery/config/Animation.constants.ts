@@ -1,0 +1,7 @@
+export const BROWSER_BOTTOM_BAR_HEIGHT = 54;
+export const DISPLAY_BOTTOM_BAR_DURATION = 100;
+export const MAX_OPACITY_BOTTOM_BAR = 1;
+export const MIN_OPACITY_BOTTOM_BAR = 0;
+export const THROTTLE_TIME = 16;
+export const THROTTLE_TIME_WHEN_REACH_BOTTOM = 500;
+export const IGNORE_INITIAL_EVENT_COUNT = 5;

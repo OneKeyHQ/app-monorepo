@@ -1,3 +1,5 @@
+import type { Transaction as IEthersTransaction } from './sdkEvm/ethers';
+
 export type IEncodedTxEvm = {
   from: string;
   to: string;
@@ -12,5 +14,11 @@ export type IEncodedTxEvm = {
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
 
-  chainId?: number;
+  chainId?: number; // MUST be number: Error: invalid transaction.chainId
+};
+
+export type INativeTxEvm = IEthersTransaction;
+export type IRpcTxEvm = IEncodedTxEvm & {
+  input?: string;
+  hash?: string;
 };

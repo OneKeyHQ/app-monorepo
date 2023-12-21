@@ -2,16 +2,30 @@
   "name": "@onekeyhq/desktop",
   "version": "1.0.0",
   "main": "index.js",
+  "author": "OneKey <hi@onekey.so>",
   "scripts": {
     "postinstall": "yarn keytar",
     "keytar": "bash development/build_keytar.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
+    "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf __generated__",
+    "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist",
+    "start": "yarn dev",
     "dev": "yarn keytar && npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 webpack serve",
     "build:main": "rimraf ./dist && cross-env NODE_ENV=production node scripts/build.js",
-    "start": "yarn dev"
+    "build:renderer": "rm -rf ./build && rm -rf ./web-build && NODE_ENV=production webpack build && mv ./web-build ./build && rsync -a public/static/ build/static",
+    "build:electron": "electron-builder build -mwl --config electron-builder.config.js",
+    "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
+    "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
+    "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
+    "build": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never\"",
+    "build:mac": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mac --publish never\"",
+    "build:mas": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mas --publish never\"",
+    "build:winms": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:winms --publish never\"",
+    "publish:all": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never\"",
+    "publish:winms": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:winms --publish never\""
   },
   "dependencies": {
     "@onekeyhq/components": "*",
@@ -32,11 +46,12 @@
     "@types/node-fetch": "^2.6.1",
     "cross-env": "^7.0.3",
     "electron": "27.0.0",
-    "electron-builder": "22.14.13",
+    "electron-builder": "24.6.4",
     "electron-notarize": "^1.1.1",
     "esbuild": "0.15.18",
     "glob": "^7.2.0",
-    "rimraf": "^3"
+    "rimraf": "^3",
+    "webpack": "5.88.2"
   },
   "private": true
 }

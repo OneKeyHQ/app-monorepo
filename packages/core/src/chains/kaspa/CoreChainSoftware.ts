@@ -72,6 +72,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const txid = '';
     const rawTx = signedTx;
     return {
+      encodedTx: unsignedTx.encodedTx,
       txid,
       rawTx,
     };

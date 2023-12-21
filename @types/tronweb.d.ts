@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
 type ITokenContract = {
   name: () => { call: () => Promise<{ _name: string } | string> };

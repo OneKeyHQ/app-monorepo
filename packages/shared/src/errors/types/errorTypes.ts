@@ -1,6 +1,6 @@
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
-export enum OneKeyErrorClassNames {
+export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyHardwareError = 'OneKeyHardwareError',
   OneKeyValidatorError = 'OneKeyValidatorError',
@@ -13,7 +13,7 @@ export enum OneKeyErrorClassNames {
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
 
-export type OneKeyHardwareErrorData = {
+export type IOneKeyHardwareErrorData = {
   reconnect?: boolean | undefined;
   connectId?: string;
   deviceId?: string;
@@ -37,13 +37,14 @@ export interface IOneKeyError<
   code?: number;
   data?: DataT;
   // OneKeyError props
-  className?: OneKeyErrorClassNames;
+  className?: EOneKeyErrorClassNames;
   info?: InfoT;
   key?: ILocaleIds;
   constructorName?: string;
+  autoToast?: boolean;
 }
 
-export type OneKeyHardwareErrorPayload = {
+export type IOneKeyHardwareErrorPayload = {
   code?: number;
   error?: string;
   message?: string;

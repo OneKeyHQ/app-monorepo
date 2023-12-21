@@ -1,16 +1,25 @@
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
-import { mnemonicToRevealableSeed, revealEntropy } from './bip39';
+import { mnemonicToRevealableSeed, revealEntropyToMnemonic } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
-import { decrypt, encrypt } from './encryptors/aes256';
+import { decrypt, encrypt, encryptString } from './encryptors/aes256';
 import { hash160 } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
 
-import type { Bip32KeyDeriver, ExtendedKey } from './bip32';
-import type { RevealableSeed } from './bip39';
+import type { IBip32ExtendedKey, IBip32KeyDeriver } from './bip32';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from './bip39';
 import type { BaseCurve } from './curves';
-import type { ICurveName } from '../types';
+import type {
+  ICoreHdCredentialEncryptHex,
+  ICoreImportedCredential,
+  ICoreImportedCredentialEncryptHex,
+  ICurveName,
+} from '../types';
 
-export { ecc };
 export * from './bip32';
 export * from './bip340';
 export * from './bip39';
@@ -18,33 +27,34 @@ export * from './curves';
 export * from './encryptors/aes256';
 export * from './encryptors/rsa';
 export * from './hash';
+export { ecc };
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
   ['nistp256', nistp256],
   ['ed25519', ed25519],
 ]);
-const derivers: Map<ICurveName, Bip32KeyDeriver> = new Map([
+const derivers: Map<ICurveName, IBip32KeyDeriver> = new Map([
   [
     'secp256k1',
     new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
       secp256k1,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
   [
     'nistp256',
     new BaseBip32KeyDeriver(
       Buffer.from('Nist256p1 seed'),
       nistp256,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
   [
     'ed25519',
     new ED25519Bip32KeyDeriver(
       Buffer.from('ed25519 seed'),
       ed25519,
-    ) as Bip32KeyDeriver,
+    ) as IBip32KeyDeriver,
   ],
 ]);
 
@@ -56,8 +66,8 @@ function getCurveByName(curveName: ICurveName): BaseCurve {
   return curve;
 }
 
-function getDeriverByCurveName(curveName: ICurveName): Bip32KeyDeriver {
-  const deriver: Bip32KeyDeriver | undefined = derivers.get(curveName);
+function getDeriverByCurveName(curveName: ICurveName): IBip32KeyDeriver {
+  const deriver: IBip32KeyDeriver | undefined = derivers.get(curveName);
   if (deriver === undefined) {
     throw Error(`Key derivation is not supported for curve ${curveName}.`);
   }
@@ -109,9 +119,20 @@ function compressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
   return getCurveByName(curveName).transformPublicKey(publicKey);
 }
 
+function decryptRevealableSeed({
+  rs,
+  password,
+}: {
+  rs: IBip39RevealableSeedEncryptHex;
+  password: string;
+}): IBip39RevealableSeed {
+  const rsJsonStr = bufferUtils.bytesToUtf8(decrypt(password, rs));
+  return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
+}
+
 function batchGetKeys(
   curveName: ICurveName,
-  encryptedSeed: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
@@ -119,25 +140,29 @@ function batchGetKeys(
 ): Array<{
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 }> {
   const ret: Array<{
     path: string;
     parentFingerPrint: Buffer;
-    extendedKey: ExtendedKey;
+    extendedKey: IBip32ExtendedKey;
   }> = [];
   const cache: Record<
     string,
     {
       fingerPrint: Buffer | undefined;
       parentFingerPrint: Buffer;
-      privkey: ExtendedKey;
+      privkey: IBip32ExtendedKey;
     }
   > = {};
 
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const seed: Buffer = decrypt(password, encryptedSeed);
-  let key: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const { seed } = decryptRevealableSeed({
+    rs: hdCredential,
+    password,
+  });
+  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
+  let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seedBuffer);
 
   prefix.split('/').forEach((pathComponent) => {
     if (pathComponent === 'm') {
@@ -203,18 +228,18 @@ function batchGetKeys(
 export type ISecretPrivateKeyInfo = {
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 };
 function batchGetPrivateKeys(
   curveName: ICurveName,
-  encryptedSeed: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
 ): ISecretPrivateKeyInfo[] {
   return batchGetKeys(
     curveName,
-    encryptedSeed,
+    hdCredential,
     password,
     prefix,
     relPaths,
@@ -225,18 +250,18 @@ function batchGetPrivateKeys(
 export type ISecretPublicKeyInfo = {
   path: string;
   parentFingerPrint: Buffer;
-  extendedKey: ExtendedKey;
+  extendedKey: IBip32ExtendedKey;
 };
 function batchGetPublicKeys(
   curveName: ICurveName,
-  encryptedSeed: Buffer,
+  hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
 ): ISecretPublicKeyInfo[] {
   return batchGetKeys(
     curveName,
-    encryptedSeed,
+    hdCredential,
     password,
     prefix,
     relPaths,
@@ -246,12 +271,17 @@ function batchGetPublicKeys(
 
 function generateMasterKeyFromSeed(
   curveName: ICurveName,
-  encryptedSeed: Buffer,
+  hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const seed: Buffer = decrypt(password, encryptedSeed);
-  const masterKey: ExtendedKey = deriver.generateMasterKeyFromSeed(seed);
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const { seed } = decryptRevealableSeed({
+    rs: hdCredential,
+    password,
+  });
+  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
+  const masterKey: IBip32ExtendedKey =
+    deriver.generateMasterKeyFromSeed(seedBuffer);
   return {
     key: encrypt(password, masterKey.key),
     chainCode: masterKey.chainCode,
@@ -260,11 +290,11 @@ function generateMasterKeyFromSeed(
 
 function N(
   curveName: ICurveName,
-  encryptedExtPriv: ExtendedKey,
+  encryptedExtPriv: IBip32ExtendedKey,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const extPriv: ExtendedKey = {
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const extPriv: IBip32ExtendedKey = {
     key: decrypt(password, encryptedExtPriv.key),
     chainCode: encryptedExtPriv.chainCode,
   };
@@ -273,16 +303,16 @@ function N(
 
 function CKDPriv(
   curveName: ICurveName,
-  encryptedParent: ExtendedKey,
+  encryptedParent: IBip32ExtendedKey,
   index: number,
   password: string,
-): ExtendedKey {
-  const deriver: Bip32KeyDeriver = getDeriverByCurveName(curveName);
-  const parent: ExtendedKey = {
+): IBip32ExtendedKey {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const parent: IBip32ExtendedKey = {
     key: decrypt(password, encryptedParent.key),
     chainCode: encryptedParent.chainCode,
   };
-  const child: ExtendedKey = deriver.CKDPriv(parent, index);
+  const child: IBip32ExtendedKey = deriver.CKDPriv(parent, index);
   return {
     key: encrypt(password, child.key),
     chainCode: child.chainCode,
@@ -291,39 +321,91 @@ function CKDPriv(
 
 function CKDPub(
   curveName: ICurveName,
-  parent: ExtendedKey,
+  parent: IBip32ExtendedKey,
   index: number,
-): ExtendedKey {
+): IBip32ExtendedKey {
   return getDeriverByCurveName(curveName).CKDPub(parent, index);
+}
+
+function encryptRevealableSeed({
+  rs,
+  password,
+}: {
+  rs: IBip39RevealableSeed;
+  password: string;
+}): IBip39RevealableSeedEncryptHex {
+  return bufferUtils.bytesToHex(
+    encryptString({
+      password,
+      data: JSON.stringify({
+        entropyWithLangPrefixed: rs.entropyWithLangPrefixed,
+        seed: rs.seed,
+      }),
+      dataEncoding: 'utf8',
+    }),
+  );
+}
+
+function decryptImportedCredential({
+  credential,
+  password,
+}: {
+  credential: ICoreImportedCredentialEncryptHex;
+  password: string;
+}): ICoreImportedCredential {
+  const text = bufferUtils.bytesToUtf8(decrypt(password, credential));
+  return JSON.parse(text) as ICoreImportedCredential;
+}
+
+function encryptImportedCredential({
+  credential,
+  password,
+}: {
+  credential: ICoreImportedCredential;
+  password: string;
+}): ICoreImportedCredentialEncryptHex {
+  return encryptString({
+    password,
+    data: JSON.stringify(credential),
+    dataEncoding: 'utf8',
+  });
 }
 
 function revealableSeedFromMnemonic(
   mnemonic: string,
   password: string,
   passphrase?: string,
-): RevealableSeed {
-  const rs: RevealableSeed = mnemonicToRevealableSeed(mnemonic, passphrase);
-  return {
-    entropyWithLangPrefixed: encrypt(password, rs.entropyWithLangPrefixed),
-    seed: encrypt(password, rs.seed),
-  };
+): IBip39RevealableSeedEncryptHex {
+  const rs: IBip39RevealableSeed = mnemonicToRevealableSeed(
+    mnemonic,
+    passphrase,
+  );
+  return encryptRevealableSeed({
+    rs,
+    password,
+  });
 }
 
 function mnemonicFromEntropy(
-  encryptedEntropy: Buffer,
+  hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
 ): string {
-  return revealEntropy(decrypt(password, encryptedEntropy));
+  const rs: IBip39RevealableSeed = JSON.parse(
+    bufferUtils.bytesToUtf8(decrypt(password, hdCredential)),
+  );
+  return revealEntropyToMnemonic(
+    bufferUtils.toBuffer(rs.entropyWithLangPrefixed),
+  );
 }
 
 function generateRootFingerprint(
   curveName: ICurveName,
-  encryptedSeed: Buffer,
+  hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
 ): Buffer {
   const masterKey = generateMasterKeyFromSeed(
     curveName,
-    encryptedSeed,
+    hdCredential,
     password,
   );
   const publicKey = publicFromPrivate(curveName, masterKey.key, password);
@@ -337,6 +419,10 @@ export {
   batchGetPrivateKeys,
   batchGetPublicKeys,
   compressPublicKey,
+  decryptImportedCredential,
+  decryptRevealableSeed,
+  encryptImportedCredential,
+  encryptRevealableSeed,
   generateMasterKeyFromSeed,
   generateRootFingerprint,
   mnemonicFromEntropy,

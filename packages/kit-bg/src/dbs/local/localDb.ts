@@ -1,8 +1,11 @@
-import { LocalDbIndexed } from './indexed/LocalDbIndexed';
+import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import type { LocalDbBase } from './LocalDbBase';
+import localDb from './localDbInstance';
 
-// TODO ensureBackgroundObject
+if (process.env.NODE_ENV !== 'production') {
+  global.$$localDb = localDb;
+}
 
-const localDb: LocalDbBase = new LocalDbIndexed();
+ensureRunOnBackground();
+
 export default localDb;

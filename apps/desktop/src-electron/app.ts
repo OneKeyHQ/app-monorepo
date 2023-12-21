@@ -20,12 +20,14 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
-import type { PrefType } from './preload';
+import type { IPrefType } from './preload';
 
 const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
 const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
@@ -183,7 +185,7 @@ function createMainWindow() {
   const browserWindow = new BrowserWindow({
     title: APP_NAME,
     titleBarStyle: isWin ? 'default' : 'hidden',
-    trafficLightPosition: { x: 20, y: 20 },
+    trafficLightPosition: { x: 20, y: 18 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -287,10 +289,13 @@ function createMainWindow() {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     quitOrMinimizeApp();
   });
+  ipcMain.on(ipcMessageKeys.APP_RELOAD, () => {
+    browserWindow.reload();
+  });
 
   ipcMain.on(
     ipcMessageKeys.APP_OPEN_PREFERENCES,
-    (_event, prefType: PrefType) => {
+    (_event, prefType: IPrefType) => {
       const platform = os.type();
       if (platform === 'Darwin') {
         void shell.openPath(
@@ -406,6 +411,18 @@ function createMainWindow() {
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.on('will-frame-navigate', (e) => {
+        const { url } = e;
+        const { action } = uriUtils.parseDappRedirect(url);
+        if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+          e.preventDefault();
+          console.log(
+            '====>>>>>>>reject navigate main process will-frame-navigate: ',
+            url,
+          );
+          return false;
+        }
+      });
     }
   });
 
@@ -593,7 +610,7 @@ if (!app.isDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(WALLET_CONNECT_DEEP_LINK_NAME);
 }
-// also define `protocols` at packages/desktop/electron-builder.config.js
+// also define `protocols` at apps/desktop/electron-builder.config.js
 if (!app.isDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME)) {
   // Define custom protocol handler. Deep linking works on packaged versions of the application!
   app.setAsDefaultProtocolClient(ONEKEY_APP_DEEP_LINK_NAME);

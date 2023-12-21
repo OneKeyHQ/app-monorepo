@@ -9,7 +9,7 @@ import { blake2b } from '@noble/hashes/blake2b';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { addHexPrefix } from '@onekeyhq/shared/src/utils/hexUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
@@ -78,7 +78,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       rawTx: toB64(txnBytes),
       signatureScheme: 'ed25519',
       signature: serializeSignature,
-      publicKey: addHexPrefix(checkIsDefined(pub)),
+      publicKey: hexUtils.addHexPrefix(checkIsDefined(pub)),
+      encodedTx: unsignedTx.encodedTx,
     };
   }
 
@@ -123,7 +124,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey } = query;
     const pub = new Ed25519PublicKey(bufferUtils.toBuffer(publicKey));
-    const address = addHexPrefix(pub.toSuiAddress());
+    const address = hexUtils.addHexPrefix(pub.toSuiAddress());
     return Promise.resolve({
       address,
       publicKey,

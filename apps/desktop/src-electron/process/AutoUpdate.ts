@@ -5,10 +5,10 @@ import { CancellationToken, autoUpdater } from 'electron-updater';
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
 
-import type { Dependencies } from '.';
-import type { UpdateSettings } from '../libs/store';
+import type { IDependencies } from '.';
+import type { IUpdateSettings } from '../libs/store';
 
-interface LatestVersion {
+interface ILatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
@@ -30,14 +30,14 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
-const init = ({ mainWindow, store }: Dependencies) => {
+const init = ({ mainWindow, store }: IDependencies) => {
   // Enable feature on FE once it's ready
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('update/enable');
   });
 
   let isManualCheck = false;
-  let latestVersion: LatestVersion = {} as LatestVersion;
+  let ILatestVersion: ILatestVersion = {} as ILatestVersion;
   let updateCancellationToken: CancellationToken;
   const updateSettings = store.getUpdateSettings();
 
@@ -68,8 +68,11 @@ const init = ({ mainWindow, store }: Dependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
+    ILatestVersion = { version, releaseDate, isManualCheck };
+    mainWindow.webContents.send(
+      ipcMessageKeys.UPDATE_AVAILABLE,
+      ILatestVersion,
+    );
 
     // Reset manual check flag
     isManualCheck = false;
@@ -84,10 +87,10 @@ const init = ({ mainWindow, store }: Dependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    latestVersion = { version, releaseDate, isManualCheck };
+    ILatestVersion = { version, releaseDate, isManualCheck };
     mainWindow.webContents.send(
       ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-      latestVersion,
+      ILatestVersion,
     );
 
     // Reset manual check flag
@@ -99,7 +102,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     if (isNetworkError(err)) {
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
         err,
-        version: latestVersion.version,
+        version: ILatestVersion.version,
         isNetworkError: true,
       });
     }
@@ -192,7 +195,7 @@ const init = ({ mainWindow, store }: Dependencies) => {
     autoUpdater.quitAndInstall();
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: UpdateSettings) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
     logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
     setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
   });

@@ -1,5 +1,3 @@
-import type { ListHeadTagType } from './types';
-
 export const SUBMIT_TOKEN_URL = 'https://gr4yl99ujhl.typeform.com/to/ZM0qyr9e';
 
 export const MARKET_LIST_COLUMN_SHOW_WIDTH_1 = 824;
@@ -20,7 +18,7 @@ export enum EMarketCellData {
   TokenCollectionStarAndMore = 'TokenCollectionStarAndMore',
 }
 
-export const ListHeadTagsForSearch: ListHeadTagType[] = [
+export const ListHeadTagsForSearch: any[] = [
   {
     id: EMarketCellData.CollectionStarOrSerialNumber,
     minW: '42px',
@@ -54,7 +52,7 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
   },
 ];
 
-export const ListHeadTags: ListHeadTagType[] = [
+export const ListHeadTags: any[] = [
   {
     id: EMarketCellData.CollectionStarOrSerialNumber,
     minW: '32px',

@@ -1,8 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-import type { IAppSelector, IPersistor, IStore } from '@onekeyhq/kit/src/store';
+import { Toast } from '@onekeyhq/components';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { throwMethodNotFound } from '@onekeyhq/shared/src/background/backgroundUtils';
+import {
+  getBackgroundServiceApi,
+  throwMethodNotFound,
+} from '@onekeyhq/shared/src/background/backgroundUtils';
+import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
+import {
+  type EAppEventBusNames,
+  EEventBusBroadcastMethodNames,
+  type IAppEventBusPayload,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ensurePromiseObject,
@@ -10,6 +20,8 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
+
+import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
 import type {
   IBackgroundApi,
@@ -27,17 +39,37 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
-export class BackgroundApiProxyBase implements IBackgroundApiBridge {
+export class BackgroundApiProxyBase
+  extends BackgroundServiceProxyBase
+  implements IBackgroundApiBridge
+{
+  override serviceNameSpace = '';
+
   constructor({
     backgroundApi,
   }: {
     backgroundApi?: any;
   } = {}) {
+    super();
     if (backgroundApi) {
       this.backgroundApi = backgroundApi as IBackgroundApi;
     }
     jotaiBgSync.setBackgroundApi(this as any);
     void jotaiBgSync.jotaiInitFromUi();
+    appEventBus.registerBroadcastMethods(
+      EEventBusBroadcastMethodNames.uiToBg,
+      async (type, payload) => {
+        await this.emitEvent(type as any, payload);
+      },
+    );
+    globalErrorHandler.addListener((error) => {
+      // TODO log error to file if developer mode on
+      if (error && error.autoToast) {
+        Toast.error({
+          title: error?.message ?? 'Error',
+        });
+      }
+    });
   }
 
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {
@@ -49,23 +81,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     return this.callBackground('setAtomValue', atomName, value);
   }
 
-  store = {} as IStore;
-
-  persistor = {} as IPersistor;
-
-  dispatch = (...actions: any[]) => {
-    this.callBackgroundSync('dispatch', ...actions);
-  };
-
-  getState = (): Promise<{ state: any; bootstrapped: boolean }> =>
-    this.callBackground('getState');
-
-  appSelector = (() => {
-    // Dependency cycle
-    // import { useAppSelector } from '../hooks';
-    // useAppSelector = useAppSelector;
-    throw new Error('please use `useAppSelector()` instead.');
-  }) as IAppSelector;
+  async emitEvent<T extends EAppEventBusNames>(
+    type: T,
+    payload: IAppEventBusPayload[T],
+  ): Promise<boolean> {
+    return this.callBackground('emitEvent', type, payload);
+  }
 
   bridge = {} as JsBridgeBase;
 
@@ -134,9 +155,12 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
       if (!this.backgroundApi) {
         throw new Error('backgroundApi not found in non-ext env');
       }
-      const serviceApi = serviceName
-        ? (this.backgroundApi as any)[serviceName]
-        : this.backgroundApi;
+
+      const serviceApi = getBackgroundServiceApi({
+        serviceName,
+        backgroundApi: this.backgroundApi,
+      });
+
       if (serviceApi[backgroundMethodName]) {
         const resultPromise = serviceApi[backgroundMethodName].call(
           serviceApi,

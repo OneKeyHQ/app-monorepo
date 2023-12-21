@@ -1,29 +1,20 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 
-import { Provider } from '@onekeyhq/components';
-import {
-  setDarkContent,
-  setLightContent,
-} from '@onekeyhq/components/src/Navigation/utils/StatusBarUtils';
+import { ConfigProvider } from '@onekeyhq/components';
 
-import { useThemeProviderVariant } from '../hooks/useThemeVariant';
+import { useLocaleVariant } from '../hooks/useLocaleVariant';
+import { useThemeVariant } from '../hooks/useThemeVariant';
 
-const ThemeApp = ({ children }: PropsWithChildren<unknown>) => {
-  const { themeVariant, localeVariant } = useThemeProviderVariant();
-  useEffect(() => {
-    if (themeVariant === 'light') {
-      setDarkContent();
-    } else if (themeVariant === 'dark') {
-      setLightContent();
-    }
-  }, [themeVariant]);
+function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
+  const themeVariant = useThemeVariant();
+  const localeVariant = useLocaleVariant();
 
   return (
-    <Provider themeVariant={themeVariant} locale={localeVariant}>
+    <ConfigProvider theme={themeVariant as any} locale={localeVariant as any}>
       {children}
-    </Provider>
+    </ConfigProvider>
   );
-};
+}
 
-export default memo(ThemeApp);
+export const ThemeProvider = memo(BasicThemeProvider);

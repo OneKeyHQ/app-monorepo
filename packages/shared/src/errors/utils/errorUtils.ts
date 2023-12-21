@@ -1,11 +1,14 @@
-import { isString } from 'lodash';
+import { isString, isUndefined, omitBy } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
+import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
 import type { IOneKeyError } from '../types/errorTypes';
+import type { MessageDescriptor } from 'react-intl';
 
+// TODO also update JsBridgeBase.toPlainError
 /**
  * Converts an error object into a plain object with specific properties.
  *
@@ -16,20 +19,23 @@ export function toPlainErrorObject(error: IOneKeyError) {
   if (!error) {
     return error;
   }
-  return {
-    name: error.name,
-    constructorName: error.constructorName,
-    className: error.className,
-    key: error.key,
-    code: error.code,
-    message: error.message,
-    data: error.data,
-    info: error.info,
-    // Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
-    stack: platformEnv.isNativeAndroid
-      ? 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
-      : error.stack,
-  };
+  return omitBy(
+    {
+      name: error.name,
+      constructorName: error.constructorName,
+      className: error.className,
+      key: error.key,
+      code: error.code,
+      message: error.message,
+      autoToast: error.autoToast,
+      data: error.data,
+      info: error.info,
+      stack: error.stack,
+      // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
+      // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
+    },
+    isUndefined,
+  );
 }
 
 // 生成 jsdoc 文档, 包含一个 example
@@ -71,22 +77,44 @@ export function interceptConsoleErrorWithExtraInfo() {
   console.error.$isIntercepted = true;
 }
 
+export const errorsIntlFormatter: {
+  formatMessage?: (
+    descriptor: MessageDescriptor,
+    values?: Record<string, any>,
+  ) => string | undefined;
+} = {
+  formatMessage: undefined,
+};
+
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
     defaultMessage?: string;
     defaultKey?: ILocaleIds;
+    defaultAutoToast?: boolean;
   },
-) {
-  const msg: string =
-    (isString(props) ? props : props?.message) || config?.defaultMessage || '';
+): IOneKeyError {
+  let msg: string | undefined = isString(props) ? props : props?.message;
   const key =
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
+
+  if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
+    msg = appLocale.intl.formatMessage(
+      { id: key },
+      (props as IOneKeyError)?.info,
+    );
+    if (msg === key) {
+      msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
+    }
+  }
+  msg = msg || config?.defaultMessage || '';
+
   return {
     message: msg,
     key,
+    autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
     ...(isString(props) ? {} : props),
   };
 }
