@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { Keyboard } from 'react-native';
+
 import {
   Input,
   Page,
@@ -43,22 +45,21 @@ const tutorials = [
 
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
-  const [secureTextEntry, changeSecureTextEntry] = useState(true);
+  const [isFocus, setIsFocus] = useState(false);
   const handleFocus = useCallback(() => {
-    changeSecureTextEntry(false);
+    setIsFocus(true);
   }, []);
   const handleBlur = useCallback(() => {
-    changeSecureTextEntry(true);
+    setIsFocus(false);
   }, []);
   return (
     <Input
       caretHidden
       showSoftInputOnFocus={false}
       keyboardType="numeric"
-      secureTextEntry={secureTextEntry}
       onFocus={handleFocus}
       onBlur={handleBlur}
-      value={text}
+      value={isFocus ? text : '••••'}
       editable={false}
       size={media.md ? 'large' : 'medium'}
       leftAddOnProps={{
