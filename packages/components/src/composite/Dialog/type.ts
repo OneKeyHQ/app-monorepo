@@ -1,5 +1,6 @@
 import type { MutableRefObject, PropsWithChildren } from 'react';
 
+import type { IFormProps } from '../../forms';
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
@@ -10,6 +11,10 @@ import type {
 
 export type IDialogContextType = {
   dialogInstance: IDialogInstanceRef;
+  footerRef: {
+    notifyUpdate?: () => void;
+    props?: IDialogFooterProps;
+  };
 };
 
 export interface IDialogContentProps extends PropsWithChildren {
@@ -29,7 +34,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   onCancelText?: string;
   confirmButtonProps?: IDialogButtonProps;
   cancelButtonProps?: IDialogButtonProps;
-  onConfirm?: () => void;
+  onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
   // disabledOn: () => void;
 }
@@ -57,8 +62,10 @@ export type IDialogProps = IBasicDialogProps &
   Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
 
 export type IOnDialogConfirm = (
-  dialogInstance: IDialogInstance,
-) => void | Promise<boolean>;
+  dialogInstance: IDialogInstance & {
+    preventClose: () => void;
+  },
+) => void | Promise<void>;
 
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
@@ -95,6 +102,6 @@ export interface IDialogInstance {
   getForm: () => IDialogForm | undefined;
 }
 
-export type IDialogFormProps = PropsWithChildren<{
+export type IDialogFormProps = Omit<IFormProps, 'form'> & {
   formProps: UseFormProps;
-}>;
+};
