@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 
-import { Keyboard } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
 import {
+  Button,
   Input,
   Page,
   SizableText,
@@ -10,6 +11,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { Tutorials } from '../../Components';
@@ -87,6 +89,19 @@ export function RecoveryPhrase() {
         <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
           Tap to display words and write down your phrases in order
         </SizableText>
+        {platformEnv.isDev ? (
+          <XStack px="$1" pb="$4">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                await Clipboard.setStringAsync(JSON.stringify(phrases));
+              }}
+            >
+              Copy All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
             <Stack

@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import * as Clipboard from 'expo-clipboard';
 import { compact } from 'lodash';
 import { Dimensions } from 'react-native';
 
@@ -444,6 +445,30 @@ export function PhaseInputArea({
             </Button>
           ) : null}
         </XStack>
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                const text = await Clipboard.getStringAsync();
+                try {
+                  const phrases: string[] = JSON.parse(text);
+                  form.reset(
+                    phrases.reduce((prev, next, index) => {
+                      prev[`phrase${index + 1}`] = next;
+                      return prev;
+                    }, {} as Record<`phrase${number}`, string>),
+                  );
+                } catch (error) {
+                  console.error(error);
+                }
+              }}
+            >
+              Paste All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: Number(phraseLength) }).map((_, index) => (
