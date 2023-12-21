@@ -8,11 +8,7 @@ import { DialogContext } from './context';
 
 import type { IDialogFormProps } from './type';
 
-export function DialogForm({
-  formProps,
-  children,
-  ...props
-}: IDialogFormProps) {
+export function DialogForm({ formProps, children }: IDialogFormProps) {
   const form = useForm(formProps);
   const { dialogInstance } = useContext(DialogContext);
   useMemo(() => {
@@ -21,9 +17,5 @@ export function DialogForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form]);
-  return (
-    <Form form={form} {...props}>
-      {children}
-    </Form>
-  );
+  return <Form form={form}>{children}</Form>;
 }
