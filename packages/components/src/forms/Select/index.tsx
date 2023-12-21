@@ -20,9 +20,9 @@ import type {
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 
-const useTriggerLabel = () => {
-  const { value, selectedItemRef, sections, items } = useContext(SelectContext);
-  if (selectedItemRef.current.value !== value) {
+const useTriggerLabel = (value: string) => {
+  const { selectedItemRef, sections, items } = useContext(SelectContext);
+  if (!value || selectedItemRef.current.value !== value) {
     return '';
   }
   if (selectedItemRef.current.label) {
@@ -59,16 +59,19 @@ const useTriggerLabel = () => {
 };
 
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
-  const { changeOpenStatus, value, placeholder, disabled } =
+  const { changeOpenStatus, value, placeholder, disabled, labelInValue } =
     useContext(SelectContext);
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
-  const label = useTriggerLabel();
+  const renderValue = labelInValue
+    ? (value as ISelectItem)?.value
+    : (value as string);
+  const label = useTriggerLabel(renderValue);
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
       {renderTrigger({
-        value: (value as ISelectItem)?.value || (value as string),
+        value: renderValue,
         label,
         placeholder,
         disabled,

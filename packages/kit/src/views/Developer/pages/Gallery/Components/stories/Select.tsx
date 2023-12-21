@@ -88,8 +88,10 @@ const SelectCustomItem = () => {
   return (
     <Select
       placeholder="please select one"
-      renderTrigger={({ value, placeholder }) => (
-        <Text>{value || placeholder}</Text>
+      renderTrigger={({ value, label, placeholder }) => (
+        <Text>
+          {value ? `label: ${label || ''}, value: ${value}` : placeholder}
+        </Text>
       )}
       items={items}
       value={val}
@@ -185,7 +187,8 @@ const SelectGallery = () => (
       {
         title: 'labelInValue',
         element: () => {
-          const [val, setVal] = useState(items[1]);
+          const [val, setVal] = useState(items[3]);
+          const [sectionVal, setSectionVal] = useState(sections[1].data[2]);
           return (
             <Stack space="$1">
               <Select
@@ -193,6 +196,14 @@ const SelectGallery = () => (
                 items={items}
                 value={val}
                 onChange={setVal}
+                title="Label In Value"
+              />
+
+              <Select
+                labelInValue
+                sections={sections}
+                value={sectionVal}
+                onChange={setSectionVal}
                 title="Label In Value"
               />
             </Stack>
