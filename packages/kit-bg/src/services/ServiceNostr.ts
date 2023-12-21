@@ -134,7 +134,7 @@ export default class ServiceNostr extends ServiceBase {
         return account;
       } catch (createError) {
         console.error(createError);
-        throw new Error('Create nostr account failed');
+        throw createError;
       }
     }
   }

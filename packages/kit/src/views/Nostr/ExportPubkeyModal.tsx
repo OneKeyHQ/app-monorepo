@@ -66,7 +66,9 @@ const ExportPublicKeyView: FC<{
         setPublicKey(pubkey);
       } catch (e) {
         deviceUtils.showErrorToast(e);
-        navigation.goBack?.();
+        setTimeout(() => {
+          navigation.goBack?.();
+        }, 200);
       }
     })();
   }, [walletId, networkId, accountId, password, navigation]);
