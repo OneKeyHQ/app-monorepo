@@ -1,7 +1,6 @@
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 
 import { ERootRoutes } from './enum';
-import { IOSFullScreenNavigator } from './iOSFullScreen/Navigator';
 import { ModalNavigator } from './Modal/Navigator';
 import { TabNavigator } from './Tab/Navigator';
 
@@ -18,7 +17,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   },
   {
     name: ERootRoutes.iOSFullScreen,
-    component: IOSFullScreenNavigator,
+    component: ModalNavigator,
     type: 'iOSFullScreen',
   },
 ];
