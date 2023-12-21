@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { SelectorStack } from './SelectorStack';
+import { AccountSelectorStackPage } from './AccountSelectorStack';
 import { EAccountManagerStacksRoutes } from './types';
 
 import type { IAccountManagerStacksParamList } from './types';
@@ -10,7 +10,7 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   IAccountManagerStacksParamList
 >[] = [
   {
-    name: EAccountManagerStacksRoutes.SelectorStack,
-    component: SelectorStack,
+    name: EAccountManagerStacksRoutes.AccountSelectorStack,
+    component: AccountSelectorStackPage,
   },
 ];

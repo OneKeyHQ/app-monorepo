@@ -25,7 +25,7 @@ import { Icon, Stack, Text } from '../../primitives';
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
-import { Footer } from './Footer';
+import { Footer, FooterAction } from './Footer';
 
 import type {
   IDialogCancelProps,
@@ -37,6 +37,7 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { ColorTokens } from 'tamagui';
 
 // Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
@@ -62,13 +63,14 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
   testID,
 }: IDialogProps) {
+  const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const { dialogInstance } = useContext(DialogContext);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -83,34 +85,40 @@ function DialogFrame({
   );
 
   const { bottom } = useSafeAreaInsets();
-  const handleConfirmButtonPress = useCallback(async () => {
-    const form = dialogInstance.ref.current;
-    if (form) {
-      const isValidated = await form.trigger();
-      if (!isValidated) {
-        return;
-      }
-    }
-    const result = await onConfirm?.({
-      close: dialogInstance.close,
-      getForm: () => dialogInstance.ref.current,
-    });
-    if (result || result === undefined) {
-      void onClose();
-    }
-  }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
-    onCancel?.();
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.();
     void onClose();
-  }, [onCancel, onClose]);
+  }, [footerRef.props?.onCancel, onCancel, onClose]);
+
+  const getColors = (): {
+    iconWrapperBg: ColorTokens;
+    iconColor: ColorTokens;
+  } => {
+    if (tone === 'destructive') {
+      return {
+        iconWrapperBg: '$bgCritical',
+        iconColor: '$iconCritical',
+      };
+    }
+    if (tone === 'warning') {
+      return {
+        iconWrapperBg: '$bgCaution',
+        iconColor: '$iconCaution',
+      };
+    }
+
+    return {
+      iconWrapperBg: '$bgStrong',
+      iconColor: '$icon',
+    };
+  };
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      {/* illustration */}
-
       {/* leading icon */}
       {icon && (
         <Stack
@@ -119,13 +127,9 @@ function DialogFrame({
           ml="$5"
           mt="$5"
           borderRadius="$full"
-          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          bg={getColors().iconWrapperBg}
         >
-          <Icon
-            name={icon}
-            size="$8"
-            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-          />
+          <Icon name={icon} size="$8" color={getColors().iconColor} />
         </Stack>
       )}
 
@@ -148,6 +152,7 @@ function DialogFrame({
       {/* close button */}
       <IconButton
         position="absolute"
+        zIndex={1}
         right="$5"
         top="$5"
         icon="CrossedSmallOutline"
@@ -168,7 +173,7 @@ function DialogFrame({
         showCancelButton={showCancelButton}
         showConfirmButton={showConfirmButton}
         cancelButtonProps={cancelButtonProps}
-        onConfirm={handleConfirmButtonPress}
+        onConfirm={onConfirm}
         onCancel={handleCancelButtonPress}
         onConfirmText={onConfirmText}
         confirmButtonProps={confirmButtonProps}
@@ -205,8 +210,11 @@ function DialogFrame({
           borderTopRightRadius="$6"
           bg="$bg"
           paddingBottom={keyboardHeight}
+          style={{
+            borderCurve: 'continuous',
+          }}
         >
-          <SheetGrabber />
+          {!disableDrag && <SheetGrabber />}
           {renderDialogContent}
         </Sheet.Frame>
       </Sheet>
@@ -229,6 +237,14 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
+              animateOnly={['opacity']}
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
               onPress={handleBackdropPress}
             />
             {
@@ -260,6 +276,7 @@ function DialogFrame({
               bg="$bg"
               width={400}
               p="$0"
+              {...floatingPanelProps}
             >
               {renderDialogContent}
             </TMDialog.Content>
@@ -287,6 +304,10 @@ function BaseDialogContainer(
       dialogInstance: {
         close: handleClose,
         ref: formRef,
+      },
+      footerRef: {
+        notifyUpdate: undefined,
+        props: undefined,
       },
     }),
     [handleClose],
@@ -381,6 +402,7 @@ export const Dialog = {
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
+  Footer: FooterAction,
 };
 
 export * from './hooks';

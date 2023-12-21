@@ -80,4 +80,5 @@ export type IFetchAccountHistoryResp = {
   data: IOnChainHistoryTx[];
   // <token address | NFT id, asset info>
   tokens: Record<string, IOnChainHistoryTxAsset>;
+  next: string;
 };

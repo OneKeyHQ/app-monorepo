@@ -30,7 +30,7 @@ export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
   override async buildEncodedTx(options: {
-    transfersInfo?: ITransferInfo[] | undefined;
+    transfersInfo: ITransferInfo[] | undefined;
   }): Promise<IEncodedTxEvm> {
     const { transfersInfo } = options;
     if (transfersInfo && !isEmpty(transfersInfo)) {
@@ -40,9 +40,10 @@ export default class Vault extends VaultBase {
   }
 
   override async buildUnsignedTx(options: {
-    encodedTx: IEncodedTxEvm;
+    transfersInfo: ITransferInfo[] | undefined;
   }): Promise<IUnsignedTxPro> {
-    const { encodedTx } = options;
+    const { transfersInfo } = options;
+    const encodedTx = await this.buildEncodedTx({ transfersInfo });
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx(encodedTx);
     }

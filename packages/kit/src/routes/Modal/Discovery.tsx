@@ -1,10 +1,25 @@
+import { lazy } from 'react';
+
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import BookmarkListModal from '@onekeyhq/kit/src/views/Discovery/container/BookmarkListModal';
-import HistoryListModal from '@onekeyhq/kit/src/views/Discovery/container/HistoryListModal';
-import MobileTabListModal from '@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal';
-import SearchModal from '@onekeyhq/kit/src/views/Discovery/container/SearchModal';
 import type { IDiscoveryModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+
+const SearchModal = lazy(
+  () => import('@onekeyhq/kit/src/views/Discovery/container/SearchModal'),
+);
+
+const MobileTabListModal = lazy(
+  () =>
+    import('@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal'),
+);
+
+const BookmarkListModal = lazy(
+  () => import('@onekeyhq/kit/src/views/Discovery/container/BookmarkListModal'),
+);
+
+const HistoryListModal = lazy(
+  () => import('@onekeyhq/kit/src/views/Discovery/container/HistoryListModal'),
+);
 
 export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
   EDiscoveryModalRoutes,

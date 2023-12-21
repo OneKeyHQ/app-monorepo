@@ -21,7 +21,8 @@ import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendAssetInputContainer() {
-  const { refreshTokenList, refreshTokenListMap } = useTokenListActions();
+  const { refreshTokenList, refreshTokenListMap } =
+    useTokenListActions().current;
 
   const route =
     useRoute<

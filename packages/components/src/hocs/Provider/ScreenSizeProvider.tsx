@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 
 import { getScreenSize } from './device';
-import { ContextDeviceScreenSize } from './hooks/useProviderDeviceScreenSize';
 import { ContextIsVerticalLayout } from './hooks/useProviderIsVerticalLayout';
 
 function ScreenSizeProvider({ children }: { children?: ReactNode }) {
@@ -17,11 +16,9 @@ function ScreenSizeProvider({ children }: { children?: ReactNode }) {
   );
 
   return (
-    <ContextDeviceScreenSize.Provider value={deviceScreenSize}>
-      <ContextIsVerticalLayout.Provider value={isVerticalLayout}>
-        {children}
-      </ContextIsVerticalLayout.Provider>
-    </ContextDeviceScreenSize.Provider>
+    <ContextIsVerticalLayout.Provider value={isVerticalLayout}>
+      {children}
+    </ContextIsVerticalLayout.Provider>
   );
 }
 

@@ -14,11 +14,12 @@ function HomeHeaderContainer() {
 
   const navigateAccountManagerStacks = useCallback(() => {
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.SelectorStack,
+      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
     });
   }, [navigation]);
   return (
     <XStack
+      role="button"
       alignItems="center"
       p="$1.5"
       mx="$-1.5"
