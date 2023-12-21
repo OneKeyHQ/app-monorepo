@@ -10,10 +10,6 @@ import type {
 
 import { ERootRoutes } from '../routes/enum';
 
-import type {
-  EIOSFullScreenModalRoutes,
-  IIOSFullScreenModalParamList,
-} from '../routes/iOSFullScreen/type';
 import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
 import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 

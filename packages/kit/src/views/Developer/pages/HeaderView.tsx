@@ -41,7 +41,7 @@ export default function HomePageHeaderView() {
 
   const navigateFullScreenSimpleModal = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-      screen: ETestModalPages.GetStarted,
+      screen: EOnboardingPages.GetStarted,
     });
   }, [navigation]);
 
