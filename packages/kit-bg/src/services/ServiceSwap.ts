@@ -1,9 +1,6 @@
 import axios from 'axios';
 
-import {
-  CrossChainSwapProviders,
-  SingleChainSwapProviders,
-} from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
+import { CrossChainSwapProviders } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -40,14 +37,13 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
-    const baseUrl = getFiatEndpoint();
     const protocol = EExchangeProtocol.SWAP;
     const params = {
       protocol,
     };
-    const fetchUrl = `${baseUrl}/exchange/networks`;
-    const { data } = await this.client.get<IFetchResponse<ISwapNetwork[]>>(
-      fetchUrl,
+    const client = await this.getClient();
+    const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
+      '/exchange/networks',
       { params },
     );
     console.log('fetchSwapNetworks--data', data);
@@ -73,7 +69,6 @@ export default class ServiceSwap extends ServiceBase {
     limit?: number;
     next?: string;
   }): Promise<{ result: ISwapToken[]; next?: string }> {
-    const baseUrl = getFiatEndpoint();
     const providersArr = fromToken?.providers.split(',');
     const params = {
       fromTokenNetworkId: fromToken?.networkId,
@@ -91,10 +86,10 @@ export default class ServiceSwap extends ServiceBase {
       limit,
       next,
     };
-    const fetchUrl = `${baseUrl}/exchange/tokens`;
-    const { data } = await this.client.get<
+    const client = await this.getClient();
+    const { data } = await client.get<
       IFetchResponse<{ next?: string; data: ISwapToken[] }>
-    >(fetchUrl, { params });
+    >('/exchange/tokens', { params });
     console.log('fetchSwapTokens--data', data);
     if (data?.code === 0 && data?.data) {
       return { result: data.data.data, next: data.data.next };
