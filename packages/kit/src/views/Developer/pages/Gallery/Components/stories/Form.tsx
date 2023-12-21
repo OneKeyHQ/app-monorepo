@@ -5,6 +5,7 @@ import {
   Input,
   Radio,
   SearchBar,
+  SizableText,
   Switch,
   TextArea,
   useForm,
@@ -15,6 +16,7 @@ import { Layout } from './utils/Layout';
 const Form1 = () => {
   const form = useForm({
     defaultValues: {
+      validateOnBlur: false,
       name: 'Nate Wienert',
       length: '1234567',
       checkbox: true,
@@ -26,8 +28,12 @@ const Form1 = () => {
       defaultPrevented: '',
     },
   });
+  const validateOnBlur = form.watch('validateOnBlur');
   return (
-    <Form form={form}>
+    <Form form={form} validateOnBlur={validateOnBlur}>
+      <Form.Field label="validate on Filed blur" name="validateOnBlur">
+        <Switch />
+      </Form.Field>
       <Form.Field label="Name" name="name">
         <Input flex={1} />
       </Form.Field>
