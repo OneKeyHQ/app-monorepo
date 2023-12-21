@@ -4,5 +4,8 @@ export {
   SendAssetInputContainer as SendAssetInput,
   SendAssetInputContainerWithProvider as SendAddressInputWithProvider,
 } from './container/SendAssetInput/SendAssetInputContainer';
-export { SendConfirmContainer as SendConfirm } from './container/SendConfirm/SendConfirmContainer';
+export {
+  SendConfirmContainer as SendConfirm,
+  SendAssetInputContainerWithProvider as SendConfirmWithProvider,
+} from './container/SendConfirm/SendConfirmContainer';
 export { SendProgressContainer as SendProgress } from './container/SendProgress/SendProgressContainer';

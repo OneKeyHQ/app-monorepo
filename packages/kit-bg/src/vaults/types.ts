@@ -163,6 +163,9 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   // swapInfo
 }
+export interface IBuildDecodedTxParams {
+  unsignedTx: IUnsignedTxPro[];
+}
 export interface IBuildUnsignedTxParams {
   transfersInfo: ITransferInfo[];
 }
