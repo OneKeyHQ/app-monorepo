@@ -9,6 +9,7 @@ import { Input } from '../Input';
 
 import { SelectContext } from './context';
 
+import type { IContextType } from './context';
 import type {
   ISelectItem,
   ISelectItemProps,
@@ -19,19 +20,62 @@ import type {
 } from './type';
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 
+const useTriggerLabel = (value: string) => {
+  const { selectedItemRef, sections, items } = useContext(SelectContext);
+  if (!value || selectedItemRef.current.value !== value) {
+    return '';
+  }
+  if (selectedItemRef.current.label) {
+    return selectedItemRef.current.label;
+  }
+
+  if (sections) {
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      // eslint-disable-next-line no-plusplus
+      for (let j = 0; j < section.data.length; j++) {
+        const item = section.data[j];
+        if (item.value === value) {
+          selectedItemRef.current.label = item.label;
+          return item.label;
+        }
+      }
+    }
+  }
+
+  if (items) {
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.value === value) {
+        selectedItemRef.current.label = item.label;
+        return item.label;
+      }
+    }
+  }
+
+  return '';
+};
+
 function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
-  const { changeOpenStatus, value, placeholder, disabled, selectedItemRef } =
+  const { changeOpenStatus, value, placeholder, disabled, labelInValue } =
     useContext(SelectContext);
   const handleTriggerPressed = useCallback(() => {
     changeOpenStatus?.(true);
   }, [changeOpenStatus]);
-  const label =
-    selectedItemRef.current.value === value
-      ? selectedItemRef.current.label
-      : value;
+  const renderValue = labelInValue
+    ? (value as ISelectItem)?.value
+    : (value as string);
+  const label = useTriggerLabel(renderValue);
   return (
     <Trigger onPress={handleTriggerPressed} disabled={disabled}>
-      {renderTrigger({ value, label, placeholder, disabled })}
+      {renderTrigger({
+        value: renderValue,
+        label,
+        placeholder,
+        disabled,
+      })}
     </Trigger>
   );
 }
@@ -126,16 +170,17 @@ function SelectContent() {
     refreshState,
     sheetProps,
     placement,
+    labelInValue,
     selectedItemRef,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
       selectedItemRef.current.value = item.value;
       selectedItemRef.current.label = item.label;
-      onValueChange?.(item.value);
+      onValueChange?.(labelInValue ? item : item.value);
       changeOpenStatus?.(false);
     },
-    [changeOpenStatus, onValueChange, selectedItemRef],
+    [changeOpenStatus, labelInValue, onValueChange, selectedItemRef],
   );
 
   const handleOpenChange = useCallback(
@@ -147,7 +192,11 @@ function SelectContent() {
 
   const renderItem = useCallback(
     ({ item }: { item: ISelectItem }) => (
-      <SelectItem {...item} onSelect={handleSelect} selectedValue={value} />
+      <SelectItem
+        {...item}
+        onSelect={handleSelect}
+        selectedValue={(value as ISelectItem)?.value || (value as string)}
+      />
     ),
     [handleSelect, value],
   );
@@ -226,7 +275,7 @@ function SelectContent() {
   );
 }
 
-function SelectFrame({
+function SelectFrame<T extends string | ISelectItem>({
   items,
   placeholder,
   value,
@@ -236,11 +285,18 @@ function SelectFrame({
   disabled,
   sections,
   sheetProps,
-  defaultItem = {} as ISelectItem,
+  labelInValue = false,
   placement = 'bottom-start',
-}: ISelectProps) {
+}: ISelectProps<T>) {
   const [openCounts, updateOpenCounts] = useState(0);
-  const selectedItemRef = useRef<ISelectItem>(defaultItem);
+  const selectedItemRef = useRef<ISelectItem>(
+    labelInValue
+      ? (value as ISelectItem)
+      : {
+          label: '',
+          value: value as string,
+        },
+  );
   const changeOpenStatus = useCallback(() => {
     updateOpenCounts((i) => i + 1);
   }, []);
@@ -256,6 +312,7 @@ function SelectFrame({
       refreshState,
       changeOpenStatus,
       value,
+      labelInValue,
       onValueChange: onChange,
       items,
       sections,
@@ -269,6 +326,7 @@ function SelectFrame({
     [
       isOpen,
       refreshState,
+      labelInValue,
       changeOpenStatus,
       value,
       onChange,
@@ -282,13 +340,16 @@ function SelectFrame({
     ],
   );
   return (
-    <SelectContext.Provider value={context}>
+    <SelectContext.Provider value={context as IContextType}>
       <Stack position="relative">{children}</Stack>
     </SelectContext.Provider>
   );
 }
 
-function BasicSelect({ renderTrigger, ...props }: ISelectProps) {
+function BasicSelect<T extends string | ISelectItem>({
+  renderTrigger,
+  ...props
+}: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
