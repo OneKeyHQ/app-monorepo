@@ -31,10 +31,6 @@
   });
   // $$onekeyPerfTrace end ----------------------------------------------
 
-  // themePreload start ----------------------------------------------
-  document.documentElement.style.backgroundColor = '#0f0f0f';
-  // themePreload end ----------------------------------------------
-
   // optimizeResize start ----------------------------------------------
   /* TEST CODE
 const handler = ()=>console.log('ffffff');
