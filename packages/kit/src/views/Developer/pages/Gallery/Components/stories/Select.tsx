@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
 import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
@@ -161,10 +163,6 @@ const SelectDefaultValue = () => {
       sections={sections}
       value={val}
       onChange={setVal}
-      defaultItem={{
-        label: 'Apple🍎',
-        value: 'Apple',
-      }}
       title="Demo Title"
     />
   );
@@ -183,6 +181,23 @@ const SelectGallery = () => (
             <SelectDefaultItem />
           </Stack>
         ),
+      },
+      {
+        title: 'labelInValue',
+        element: () => {
+          const [val, setVal] = useState(items[1]);
+          return (
+            <Stack space="$1">
+              <Select
+                labelInValue
+                items={items}
+                value={val}
+                onChange={setVal}
+                title="Label In Value"
+              />
+            </Stack>
+          );
+        },
       },
       {
         title: 'Long List',
