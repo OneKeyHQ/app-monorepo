@@ -45,12 +45,12 @@ const tutorials = [
 
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
-  const [isFocus, setIsFocus] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const handleFocus = useCallback(() => {
-    setIsFocus(true);
+    setIsFocused(true);
   }, []);
   const handleBlur = useCallback(() => {
-    setIsFocus(false);
+    setIsFocused(false);
   }, []);
   return (
     <Input
@@ -59,7 +59,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
       keyboardType="numeric"
       onFocus={handleFocus}
       onBlur={handleBlur}
-      value={isFocus ? text : '••••'}
+      value={isFocused ? text : '••••'}
       editable={false}
       size={media.md ? 'large' : 'medium'}
       leftAddOnProps={{

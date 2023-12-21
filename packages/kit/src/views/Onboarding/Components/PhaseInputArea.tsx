@@ -205,7 +205,7 @@ function BasicPhaseInput(
   const media = useMedia();
   const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
-  const [tabFocusable, setTabFFocusable] = useState(false);
+  const [tabFocusable, setTabFocusable] = useState(false);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -258,7 +258,7 @@ function BasicPhaseInput(
     (isOpen: boolean) => {
       if (!isOpen) {
         closePopover();
-        setTabFFocusable(false);
+        setTabFocusable(false);
       }
     },
     [closePopover],
@@ -273,7 +273,7 @@ function BasicPhaseInput(
       if (e.keyCode === 9) {
         if (openStatusRef.current) {
           firstButtonRef.current?.focus();
-          setTabFFocusable(true);
+          setTabFocusable(true);
           e.preventDefault();
           e.stopPropagation();
         }
@@ -291,13 +291,14 @@ function BasicPhaseInput(
     onReturnKeyPressed(index);
   }, [index, onReturnKeyPressed]);
 
+  const isShowValue = selectInputIndex !== index && value?.length;
+
   const suggestions = suggestionsRef.current ?? [];
   if (platformEnv.isNative) {
     return (
       <Input
-        value={value}
+        value={isShowValue ? '••••' : value}
         ref={inputRef}
-        secureTextEntry={selectInputIndex !== index}
         autoCorrect={false}
         spellCheck={false}
         size={media.md ? 'large' : 'medium'}
