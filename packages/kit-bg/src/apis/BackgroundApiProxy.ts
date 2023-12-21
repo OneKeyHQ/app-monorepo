@@ -8,13 +8,20 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceGas from '../services/ServiceGas';
+import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNameResolver from '../services/ServiceNameResolver';
+import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceToken from '../services/ServiceToken';
+import type ServiceValidator from '../services/ServiceValidator';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -41,6 +48,25 @@ class BackgroundApiProxy
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
 
   serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
+
+  serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
+
+  serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
+
+  serviceDefi = this._createProxyService('serviceDefi') as ServiceDefi;
+
+  serviceValidator = this._createProxyService(
+    'serviceValidator',
+  ) as ServiceValidator;
+
+  serviceNameResolver = this._createProxyService(
+    'serviceNameResolver',
+  ) as ServiceNameResolver;
+
+  serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 
   serviceBootstrap = this._createProxyService(

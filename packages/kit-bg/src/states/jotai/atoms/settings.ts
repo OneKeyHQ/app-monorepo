@@ -16,14 +16,15 @@ export type ISettingsPersistAtom = {
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
   spendDustUTXO: boolean;
-  appLockDuration: number;
+
   hardwareConnectSrc: EOnekeyDomain;
+  endpointType: 'prod' | 'test';
+  currency: string;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
     persist: true,
     name: EAtomNames.settingsPersistAtom,
-
     initialValue: {
       theme: 'system',
       lastLocale: 'system',
@@ -35,10 +36,25 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
-      appLockDuration: 240,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
+      endpointType: 'prod',
+      currency: 'usd',
     },
   });
+
+type ISettingsLastActivityPersistAtom = {
+  time: number;
+};
+
+export const {
+  target: settingsLastActivityAtom,
+  use: useSettingsLastActivityAtom,
+} = globalAtom<ISettingsLastActivityPersistAtom>({
+  name: EAtomNames.settingsLastActivityAtom,
+  initialValue: {
+    time: Date.now(),
+  },
+});
 
 // extract high frequency refresh data to another atom
 export type ISettingsTimeNowAtom = string;

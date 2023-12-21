@@ -1,10 +1,17 @@
 import { cloneElement, useCallback, useContext, useState } from 'react';
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
 
-import { Button, Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { IconButton } from '../IconButton';
 
 import type { ColorTokens } from 'tamagui';
@@ -20,14 +27,17 @@ type IAlertActionProps = {
 
 const AlertContext = createStyledContext<{
   type: IAlertType;
+  fullBleed?: boolean;
 }>({
   type: 'default',
+  fullBleed: false,
 });
 
 type IAlertProps = {
   type?: IAlertType;
-  title: string;
-  description: string;
+  fullBleed?: boolean;
+  title?: string;
+  description?: string;
   closable?: boolean;
   icon?: ComponentProps<typeof Icon>['name'];
   action?: IAlertActionProps;
@@ -44,6 +54,9 @@ const AlertFrame = styled(XStack, {
   borderColor: '$borderSubdued',
   borderRadius: '$3',
   borderWidth: StyleSheet.hairlineWidth,
+  style: {
+    borderCurve: 'continuous',
+  },
   variants: {
     type: {
       info: {
@@ -67,6 +80,14 @@ const AlertFrame = styled(XStack, {
         borderColor: '$borderSubdued',
       },
     },
+    fullBleed: {
+      true: {
+        paddingHorizontal: '$5',
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
+        borderRadius: 0,
+      },
+    },
   },
 });
 
@@ -84,21 +105,25 @@ const AlertIcon = (props: { children: any }) => {
   });
 };
 
-export const Alert: FC<IAlertProps> = ({
-  icon,
-  title,
-  description,
-  closable,
-  type,
-  action,
-}) => {
+export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
+  const {
+    icon,
+    title,
+    description,
+    closable,
+    type,
+    fullBleed,
+    action,
+    ...rest
+  } = props;
+
   const [show, setShow] = useState(true);
   const onClose = useCallback(() => setShow(false), []);
-  if (!show) {
-    return null;
-  }
+
+  if (!show) return null;
+
   return (
-    <AlertFrame type={type}>
+    <AlertFrame ref={ref} type={type} fullBleed={fullBleed} {...rest}>
       {icon ? (
         <Stack>
           <AlertIcon>
@@ -107,29 +132,32 @@ export const Alert: FC<IAlertProps> = ({
         </Stack>
       ) : null}
       <YStack flex={1} space="$1">
-        <Text variant="$bodyMdMedium">{title}</Text>
-        <Text variant="$bodyMd" color="$textSubdued">
-          {description}
-        </Text>
-        {action ? (
-          <XStack pt="$2" space="$4" alignItems="center">
-            <Button size="small" onPress={action.onPrimaryPress}>
-              {action.primary}
-            </Button>
-            {action.secondary ? (
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={action.onSecondaryPress}
-              >
-                {action.secondary}
-              </Button>
-            ) : null}
-          </XStack>
-        ) : null}
+        {title && <SizableText size="$bodyMd">{title}</SizableText>}
+        {description && (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {description}
+          </SizableText>
+        )}
       </YStack>
+      {action ? (
+        <XStack space="$4" alignItems="center">
+          <Button size="small" onPress={action.onPrimaryPress}>
+            {action.primary}
+          </Button>
+          {action.secondary ? (
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={action.onSecondaryPress}
+            >
+              {action.secondary}
+            </Button>
+          ) : null}
+        </XStack>
+      ) : null}
       {closable ? (
         <IconButton
+          title="Dismiss"
           icon="CrossedSmallSolid"
           size="small"
           variant="tertiary"
@@ -138,4 +166,4 @@ export const Alert: FC<IAlertProps> = ({
       ) : null}
     </AlertFrame>
   );
-};
+});

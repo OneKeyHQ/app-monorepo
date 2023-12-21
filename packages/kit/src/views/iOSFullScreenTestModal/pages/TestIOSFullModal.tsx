@@ -7,7 +7,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 
-import type { ITabHomeParamList } from '../../Home/type';
+import type { ITabHomeParamList } from '../../Home/router';
 
 export function TestIOSFullModal() {
   const headerRightCall = useCallback(
@@ -23,7 +23,7 @@ export function TestIOSFullModal() {
     navigation.push(EIOSFullScreenModalRoutes.iOSFullScreenTestModal);
   }, [navigation]);
   return (
-    <Page enableSafeArea>
+    <Page>
       <Page.Header title="test modal" headerRight={headerRightCall} />
       <Page.Body bg="burlywood">
         <XStack>

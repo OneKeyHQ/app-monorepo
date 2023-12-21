@@ -16,6 +16,7 @@ import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/C
 import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
 import JotaiContextGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery';
+import LinearGradientGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient';
 import ListItemGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem';
 import ListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView';
 import LocalDBGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery';
@@ -36,8 +37,8 @@ import SkeletonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Com
 import SliderGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider';
 import SortableListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableListView';
 import SortableSectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList';
-import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
 import SpotlightTourGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour';
+import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
 import SwitchGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch';
 import TabViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView';
 import TextAreaGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TextArea';
@@ -149,6 +150,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentBlurView,
     component: BlurViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentLinearGradientGallery,
+    component: LinearGradientGallery,
   },
   {
     name: EGalleryRoutes.ComponentAccountModel,

@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 
-import { AppState, DeviceEventEmitter } from 'react-native';
+import { AppState } from 'react-native';
 
-// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { AppStateStatus, NativeEventSubscription } from 'react-native';
+import type { AppStateStatus } from 'react-native';
 
 export const isFromBackgroundToForeground = (
   currentState: AppStateStatus,
@@ -28,12 +27,7 @@ export const useAppStateChange = (
 ) => {
   const appState = useRef<AppStateStatus>(AppState.currentState);
   useEffect(() => {
-    let listener: NativeEventSubscription | undefined;
-
     const onCall = (nextState: AppStateStatus) => {
-      // debugLogger.common.debug(
-      //   `AppState changed callback trigger from: ${appState.current} , to: ${nextState}`,
-      // );
       if (
         options?.unFilter ||
         isFromBackgroundToForeground(appState.current, nextState)
@@ -42,13 +36,7 @@ export const useAppStateChange = (
       }
       appState.current = nextState;
     };
-
-    if (platformEnv.isNativeAndroid) {
-      listener = DeviceEventEmitter.addListener('android_lifecycle', onCall);
-    } else {
-      listener = AppState.addEventListener('change', onCall);
-    }
-
+    const listener = AppState.addEventListener('change', onCall);
     return () => {
       listener?.remove?.();
     };

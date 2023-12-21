@@ -25,7 +25,7 @@ import { Icon, Stack, Text } from '../../primitives';
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
-import { Footer } from './Footer';
+import { Footer, FooterAction } from './Footer';
 
 import type {
   IDialogCancelProps,
@@ -37,9 +37,10 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
+import type { ColorTokens } from 'tamagui';
 
 // Fix the issue of the overlay layer in tamagui being too low
-const FIX_SHEET_PROPS: IStackProps = {
+export const FIX_SHEET_PROPS: IStackProps = {
   zIndex: 100001,
   display: 'block',
 };
@@ -62,13 +63,14 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
   showCancelButton = true,
   testID,
 }: IDialogProps) {
+  const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const { dialogInstance } = useContext(DialogContext);
   const handleBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -76,39 +78,48 @@ function DialogFrame({
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
-        onClose?.();
+        void onClose();
       }
     },
     [onClose],
   );
 
   const { bottom } = useSafeAreaInsets();
-  const handleConfirmButtonPress = useCallback(async () => {
-    const form = dialogInstance.ref.current;
-    if (form) {
-      const isValidated = await form.trigger();
-      if (!isValidated) {
-        return;
-      }
-    }
-    const result = await onConfirm?.({
-      close: dialogInstance.close,
-      getForm: () => dialogInstance.ref.current,
-    });
-    if (result || result === undefined) {
-      onClose?.();
-    }
-  }, [onConfirm, dialogInstance, onClose]);
 
   const handleCancelButtonPress = useCallback(() => {
-    onCancel?.();
-    onClose?.();
-  }, [onCancel, onClose]);
+    const cancel = onCancel || footerRef.props?.onCancel;
+    cancel?.();
+    void onClose();
+  }, [footerRef.props?.onCancel, onCancel, onClose]);
+
+  const getColors = (): {
+    iconWrapperBg: ColorTokens;
+    iconColor: ColorTokens;
+  } => {
+    if (tone === 'destructive') {
+      return {
+        iconWrapperBg: '$bgCritical',
+        iconColor: '$iconCritical',
+      };
+    }
+    if (tone === 'warning') {
+      return {
+        iconWrapperBg: '$bgCaution',
+        iconColor: '$iconCaution',
+      };
+    }
+
+    return {
+      iconWrapperBg: '$bgStrong',
+      iconColor: '$icon',
+    };
+  };
 
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
+      {/* leading icon */}
       {icon && (
         <Stack
           alignSelf="flex-start"
@@ -116,27 +127,32 @@ function DialogFrame({
           ml="$5"
           mt="$5"
           borderRadius="$full"
-          bg={tone === 'destructive' ? '$bgCritical' : '$bgStrong'}
+          bg={getColors().iconWrapperBg}
         >
-          <Icon
-            name={icon}
-            size="$8"
-            color={tone === 'destructive' ? '$iconCritical' : '$icon'}
-          />
+          <Icon name={icon} size="$8" color={getColors().iconColor} />
         </Stack>
       )}
-      <Stack p="$5" pr="$16">
-        <Text variant="$headingXl" py="$px">
-          {title}
-        </Text>
-        {description && (
-          <Text variant="$bodyLg" pt="$1.5">
-            {description}
-          </Text>
-        )}
-      </Stack>
+
+      {/* title and description */}
+      {(title || description) && (
+        <Stack p="$5" pr="$16">
+          {title && (
+            <Text variant="$headingXl" py="$px">
+              {title}
+            </Text>
+          )}
+          {description && (
+            <Text variant="$bodyLg" pt="$1.5">
+              {description}
+            </Text>
+          )}
+        </Stack>
+      )}
+
+      {/* close button */}
       <IconButton
         position="absolute"
+        zIndex={1}
         right="$5"
         top="$5"
         icon="CrossedSmallOutline"
@@ -147,6 +163,7 @@ function DialogFrame({
         onPress={handleCancelButtonPress}
       />
 
+      {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
       </Content>
@@ -156,7 +173,7 @@ function DialogFrame({
         showCancelButton={showCancelButton}
         showConfirmButton={showConfirmButton}
         cancelButtonProps={cancelButtonProps}
-        onConfirm={handleConfirmButtonPress}
+        onConfirm={onConfirm}
         onCancel={handleCancelButtonPress}
         onConfirmText={onConfirmText}
         confirmButtonProps={confirmButtonProps}
@@ -193,8 +210,11 @@ function DialogFrame({
           borderTopRightRadius="$6"
           bg="$bg"
           paddingBottom={keyboardHeight}
+          style={{
+            borderCurve: 'continuous',
+          }}
         >
-          <SheetGrabber />
+          {!disableDrag && <SheetGrabber />}
           {renderDialogContent}
         </Sheet.Frame>
       </Sheet>
@@ -217,6 +237,14 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
+              animateOnly={['opacity']}
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+              }}
+              exitStyle={{
+                opacity: 0,
+              }}
               onPress={handleBackdropPress}
             />
             {
@@ -248,6 +276,7 @@ function DialogFrame({
               bg="$bg"
               width={400}
               p="$0"
+              {...floatingPanelProps}
             >
               {renderDialogContent}
             </TMDialog.Content>
@@ -266,7 +295,7 @@ function BaseDialogContainer(
   const formRef = useRef();
   const handleClose = useCallback(() => {
     changeIsOpen(false);
-    onClose?.();
+    return onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
@@ -275,6 +304,10 @@ function BaseDialogContainer(
       dialogInstance: {
         close: handleClose,
         ref: formRef,
+      },
+      footerRef: {
+        notifyUpdate: undefined,
+        props: undefined,
       },
     }),
     [handleClose],
@@ -311,7 +344,11 @@ const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+function DialogShow({
+  onClose,
+  onDismiss,
+  ...props
+}: IDialogShowProps): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
   let portalRef:
@@ -319,19 +356,22 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
         current: IPortalManager;
       }
     | undefined;
-  const handleClose = () => {
-    onClose?.();
-    // Remove the React node after the animation has finished.
-    setTimeout(() => {
-      if (instanceRef) {
-        instanceRef = undefined;
-      }
-      if (portalRef) {
-        portalRef.current.destroy();
-        portalRef = undefined;
-      }
-    }, 300);
-  };
+  const handleClose = () =>
+    new Promise<void>((resolve) => {
+      onClose?.();
+      // Remove the React node after the animation has finished.
+      setTimeout(() => {
+        if (instanceRef) {
+          instanceRef = undefined;
+        }
+        if (portalRef) {
+          portalRef.current.destroy();
+          portalRef = undefined;
+        }
+        onDismiss?.();
+        resolve();
+      }, 300);
+    });
   portalRef = {
     current: Portal.Render(
       Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
@@ -339,7 +379,7 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
     ),
   };
   return {
-    close: () => instanceRef?.current?.close(),
+    close: async () => instanceRef?.current?.close(),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
@@ -362,6 +402,7 @@ export const Dialog = {
   show: DialogShow,
   confirm: DialogConfirm,
   cancel: DialogCancel,
+  Footer: FooterAction,
 };
 
 export * from './hooks';

@@ -4,6 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
+
+import { getEndpoints } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance } from 'axios';
@@ -20,14 +24,28 @@ export default class ServiceBase {
     this.backgroundApi = backgroundApi;
   }
 
-  get client() {
+  backgroundApi: IBackgroundApi;
+
+  async getClient(endpointName?: EEndpointName) {
     if (!this._client) {
-      this._client = axios.create({ timeout: 60 * 1000 });
+      let endpoint = '';
+      const endpoints = await getEndpoints();
+      if (endpointName) {
+        endpoint = endpoints[endpointName];
+        if (!endpoint) {
+          throw new OneKeyError('Invalid endpoint name.');
+        }
+      } else {
+        endpoint = endpoints.http;
+      }
+
+      this._client = axios.create({
+        baseURL: endpoint,
+        timeout: 60 * 1000,
+      });
     }
     return this._client;
   }
-
-  backgroundApi: IBackgroundApi;
 
   @backgroundMethod()
   async getActiveWalletAccount() {

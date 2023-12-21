@@ -1,4 +1,6 @@
 module.exports = [
+  'Blockie',
+  'Unspaced',
   'hd',
   'Jotai',
   'jotai',
@@ -581,4 +583,5 @@ module.exports = [
   'COMMITHASH',
   'swft',
   'swipeable',
+  'nft',
 ];

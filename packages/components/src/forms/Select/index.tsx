@@ -1,423 +1,326 @@
-import { useMemo } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-import {
-  Adapt,
-  Sheet,
-  Select as TMSelect,
-  useControllableState,
-  useMedia,
-} from 'tamagui';
-import { LinearGradient } from 'tamagui/linear-gradient';
+import { useMedia, withStaticProperties } from 'tamagui';
 
-import { IconButton } from '../../actions';
-import { Divider } from '../../content';
-import { useSafeAreaInsets } from '../../hooks';
-import { Icon, Stack, Text, XStack, YStack } from '../../primitives';
+import { Popover, Trigger } from '../../actions';
+import { ListView, SectionList } from '../../layouts';
+import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
+import { Input } from '../Input';
+
+import { SelectContext } from './context';
 
 import type {
-  ListItemProps,
-  SelectTriggerProps,
-  SheetProps,
-  SelectProps as TMSelectProps,
-} from 'tamagui';
+  ISelectItem,
+  ISelectItemProps,
+  ISelectProps,
+  ISelectRenderTriggerProps,
+  ISelectSection,
+  ISelectTriggerProps,
+} from './type';
+import type { IListViewProps, ISectionListProps } from '../../layouts';
 
-export interface ISelectItem {
-  label: string;
-  value: string;
-  leading?: ListItemProps['icon'];
-}
-
-export interface ISelectSection {
-  items: ISelectItem[];
-  title?: string;
-}
-
-export interface ISelectProps extends TMSelectProps {
-  items?: ISelectItem[];
-  sections?: ISelectSection[];
-  sheetProps?: SheetProps;
-  title: string;
-  triggerProps?: SelectTriggerProps;
-  renderTrigger?: (item?: ISelectItem) => JSX.Element;
-}
-
-function SelectSectionsContent({
-  sections = [],
-}: {
-  sections?: ISelectSection[];
-}) {
-  const media = useMedia();
+function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
+  const { changeOpenStatus, value, placeholder, disabled, selectedItemRef } =
+    useContext(SelectContext);
+  const handleTriggerPressed = useCallback(() => {
+    changeOpenStatus?.(true);
+  }, [changeOpenStatus]);
+  const label =
+    selectedItemRef.current.value === value
+      ? selectedItemRef.current.label
+      : value;
   return (
-    <TMSelect.Viewport
-      unstyled
-      minWidth="$48"
-      outlineWidth="$px"
-      outlineColor="$neutral3"
-      outlineStyle="solid"
-      borderRadius="$3"
-      overflow="hidden"
-      elevate
-      backgroundColor="$bg"
-      padding="$1"
-    >
-      {sections?.map((section) => (
-        <TMSelect.Group>
-          {section.title ? (
-            <TMSelect.Label asChild>
-              <Text
-                variant="$headingXs"
-                $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
-                paddingVertical="$1.5"
-                paddingHorizontal="$2"
-                color="$textSubdued"
-              >
-                {section.title}
-              </Text>
-            </TMSelect.Label>
-          ) : null}
-          {section.items.map((item, i) => (
-            <TMSelect.Item
-              index={i}
-              key={item.label}
-              value={item.value}
-              minHeight="auto"
-              backgroundColor="$transparent"
-              borderRadius="$2"
-              paddingVertical="$1.5"
-              paddingHorizontal="$2"
-              $md={{
-                paddingVertical: '$2.5',
-                paddingRight: 11,
-              }}
-              icon={item.leading}
-              justifyContent="flex-start"
-            >
-              <TMSelect.ItemText
-                flex={1}
-                $md={{
-                  fontSize: '$bodyLg',
-                  fontWeight: '$bodyLg',
-                  lineHeight: '$bodyLg',
-                }}
-                fontSize="$bodyMd"
-                fontWeight="$bodyMd"
-                lineHeight="$bodyMd"
-              >
-                {item.label}
-              </TMSelect.ItemText>
-
-              <TMSelect.ItemIndicator marginLeft="auto">
-                <Icon
-                  name="CheckLargeOutline"
-                  size="$4"
-                  color="$iconActive"
-                  {...(media.md && {
-                    name: 'CheckRadioSolid',
-                    size: '$6',
-                  })}
-                />
-              </TMSelect.ItemIndicator>
-            </TMSelect.Item>
-          ))}
-        </TMSelect.Group>
-      ))}
-    </TMSelect.Viewport>
+    <Trigger onPress={handleTriggerPressed} disabled={disabled}>
+      {renderTrigger({ value, label, placeholder, disabled })}
+    </Trigger>
   );
 }
 
-function SelectItemsContent({
-  items = [],
-  native,
-}: {
-  items?: ISelectItem[];
-  native?: TMSelectProps['native'];
-}) {
-  const media = useMedia();
-  return (
-    <TMSelect.Viewport
-      unstyled
-      minWidth="$48"
-      outlineWidth="$px"
-      outlineColor="$neutral3"
-      outlineStyle="solid"
-      borderRadius="$3"
-      overflow="hidden"
-      elevate
-      backgroundColor="$bg"
-      padding="$1"
-    >
-      <TMSelect.Group>
-        {items.map((item, i) => (
-          <TMSelect.Item
-            index={i}
-            key={item.value}
-            value={item.value}
-            minHeight="auto"
-            backgroundColor="$transparent"
-            borderRadius="$2"
-            paddingVertical="$1.5"
-            paddingHorizontal="$2"
-            $md={{
-              paddingVertical: '$2.5',
-              paddingRight: 11,
-            }}
-            icon={item.leading}
-            justifyContent="flex-start"
-          >
-            <TMSelect.ItemText
-              flex={1}
-              $md={{
-                fontSize: '$bodyLg',
-                fontWeight: '$bodyLg',
-                lineHeight: '$bodyLg',
-              }}
-              fontSize="$bodyMd"
-              fontWeight="$bodyMd"
-              lineHeight="$bodyMd"
-            >
-              {item.label}
-            </TMSelect.ItemText>
-
-            <TMSelect.ItemIndicator marginLeft="auto">
-              <Icon
-                name="CheckLargeOutline"
-                size="$4"
-                color="$iconActive"
-                {...(media.md && {
-                  name: 'CheckRadioSolid',
-                  size: '$6',
-                })}
-              />
-            </TMSelect.ItemIndicator>
-          </TMSelect.Item>
-        ))}
-      </TMSelect.Group>
-      {native ? (
-        <YStack
-          position="absolute"
-          right={0}
-          top={0}
-          bottom={0}
-          alignItems="center"
-          justifyContent="center"
-          width="$8"
-          pointerEvents="none"
+function SelectItem({
+  onSelect,
+  value,
+  label,
+  leading,
+  selectedValue,
+}: ISelectItemProps) {
+  const { md } = useMedia();
+  const handleSelect = useCallback(() => {
+    onSelect({
+      value,
+      label,
+    });
+  }, [label, onSelect, value]);
+  return useMemo(
+    () => (
+      <XStack
+        key={value}
+        px="$2"
+        py="$1.5"
+        borderRadius="$2"
+        $md={{
+          py: '$2.5',
+          borderRadius: '$3',
+        }}
+        style={{
+          borderCurve: 'continuous',
+        }}
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        onPress={handleSelect}
+      >
+        {leading ? (
+          <Stack alignContent="center" justifyContent="center" pr="$4">
+            {leading}
+          </Stack>
+        ) : null}
+        <SizableText
+          userSelect="none"
+          $gtMd={{
+            size: '$bodyMd',
+          }}
         >
-          <Icon color="$iconSubdued" name="ChevronDownSmallOutline" size="$5" />
-        </YStack>
-      ) : null}
-    </TMSelect.Viewport>
+          {label}
+        </SizableText>
+        {selectedValue === value ? (
+          <Icon
+            ml="auto"
+            name="CheckLargeOutline"
+            size="$4"
+            color="$iconActive"
+            {...(md && {
+              name: 'CheckRadioSolid',
+              size: '$6',
+              mr: '$0.5',
+            })}
+          />
+        ) : null}
+      </XStack>
+    ),
+    [handleSelect, label, leading, md, selectedValue, value],
   );
 }
 
-export function Select({
+const useRenderPopoverTrigger = () => {
+  const { md } = useMedia();
+  return md ? null : (
+    <Stack
+      width="100%"
+      height="100%"
+      position="absolute"
+      left={0}
+      top={0}
+      pointerEvents="none"
+    />
+  );
+};
+
+function SelectContent() {
+  const {
+    changeOpenStatus,
+    value,
+    isOpen,
+    title,
+    items,
+    onValueChange,
+    sections,
+    refreshState,
+    sheetProps,
+    placement,
+    selectedItemRef,
+  } = useContext(SelectContext);
+  const handleSelect = useCallback(
+    (item: ISelectItem) => {
+      selectedItemRef.current.value = item.value;
+      selectedItemRef.current.label = item.label;
+      onValueChange?.(item.value);
+      changeOpenStatus?.(false);
+    },
+    [changeOpenStatus, onValueChange, selectedItemRef],
+  );
+
+  const handleOpenChange = useCallback(
+    (openStatus: boolean) => {
+      changeOpenStatus?.(openStatus);
+    },
+    [changeOpenStatus],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ISelectItem }) => (
+      <SelectItem {...item} onSelect={handleSelect} selectedValue={value} />
+    ),
+    [handleSelect, value],
+  );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: ISelectSection }) => (
+      <Heading
+        size="$headingXs"
+        $md={{ size: '$headingSm', py: '$2.5' }}
+        py="$1.5"
+        px="$2"
+        color="$textSubdued"
+      >
+        {section.title}
+      </Heading>
+    ),
+    [],
+  );
+
+  const keyExtractor = useCallback(
+    (item: ISelectItem, index: number) => `${item.value}-${index}`,
+    [],
+  );
+
+  const renderContent = useMemo(
+    () => {
+      const listProps = {
+        contentContainerStyle: { flex: 1 },
+        keyExtractor,
+        estimatedItemSize: '$6',
+        extraData: value,
+        renderItem,
+        p: '$1',
+        $md: { p: '$3' },
+      };
+      return sections ? (
+        <SectionList
+          sections={sections}
+          renderSectionHeader={renderSectionHeader}
+          {...(listProps as Omit<
+            ISectionListProps<any>,
+            'sections' | 'renderSectionHeader'
+          >)}
+        />
+      ) : (
+        <ListView
+          data={items}
+          {...(listProps as Omit<IListViewProps<ISelectItem>, 'data'>)}
+        />
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshState],
+  );
+
+  const popoverTrigger = useRenderPopoverTrigger();
+  return (
+    <Popover
+      title={title || ''}
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+      keepChildrenMounted
+      sheetProps={{
+        dismissOnSnapToBottom: false,
+        snapPointsMode: 'fit',
+        ...sheetProps,
+      }}
+      floatingPanelProps={{
+        maxHeight: '60vh',
+        width: '$56',
+      }}
+      placement={placement}
+      renderTrigger={popoverTrigger}
+      renderContent={renderContent}
+    />
+  );
+}
+
+function SelectFrame({
   items,
+  placeholder,
+  value,
+  onChange,
+  children,
+  title,
+  disabled,
   sections,
   sheetProps,
-  title = 'Title',
-  open,
-  defaultOpen,
-  onOpenChange,
-  triggerProps,
-  value,
-  defaultValue,
-  onValueChange,
-  renderTrigger,
-  ...props
+  defaultItem = {} as ISelectItem,
+  placement = 'bottom-start',
 }: ISelectProps) {
-  const { bottom } = useSafeAreaInsets();
-
-  const [isOpen, setOpen] = useControllableState({
-    prop: open,
-    defaultProp: !!defaultOpen,
-    onChange: onOpenChange,
-  });
-
-  const [innerValue, setInnerValue] = useControllableState({
-    prop: value,
-    defaultProp: defaultValue || '',
-    onChange: onValueChange,
-  });
-
-  const allItems = useMemo(
-    () =>
-      sections && sections.length > 0
-        ? sections.reduce(
-            (result, item) => result.concat(item.items),
-            [] as ISelectItem[],
-          )
-        : items,
-    [sections, items],
+  const [openCounts, updateOpenCounts] = useState(0);
+  const selectedItemRef = useRef<ISelectItem>(defaultItem);
+  const changeOpenStatus = useCallback(() => {
+    updateOpenCounts((i) => i + 1);
+  }, []);
+  // eslint-disable-next-line no-bitwise
+  const isOpen = useMemo(() => (openCounts & 1) === 1, [openCounts]);
+  const refreshState = useMemo(
+    () => (isOpen ? openCounts : openCounts - 1),
+    [isOpen, openCounts],
   );
-
-  const activeItem = useMemo(
-    () => allItems?.find((item) => item.value === innerValue),
-    [allItems, innerValue],
+  const context = useMemo(
+    () => ({
+      isOpen,
+      refreshState,
+      changeOpenStatus,
+      value,
+      onValueChange: onChange,
+      items,
+      sections,
+      selectedItemRef,
+      title,
+      placeholder,
+      disabled,
+      sheetProps,
+      placement,
+    }),
+    [
+      isOpen,
+      refreshState,
+      changeOpenStatus,
+      value,
+      onChange,
+      items,
+      sections,
+      title,
+      placeholder,
+      disabled,
+      sheetProps,
+      placement,
+    ],
   );
-
   return (
-    <Stack position="relative">
-      <TMSelect
-        disablePreventBodyScroll
-        open={isOpen}
-        onOpenChange={setOpen}
-        value={innerValue}
-        onValueChange={setInnerValue}
-        {...props}
-      >
-        {renderTrigger ? (
-          <TMSelect.Trigger
-            unstyled
-            // backgroundColor="$transparent"
-            {...triggerProps}
-          >
-            {renderTrigger(activeItem)}
-          </TMSelect.Trigger>
-        ) : (
-          <TMSelect.Trigger
-            unstyled
-            borderRadius="$2"
-            borderColor="$borderStrong"
-            borderWidth="$px"
-            paddingLeft="$3"
-            paddingRight="$2"
-            paddingVertical="$1.5"
-            backgroundColor="$transparent"
-            width="$56"
-            minHeight="auto"
-            iconAfter={
-              <Icon
-                color="$iconSubdued"
-                name="ChevronDownSmallOutline"
-                size="$5"
-              />
-            }
-            {...triggerProps}
-          >
-            <TMSelect.Value
-              placeholder=""
-              unstyled
-              fontSize="$bodyLg"
-              fontWeight="$bodyLg"
-              color="$text"
-            />
-          </TMSelect.Trigger>
-        )}
-
-        <Adapt when="md">
-          <Sheet
-            native={Boolean(props.native)}
-            modal
-            dismissOnSnapToBottom
-            animation="quick"
-            {...sheetProps}
-          >
-            <Sheet.Frame unstyled>
-              <>
-                {/* header */}
-                <XStack
-                  borderTopLeftRadius="$6"
-                  borderTopRightRadius="$6"
-                  backgroundColor="$bg"
-                  marginHorizontal="$5"
-                  paddingHorizontal="$5"
-                  paddingVertical="$4"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Text variant="$headingXl" color="$text">
-                    {title}
-                  </Text>
-                  <IconButton
-                    icon="CrossedSmallOutline"
-                    size="small"
-                    hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
-                    aria-label="Close"
-                    onPress={() => setOpen(false)}
-                  />
-                </XStack>
-                {/* divider */}
-                <YStack
-                  backgroundColor="$bg"
-                  marginHorizontal="$5"
-                  paddingHorizontal="$5"
-                >
-                  <Divider />
-                </YStack>
-                {/* content */}
-                <Sheet.ScrollView
-                  borderBottomLeftRadius="$6"
-                  borderBottomRightRadius="$6"
-                  backgroundColor="$bg"
-                  showsVerticalScrollIndicator={false}
-                  marginHorizontal="$5"
-                  marginBottom={bottom || '$5'}
-                >
-                  <YStack padding="$3">
-                    <Adapt.Contents />
-                  </YStack>
-                </Sheet.ScrollView>
-              </>
-            </Sheet.Frame>
-
-            <Sheet.Overlay
-              animation="quick"
-              enterStyle={{ opacity: 0 }}
-              exitStyle={{ opacity: 0 }}
-              backgroundColor="$bgBackdrop"
-            />
-          </Sheet>
-        </Adapt>
-        <TMSelect.Content zIndex={200000}>
-          <TMSelect.ScrollUpButton
-            alignItems="center"
-            justifyContent="center"
-            paddingVertical="$1"
-          >
-            <YStack zIndex={10}>
-              <Icon
-                color="$iconSubdued"
-                name="ChevronTopSmallOutline"
-                size="$5"
-              />
-            </YStack>
-
-            <LinearGradient
-              start={[0, 0]}
-              end={[0, 1]}
-              fullscreen
-              colors={['$bg', '$transparent']}
-              borderRadius="$3"
-            />
-          </TMSelect.ScrollUpButton>
-          {sections && sections.length > 0 ? (
-            <SelectSectionsContent sections={sections} />
-          ) : (
-            <SelectItemsContent items={items} native={props.native} />
-          )}
-          <TMSelect.ScrollDownButton
-            alignItems="center"
-            justifyContent="center"
-            paddingVertical="$1"
-          >
-            <YStack zIndex={10}>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </YStack>
-
-            <LinearGradient
-              start={[0, 0]}
-              end={[0, 1]}
-              fullscreen
-              colors={['$transparent', '$bg']}
-              borderRadius="$3"
-            />
-          </TMSelect.ScrollDownButton>
-        </TMSelect.Content>
-      </TMSelect>
-    </Stack>
+    <SelectContext.Provider value={context}>
+      <Stack position="relative">{children}</Stack>
+    </SelectContext.Provider>
   );
 }
+
+function BasicSelect({ renderTrigger, ...props }: ISelectProps) {
+  const defaultRenderTrigger = useCallback(
+    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
+      <>
+        <Input
+          value={label}
+          disabled={disabled}
+          placeholder={placeholder}
+          readonly
+          flex={1}
+        />
+        <Icon
+          name="ChevronBottomSolid"
+          position="absolute"
+          right="$3"
+          top="$2"
+        />
+      </>
+    ),
+    [],
+  );
+  return (
+    <SelectFrame {...props}>
+      <SelectTrigger renderTrigger={renderTrigger || defaultRenderTrigger} />
+      <SelectContent />
+    </SelectFrame>
+  );
+}
+
+export const Select = withStaticProperties(BasicSelect, {
+  Frame: SelectFrame,
+  Trigger: SelectTrigger,
+  Content: SelectContent,
+});
+
+export * from './type';

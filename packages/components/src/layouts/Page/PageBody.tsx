@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, useMemo } from 'react';
 
 import { Stack } from '../../primitives';
 
@@ -8,9 +8,12 @@ export function PageBody({
   children,
   ...props
 }: PropsWithChildren<StackStyleProps>) {
-  return (
-    <Stack flex={1} {...props}>
-      {children}
-    </Stack>
+  return useMemo(
+    () => (
+      <Stack flex={1} {...props}>
+        {children}
+      </Stack>
+    ),
+    [children, props],
   );
 }

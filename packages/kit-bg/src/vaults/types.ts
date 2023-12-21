@@ -1,9 +1,14 @@
 import type {
-  IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+  IOnChainHistoryTxAsset,
+} from '@onekeyhq/shared/types/history';
 
 import type {
   IAccountDeriveInfoMapEvm,
@@ -150,47 +155,43 @@ export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
-  token?: string; // tokenIdOnNetwork
+  token: string; // tokenIdOnNetwork
 };
-
-// Fee ----------------------------------------------
-
-export interface ITxUpdateFeeInfo {
-  gas?: {
-    gasPrice?: string; // chainValue not GWEI
-    gasLimit?: string; // chainValue not GWEI
-    // gas?: string; // alias for gasLimit
-  };
-  gasEIP1559?: {
-    gasPrice?: string; // chainValue not GWEI
-    maxFeePerGas?: string; // chainValue not GWEI
-    maxPriorityFeePerGas?: string; // chainValue not GWEI
-  };
-}
 
 // Send ------------
 export interface IBuildEncodedTxParams {
-  transferInfo?: ITransferInfo;
+  transfersInfo?: ITransferInfo[];
   // swapInfo
 }
 export interface IBuildUnsignedTxParams {
-  encodedTx: IEncodedTx;
+  transfersInfo: ITransferInfo[];
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
-  feeInfo?: ITxUpdateFeeInfo;
+  feeInfo?: IFeeInfoUnit;
   // tokenApproveInfo
   // nonceInfo
 }
 export interface IBroadcastTransactionParams {
+  networkId: string;
   signedTx: ISignedTxPro;
 }
 export interface ISignTransactionParams {
   unsignedTx: IUnsignedTxPro;
   password: string;
 }
-export type ISignAndSendTransactionParams = ISignTransactionParams;
+export type ISignAndSendTransactionParams = ISignTransactionParams & {
+  signOnly?: boolean;
+};
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
+}
+
+export interface IBuildHistoryTxParams {
+  accountId: string;
+  networkId: string;
+  tokens: Record<string, IOnChainHistoryTxAsset>;
+  onChainHistoryTxs: IOnChainHistoryTx[];
+  localHistoryTxs: IAccountHistoryTx[];
 }

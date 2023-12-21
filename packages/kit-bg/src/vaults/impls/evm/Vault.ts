@@ -1,5 +1,6 @@
+import { getAddress } from '@ethersproject/address';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -7,6 +8,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -21,7 +23,6 @@ import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
   ITransferInfo,
-  ITxUpdateFeeInfo,
   IVaultSettings,
 } from '../../types';
 
@@ -29,19 +30,20 @@ export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
   override async buildEncodedTx(options: {
-    transferInfo?: ITransferInfo | undefined;
+    transfersInfo: ITransferInfo[] | undefined;
   }): Promise<IEncodedTxEvm> {
-    const { transferInfo } = options;
-    if (transferInfo) {
-      return this._buildEncodedTxFromTransfer(transferInfo);
+    const { transfersInfo } = options;
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
   }
 
   override async buildUnsignedTx(options: {
-    encodedTx: IEncodedTxEvm;
+    transfersInfo: ITransferInfo[] | undefined;
   }): Promise<IUnsignedTxPro> {
-    const { encodedTx } = options;
+    const { transfersInfo } = options;
+    const encodedTx = await this.buildEncodedTx({ transfersInfo });
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx(encodedTx);
     }
@@ -50,7 +52,7 @@ export default class Vault extends VaultBase {
 
   override async updateUnsignedTx(options: {
     unsignedTx: IUnsignedTxPro;
-    feeInfo?: ITxUpdateFeeInfo | undefined;
+    feeInfo?: IFeeInfoUnit | undefined;
   }): Promise<IUnsignedTxPro> {
     const { unsignedTx, feeInfo } = options;
     if (feeInfo) {
@@ -65,6 +67,26 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async validateAddress(address: string) {
+    let isValid = false;
+    let checksumAddress = '';
+
+    try {
+      checksumAddress = getAddress(address);
+      isValid = checksumAddress.length === 42;
+    } catch {
+      return Promise.resolve({
+        isValid: false,
+      });
+    }
+
+    return Promise.resolve({
+      normalizedAddress: checksumAddress.toLowerCase() || undefined,
+      displayAddress: checksumAddress || undefined,
+      isValid,
+    });
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -74,25 +96,39 @@ export default class Vault extends VaultBase {
   };
 
   async _buildEncodedTxFromTransfer(
-    transferInfo: ITransferInfo,
+    transfersInfo: ITransferInfo[],
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
+    if (transfersInfo.length === 1) {
+      const transferInfo = transfersInfo[0];
+      return {
+        from: transferInfo.from,
+        to: transferInfo.to,
+        value: numberUtils.numberToHex(
+          chainValueUtils.convertAmountToChainValue({
+            network,
+            value: transferInfo.amount,
+          }),
+        ),
+        data: '0x',
+      };
+    }
+    return this._buildEncodedTxFromBatchTransfer(transfersInfo);
+  }
+
+  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
+    // TODO EVM batch transfer through contract
     return {
-      from: transferInfo.from,
-      to: transferInfo.to,
-      value: numberUtils.numberToHex(
-        chainValueUtils.convertAmountToChainValue({
-          network,
-          value: transferInfo.amount,
-        }),
-      ),
+      from: '',
+      to: '',
+      value: '0',
       data: '0x',
     };
   }
 
   async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxEvm;
-    feeInfo: ITxUpdateFeeInfo;
+    feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;

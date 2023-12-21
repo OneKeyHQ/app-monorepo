@@ -14,7 +14,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import localDb from '../../dbs/local/localDb';
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  settingsLastActivityAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import {
   passwordAtom,
   passwordBiologyAuthInfoAtom,
@@ -63,10 +66,9 @@ export default class ServicePassword extends ServiceBase {
   // biologyAuth&WebAuth ------------------------------
   async saveBiologyAuthPassword(password: string): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
-    if (!isSupport) {
-      throw new Error('biology is not support');
+    if (isSupport) {
+      await biologyAuthUtils.savePassword(password);
     }
-    await biologyAuthUtils.savePassword(password);
   }
 
   async deleteBiologyAuthPassword(): Promise<void> {
@@ -312,10 +314,34 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async unLockApp() {
     await passwordAtom.set((v) => ({ ...v, unLock: true }));
+    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: false }));
   }
 
   @backgroundMethod()
   async lockApp() {
+    await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
+  }
+
+  @backgroundMethod()
+  public async setAppLockDuration(value: number) {
+    await passwordAtom.set((v) => ({ ...v, unLock: true }));
+    await passwordPersistAtom.set((prev) => ({
+      ...prev,
+      appLockDuration: value,
+    }));
+  }
+
+  @backgroundMethod()
+  async checkLockStatus() {
+    const { isPasswordSet, appLockDuration } = await passwordPersistAtom.get();
+    if (!isPasswordSet) {
+      return;
+    }
+    const { time: lastActivity } = await settingsLastActivityAtom.get();
+    const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+    if (idleDuration >= appLockDuration) {
+      await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    }
   }
 }

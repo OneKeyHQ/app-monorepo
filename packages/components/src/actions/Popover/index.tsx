@@ -2,6 +2,7 @@ import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
@@ -10,16 +11,17 @@ import { IconButton } from '../IconButton';
 
 import type { FocusOutsideEvent } from '@tamagui/dismissable/types';
 import type {
+  PopoverContentTypeProps,
   SheetProps,
   PopoverProps as TMPopoverProps,
-  YStackProps,
 } from 'tamagui';
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string;
+  usingSheet?: boolean;
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
-  floatingPanelProps?: YStackProps;
+  floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
   onFocusOutside?: (event: FocusOutsideEvent) => void;
 }
@@ -32,6 +34,7 @@ function RawPopover({
   sheetProps,
   onOpenChange,
   onFocusOutside,
+  usingSheet = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
@@ -115,83 +118,86 @@ function RawPopover({
       </TMPopover.Content>
 
       {/* sheet */}
-      <TMPopover.Adapt when="md">
-        <TMPopover.Sheet
-          dismissOnSnapToBottom
-          animation="quick"
-          snapPointsMode="fit"
-          {...sheetProps}
-        >
-          <TMPopover.Sheet.Overlay
-            backgroundColor="$bgBackdrop"
+      {usingSheet && (
+        <TMPopover.Adapt when="md">
+          <TMPopover.Sheet
+            dismissOnSnapToBottom
             animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-          <TMPopover.Sheet.Frame unstyled>
-            {/* header */}
-            <XStack
-              borderTopLeftRadius="$6"
-              borderTopRightRadius="$6"
-              backgroundColor="$bg"
-              marginHorizontal="$5"
-              paddingHorizontal="$5"
-              paddingVertical="$4"
-              justifyContent="space-between"
-              alignItems="center"
-              style={{
-                borderCurve: 'continuous',
-              }}
-            >
-              <Text variant="$headingXl" color="$text">
-                {title}
-              </Text>
-              <IconButton
-                icon="CrossedSmallOutline"
-                size="small"
-                $platform-native={{
-                  hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+            snapPointsMode="fit"
+            {...sheetProps}
+          >
+            <TMPopover.Sheet.Overlay
+              {...FIX_SHEET_PROPS}
+              backgroundColor="$bgBackdrop"
+              animation="quick"
+              enterStyle={{ opacity: 0 }}
+              exitStyle={{ opacity: 0 }}
+            />
+            <TMPopover.Sheet.Frame unstyled>
+              {/* header */}
+              <XStack
+                borderTopLeftRadius="$6"
+                borderTopRightRadius="$6"
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+                paddingVertical="$4"
+                justifyContent="space-between"
+                alignItems="center"
+                style={{
+                  borderCurve: 'continuous',
                 }}
-                onPress={() => onOpenChange?.(false)}
-                testID="popover-btn-close"
-              />
-            </XStack>
+              >
+                <Text variant="$headingXl" color="$text">
+                  {title}
+                </Text>
+                <IconButton
+                  icon="CrossedSmallOutline"
+                  size="small"
+                  $platform-native={{
+                    hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+                  }}
+                  onPress={() => onOpenChange?.(false)}
+                  testID="popover-btn-close"
+                />
+              </XStack>
 
-            {/* divider */}
-            <YStack
-              backgroundColor="$bg"
-              marginHorizontal="$5"
-              paddingHorizontal="$5"
-            >
-              <Divider />
-            </YStack>
+              {/* divider */}
+              <YStack
+                backgroundColor="$bg"
+                marginHorizontal="$5"
+                paddingHorizontal="$5"
+              >
+                <Divider />
+              </YStack>
 
-            <TMPopover.Sheet.ScrollView
-              borderBottomLeftRadius="$6"
-              borderBottomRightRadius="$6"
-              backgroundColor="$bg"
-              showsVerticalScrollIndicator={false}
-              marginHorizontal="$5"
-              marginBottom={bottom || '$5'}
-              style={{
-                borderCurve: 'continuous',
-              }}
-            >
-              <TMPopover.Adapt.Contents />
-            </TMPopover.Sheet.ScrollView>
-          </TMPopover.Sheet.Frame>
-        </TMPopover.Sheet>
-      </TMPopover.Adapt>
+              <TMPopover.Sheet.ScrollView
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                showsVerticalScrollIndicator={false}
+                marginHorizontal="$5"
+                marginBottom={bottom || '$5'}
+                style={{
+                  borderCurve: 'continuous',
+                }}
+              >
+                <TMPopover.Adapt.Contents />
+              </TMPopover.Sheet.ScrollView>
+            </TMPopover.Sheet.Frame>
+          </TMPopover.Sheet>
+        </TMPopover.Adapt>
+      )}
     </TMPopover>
   );
 }
 
-const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
+const Popover = ({ renderTrigger, sheetProps, ...rest }: IPopoverProps) => {
   // on web and WAP, we add the popover to the RNRootView
   if (platformEnv.isRuntimeBrowser) {
     return (
       <RawPopover
-        sheetProps={{ modal: true }}
+        sheetProps={{ ...sheetProps, modal: true }}
         renderTrigger={renderTrigger}
         {...rest}
       />
@@ -202,7 +208,11 @@ const Popover = ({ renderTrigger, ...rest }: IPopoverProps) => {
     <>
       {renderTrigger}
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        <RawPopover renderTrigger={undefined} {...rest} />
+        <RawPopover
+          renderTrigger={undefined}
+          {...rest}
+          sheetProps={sheetProps}
+        />
       </Portal.Body>
     </>
   );

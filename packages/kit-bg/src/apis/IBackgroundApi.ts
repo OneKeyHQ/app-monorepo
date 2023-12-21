@@ -10,12 +10,19 @@ import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceGas from '../services/ServiceGas';
+import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceNameResolver from '../services/ServiceNameResolver';
+import type ServiceNFT from '../services/ServiceNFT';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceToken from '../services/ServiceToken';
+import type ServiceValidator from '../services/ServiceValidator';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -73,5 +80,11 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSwap: ServiceSwap;
   serviceBootstrap: ServiceBootstrap;
   serviceAccount: ServiceAccount;
-  // serviceCronJob: ServiceCronJob;
+  serviceToken: ServiceToken;
+  serviceNFT: ServiceNFT;
+  serviceHistory: ServiceHistory;
+  serviceDefi: ServiceDefi;
+  serviceValidator: ServiceValidator;
+  serviceNameResolver: ServiceNameResolver;
+  serviceGas: ServiceGas;
 }
