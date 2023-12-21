@@ -1,5 +1,13 @@
 import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
-import { Children, cloneElement, isValidElement, useCallback } from 'react';
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -13,18 +21,37 @@ import { TextArea } from '../TextArea';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
-export type IFormProps = PropsWithChildren<{
-  form: UseFormReturn<any>;
-  header?: React.ReactNode;
-}>;
+interface IFormContextProps {
+  /** Default value is true. Determines if validation will be triggered when element loses focus.  */
+  validateOnBlur?: boolean;
+}
+export type IFormProps = PropsWithChildren<
+  IFormContextProps & {
+    form: UseFormReturn<any>;
+  }
+>;
 
-export function FormWrapper({ form: formContext, children }: IFormProps) {
+const FormContext = createContext({} as IFormContextProps);
+
+export function FormWrapper({
+  form,
+  children,
+  validateOnBlur = true,
+}: IFormProps) {
+  const value = useMemo(
+    () => ({
+      validateOnBlur,
+    }),
+    [validateOnBlur],
+  );
   return (
-    <FormProvider {...formContext}>
-      <TMForm onSubmit={noop}>
-        <YStack space="$5">{children}</YStack>
-      </TMForm>
-    </FormProvider>
+    <FormContext.Provider value={value}>
+      <FormProvider {...form}>
+        <TMForm onSubmit={noop}>
+          <YStack space="$5">{children}</YStack>
+        </TMForm>
+      </FormProvider>
+    </FormContext.Provider>
   );
 }
 
@@ -42,6 +69,7 @@ const getChildProps = (
   field: ControllerRenderProps<any, string>,
   validateField: () => void,
   error: Error,
+  validateOnBlur?: boolean,
 ) => {
   const { onBlur, onChange, onChangeText } = child.props as {
     onBlur?: () => void;
@@ -54,7 +82,7 @@ const getChildProps = (
     }
     validateField();
   };
-  field.onBlur = handleBlur;
+  field.onBlur = validateOnBlur ? handleBlur : onBlur || noop;
   switch (child.type) {
     case Input:
     case TextArea: {
@@ -91,6 +119,7 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
     trigger,
     formState: { errors },
   } = useFormContext();
+  const { validateOnBlur } = useContext(FormContext);
   const validateField = useCallback(() => {
     void trigger(name);
   }, [name, trigger]);
@@ -111,7 +140,13 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
             isValidElement(child)
               ? cloneElement(
                   child,
-                  getChildProps(child, field, validateField, error),
+                  getChildProps(
+                    child,
+                    field,
+                    validateField,
+                    error,
+                    validateOnBlur,
+                  ),
                 )
               : child,
           )}
