@@ -37,7 +37,7 @@ const HeaderComponent = (
     contentContainerStyle = {},
     scrollContainerStyle = {},
     containerStyle = {},
-    itemContainerStyle = { px: '$2.5', ml: '$2.5' },
+    itemContainerStyle = { px: '$2.5', pb: 2, ml: '$2.5' },
     itemTitleStyle = { fontSize: 16, fontWeight: '500' },
     itemTitleNormalStyle = { color: '$textSubdued' },
     itemTitleSelectedStyle = { color: '$text' },
@@ -80,7 +80,7 @@ const HeaderComponent = (
     resolveValues: 'value',
   });
   const rawStyle = useStyle(
-    { ...{ h: '$14', bg: '$bgApp' }, ...style } as Record<string, unknown>,
+    { ...{ h: '$11', bg: '$bgApp' }, ...style } as Record<string, unknown>,
     {
       resolveValues: 'value',
     },

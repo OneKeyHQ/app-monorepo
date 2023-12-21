@@ -20,14 +20,13 @@ function TokenListEmpty() {
   const intl = useIntl();
 
   return (
-    <Stack height="100%" alignItems="center" justifyContent="center">
-      <Empty
-        title={intl.formatMessage({ id: 'empty__no_tokens' })}
-        description={intl.formatMessage({
-          id: 'content__deposit_tokens_to_your_wallet',
-        })}
-      />
-    </Stack>
+    <Empty
+      icon="CryptoCoinOutline"
+      title={intl.formatMessage({ id: 'empty__no_tokens' })}
+      description={intl.formatMessage({
+        id: 'content__deposit_tokens_to_your_wallet',
+      })}
+    />
   );
 }
 
@@ -39,8 +38,7 @@ function TokenListView(props: IProps) {
 
   return (
     <ListView
-      h="100%"
-      estimatedItemSize={76}
+      estimatedItemSize={60}
       scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
       ListHeaderComponent={TokenListHeader}

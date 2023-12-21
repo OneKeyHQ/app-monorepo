@@ -17,6 +17,7 @@ function TokenListItem(props: IProps) {
     <ListItem
       key={tokenInfo.name}
       title={tokenInfo.name}
+      subtitle="Amount symbol"
       avatarProps={{
         src: tokenInfo.logoURI,
         fallbackProps: {
@@ -29,10 +30,6 @@ function TokenListItem(props: IProps) {
       onPress={() => {
         onPress?.(token);
       }}
-      outlineStyle="none"
-      borderRadius="$0"
-      paddingVertical="$4"
-      margin="0"
     >
       <TokenBalanceView
         $key={token.$key ?? ''}

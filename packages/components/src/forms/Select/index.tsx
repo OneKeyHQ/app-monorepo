@@ -83,6 +83,7 @@ function SelectItem({
   label,
   leading,
   selectedValue,
+  description,
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
@@ -114,17 +115,23 @@ function SelectItem({
             {leading}
           </Stack>
         ) : null}
-        <SizableText
-          userSelect="none"
-          $gtMd={{
-            size: '$bodyMd',
-          }}
-        >
-          {label}
-        </SizableText>
+        <Stack flex={1} userSelect="none">
+          <SizableText
+            $gtMd={{
+              size: '$bodyMd',
+            }}
+          >
+            {label}
+          </SizableText>
+          {description && (
+            <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
+              {description}
+            </SizableText>
+          )}
+        </Stack>
         {selectedValue === value ? (
           <Icon
-            ml="auto"
+            flexShrink={0}
             name="CheckLargeOutline"
             size="$4"
             color="$iconActive"
@@ -137,7 +144,7 @@ function SelectItem({
         ) : null}
       </XStack>
     ),
-    [handleSelect, label, leading, md, selectedValue, value],
+    [description, handleSelect, label, leading, md, selectedValue, value],
   );
 }
 
@@ -166,6 +173,7 @@ function SelectContent() {
     sections,
     refreshState,
     sheetProps,
+    floatingPanelProps,
     placement,
     labelInValue,
     selectedItemRef,
@@ -265,6 +273,7 @@ function SelectContent() {
       floatingPanelProps={{
         maxHeight: '60vh',
         width: '$56',
+        ...floatingPanelProps,
       }}
       placement={placement}
       renderTrigger={popoverTrigger}
@@ -284,6 +293,7 @@ function SelectFrame<T extends string | ISelectItem>({
   sections,
   sheetProps,
   labelInValue = false,
+  floatingPanelProps,
   placement = 'bottom-start',
 }: ISelectProps<T>) {
   const [openCounts, updateOpenCounts] = useState(0);
@@ -319,6 +329,7 @@ function SelectFrame<T extends string | ISelectItem>({
       placeholder,
       disabled,
       sheetProps,
+      floatingPanelProps,
       placement,
     }),
     [
@@ -334,6 +345,7 @@ function SelectFrame<T extends string | ISelectItem>({
       placeholder,
       disabled,
       sheetProps,
+      floatingPanelProps,
       placement,
     ],
   );
