@@ -14,6 +14,7 @@ import {
 
 import type { DBVariantAccount } from '../../../types/account';
 import type {
+  IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -197,8 +198,21 @@ export class KeyringHardware extends KeyringHardwareBase {
     return result;
   }
 
-  override getAddress(): Promise<string> {
-    throw new Error('Method not implemented.');
+  override async getAddress(
+    params: IHardwareGetAddressParams,
+  ): Promise<string> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const response = await HardwareSDK.nostrGetPublicKey(connectId, deviceId, {
+      path: params.path,
+      showOnOneKey: params.showOnOneKey,
+      ...passphraseState,
+    });
+    if (response.success && response.payload.npub) {
+      return response.payload.npub;
+    }
+    throw convertDeviceError(response.payload);
   }
 
   override batchGetAddress(): Promise<{ path: string; address: string }[]> {
