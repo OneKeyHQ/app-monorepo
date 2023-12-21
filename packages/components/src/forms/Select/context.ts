@@ -17,6 +17,7 @@ type IContextType = {
   refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
   sheetProps?: SheetProps;
+  floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   selectedItemRef: MutableRefObject<ISelectItem>;
 };

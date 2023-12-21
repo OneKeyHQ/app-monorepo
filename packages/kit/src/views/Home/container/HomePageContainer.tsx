@@ -1,18 +1,22 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { YStack } from 'tamagui';
+import { YStack, useMedia } from 'tamagui';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   Icon,
+  IconButton,
   Image,
   Page,
   Popover,
+  Select,
+  SizableText,
   Stack,
   Tab,
-  Text,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
@@ -28,6 +32,7 @@ import {
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { EChainSelectorPages } from '../../ChainSelector/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
@@ -36,7 +41,29 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
 
+function HeaderAction({ icon, label }: { icon?: IKeyOfIcons; label?: string }) {
+  const media = useMedia();
+
+  return (
+    <Button
+      icon={icon}
+      // {...(media.md && {
+      //   size: 'large',
+      // })}
+      {...(icon && {
+        pl: '$2.5',
+        pr: '$0.5',
+      })}
+    >
+      {label}
+    </Button>
+  );
+}
+
 function HomePage() {
+  const [addressType, setAddressType] = useState('nested-segWit');
+  const navigation = useAppNavigation();
+
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
@@ -59,10 +86,10 @@ function HomePage() {
         }),
         page: memo(NFTListContainer, () => true),
       },
-      {
-        title: 'Defi',
-        page: memo(DefiListContainer, () => true),
-      },
+      // {
+      //   title: 'Defi',
+      //   page: memo(DefiListContainer, () => true),
+      // },
       {
         title: intl.formatMessage({
           id: 'transaction__history',
@@ -73,15 +100,20 @@ function HomePage() {
     [intl],
   );
 
+  const handleChainPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+      screen: EChainSelectorPages.Selector,
+    });
+  }, [navigation]);
+
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
   const renderHeaderView = useCallback(
     () => (
-      // <XStack justifyContent="space-between" alignItems="center" px="$2">
-      //   <YStack>
-      //     <AccountSelectorTrigger num={0} />
-      //     <AccountSelectorActiveAccount num={0} />
-      //   </YStack>
-      //   <WalletActionsContainer />
-      // </XStack>
       <Stack
         p="$5"
         $gtMd={{
@@ -90,9 +122,41 @@ function HomePage() {
           alignItems: 'center',
         }}
       >
+        {/* <XStack justifyContent="space-between" alignItems="center" px="$2">
+          <YStack>
+            <AccountSelectorTrigger num={0} />
+            <AccountSelectorActiveAccount num={0} />
+          </YStack>
+          <WalletActionsContainer />
+        </XStack> */}
         <Stack>
-          <XStack>
-            <XStack alignItems="center" p="$1" bg="$bgStrong" borderRadius="$2">
+          <XStack mb="$1">
+            <XStack
+              alignItems="center"
+              onPress={handleChainPress}
+              p="$1"
+              m="$-1"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }}
+              $platform-native={{
+                hitSlop: {
+                  top: 8,
+                  bottom: 8,
+                  left: 8,
+                },
+              }}
+            >
               <Image
                 w="$5"
                 h="$5"
@@ -100,50 +164,138 @@ function HomePage() {
                   uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
                 }}
               />
-              <Text pl="$2" variant="$bodyMd">
+              <SizableText userSelect="none" pl="$2" size="$bodyMd">
                 Bitcoin
-                {/* 0xbe52...73f3 */}
-              </Text>
+              </SizableText>
               <Icon
                 name="ChevronDownSmallOutline"
                 color="$iconSubdued"
                 size="$5"
               />
             </XStack>
+            <XStack
+              alignItems="center"
+              onPress={() =>
+                Toast.success({
+                  title: 'Copied',
+                })
+              }
+              p="$1"
+              px="$2"
+              my="$-1"
+              ml="$1"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusable
+              focusStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }}
+              $platform-native={{
+                hitSlop: {
+                  top: 8,
+                  right: 8,
+                  bottom: 8,
+                },
+              }}
+            >
+              <SizableText userSelect="none" size="$bodyMd">
+                37rdQk...PCTG
+              </SizableText>
+            </XStack>
+            {/* <Select
+              title="Switch Type"
+              value={addressType}
+              onChange={setAddressType}
+              floatingPanelProps={{
+                width: '$80',
+              }}
+              items={[
+                {
+                  label: 'Nested SegWit',
+                  value: 'nested-segWit',
+                  description: "Starts with '3'. Medium network fee.",
+                },
+                {
+                  label: 'Taproot',
+                  value: 'taproot',
+                  description: "Starts with 'bc1p'. Extra low network fee.",
+                },
+                {
+                  label: 'Native SegWit',
+                  value: 'native-segWit',
+                  description: "Starts with with 'bc1'. Low network fee.",
+                },
+                {
+                  label: 'Legacy',
+                  value: 'legacy',
+                  description: "Starts with '1'. High network fee.",
+                },
+              ]}
+              renderTrigger={() => (
+                <IconButton
+                  title="Switch Type"
+                  icon="RepeatOutline"
+                  size="small"
+                  variant="tertiary"
+                  iconProps={{
+                    size: '$4.5',
+                  }}
+                  mx="$0"
+                  $platform-native={{
+                    hitSlop: {
+                      right: 8,
+                      top: 8,
+                      bottom: 8,
+                    },
+                  }}
+                />
+              )}
+            /> */}
           </XStack>
 
           <Stack mt="$1">
-            <Text variant="$heading5xl">$1000</Text>
+            <SizableText
+              size="$heading4xl"
+              $gtMd={{
+                size: '$heading5xl',
+              }}
+            >
+              $2,235.00
+            </SizableText>
           </Stack>
         </Stack>
-        <XStack space="$2.5">
-          <Button size="small" icon="ArrowTopOutline">
-            Send
-          </Button>
-          <Button size="small" icon="ArrowBottomOutline">
-            Receive
-          </Button>
-          <Button size="small" icon="SwitchHorOutline">
-            Swap
-          </Button>
-          <Button size="small" icon="DotHorOutline" pr="$0.5" />
+        <XStack space="$2" mt="$5">
+          {/* <HeaderAction icon="PlusLargeOutline" label="Buy" /> */}
+          <HeaderAction
+            // icon="ArrowTopOutline"
+            label="Send"
+          />
+          <HeaderAction
+            // icon="ArrowBottomOutline"
+            label="Receive"
+          />
+          <HeaderAction
+            // icon="SwitchHorOutline"
+            label="Swap"
+          />
+          <HeaderAction icon="DotHorOutline" />
         </XStack>
       </Stack>
     ),
-    [],
+    [handleChainPress],
   );
 
-  const navigation = useAppNavigation();
-  const navigateOnboardingModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.GetStarted,
-    });
-  }, [navigation]);
-
-  useMemo(() => {
-    navigateOnboardingModal();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // useMemo(() => {
+  //   navigateOnboardingModal();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []);
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror
@@ -189,8 +341,11 @@ function HomePage() {
   return useMemo(
     () => (
       <Page>
-        <Page.Header headerTitle={headerTitle} />
-        <Page.Body alignItems="center">
+        <Page.Header
+          // headerTitle={headerTitle}
+          headerRight={headerRight}
+        />
+        <Page.Body>
           <Tab
             // @ts-expect-error
             data={tabs}
@@ -212,7 +367,7 @@ function HomePage() {
         </Page.Body>
       </Page>
     ),
-    [headerTitle, tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
+    [tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
   );
 }
 
