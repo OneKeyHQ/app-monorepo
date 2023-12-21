@@ -821,6 +821,7 @@ const DialogGallery = () => (
             >
               Confirm On Device
             </Button>
+
             <Button
               onPress={() =>
                 Dialog.show({
@@ -937,6 +938,10 @@ const DialogGallery = () => (
             >
               Enter PIN
             </Button>
+
+
+
+
             <Button
               onPress={() => {
                 Dialog.show({
@@ -954,6 +959,10 @@ const DialogGallery = () => (
             >
               Enter PIN on Device
             </Button>
+
+
+
+            
             <CreateHiddenWalletDemo />
             <Button
               onPress={() => {
@@ -972,6 +981,8 @@ const DialogGallery = () => (
             >
               Enter Passphrase on Device
             </Button>
+
+
             <Button
               onPress={() => {
                 Dialog.show({
