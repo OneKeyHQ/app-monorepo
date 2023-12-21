@@ -147,8 +147,11 @@ export function EnterPin({
 
 export function EnterPinOnDevice() {
   return (
-    <Stack borderRadius="$3" bg="$bgSubdued">
+    // height must be specified on Sheet View.
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
       <LottieView
+        width="100%"
+        height="100%"
         source={require('../../../assets/animations/enter-pin-on-classic.json')}
       />
     </Stack>
@@ -240,8 +243,10 @@ export function EnterPhase({
 
 export function EnterPassphraseOnDevice() {
   return (
-    <Stack borderRadius="$3" bg="$bgSubdued">
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
       <LottieView
+        width="100%"
+        height="100%"
         source={require('../../../assets/animations/enter-passphrase-on-classic.json')}
       />
     </Stack>

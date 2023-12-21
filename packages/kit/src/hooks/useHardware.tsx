@@ -117,7 +117,7 @@ const confirmPhrase = async () => {
         }}
         switchOnDevice={async () => {
           await dialog.close();
-          await confirmPinOnDevice();
+          await confirmPhraseOnDevice();
         }}
       />
     ),
@@ -141,7 +141,7 @@ const confirmPassphrase = async () => {
         }}
         switchOnDevice={async () => {
           await dialog.close();
-          await confirmPinOnDevice();
+          await confirmPhraseOnDevice();
         }}
       />
     ),

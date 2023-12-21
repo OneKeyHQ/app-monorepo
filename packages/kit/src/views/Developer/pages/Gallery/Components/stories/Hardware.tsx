@@ -21,6 +21,7 @@ import {
 import { useConfirmOnHardWare } from '@onekeyhq/kit/src/hooks/useHardware';
 
 import { Layout } from './utils/Layout';
+
 const HardwareGallery = () => (
   <Layout
     description=""
@@ -50,6 +51,13 @@ const HardwareGallery = () => (
 
               <Button
                 onPress={() => {
+                  void confirmPinOnDevice();
+                }}
+              >
+                Enter PIN on Device
+              </Button>
+              <Button
+                onPress={() => {
                   void confirmByPin();
                 }}
               >
@@ -58,25 +66,17 @@ const HardwareGallery = () => (
 
               <Button
                 onPress={() => {
-                  void confirmPinOnDevice();
+                  void confirmPhraseOnDevice();
                 }}
               >
-                Enter PIN on Device
+                Enter Passphrase on Device
               </Button>
-
               <Button
                 onPress={() => {
                   void confirmPhrase();
                 }}
               >
                 Enter Passphrase
-              </Button>
-              <Button
-                onPress={() => {
-                  void confirmPhraseOnDevice();
-                }}
-              >
-                Enter Passphrase on Device
               </Button>
 
               <Button
