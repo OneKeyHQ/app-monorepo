@@ -361,8 +361,9 @@ const DialogGallery = () => (
                   },
                   renderContent: (
                     <Dialog.Form
-                      validateOnBlur={false}
                       formProps={{
+                        mode: 'onSubmit',
+                        reValidateMode: 'onSubmit',
                         defaultValues: { text: '' },
                       }}
                     >
@@ -386,7 +387,7 @@ const DialogGallery = () => (
                 })
               }
             >
-              validateOnBlur is false
+              validate on Submit(not on blur)
             </Button>
           </YStack>
         ),

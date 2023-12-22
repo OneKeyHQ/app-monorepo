@@ -8,7 +8,6 @@ export const Label = styled(TMLabel, {
   variants: {
     variant: {
       ':string': (variant, { font }) => {
-        console.log('__variant', variant);
         const defaultFont = { size: {}, lineHeight: {}, weight: {} };
         const resolvedFont = font || defaultFont;
         type ISizeType = keyof typeof resolvedFont.size;
