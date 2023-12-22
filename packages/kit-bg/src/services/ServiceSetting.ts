@@ -2,6 +2,7 @@ import { isFunction } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { LOCALES } from '@onekeyhq/components';
+import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -88,6 +89,20 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       time: Date.now(),
     }));
+  }
+
+  @backgroundMethod()
+  public async getCurrencyList(): Promise<ICurrencyItem[]> {
+    const client = await this.getClient();
+    const res = await client.get<{ data: ICurrencyItem[] }>(
+      '/gateway/v1/currency/list',
+    );
+    return res.data.data;
+  }
+
+  @backgroundMethod()
+  public async setCurrency(currency: string) {
+    await settingsPersistAtom.set((prev) => ({ ...prev, currency }));
   }
 }
 
