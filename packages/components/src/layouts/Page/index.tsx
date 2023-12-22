@@ -10,7 +10,7 @@ import { PageFooter } from './PageFooter';
 import { FooterActions } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 
-import type { IPageContentOptions } from './PageContext';
+import type { IPageContentOptions, IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
 import type { IScrollViewRef } from '../ScrollView';
 import type { NativeScrollPoint } from 'react-native';
@@ -28,18 +28,16 @@ function PageProvider({
     x: 0,
     y: 0,
   });
-  const [options, setOptions] = useState<IPageContentOptions>({
-    scrollEnabled,
-    safeAreaEnabled,
-    pageRef,
-    pageOffsetRef,
-  });
+  const footerRef = useRef<IPageFooterRef>({});
   const value = useMemo(
     () => ({
-      options,
-      setOptions,
+      scrollEnabled,
+      safeAreaEnabled,
+      pageRef,
+      pageOffsetRef,
+      footerRef,
     }),
-    [options],
+    [safeAreaEnabled, scrollEnabled],
   );
   return (
     <PageContext.Provider value={value}>

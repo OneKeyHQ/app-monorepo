@@ -154,7 +154,7 @@ function PageFooter({
 }) {
   const isShow = useIsKeyboardShown();
   return (
-    <Page.Footer extraData={[isShow, suggestions]}>
+    <Page.Footer>
       {isShow ? (
         <SuggestionList
           suggestions={suggestions}

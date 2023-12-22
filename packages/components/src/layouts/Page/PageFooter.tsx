@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useContext, useLayoutEffect, useMemo } from 'react';
+import {
+  memo,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import Animated, {
   useAnimatedStyle,
@@ -18,16 +25,11 @@ import { FooterActions } from './PageFooterActions';
 
 import type { IPageFooterProps } from './type';
 
-export function BasicPageFooter() {
-  const { options } = useContext(PageContext);
-  return useMemo(() => options?.footerElement, [options?.footerElement]);
-}
-
 const useSafeAreaBottom = () => {
   const { pageType } = useContext(NavigationContext);
-  const { options } = useContext(PageContext);
+  const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
-  return options?.safeAreaEnabled && pageType === 'modal' ? bottom : 0;
+  return safeAreaEnabled && pageType === 'modal' ? bottom : 0;
 };
 
 const Placeholder = () => {
@@ -65,46 +67,40 @@ const PageFooterContainer = ({ children }: PropsWithChildren) => {
 };
 
 function PageFooterContext(props: IPageFooterProps) {
-  const { setOptions } = useContext(PageContext);
-  const {
-    children,
-    onCancel,
-    onCancelText,
-    onConfirm,
-    onConfirmText,
-    confirmButtonProps,
-    cancelButtonProps,
-    extraData = [],
-  } = props;
-
-  const element = useMemo(
-    () =>
-      props ? (
-        <PageFooterContainer>
-          {children || (
-            <FooterActions
-              onCancel={onCancel}
-              onCancelText={onCancelText}
-              onConfirm={onConfirm}
-              onConfirmText={onConfirmText}
-              confirmButtonProps={confirmButtonProps}
-              cancelButtonProps={cancelButtonProps}
-            />
-          )}
-        </PageFooterContainer>
-      ) : (
-        <Placeholder />
-      ),
+  const { footerRef } = useContext(PageContext);
+  useMemo(() => {
+    footerRef.current.props = props;
+    footerRef.current.notifyUpdate?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    extraData,
-  );
-  useLayoutEffect(() => {
-    setOptions?.((options) => ({
-      ...options,
-      footerElement: element,
-    }));
-  }, [element, setOptions]);
+  }, []);
+
+  useEffect(() => {
+    footerRef.current.props = props;
+    footerRef.current.notifyUpdate?.();
+  }, [footerRef, props]);
   return null;
+}
+
+export function BasicPageFooter() {
+  const { footerRef } = useContext(PageContext);
+  const [, setCount] = useState(0);
+  const { props: footerProps } = footerRef.current;
+  useMemo(() => {
+    footerRef.current.notifyUpdate = () => {
+      setCount((i) => i + 1);
+    };
+  }, [footerRef]);
+  return footerProps ? (
+    <PageFooterContainer>
+      {footerProps.children ? (
+        footerProps.children
+      ) : (
+        <FooterActions {...footerProps} />
+      )}
+    </PageFooterContainer>
+  ) : (
+    <Placeholder />
+  );
 }
 
 export const PageFooter = memo(PageFooterContext);
