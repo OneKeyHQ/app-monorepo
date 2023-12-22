@@ -38,7 +38,7 @@ function formatDate(timestamp: number) {
     return 'Yesterday';
   }
 
-  return inputDate.format('YYYY-MM-DD');
+  return inputDate.format('MMM DD YYYY');
 }
 
 function groupDataByDate(data: IBrowserHistory[]) {
@@ -99,19 +99,7 @@ function HistoryListModal() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: 'transaction__history' })}
-        headerSearchBarOptions={{
-          autoFocus: true,
-          placeholder: 'Search',
-          inputType: 'text',
-          hideNavigationBar: true,
-          hideWhenScrolling: false,
-          onChangeText: ({ nativeEvent }) => {
-            console.log(nativeEvent.text);
-          },
-        }}
-      />
+      <Page.Header title={intl.formatMessage({ id: 'transaction__history' })} />
       <Page.Body>
         <Stack flex={1}>
           <Stack px="$4" flexDirection="row" justifyContent="flex-end">

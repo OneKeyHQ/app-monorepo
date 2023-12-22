@@ -62,7 +62,6 @@ function BookmarkListModal() {
 
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
-      console.log('Rename');
       Dialog.confirm({
         title: item.title,
         description: item.title,
@@ -78,11 +77,10 @@ function BookmarkListModal() {
           </Dialog.Form>
         ),
         onConfirm: (dialogInstance) => {
-          // @ts-expect-error
-          // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          const { name } = dialogInstance.getForm()?.getValues();
-          console.log(name);
-          void modifyBrowserBookmark({ ...item, title: name });
+          const form = dialogInstance.getForm()?.getValues();
+          if (form?.name) {
+            void modifyBrowserBookmark({ ...item, title: form.name });
+          }
           setTimeout(() => {
             void run();
           }, 200);
@@ -118,19 +116,7 @@ function BookmarkListModal() {
 
   return (
     <Page>
-      <Page.Header
-        title={intl.formatMessage({ id: 'actionn__bookmark' })}
-        headerSearchBarOptions={{
-          autoFocus: false,
-          placeholder: 'Search',
-          inputType: 'text',
-          hideNavigationBar: true,
-          hideWhenScrolling: false,
-          onChangeText: ({ nativeEvent }) => {
-            console.log(nativeEvent.text);
-          },
-        }}
-      />
+      <Page.Header title={intl.formatMessage({ id: 'actionn__bookmark' })} />
       <Page.Body>
         <Stack flex={1}>
           <Stack px="$4" flexDirection="row" justifyContent="flex-end">
