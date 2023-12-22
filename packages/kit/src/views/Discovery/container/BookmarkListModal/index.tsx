@@ -175,6 +175,7 @@ function BookmarkListModal() {
                     }}
                   >
                     <ListItem
+                      width="100%"
                       avatarProps={{
                         src: item.logo,
                         fallbackProps: {
