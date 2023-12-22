@@ -128,7 +128,6 @@ export function DesktopLeftSideBar({
       routes,
       state.index,
       state.key,
-      state.routeNames,
       descriptors,
       extraConfig?.name,
       isCollapse,
