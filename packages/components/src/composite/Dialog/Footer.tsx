@@ -151,10 +151,10 @@ function BasicFooterAction({
   showConfirmButton = true,
   cancelButtonProps,
   onConfirm,
+  onConfirmText = 'Confirm',
   onCancel,
-  onConfirmText,
+  onCancelText = 'Cancel',
   confirmButtonProps = {},
-  onCancelText,
   tone,
 }: IDialogFooterProps) {
   const { footerRef } = useContext(DialogContext);

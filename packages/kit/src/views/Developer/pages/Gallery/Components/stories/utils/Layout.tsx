@@ -1,3 +1,5 @@
+import type { ComponentType, ReactElement } from 'react';
+
 import {
   Button,
   Page,
@@ -61,7 +63,7 @@ export function Layout({
   elements?: {
     title: string;
     description?: string;
-    element: React.ReactElement;
+    element: ComponentType | ReactElement;
   }[];
 }>) {
   const keyboardHeight = useKeyboardHeight();
@@ -147,7 +149,13 @@ export function Layout({
                       </Stack>
                     )}
                   </Stack>
-                  <Stack>{item.element}</Stack>
+                  <Stack>
+                    {typeof item.element === 'function' ? (
+                      <item.element />
+                    ) : (
+                      item.element
+                    )}
+                  </Stack>
                 </Stack>
               ))}
             </Stack>
