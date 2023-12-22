@@ -11,11 +11,6 @@ export type IBasicPageProps = PropsWithChildren<{
   scrollEnabled?: boolean;
 }>;
 
-export type IPageFooterProps = PropsWithChildren<
-  IFooterActionsProps & {
-    /* A marker property for telling the list to re-render (since it implements PureComponent).  */
-    extraData?: any[];
-  }
->;
+export type IPageFooterProps = PropsWithChildren<IFooterActionsProps>;
 
 export type IPageProps = IBasicPageProps;
