@@ -47,4 +47,5 @@ export enum EGalleryRoutes {
   ComponentListItem = 'component/ListItem',
   ComponentPasswordDemo = 'component/passwordDemo',
   ComponentLinearGradientGallery = 'component/LinearGradient',
+  ComponentHardware = 'component/Hardware',
 }
