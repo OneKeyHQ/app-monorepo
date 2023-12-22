@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -14,18 +14,24 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '../../../Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 
@@ -38,6 +44,26 @@ interface IWalletListProps {
 }
 
 export function WalletList({ num }: IWalletListProps) {
+  const navigation = useAppNavigation();
+
+  const handleConnectHardwareWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectYourDevice,
+    });
+  }, [navigation]);
+
+  const handleCreateWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+    });
+  }, [navigation]);
+
+  const handleImportWalletPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportRecoveryPhrase,
+    });
+  }, [navigation]);
+
   const { serviceAccount } = backgroundApiProxy;
   const media = useMedia();
   const { bottom } = useSafeAreaInsets();
@@ -48,8 +74,21 @@ export function WalletList({ num }: IWalletListProps) {
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
     () => serviceAccount.getHDWallets(),
     [serviceAccount],
+    {
+      checkIsFocused: false,
+    },
   );
   const wallets = walletsResult?.wallets ?? emptyArray;
+
+  useEffect(() => {
+    const fn = async () => {
+      await reloadWallets();
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+    };
+  }, [reloadWallets]);
 
   const onWalletPress = useCallback(
     (focusedWallet: IAccountSelectorFocusedWallet) => {
@@ -113,39 +152,17 @@ export function WalletList({ num }: IWalletListProps) {
                   icon: platformEnv.isNative
                     ? 'BluetoothOutline'
                     : 'UsbOutline',
-                  onPress: () => {
-                    console.log('action1');
-                  },
+                  onPress: handleConnectHardwareWalletPress,
                 },
                 {
                   label: 'Create new wallet',
                   icon: 'Ai2StarOutline',
-                  onPress: async () => {
-                    console.log('action2');
-
-                    const { wallet, indexedAccount } =
-                      await serviceAccount.createHDWallet({
-                        mnemonic: generateMnemonic(),
-                      });
-
-                    actions.current.updateSelectedAccount({
-                      num: 0,
-                      builder: (v) => ({
-                        ...v,
-                        indexedAccountId: indexedAccount.id,
-                        walletId: wallet.id,
-                        focusedWallet: wallet.id,
-                      }),
-                    });
-                    await reloadWallets();
-                  },
+                  onPress: handleCreateWalletPress,
                 },
                 {
                   label: 'Import wallet',
                   icon: 'DownloadOutline',
-                  onPress: () => {
-                    console.log('action2');
-                  },
+                  onPress: handleImportWalletPress,
                 },
               ]}
             />

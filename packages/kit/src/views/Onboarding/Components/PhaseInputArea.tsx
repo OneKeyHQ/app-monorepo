@@ -3,6 +3,7 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -31,15 +32,19 @@ import {
   Stack,
   XStack,
   useForm,
+  useFormState,
   useIsKeyboardShown,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
+import type { Control } from 'react-hook-form';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
@@ -148,11 +153,15 @@ function PageFooter({
   suggestions,
   updateInputValue,
   onConfirm,
+  control,
 }: {
   suggestions: string[];
   updateInputValue: (text: string) => void;
   onConfirm: IPageFooterProps['onConfirm'];
+  control: Control;
 }) {
+  const state = useFormState({ control });
+  console.log('state.dirtyFields', state.dirtyFields);
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
@@ -348,13 +357,26 @@ export function PhaseInputArea({
   tutorials,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
+  phrases,
 }: {
-  onConfirm: (values: string[]) => void;
+  onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   tutorials: { title: string; description: string }[];
+  phrases: string[];
 }) {
-  const form = useForm({});
+  const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const defaultPhrasesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    phrases?.forEach((text, i) => {
+      map[`phrase${i + 1}`] = text;
+    });
+    return map;
+  }, [phrases]);
+  const form = useForm({
+    defaultValues: defaultPhrasesMap,
+  });
+  const { control } = form;
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -368,9 +390,11 @@ export function PhaseInputArea({
     return `${length} invalid words`;
   };
 
-  const handlePageFooterConfirm = useCallback(() => {
-    onConfirm(Object.values(form.getValues() as string[]));
-  }, [form, onConfirm]);
+  const handlePageFooterConfirm = useCallback(async () => {
+    const mnemonic: string = Object.values(form.getValues()).join(' ');
+    await serviceAccount.validateMnemonic(mnemonic);
+    onConfirm(await servicePassword.encodeSensitiveText({ text: mnemonic }));
+  }, [form, onConfirm, serviceAccount, servicePassword]);
 
   // useScrollToInputArea(alertRef);
 
@@ -390,7 +414,7 @@ export function PhaseInputArea({
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
       if (index === Number(phraseLength) - 1) {
-        handlePageFooterConfirm();
+        void handlePageFooterConfirm();
       } else {
         void focusNextInput();
       }
@@ -523,6 +547,7 @@ export function PhaseInputArea({
         suggestions={suggestions}
         updateInputValue={updateInputValue}
         onConfirm={handlePageFooterConfirm}
+        control={control}
       />
     </>
   );

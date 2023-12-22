@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import * as Clipboard from 'expo-clipboard';
 
@@ -12,25 +12,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateMnemonic } from '@onekeyhq/core/src/secret';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { Tutorials } from '../../Components';
 import { EOnboardingPages } from '../../router/type';
-
-const phrases: string[] = [
-  'abandon',
-  'ability',
-  'able',
-  'about',
-  'above',
-  'absent',
-  'absorb',
-  'abstract',
-  'absurd',
-  'abuse',
-  'access',
-  'accident',
-];
 
 const tutorials = [
   {
@@ -75,12 +62,17 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
+  const { servicePassword } = backgroundApiProxy;
+  const mnemonic = useMemo(() => generateMnemonic(), []);
+  const phrases = useMemo(() => mnemonic.split(' '), [mnemonic]);
 
-  const handleConfirmPress = () => {
+  const handleConfirmPress = useCallback(async () => {
     navigation.push(EOnboardingPages.VerifyRecoverPhrase, {
-      phrases,
+      mnemonic: await servicePassword.encodeSensitiveText({
+        text: mnemonic,
+      }),
     });
-  };
+  }, [mnemonic, navigation, servicePassword]);
 
   return (
     <Page scrollEnabled>

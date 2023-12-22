@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';

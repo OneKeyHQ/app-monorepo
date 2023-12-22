@@ -3,15 +3,17 @@ import { useCallback } from 'react';
 import { AnimatePresence } from 'tamagui';
 
 import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
+import { WALLET_TYPE_HW } from '@onekeyhq/kit-bg/src/dbs/local/consts';
 
 import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../../routes/Modal/type';
+import { useAccountSelectorEditModeAtom } from '../../../../../states/jotai/contexts/accountSelector';
 import { EOnboardingPages } from '../../../../Onboarding/router/type';
+import { WalletRemoveButton } from '../../../WalletRemove';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';
 import { HomeScreen } from './HomeScreen';
-import { RemoveWallet } from './RemoveWallet';
 import { Verification } from './Verification';
 import { WalletOptionItem } from './WalletOptionItem';
 import { WalletProfile } from './WalletProfile';
@@ -20,7 +22,7 @@ import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
+export function WalletOptions({ wallet }: IWalletOptionsProps) {
   const navigation = useAppNavigation();
 
   const handleBackupPress = useCallback(() => {
@@ -29,6 +31,7 @@ export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
     });
   }, [navigation]);
 
+  const [editMode] = useAccountSelectorEditModeAtom();
   return (
     <HeightTransition>
       <AnimatePresence>
@@ -43,10 +46,10 @@ export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
             }}
           >
             {/* Profile */}
-            <WalletProfile wallet={wallet} />
+            {wallet ? <WalletProfile wallet={wallet} /> : null}
 
             {/* Options */}
-            {wallet?.type === 'hw' ? (
+            {wallet?.type === WALLET_TYPE_HW ? (
               <>
                 <Verification />
                 <HomeScreen />
@@ -60,7 +63,7 @@ export function WalletOptions({ editMode, wallet }: IWalletOptionsProps) {
                 onPress={handleBackupPress}
               />
             )}
-            <RemoveWallet wallet={wallet} />
+            <WalletRemoveButton wallet={wallet} />
 
             <Stack py="$2.5">
               <Divider mt="auto" />

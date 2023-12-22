@@ -15,7 +15,7 @@ export interface IAccountSelectorSelectedAccount {
   accountId: string | undefined; // for others wallet only
   networkId: string | undefined;
   deriveType: IAccountDeriveTypes; // TODO move to jotai global
-  focusedWallet: IAccountSelectorFocusedWallet;
+  focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
 
 export interface IAccountSelectorPersistInfo {
