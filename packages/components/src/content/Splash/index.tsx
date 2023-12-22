@@ -1,6 +1,12 @@
-import { type PropsWithChildren, useCallback, useRef, useState } from 'react';
+import {
+  type PropsWithChildren,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { AnimatePresence, Stack } from 'tamagui';
+import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 
 import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';
@@ -42,6 +48,11 @@ export function Splash({ onReady, children }: ISplashProps) {
     [handleCheck],
   );
 
+  const bgColor = useMemo(
+    () => getTokenValue('$bgAppDark', 'color') as string,
+    [],
+  );
+
   return (
     <Stack flex={1}>
       <ChildrenContent onLayout={handleChildrenLayout} visible={showChildren}>
@@ -51,7 +62,7 @@ export function Splash({ onReady, children }: ISplashProps) {
         {showLoading && (
           <Stack
             key="splash-view"
-            bg="$background"
+            bg={bgColor}
             animation="medium"
             position="absolute"
             top={0}
