@@ -11,7 +11,7 @@ import type { AppStateStatus } from 'react-native';
 export const LottieView = forwardRef<
   typeof AnimatedLottieView,
   ILottieViewProps
->(({ source, loop, resizeMode, ...props }, ref) => {
+>(({ source, loop = true, resizeMode, autoPlay = true, ...props }, ref) => {
   const animationRef = useRef<AnimatedLottieView | null>();
 
   const appStateRef = useRef(AppState.currentState);
@@ -48,9 +48,10 @@ export const LottieView = forwardRef<
 
   return (
     <AnimatedLottieView
+      autoPlay={autoPlay}
       resizeMode={resizeMode}
       source={source as LottieNativeProps['source']}
-      loop={!!loop}
+      loop={loop}
       {...props}
       ref={animationRef as LegacyRef<AnimatedLottieView>}
     />
