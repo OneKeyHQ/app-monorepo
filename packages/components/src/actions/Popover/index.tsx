@@ -1,3 +1,4 @@
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
 import { Popover as TMPopover } from 'tamagui';
@@ -21,8 +22,10 @@ import type {
 export interface IPopoverProps extends TMPopoverProps {
   title: string;
   usingSheet?: boolean;
-  renderTrigger: React.ReactNode;
-  renderContent: React.ReactNode;
+  renderTrigger: ReactNode;
+  renderContent:
+    | ReactElement
+    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
 }
@@ -34,6 +37,7 @@ const usePopoverValue = (
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
   const openPopover = useCallback(() => {
+    console.log('openPopover');
     if (isControlled) {
       onOpenChange?.(true);
     } else {
@@ -64,19 +68,15 @@ const usePopoverValue = (
 
 function RawPopover({
   title,
-  open,
+  open: isOpen,
   renderTrigger,
   renderContent,
   floatingPanelProps,
   sheetProps,
-  onOpenChange: onOpenChangeFunc,
+  onOpenChange,
   usingSheet = true,
   ...props
 }: IPopoverProps) {
-  const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
-    open,
-    onOpenChangeFunc,
-  );
   const { bottom } = useSafeAreaInsets();
   let transformOrigin;
 
@@ -115,6 +115,21 @@ function RawPopover({
       transformOrigin = 'top right';
   }
 
+  const closePopover = useCallback(() => {
+    onOpenChange?.(false);
+  }, [onOpenChange]);
+
+  const openPopover = useCallback(() => {
+    onOpenChange?.(true);
+  }, [onOpenChange]);
+
+  const RenderContent =
+    typeof renderContent === 'function' ? renderContent : null;
+  const content = RenderContent
+    ? ((
+        <RenderContent isOpen={isOpen} closePopover={closePopover} />
+      ) as ReactElement)
+    : (renderContent as ReactElement);
   return (
     <TMPopover
       offset={8}
@@ -156,7 +171,7 @@ function RawPopover({
         ]}
         {...floatingPanelProps}
       >
-        <TMPopover.ScrollView>{renderContent}</TMPopover.ScrollView>
+        <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
       </TMPopover.Content>
 
       {/* sheet */}
@@ -234,11 +249,23 @@ function RawPopover({
   );
 }
 
-const Popover = ({ renderTrigger, sheetProps, ...rest }: IPopoverProps) => {
+const Popover = ({
+  open,
+  onOpenChange: onOpenChangeFunc,
+  renderTrigger,
+  sheetProps,
+  ...rest
+}: IPopoverProps) => {
+  const { isOpen, onOpenChange, openPopover } = usePopoverValue(
+    open,
+    onOpenChangeFunc,
+  );
   // on web and WAP, we add the popover to the RNRootView
   if (platformEnv.isRuntimeBrowser) {
     return (
       <RawPopover
+        open={isOpen}
+        onOpenChange={onOpenChange}
         sheetProps={{ ...sheetProps, modal: true }}
         renderTrigger={renderTrigger}
         {...rest}
@@ -248,9 +275,11 @@ const Popover = ({ renderTrigger, sheetProps, ...rest }: IPopoverProps) => {
   // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
   return (
     <>
-      {renderTrigger}
+      <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
         <RawPopover
+          open={isOpen}
+          onOpenChange={onOpenChange}
           renderTrigger={undefined}
           {...rest}
           sheetProps={sheetProps}
