@@ -152,7 +152,7 @@ const DiscoveryListContainer = ({
 
   useEffect(() => {
     if (Array.isArray(dAppListResult?.data)) {
-      setDAppListDataSource(dAppListResult.data);
+      setDAppListDataSource(dAppListResult?.data ?? []);
     }
   }, [dAppListResult?.data]);
 
