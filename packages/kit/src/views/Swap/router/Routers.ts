@@ -4,6 +4,8 @@ export enum EModalSwapRoutes {
   SwapTokenSelect = 'SwapTokenSelect',
   SwapNetworkSelect = 'SwapNetworkSelect',
   SwapProviderSelect = 'SwapProviderSelect',
+  SwapSlippageSelect = 'SwapSlippageSelect',
+  SwapBuildTxDemo = 'SwapBuildTxDemo',
 }
 
 export type IModalSwapParamList = {
@@ -12,4 +14,6 @@ export type IModalSwapParamList = {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
   };
   [EModalSwapRoutes.SwapProviderSelect]: undefined;
+  [EModalSwapRoutes.SwapSlippageSelect]: undefined;
+  [EModalSwapRoutes.SwapBuildTxDemo]: undefined;
 };

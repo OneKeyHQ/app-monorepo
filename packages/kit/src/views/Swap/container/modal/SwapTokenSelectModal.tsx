@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce } from 'lodash';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -42,6 +41,7 @@ const SwapTokenSelectModal = () => {
     () => route?.params?.type ?? 'from',
     [route?.params?.type],
   );
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -60,22 +60,10 @@ const SwapTokenSelectModal = () => {
             item.networkId === onlySupportSingleNetWork,
         ),
   );
-  const { fetchLoading, fetchTokens, currentTokens } = useSwapTokenList(
+  const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
-  );
-  const onChangeSearchKeyWord = debounce(
-    useCallback(
-      async (keyword: string) => {
-        console.log('keyword--', keyword);
-        void fetchTokens({
-          networkId: currentSelectNetwork?.networkId,
-          keyword,
-        });
-      },
-      [currentSelectNetwork?.networkId, fetchTokens],
-    ),
-    500,
+    searchKeyword,
   );
 
   const onSelectToken = useCallback(
@@ -112,14 +100,17 @@ const SwapTokenSelectModal = () => {
       <SearchBar
         h="$12"
         w="100%"
+        value={searchKeyword}
         onChangeText={(text) => {
-          void onChangeSearchKeyWord(text);
+          const afterTrim = text.trim();
+          setSearchKeyword(afterTrim);
         }}
       />
       <YStack h="$12" my="$4">
         <NetworkToggleGroup
           type={type}
           onMoreNetwork={() => {
+            setSearchKeyword('');
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapNetworkSelect,
               params: { setCurrentSelectNetwork },
@@ -128,7 +119,10 @@ const SwapTokenSelectModal = () => {
           onlySupportSingleNetWork={onlySupportSingleNetWork}
           networks={swapNetworks.slice(0, 3)}
           selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={setCurrentSelectNetwork}
+          onSelectNetwork={(network) => {
+            setSearchKeyword('');
+            setCurrentSelectNetwork(network);
+          }}
         />
       </YStack>
 

@@ -10,7 +10,7 @@ import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { AxiosInstance, CancelTokenSource } from 'axios';
+import type { AxiosInstance } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -26,10 +26,7 @@ export default class ServiceBase {
 
   backgroundApi: IBackgroundApi;
 
-  async getClient(
-    endpointName?: EEndpointName,
-    cancelToken?: CancelTokenSource,
-  ) {
+  async getClient(endpointName?: EEndpointName) {
     if (!this._client) {
       let endpoint = '';
       const endpoints = await getEndpoints();
@@ -45,7 +42,6 @@ export default class ServiceBase {
       this._client = axios.create({
         baseURL: endpoint,
         timeout: 60 * 1000,
-        cancelToken: cancelToken?.token,
       });
     }
     return this._client;

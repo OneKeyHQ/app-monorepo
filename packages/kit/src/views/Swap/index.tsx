@@ -1,8 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import { YStack } from 'tamagui';
-
-import { Page, Text } from '@onekeyhq/components';
+import { Page, Text, XStack } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -13,10 +11,9 @@ import {
 
 import SwapMainLand from './container/SwapMainLand';
 import { withSwapProvider } from './container/WithSwapProvider';
-import { useSwapNetworkList } from './hooks/useSwapTokens';
 
 const Swap = () => {
-  const onSwap = useCallback(async () => {}, []);
+  console.log('swap');
   return (
     <Page>
       <Page.Body space="$4">
@@ -34,7 +31,7 @@ const Swap = () => {
           <AccountSelectorTrigger num={1} />
           <AccountSelectorActiveAccount num={1} />
         </AccountSelectorProvider>
-        <SwapMainLand onSwapStep={() => {}} />
+        <SwapMainLand />
       </Page.Body>
     </Page>
   );

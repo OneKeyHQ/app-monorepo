@@ -3,6 +3,7 @@ import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserB
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
 import { SimpleDbEntitySwapTokenPair } from '../entity/SimpleDbEntitySwapTokenPair';
 
 export class SimpleDb {
@@ -17,4 +18,6 @@ export class SimpleDb {
   swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
 
   swapTokenPair = new SimpleDbEntitySwapTokenPair();
+
+  swapSlippage = new SimpleDbEntitySwapSlippage();
 }

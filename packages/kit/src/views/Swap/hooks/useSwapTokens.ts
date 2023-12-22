@@ -44,49 +44,26 @@ export function useSwapNetworkList() {
 export function useSwapTokenList(
   selectTokenModalType: 'from' | 'to',
   currentNetworkId?: string,
+  keywords?: string,
 ) {
   const [currentTokens, setCurrentTokens] = useState<ISwapToken[]>([]);
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [fetchLoading, setFetchLoading] = useState(false);
-  const fetchTokens = useCallback(
-    async ({
-      networkId,
-      keyword,
-    }: {
-      networkId?: string;
-      keyword?: string;
-    }) => {
-      if (fetchLoading) return;
-      setFetchLoading(true);
-      const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-        networkId,
-        type: selectTokenModalType,
-        keyword,
-        fromToken,
-      });
-
-      setCurrentTokens(result);
-      setFetchLoading(false);
-    },
-    [fetchLoading, fromToken, selectTokenModalType],
-  );
   const { isLoading } = usePromiseResult(
     async () => {
       const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: currentNetworkId,
         type: selectTokenModalType,
         fromToken,
+        keywords,
       });
       setCurrentTokens(result);
-      setFetchLoading(false);
     },
-    [currentNetworkId, fromToken, selectTokenModalType],
-    { watchLoading: true },
+    [currentNetworkId, fromToken, keywords, selectTokenModalType],
+    { watchLoading: true, debounced: 500 },
   );
 
   return {
-    fetchLoading: fetchLoading || isLoading,
-    fetchTokens,
+    fetchLoading: isLoading,
     currentTokens,
   };
 }

@@ -14,9 +14,8 @@ const SwapTokenSelectTrigger = ({
   currentToken,
   loading,
   onSelectTokenTrigger,
-}: ISwapTokenSelectProps) => {
-  console.log('SwapTokenSelectTrigger');
-  return loading ? (
+}: ISwapTokenSelectProps) =>
+  loading ? (
     <Spinner justifyContent="center" alignItems="center" />
   ) : (
     <XStack
@@ -43,6 +42,5 @@ const SwapTokenSelectTrigger = ({
       )}
     </XStack>
   );
-};
 
 export default memo(SwapTokenSelectTrigger);

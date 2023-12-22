@@ -86,7 +86,8 @@ const SwapNetworkSelectModal = () => {
         h="$12"
         w="100%"
         onChangeText={(text) => {
-          onSearchNetWork(text);
+          const afterTrim = text.trim();
+          onSearchNetWork(afterTrim);
         }}
       />
       <ListView

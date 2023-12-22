@@ -20,23 +20,20 @@ const SwapQuoteResultCell = ({
   cellRightIcon,
   loading,
   onPress,
-}: ISwapQuoteResultCellProps) => {
-  console.log('SwapQuoteResultCell');
-  return (
-    <XStack onPress={onPress} justifyContent="space-between" h="$20">
-      <Text>{title}</Text>
-      {loading ? (
-        <Skeleton w="$15" h="$6" />
-      ) : (
-        <XStack space="$2">
-          {valueLeft || null}
-          <Text>{value}</Text>
-          {valueRight || null}
-          {cellRightIcon && <Icon name={cellRightIcon} />}
-        </XStack>
-      )}
-    </XStack>
-  );
-};
+}: ISwapQuoteResultCellProps) => (
+  <XStack onPress={onPress} justifyContent="space-between" h="$20">
+    <Text>{title}</Text>
+    {loading ? (
+      <Skeleton w="$15" h="$6" />
+    ) : (
+      <XStack space="$2">
+        {valueLeft || null}
+        <Text>{value}</Text>
+        {valueRight || null}
+        {cellRightIcon && <Icon name={cellRightIcon} />}
+      </XStack>
+    )}
+  </XStack>
+);
 
 export default memo(SwapQuoteResultCell);

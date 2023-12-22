@@ -11,22 +11,19 @@ interface ISwapFromAmountPercentageProps {
 const SwapFromAmountPercentage = ({
   selectItems,
   onSelectItem,
-}: ISwapFromAmountPercentageProps) => {
-  console.log('SwapFromAmountPercentage');
-  return (
-    <XStack>
-      {selectItems.map((item) => (
-        <Button
-          key={item.label}
-          onPress={() => {
-            onSelectItem(item);
-          }}
-        >
-          {item.label}
-        </Button>
-      ))}
-    </XStack>
-  );
-};
+}: ISwapFromAmountPercentageProps) => (
+  <XStack>
+    {selectItems.map((item) => (
+      <Button
+        key={item.label}
+        onPress={() => {
+          onSelectItem(item);
+        }}
+      >
+        {item.label}
+      </Button>
+    ))}
+  </XStack>
+);
 
 export default memo(SwapFromAmountPercentage);

@@ -1,7 +1,9 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
+import SwapBuildTxDemo from '../../views/Swap/container/modal/SwapBuildTxDemo';
 import SwapNetworkSelectModal from '../../views/Swap/container/modal/SwapNetworkSelectModal';
 import SwapProviderSelectModal from '../../views/Swap/container/modal/SwapProviderSelectModal';
+import SwapSlippageSelectModal from '../../views/Swap/container/modal/SwapSlippageSelectModal';
 import SwapTokenSelectModal from '../../views/Swap/container/modal/SwapTokenSelectModal';
 import { EModalSwapRoutes } from '../../views/Swap/router/Routers';
 
@@ -25,5 +27,15 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapProviderSelect,
     component: SwapProviderSelectModal,
     translationId: 'title__select_route',
+  },
+  {
+    name: EModalSwapRoutes.SwapSlippageSelect,
+    component: SwapSlippageSelectModal,
+    translationId: 'title__slippage',
+  },
+  {
+    name: EModalSwapRoutes.SwapBuildTxDemo,
+    component: SwapBuildTxDemo,
+    translationId: 'title__transaction_details',
   },
 ];

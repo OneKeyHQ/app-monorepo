@@ -47,8 +47,8 @@ const SwapProviderSelectModal = () => {
         const firstItem = swapQuoteList[0];
         const firstPrice = new BigNumber(firstItem.toAmount);
         const currentPrice = new BigNumber(item.toAmount);
-        const spread = currentPrice.minus(firstPrice).multipliedBy(firstPrice);
-        return `${spread.div(100).toFixed(2)}%`;
+        const spread = firstPrice.minus(currentPrice).dividedBy(firstPrice);
+        return `${spread.multipliedBy(100).toFixed(2)}%`;
       }
       return `👍 Best`;
     },

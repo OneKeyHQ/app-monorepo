@@ -6,15 +6,12 @@ interface ISwapTokenBalanceProps {
   balance: number;
   symbol: string;
 }
-const SwapTokenBalance = ({ balance, symbol }: ISwapTokenBalanceProps) => {
-  console.log('swapTokenBalance');
-  return (
-    <XStack>
-      <Text>Balance</Text>
-      <Text>{balance}</Text>
-      <Text>{symbol}</Text>
-    </XStack>
-  );
-};
+const SwapTokenBalance = ({ balance, symbol }: ISwapTokenBalanceProps) => (
+  <XStack>
+    <Text>Balance</Text>
+    <Text>{balance}</Text>
+    <Text>{symbol}</Text>
+  </XStack>
+);
 
 export default memo(SwapTokenBalance);

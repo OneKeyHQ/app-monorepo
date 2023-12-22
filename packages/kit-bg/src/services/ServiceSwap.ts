@@ -25,13 +25,15 @@ import type { CancelTokenSource } from 'axios';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _cancelSource?: CancelTokenSource;
+  private _quoteCancelSource?: CancelTokenSource;
+
+  private _tokensCancelSource?: CancelTokenSource;
 
   // --------------------- fetch
   @backgroundMethod()
-  async cancelFetchQuotes() {
-    if (this._cancelSource) {
-      this._cancelSource.cancel('quote request canceled');
+  async cancelQuoteFetchQuotes() {
+    if (this._quoteCancelSource) {
+      this._quoteCancelSource.cancel('quote request canceled');
     }
   }
 
@@ -42,33 +44,40 @@ export default class ServiceSwap extends ServiceBase {
       protocol,
     };
     const client = await this.getClient();
-    const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
-      '/exchange/networks',
-      { params },
-    );
-    console.log('fetchSwapNetworks--data', data);
-    if (data.code === 0 && data.data) {
-      return data.data;
+    try {
+      const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
+        '/exchange/networks',
+        { params },
+      );
+      if (data.code === 0 && data.data) {
+        return data.data;
+      }
+    } catch (e) {
+      // TODO: toast
+      console.error('fetchSwapNetworks--error', e);
     }
-    throw new Error('fetchSwapNetworks error');
+    return [];
   }
 
   @backgroundMethod()
   async fetchSwapTokens({
     networkId,
-    keyword,
+    keywords,
     fromToken,
     type,
-    limit = 20,
+    limit = 50,
     next,
   }: {
     type: 'from' | 'to';
     networkId?: string;
-    keyword?: string;
+    keywords?: string;
     fromToken?: ISwapToken;
     limit?: number;
     next?: string;
   }): Promise<{ result: ISwapToken[]; next?: string }> {
+    if (this._tokensCancelSource) {
+      this._tokensCancelSource.cancel('tokens request canceled');
+    }
     const providersArr = fromToken?.providers.split(',');
     const params = {
       fromTokenNetworkId: fromToken?.networkId,
@@ -76,7 +85,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAddress: fromToken?.contractAddress,
       protocol: EExchangeProtocol.SWAP,
       networkId: networkId === 'all' ? undefined : networkId,
-      keyword,
+      keywords,
       fromTokenSwapSwftUnSupportCode: providersArr?.every(
         (item) => item === ESwapProviders.SWFT,
       )
@@ -86,15 +95,28 @@ export default class ServiceSwap extends ServiceBase {
       limit,
       next,
     };
-    const client = await this.getClient();
-    const { data } = await client.get<
-      IFetchResponse<{ next?: string; data: ISwapToken[] }>
-    >('/exchange/tokens', { params });
-    console.log('fetchSwapTokens--data', data);
-    if (data?.code === 0 && data?.data) {
-      return { result: data.data.data, next: data.data.next };
+    this._tokensCancelSource = axios.CancelToken.source();
+    const fetchUrl = `${getFiatEndpoint()}/exchange/tokens`;
+    // const client = await this.getClient();
+    try {
+      const { data } = await axios.get<
+        IFetchResponse<{ next?: string; data: ISwapToken[] }>
+      >(fetchUrl, { params, cancelToken: this._tokensCancelSource.token });
+      if (data?.code === 0 && data?.data) {
+        return { result: data.data.data, next: data.data.next };
+      }
+    } catch (e) {
+      if (axios.isCancel(e)) {
+        throw new Error('cancel');
+      } else {
+        // TODO: toast
+        console.error('fetchSwapTokens--error', e);
+        throw e;
+      }
+    } finally {
+      this._tokensCancelSource = undefined;
     }
-    throw new Error('fetchSwapTokens error');
+    return { result: [], next: undefined };
   }
 
   @backgroundMethod()
@@ -102,15 +124,16 @@ export default class ServiceSwap extends ServiceBase {
     fromToken,
     toToken,
     fromTokenAmount,
+    userAddress,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
-  }) {
-    if (this._cancelSource) {
-      this._cancelSource.cancel('quote request canceled');
+    userAddress?: string;
+  }): Promise<IFetchQuoteResult[]> {
+    if (this._quoteCancelSource) {
+      this._quoteCancelSource.cancel('quote request canceled');
     }
-    const fetchUrl = `${getFiatEndpoint()}/exchange/quote`;
     const fromProvidersArr = fromToken.providers.split(',');
     const toProvidersArr = toToken.providers.split(',');
     let supportedProviders = fromProvidersArr.filter((item) =>
@@ -133,15 +156,16 @@ export default class ServiceSwap extends ServiceBase {
       toTokenSwftCode: toToken.swapSwftCode,
       protocol: EExchangeProtocol.SWAP,
       providers: supportedProviders.join(','),
+      userAddress,
     };
-    console.log('fetchQuote--', params);
-    this._cancelSource = axios.CancelToken.source();
+    this._quoteCancelSource = axios.CancelToken.source();
+    const fetchUrl = `${getFiatEndpoint()}/exchange/quote`;
     try {
       const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
-        { params, cancelToken: this._cancelSource.token },
+        { params, cancelToken: this._quoteCancelSource.token },
       );
-      console.log('fetchQuote--data', data);
+      this._quoteCancelSource = undefined;
       if (data.code === 0 && data.data) {
         return data.data;
       }
@@ -150,41 +174,38 @@ export default class ServiceSwap extends ServiceBase {
         console.error('fetchQuote--cancel', e);
         throw new Error('cancel');
       } else {
-        throw e;
+        // TODO: toast
+        console.error('fetchQuotes--error', e);
       }
     }
+    return [];
   }
 
   @backgroundMethod()
-  async fetchSwap({
+  async fetchBuildTx({
     fromToken,
     toToken,
     fromTokenAmount,
     userAddress,
+    toTokenAmount,
     provider,
     receivingAddress,
     slippagePercentage,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
+    toTokenAmount: string;
     fromTokenAmount: string;
     provider: ESwapProviders;
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: string;
-  }) {
-    // todo
-    // 检查  余额
-    // 检查  授权
-    // 如果需要授权交易，则 fetch api 获取授权交易
-    // fetch swap 获取交易信息
-    // 展示  swap 确认信息
-
-    const fetchUrl = `${getFiatEndpoint()}/exchange/build_tx`;
+  }): Promise<IFetchBuildTxResponse | undefined> {
     const params = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
+      toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
       fromTokenDecimals: fromToken.decimals,
@@ -197,14 +218,18 @@ export default class ServiceSwap extends ServiceBase {
       receivingAddress,
       slippagePercentage,
     };
-    console.log('fetchSwap--', params);
-    const { data } = await axios.get<IFetchResponse<IFetchBuildTxResponse>>(
-      fetchUrl,
-      { params },
-    );
-    console.log('fetchSwap--data', data);
-    if (data.code === 0 && data.data) {
-      return data.data;
+    const client = await this.getClient();
+    try {
+      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+        '/exchange/build_tx',
+        { params },
+      );
+      if (data.code === 0 && data.data) {
+        return data.data;
+      }
+    } catch (e) {
+      // TODO: toast
+      console.error('fetchBuildTx--error', e);
     }
   }
 }

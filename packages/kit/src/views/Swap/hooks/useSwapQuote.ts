@@ -9,6 +9,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
+import { mockAddress } from '../utils/utils';
 
 export function useSwapQuote() {
   const [quoteFetching, setQuoteFetching] = useSwapQuoteFetchingAtom();
@@ -29,6 +30,7 @@ export function useSwapQuote() {
             fromToken,
             toToken,
             fromTokenAmount: fromAmount.toString(),
+            userAddress: mockAddress,
           });
           if (res && res?.length > 0) {
             res.sort((a, b) => {
@@ -46,7 +48,7 @@ export function useSwapQuote() {
           }
         }
       } else {
-        await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+        await backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
         setQuoteFetching(false);
         setQuoteList([]);
       }

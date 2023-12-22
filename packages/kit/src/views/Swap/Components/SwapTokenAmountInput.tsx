@@ -19,11 +19,12 @@ const SwapTokenAmountInput = ({
 }: ISwapTokenAmountInputProps) => {
   console.log('SwapInput');
   return loading ? (
-    <Skeleton w="$50" h="$10" />
+    <Skeleton w="$20" h="$10" />
   ) : (
     <Input
       value={inputValue}
       disabled={disabled}
+      placeholder="0.0"
       onChangeText={(text) => {
         if (validateInput(text)) {
           onInputChange?.(text);

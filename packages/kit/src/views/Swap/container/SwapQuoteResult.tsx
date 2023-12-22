@@ -26,6 +26,7 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
   const { quoteFetching } = useSwapQuote();
+
   const rate = useMemo(() => {
     if (!quoteResult) return '-';
     const instanceRate = new BigNumber(quoteResult?.instantRate);
@@ -71,7 +72,6 @@ const SwapQuoteResult = ({
         value={quoteResult.info.providerName ?? quoteResult.info.provider}
         loading={quoteFetching}
         onPress={() => {
-          // TODO: open provider list modal
           onOpenProviderList?.();
         }}
       />

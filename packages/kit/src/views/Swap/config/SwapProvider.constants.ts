@@ -1,6 +1,9 @@
-import { ESwapProviders } from '../types';
+import { ESwapProviders, ESwapSlippageSegmentKey } from '../types';
 
-import type { ISwapFromAmountPercentageItem } from '../types';
+import type {
+  ISwapFromAmountPercentageItem,
+  ISwapSlippageSegmentItem,
+} from '../types';
 
 export const CrossChainSwapProviders = [
   ESwapProviders.SWFT,
@@ -15,4 +18,11 @@ export const swapFromAmountPercentageItems: ISwapFromAmountPercentageItem[] = [
   { label: '25%', value: 0.25 },
   { label: '50%', value: 0.5 },
   { label: 'Max', value: 1 },
+];
+
+export const swapSlippageItems: ISwapSlippageSegmentItem[] = [
+  { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+  { key: ESwapSlippageSegmentKey.ZERO_ONE, value: 0.1 },
+  { key: ESwapSlippageSegmentKey.ZERO_FIVE, value: 0.5 },
+  { key: ESwapSlippageSegmentKey.ONE, value: 1 },
 ];

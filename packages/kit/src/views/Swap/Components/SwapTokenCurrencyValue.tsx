@@ -9,14 +9,11 @@ interface ISwapTokenCurrencyValueProps {
 const SwapTokenCurrencyValue = ({
   value,
   currency,
-}: ISwapTokenCurrencyValueProps) => {
-  console.log('SwapTokenCurrencyValue');
-  return (
-    <XStack>
-      <Text>{currency}</Text>
-      <Text>{value}</Text>
-    </XStack>
-  );
-};
+}: ISwapTokenCurrencyValueProps) => (
+  <XStack>
+    <Text>{currency}</Text>
+    <Text>{value}</Text>
+  </XStack>
+);
 
 export default memo(SwapTokenCurrencyValue);

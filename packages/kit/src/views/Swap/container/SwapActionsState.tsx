@@ -1,72 +1,108 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { XStack } from 'tamagui';
 
-import { Button, Spinner, Text, YStack } from '@onekeyhq/components';
+import { Alert, Button, Spinner, Text, YStack } from '@onekeyhq/components';
 
 import {
-  useSwapQuoteFetchingAtom,
+  useSwapFromTokenAmountAtom,
   useSwapResultQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
+  useSwapStepStateAtom,
 } from '../../../states/jotai/contexts/swap';
+import { ESwapStepStateType } from '../types';
 
-const SwapActionsState = () => {
-  const [quoteFetching] = useSwapQuoteFetchingAtom();
-  const [swapQuoteCurrentSelect] = useSwapResultQuoteCurrentSelectAtom();
+interface ISwapActionsStateProps {
+  onBuildTx: () => void;
+  onApprove: (allowanceValue: number) => void;
+}
+
+const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
+  const [swapStepState] = useSwapStepStateAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const enableActionState = useMemo<{
-    title: string;
-    disabled?: boolean;
-    isLoading?: boolean;
-  }>(() => {
-    // TODO:
-    // 1. check account connect state
-    // 2. check account balance
-    if (quoteFetching) {
-      return { title: 'Finding...', disabled: true, isLoading: true };
+  const [fromAmount] = useSwapFromTokenAmountAtom();
+  const [selectCurrentProvider] = useSwapResultQuoteCurrentSelectAtom();
+  const wrongMsgComponent = useMemo(() => {
+    if (swapStepState.wrongMsg) {
+      return (
+        <Alert description={swapStepState.wrongMsg} icon="PlaceholderOutline" />
+      );
     }
-    if (swapQuoteCurrentSelect) {
-      // TODO:
-      // 1. check account connect state
-      // 2. check account balance
-      return { title: 'Swap' };
+    return null;
+  }, [swapStepState]);
+
+  const actionText = useMemo(() => {
+    if (swapStepState.type === ESwapStepStateType.APPROVE) {
+      return `Approve  ${fromAmount} ${fromToken?.symbol ?? ''} to ${
+        selectCurrentProvider?.info.providerName ?? ''
+      }`;
     }
-    return { title: 'Swap', disabled: true };
-  }, [quoteFetching, swapQuoteCurrentSelect]);
+    if (
+      swapStepState.type === ESwapStepStateType.BUILD_TX &&
+      swapStepState.isCrossChain
+    ) {
+      return swapStepState.isLoading ? 'Build Transaction' : 'Cross-Chain Swap';
+    }
+    if (
+      swapStepState.type === ESwapStepStateType.QUOTE &&
+      swapStepState.isLoading
+    ) {
+      return 'Finding Best Price...';
+    }
+    if (swapStepState.type === ESwapStepStateType.ACCOUNT_CHECK) {
+      return 'Insufficient Balance';
+    }
+    return 'Swap';
+  }, [
+    fromAmount,
+    fromToken?.symbol,
+    selectCurrentProvider?.info.providerName,
+    swapStepState.isCrossChain,
+    swapStepState.isLoading,
+    swapStepState.type,
+  ]);
 
-  const onApprovePrecision = useCallback(() => {}, []);
-  const onApproveUnLimited = useCallback(() => {}, []);
+  const onActionHandler = useCallback(() => {
+    if (swapStepState.type === ESwapStepStateType.APPROVE) {
+      onApprove(Number(fromAmount));
+      return;
+    }
+    if (swapStepState.type === ESwapStepStateType.BUILD_TX) {
+      onBuildTx();
+    }
+  }, [fromAmount, onApprove, onBuildTx, swapStepState.type]);
 
-  if (
-    swapQuoteCurrentSelect &&
-    fromToken &&
-    swapQuoteCurrentSelect.allowanceResult
-  ) {
-    const { allowanceResult } = swapQuoteCurrentSelect;
-    return (
-      <YStack space="$4">
-        <Text>{`Step 1: Approve ${
-          fromToken?.symbol ?? ''
-        } -> Step 2: Swap`}</Text>
-        <Button
-          onPress={onApprovePrecision}
-        >{`Approve ${allowanceResult.amount} ${fromToken.symbol} to ${swapQuoteCurrentSelect.info.providerName}`}</Button>
-        <Button
-          onPress={onApproveUnLimited}
-        >{`Approve UnLimited ${fromToken.symbol} to ${swapQuoteCurrentSelect.info.providerName}`}</Button>
-      </YStack>
-    );
-  }
+  const onAction2Handler = useCallback(() => {
+    onApprove(-1); // -1 means approve unlimited
+  }, [onApprove]);
+
   return (
-    <YStack>
-      <Button variant="primary" disabled={!!enableActionState.disabled}>
+    <YStack space="$4">
+      {wrongMsgComponent}
+      <Button
+        onPress={onActionHandler}
+        variant="primary"
+        disabled={swapStepState.disabled}
+      >
         <XStack>
-          {enableActionState.isLoading && <Spinner />}
-          <Text color="white">{enableActionState.title}</Text>
+          {swapStepState.isLoading && <Spinner size="small" />}
+          <Text color="white">{actionText}</Text>
         </XStack>
       </Button>
+      {swapStepState.type === ESwapStepStateType.APPROVE &&
+      !swapStepState.isLoading ? (
+        <Button
+          onPress={onAction2Handler}
+          variant="primary"
+          disabled={swapStepState.disabled}
+        >
+          <Text>{`Approve Unlimited ${fromToken?.symbol ?? ''} to ${
+            selectCurrentProvider?.info.providerName ?? ''
+          }`}</Text>
+        </Button>
+      ) : null}
     </YStack>
   );
 };
 
-export default SwapActionsState;
+export default memo(SwapActionsState);

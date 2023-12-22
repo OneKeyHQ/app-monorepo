@@ -93,11 +93,34 @@ export interface IFeeInfo {
   asset?: IFeeTokenAsset;
 }
 
+// swap action state
+export enum ESwapStepStateType {
+  PRE = 'pre', // no select token & no input fromAmount
+  QUOTE = 'quote',
+  ACCOUNT_CHECK = 'account_check', // check account connect & balance
+  APPROVE = 'approve', // need approve
+  BUILD_TX = 'build_tx', // build tx
+}
+
+export interface ISwapStepState {
+  type: ESwapStepStateType;
+  isLoading: boolean;
+  disabled: boolean;
+  isCrossChain: boolean;
+  wrongMsg?: string;
+}
+
 // build_tx
+
+export interface IFetchBuildTxResult extends IFetchQuoteResult {
+  arrivalTime?: number;
+}
+
 export interface IFetchBuildTxResponse {
-  quoteResult: IFetchQuoteResult;
+  result: IFetchBuildTxResult;
   tx?: ITransaction;
-  order?: IFetchBuildTxOrderResponse;
+  swftOrder?: IFetchBuildTxOrderResponse;
+  ctx?: any;
 }
 
 export interface IEVMTransaction {
@@ -125,4 +148,17 @@ export interface IFetchResponse<T> {
 export interface ISwapFromAmountPercentageItem {
   label: string;
   value: number;
+}
+
+export interface ISwapSlippageSegmentItem {
+  key: ESwapSlippageSegmentKey;
+  value: number;
+}
+
+export enum ESwapSlippageSegmentKey {
+  AUTO = 'auto',
+  CUSTOM = 'custom',
+  ZERO_ONE = '0.1',
+  ZERO_FIVE = '0.5',
+  ONE = '1',
 }

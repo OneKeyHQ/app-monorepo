@@ -1,9 +1,10 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect } from 'react';
 
 import { Button, XStack, YStack } from '@onekeyhq/components';
 
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
   useSwapResultQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -23,7 +24,7 @@ interface ISwapQuoteInputProps {
 
 const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { fetchLoading } = useSwapNetworkList();
-  const [fromInputAmount, setFromInputAmount] = useState('');
+  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const { quoteFetch, quoteFetching } = useSwapQuote();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();

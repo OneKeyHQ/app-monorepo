@@ -7,6 +7,7 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import type { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
 import type { SimpleDbEntitySwapTokenPair } from '../entity/SimpleDbEntitySwapTokenPair';
 
 export class SimpleDbProxy
@@ -50,4 +51,8 @@ export class SimpleDbProxy
   swapTokenPair = this._createProxyService(
     'swapTokenPair',
   ) as SimpleDbEntitySwapTokenPair;
+
+  swapSlippage = this._createProxyService(
+    'swapSlipage',
+  ) as SimpleDbEntitySwapSlippage;
 }
