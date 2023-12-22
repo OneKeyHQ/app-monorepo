@@ -36,10 +36,15 @@ import type {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-import type { IBrowserBookmark, IBrowserHistory } from '../../types';
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IMatchDAppItemType,
+} from '../../types';
 
 const RecommendListContainer = ({
   onContentSizeChange,
@@ -56,6 +61,8 @@ const RecommendListContainer = ({
     () => result?.categories.map((i) => ({ ...i, data: i.dapps })) ?? [],
     [result?.categories],
   );
+
+  const { handleOpenWebSite } = useOpenWebsite();
 
   return (
     <SectionList
@@ -76,7 +83,9 @@ const RecommendListContainer = ({
             },
           }}
           title={item.name}
-          onPress={() => {}}
+          onPress={() => {
+            handleOpenWebSite({ dApp: item });
+          }}
         >
           {item.tags?.map((tag: IDAppTag) => (
             <Badge type="success" size="sm">
@@ -148,6 +157,7 @@ const DiscoveryListContainer = ({
   }, [dAppListResult?.data]);
 
   const headerDataSource = useMemo(() => result ?? [], [result]);
+  const { handleOpenWebSite } = useOpenWebsite();
   return (
     <ListView
       data={dAppListDataSource}
@@ -170,7 +180,9 @@ const DiscoveryListContainer = ({
             },
           }}
           title={item.name}
-          onPress={() => {}}
+          onPress={() => {
+            handleOpenWebSite({ dApp: item });
+          }}
         />
       )}
       onContentSizeChange={onContentSizeChange}
@@ -184,11 +196,13 @@ function DashboardHeader({
   historyData,
   handleHeaderMorePress,
   handleSearchBarPress,
+  handleOpenWebsite,
 }: {
   banners?: IDiscoveryBanner[];
   bookmarkData?: IBrowserBookmark[];
   historyData?: IBrowserHistory[];
   handleSearchBarPress: () => void;
+  handleOpenWebsite: ({ dApp, webSite }: IMatchDAppItemType) => void;
   handleHeaderMorePress: (tabIndex: number) => void;
 }) {
   const [tabIndex, setTabIndex] = useState(0);
@@ -255,7 +269,14 @@ function DashboardHeader({
             alignItems="center"
             justifyContent="center"
             p="$4"
-            onPress={() => {}}
+            onPress={() => {
+              handleOpenWebsite({
+                webSite: {
+                  url: item.url,
+                  title: item.title,
+                },
+              });
+            }}
           >
             <ListItem.Avatar.Component
               src={item.logo}
@@ -283,6 +304,7 @@ function DashboardHeader({
 
 function Dashboard() {
   const navigation = useAppNavigation();
+  const { handleOpenWebSite } = useOpenWebsite();
   const { result } = usePromiseResult(async () => {
     const data =
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
@@ -365,6 +387,7 @@ function Dashboard() {
               historyData={historyData}
               handleHeaderMorePress={handleHeaderMorePress}
               handleSearchBarPress={handleSearchBarPress}
+              handleOpenWebsite={handleOpenWebSite}
             />
           }
           nestedScrollEnabled

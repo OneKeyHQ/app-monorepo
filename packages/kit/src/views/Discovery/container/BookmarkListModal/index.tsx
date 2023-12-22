@@ -18,29 +18,20 @@ import {
   SwipeableCell,
   Toast,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
-import {
-  useBrowserAction,
-  useBrowserBookmarkAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { type IDiscoveryModalParamList } from '../../router/Routes';
+import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
 
 function BookmarkListModal() {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
-  const { openMatchDApp } = useBrowserAction().current;
+  const { handleOpenWebSite } = useOpenWebsite();
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
@@ -211,19 +202,12 @@ function BookmarkListModal() {
                       }}
                       testID={`search-modal-${item.url.toLowerCase()}`}
                       onPress={() => {
-                        void openMatchDApp({
-                          id: '',
+                        handleOpenWebSite({
                           webSite: {
                             url: item.url,
                             title: item.title,
                           },
-                          isNewWindow: true,
                         });
-                        if (platformEnv.isDesktop) {
-                          navigation.switchTab(ETabRoutes.MultiTabBrowser);
-                        } else {
-                          navigation.pop();
-                        }
                       }}
                     >
                       <ActionList

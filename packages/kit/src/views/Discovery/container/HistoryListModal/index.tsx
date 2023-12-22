@@ -16,13 +16,11 @@ import {
   Text,
   Toast,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { type IDiscoveryModalParamList } from '../../router/Routes';
+import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -62,15 +60,15 @@ function groupDataByDate(data: IBrowserHistory[]) {
 
 function HistoryListModal() {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
+
+  const { handleOpenWebSite } = useOpenWebsite();
 
   const [page] = useState(1);
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
-  const { isLoading, result, run } = usePromiseResult(
+  const { result, run } = usePromiseResult(
     async () => {
       const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
         page,
@@ -164,7 +162,12 @@ function HistoryListModal() {
                   }}
                   testID={`search-modal-${item.url.toLowerCase()}`}
                   onPress={() => {
-                    console.log('===>onPress');
+                    handleOpenWebSite({
+                      webSite: {
+                        url: item.url,
+                        title: item.title,
+                      },
+                    });
                   }}
                 >
                   <IconButton
