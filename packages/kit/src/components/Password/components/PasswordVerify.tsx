@@ -42,6 +42,7 @@ const PasswordVerify = ({
   onInputPasswordAuth,
 }: IPasswordVerifyProps) => {
   const form = useForm<IPasswordVerifyForm>({
+    mode: 'onSubmit',
     reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
@@ -120,7 +121,7 @@ const PasswordVerify = ({
   }, [isEnable, onBiologyAuth, passwordInput]);
 
   return (
-    <Form form={form} validateOnBlur={false}>
+    <Form form={form}>
       <Form.Field
         name="password"
         rules={{
