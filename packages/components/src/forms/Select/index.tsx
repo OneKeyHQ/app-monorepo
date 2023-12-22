@@ -30,11 +30,9 @@ const useTriggerLabel = (value: string) => {
   }
 
   if (sections) {
-    // eslint-disable-next-line no-plusplus
-    for (let i = 0; i < sections.length; i++) {
+    for (let i = 0; i < sections.length; i += 1) {
       const section = sections[i];
-      // eslint-disable-next-line no-plusplus
-      for (let j = 0; j < section.data.length; j++) {
+      for (let j = 0; j < section.data.length; j += 1) {
         const item = section.data[j];
         if (item.value === value) {
           selectedItemRef.current.label = item.label;
@@ -45,8 +43,7 @@ const useTriggerLabel = (value: string) => {
   }
 
   if (items) {
-    // eslint-disable-next-line no-plusplus
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
       if (item.value === value) {
         selectedItemRef.current.label = item.label;
