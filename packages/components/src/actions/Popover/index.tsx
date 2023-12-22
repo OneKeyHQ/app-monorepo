@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react';
+
 import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -8,8 +10,8 @@ import { Portal } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
 import { Text, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
+import { Trigger } from '../Trigger';
 
-import type { FocusOutsideEvent } from '@tamagui/dismissable/types';
 import type {
   PopoverContentTypeProps,
   SheetProps,
@@ -23,20 +25,58 @@ export interface IPopoverProps extends TMPopoverProps {
   renderContent: React.ReactNode;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
-  onFocusOutside?: (event: FocusOutsideEvent) => void;
 }
+
+const usePopoverValue = (
+  open?: boolean,
+  onOpenChange?: IPopoverProps['onOpenChange'],
+) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const isControlled = typeof open !== 'undefined';
+  const openPopover = useCallback(() => {
+    if (isControlled) {
+      onOpenChange?.(true);
+    } else {
+      setIsOpen(true);
+    }
+  }, [isControlled, onOpenChange]);
+  const closePopover = useCallback(() => {
+    if (isControlled) {
+      onOpenChange?.(false);
+    } else {
+      setIsOpen(false);
+    }
+  }, [isControlled, onOpenChange]);
+  return {
+    ...(isControlled
+      ? {
+          isOpen: open,
+          onOpenChange,
+        }
+      : {
+          isOpen,
+          onOpenChange: setIsOpen,
+        }),
+    openPopover,
+    closePopover,
+  };
+};
 
 function RawPopover({
   title,
+  open,
   renderTrigger,
   renderContent,
   floatingPanelProps,
   sheetProps,
-  onOpenChange,
-  onFocusOutside,
+  onOpenChange: onOpenChangeFunc,
   usingSheet = true,
   ...props
 }: IPopoverProps) {
+  const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
+    open,
+    onOpenChangeFunc,
+  );
   const { bottom } = useSafeAreaInsets();
   let transformOrigin;
 
@@ -81,9 +121,12 @@ function RawPopover({
       allowFlip
       placement="bottom-end"
       onOpenChange={onOpenChange}
+      open={isOpen}
       {...props}
     >
-      <TMPopover.Trigger asChild>{renderTrigger}</TMPopover.Trigger>
+      <TMPopover.Trigger asChild>
+        <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+      </TMPopover.Trigger>
 
       {/* floating panel */}
       <TMPopover.Content
@@ -103,7 +146,6 @@ function RawPopover({
         bg="$bg"
         borderRadius="$3"
         elevation={20}
-        onFocusOutside={onFocusOutside}
         animation={[
           'quick',
           {
@@ -157,7 +199,7 @@ function RawPopover({
                   $platform-native={{
                     hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
                   }}
-                  onPress={() => onOpenChange?.(false)}
+                  onPress={closePopover}
                   testID="popover-btn-close"
                 />
               </XStack>
