@@ -1,4 +1,9 @@
-import type { ComponentProps, PropsWithChildren } from 'react';
+import type {
+  ComponentProps,
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+} from 'react';
 import { isValidElement } from 'react';
 
 import {
@@ -225,12 +230,34 @@ export type IListItemProps = PropsWithChildren<{
   subtitle?: string;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
+  renderAvatar?: ComponentType | ReactElement;
+  renderIcon?: ComponentType | ReactElement;
+  renderItemText?: ComponentType | ReactElement;
   icon?: IIconProps['name'];
   iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
   checkMark?: boolean;
   onPress?: () => void;
 }>;
+
+const renderWithFallback = (
+  Component: ComponentType,
+  props?: any,
+  render?: ComponentType | ReactElement,
+) => {
+  if (render) {
+    if (typeof render === 'function') {
+      const Render = render;
+      return <Render {...props} />;
+    }
+    return render;
+  }
+
+  if (!props) {
+    return null;
+  }
+  return <Component {...props} />;
+};
 
 const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
   const {
@@ -245,6 +272,9 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     checkMark,
     onPress,
     children,
+    renderAvatar,
+    renderIcon,
+    renderItemText,
     ...rest
   } = props;
 
@@ -276,29 +306,41 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       })}
       {...rest}
     >
-      {avatarProps && (
-        <ListItemAvatar
-          {...(!avatarProps.circular && { borderRadius: '$2' })}
-          {...avatarProps}
-        />
+      {renderWithFallback(
+        ListItemAvatar,
+        avatarProps && {
+          ...(!avatarProps.circular && { borderRadius: '$2' }),
+          ...avatarProps,
+        },
+        renderAvatar,
       )}
-      {icon && (
-        <Icon name={icon} color="$iconSubdued" flexShrink={0} {...iconProps} />
+      {renderWithFallback(
+        Icon,
+        icon && {
+          name: icon,
+          color: '$iconSubdued',
+          flexShrink: 0,
+          ...iconProps,
+        },
+        renderIcon,
       )}
-      {(title || subtitle) && (
-        <ListItemText
-          flex={1}
-          primary={title}
-          primaryTextProps={{
+
+      {renderWithFallback(
+        ListItemText,
+        (title || subtitle) && {
+          flex: 1,
+          primary: title,
+          primaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...titleProps,
-          }}
-          secondary={subtitle}
-          secondaryTextProps={{
+          },
+          secondary: subtitle,
+          secondaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...subtitleProps,
-          }}
-        />
+          },
+        },
+        renderItemText,
       )}
       {children}
       {drillIn && <ListItemDrillIn />}

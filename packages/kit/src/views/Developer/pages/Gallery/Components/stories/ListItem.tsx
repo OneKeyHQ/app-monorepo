@@ -1,7 +1,13 @@
 import { useState } from 'react';
 
 import type { ISwitchProps } from '@onekeyhq/components';
-import { Icon, ListItem, Stack, Switch } from '@onekeyhq/components';
+import {
+  Icon,
+  ListItem,
+  SizableText,
+  Stack,
+  Switch,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -273,6 +279,30 @@ const ListItemGallery = () => (
                   color: '$iconActive',
                 }}
               />
+            </ListItem>
+          </Stack>
+        ),
+      },
+      {
+        title: 'render Props',
+        element: (
+          <Stack mx="$-5">
+            <ListItem title="EVM#2" subtitle="OxadE9..A57b · 0.006448ETH">
+              <ListItem.IconButton
+                icon="StarSolid"
+                iconProps={{
+                  color: '$iconActive',
+                }}
+              />
+            </ListItem>
+            <ListItem
+              renderAvatar={<SizableText>avatar</SizableText>}
+              renderIcon={<SizableText>icon</SizableText>}
+              // renderItemText={<SizableText>ItemTet</SizableText>}
+              title="EVM#1"
+              subtitle="OxadE9..A57b · 0.006448ETH"
+            >
+              <ListItem.IconButton icon="StarOutline" />
             </ListItem>
           </Stack>
         ),
