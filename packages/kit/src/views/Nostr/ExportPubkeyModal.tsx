@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -52,10 +52,13 @@ const ExportPublicKeyView: FC<{
   const navigation = useAppNavigation();
   const isVerticalLayout = useIsVerticalLayout();
   const isHwWallet = isHardwareWallet({ walletId });
+  const isFetchingPubkeyRef = useRef(true);
 
   useEffect(() => {
     (async () => {
       try {
+        isFetchingPubkeyRef.current = true;
+        setIsLoadingForHardware(true);
         const pubkey =
           await backgroundApiProxy.serviceNostr.getPublicKeyEncodedByNip19({
             walletId,
@@ -69,11 +72,17 @@ const ExportPublicKeyView: FC<{
         setTimeout(() => {
           navigation.goBack?.();
         }, 200);
+      } finally {
+        isFetchingPubkeyRef.current = false;
+        setIsLoadingForHardware(false);
       }
     })();
   }, [walletId, networkId, accountId, password, navigation]);
 
   const onCheckPubkey = useCallback(async () => {
+    if (isFetchingPubkeyRef.current) {
+      return;
+    }
     setIsLoadingForHardware(true);
     try {
       const npub = await backgroundApiProxy.serviceNostr.validateNpubOnHardware(
