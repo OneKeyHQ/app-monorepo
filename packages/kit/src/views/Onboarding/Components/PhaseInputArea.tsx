@@ -357,22 +357,22 @@ export function PhaseInputArea({
   tutorials,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
-  phrases,
+  defaultPhrases = [],
 }: {
   onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   tutorials: { title: string; description: string }[];
-  phrases: string[];
+  defaultPhrases?: string[];
 }) {
   const { serviceAccount, servicePassword } = backgroundApiProxy;
   const defaultPhrasesMap = useMemo(() => {
     const map: Record<string, string> = {};
-    phrases?.forEach((text, i) => {
+    defaultPhrases?.forEach((text, i) => {
       map[`phrase${i + 1}`] = text;
     });
     return map;
-  }, [phrases]);
+  }, [defaultPhrases]);
   const form = useForm({
     defaultValues: defaultPhrasesMap,
   });
@@ -469,30 +469,7 @@ export function PhaseInputArea({
             </Button>
           ) : null}
         </XStack>
-        {platformEnv.isDev ? (
-          <XStack px="$5" py="$2">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                const text = await Clipboard.getStringAsync();
-                try {
-                  const phrases: string[] = JSON.parse(text);
-                  form.reset(
-                    phrases.reduce((prev, next, index) => {
-                      prev[`phrase${index + 1}`] = next;
-                      return prev;
-                    }, {} as Record<`phrase${number}`, string>),
-                  );
-                } catch (error) {
-                  console.error(error);
-                }
-              }}
-            >
-              Paste All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
+
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: Number(phraseLength) }).map((_, index) => (
@@ -523,6 +500,32 @@ export function PhaseInputArea({
             ))}
           </XStack>
         </Form>
+
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                const mnemonic = await Clipboard.getStringAsync();
+                try {
+                  const phrasesArr: string[] = (mnemonic || '').split(' ');
+                  form.reset(
+                    phrasesArr.reduce((prev, next, index) => {
+                      prev[`phrase${index + 1}`] = next;
+                      return prev;
+                    }, {} as Record<`phrase${number}`, string>),
+                  );
+                } catch (error) {
+                  console.error(error);
+                }
+              }}
+            >
+              Paste All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
+
         <HeightTransition>
           {invalidWordsLength > 0 && (
             <XStack pt="$1.5" px="$5" key="invalidWord">

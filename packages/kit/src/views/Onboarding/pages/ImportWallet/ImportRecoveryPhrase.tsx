@@ -34,9 +34,9 @@ export function ImportRecoveryPhrase() {
     <Page scrollEnabled>
       <Page.Header title="Import Recovery Phrase" />
       <PhaseInputArea
+        defaultPhrases={[]}
         onConfirm={handleConfirmPress}
         tutorials={tutorials}
-        phrases={[]}
       />
     </Page>
   );

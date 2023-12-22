@@ -65,7 +65,7 @@ export function VerifyRecoveryPhrase({
       <Page.Header title="Verify your Recovery Phrase" />
       {phrases ? (
         <PhaseInputArea
-          phrases={phrases}
+          defaultPhrases={[]}
           onConfirm={handleConfirmPress}
           showPhraseLengthSelector={false}
           showClearAllButton={false}

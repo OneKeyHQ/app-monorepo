@@ -1,4 +1,4 @@
-import { ListItem } from '@onekeyhq/components';
+import { ListItem, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -10,7 +10,7 @@ export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
   return (
     <ListItem
       renderAvatar={
-        <>
+        <Stack>
           <WalletAvatar size="$10" wallet={wallet} />
           <ListItem.Avatar.CornerIcon
             name="MenuCircleHorSolid"
@@ -25,7 +25,7 @@ export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
               onPress: () => showWalletAvatarEditDialog({ wallet }),
             }}
           />
-        </>
+        </Stack>
       }
       // renderIcon={null}
     >

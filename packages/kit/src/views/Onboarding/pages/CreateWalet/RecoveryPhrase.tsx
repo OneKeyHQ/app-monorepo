@@ -11,8 +11,8 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -81,19 +81,7 @@ export function RecoveryPhrase() {
         <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
           Tap to display words and write down your phrases in order
         </SizableText>
-        {platformEnv.isDev ? (
-          <XStack px="$1" pb="$4">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                await Clipboard.setStringAsync(JSON.stringify(phrases));
-              }}
-            >
-              Copy All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
+
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
             <Stack
@@ -108,6 +96,21 @@ export function RecoveryPhrase() {
             </Stack>
           ))}
         </XStack>
+
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                await Clipboard.setStringAsync(mnemonic);
+              }}
+            >
+              Copy All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
+
         <Tutorials list={tutorials} />
       </Page.Body>
       <Page.Footer
