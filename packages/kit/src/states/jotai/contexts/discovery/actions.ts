@@ -405,8 +405,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
         const isNewTab =
-          (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
-          browserTypeHandler === 'MultiTabBrowser';
+          typeof isNewWindow === 'boolean'
+            ? isNewWindow
+            : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
+              browserTypeHandler === 'MultiTabBrowser';
 
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
@@ -451,9 +453,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   openMatchDApp = contextAtomMethod(
-    async (_, set, { dApp, webSite, isNewWindow }: IMatchDAppItemType) => {
+    async (
+      _,
+      set,
+      { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
+    ) => {
       if (webSite) {
         return this.gotoSite.call(set, {
+          id: tabId,
           url: webSite.url,
           title: webSite.title,
           favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
@@ -465,6 +472,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
       if (dApp) {
         return this.gotoSite.call(set, {
+          id: tabId,
           url: dApp.url,
           title: dApp.name,
           dAppId: dApp._id,

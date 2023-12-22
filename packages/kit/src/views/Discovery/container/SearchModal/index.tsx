@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import {
   IconButton,
   ListItem,
@@ -25,15 +27,23 @@ import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
+import type { IDiscoveryModalParamList } from '../../router/Routes';
+import type { RouteProp } from '@react-navigation/core';
+
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
 
 function SearchModal() {
   const navigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
+    >();
+  const { useCurrentWindow, tabId } = route.params ?? {};
   const [searchValue, setSearchValue] = useState('');
   const { getBookmarkData } = useBrowserBookmarkAction().current;
   const { getHistoryData } = useBrowserHistoryAction().current;
 
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow, tabId });
 
   const { result: bookmarkData } = usePromiseResult(async () => {
     const bookmarks = await getBookmarkData();

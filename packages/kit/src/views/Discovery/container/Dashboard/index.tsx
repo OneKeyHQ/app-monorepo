@@ -62,7 +62,7 @@ const RecommendListContainer = ({
     [result?.categories],
   );
 
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
 
   return (
     <SectionList
@@ -157,7 +157,7 @@ const DiscoveryListContainer = ({
   }, [dAppListResult?.data]);
 
   const headerDataSource = useMemo(() => result ?? [], [result]);
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
   return (
     <ListView
       data={dAppListDataSource}
@@ -304,7 +304,7 @@ function DashboardHeader({
 
 function Dashboard() {
   const navigation = useAppNavigation();
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
   const { result } = usePromiseResult(async () => {
     const data =
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();

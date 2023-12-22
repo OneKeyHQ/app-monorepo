@@ -7,7 +7,10 @@ export enum EDiscoveryModalRoutes {
 
 export type IDiscoveryModalParamList = {
   [EDiscoveryModalRoutes.MobileTabList]: undefined;
-  [EDiscoveryModalRoutes.SearchModal]: undefined;
+  [EDiscoveryModalRoutes.SearchModal]: {
+    tabId?: string;
+    useCurrentWindow?: boolean;
+  };
   [EDiscoveryModalRoutes.BookmarkListModal]: undefined;
   [EDiscoveryModalRoutes.HistoryListModal]: undefined;
 };

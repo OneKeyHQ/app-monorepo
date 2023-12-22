@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
 import {
@@ -26,6 +29,7 @@ function DesktopBrowserNavigationBar({
   id: string;
   activeTabId: string | null;
 }) {
+  const navigation = useAppNavigation();
   const { tab } = useWebTabDataById(id);
   const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
   const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
@@ -114,6 +118,15 @@ function DesktopBrowserNavigationBar({
         isPinned={tab?.isPinned ?? false}
         onPinnedPress={(pinned) => {
           void setPinnedTab({ id, pinned });
+        }}
+        onSearch={() => {
+          navigation.pushModal(EModalRoutes.DiscoveryModal, {
+            screen: EDiscoveryModalRoutes.SearchModal,
+            params: {
+              useCurrentWindow: true,
+              tabId: id,
+            },
+          });
         }}
       />
     </Freeze>

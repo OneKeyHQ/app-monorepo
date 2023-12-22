@@ -31,7 +31,7 @@ function BookmarkListModal() {
   const intl = useIntl();
   const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);

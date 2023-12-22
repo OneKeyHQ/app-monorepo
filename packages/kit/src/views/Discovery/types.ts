@@ -28,6 +28,7 @@ export interface IGotoSiteFnParams {
 }
 
 export interface IMatchDAppItemType {
+  tabId?: string;
   dApp?: IDApp;
   webSite?: IBrowserBookmark | IBrowserHistory;
   clicks?: number;

@@ -10,10 +10,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IMatchDAppItemType } from '../types';
 
-export function useOpenWebsite() {
+export function useOpenWebsite({
+  useCurrentWindow,
+  tabId,
+}: {
+  useCurrentWindow?: boolean;
+  tabId?: string;
+}) {
   const navigation = useAppNavigation();
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const { openMatchDApp } = useBrowserAction().current;
+  const isNewWindow = !useCurrentWindow;
 
   const handleOpenWebSite = useCallback(
     ({ dApp, webSite }: IMatchDAppItemType) => {
@@ -22,7 +29,8 @@ export function useOpenWebsite() {
       void openMatchDApp({
         webSite,
         dApp,
-        isNewWindow: true,
+        isNewWindow,
+        tabId,
       });
       if (platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
@@ -30,7 +38,7 @@ export function useOpenWebsite() {
         navigation.pop();
       }
     },
-    [setDisplayHomePage, navigation, openMatchDApp],
+    [setDisplayHomePage, navigation, openMatchDApp, isNewWindow, tabId],
   );
   return {
     handleOpenWebSite,

@@ -63,7 +63,7 @@ function HistoryListModal() {
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
-  const { handleOpenWebSite } = useOpenWebsite();
+  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
 
   const [page] = useState(1);
 

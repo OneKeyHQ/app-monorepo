@@ -93,6 +93,9 @@ function MobileBrowser() {
               onSearch={() => {
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
                   screen: EDiscoveryModalRoutes.SearchModal,
+                  params: {
+                    useCurrentWindow: true,
+                  },
                 });
               }}
             />
