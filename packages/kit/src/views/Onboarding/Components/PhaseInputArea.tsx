@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import * as Clipboard from 'expo-clipboard';
 import { compact } from 'lodash';
 import { Dimensions } from 'react-native';
 
@@ -205,7 +206,7 @@ function BasicPhaseInput(
   const media = useMedia();
   const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
-  const [tabFocusable, setTabFFocusable] = useState(false);
+  const [tabFocusable, setTabFocusable] = useState(false);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -258,7 +259,7 @@ function BasicPhaseInput(
     (isOpen: boolean) => {
       if (!isOpen) {
         closePopover();
-        setTabFFocusable(false);
+        setTabFocusable(false);
       }
     },
     [closePopover],
@@ -273,11 +274,11 @@ function BasicPhaseInput(
       if (e.keyCode === 9) {
         if (openStatusRef.current) {
           firstButtonRef.current?.focus();
-          setTabFFocusable(true);
+          setTabFocusable(true);
           e.preventDefault();
           e.stopPropagation();
         }
-      } else if (e.keyCode > 48 && e.keyCode < 57) {
+      } else if (e.keyCode > 48 && e.keyCode < 58) {
         const suggestionIndex = e.keyCode - 48;
         updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
         e.preventDefault();
@@ -291,28 +292,30 @@ function BasicPhaseInput(
     onReturnKeyPressed(index);
   }, [index, onReturnKeyPressed]);
 
+  const isShowValue = selectInputIndex !== index && value?.length;
+  const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
+
+  const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
+    value: displayValue,
+    ref: inputRef,
+    keyboardType: 'ascii-capable',
+    autoCapitalize: 'none',
+    autoCorrect: false,
+    spellCheck: false,
+    size: media.md ? 'large' : 'medium',
+    leftAddOnProps: {
+      label: `${index + 1}`,
+      minWidth: '$10',
+      justifyContent: 'center',
+    },
+    onChangeText: handleChangeText,
+    onFocus: handleInputFocus,
+    onBlur: handleInputBlur,
+    returnKeyType: handleGetReturnKeyLabel(),
+  };
   if (platformEnv.isNative) {
-    return (
-      <Input
-        value={value}
-        ref={inputRef}
-        secureTextEntry={selectInputIndex !== index}
-        autoCorrect={false}
-        spellCheck={false}
-        size={media.md ? 'large' : 'medium'}
-        leftAddOnProps={{
-          label: `${index + 1}`,
-          minWidth: '$10',
-          justifyContent: 'center',
-        }}
-        onChangeText={handleChangeText}
-        onFocus={handleInputFocus}
-        onBlur={handleInputBlur}
-        returnKeyType={handleGetReturnKeyLabel()}
-        onSubmitEditing={handleSubmitEnding}
-      />
-    );
+    return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
   }
   return (
     <Popover
@@ -331,26 +334,7 @@ function BasicPhaseInput(
       }
       renderTrigger={
         <Stack>
-          <Input
-            ref={inputRef}
-            value={value}
-            secureTextEntry={selectInputIndex !== index}
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-            onKeyPress={handleKeyPress}
-            size={media.md ? 'large' : 'medium'}
-            leftAddOnProps={{
-              label: `${index + 1}`,
-              minWidth: '$10',
-              justifyContent: 'center',
-            }}
-            onChangeText={handleChangeText}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            returnKeyType="next"
-            data-1p-ignore
-          />
+          <Input {...inputProps} onKeyPress={handleKeyPress} data-1p-ignore />
         </Stack>
       }
     />
@@ -461,6 +445,30 @@ export function PhaseInputArea({
             </Button>
           ) : null}
         </XStack>
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                const text = await Clipboard.getStringAsync();
+                try {
+                  const phrases: string[] = JSON.parse(text);
+                  form.reset(
+                    phrases.reduce((prev, next, index) => {
+                      prev[`phrase${index + 1}`] = next;
+                      return prev;
+                    }, {} as Record<`phrase${number}`, string>),
+                  );
+                } catch (error) {
+                  console.error(error);
+                }
+              }}
+            >
+              Paste All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: Number(phraseLength) }).map((_, index) => (

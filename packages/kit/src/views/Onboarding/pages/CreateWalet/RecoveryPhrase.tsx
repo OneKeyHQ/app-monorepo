@@ -1,6 +1,9 @@
 import { useCallback, useState } from 'react';
 
+import * as Clipboard from 'expo-clipboard';
+
 import {
+  Button,
   Input,
   Page,
   SizableText,
@@ -8,6 +11,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { Tutorials } from '../../Components';
@@ -43,22 +47,21 @@ const tutorials = [
 
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
-  const [secureTextEntry, changeSecureTextEntry] = useState(true);
+  const [isFocused, setIsFocused] = useState(false);
   const handleFocus = useCallback(() => {
-    changeSecureTextEntry(false);
+    setIsFocused(true);
   }, []);
   const handleBlur = useCallback(() => {
-    changeSecureTextEntry(true);
+    setIsFocused(false);
   }, []);
   return (
     <Input
       caretHidden
       showSoftInputOnFocus={false}
       keyboardType="numeric"
-      secureTextEntry={secureTextEntry}
       onFocus={handleFocus}
       onBlur={handleBlur}
-      value={text}
+      value={isFocused ? text : '••••'}
       editable={false}
       size={media.md ? 'large' : 'medium'}
       leftAddOnProps={{
@@ -86,6 +89,19 @@ export function RecoveryPhrase() {
         <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
           Tap to display words and write down your phrases in order
         </SizableText>
+        {platformEnv.isDev ? (
+          <XStack px="$1" pb="$4">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                await Clipboard.setStringAsync(JSON.stringify(phrases));
+              }}
+            >
+              Copy All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
             <Stack
