@@ -17,6 +17,7 @@ import {
   Stack,
   Tab,
   Toast,
+  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
@@ -34,6 +35,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EChainSelectorPages } from '../../ChainSelector/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
+import { EReceivePages } from '../../Receive/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -41,7 +43,15 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 import { WalletActionsContainer } from './WalletActionsContainer';
 
-function HeaderAction({ icon, label }: { icon?: IKeyOfIcons; label?: string }) {
+function HeaderAction({
+  icon,
+  label,
+  onPress,
+}: {
+  icon?: IKeyOfIcons;
+  label?: string;
+  onPress?: () => void;
+}) {
   const media = useMedia();
 
   return (
@@ -54,6 +64,7 @@ function HeaderAction({ icon, label }: { icon?: IKeyOfIcons; label?: string }) {
         pl: '$2.5',
         pr: '$0.5',
       })}
+      onPress={onPress}
     >
       {label}
     </Button>
@@ -103,6 +114,12 @@ function HomePage() {
   const handleChainPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
       screen: EChainSelectorPages.Selector,
+    });
+  }, [navigation]);
+
+  const handleReceivePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EReceivePages.QrCode,
     });
   }, [navigation]);
 
@@ -164,7 +181,12 @@ function HomePage() {
                   uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
                 }}
               />
-              <SizableText userSelect="none" pl="$2" size="$bodyMd">
+              <SizableText
+                userSelect="none"
+                pl="$2"
+                size="$bodyMd"
+                color="$textSubdued"
+              >
                 Bitcoin
               </SizableText>
               <Icon
@@ -173,42 +195,52 @@ function HomePage() {
                 size="$5"
               />
             </XStack>
-            <XStack
-              alignItems="center"
-              onPress={() =>
-                Toast.success({
-                  title: 'Copied',
-                })
+            <Tooltip
+              renderContent="Copy to clipboard"
+              placement="top"
+              renderTrigger={
+                <XStack
+                  alignItems="center"
+                  onPress={() =>
+                    Toast.success({
+                      title: 'Copied',
+                    })
+                  }
+                  p="$1"
+                  px="$2"
+                  my="$-1"
+                  ml="$1"
+                  borderRadius="$2"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                  focusable
+                  focusStyle={{
+                    outlineWidth: 2,
+                    outlineColor: '$focusRing',
+                    outlineStyle: 'solid',
+                  }}
+                  $platform-native={{
+                    hitSlop: {
+                      top: 8,
+                      right: 8,
+                      bottom: 8,
+                    },
+                  }}
+                >
+                  <SizableText
+                    userSelect="none"
+                    size="$bodyMd"
+                    color="$textSubdued"
+                  >
+                    37rdQk...PCTG
+                  </SizableText>
+                </XStack>
               }
-              p="$1"
-              px="$2"
-              my="$-1"
-              ml="$1"
-              borderRadius="$2"
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusable
-              focusStyle={{
-                outlineWidth: 2,
-                outlineColor: '$focusRing',
-                outlineStyle: 'solid',
-              }}
-              $platform-native={{
-                hitSlop: {
-                  top: 8,
-                  right: 8,
-                  bottom: 8,
-                },
-              }}
-            >
-              <SizableText userSelect="none" size="$bodyMd">
-                37rdQk...PCTG
-              </SizableText>
-            </XStack>
+            />
             {/* <Select
               title="Switch Type"
               value={addressType}
@@ -280,6 +312,7 @@ function HomePage() {
           <HeaderAction
             // icon="ArrowBottomOutline"
             label="Receive"
+            onPress={handleReceivePress}
           />
           <HeaderAction
             // icon="SwitchHorOutline"
@@ -289,7 +322,7 @@ function HomePage() {
         </XStack>
       </Stack>
     ),
-    [handleChainPress],
+    [handleChainPress, handleReceivePress],
   );
 
   // useMemo(() => {
