@@ -20,6 +20,7 @@
 		C2E10F172AE7BADD00266BF2 /* NSString+OKAdd.m in Sources */ = {isa = PBXBuildFile; fileRef = C2E10F0F2AE7BADD00266BF2 /* NSString+OKAdd.m */; };
 		C2E10F192AE7BADD00266BF2 /* RCTRootView+Orientation.m in Sources */ = {isa = PBXBuildFile; fileRef = C2E10F112AE7BADD00266BF2 /* RCTRootView+Orientation.m */; };
 		C2E10F1A2AE7BADD00266BF2 /* NSData+StringToData.m in Sources */ = {isa = PBXBuildFile; fileRef = C2E10F152AE7BADD00266BF2 /* NSData+StringToData.m */; };
+		EA3BE1C92B36F3B500A3561D /* RCTBundleModule.m in Sources */ = {isa = PBXBuildFile; fileRef = EA3BE1C72B36F3B500A3561D /* RCTBundleModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +71,9 @@
 		C2E10F132AE7BADD00266BF2 /* NSString+OKAdd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+OKAdd.h"; sourceTree = "<group>"; };
 		C2E10F152AE7BADD00266BF2 /* NSData+StringToData.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+StringToData.m"; sourceTree = "<group>"; };
 		C2E10F162AE7BADD00266BF2 /* RCTRootView+Orientation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "RCTRootView+Orientation.h"; sourceTree = "<group>"; };
+		EA3BE1C72B36F3B500A3561D /* RCTBundleModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RCTBundleModule.m; sourceTree = "<group>"; };
+		EA3BE1C82B36F3B500A3561D /* RCTBundleModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RCTBundleModule.h; sourceTree = "<group>"; };
+		EA3BE1CA2B36F3D100A3561D /* RCTBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RCTBridge.h; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -100,6 +104,8 @@
 				C2E10F0E2AE7BADD00266BF2 /* Category */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
+				EA3BE1C82B36F3B500A3561D /* RCTBundleModule.h */,
+				EA3BE1C72B36F3B500A3561D /* RCTBundleModule.m */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
@@ -181,6 +187,7 @@
 		C2E10F0E2AE7BADD00266BF2 /* Category */ = {
 			isa = PBXGroup;
 			children = (
+				EA3BE1CA2B36F3D100A3561D /* RCTBridge.h */,
 				C2E10F132AE7BADD00266BF2 /* NSString+OKAdd.h */,
 				C2E10F0F2AE7BADD00266BF2 /* NSString+OKAdd.m */,
 				C2E10F122AE7BADD00266BF2 /* NSData+StringToData.h */,
@@ -439,6 +446,7 @@
 				C2E10F192AE7BADD00266BF2 /* RCTRootView+Orientation.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
 				C2E10F1A2AE7BADD00266BF2 /* NSData+StringToData.m in Sources */,
+				EA3BE1C92B36F3B500A3561D /* RCTBundleModule.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				C2E10F172AE7BADD00266BF2 /* NSString+OKAdd.m in Sources */,
 			);
