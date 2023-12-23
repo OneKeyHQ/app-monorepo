@@ -28,23 +28,10 @@ const fetchModule =
 const requireEnsure = async (chunkId) => {
   const hash = chunkModuleIdToHashMap[chunkId];
   const { installedChunks } = global;
-  const promises = [];
-  let installedChunkData = installedChunks[chunkId];
-  if (installedChunkData !== 0) {
-    if (installedChunkData) {
-      promises.push(installedChunkData[2]);
-    } else {
-      const promise = new Promise((resolve, reject) => {
-        installedChunks[chunkId] = [resolve, reject];
-        installedChunkData = installedChunks[chunkId];
-      });
-      promises.push((installedChunkData[2] = promise));
-      const [resolve, reject] = installedChunks[chunkId];
-      await fetchModule(hash);
-      resolve();
-    }
+  if (!installedChunks[chunkId]) {
+    await fetchModule(hash);
+    installedChunks[chunkId] = true;
   }
-  return Promise.all(promises);
 };
 
 const wrapAsyncRequire = async (moduleId) => {
