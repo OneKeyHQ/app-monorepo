@@ -8,6 +8,7 @@ export interface IDiscoveryBanner {
   src: string;
   href: string;
   hrefType: string;
+  rank: number;
   useSystemBrowser: boolean;
 }
 
@@ -25,12 +26,7 @@ export interface IDApp {
   logo: string;
   originLogo: string;
   description: string;
-  origin: string;
-  recommendIndex: number;
   networkIds: string[];
-  deleted: boolean;
-  createdAt: string;
-  updatedAt: string;
   categories: IDAppCategory[];
   tags: IDAppTag[];
 }
