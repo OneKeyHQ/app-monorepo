@@ -1,18 +1,29 @@
 const asyncRequire = require('metro-runtime/src/modules/asyncRequire');
 const chunkModuleIdToHashMap = require('__CHUNK_MODULE_ID_TO_HASH_MAP__');
+const { NativeModules } = require('react-native');
 
-const fetchModule = async (hash) => {
+const fetchHttpModule = async (hash) => {
   const url = `http://__METRO_HOST_IP__:8081/async-thunks?hash=${hash}`;
   const response = await fetch(url);
   if (response.status !== 200) {
     throw new Error(`fetch module error: ${url}}`);
   } else {
     const text = await response.text();
-    return text;
+    // eslint-disable-next-line no-new-func
+    Function(`"use strict"; ${text}`)();
   }
 };
 
+const { Bundle } = NativeModules;
+const fetchNativeModule = async (hash) => {
+  await Bundle.executeSourceCode(hash);
+};
+
+// process.env.NODE_ENV
 global.installedChunks = global.installedChunks || {};
+
+const fetchModule =
+  process.env.NODE_ENV !== 'development' ? fetchNativeModule : fetchHttpModule;
 
 const requireEnsure = async (chunkId) => {
   const hash = chunkModuleIdToHashMap[chunkId];
@@ -28,10 +39,8 @@ const requireEnsure = async (chunkId) => {
         installedChunkData = installedChunks[chunkId];
       });
       promises.push((installedChunkData[2] = promise));
-      const text = await fetchModule(hash);
       const [resolve, reject] = installedChunks[chunkId];
-      // eslint-disable-next-line no-new-func
-      Function(`"use strict"; ${text}`)();
+      await fetchModule(hash);
       resolve();
     }
   }

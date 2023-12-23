@@ -17,7 +17,7 @@ RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResol
 {
   
   NSString * resourcePath = [[NSBundle mainBundle] resourcePath];
-  NSString * path = [resourcePath stringByAppendingString:hashId];
+  NSString *path = [NSString stringWithFormat:@"%@/%@.bundle", resourcePath, hashId];
   NSError* error = nil;
   NSData* data = [NSData dataWithContentsOfFile:path  options:0 error:&error];
   [rctBridge executeSourceCode:data sync: YES];
