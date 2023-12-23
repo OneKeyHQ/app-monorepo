@@ -17,9 +17,9 @@ const fetchHttpModule = async (hash) => {
 const { Bundle } = NativeModules;
 const fetchNativeModule = async (hash) => {
   await Bundle.executeSourceCode(hash);
+  return new Promise((resolve) => setTimeout(resolve));
 };
 
-// process.env.NODE_ENV
 global.installedChunks = global.installedChunks || {};
 
 const fetchModule =
