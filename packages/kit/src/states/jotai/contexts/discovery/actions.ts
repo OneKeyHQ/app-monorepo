@@ -273,24 +273,26 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const bookmark = await this.getBookmarkData.call(set);
-      const index = bookmark.findIndex((item) => item.url === payload.url);
-      if (index !== -1) {
-        bookmark.splice(index, 1);
-      }
-      bookmark.push({ url: payload.url, title: payload.title });
-      this.buildBookmarkData.call(set, bookmark);
+
+      const bookmarks = await this.getBookmarkData.call(set);
+
+      // Filter out any bookmarks that have the same URL as the new one
+      const filteredBookmarks = bookmarks.filter(
+        (bookmark) => bookmark.url !== payload.url,
+      );
+      const newBookmark = { url: payload.url, title: payload.title };
+      const updatedBookmarks = [...filteredBookmarks, newBookmark];
+      this.buildBookmarkData.call(set, updatedBookmarks);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
     },
   );
 
   removeBrowserBookmark = contextAtomMethod(async (_, set, payload: string) => {
-    const bookmark = await this.getBookmarkData.call(set);
-    const index = bookmark.findIndex((item) => item.url === payload);
-    if (index !== -1) {
-      bookmark.splice(index, 1);
-    }
-    this.buildBookmarkData.call(set, bookmark);
+    const bookmarks = await this.getBookmarkData.call(set);
+    const updatedBookmarks = bookmarks.filter(
+      (bookmark) => bookmark.url !== payload,
+    );
+    this.buildBookmarkData.call(set, updatedBookmarks);
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
   });
 
@@ -300,11 +302,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       const bookmark = await this.getBookmarkData.call(set);
-      const index = bookmark.findIndex((item) => item.url === payload.url);
-      if (index !== -1) {
-        bookmark[index] = payload;
-        this.buildBookmarkData.call(set, bookmark);
-      }
+      const updatedBookmark = bookmark.map((item) =>
+        item.url === payload.url ? { ...item, ...payload } : item,
+      );
+      this.buildBookmarkData.call(set, updatedBookmark);
     },
   );
 
@@ -333,27 +334,26 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       const history = await this.getHistoryData.call(set);
-      const index = history.findIndex((item) => item.url === payload.url);
-      if (index !== -1) {
-        history.splice(index, 1);
-      }
-      history.unshift({
+
+      const updatedHistory = history.filter((item) => item.url !== payload.url);
+
+      const newHistoryEntry = {
         id: nanoid(),
         url: payload.url,
         title: payload.title,
         createdAt: Date.now(),
-      });
-      this.buildHistoryData.call(set, history);
+      };
+
+      this.buildHistoryData.call(set, [newHistoryEntry, ...updatedHistory]);
     },
   );
 
   removeBrowserHistory = contextAtomMethod(async (_, set, payload: string) => {
     const history = await this.getHistoryData.call(set);
-    const index = history.findIndex((item) => item.id === payload);
-    if (index !== -1) {
-      history.splice(index, 1);
-    }
-    this.buildHistoryData.call(set, history);
+
+    const updatedHistory = history.filter((item) => item.id !== payload);
+
+    this.buildHistoryData.call(set, updatedHistory);
   });
 
   removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
