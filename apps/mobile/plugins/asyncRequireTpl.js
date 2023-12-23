@@ -23,7 +23,7 @@ const fetchNativeModule = async (hash) => {
 global.installedChunks = global.installedChunks || {};
 
 const fetchModule =
-  process.env.NODE_ENV !== 'development' ? fetchNativeModule : fetchHttpModule;
+  '__NODE_ENV__' !== 'production' ? fetchHttpModule : fetchNativeModule;
 
 const requireEnsure = async (chunkId) => {
   const hash = chunkModuleIdToHashMap[chunkId];

@@ -58,7 +58,8 @@ module.exports = (config, projectRoot) => {
       .replace(
         '__CHUNK_MODULE_ID_TO_HASH_MAP__',
         path.join(__dirname, './chunkModuleIdToHashMap.js'),
-      ),
+      )
+      .replace('__NODE_ENV__', process.env.NODE_ENV),
     'utf8',
   );
   config.transformer.asyncRequireModulePath = asyncRequireModulePath;
