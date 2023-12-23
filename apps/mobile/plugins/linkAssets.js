@@ -3,17 +3,18 @@ const linkAssets = (projectRoot) => {
   console.log(
     `info Linking chunk bundle to native app. ${new Date().toISOString()}`,
   );
+  const assets = ['./dist/chunks'];
   linkAssets({
     rootPath: projectRoot,
     shouldUnlink: false,
     platforms: {
       ios: {
         enabled: true,
-        assets: ['./dist'],
+        assets,
       },
       android: {
         enabled: true,
-        assets: ['./dist/chunks'],
+        assets,
       },
     },
   });
@@ -23,5 +24,6 @@ const linkAssets = (projectRoot) => {
 };
 
 exports.linkAssets = linkAssets;
-
-// linkAssets(require('path').resolve(__dirname, '..'));
+if (process && process.argv &&process.argv[1] === __filename) {
+  linkAssets(require('path').resolve(__dirname, '..'));
+}
