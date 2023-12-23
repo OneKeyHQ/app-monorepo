@@ -15,7 +15,7 @@ const fetchModule = async (hash) => {
 global.installedChunks = global.installedChunks || {};
 
 const requireEnsure = async (chunkId) => {
-  const { hash } = chunkModuleIdToHashMap[chunkId];
+  const hash = chunkModuleIdToHashMap[chunkId];
   const { installedChunks } = global;
   const promises = [];
   let installedChunkData = installedChunks[chunkId];

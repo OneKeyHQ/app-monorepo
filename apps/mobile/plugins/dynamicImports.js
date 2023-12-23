@@ -160,6 +160,13 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
 
   for (const arr of map.get(mainModuleId).modules) {
     if (arr[0] === fileToIdMap.get(chunkModuleIdToHashMapPath)) {
+      const idHashMap = Object.keys(chunkModuleIdToHashMap).reduce(
+        (prev, key) => {
+          prev[key] = chunkModuleIdToHashMap[key].hash;
+          return prev;
+        },
+        {},
+      );
       const ast = parser.parse(arr[1]);
       traverse(ast, {
         FunctionExpression(nodePath) {
@@ -167,7 +174,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
             .get('body.body.0')
             .get('expression')
             .get('right')
-            .replaceWithSourceString(JSON.stringify(chunkModuleIdToHashMap));
+            .replaceWithSourceString(JSON.stringify(idHashMap));
         },
       });
       const { code } = generate(ast, { minified: true });
