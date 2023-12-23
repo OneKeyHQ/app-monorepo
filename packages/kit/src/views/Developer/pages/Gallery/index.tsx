@@ -11,6 +11,7 @@ import DividerGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Comp
 import EmptyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Empty';
 import ErrorToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery';
 import FormGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Form';
+import HardwareGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware';
 import IconGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton';
 import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
@@ -158,5 +159,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentAccountModel,
     component: AccountModelGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentHardware,
+    component: HardwareGallery,
   },
 ];
