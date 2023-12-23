@@ -167,6 +167,15 @@ module.exports = (config, projectRoot) => {
             next();
           }
         });
+    config.hooks = {
+      onEnd: () =>
+        new Promise((resolve) => {
+          console.log('onended');
+          setTimeout(() => {
+            resolve();
+          }, 2000);
+        }),
+    };
   }
   return config;
 };
