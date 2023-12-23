@@ -3,7 +3,7 @@
 const _ = require('lodash');
 
 module.exports = (config, projectRoot) => {
-  if (process.env.NODE_ENV !== 'production' && process.env.SPLIT_BUNDLE) {
+  if (process.env.SPLIT_BUNDLE) {
     const path = require('path');
     const fs = require('fs-extra');
     const connect = require('connect');
@@ -93,18 +93,12 @@ module.exports = (config, projectRoot) => {
     //     true;
     // })();
 
-    config.serializer.createModuleIdFactory = () => {
-      let nextId = 0;
-      return (path) => {
-        let id = fileToIdMap.get(path);
-        if (typeof id !== 'number') {
-          // eslint-disable-next-line no-plusplus
-          nextId += 1;
-          id = nextId;
-          fileToIdMap.set(path, id);
-        }
-        return id;
-      };
+    config.serializer.createModuleIdFactory = () => (path) => {
+      const id = fileToIdMap.get(path);
+      if (typeof id !== 'number') {
+        return fileToIdMap.safeSet(path);
+      }
+      return id;
     };
 
     const beforeCustomSerializer = (
