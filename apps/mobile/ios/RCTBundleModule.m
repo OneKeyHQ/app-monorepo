@@ -1,15 +1,12 @@
 #import "RCTBundleModule.h"
+#import <React/RCTBridge+Private.h>
 #import "Category/RCTBridge.h"
 
 @implementation RCTBundleModule
 
-static RCTBridge *rctBridge = nil;
 
 RCT_EXPORT_MODULE(Bundle);
 
-+ (void)setBridge:(RCTBridge *)bridge {
-  rctBridge = bridge;
-}
 
 
 RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResolveBlock)resolve
@@ -19,8 +16,9 @@ RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResol
   NSString * resourcePath = [[NSBundle mainBundle] resourcePath];
   NSString *path = [NSString stringWithFormat:@"%@/%@.bundle", resourcePath, hashId];
   NSError* error = nil;
-  NSData* data = [NSData dataWithContentsOfFile:path  options:0 error:&error];
-  [rctBridge executeSourceCode:data sync: YES];
+  NSData* data = [NSData dataWithContentsOfFile:path  options:NSDataReadingMappedIfSafe error:&error];
+  RCTBridge *bridge = RCTBridge.currentBridge;
+  [bridge executeSourceCode:data withSourceURL:[NSURL URLWithString:path] sync:NO];
   resolve(nil);
 }
 

@@ -4,6 +4,9 @@
 
 @interface RCTBridge (RNPrivateBridge)
 
-- (void)executeSourceCode:(NSData *)sourceCode sync:(BOOL)sync;
+
++ (instancetype)currentBridge;
+- (void)executeSourceCode:(NSData *)sourceCode withSourceURL:(NSURL *)url sync:(BOOL)sync;
+
 
 @end

@@ -18,7 +18,6 @@
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
 {
-  [RCTBundleModule setBridge:self.bridge];
 #if DEBUG
   return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@".expo/.virtual-metro-entry"];
 #else
