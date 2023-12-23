@@ -186,9 +186,7 @@ module.exports = (config, projectRoot) => {
           console.log(
             `info Linked chunk bundle to native app. ${new Date().toISOString()}`,
           );
-          setTimeout(() => {
-            resolve();
-          }, 3500);
+          resolve();
         }),
     };
   }
