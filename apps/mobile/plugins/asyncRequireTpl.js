@@ -15,8 +15,8 @@ const fetchHttpModule = async (hash) => {
 };
 
 const { Bundle } = NativeModules;
-const fetchNativeModule = async (hash) => {
-  await Bundle.executeSourceCode(hash);
+const fetchNativeModule = (hash) => {
+  Bundle.executeSourceCode(hash);
   return new Promise((resolve) => setTimeout(resolve));
 };
 

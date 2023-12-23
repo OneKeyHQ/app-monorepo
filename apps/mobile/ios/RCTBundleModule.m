@@ -19,7 +19,7 @@ RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResol
   NSData* data = [NSData dataWithContentsOfFile:path  options:NSDataReadingMappedIfSafe error:&error];
   RCTBridge *bridge = RCTBridge.currentBridge;
   [bridge executeSourceCode:data withSourceURL:[NSURL URLWithString:path] sync:NO];
-  resolve(nil);
+  resolve(@"");
 }
 
 @end
