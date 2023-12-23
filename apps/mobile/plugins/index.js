@@ -164,28 +164,8 @@ module.exports = (config, projectRoot) => {
   config.hooks = {
     onEnd: () =>
       new Promise((resolve) => {
-        const linkAssets = require('react-native-copy-asset');
-        const assets = ['./dist/chunks'];
-        console.log(
-          `info Linking chunk bundle to native app. ${new Date().toISOString()}`,
-        );
-        linkAssets({
-          rootPath: projectRoot,
-          shouldUnlink: false,
-          platforms: {
-            ios: {
-              enabled: true,
-              assets,
-            },
-            android: {
-              enabled: true,
-              assets,
-            },
-          },
-        });
-        console.log(
-          `info Linked chunk bundle to native app. ${new Date().toISOString()}`,
-        );
+        const { linkAssets } = require('./linkAssets');
+        linkAssets(projectRoot);
         resolve();
       }),
   };
