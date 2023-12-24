@@ -9,8 +9,7 @@ RCT_EXPORT_MODULE(Bundle);
 
 
 
-RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResolveBlock)resolve
-                  rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId)
 {
   
   NSString * resourcePath = [[NSBundle mainBundle] resourcePath];
@@ -19,7 +18,6 @@ RCT_EXPORT_METHOD(executeSourceCode:(NSString *)hashId resolver:(RCTPromiseResol
   NSData* data = [NSData dataWithContentsOfFile:path  options:NSDataReadingMappedIfSafe error:&error];
   RCTBridge *bridge = RCTBridge.currentBridge;
   [bridge executeSourceCode:data withSourceURL:[NSURL URLWithString:path] sync:NO];
-  resolve(@"");
 }
 
 @end
