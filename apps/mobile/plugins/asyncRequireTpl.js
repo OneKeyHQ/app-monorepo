@@ -15,14 +15,13 @@ const fetchHttpModule = async (hash) => {
 };
 
 const { Bundle } = NativeModules;
-const fetchNativeModule = (hash) => {
-  Bundle.executeSourceCode(hash);
-  return new Promise((resolve) => {
+const fetchNativeModule = (hash) =>
+  new Promise((resolve) => {
     const { pendingChunks } = global;
     pendingChunks[hash] = pendingChunks[hash] || [];
     pendingChunks[hash].push(resolve);
+    Bundle.executeSourceCode(hash);
   });
-};
 
 global.installedChunks = global.installedChunks || {};
 
