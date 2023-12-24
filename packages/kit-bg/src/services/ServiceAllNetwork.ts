@@ -92,6 +92,7 @@ export default class ServiceAllNetwork extends ServiceBase {
         OnekeyNetwork.bch,
         OnekeyNetwork.doge,
         OnekeyNetwork.ada,
+        OnekeyNetwork.nexa,
       ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
     const replaceStr =
       isValidUtxoAccount || isLightningNetwork(account.coinType)
