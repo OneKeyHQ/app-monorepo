@@ -13,6 +13,7 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
+import LogoOKX from '@onekeyhq/kit/assets/onboarding/logo_okx_wallet.png';
 import LogoRainbow from '@onekeyhq/kit/assets/onboarding/logo_rainbow.png';
 import LogoTrustWallet from '@onekeyhq/kit/assets/onboarding/logo_trustwallet.png';
 import LogoWalletconnect from '@onekeyhq/kit/assets/onboarding/logo_walletconnect.png';
@@ -61,7 +62,13 @@ export function ConnectThirdPartyWallet({ onPress }: { onPress: () => void }) {
   }, []);
   useAppStateChange(onAppStateChange);
 
-  const logos = [LogoMetaMask, LogoTrustWallet, LogoRainbow, LogoWalletconnect];
+  const logos = [
+    LogoMetaMask,
+    LogoOKX,
+    LogoTrustWallet,
+    LogoRainbow,
+    LogoWalletconnect,
+  ];
 
   return (
     <Pressable
