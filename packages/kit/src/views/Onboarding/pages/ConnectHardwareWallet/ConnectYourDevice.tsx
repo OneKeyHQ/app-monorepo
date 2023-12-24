@@ -178,7 +178,7 @@ const FirmwareAuthenticationDialogContent = ({
   );
 };
 
-export function ConnectYourDevice() {
+export default function ConnectYourDevice() {
   const navigation = useAppNavigation();
 
   const handleHeaderRightPress = () => {

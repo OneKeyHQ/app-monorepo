@@ -28,7 +28,7 @@ type IOptionSection = {
   data: IOptionItem[];
 };
 
-export function ImportWalletOptions() {
+export default function ImportWalletOptions() {
   const navigation = useAppNavigation();
 
   const handleConnectHardwareWalletPress = () => {

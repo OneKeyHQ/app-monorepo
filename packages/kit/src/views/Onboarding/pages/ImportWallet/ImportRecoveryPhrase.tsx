@@ -19,7 +19,7 @@ const tutorials = [
       'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
   },
 ];
-export function ImportRecoveryPhrase() {
+export default function ImportRecoveryPhrase() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Import Recovery Phrase" />

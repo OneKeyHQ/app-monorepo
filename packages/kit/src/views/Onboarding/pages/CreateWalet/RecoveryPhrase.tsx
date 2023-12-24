@@ -73,7 +73,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   );
 }
 
-export function RecoveryPhrase() {
+export default function RecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {

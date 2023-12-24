@@ -1,7 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
-import { galleryScreenList } from './pages/Gallery';
+// import { galleryScreenList } from './pages/Gallery';
 import TabDeveloper from './pages/TabDeveloper';
 import { ETabDeveloperRoutes } from './type';
 
@@ -17,7 +17,7 @@ export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
     translationId: 'form__dev_mode',
     rewrite: '/',
   },
-  ...galleryScreenList,
+  // ...galleryScreenList,
   {
     name: ETabDeveloperRoutes.DevHome,
     component: DevHome,

@@ -13,24 +13,24 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
 >[] = [
-  {
-    name: EModalSendRoutes.SendAssetInput,
-    component: SendAddressInputWithProvider,
-  },
-  {
-    name: EModalSendRoutes.SendAddressInput,
-    component: SendAddressInput,
-  },
-  {
-    name: EModalSendRoutes.SendAmountInput,
-    component: SendAmountInput,
-  },
-  {
-    name: EModalSendRoutes.SendConfirm,
-    component: SendConfirm,
-  },
-  {
-    name: EModalSendRoutes.SendProgress,
-    component: SendProgress,
-  },
+  // {
+  //   name: EModalSendRoutes.SendAssetInput,
+  //   component: SendAddressInputWithProvider,
+  // },
+  // {
+  //   name: EModalSendRoutes.SendAddressInput,
+  //   component: SendAddressInput,
+  // },
+  // {
+  //   name: EModalSendRoutes.SendAmountInput,
+  //   component: SendAmountInput,
+  // },
+  // {
+  //   name: EModalSendRoutes.SendConfirm,
+  //   component: SendConfirm,
+  // },
+  // {
+  //   name: EModalSendRoutes.SendProgress,
+  //   component: SendProgress,
+  // },
 ];

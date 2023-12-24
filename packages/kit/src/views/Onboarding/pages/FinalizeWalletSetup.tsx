@@ -6,7 +6,7 @@ import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-export function FinalizeWalletSetup() {
+export default function FinalizeWalletSetup() {
   const [currentStep, setCurrentStep] = useState(0);
   const navigation = useAppNavigation();
 

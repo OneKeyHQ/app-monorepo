@@ -42,7 +42,7 @@ const messages: IWaningMessage[] = [
   },
 ];
 
-export function BeforeShowRecoveryPhrase() {
+export default function BeforeShowRecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleShowRecoveryPhrasePress = () => {

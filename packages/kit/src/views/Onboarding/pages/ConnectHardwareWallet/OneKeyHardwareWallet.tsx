@@ -14,7 +14,7 @@ import {
 
 import OneKeyAllProductsVideo from '../../../../../assets/onboarding/onekey-all-products.mp4';
 
-export function OneKeyHardwareWallet() {
+export default function OneKeyHardwareWallet() {
   const video = useRef(null);
 
   return (
