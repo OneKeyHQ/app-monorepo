@@ -37,6 +37,6 @@ public class BundleModule extends ReactContextBaseJavaModule {
     @NonNull
     @Override
     public String getName() {
-        return "BundleModule";
+        return "Bundle";
     }
 }
