@@ -112,7 +112,7 @@ module.exports = (config, projectRoot) => {
       // to entry file injection of global variables __APP__
       if (entryPoint === key) {
         for (const { data } of value.output) {
-          data.code = `__APP__= {}\n${data.code}`;
+          data.code = `global.pendingChunks = global.pendingChunks || {};\n${data.code}`;
         }
         break;
       }

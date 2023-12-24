@@ -17,7 +17,11 @@ const fetchHttpModule = async (hash) => {
 const { Bundle } = NativeModules;
 const fetchNativeModule = (hash) => {
   Bundle.executeSourceCode(hash);
-  return new Promise((resolve) => setTimeout(resolve));
+  return new Promise((resolve) => {
+    const { pendingChunks } = global;
+    pendingChunks[hash] = pendingChunks[hash] || [];
+    pendingChunks[hash].push(resolve);
+  });
 };
 
 global.installedChunks = global.installedChunks || {};
