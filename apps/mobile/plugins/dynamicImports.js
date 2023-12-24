@@ -152,7 +152,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
           const dir = path.resolve(outputChunkDir, `${hash}.bundle`);
           await fs.writeFile(
             dir,
-            `${code}\n(global.pendingChunks["${hash}"]||[]).forEach((resolve)=>resolve());delete global.pendingChunks["${hash}"];`,
+            `${code}\n(pendingChunks["${hash}"]||[]).forEach((resolve)=>resolve());delete pendingChunks["${hash}"];`,
           );
           console.log(`info Writing chunk bundle output to: ${dir}`);
         })(),
