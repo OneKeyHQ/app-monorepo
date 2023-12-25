@@ -111,7 +111,7 @@ export default class ServiceSwap extends ServiceBase {
       } else {
         // TODO: toast
         console.error('fetchSwapTokens--error', e);
-        throw e;
+        return { result: [], next: undefined };
       }
     } finally {
       this._tokensCancelSource = undefined;
@@ -219,17 +219,14 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-        '/exchange/build_tx',
-        { params },
-      );
-      if (data.code === 0 && data.data) {
-        return data.data;
-      }
-    } catch (e) {
-      // TODO: toast
-      console.error('fetchBuildTx--error', e);
+
+    const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+      '/exchange/build_tx',
+      { params },
+    );
+    if (data.code === 0 && data.data) {
+      return data.data;
     }
+    throw new Error('fetchBuildTx error');
   }
 }

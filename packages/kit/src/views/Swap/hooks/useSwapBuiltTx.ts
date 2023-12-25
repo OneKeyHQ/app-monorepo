@@ -31,25 +31,22 @@ export function useSwapBuildTx() {
       slippagePercentage &&
       selectQuote
     ) {
-      try {
-        setSwapBuildTxFetching(true);
-        const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
-          fromToken,
-          toToken,
-          toTokenAmount: selectQuote.toAmount,
-          fromTokenAmount,
-          slippagePercentage: slippagePercentage.value.toFixed(),
-          receivingAddress: mockAddress,
-          userAddress: mockAddress,
-          provider: selectQuote.info.provider as ESwapProviders,
-        });
+      setSwapBuildTxFetching(true);
+      const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
+        fromToken,
+        toToken,
+        toTokenAmount: selectQuote.toAmount,
+        fromTokenAmount,
+        slippagePercentage: slippagePercentage.value.toFixed(),
+        receivingAddress: mockAddress,
+        userAddress: mockAddress,
+        provider: selectQuote.info.provider as ESwapProviders,
+      });
+      if (res) {
         setSwapBuildTxResult(res);
-        console.log(res);
-      } catch (e: any) {
-        // TODO error handle
-      } finally {
-        setSwapBuildTxFetching(false);
       }
+      console.log(res);
+      setSwapBuildTxFetching(false);
     }
   }, [
     fromToken,

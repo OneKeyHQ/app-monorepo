@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
