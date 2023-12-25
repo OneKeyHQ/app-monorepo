@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",

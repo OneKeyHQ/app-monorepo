@@ -24,7 +24,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
-          node-version: '18.x'
+          node-version: '20.x'
 
       - name: Dotenv Action
         id: dotenv

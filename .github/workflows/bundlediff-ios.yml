@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js v18
         uses: actions/setup-node@v3
         with:
-          node-version: 18.x
+          node-version: 20.x
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
@@ -78,7 +78,7 @@ jobs:
       - name: Setup Node.js v18
         uses: actions/setup-node@v3
         with:
-          node-version: 18.x
+          node-version: 20.x
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
