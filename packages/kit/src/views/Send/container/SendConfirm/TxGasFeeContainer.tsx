@@ -1,4 +1,4 @@
-import { Spinner, Stack, Text, XStack } from '@onekeyhq/components';
+import { Spinner, Text, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -7,6 +7,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '../../../../utils/gasFee';
+import { GasSelectorTrigger } from '../../components/GasSelector/GasSelectorTrigger';
 
 type IProps = {
   accountId: string;
@@ -18,6 +19,7 @@ const DEFAULT_PRESET_INDEX = 1;
 
 function TxGasFeeContainer(props: IProps) {
   const { networkId, unsignedTxs } = props;
+
   const gasFee = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceGas.fetchFeeInfoUnit({
@@ -52,18 +54,20 @@ function TxGasFeeContainer(props: IProps) {
 
   if (gasFee.isLoading)
     return (
-      <Stack padding="$2">
+      <XStack py="$2">
         <Spinner size="small" />
-      </Stack>
+      </XStack>
     );
 
   return (
-    <XStack padding="$2" space="$2">
-      <Text>Gas Fee</Text>
-      <Text>
-        {gasFee.result?.totalNativeForDisplay}{' '}
-        {gasFee.result?.feeInfo.common?.nativeSymbol}
-      </Text>
+    <XStack py="$2" justifyContent="space-around">
+      <YStack flex={1}>
+        <Text variant="$bodyLg">{gasFee.result?.totalNativeForDisplay} </Text>
+        <Text variant="$bodyMd" color="$textSubdued">
+          Fee Estimate
+        </Text>
+      </YStack>
+      <GasSelectorTrigger flex={1} justifyContent="flex-end" />
     </XStack>
   );
 }
