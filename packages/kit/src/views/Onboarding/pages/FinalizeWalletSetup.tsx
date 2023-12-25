@@ -2,14 +2,28 @@ import { useEffect, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
-export default function FinalizeWalletSetup() {
+import type { EOnboardingPages, IOnboardingParamList } from '../router/type';
+
+function FinalizeWalletSetupPage({
+  route,
+}: IPageScreenProps<
+  IOnboardingParamList,
+  EOnboardingPages.FinalizeWalletSetup
+>) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
+  const mnemonic = route?.params?.mnemonic;
 
+  const actions = useAccountSelectorActions();
   const steps = [
     'Creating your wallet',
     'Generating your accounts',
@@ -18,6 +32,18 @@ export default function FinalizeWalletSetup() {
   ];
 
   useEffect(() => {
+    void (async () => {
+      await actions.current.createHDWallet({
+        mnemonic,
+      });
+      setShowStep(true);
+    })();
+  }, [actions, mnemonic]);
+
+  useEffect(() => {
+    if (!showStep) {
+      return;
+    }
     const interval = setInterval(() => {
       setCurrentStep((prevStep) => {
         if (prevStep < steps.length - 1) {
@@ -35,7 +61,7 @@ export default function FinalizeWalletSetup() {
     }
 
     return () => clearInterval(interval);
-  }, [currentStep, navigation, steps.length]);
+  }, [currentStep, navigation, showStep, steps.length]);
 
   return (
     <Page>
@@ -91,3 +117,23 @@ export default function FinalizeWalletSetup() {
     </Page>
   );
 }
+
+export function FinalizeWalletSetup({
+  route,
+  navigation,
+}: IPageScreenProps<
+  IOnboardingParamList,
+  EOnboardingPages.FinalizeWalletSetup
+>) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <FinalizeWalletSetupPage route={route} navigation={navigation} />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default FinalizeWalletSetup;

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import * as Clipboard from 'expo-clipboard';
 
@@ -11,26 +11,13 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { Tutorials } from '../../Components';
 import { EOnboardingPages } from '../../router/type';
-
-const phrases: string[] = [
-  'abandon',
-  'ability',
-  'able',
-  'about',
-  'above',
-  'absent',
-  'absorb',
-  'abstract',
-  'absurd',
-  'abuse',
-  'access',
-  'accident',
-];
 
 const tutorials = [
   {
@@ -75,12 +62,17 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 
 export default function RecoveryPhrase() {
   const navigation = useAppNavigation();
+  const { servicePassword } = backgroundApiProxy;
+  const mnemonic = useMemo(() => generateMnemonic(), []);
+  const phrases = useMemo(() => mnemonic.split(' '), [mnemonic]);
 
-  const handleConfirmPress = () => {
+  const handleConfirmPress = useCallback(async () => {
     navigation.push(EOnboardingPages.VerifyRecoverPhrase, {
-      phrases,
+      mnemonic: await servicePassword.encodeSensitiveText({
+        text: mnemonic,
+      }),
     });
-  };
+  }, [mnemonic, navigation, servicePassword]);
 
   return (
     <Page scrollEnabled>
@@ -89,19 +81,7 @@ export default function RecoveryPhrase() {
         <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
           Tap to display words and write down your phrases in order
         </SizableText>
-        {platformEnv.isDev ? (
-          <XStack px="$1" pb="$4">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                await Clipboard.setStringAsync(JSON.stringify(phrases));
-              }}
-            >
-              Copy All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
+
         <XStack flexWrap="wrap" mx="$-1">
           {phrases.map((phrase, index) => (
             <Stack
@@ -116,6 +96,21 @@ export default function RecoveryPhrase() {
             </Stack>
           ))}
         </XStack>
+
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                await Clipboard.setStringAsync(mnemonic);
+              }}
+            >
+              Copy All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
+
         <Tutorials list={tutorials} />
       </Page.Body>
       <Page.Footer
