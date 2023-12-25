@@ -1,10 +1,9 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // eslint-disable-next-line spellcheck/spell-checker
 import makeBlockie from 'ethereum-blockies-base64';
 import { AnimatePresence } from 'tamagui';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -16,8 +15,15 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -26,54 +32,65 @@ import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
+  useAccountSelectorEditModeAtom,
   useActiveAccount,
   useSelectedAccount,
 } from '../../../../states/jotai/contexts/accountSelector';
 import { EOnboardingPages } from '../../../Onboarding/router/type';
+import { AccountRenameButton } from '../../AccountRename';
 
 import { WalletOptions } from './WalletOptions';
 
-import type {
-  IAccountGroupProps,
-  IAccountProps,
-  IWalletProps,
-} from '../../types';
+import type { IAccountGroupProps, IAccountProps } from '../../types';
 
 export interface IWalletDetailsProps {
   num: number;
-  editMode?: boolean;
-  onEditButtonPress?: IButtonProps['onPress'];
   onAccountPress?: (id: IAccountProps['id']) => void;
-  wallet?: IWalletProps;
+  wallet?: IDBWallet;
 }
 
-export function WalletDetails({
-  editMode,
-  onEditButtonPress,
-  onAccountPress,
-  num,
-}: IWalletDetailsProps) {
+export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
+  const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
 
-  const { result: focusedWalletInfo } = usePromiseResult(async () => {
-    if (
-      selectedAccount?.focusedWallet &&
-      accountUtils.isHdWallet({
-        walletId: selectedAccount?.focusedWallet,
-      })
-    ) {
-      const wallet0 = await serviceAccount.getWallet({
-        walletId: selectedAccount?.focusedWallet,
-      });
-      return wallet0;
-    }
-  }, [selectedAccount?.focusedWallet, serviceAccount]);
+  const navigation = useAppNavigation();
 
-  const { result: accountsResult, run: refreshAccounts } =
+  const { result: focusedWalletInfo, run: reloadFocusedWalletInfo } =
+    usePromiseResult(
+      async () => {
+        if (
+          selectedAccount?.focusedWallet &&
+          accountUtils.isHdWallet({
+            walletId: selectedAccount?.focusedWallet,
+          })
+        ) {
+          const wallet0 = await serviceAccount.getWallet({
+            walletId: selectedAccount?.focusedWallet,
+          });
+          return wallet0;
+        }
+      },
+      [selectedAccount?.focusedWallet, serviceAccount],
+      {
+        checkIsFocused: false,
+      },
+    );
+
+  useEffect(() => {
+    const fn = async () => {
+      await reloadFocusedWalletInfo();
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+    };
+  }, [reloadFocusedWalletInfo]);
+
+  const { result: accountsResult, run: reloadAccounts } =
     usePromiseResult(async () => {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
@@ -84,6 +101,16 @@ export function WalletDetails({
     }, [selectedAccount?.focusedWallet, serviceAccount]);
   const accounts =
     accountsResult?.accounts ?? (emptyArray as unknown as IDBIndexedAccount[]);
+
+  useEffect(() => {
+    const fn = async () => {
+      await reloadAccounts();
+    };
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+    };
+  }, [reloadAccounts]);
 
   const sectionData = useMemo(
     () => [
@@ -98,7 +125,6 @@ export function WalletDetails({
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
-  const navigation = useAppNavigation();
 
   const pushImportPrivateKeyModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -118,6 +144,7 @@ export function WalletDetails({
     });
   }, [navigation]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getAddAccountPressEvent = (type: any) => {
     if (type === 'Private key') return pushImportPrivateKeyModal();
     if (type === 'Watchlist') return pushImportAddressModal();
@@ -136,7 +163,12 @@ export function WalletDetails({
           opacity: editMode ? 0 : 1,
         }}
       >
-        <Button variant="tertiary" onPress={onEditButtonPress}>
+        <Button
+          variant="tertiary"
+          onPress={() => {
+            setEditMode((v) => !v);
+          }}
+        >
           {editMode ? 'Done' : 'Edit'}
         </Button>
       </ListItem>
@@ -149,6 +181,7 @@ export function WalletDetails({
         //     <WalletOptions editMode={editMode} wallet={wallet} />
         //   ),
         // })}
+        ListHeaderComponent={<WalletOptions wallet={focusedWalletInfo} />}
         sections={sectionData}
         renderSectionHeader={({ section }: { section: IAccountGroupProps }) => (
           <>
@@ -188,13 +221,13 @@ export function WalletDetails({
                           {
                             icon: 'PencilOutline',
                             label: 'Rename',
-                            onPress: () => alert('edit'),
+                            onPress: () => alert('edit 1112'),
                           },
                           {
                             destructive: true,
                             icon: 'DeleteOutline',
                             label: 'Remove',
-                            onPress: () => alert('edit'),
+                            onPress: () => alert('edit 3332'),
                           },
                         ],
                       },
@@ -258,27 +291,13 @@ export function WalletDetails({
               })}
           >
             <AnimatePresence>
-              {editMode && (
-                <ActionList
-                  title={item.name}
-                  renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-                  items={[
-                    {
-                      icon: 'PencilOutline',
-                      label: 'Rename',
-                      onPress: () => alert('edit'),
-                    },
-                  ]}
-                />
-              )}
+              {editMode && <AccountRenameButton indexedAccount={item} />}
             </AnimatePresence>
           </ListItem>
         )}
-        renderSectionFooter={({ section }: { section: IAccountGroupProps }) => (
+        renderSectionFooter={() => (
           <ListItem
             onPress={async () => {
-              // getAddAccountPressEvent(section.title)
-              // to Private key
               if (!focusedWalletInfo) {
                 return;
               }
@@ -286,7 +305,7 @@ export function WalletDetails({
                 walletId: focusedWalletInfo?.id,
               });
               console.log('addHDNextIndexedAccount>>>', c);
-              await refreshAccounts();
+              await reloadAccounts();
 
               actions.current.updateSelectedAccount({
                 num,
