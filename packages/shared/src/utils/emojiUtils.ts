@@ -1905,13 +1905,13 @@ export const colors = [
   '#DF9BD0',
 ];
 
-export type IAvatar = {
-  emoji?: IEmojiTypes | 'img';
+export type IAvatarInfo = {
   img: IHdWalletAvatarImageNames;
-  bgColor: string;
+  emoji?: IEmojiTypes | 'img';
+  bgColor?: string;
 };
 
-export const defaultAvatar: IAvatar = {
+export const defaultAvatar: IAvatarInfo = {
   img: 'bear',
   emoji: '🤑',
   bgColor: '#55A9D9',
@@ -1921,7 +1921,7 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-export function randomAvatar(): IAvatar {
+export function randomAvatar(): IAvatarInfo {
   return {
     emoji: randomList[getRandomInt(randomList.length)],
     img: HdWalletAvatarImageNames[
