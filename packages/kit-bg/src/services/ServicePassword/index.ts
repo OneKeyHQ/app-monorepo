@@ -1,5 +1,6 @@
 import {
   decodePassword,
+  decodeSensitiveText,
   encodeSensitiveText,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
@@ -38,6 +39,15 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveText({ text }));
+  }
+
+  @backgroundMethod()
+  async decodeSensitiveText({
+    encodedText,
+  }: {
+    encodedText: string;
+  }): Promise<string> {
+    return Promise.resolve(decodeSensitiveText({ encodedText }));
   }
 
   @backgroundMethod()
