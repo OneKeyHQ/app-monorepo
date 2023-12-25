@@ -74,9 +74,9 @@ export type IDialogContainerProps = PropsWithChildren<
 
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
-  onClose?: () => void;
+  onClose?: () => void | Promise<void>;
   /* Run it after dialog is closed  */
-  onDismiss?: () => void;
+  onDismiss?: () => void | Promise<void>;
 }
 
 export type IDialogConfirmProps = Omit<

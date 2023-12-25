@@ -1,9 +1,12 @@
 import { isEqual } from 'lodash';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
+import { Page, Toast } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { PhaseInputArea } from '../../Components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
 
@@ -22,25 +25,53 @@ export function VerifyRecoveryPhrase({
   IOnboardingParamList,
   EOnboardingPages.VerifyRecoverPhrase
 >) {
-  const { phrases } = route.params || {};
+  const { servicePassword } = backgroundApiProxy;
+  const { mnemonic } = route.params || {};
+  ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
-  const handleConfirmPress = (values: string[]) => {
-    if (isEqual(phrases, values)) {
-      navigation.push(EOnboardingPages.FinalizeWalletSetup);
+  const handleConfirmPress = async (mnemonicConfirm: string) => {
+    if (
+      isEqual(
+        await servicePassword.decodeSensitiveText({
+          encodedText: mnemonic,
+        }),
+        await servicePassword.decodeSensitiveText({
+          encodedText: mnemonicConfirm,
+        }),
+      )
+    ) {
+      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+        mnemonic: mnemonicConfirm,
+      });
     } else {
-      alert('not equal');
+      Toast.error({
+        title: 'not equal',
+      });
     }
   };
+
+  const { result: phrases } = usePromiseResult(async () => {
+    if (process.env.NODE_ENV !== 'production') {
+      const mnemonicRaw = await servicePassword.decodeSensitiveText({
+        encodedText: mnemonic,
+      });
+      return mnemonicRaw.split(' ');
+    }
+    return [];
+  }, [mnemonic, servicePassword]);
 
   return (
     <Page scrollEnabled>
       <Page.Header title="Verify your Recovery Phrase" />
-      <PhaseInputArea
-        onConfirm={handleConfirmPress}
-        showPhraseLengthSelector={false}
-        showClearAllButton={false}
-        tutorials={tutorials}
-      />
+      {phrases ? (
+        <PhaseInputArea
+          defaultPhrases={[]}
+          onConfirm={handleConfirmPress}
+          showPhraseLengthSelector={false}
+          showClearAllButton={false}
+          tutorials={tutorials}
+        />
+      ) : null}
     </Page>
   );
 }
