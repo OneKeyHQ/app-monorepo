@@ -62,7 +62,9 @@ function TxGasFeeContainer(props: IProps) {
   return (
     <XStack py="$2" justifyContent="space-around">
       <YStack flex={1}>
-        <Text variant="$bodyLg">{gasFee.result?.totalNativeForDisplay} </Text>
+        <Text variant="$bodyLg">{`${
+          gasFee.result?.totalNativeForDisplay ?? ''
+        } ${gasFee.result?.feeInfo.common?.nativeSymbol ?? ''}`}</Text>
         <Text variant="$bodyMd" color="$textSubdued">
           Fee Estimate
         </Text>

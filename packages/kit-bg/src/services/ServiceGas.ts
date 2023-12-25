@@ -23,7 +23,7 @@ class ServiceGas extends ServiceBase {
   async estimateGasFee(params: IEstimateGasParams) {
     const client = await this.getClient();
     const resp = await client.post<{ data: IEstimateGasResp }>(
-      '/wallet/v1/onchain/estimate-fee',
+      '/wallet/v1/account/estimate-fee',
       params,
     );
     return resp.data.data;

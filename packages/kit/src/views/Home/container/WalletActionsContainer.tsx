@@ -14,43 +14,19 @@ function WalletActionsContainer() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
   const handleOnSend = useCallback(() => {
-    // navigation.pushModal(EModalRoutes.SendModal, {
-    //   screen: EModalSendRoutes.SendAssetInput,
-    //   params: {
-    //     networkId: 'evm--1',
-    //     accountId: '',
-    //     transfersInfo: [
-    //       {
-    //         from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-    //         to: '',
-    //         amount: '0',
-    //         token: '',
-    //       },
-    //     ],
-    //   },
-    // });
     navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendConfirm,
+      screen: EModalSendRoutes.SendAssetInput,
       params: {
         networkId: 'evm--1',
-        accountId: '',
-        unsignedTxs: [
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        transfersInfo: [
           {
-            encodedTx: {
-              from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-              to: '0xA9b4d559A98ff47C83B74522b7986146538cD4dF',
-              value: '0.001',
-            },
-          },
-          {
-            encodedTx: {
-              from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-              to: '0xA9b4d559A98ff47C83B74522b7986146538cD4dF',
-              value: '0.001',
-            },
+            from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+            to: '',
+            amount: '0',
+            token: '',
           },
         ],
-        transfersInfo: [],
       },
     });
   }, [navigation]);
