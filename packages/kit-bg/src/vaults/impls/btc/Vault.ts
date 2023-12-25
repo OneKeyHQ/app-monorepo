@@ -1,13 +1,13 @@
 import { getAddress } from '@ethersproject/address';
-import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty } from 'lodash';
 
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
-import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -26,13 +26,13 @@ import type {
   IVaultSettings,
 } from '../../types';
 
-// evm vault
+// btc vault
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
   override async buildEncodedTx(options: {
     transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IEncodedTxEvm> {
+  }): Promise<IEncodedTxBtc> {
     const { transfersInfo } = options;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(transfersInfo);
@@ -57,11 +57,7 @@ export default class Vault extends VaultBase {
   }): Promise<IUnsignedTxPro> {
     const { unsignedTx, feeInfo } = options;
     if (feeInfo) {
-      const encodedTxNew = await this._attachFeeInfoToEncodedTx({
-        encodedTx: unsignedTx.encodedTx as IEncodedTxEvm,
-        feeInfo,
-      });
-      unsignedTx.encodedTx = encodedTxNew;
+      unsignedTx.feeInfo = feeInfo;
       return unsignedTx;
     }
 
@@ -98,66 +94,30 @@ export default class Vault extends VaultBase {
 
   async _buildEncodedTxFromTransfer(
     transfersInfo: ITransferInfo[],
-  ): Promise<IEncodedTxEvm> {
+  ): Promise<IEncodedTxBtc> {
     const network = await this.getNetwork();
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
       return {
-        from: transferInfo.from,
-        to: transferInfo.to,
-        value: numberUtils.numberToHex(
-          chainValueUtils.convertAmountToChainValue({
-            network,
-            value: transferInfo.amount,
-          }),
-        ),
-        data: '0x',
+        inputs: [],
+        outputs: [],
       };
     }
     return this._buildEncodedTxFromBatchTransfer(transfersInfo);
   }
 
-  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
-    // TODO EVM batch transfer through contract
-    return {
-      from: '',
-      to: '',
-      value: '0',
-      data: '0x',
-    };
-  }
-
-  async _attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTxEvm;
-    feeInfo: IFeeInfoUnit;
-  }): Promise<IEncodedTxEvm> {
-    const { encodedTx, feeInfo } = params;
-    const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
-    const tx = {
-      ...encodedTx,
-      ...gasInfo,
-    };
-    if (!isNil(feeInfo?.gas?.gasLimit)) {
-      tx.gas = feeInfo?.gas?.gasLimit;
-    }
-    return Promise.resolve(tx);
+  async _buildEncodedTxFromBatchTransfer(
+    transfersInfo: ITransferInfo[],
+  ): Promise<IEncodedTxBtc> {
+    throw new NotImplemented();
   }
 
   async _buildUnsignedTxFromEncodedTx(
-    encodedTx: IEncodedTxEvm,
+    encodedTx: IEncodedTxBtc,
   ): Promise<IUnsignedTxPro> {
-    const tx = {
-      ...encodedTx,
-    };
-    const client = await this.getEthersClient();
-    const chainIdHex = await this.getNetworkChainId({ hex: true });
-    const chainIdNum = new BigNumber(chainIdHex).toNumber();
-    const nonce = await client.getTransactionCount(tx.from);
-
-    tx.nonce = numberUtils.numberToHex(nonce);
-    tx.chainId = chainIdNum;
     return Promise.resolve({
-      encodedTx: tx,
+      encodedTx,
+      feeInfo: undefined,
     });
   }
 

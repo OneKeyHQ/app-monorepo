@@ -1,5 +1,6 @@
 import { isNil } from 'lodash';
 
+import { initBitcoinEcc } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   EAddressEncodings,
   ICoreCredentialsInfo,
@@ -279,6 +280,25 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
 
     return ret;
+  }
+
+  async basePrepareAccountsHdBtc(
+    params: IPrepareHdAccountsParams,
+  ): Promise<IDBUtxoAccount[]> {
+    initBitcoinEcc();
+    const { deriveInfo } = params;
+    const { addressEncoding } = deriveInfo;
+    const checkIsAccountUsed: (query: {
+      xpub: string;
+      xpubSegwit?: string;
+      address: string;
+    }) => Promise<{ isUsed: boolean }> = async (query) =>
+      Promise.resolve({ isUsed: true });
+
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding,
+      checkIsAccountUsed,
+    });
   }
 
   async basePrepareAccountsHdUtxo(

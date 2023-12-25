@@ -26,9 +26,13 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async demoSendEvmTx() {
-    const networkId = 'evm--5';
-    const accountId = "hd-1--m/44'/60'/0'/0/0";
+  public async demoSend({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -125,7 +129,11 @@ class ServiceSend extends ServiceBase {
     if (signOnly) {
       return { ...signedTx, encodedTx: unsignedTx.encodedTx };
     }
-    return this.broadcastTransaction({ networkId, signedTx });
+    return vault.broadcastTransaction({
+      networkId,
+      signedTx,
+    });
+    // return this.broadcastTransaction({ networkId, signedTx });
   }
 }
 

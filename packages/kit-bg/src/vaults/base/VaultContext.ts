@@ -3,11 +3,8 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
-import {
-  mockGetChainInfo,
-  mockGetNetwork,
-  mockGetWalletIdFromAccountId,
-} from '../../mock';
+import { mockGetNetwork, mockGetWalletIdFromAccountId } from '../../mock';
+import { getVaultSettingsNetworkInfo } from '../settings';
 
 import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions } from '../types';
@@ -92,8 +89,8 @@ export class VaultContext {
     return networkUtils.getNetworkImpl({ networkId: this.networkId });
   }
 
-  async getChainInfo() {
-    return mockGetChainInfo({ networkId: this.networkId });
+  async getNetworkInfo() {
+    return getVaultSettingsNetworkInfo({ networkId: this.networkId });
   }
 
   async getRpcUrl() {

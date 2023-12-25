@@ -1,4 +1,6 @@
 import type {
+  EAddressEncodings,
+  ICurveName,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
@@ -10,16 +12,20 @@ import type {
   IOnChainHistoryTxAsset,
 } from '@onekeyhq/shared/types/history';
 
-import type {
-  IAccountDeriveInfoMapEvm,
-  IAccountDeriveTypesEvm,
-} from './impls/evm/settings';
+import type { MessageDescriptor } from 'react-intl';
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_WATCHING,
 } from '../dbs/local/consts';
 import type { IDBWalletId } from '../dbs/local/types';
-import type { MessageDescriptor } from 'react-intl';
+import type {
+  IAccountDeriveInfoMapBtc,
+  IAccountDeriveTypesBtc,
+} from './impls/btc/settings';
+import type {
+  IAccountDeriveInfoMapEvm,
+  IAccountDeriveTypesEvm,
+} from './impls/evm/settings';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -39,6 +45,7 @@ export interface IAccountDeriveInfo {
 
   template: string; // template with INDEX_PLACEHOLDER
   coinType: string;
+  addressEncoding?: EAddressEncodings;
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
@@ -66,16 +73,30 @@ export interface IAccountDeriveInfo {
 export type IAccountDeriveInfoMapBase = {
   default: IAccountDeriveInfo; // default is required
 };
-export type IAccountDeriveInfoMap = IAccountDeriveInfoMapEvm;
-export type IAccountDeriveTypes = 'default' | IAccountDeriveTypesEvm;
+export type IAccountDeriveInfoMap =
+  | IAccountDeriveInfoMapEvm
+  | IAccountDeriveInfoMapBtc;
+export type IAccountDeriveTypes =
+  | 'default'
+  | IAccountDeriveTypesEvm
+  | IAccountDeriveTypesBtc;
 
+export type IVaultSettingsNetworkInfo = {
+  addressPrefix: string;
+  curve: ICurveName;
+};
 export type IVaultSettings = {
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
-  purposes: number[];
+  isUtxo: boolean;
+
   accountDeriveInfo: IAccountDeriveInfoMap;
+  networkInfo: {
+    default: IVaultSettingsNetworkInfo;
+    [networkId: string]: IVaultSettingsNetworkInfo;
+  };
 };
 
 export type IVaultFactoryOptions = {

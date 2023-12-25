@@ -14,6 +14,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProvider } from '../../../components/AccountSelector';
 import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EOnboardingPages } from '../../../views/Onboarding/router/type';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
@@ -45,6 +46,15 @@ const TabMe = () => {
           >
             切换到首页
           </Button>
+          <Button
+            onPress={() => {
+              navigation.pushFullModal(EModalRoutes.OnboardingModal, {
+                screen: EOnboardingPages.GetStarted,
+              });
+            }}
+          >
+            Onboarding
+          </Button>
           <Button onPress={onPress}>
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
@@ -66,6 +76,26 @@ const TabMe = () => {
             }}
           >
             清空缓存密码
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.serviceSend.demoSend({
+                networkId: 'evm--5',
+                accountId: `hd-1--m/44'/60'/0'/0/0`,
+              });
+            }}
+          >
+            测试发送流程 EVM
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.serviceSend.demoSend({
+                networkId: 'btc--0',
+                accountId: `hd-1--m/44'/60'/0'/0/0`,
+              });
+            }}
+          >
+            测试发送流程 BTC
           </Button>
         </YStack>
       </Page.Body>

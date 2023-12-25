@@ -1,4 +1,3 @@
-import type { EAddressEncodings } from '../../types';
 import type BigNumber from 'bignumber.js';
 import type {
   NonWitnessUtxo,
@@ -7,6 +6,7 @@ import type {
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
 import type { Network, Signer } from 'bitcoinjs-lib';
+import type { EAddressEncodings } from '../../types';
 
 export interface IBtcForkNetwork extends Network {
   networkChainCode?: string;
@@ -28,4 +28,22 @@ export type IBtcForkUTXO = {
   txid: string;
   vout: number;
   value: BigNumber;
+};
+
+export type IBtcInput = {
+  txid: string;
+  vout: number;
+  value: string;
+  // address: string;
+  // path: string;
+};
+
+export type IBtcOutput = {
+  address: string;
+  value: string;
+};
+
+export type IEncodedTxBtc = {
+  inputs: IBtcInput[];
+  outputs: IBtcOutput[];
 };

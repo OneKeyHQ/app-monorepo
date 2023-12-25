@@ -2,7 +2,6 @@
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type {
   ICoreApiNetworkInfo,
-  ICurveName,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -49,20 +48,16 @@ export abstract class KeyringBase extends VaultContext {
 
   async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
     const network = await this.getNetwork();
-    const chainInfo = await this.getChainInfo();
+    const networkInfo = await this.getNetworkInfo();
     // check presetNetworks.extensions.providerOptions
-    const addressPrefix = chainInfo?.implOptions?.addressPrefix as
-      | string
-      | undefined;
-    const curve = chainInfo?.implOptions?.curve as ICurveName | undefined;
-    const chainCode = chainInfo.code;
-    const chainId = await this.vault.getNetworkChainId();
+    const { addressPrefix, curve } = networkInfo;
     const networkImpl = await this.getNetworkImpl();
+    const chainId = await this.vault.getNetworkChainId();
     const { isTestnet } = network;
     const { networkId } = this;
     return {
       isTestnet,
-      networkChainCode: chainCode,
+      networkChainCode: networkImpl,
       chainId,
       networkId,
       networkImpl,
