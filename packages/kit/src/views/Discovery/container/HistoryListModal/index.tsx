@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { formatHistoryRecordDate } from '@onekeyhq/shared/src/utils/formatDateUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useOpenWebsite } from '../../hooks/useOpenWebsite';
@@ -25,26 +26,10 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
 
-function formatDate(timestamp: number) {
-  const today = dayjs().startOf('day');
-  const yesterday = dayjs().subtract(1, 'day').startOf('day');
-
-  const inputDate = dayjs(timestamp);
-
-  if (inputDate.isSame(today, 'day')) {
-    return 'Today';
-  }
-  if (inputDate.isSame(yesterday, 'day')) {
-    return 'Yesterday';
-  }
-
-  return inputDate.format('MMM DD YYYY');
-}
-
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
-      const date = formatDate(item.createdAt);
+      const date = formatHistoryRecordDate(item.createdAt);
       if (result[date]) {
         result[date].push(item);
       } else {
