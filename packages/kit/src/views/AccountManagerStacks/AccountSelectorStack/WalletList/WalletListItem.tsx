@@ -1,9 +1,9 @@
 import { Stack, Text, useMedia } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import { WalletAvatar } from './WalletAvatar';
+import { WalletAvatar } from '../../../../components/WalletAvatar';
 
-import type { IWalletAvatarProps } from './WalletAvatar';
+import type { IWalletAvatarProps } from '../../../../components/WalletAvatar';
 import type { StackProps } from 'tamagui';
 
 interface IWalletListItemProps extends StackProps {

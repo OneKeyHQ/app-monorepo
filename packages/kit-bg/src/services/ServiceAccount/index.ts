@@ -16,6 +16,10 @@ import {
   InvalidMnemonic,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -27,7 +31,13 @@ import {
 } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
-import type { IDBAccount, IDBIndexedAccount } from '../../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBRemoveWalletParams,
+  IDBSetAccountNameParams,
+  IDBSetWalletNameAndAvatarParams,
+} from '../../dbs/local/types';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 
 @backgroundClass()
@@ -36,6 +46,7 @@ class ServiceAccount extends ServiceBase {
     super({ backgroundApi });
   }
 
+  @backgroundMethod()
   async validateMnemonic(mnemonic: string): Promise<string> {
     const mnemonicFixed = mnemonic.trim().replace(/\s+/g, ' ');
     if (!validateMnemonic(mnemonicFixed)) {
@@ -276,6 +287,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setAccountName(params: IDBSetAccountNameParams) {
+    const r = await localDb.setAccountName(params);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    return r;
+  }
+
+  @backgroundMethod()
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
@@ -309,6 +327,26 @@ class ServiceAccount extends ServiceBase {
       avatar: randomAvatar(),
     });
 
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    const result = await localDb.setWalletNameAndAvatar(params);
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  async removeWallet({ walletId }: Omit<IDBRemoveWalletParams, 'password'>) {
+    if (!walletId) {
+      throw new Error('walletId is required');
+    }
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const result = await localDb.removeWallet({ walletId, password });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
 }
