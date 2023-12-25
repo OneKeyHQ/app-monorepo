@@ -5068,7 +5068,7 @@ __metadata:
     react-native-get-random-values: "npm:1.9.0"
     react-native-keyboard-manager: "npm:^6.5.11-1"
     react-native-level-fs: "npm:^3.0.1"
-    react-native-lite-card: "https://github.com/OneKeyHQ/react-native-lite-card#0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542"
+    react-native-lite-card: "https://github.com/OneKeyHQ/react-native-lite-card#192f9998009395e5754738089b4b142f8369b206"
     react-native-metrix: "npm:^0.6.3"
     react-native-mmkv: "npm:2.10.2"
     react-native-randombytes: "npm:^3.6.1"
@@ -23821,13 +23821,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card#0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542":
+"react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card#192f9998009395e5754738089b4b142f8369b206":
   version: 0.1.0
-  resolution: "react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#commit=0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542"
+  resolution: "react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#commit=192f9998009395e5754738089b4b142f8369b206"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 3f853192f926dedd888c7dc2fa79638b99d450372eb7612707f195291a1084200a03cc25ef9c8f4a58088e397586ff511fc6fbacda41465e3c64447fa466b593
+  checksum: 5ff46dd274bf77606b7772867ed0ce4b5fc425acd7d13f2def861b8ca623c777f6fddc4df580c85f5fed049c24de0d35e9150748a45bdd451c8eeb072e948a9a
   languageName: node
   linkType: hard
 
