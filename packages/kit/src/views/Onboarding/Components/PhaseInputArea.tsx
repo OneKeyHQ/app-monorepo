@@ -305,6 +305,7 @@ function BasicPhaseInput(
   const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
 
+  const keyLabel = handleGetReturnKeyLabel();
   const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
     value: displayValue,
     ref: inputRef,
@@ -321,7 +322,8 @@ function BasicPhaseInput(
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
     onBlur: handleInputBlur,
-    returnKeyType: handleGetReturnKeyLabel(),
+    returnKeyLabel: keyLabel.toUpperCase(),
+    returnKeyType: keyLabel,
   };
   if (platformEnv.isNative) {
     return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
