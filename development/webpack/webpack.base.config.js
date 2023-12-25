@@ -234,7 +234,7 @@ module.exports = ({ platform, basePath, configName }) => ({
             resolve: { fullySpecified: false },
           },
           {
-            test: /(@?expo-linear-gradient).*\.(ts|js)x?$/,
+            test: /(@?expo-*).*\.(ts|js)x?$/,
             exclude: [/react-native-logs/, /react-native-modalize/],
             use: {
               loader: 'babel-loader',

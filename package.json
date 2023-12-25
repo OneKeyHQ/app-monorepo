@@ -1,13 +1,14 @@
 {
-  "private": true,
   "name": "@onekeyhq/app-monorepo",
+  "packageManager": "yarn@4.0.2",
+  "private": true,
   "version": "1.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   },
   "scripts": {
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
@@ -63,7 +64,6 @@
     "crypto-browserify": "^3.12.0",
     "ejs-loader": "^0.5.0",
     "eslint": "^8.25.0",
-    "expo": "~49.0.13",
     "jotai": "^2.5.0",
     "memoizee": "^0.4.15",
     "natsort": "^2.0.3",
@@ -159,6 +159,5 @@
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
-  },
-  "packageManager": "yarn@3.5.0"
+  }
 }
