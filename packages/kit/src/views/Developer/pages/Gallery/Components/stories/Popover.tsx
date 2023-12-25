@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
 import { Button, Popover, Stack, Text } from '@onekeyhq/components';
@@ -34,8 +35,28 @@ const PopoverGallery = () => (
     boundaryConditions={['...']}
     elements={[
       {
-        title: 'Default',
+        title: 'Controlled',
         element: <PopoverDemo />,
+      },
+      {
+        title: 'Uncontrolled',
+        element: () => (
+          <Popover
+            title="Popover Demo"
+            renderTrigger={<Button>Uncontrolled Open</Button>}
+            renderContent={({ closePopover }) => (
+              <Stack space="$4" p="$5">
+                <Text>
+                  Non exercitation ea laborum cupidatat sunt amet aute
+                  exercitation occaecat minim incididunt non est est voluptate.
+                </Text>
+                <Button variant="primary" onPress={closePopover}>
+                  Button
+                </Button>
+              </Stack>
+            )}
+          />
+        ),
       },
     ]}
   />
