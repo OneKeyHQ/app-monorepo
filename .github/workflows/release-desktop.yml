@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        node-version: [16.x]
+        node-version: [18.x]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:

@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "scripts": {
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
@@ -160,5 +160,5 @@
     "@babel/parser": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
   },
-  "packageManager": "yarn@3.5.0"
+  "packageManager": "yarn@3.6.4"
 }
