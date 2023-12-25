@@ -432,23 +432,28 @@ export default class Vault extends VaultBase {
       sdk.ensureSDKReady(),
     ]);
 
-    const amountBN = new BigNumber(amount).shiftedBy(decimals);
-    const output = tokenAddress
-      ? {
-          address: to,
-          amount: undefined,
-          assets: [
-            {
-              quantity: amountBN.toFixed(),
-              unit: tokenAddress,
-            },
-          ],
-        }
-      : {
-          address: to,
-          amount: amountBN.toFixed(),
-          assets: [],
-        };
+    const amountBN = new BigNumber(amount);
+
+    let output;
+    if (tokenAddress) {
+      output = {
+        address: to,
+        amount: undefined,
+        assets: [
+          {
+            quantity: amountBN.shiftedBy(token.decimals).toFixed(),
+            unit: tokenAddress,
+          },
+        ],
+      };
+    } else {
+      output = {
+        address: to,
+        amount: amountBN.shiftedBy(decimals).toFixed(),
+        assets: [],
+      };
+    }
+
     const CardanoApi = await sdk.getCardanoApi();
     let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
     try {
