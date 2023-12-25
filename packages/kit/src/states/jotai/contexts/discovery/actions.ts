@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
-import { nanoid } from 'nanoid';
 
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -20,6 +19,7 @@ import {
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -140,7 +140,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const startTime = performance.now();
     const { tabs } = get(webTabsAtom());
     if (!payload.id || payload.id === homeTab.id) {
-      payload.id = nanoid();
+      payload.id = generateUUID();
     }
     payload.timestamp = Date.now();
     this.buildWebTabs.call(set, { data: [...tabs, payload as IWebTab] });
@@ -338,7 +338,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedHistory = history.filter((item) => item.url !== payload.url);
 
       const newHistoryEntry = {
-        id: nanoid(),
+        id: generateUUID(),
         url: payload.url,
         title: payload.title,
         createdAt: Date.now(),

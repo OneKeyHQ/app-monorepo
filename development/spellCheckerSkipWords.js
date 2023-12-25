@@ -570,7 +570,6 @@ module.exports = [
   'ctime',
   'stringified',
   'favicon',
-  'nanoid',
   'ico',
   'Ons',
   'jpg',
