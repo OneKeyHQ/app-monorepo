@@ -27968,7 +27968,7 @@ __metadata:
   dependencies:
     fast-deep-equal: "npm:3.1.3"
   peerDependencies:
-    react: 20.x
+    react: 18.x
   checksum: 3c0fa0e495e2f3dbf6bb630e55d278ed4a58fd25157757ee9872a8b9a7367d7fa980ced57d63ee2ec4c0168fdcfa4cf1e7f58eb1caa36f5e24da9209828adc5e
   languageName: node
   linkType: hard
