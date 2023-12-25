@@ -183,9 +183,7 @@ export interface ISignTransactionParams {
   unsignedTx: IUnsignedTxPro;
   password: string;
 }
-export type ISignAndSendTransactionParams = ISignTransactionParams & {
-  signOnly?: boolean;
-};
+
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
