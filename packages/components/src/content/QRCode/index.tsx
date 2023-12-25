@@ -4,15 +4,18 @@ import { useMemo } from 'react';
 import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useThemeValue } from '../../hooks';
 
-import type { ImageProps } from 'react-native';
+import type { IThemeColorKeys } from '../../hooks';
+import type { ImageProps, ImageURISource } from 'react-native';
 
 export type IQRCodeProps = {
   size: number;
   ecl?: 'L' | 'M' | 'Q' | 'H';
   logo?: ImageProps['source'];
-  logoBackgroundColor?: string;
+  logoBackgroundColor?: IThemeColorKeys;
   logoMargin?: number;
   logoSize?: number;
   value: string;
@@ -40,13 +43,16 @@ const generateMatrix = (
 export function QRCode({
   ecl = 'M',
   logo,
-  logoBackgroundColor = '0xFFFFFF',
+  logoBackgroundColor: logoBGColor = 'bgApp',
   logoMargin = 5,
   logoSize = 62,
   size,
   value,
 }: IQRCodeProps) {
-  const href = logo;
+  const logoBackgroundColor = useThemeValue(logoBGColor);
+  const href = platformEnv.isRuntimeBrowser
+    ? (logo as ImageURISource)?.uri
+    : logo;
   const primaryColor = useThemeValue('text');
   const secondaryColor = useThemeValue('bg');
   const dots = useMemo(() => {

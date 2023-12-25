@@ -1,4 +1,4 @@
-import { QRCode, XStack } from '@onekeyhq/components';
+import { QRCode, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -11,9 +11,24 @@ const QRCodeGallery = () => (
       {
         title: 'Default',
         element: (
-          <XStack justifyContent="center" flex={1}>
+          <YStack justifyContent="center" flex={1} space="$4">
             <QRCode value="https://onekey.so/" size={296} />
-          </XStack>
+            <QRCode
+              logo={{
+                uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+              }}
+              value="https://onekey.so/"
+              size={200}
+            />
+            <QRCode
+              logo={{
+                uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+              }}
+              logoBackgroundColor="bgStrongActive"
+              value="https://onekey.so/"
+              size={200}
+            />
+          </YStack>
         ),
       },
     ]}
