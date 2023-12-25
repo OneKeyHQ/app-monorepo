@@ -1,6 +1,5 @@
 {
   "name": "@onekeyhq/app-monorepo",
-  "packageManager": "yarn@4.0.2",
   "private": true,
   "version": "1.0.0",
   "workspaces": [
@@ -159,5 +158,6 @@
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
     "fs": "npm:@favware/skip-dependency@1.2.1"
-  }
+  },
+  "packageManager": "yarn@4.0.2"
 }
