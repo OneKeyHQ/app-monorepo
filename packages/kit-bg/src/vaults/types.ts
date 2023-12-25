@@ -12,12 +12,6 @@ import type {
   IOnChainHistoryTxAsset,
 } from '@onekeyhq/shared/types/history';
 
-import type { MessageDescriptor } from 'react-intl';
-import type {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_WATCHING,
-} from '../dbs/local/consts';
-import type { IDBWalletId } from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -26,6 +20,13 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
+import type {
+  EDBAccountType,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_WATCHING,
+} from '../dbs/local/consts';
+import type { IDBWalletId } from '../dbs/local/types';
+import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -92,6 +93,7 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
   isUtxo: boolean;
 
+  accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {
     default: IVaultSettingsNetworkInfo;

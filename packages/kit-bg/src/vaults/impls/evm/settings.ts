@@ -4,6 +4,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { EDBAccountType } from '../../../dbs/local/consts';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,
@@ -49,6 +50,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
 };
 
 const settings: IVaultSettings = {
+  accountType: EDBAccountType.SIMPLE,
+
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: true,

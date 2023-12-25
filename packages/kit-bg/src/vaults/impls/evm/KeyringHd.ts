@@ -1,7 +1,6 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
-import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBSimpleAccount } from '../../../dbs/local/types';
@@ -25,10 +24,7 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<IDBSimpleAccount>> {
-    return this.basePrepareAccountsHd(params, {
-      accountType: EDBAccountType.SIMPLE,
-      usedIndexes: params.indexes,
-    });
+    return this.basePrepareAccountsHd(params);
   }
 
   override async signTransaction(

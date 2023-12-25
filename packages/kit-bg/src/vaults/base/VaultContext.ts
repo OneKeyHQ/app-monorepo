@@ -4,7 +4,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
 import { mockGetNetwork, mockGetWalletIdFromAccountId } from '../../mock';
-import { getVaultSettingsNetworkInfo } from '../settings';
+import { getVaultSettings, getVaultSettingsNetworkInfo } from '../settings';
 
 import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions } from '../types';
@@ -91,6 +91,10 @@ export class VaultContext {
 
   async getNetworkInfo() {
     return getVaultSettingsNetworkInfo({ networkId: this.networkId });
+  }
+
+  async getVaultSettings() {
+    return getVaultSettings({ networkId: this.networkId });
   }
 
   async getRpcUrl() {

@@ -219,15 +219,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
-    options: {
-      accountType: EDBAccountType;
-      usedIndexes: number[];
-    },
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { password, names, deriveInfo } = params;
+    const { password, names, deriveInfo, indexes } = params;
+    const usedIndexes = indexes;
     const { coinType, template, namePrefix, idSuffix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
@@ -235,8 +232,8 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.walletId) {
       throw new Error('walletId is not defined');
     }
-    const { accountType, usedIndexes } = options;
-
+    const settings = await this.getVaultSettings();
+    const { accountType } = settings;
     const networkInfo = await this.baseGetCoreApiNetworkInfo();
 
     const credentials = await this.baseGetCredentialsInfo({ password });
@@ -288,6 +285,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     initBitcoinEcc();
     const { deriveInfo } = params;
     const { addressEncoding } = deriveInfo;
+
     const checkIsAccountUsed: (query: {
       xpub: string;
       xpubSegwit?: string;

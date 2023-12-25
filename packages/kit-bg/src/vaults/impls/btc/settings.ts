@@ -4,6 +4,8 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { EDBAccountType } from '../../../dbs/local/consts';
+
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,
@@ -51,6 +53,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
 };
 
 const settings: IVaultSettings = {
+  accountType: EDBAccountType.UTXO,
+
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
