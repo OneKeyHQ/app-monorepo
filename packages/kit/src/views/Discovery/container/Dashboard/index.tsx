@@ -226,8 +226,9 @@ function DashboardHeader({
       </Stack>
       <Stack>
         <Text variant="$headingXl">Banner</Text>
-        {banners?.map((banner) => (
+        {banners?.map((banner, index) => (
           <Image
+            key={`${banner.src}-${index}`}
             width="$30"
             height="$10"
             source={{

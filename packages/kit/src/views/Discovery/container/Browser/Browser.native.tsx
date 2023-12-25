@@ -83,7 +83,6 @@ function MobileBrowser() {
           <HandleRebuildBrowserData />
           {displayHomePage ? (
             <Stack flex={1}>
-              <Text>Dashboard</Text>
               <Dashboard />
             </Stack>
           ) : (
@@ -95,6 +94,7 @@ function MobileBrowser() {
                   screen: EDiscoveryModalRoutes.SearchModal,
                   params: {
                     useCurrentWindow: true,
+                    tabId: tab?.id,
                   },
                 });
               }}
