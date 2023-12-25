@@ -11,3 +11,4 @@ export * from './Skeleton';
 export * from './Splash';
 export * from './Divider';
 export * from './SheetGrabber';
+export * from './ConfirmHighlighter';
