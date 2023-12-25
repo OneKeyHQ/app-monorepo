@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
@@ -76,14 +76,11 @@ function HomePage() {
   );
 
   const navigation = useAppNavigation();
-  const navigateOnboardingModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
+
+  useEffect(() => {
+    navigation.pushFullModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.GetStarted,
     });
-  }, [navigation]);
-
-  useMemo(() => {
-    navigateOnboardingModal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const headerTitle = useCallback(
