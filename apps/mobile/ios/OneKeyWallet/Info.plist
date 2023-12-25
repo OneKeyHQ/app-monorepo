@@ -73,5 +73,14 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Use NFC to read NDEF messages into the application.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>6f6e656b65792e6261636b757001</string>
+		<string>A000000151000000</string>
+		<string>D156000132834001</string>
+		<string>D1560001328300424C4400006E666301</string>
+	</array>
 </dict>
 </plist>

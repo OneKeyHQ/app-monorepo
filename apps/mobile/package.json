@@ -51,6 +51,7 @@
     "react-native-get-random-values": "1.9.0",
     "react-native-keyboard-manager": "^6.5.11-1",
     "react-native-level-fs": "^3.0.1",
+    "react-native-lite-card": "https://github.com/OneKeyHQ/react-native-lite-card#0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542",
     "react-native-metrix": "^0.6.3",
     "react-native-mmkv": "2.10.2",
     "react-native-randombytes": "^3.6.1",

@@ -4877,7 +4877,6 @@ __metadata:
     react-content-loader: "npm:^6.2.1"
     react-dropzone: "npm:^14.2.3"
     react-hook-form: "npm:^7.22.1"
-    react-native-draggable-flatlist: "npm:4.0.1"
     react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
     react-native-markdown-display: "npm:^7.0.0-alpha.2"
     react-native-modalize: "npm:^2.1.1"
@@ -5069,6 +5068,7 @@ __metadata:
     react-native-get-random-values: "npm:1.9.0"
     react-native-keyboard-manager: "npm:^6.5.11-1"
     react-native-level-fs: "npm:^3.0.1"
+    react-native-lite-card: "https://github.com/OneKeyHQ/react-native-lite-card#0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542"
     react-native-metrix: "npm:^0.6.3"
     react-native-mmkv: "npm:2.10.2"
     react-native-randombytes: "npm:^3.6.1"
@@ -23818,6 +23818,16 @@ __metadata:
   peerDependencies:
     asyncstorage-down: ">=3.0.0 <5.0.0"
   checksum: 99ee634f498e4b7b1fbba15042b526c6a34fbb71ed05cf84fa80862cbda6ee23bce99be2a03b8ef85c0edb4ce63238277d4accc5c2ede784a67dcf4ca80ddd94
+  languageName: node
+  linkType: hard
+
+"react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card#0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542":
+  version: 0.1.0
+  resolution: "react-native-lite-card@https://github.com/OneKeyHQ/react-native-lite-card.git#commit=0ffa9b09ee6d7c25d69b66c8ac2bab9d05a70542"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 3f853192f926dedd888c7dc2fa79638b99d450372eb7612707f195291a1084200a03cc25ef9c8f4a58088e397586ff511fc6fbacda41465e3c64447fa466b593
   languageName: node
   linkType: hard
 
