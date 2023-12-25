@@ -1,6 +1,5 @@
 import type { MutableRefObject, PropsWithChildren } from 'react';
 
-import type { IFormProps } from '../../forms';
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
@@ -75,9 +74,9 @@ export type IDialogContainerProps = PropsWithChildren<
 
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
-  onClose?: () => void;
+  onClose?: () => void | Promise<void>;
   /* Run it after dialog is closed  */
-  onDismiss?: () => void;
+  onDismiss?: () => void | Promise<void>;
 }
 
 export type IDialogConfirmProps = Omit<
@@ -102,6 +101,6 @@ export interface IDialogInstance {
   getForm: () => IDialogForm | undefined;
 }
 
-export type IDialogFormProps = Omit<IFormProps, 'form'> & {
+export type IDialogFormProps = PropsWithChildren<{
   formProps: UseFormProps;
-};
+}>;

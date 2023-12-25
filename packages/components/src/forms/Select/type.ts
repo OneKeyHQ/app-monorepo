@@ -23,7 +23,7 @@ export interface ISelectItem {
 
 export interface ISelectItemProps extends ISelectItem {
   onSelect: (item: ISelectItem) => void;
-  selectedValue?: string;
+  selectedValue?: string | ISelectItem;
 }
 
 export interface ISelectSection {
@@ -31,14 +31,14 @@ export interface ISelectSection {
   title?: string;
 }
 
-export type ISelectProps = PropsWithChildren<{
-  defaultItem?: ISelectItem;
+export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
+  labelInValue?: boolean;
   items?: ISelectItem[];
   sections?: ISelectSection[];
   placeholder?: string;
   title: string;
-  value?: string;
-  onChange?: (value: string) => void;
+  value?: T;
+  onChange?: (value: T) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   disabled?: boolean;
   sheetProps?: SheetProps;

@@ -3,10 +3,12 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 
+import * as Clipboard from 'expo-clipboard';
 import { compact } from 'lodash';
 import { Dimensions } from 'react-native';
 
@@ -30,15 +32,19 @@ import {
   Stack,
   XStack,
   useForm,
+  useFormState,
   useIsKeyboardShown,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
+import type { Control } from 'react-hook-form';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
@@ -147,14 +153,18 @@ function PageFooter({
   suggestions,
   updateInputValue,
   onConfirm,
+  control,
 }: {
   suggestions: string[];
   updateInputValue: (text: string) => void;
   onConfirm: IPageFooterProps['onConfirm'];
+  control: Control;
 }) {
+  const state = useFormState({ control });
+  console.log('state.dirtyFields', state.dirtyFields);
   const isShow = useIsKeyboardShown();
   return (
-    <Page.Footer extraData={[isShow, suggestions]}>
+    <Page.Footer>
       {isShow ? (
         <SuggestionList
           suggestions={suggestions}
@@ -205,7 +215,7 @@ function BasicPhaseInput(
   const media = useMedia();
   const { getContentOffset, pageRef } = usePage();
   const firstButtonRef = useRef<IElement>(null);
-  const [tabFocusable, setTabFFocusable] = useState(false);
+  const [tabFocusable, setTabFocusable] = useState(false);
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -258,7 +268,7 @@ function BasicPhaseInput(
     (isOpen: boolean) => {
       if (!isOpen) {
         closePopover();
-        setTabFFocusable(false);
+        setTabFocusable(false);
       }
     },
     [closePopover],
@@ -273,11 +283,11 @@ function BasicPhaseInput(
       if (e.keyCode === 9) {
         if (openStatusRef.current) {
           firstButtonRef.current?.focus();
-          setTabFFocusable(true);
+          setTabFocusable(true);
           e.preventDefault();
           e.stopPropagation();
         }
-      } else if (e.keyCode > 48 && e.keyCode < 57) {
+      } else if (e.keyCode > 48 && e.keyCode < 58) {
         const suggestionIndex = e.keyCode - 48;
         updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
         e.preventDefault();
@@ -291,28 +301,32 @@ function BasicPhaseInput(
     onReturnKeyPressed(index);
   }, [index, onReturnKeyPressed]);
 
+  const isShowValue = selectInputIndex !== index && value?.length;
+  const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
+
+  const keyLabel = handleGetReturnKeyLabel();
+  const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
+    value: displayValue,
+    ref: inputRef,
+    keyboardType: 'ascii-capable',
+    autoCapitalize: 'none',
+    autoCorrect: false,
+    spellCheck: false,
+    size: media.md ? 'large' : 'medium',
+    leftAddOnProps: {
+      label: `${index + 1}`,
+      minWidth: '$10',
+      justifyContent: 'center',
+    },
+    onChangeText: handleChangeText,
+    onFocus: handleInputFocus,
+    onBlur: handleInputBlur,
+    returnKeyLabel: keyLabel.toUpperCase(),
+    returnKeyType: keyLabel,
+  };
   if (platformEnv.isNative) {
-    return (
-      <Input
-        value={value}
-        ref={inputRef}
-        secureTextEntry={selectInputIndex !== index}
-        autoCorrect={false}
-        spellCheck={false}
-        size={media.md ? 'large' : 'medium'}
-        leftAddOnProps={{
-          label: `${index + 1}`,
-          minWidth: '$10',
-          justifyContent: 'center',
-        }}
-        onChangeText={handleChangeText}
-        onFocus={handleInputFocus}
-        onBlur={handleInputBlur}
-        returnKeyType={handleGetReturnKeyLabel()}
-        onSubmitEditing={handleSubmitEnding}
-      />
-    );
+    return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
   }
   return (
     <Popover
@@ -331,26 +345,7 @@ function BasicPhaseInput(
       }
       renderTrigger={
         <Stack>
-          <Input
-            ref={inputRef}
-            value={value}
-            secureTextEntry={selectInputIndex !== index}
-            autoComplete="off"
-            autoCorrect={false}
-            spellCheck={false}
-            onKeyPress={handleKeyPress}
-            size={media.md ? 'large' : 'medium'}
-            leftAddOnProps={{
-              label: `${index + 1}`,
-              minWidth: '$10',
-              justifyContent: 'center',
-            }}
-            onChangeText={handleChangeText}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            returnKeyType="next"
-            data-1p-ignore
-          />
+          <Input {...inputProps} onKeyPress={handleKeyPress} data-1p-ignore />
         </Stack>
       }
     />
@@ -364,13 +359,26 @@ export function PhaseInputArea({
   tutorials,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
+  defaultPhrases = [],
 }: {
-  onConfirm: (values: string[]) => void;
+  onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   tutorials: { title: string; description: string }[];
+  defaultPhrases?: string[];
 }) {
-  const form = useForm({});
+  const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const defaultPhrasesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    defaultPhrases?.forEach((text, i) => {
+      map[`phrase${i + 1}`] = text;
+    });
+    return map;
+  }, [defaultPhrases]);
+  const form = useForm({
+    defaultValues: defaultPhrasesMap,
+  });
+  const { control } = form;
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -384,9 +392,11 @@ export function PhaseInputArea({
     return `${length} invalid words`;
   };
 
-  const handlePageFooterConfirm = useCallback(() => {
-    onConfirm(Object.values(form.getValues() as string[]));
-  }, [form, onConfirm]);
+  const handlePageFooterConfirm = useCallback(async () => {
+    const mnemonic: string = Object.values(form.getValues()).join(' ');
+    await serviceAccount.validateMnemonic(mnemonic);
+    onConfirm(await servicePassword.encodeSensitiveText({ text: mnemonic }));
+  }, [form, onConfirm, serviceAccount, servicePassword]);
 
   // useScrollToInputArea(alertRef);
 
@@ -406,7 +416,7 @@ export function PhaseInputArea({
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
       if (index === Number(phraseLength) - 1) {
-        handlePageFooterConfirm();
+        void handlePageFooterConfirm();
       } else {
         void focusNextInput();
       }
@@ -461,6 +471,7 @@ export function PhaseInputArea({
             </Button>
           ) : null}
         </XStack>
+
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: Number(phraseLength) }).map((_, index) => (
@@ -491,6 +502,32 @@ export function PhaseInputArea({
             ))}
           </XStack>
         </Form>
+
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                const mnemonic = await Clipboard.getStringAsync();
+                try {
+                  const phrasesArr: string[] = (mnemonic || '').split(' ');
+                  form.reset(
+                    phrasesArr.reduce((prev, next, index) => {
+                      prev[`phrase${index + 1}`] = next;
+                      return prev;
+                    }, {} as Record<`phrase${number}`, string>),
+                  );
+                } catch (error) {
+                  console.error(error);
+                }
+              }}
+            >
+              Paste All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
+
         <HeightTransition>
           {invalidWordsLength > 0 && (
             <XStack pt="$1.5" px="$5" key="invalidWord">
@@ -515,6 +552,7 @@ export function PhaseInputArea({
         suggestions={suggestions}
         updateInputValue={updateInputValue}
         onConfirm={handlePageFooterConfirm}
+        control={control}
       />
     </>
   );

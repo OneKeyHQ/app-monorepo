@@ -358,7 +358,7 @@ function DialogShow({
     | undefined;
   const handleClose = () =>
     new Promise<void>((resolve) => {
-      onClose?.();
+      void onClose?.();
       // Remove the React node after the animation has finished.
       setTimeout(() => {
         if (instanceRef) {
@@ -368,7 +368,7 @@ function DialogShow({
           portalRef.current.destroy();
           portalRef = undefined;
         }
-        onDismiss?.();
+        void onDismiss?.();
         resolve();
       }, 300);
     });
