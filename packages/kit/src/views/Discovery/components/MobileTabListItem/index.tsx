@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { StyleSheet } from 'react-native';
 
 import {
@@ -35,7 +33,7 @@ function MobileTabListItem({
   onLongPress: (id: string) => void;
 }) {
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
+  const isActive = activeTabId === id;
   return (
     <Stack
       w={TAB_LIST_CELL_WIDTH}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
@@ -31,7 +31,7 @@ function DesktopBrowserNavigationBar({
 }) {
   const navigation = useAppNavigation();
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const isActive = activeTabId === id;
   const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;

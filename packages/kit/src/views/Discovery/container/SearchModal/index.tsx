@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -86,8 +86,10 @@ function SearchModal() {
       );
       setSearchList([
         {
+          // TODO: Replace _id field
           _id: SEARCH_ITEM_ID,
           dappradarId: '',
+          // TODO: i18n
           name: `Search "${searchValue}"`,
           url: '',
           logo,
@@ -97,18 +99,9 @@ function SearchModal() {
     })();
   }, [searchValue, searchResult]);
 
-  const displaySearchList = useMemo(
-    () => Array.isArray(searchList) && searchList.length > 0,
-    [searchList],
-  );
-  const displayBookmarkList = useMemo(
-    () => (bookmarkData ?? []).length > 0,
-    [bookmarkData],
-  );
-  const displayHistoryList = useMemo(
-    () => (historyData ?? []).length > 0,
-    [historyData],
-  );
+  const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
+  const displayBookmarkList = (bookmarkData ?? []).length > 0;
+  const displayHistoryList = (historyData ?? []).length > 0;
 
   return (
     <Page skipLoading safeAreaEnabled>
