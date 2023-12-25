@@ -1,5 +1,3 @@
-import { lazy } from 'react';
-
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import BookmarkListModal from '@onekeyhq/kit/src/views/Discovery/container/BookmarkListModal';
 import HistoryListModal from '@onekeyhq/kit/src/views/Discovery/container/HistoryListModal';
