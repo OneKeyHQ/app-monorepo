@@ -3,6 +3,7 @@ import {
   forwardRef,
   useCallback,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -31,15 +32,19 @@ import {
   Stack,
   XStack,
   useForm,
+  useFormState,
   useIsKeyboardShown,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
+import type { Control } from 'react-hook-form';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
@@ -148,11 +153,15 @@ function PageFooter({
   suggestions,
   updateInputValue,
   onConfirm,
+  control,
 }: {
   suggestions: string[];
   updateInputValue: (text: string) => void;
   onConfirm: IPageFooterProps['onConfirm'];
+  control: Control;
 }) {
+  const state = useFormState({ control });
+  console.log('state.dirtyFields', state.dirtyFields);
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
@@ -296,6 +305,7 @@ function BasicPhaseInput(
   const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
 
+  const keyLabel = handleGetReturnKeyLabel();
   const inputProps: IInputProps & { ref: RefObject<TextInput> } = {
     value: displayValue,
     ref: inputRef,
@@ -312,7 +322,8 @@ function BasicPhaseInput(
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
     onBlur: handleInputBlur,
-    returnKeyType: handleGetReturnKeyLabel(),
+    returnKeyLabel: keyLabel.toUpperCase(),
+    returnKeyType: keyLabel,
   };
   if (platformEnv.isNative) {
     return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
@@ -348,13 +359,26 @@ export function PhaseInputArea({
   tutorials,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
+  defaultPhrases = [],
 }: {
-  onConfirm: (values: string[]) => void;
+  onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
   tutorials: { title: string; description: string }[];
+  defaultPhrases?: string[];
 }) {
-  const form = useForm({});
+  const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const defaultPhrasesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    defaultPhrases?.forEach((text, i) => {
+      map[`phrase${i + 1}`] = text;
+    });
+    return map;
+  }, [defaultPhrases]);
+  const form = useForm({
+    defaultValues: defaultPhrasesMap,
+  });
+  const { control } = form;
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -368,9 +392,11 @@ export function PhaseInputArea({
     return `${length} invalid words`;
   };
 
-  const handlePageFooterConfirm = useCallback(() => {
-    onConfirm(Object.values(form.getValues() as string[]));
-  }, [form, onConfirm]);
+  const handlePageFooterConfirm = useCallback(async () => {
+    const mnemonic: string = Object.values(form.getValues()).join(' ');
+    await serviceAccount.validateMnemonic(mnemonic);
+    onConfirm(await servicePassword.encodeSensitiveText({ text: mnemonic }));
+  }, [form, onConfirm, serviceAccount, servicePassword]);
 
   // useScrollToInputArea(alertRef);
 
@@ -390,7 +416,7 @@ export function PhaseInputArea({
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
       if (index === Number(phraseLength) - 1) {
-        handlePageFooterConfirm();
+        void handlePageFooterConfirm();
       } else {
         void focusNextInput();
       }
@@ -445,30 +471,7 @@ export function PhaseInputArea({
             </Button>
           ) : null}
         </XStack>
-        {platformEnv.isDev ? (
-          <XStack px="$5" py="$2">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                const text = await Clipboard.getStringAsync();
-                try {
-                  const phrases: string[] = JSON.parse(text);
-                  form.reset(
-                    phrases.reduce((prev, next, index) => {
-                      prev[`phrase${index + 1}`] = next;
-                      return prev;
-                    }, {} as Record<`phrase${number}`, string>),
-                  );
-                } catch (error) {
-                  console.error(error);
-                }
-              }}
-            >
-              Paste All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
+
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: Number(phraseLength) }).map((_, index) => (
@@ -499,6 +502,32 @@ export function PhaseInputArea({
             ))}
           </XStack>
         </Form>
+
+        {platformEnv.isDev ? (
+          <XStack px="$5" py="$2">
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={async () => {
+                const mnemonic = await Clipboard.getStringAsync();
+                try {
+                  const phrasesArr: string[] = (mnemonic || '').split(' ');
+                  form.reset(
+                    phrasesArr.reduce((prev, next, index) => {
+                      prev[`phrase${index + 1}`] = next;
+                      return prev;
+                    }, {} as Record<`phrase${number}`, string>),
+                  );
+                } catch (error) {
+                  console.error(error);
+                }
+              }}
+            >
+              Paste All(Only in Dev)
+            </Button>
+          </XStack>
+        ) : null}
+
         <HeightTransition>
           {invalidWordsLength > 0 && (
             <XStack pt="$1.5" px="$5" key="invalidWord">
@@ -523,6 +552,7 @@ export function PhaseInputArea({
         suggestions={suggestions}
         updateInputValue={updateInputValue}
         onConfirm={handlePageFooterConfirm}
+        control={control}
       />
     </>
   );
