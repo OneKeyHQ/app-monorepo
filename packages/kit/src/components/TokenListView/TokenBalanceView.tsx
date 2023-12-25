@@ -2,14 +2,15 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { ListItem } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
 
 type IProps = {
   $key: string;
   symbol: string;
-} & React.ComponentProps<typeof ListItem.Text>;
+} & ISizableTextProps;
 
 function TokenBalanceView(props: IProps) {
   const { $key, symbol, ...rest } = props;
@@ -18,10 +19,9 @@ function TokenBalanceView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <ListItem.Text
-        primary={`${new BigNumber(token.balanceParsed).toFixed(2)} ${symbol}`}
-        {...rest}
-      />
+      <SizableText {...rest}>{`${new BigNumber(token.balanceParsed).toFixed(
+        2,
+      )} ${symbol}`}</SizableText>
     ),
     [rest, symbol, token.balanceParsed],
   );

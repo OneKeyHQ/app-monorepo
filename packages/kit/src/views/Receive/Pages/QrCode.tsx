@@ -3,61 +3,95 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
+  ActionList,
   Alert,
   Badge,
   BlurView,
   Button,
+  ConfirmHighlighter,
   Empty,
   Heading,
-  Icon,
   Page,
   QRCode,
-  Select,
   SizableText,
   Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
-const chains = [
-  { label: 'Bitcoin', value: 'Bitcoin' },
-  { label: 'Ethereum', value: 'Ethereum' },
-  { label: 'Lighting', value: 'Lighting' },
-];
+type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
 export function QrCode() {
-  const [chain, setChain] = useState(chains[0].value);
+  const [chain, setChain] = useState('Bitcoin');
   const [addressType, setAddressType] = useState('Nested SegWit');
-  const [isVerified, setIsVerified] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isShowAddress, setIsShowAddress] = useState(false);
+  const [isHardwareWallet, setIsHardwareWallet] = useState(true);
+  const [addressState, setAddressState] = useState<IAddressState>('unverified');
 
-  const headerRight = () => (
-    <Select
-      title="Test"
-      value={chain}
-      onChange={setChain}
-      placement="bottom-end"
-      renderTrigger={({ label }) => (
-        <Button variant="tertiary" iconAfter="ChevronGrabberVerOutline">
-          Test: {label}
-        </Button>
-      )}
-      items={chains}
-    />
-  );
+  const isShowAddress =
+    !isHardwareWallet ||
+    addressState === 'forceShow' ||
+    addressState === 'verifying';
+
+  const isShowQRCode =
+    !isHardwareWallet ||
+    addressState === 'forceShow' ||
+    addressState === 'verified';
+
+  const handleVerifyOnDevicePress = () => {
+    setAddressState('verifying');
+  };
+
+  const handleCopyAddressPress = () => {
+    Toast.success({
+      title: 'Copied',
+    });
+  };
+
+  const headerRight = () => {
+    const isForceShowAction = addressState !== 'forceShow';
+
+    return (
+      <ActionList
+        title="Options"
+        items={[
+          {
+            icon: isForceShowAction ? 'EyeOutline' : 'EyeOffOutline',
+            label: isForceShowAction
+              ? 'Show Address Anyway'
+              : 'Hide Unverfied Address',
+            onPress: () =>
+              isForceShowAction
+                ? setAddressState('forceShow')
+                : setAddressState('unverified'),
+          },
+        ]}
+        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+      />
+    );
+  };
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Receive" headerRight={headerRight} />
+      <Page.Header
+        title="Receive"
+        headerRight={isHardwareWallet ? headerRight : undefined}
+      />
       <Page.Body>
+        {isShowAddress && addressState === 'forceShow' && (
+          <Alert
+            fullBleed
+            icon="InfoCircleOutline"
+            type="warning"
+            title="Address Unconfirmed. Verify to Ensure Security."
+            action={{
+              primary: 'Verify',
+              onPrimaryPress: () => handleVerifyOnDevicePress(),
+            }}
+            mb="$5"
+          />
+        )}
         <Stack p="$5" pt="$0" my="auto" alignItems="center">
-          {isShowAddress && !isVerified && (
-            <SizableText color="$textCaution" mb="$2.5" textAlign="center">
-              You are viewing an unverified address
-            </SizableText>
-          )}
-
           <SizableText textAlign="center">
             Receive Only on{' '}
             <SizableText size="$bodyLgMedium">{chain}</SizableText>
@@ -74,7 +108,7 @@ export function QrCode() {
             }}
           >
             <QRCode value="https://onekey.so/" size={240} />
-            {!isVerified && !isShowAddress && (
+            {!isShowQRCode && (
               <Stack
                 position="absolute"
                 top="$0"
@@ -110,35 +144,53 @@ export function QrCode() {
             <Heading size="$headingMd">Account 1</Heading>
             {addressType && <Badge>{addressType}</Badge>}
           </XStack>
-          <Stack mt="$2.5">
-            {isVerified || isVerifying || isShowAddress ? (
-              <Button>
-                <SizableText
-                  size="$bodyLg"
-                  style={{
-                    wordBreak: 'break-all',
-                  }}
-                  onPress={() =>
-                    Toast.success({
-                      title: 'Copied',
-                    })
-                  }
-                >
-                  37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
-                </SizableText>
+          <Stack alignItems="center">
+            <ConfirmHighlighter
+              highlight={addressState === 'verifying'}
+              my="$2.5"
+              py="$1.5"
+              px="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              borderRadius="$3"
+              style={{
+                borderCurve: 'continuous',
+              }}
+            >
+              <SizableText
+                textAlign="center"
+                size="$bodyLg"
+                style={{
+                  wordBreak: 'break-all',
+                }}
+                {...(!isShowAddress && {
+                  userSelect: 'none',
+                  color: '$transparent',
+                  textShadowColor: '$text',
+                  textShadowOffset: {
+                    width: 0,
+                    height: 0,
+                  },
+                  textShadowRadius: 20,
+                })}
+              >
+                37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
+              </SizableText>
+            </ConfirmHighlighter>
+
+            {isHardwareWallet &&
+            (addressState === 'unverified' || addressState !== 'forceShow') ? (
+              <Button
+                variant="primary"
+                onPress={handleVerifyOnDevicePress}
+                disabled={addressState === 'verifying'}
+              >
+                Verfiy on Device
               </Button>
             ) : (
-              <XStack space="$2" flexWrap="wrap">
-                <Button variant="primary" onPress={() => setIsVerifying(true)}>
-                  Verfiy on Device
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={() => setIsShowAddress(true)}
-                >
-                  Show Anyway
-                </Button>
-              </XStack>
+              <Button icon="Copy1Outline" onPress={handleCopyAddressPress}>
+                Copy Address
+              </Button>
             )}
           </Stack>
         </Stack>

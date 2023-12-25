@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { QrCode } from '../pages';
+import { LightingInvoice, QrCode } from '../pages';
 
 import { EReceivePages } from './type';
 
@@ -13,5 +13,9 @@ export const ReceiveRouter: IModalFlowNavigatorConfig<
   {
     name: EReceivePages.QrCode,
     component: QrCode,
+  },
+  {
+    name: EReceivePages.LightingInvoice,
+    component: LightingInvoice,
   },
 ];

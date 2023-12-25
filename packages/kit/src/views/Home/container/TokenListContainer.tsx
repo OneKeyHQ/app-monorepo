@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import { useMedia } from 'tamagui';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TokenListView } from '../../../components/TokenListView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -13,6 +15,7 @@ type IProps = {
 };
 
 function TokenListContainer(props: IProps) {
+  const media = useMedia();
   const { onContentSizeChange } = props;
   const { refreshTokenList, refreshTokenListMap } =
     useTokenListActions().current;
@@ -34,6 +37,9 @@ function TokenListContainer(props: IProps) {
     <TokenListView
       isLoading={promise.isLoading}
       onContentSizeChange={onContentSizeChange}
+      {...(media.gtLg && {
+        tableLayout: true,
+      })}
     />
   );
 }
