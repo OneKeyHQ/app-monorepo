@@ -45,7 +45,7 @@ const ActionListPlacement = () => (
   <YStack space="$2">
     <ActionList
       title="right(Web Only)"
-      placement="right"
+      placement="top"
       renderTrigger={
         <Button onPress={() => console.log('action trigger')}>
           right(Web Only)

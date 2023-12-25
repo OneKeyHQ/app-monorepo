@@ -164,7 +164,6 @@ function BasicActionList({
     <Popover
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
-      onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}
