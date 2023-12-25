@@ -107,22 +107,7 @@ export function DesktopLeftSideBar({
 
         if (platformEnv.isDesktop && route.name === extraConfig?.name) {
           return (
-            <YStack
-              flex={1}
-              key={route.key}
-              onPress={() => {
-                // Avoid re-rendering by checking if it's the current route.
-                if (state.routeNames[state.index] !== extraConfig?.name) {
-                  navigation.dispatch({
-                    ...CommonActions.navigate({
-                      name: extraConfig.name,
-                      merge: true,
-                    }),
-                    target: state.key,
-                  });
-                }
-              }}
-            >
+            <YStack flex={1} key={route.key}>
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
             </YStack>
           );
@@ -143,7 +128,6 @@ export function DesktopLeftSideBar({
       routes,
       state.index,
       state.key,
-      state.routeNames,
       descriptors,
       extraConfig?.name,
       isCollapse,

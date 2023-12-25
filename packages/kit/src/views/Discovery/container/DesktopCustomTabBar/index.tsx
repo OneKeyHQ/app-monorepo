@@ -127,6 +127,7 @@ function DesktopCustomTabBar() {
             id={t.id}
             activeTabId={activeTabId}
             onPress={(id) => {
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
               setCurrentWebTab(id);
             }}
             onBookmarkPress={handleBookmarkPress}
