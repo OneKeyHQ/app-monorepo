@@ -140,6 +140,7 @@ export class InvalidMnemonic extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidMnemonic',
         defaultKey: 'msg__engine__invalid_mnemonic',
+        defaultAutoToast: true,
       }),
     );
   }

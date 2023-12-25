@@ -1,4 +1,9 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   useAccountSelectorSceneInfo,
@@ -29,8 +34,9 @@ export function AccountSelectorEffects({
     });
   }, [actions, num, sceneName]);
 
-  useEffect(() => {
+  const reloadActiveAccountInfo = useCallback(() => {
     void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+    // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({
         selectedAccount,
@@ -43,6 +49,19 @@ export function AccountSelectorEffects({
       );
     }
   }, [actions, isSelectedAccountDefaultValue, num, sceneName, selectedAccount]);
+
+  useEffect(() => {
+    reloadActiveAccountInfo();
+  }, [reloadActiveAccountInfo]);
+
+  useEffect(() => {
+    const fn = reloadActiveAccountInfo;
+    // const fn = () => null;
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+    };
+  }, [reloadActiveAccountInfo]);
 
   if (isReady) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

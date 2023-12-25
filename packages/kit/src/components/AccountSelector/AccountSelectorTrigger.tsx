@@ -15,13 +15,11 @@ import {
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { EAccountManagerStacksRoutes } from '../../views/AccountManagerStacks/types';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -36,18 +34,6 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
 
-  const navigateAccountManagerStacks = useCallback(() => {
-    if (wallet?.id) {
-      actions.current.updateSelectedAccount({
-        num,
-        builder: (v) => ({ ...v, focusedWallet: wallet?.id }),
-      });
-    }
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
-    });
-  }, [actions, navigation, num, wallet?.id]);
-
   return (
     <XStack
       alignItems="center"
@@ -60,7 +46,13 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={navigateAccountManagerStacks}
+      onPress={() =>
+        actions.current.showAccountSelector({
+          activeWallet: wallet,
+          num,
+          navigation,
+        })
+      }
       maxWidth="$40"
     >
       <Avatar size="$6" borderRadius="$1">

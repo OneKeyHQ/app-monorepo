@@ -2,7 +2,7 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
-import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type {
   EDBAccountType,
@@ -105,7 +105,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   };
   associatedDevice?: string; // alias to `deviceId`
   avatar?: IDBAvatar;
-  avatarInfo?: IAvatar; // readonly field
+  avatarInfo?: IAvatarInfo; // readonly field
   deviceType?: string;
   hidden?: boolean;
   passphraseState?: string;
@@ -115,7 +115,7 @@ export type IDBCreateHDWalletParams = {
   rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
-  avatar?: IAvatar;
+  avatar?: IAvatarInfo;
   nextAccountIds?: Record<string, number>;
 };
 export type IDBCreateHWWalletParams = {
@@ -130,19 +130,29 @@ export type IDBCreateHWWalletParams = {
   passphraseState?: string;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  walletId: IDBWalletId;
   name?: string;
-  avatar?: IDBAvatar;
+  avatar?: IAvatarInfo;
+};
+export type IDBRemoveWalletParams = {
+  walletId: string;
+  password: string;
+};
+export type IDBSetAccountNameParams = {
+  accountId?: string;
+  indexedAccountId?: string;
+  name: string;
 };
 
 // ---------------------------------------------- account
-export type IDBAvatar = string;
+export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;
 // export type IDBAvatar = {
 //   emoji: string | 'img'; // lazy load EmojiTypes
 //   bgColor: string;
 // };
 export type IDBBaseAccount = IDBBaseObjectWithName & {
-  type: EDBAccountType;
+  type: EDBAccountType | undefined;
   path: string;
   coinType: string;
   template?: string;

@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import ConnectByBluetoothAnim from '../../../../../assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '../../../../../assets/animations/connect_by_usb.json';
@@ -292,17 +293,21 @@ export function ConnectYourDevice() {
   const DevicesData = [
     {
       title: 'OneKey Classic',
-      src: require('../../../../../assets/wallet/avatar/Classic.png'),
+      src: HwWalletAvatarImages.classic,
       onPress: handleCheckingDevice,
     },
     {
       title: 'OneKey Mini',
-      src: require('../../../../../assets/wallet/avatar/Mini.png'),
+      src: HwWalletAvatarImages.mini,
       onPress: handleWalletItemPress,
     },
     {
       title: 'OneKey Touch',
-      src: require('../../../../../assets/wallet/avatar/Touch.png'),
+      src: HwWalletAvatarImages.touch,
+    },
+    {
+      title: 'OneKey Pro',
+      src: HwWalletAvatarImages.pro,
     },
   ];
 

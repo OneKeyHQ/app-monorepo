@@ -34,7 +34,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
   [EOnboardingPages.RecoveryPhrase]: undefined;
   [EOnboardingPages.VerifyRecoverPhrase]: {
-    phrases: string[];
+    mnemonic: string;
   };
 
   // import wallet
@@ -47,5 +47,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ConnectWallet]: undefined;
 
   // finalize wallet setup
-  [EOnboardingPages.FinalizeWalletSetup]: undefined;
+  [EOnboardingPages.FinalizeWalletSetup]: {
+    mnemonic: string;
+  };
 };

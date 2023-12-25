@@ -16,7 +16,22 @@ export const HdWalletAvatarImages = {
   tiger: require('../assets/wallet/avatar/Tiger.png'),
   wolf: require('../assets/wallet/avatar/Wolf.png'),
 };
-export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
 export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
+
+export const HwWalletAvatarImages = {
+  classic: require('../assets/wallet/avatar/Classic.png'),
+  mini: require('../assets/wallet/avatar/Mini.png'),
+  touch: require('../assets/wallet/avatar/Touch.png'),
+  pro: require('../assets/wallet/avatar/Pro.png'),
+};
+export const AllWalletAvatarImages = {
+  cardDividers: require('../assets/wallet/avatar/CardDividers.png'),
+  ...HdWalletAvatarImages,
+  ...HwWalletAvatarImages,
+};
+
+export type IAllWalletAvatarImageNames = keyof typeof AllWalletAvatarImages;
+export type IHdWalletAvatarImageNames = keyof typeof HdWalletAvatarImages;
+export type IHwWalletAvatarImageNames = keyof typeof HwWalletAvatarImages;

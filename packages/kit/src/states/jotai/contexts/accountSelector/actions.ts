@@ -16,9 +16,12 @@ import type {
 } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '../../../../views/AccountManagerStacks/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
   activeAccountsAtom,
   contextAtomMethod,
@@ -27,7 +30,9 @@ import {
 } from './atoms';
 
 import type { IAccountSelectorActiveAccountInfo } from './atoms';
+import type useAppNavigation from '../../../../hooks/useAppNavigation';
 
+const { serviceAccount } = backgroundApiProxy;
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -49,7 +54,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> => {
       const { num, selectedAccount } = payload;
-      const { serviceAccount } = backgroundApiProxy;
       const { accountId, indexedAccountId, deriveType, networkId, walletId } =
         selectedAccount;
 
@@ -112,11 +116,114 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const accounts = get(selectedAccountsAtom());
       const oldSelectedAccount: IAccountSelectorSelectedAccount =
         accounts[num] || defaultSelectedAccount;
-
+      const newSelectedAccount = builder(oldSelectedAccount);
+      if (isEqual(oldSelectedAccount, newSelectedAccount)) {
+        return;
+      }
       set(selectedAccountsAtom(), (v) => ({
         ...v,
-        [num]: builder(oldSelectedAccount),
+        [num]: newSelectedAccount,
       }));
+    },
+  );
+
+  showAccountSelector = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        activeWallet,
+        navigation,
+        num,
+      }: {
+        activeWallet: IDBWallet | undefined;
+        navigation: ReturnType<typeof useAppNavigation>;
+        num: number;
+      },
+    ) => {
+      if (activeWallet?.id) {
+        this.updateSelectedAccount.call(set, {
+          num,
+          builder: (v) => ({ ...v, focusedWallet: activeWallet?.id }),
+        });
+      }
+      set(accountSelectorEditModeAtom(), false);
+      navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+        screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+      });
+    },
+  );
+
+  createHDWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        mnemonic,
+      }: {
+        mnemonic: string;
+      },
+    ) => {
+      const { wallet, indexedAccount } = await serviceAccount.createHDWallet({
+        mnemonic,
+      });
+
+      this.updateSelectedAccount.call(set, {
+        num: 0,
+        builder: (v) => ({
+          ...v,
+          indexedAccountId: indexedAccount.id,
+          walletId: wallet.id,
+          focusedWallet: wallet.id,
+        }),
+      });
+    },
+  );
+
+  removeWallet = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        walletId,
+      }: {
+        walletId: string;
+      },
+    ) => {
+      await serviceAccount.removeWallet({ walletId });
+      set(accountSelectorEditModeAtom(), false);
+      const selectedAccountsInfo = get(selectedAccountsAtom())[0];
+
+      if (selectedAccountsInfo?.walletId === walletId) {
+        const { wallets } = await serviceAccount.getHDWallets();
+        const firstWallet: IDBWallet | undefined = wallets[0];
+        let firstAccount: IDBIndexedAccount | undefined;
+        if (firstWallet) {
+          const { accounts } = await serviceAccount.getAccountsOfWallet({
+            walletId: firstWallet?.id,
+          });
+          // eslint-disable-next-line prefer-destructuring
+          firstAccount = accounts[0];
+        }
+
+        this.updateSelectedAccount.call(set, {
+          num: 0,
+          builder: (v) => ({
+            ...v,
+            indexedAccountId: firstAccount?.id,
+            walletId: firstWallet?.id,
+            focusedWallet: firstWallet?.id,
+          }),
+        });
+      } else {
+        this.updateSelectedAccount.call(set, {
+          num: 0,
+          builder: (v) => ({
+            ...v,
+            focusedWallet: selectedAccountsInfo?.walletId,
+          }),
+        });
+      }
     },
   );
 
@@ -185,48 +292,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 const createActions = memoFn(() => new AccountSelectorActions());
 
 export function useAccountSelectorActions() {
-  // ----------------------------------------------
-  // const r = useMemo(() => {
-  //   const actions = createActions();
-  //   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
-  //   const initFromStorage = actions.initFromStorage.use();
-  //   const saveToStorage = actions.saveToStorage.use();
-  //   const updateSelectedAccount = actions.updateSelectedAccount.use();
-  //   const refresh = actions.refresh.use();
-
-  //   return {
-  //     reloadActiveAccountInfo,
-  //     refresh,
-  //     initFromStorage,
-  //     saveToStorage,
-  //     updateSelectedAccount,
-  //   };
-  // }, []);
-  // return r;
-
-  // ----------------------------------------------
-  // const actions = createActions();
-  // const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
-  // const initFromStorage = actions.initFromStorage.use();
-  // const saveToStorage = actions.saveToStorage.use();
-  // const updateSelectedAccount = actions.updateSelectedAccount.use();
-  // const refresh = actions.refresh.use();
-
-  // return {
-  //   reloadActiveAccountInfo,
-  //   refresh,
-  //   initFromStorage,
-  //   saveToStorage,
-  //   updateSelectedAccount,
-  // };
-
-  // ----------------------------------------------
   const actions = createActions();
   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
   const initFromStorage = actions.initFromStorage.use();
   const saveToStorage = actions.saveToStorage.use();
   const updateSelectedAccount = actions.updateSelectedAccount.use();
   const refresh = actions.refresh.use();
+  const showAccountSelector = actions.showAccountSelector.use();
+  const removeWallet = actions.removeWallet.use();
+  const createHDWallet = actions.createHDWallet.use();
 
   return useRef({
     reloadActiveAccountInfo,
@@ -234,5 +308,8 @@ export function useAccountSelectorActions() {
     initFromStorage,
     saveToStorage,
     updateSelectedAccount,
+    showAccountSelector,
+    removeWallet,
+    createHDWallet,
   });
 }

@@ -1,6 +1,8 @@
 import { Page } from '@onekeyhq/components';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { PhaseInputArea } from '../../Components/PhaseInputArea';
+import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [
   {
@@ -20,10 +22,22 @@ const tutorials = [
   },
 ];
 export function ImportRecoveryPhrase() {
+  const navigation = useAppNavigation();
+
+  const handleConfirmPress = (mnemonic: string) => {
+    navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+      mnemonic,
+    });
+  };
+
   return (
     <Page scrollEnabled>
       <Page.Header title="Import Recovery Phrase" />
-      <PhaseInputArea onConfirm={console.log} tutorials={tutorials} />
+      <PhaseInputArea
+        defaultPhrases={[]}
+        onConfirm={handleConfirmPress}
+        tutorials={tutorials}
+      />
     </Page>
   );
 }

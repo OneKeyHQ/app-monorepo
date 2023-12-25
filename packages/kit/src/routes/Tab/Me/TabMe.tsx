@@ -60,6 +60,13 @@ const TabMe = () => {
           ) : null}
 
           <CreateHdWalletForm />
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.servicePassword.clearCachedPassword();
+            }}
+          >
+            清空缓存密码
+          </Button>
         </YStack>
       </Page.Body>
     </Page>

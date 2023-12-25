@@ -4,7 +4,12 @@ import { Buffer } from 'buffer';
 import { isNil, max } from 'lodash';
 import natsort from 'natsort';
 
-import { decrypt, encrypt, sha256 } from '@onekeyhq/core/src/secret';
+import {
+  decrypt,
+  encrypt,
+  ensureSensitiveTextEncoded,
+  sha256,
+} from '@onekeyhq/core/src/secret';
 import {
   OneKeyInternalError,
   PasswordNotSet,
@@ -12,7 +17,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
@@ -33,6 +38,8 @@ import {
   type IDBCredentialBase,
   type IDBDevicePayload,
   type IDBIndexedAccount,
+  type IDBRemoveWalletParams,
+  type IDBSetAccountNameParams,
   type IDBSetAccountTemplateParams,
   type IDBSetNextAccountIdsParams,
   type IDBSetWalletNameAndAvatarParams,
@@ -147,6 +154,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
 
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
+      ensureSensitiveTextEncoded(verifyPassword);
       if (!this.checkPassword(ctx, verifyPassword)) {
         throw new WrongPassword();
       }
@@ -222,6 +230,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   async verifyPassword(password: string): Promise<void> {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
+      ensureSensitiveTextEncoded(password);
       const isValid = this.checkPassword(ctx, password);
       if (isValid) {
         return;
@@ -432,8 +441,8 @@ ssphrase wallet
   }
 
   refillWalletInfo({ wallet }: { wallet: IDBWallet }) {
-    let avatarInfo: IAvatar | undefined;
-    const parsedAvatar: IAvatar = JSON.parse(wallet.avatar || '{}');
+    let avatarInfo: IAvatarInfo | undefined;
+    const parsedAvatar: IAvatarInfo = JSON.parse(wallet.avatar || '{}');
     if (Object.keys(parsedAvatar).length > 0) {
       avatarInfo = parsedAvatar;
     }
@@ -671,19 +680,53 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  removeWallet(walletId: string, password: string): Promise<void> {
-    throw new Error('Method not implemented.');
+  async removeWallet({
+    walletId,
+    password,
+  }: IDBRemoveWalletParams): Promise<void> {
+    const db = await this.readyDb;
+    await this.verifyPassword(password);
+    await db.withTransaction(async (tx) => {
+      // call remove account & indexed account
+      // remove credential
+      // remove wallet
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: [walletId],
+      });
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        ids: [walletId],
+      });
+    });
   }
 
-  updateWalletName(walletId: string, name: string): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
-
-  setWalletNameAndAvatar(
-    walletId: string,
+  async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
   ): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
+    const db = await this.readyDb;
+    const { walletId } = params;
+    let wallet = await this.getWallet({ walletId });
+
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (w) => {
+          if (params.name) {
+            w.name = params.name || w.name;
+          }
+          if (params.avatar) {
+            w.avatar = params.avatar && JSON.stringify(params.avatar);
+          }
+          return w;
+        },
+      });
+    });
+    wallet = await this.getWallet({ walletId });
+    return wallet;
   }
 
   updateWalletNextAccountIds({
@@ -755,8 +798,24 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  setAccountName(accountId: string, name: string): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+  async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    const db = await this.readyDb;
+
+    await db.withTransaction(async (tx) => {
+      if (params.indexedAccountId) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [params.indexedAccountId],
+          updater: (r) => {
+            if (params.name) {
+              r.name = params.name || r.name;
+            }
+            return r;
+          },
+        });
+      }
+    });
   }
 
   setAccountTemplate({

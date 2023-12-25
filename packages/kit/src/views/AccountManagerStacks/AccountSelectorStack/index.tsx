@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -10,8 +10,6 @@ import { WalletDetails } from './WalletDetails';
 import { WalletList } from './WalletList';
 
 export function AccountSelectorStack({ num }: { num: number }) {
-  const [isEditMode, setIsEditMode] = useState(false);
-
   const handleAccountPress = useCallback((accountId: IAccountProps['id']) => {
     console.log('handleAccountPress', accountId);
   }, []);
@@ -21,12 +19,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         <WalletList num={num} />
-        <WalletDetails
-          num={num}
-          onAccountPress={handleAccountPress}
-          onEditButtonPress={() => setIsEditMode(!isEditMode)}
-          editMode={isEditMode}
-        />
+        <WalletDetails num={num} onAccountPress={handleAccountPress} />
       </Page.Body>
     </Page>
   );
