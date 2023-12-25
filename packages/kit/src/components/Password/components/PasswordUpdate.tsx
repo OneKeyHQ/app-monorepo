@@ -44,6 +44,8 @@ const PasswordUpdate = ({
   onUpdatePassword,
 }: IPasswordUpdateProps) => {
   const form = useForm<IPasswordUpdateForm>({
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     defaultValues: {
       newPassword: '',
       oldPassword: '',

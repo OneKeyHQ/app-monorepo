@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { PressableProps } from 'react-native';
 import { withStaticProperties } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
@@ -16,6 +19,7 @@ import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
+import type { GestureResponderEvent } from 'react-native';
 
 interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -39,12 +43,16 @@ export function ActionListItem({
 }: IActionListItemProps & {
   onClose?: () => void;
 }) {
-  const handlePress = useCallback(async () => {
-    const result = await onPress?.();
-    if (result || result === undefined) {
-      onClose?.();
-    }
-  }, [onClose, onPress]);
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      const result = await onPress?.();
+      if (result || result === undefined) {
+        onClose?.();
+      }
+    },
+    [onClose, onPress],
+  );
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -156,7 +164,6 @@ function BasicActionList({
     <Popover
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
-      onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}

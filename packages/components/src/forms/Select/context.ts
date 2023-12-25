@@ -5,14 +5,15 @@ import type { ISelectItem, ISelectSection } from './type';
 import type { IPopoverProps } from '../../actions';
 import type { SheetProps } from 'tamagui';
 
-type IContextType = {
+export type IContextType = {
   isOpen?: boolean;
-  value?: string;
+  value?: string | ISelectItem;
   items?: ISelectItem[];
-  onValueChange?: (value: string) => void;
+  onValueChange?: (value: string | ISelectItem) => void;
   placeholder?: string;
   title?: string;
   disabled?: boolean;
+  labelInValue: boolean;
   sections?: ISelectSection[];
   refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;

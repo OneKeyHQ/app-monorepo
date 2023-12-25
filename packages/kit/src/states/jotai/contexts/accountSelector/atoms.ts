@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -43,17 +45,24 @@ export function useSelectedAccount({ num }: { num: number }): {
 } {
   checkIsDefined(num);
   const [selectedAccounts] = useSelectedAccountsAtom();
-  let selectedAccount = selectedAccounts[num];
-  let isSelectedAccountDefaultValue = false;
-  if (!selectedAccount) {
-    selectedAccount = defaultSelectedAccount;
-    isSelectedAccountDefaultValue = true;
-  }
-  return {
-    selectedAccount,
-    isSelectedAccountDefaultValue,
-  };
+  return useMemo(() => {
+    let selectedAccount = selectedAccounts[num];
+    let isSelectedAccountDefaultValue = false;
+    if (!selectedAccount) {
+      selectedAccount = defaultSelectedAccount;
+      isSelectedAccountDefaultValue = true;
+    }
+    return {
+      selectedAccount,
+      isSelectedAccountDefaultValue,
+    };
+  }, [num, selectedAccounts]);
 }
+
+export const {
+  atom: accountSelectorEditModeAtom,
+  use: useAccountSelectorEditModeAtom,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: accountSelectorStorageReadyAtom,

@@ -1,1 +1,3 @@
-function AccountAvatar() {}
+export function AccountAvatar() {
+  // TODO
+}

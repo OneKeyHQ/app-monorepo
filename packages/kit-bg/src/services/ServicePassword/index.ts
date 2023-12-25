@@ -1,5 +1,6 @@
 import {
   decodePassword,
+  decodeSensitiveText,
   encodeSensitiveText,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
@@ -27,7 +28,7 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
-import { EPasswordResStatus } from './types';
+import { EPasswordPromptType, EPasswordResStatus } from './types';
 
 import type { IPasswordRes } from './types';
 
@@ -38,6 +39,15 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveText({ text }));
+  }
+
+  @backgroundMethod()
+  async decodeSensitiveText({
+    encodedText,
+  }: {
+    encodedText: string;
+  }): Promise<string> {
+    return Promise.resolve(decodeSensitiveText({ encodedText }));
   }
 
   @backgroundMethod()
@@ -272,20 +282,29 @@ export default class ServicePassword extends ServiceBase {
         password: cachedPassword,
       });
     }
+    const { isPasswordSet } = await passwordPersistAtom.get();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
       });
-      void this.showPasswordPromptDialog(promiseId);
+      void this.showPasswordPromptDialog({
+        idNumber: promiseId,
+        type: isPasswordSet
+          ? EPasswordPromptType.PASSWORD_VERIFY
+          : EPasswordPromptType.PASSWORD_SETUP,
+      });
     });
     return res as Promise<IPasswordRes>;
   }
 
-  async showPasswordPromptDialog(promiseId: number) {
+  async showPasswordPromptDialog(params: {
+    idNumber: number;
+    type: EPasswordPromptType;
+  }) {
     await passwordAtom.set((v) => ({
       ...v,
-      passwordPromptPromiseId: promiseId,
+      passwordPromptPromiseTriggerData: params,
     }));
   }
 
@@ -294,7 +313,7 @@ export default class ServicePassword extends ServiceBase {
     this.backgroundApi.servicePromise.resolveCallback({ id: promiseId, data });
     await passwordAtom.set((v) => ({
       ...v,
-      passwordPromptPromiseId: undefined,
+      passwordPromptPromiseTriggerData: undefined,
     }));
   }
 
@@ -306,7 +325,7 @@ export default class ServicePassword extends ServiceBase {
     this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
     await passwordAtom.set((v) => ({
       ...v,
-      passwordPromptPromiseId: undefined,
+      passwordPromptPromiseTriggerData: undefined,
     }));
   }
 

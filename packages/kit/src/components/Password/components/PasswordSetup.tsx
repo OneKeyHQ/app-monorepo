@@ -23,6 +23,8 @@ const PasswordSetup = ({
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const form = useForm<IPasswordSetupForm>({
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     defaultValues: {
       password: '',
       confirmPassword: '',
