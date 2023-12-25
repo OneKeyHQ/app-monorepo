@@ -20,7 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
 
-export default function GetStarted() {
+export function GetStarted() {
   const { bottom } = useSafeAreaInsets();
 
   const navigation = useAppNavigation();
@@ -228,3 +228,5 @@ export default function GetStarted() {
     </Page>
   );
 }
+
+export default GetStarted;

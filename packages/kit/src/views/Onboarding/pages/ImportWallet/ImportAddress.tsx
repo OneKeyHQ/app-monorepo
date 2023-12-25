@@ -2,7 +2,7 @@ import { Form, Input, Page, useForm } from '@onekeyhq/components';
 
 import { ChainSelectorTrigger, Tutorials } from '../../Components';
 
-export default function ImportAddress() {
+export function ImportAddress() {
   const form = useForm();
 
   return (
@@ -40,3 +40,5 @@ export default function ImportAddress() {
     </Page>
   );
 }
+
+export default ImportAddress;

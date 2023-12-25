@@ -19,7 +19,7 @@ const tutorials = [
       'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
   },
 ];
-export default function VerifyRecoveryPhrase({
+export function VerifyRecoveryPhrase({
   route,
 }: IPageScreenProps<
   IOnboardingParamList,
@@ -75,3 +75,5 @@ export default function VerifyRecoveryPhrase({
     </Page>
   );
 }
+
+export default VerifyRecoveryPhrase;

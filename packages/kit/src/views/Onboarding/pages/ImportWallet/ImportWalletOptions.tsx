@@ -28,7 +28,7 @@ type IOptionSection = {
   data: IOptionItem[];
 };
 
-export default function ImportWalletOptions() {
+export function ImportWalletOptions() {
   const navigation = useAppNavigation();
 
   const handleConnectHardwareWalletPress = () => {
@@ -178,3 +178,5 @@ export default function ImportWalletOptions() {
     </Page>
   );
 }
+
+export default ImportWalletOptions;

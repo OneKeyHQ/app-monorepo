@@ -133,7 +133,7 @@ const touchImportWalletSteps = [
   getEnterRecoveryPhraseStep('touch'),
 ];
 
-export default function ActivateDevice() {
+export function ActivateDevice() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = () => {
@@ -218,3 +218,5 @@ export default function ActivateDevice() {
     </Page>
   );
 }
+
+export default ActivateDevice;

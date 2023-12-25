@@ -87,7 +87,7 @@ const wallets: IWalletGroup[] = [
   },
 ];
 
-export default function ConnectWallet() {
+export function ConnectWallet() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Connect 3rd-party Wallet" />
@@ -159,3 +159,5 @@ export default function ConnectWallet() {
     </Page>
   );
 }
+
+export default ConnectWallet;

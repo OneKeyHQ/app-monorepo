@@ -2,7 +2,7 @@ import { Form, Input, Page, useForm } from '@onekeyhq/components';
 
 import { ChainSelectorTrigger, Tutorials } from '../../Components';
 
-export default function ImportPrivateKey() {
+export function ImportPrivateKey() {
   const form = useForm();
 
   return (
@@ -36,3 +36,5 @@ export default function ImportPrivateKey() {
     </Page>
   );
 }
+
+export default ImportPrivateKey;

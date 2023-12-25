@@ -60,7 +60,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   );
 }
 
-export default function RecoveryPhrase() {
+export function RecoveryPhrase() {
   const navigation = useAppNavigation();
   const { servicePassword } = backgroundApiProxy;
   const mnemonic = useMemo(() => generateMnemonic(), []);
@@ -120,3 +120,5 @@ export default function RecoveryPhrase() {
     </Page>
   );
 }
+
+export default RecoveryPhrase;
