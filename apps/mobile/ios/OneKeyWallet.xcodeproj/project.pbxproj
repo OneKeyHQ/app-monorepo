@@ -228,8 +228,8 @@
 				D8981D2998B0CB74725DB299 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
-				13B07F8E1A680F5B00A75B9A /* Resources */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
+				13B07F8E1A680F5B00A75B9A /* Resources */,
 				03B908104778C43B74243E6A /* [CP] Embed Pods Frameworks */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
 			);
