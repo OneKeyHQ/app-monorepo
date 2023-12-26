@@ -3,8 +3,14 @@
 const _ = require('lodash');
 
 module.exports = (config, projectRoot) => {
-  if (process.env.SPLIT_BUNDLE) {
   const path = require('path');
+  const dotenv = require('dotenv');
+  // Just for reading Expo mobile environment variables `SPLIT_BUNDLE`,
+  // So we don't create another .expo.plugin file.
+  dotenv.config({
+    path: path.resolve(__dirname, '../../../.env.expo'),
+  });
+  if (process.env.SPLIT_BUNDLE) {
   const fs = require('fs-extra');
   const connect = require('connect');
   const dynamicImports = require('./dynamicImports');
