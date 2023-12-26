@@ -13,7 +13,10 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../routes/Modal/type';
 import { useTokenListAtom } from '../../states/jotai/contexts/token-list';
+import { ETokenPages } from '../../views/Token/router/type';
 
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
@@ -44,6 +47,7 @@ const ItemSeparatorComponent = () => <Divider mx="$5" />;
 
 function TokenListView(props: IProps) {
   const { onContentSizeChange, onPress, tableLayout } = props;
+  const navigation = useAppNavigation();
 
   const [tokenList] = useTokenListAtom();
   const { tokens } = tokenList;
@@ -52,6 +56,12 @@ function TokenListView(props: IProps) {
     () => <TokenListHeader tableLayout={tableLayout} />,
     [tableLayout],
   );
+
+  const handleTokenPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.TokenDetails,
+    });
+  }, [navigation]);
 
   return (
     <ListView
@@ -69,7 +79,8 @@ function TokenListView(props: IProps) {
         <TokenListItem
           token={item}
           key={item.$key}
-          onPress={onPress}
+          // onPress={onPress}
+          onPress={handleTokenPress}
           tableLayout={tableLayout}
         />
       )}

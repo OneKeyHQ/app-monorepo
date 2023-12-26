@@ -1,3 +1,5 @@
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { NFTListView } from '../components/NFTListView';
