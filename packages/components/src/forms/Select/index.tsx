@@ -222,7 +222,8 @@ function SelectContent() {
   );
 
   const keyExtractor = useCallback(
-    (item: ISelectItem, index: number) => `${item.value}-${index}`,
+    (item: ISelectItem, index: number) =>
+      `${item.value}-${item.label}-${index}`,
     [],
   );
 
