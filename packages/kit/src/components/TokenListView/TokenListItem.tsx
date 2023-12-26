@@ -19,9 +19,10 @@ type IProps = {
 };
 
 function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
-  const media = useMedia();
   const { token, onPress, tableLayout, ...rest } = props;
+  const media = useMedia();
   const tokenInfo = token.info;
+
   return (
     <ListItem
       key={tokenInfo.name}

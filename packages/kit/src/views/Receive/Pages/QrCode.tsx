@@ -82,7 +82,7 @@ export function QrCode() {
           <Alert
             fullBleed
             icon="InfoCircleOutline"
-            type="warning"
+            type="critical"
             title="Address Unconfirmed. Verify to Ensure Security."
             action={{
               primary: 'Verify',

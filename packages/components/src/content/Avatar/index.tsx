@@ -1,4 +1,3 @@
-import type { AvatarProps } from 'tamagui';
+export type { AvatarProps as IAvatarProps } from 'tamagui';
 
 export { Avatar } from 'tamagui';
-export type IAvatarProps = AvatarProps;

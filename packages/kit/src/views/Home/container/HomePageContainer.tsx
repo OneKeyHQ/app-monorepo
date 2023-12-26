@@ -329,7 +329,6 @@ function HomePage() {
   //   navigateOnboardingModal();
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, []);
-
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror

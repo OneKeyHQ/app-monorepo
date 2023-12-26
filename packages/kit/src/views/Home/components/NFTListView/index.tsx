@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, ListView, Stack } from '@onekeyhq/components';
+import { Empty, ListView, Stack, XStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
@@ -33,20 +33,26 @@ function NFTListView(props: IProps) {
   const { data, onContentSizeChange } = props;
 
   return (
-    <ListView
-      h="100%"
-      estimatedItemSize={76}
-      scrollEnabled={platformEnv.isWebTouchable}
-      data={data}
-      ListHeaderComponent={NFTListHeader}
-      ListHeaderComponentStyle={{
-        mt: '$4',
-        mb: '$2',
-      }}
-      onContentSizeChange={onContentSizeChange}
-      ListEmptyComponent={NFTListEmpty}
-      renderItem={({ item }) => <NFTListItem nft={item} key={item.itemId} />}
-    />
+    // <ListView
+    //   horizontal
+    //   estimatedItemSize={76}
+    //   scrollEnabled={platformEnv.isWebTouchable}
+    //   data={data}
+    //   ListHeaderComponent={NFTListHeader}
+    //   ListHeaderComponentStyle={{
+    //     mt: '$4',
+    //     mb: '$2',
+    //   }}
+    //   onContentSizeChange={onContentSizeChange}
+    //   ListEmptyComponent={NFTListEmpty}
+    //   renderItem={({ item }) => <NFTListItem nft={item} key={item.itemId} />}
+    // />
+
+    <XStack flexWrap="wrap" p="$2.5">
+      {data.map((item) => (
+        <NFTListItem nft={item} key={item.itemId} />
+      ))}
+    </XStack>
   );
 }
 
