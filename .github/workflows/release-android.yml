@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       is-split-bundle:
-        description: 'Should it run as split-bundle? \(keep it null if you don't need it\)'
+        description: 'Should it run as split-bundle? {{(}}keep it null if you don't need it{{)}}'
         required: false
         default: ''
 jobs:
