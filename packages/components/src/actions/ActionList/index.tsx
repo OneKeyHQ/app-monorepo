@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { PressableProps } from 'react-native';
 import { withStaticProperties } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
