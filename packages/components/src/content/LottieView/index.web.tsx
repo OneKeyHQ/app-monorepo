@@ -31,7 +31,7 @@ export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
         autoPlay={autoPlay}
         loop={loop}
         style={style as any}
-        {...restProps}
+        {...(restProps as any)}
         lottieRef={animationRef}
       />
     );
