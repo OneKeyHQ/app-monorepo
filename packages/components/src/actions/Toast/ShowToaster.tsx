@@ -9,15 +9,16 @@ import {
 } from 'react';
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
-import { Toast, ToastViewport, useToastState } from '@tamagui/toast';
-import { Stack } from 'tamagui';
+import { Toast, ToastViewport } from '@tamagui/toast';
+import { getTokenValue } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks';
+import { Stack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
-import type { GestureResponderEvent } from 'react-native';
-
-export type ICustomToasterProps = PropsWithChildren<{
+export type IShowToasterProps = PropsWithChildren<{
   onClose?: () => Promise<void> | void;
   onDismiss?: () => void;
   dismissOnOverlayPress?: boolean;
@@ -25,32 +26,26 @@ export type ICustomToasterProps = PropsWithChildren<{
   disableSwipeGesture?: boolean;
 }>;
 
-let toastId = 1;
-
-export interface ICustomToasterInstance {
+export interface IShowToasterInstance {
   close: () => Promise<void> | void;
 }
 
 export type IContextType = {
-  close: ICustomToasterInstance['close'];
+  close: IShowToasterInstance['close'];
 };
 
 const CustomToasterContext = createContext({} as IContextType);
+const SHOW_TOAST_VIEWPORT_NAME = "SHOW_TOAST_VIEWPORT_NAME"
 
-function BasicCustomToaster(
+function BasicShowToaster(
   {
     children,
     onClose,
     duration = Infinity,
     dismissOnOverlayPress = true,
-    disableSwipeGesture = true,
-  }: ICustomToasterProps,
-  ref: ForwardedRef<ICustomToasterInstance>,
+  }: IShowToasterProps,
+  ref: ForwardedRef<IShowToasterInstance>,
 ) {
-  const key = useMemo(() => {
-    toastId += 1;
-    return toastId;
-  }, []);
   const [isOpen, setIsOpen] = useState(true);
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -70,24 +65,20 @@ function BasicCustomToaster(
     }),
     [handleClose],
   );
-
-  const handleSwipeStart = useCallback(
-    (event: GestureResponderEvent) => {
-      if (disableSwipeGesture) {
-        event.preventDefault();
-      }
-    },
-    [disableSwipeGesture],
-  );
   const { top } = useSafeAreaInsets();
+  const mdPadding = '$10';
+  const mdPaddingValue = getTokenValue(mdPadding, 'space') as number;
   return (
     <>
       <ToastViewport
-        name="CustomViewPort"
+        name={SHOW_TOAST_VIEWPORT_NAME}
         width="100%"
         alignContent="center"
         multipleToasts={false}
         justifyContent="center"
+        $md={{
+          px: mdPadding,
+        }}
         $gtMd={{
           top: '$5',
         }}
@@ -102,10 +93,13 @@ function BasicCustomToaster(
         onPress={handleClose}
       />
       <Toast
-        key={key}
         unstyled
         width="100%"
-        testID="TOAST_ID"
+        $md={{
+          width: platformEnv.isRuntimeBrowser
+            ? `calc(100vw - ${mdPaddingValue * 2}px)`
+            : '100%',
+        }}
         justifyContent="center"
         open={isOpen}
         borderRadius={0}
@@ -115,10 +109,10 @@ function BasicCustomToaster(
         opacity={1}
         scale={1}
         animation="quick"
-        viewportName="CustomViewPort"
+        viewportName={SHOW_TOAST_VIEWPORT_NAME}
       >
         <CustomToasterContext.Provider value={value}>
-          <Stack pt={top} bg="$bg" br="$3">
+          <Stack mt={top} bg="$bg" br="$3">
             {children}
           </Stack>
         </CustomToasterContext.Provider>
@@ -127,17 +121,16 @@ function BasicCustomToaster(
   );
 }
 
-export const useCustomToaster = () => useContext(CustomToasterContext);
+export const useToaster = () => useContext(CustomToasterContext);
 
-export function CustomToasterClose({ children }: PropsWithChildren) {
-  const { close } = useCustomToaster();
+export function ShowToasterClose({ children }: PropsWithChildren) {
+  const { close } = useToaster();
   const handleClose = useCallback(() => {
     void close();
   }, [close]);
   return <Trigger onPress={handleClose}>{children}</Trigger>;
 }
 
-export const CustomToaster = forwardRef<
-  ICustomToasterInstance,
-  ICustomToasterProps
->(BasicCustomToaster);
+export const ShowToaster = forwardRef<IShowToasterInstance, IShowToasterProps>(
+  BasicShowToaster,
+);

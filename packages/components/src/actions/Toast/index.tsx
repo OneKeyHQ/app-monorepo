@@ -8,12 +8,9 @@ import { getTokens } from 'tamagui';
 import { Portal } from '../../hocs';
 import { Icon } from '../../primitives';
 
-import { CustomToaster } from './CustomToaster';
+import { ShowToaster, ShowToasterClose } from './ShowToaster';
 
-import type {
-  ICustomToasterInstance,
-  ICustomToasterProps,
-} from './CustomToaster';
+import type { IShowToasterInstance, IShowToasterProps } from './ShowToaster';
 import type { IPortalManager } from '../../hocs';
 
 export interface IToastProps {
@@ -82,9 +79,9 @@ export const Toast = {
   message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
-  show: ({ onClose, children, onDismiss }: ICustomToasterProps) => {
-    let instanceRef: RefObject<ICustomToasterInstance> | undefined =
-      createRef<ICustomToasterInstance>();
+  show: ({ onClose, children, onDismiss }: IShowToasterProps) => {
+    let instanceRef: RefObject<IShowToasterInstance> | undefined =
+      createRef<IShowToasterInstance>();
     let portalRef:
       | {
           current: IPortalManager;
@@ -110,17 +107,25 @@ export const Toast = {
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <CustomToaster ref={instanceRef} onClose={handleClose}>
+        <ShowToaster ref={instanceRef} onClose={handleClose}>
           {children}
-        </CustomToaster>,
+        </ShowToaster>,
       ),
     };
     return {
       close: async () => instanceRef?.current?.close(),
     };
   },
+  Close: ShowToasterClose,
 };
 
-export type { ICustomToasterProps } from './CustomToaster';
+export { useToaster } from './ShowToaster';
+export type { IShowToasterProps } from './ShowToaster';
 
-export const CustomToastProvider = ToastProvider;
+export function ShowToastProvider() {
+  return (
+    <ToastProvider swipeDirection="up">
+      <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />
+    </ToastProvider>
+  );
+}

@@ -17,11 +17,15 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
-import { CustomToasterClose } from '@onekeyhq/components/src/actions/Toast/CustomToaster';
 
 export function ConfirmOnClassic() {
   return (
-    <XStack minWidth="$80" py="$3" justifyContent="space-around">
+    <XStack
+      $gtMd={{ minWidth: '$80' }}
+      $md={{ px: '$1' }}
+      py="$3"
+      justifyContent="space-around"
+    >
       <XStack alignItems="center">
         <Stack
           w="$16"
@@ -42,9 +46,9 @@ export function ConfirmOnClassic() {
           Confirm on Device
         </SizableText>
       </XStack>
-      <CustomToasterClose>
+      <Toast.Close>
         <IconButton icon="CrossedSmallOutline" />
-      </CustomToasterClose>
+      </Toast.Close>
     </XStack>
   );
 }
