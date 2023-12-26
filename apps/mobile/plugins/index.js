@@ -3,7 +3,7 @@
 const _ = require('lodash');
 
 module.exports = (config, projectRoot) => {
-  // if (process.env.SPLIT_BUNDLE) {
+  if (process.env.SPLIT_BUNDLE) {
   const path = require('path');
   const fs = require('fs-extra');
   const connect = require('connect');
@@ -170,6 +170,6 @@ module.exports = (config, projectRoot) => {
         resolve();
       }),
   };
-  // }
+  }
   return config;
 };

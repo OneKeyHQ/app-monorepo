@@ -7,6 +7,11 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      is-split-bundle:
+        description: 'Should it run as split-bundle?'
+        required: false
+        default: 'true'
 jobs:
   release-ios:
     runs-on: ubuntu-latest
@@ -102,6 +107,7 @@ jobs:
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
+          echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
