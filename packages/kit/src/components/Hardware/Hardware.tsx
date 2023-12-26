@@ -17,28 +17,34 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { CustomToasterClose } from '@onekeyhq/components/src/actions/Toast/CustomToaster';
 
 export function ConfirmOnClassic() {
   return (
-    <XStack alignItems="center" mb="$-2.5" mt="$2.5" ml="$-2.5">
-      <Stack
-        w="$16"
-        h="$16"
-        bg="$bgStrong"
-        borderRadius="$2"
-        style={{ borderCurve: 'continuous' }}
-        justifyContent="center"
-        alignItems="center"
-      >
-        <LottieView
-          width={64}
-          height={64}
-          source={require('../../../assets/animations/confirm-on-classic.json')}
-        />
-      </Stack>
-      <SizableText size="$bodyLgMedium" textAlign="center" pl="$4">
-        Confirm on Device
-      </SizableText>
+    <XStack minWidth="$80" py="$3" justifyContent="space-around">
+      <XStack alignItems="center">
+        <Stack
+          w="$16"
+          h="$16"
+          bg="$bgStrong"
+          borderRadius="$2"
+          style={{ borderCurve: 'continuous' }}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <LottieView
+            width={64}
+            height={64}
+            source={require('../../../assets/animations/confirm-on-classic.json')}
+          />
+        </Stack>
+        <SizableText size="$bodyLgMedium" textAlign="center" pl="$4">
+          Confirm on Device
+        </SizableText>
+      </XStack>
+      <CustomToasterClose>
+        <IconButton icon="CrossedSmallOutline" />
+      </CustomToasterClose>
     </XStack>
   );
 }

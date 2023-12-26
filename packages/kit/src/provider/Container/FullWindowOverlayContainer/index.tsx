@@ -8,9 +8,7 @@ export function FullWindowOverlayContainer() {
   return (
     <OverlayContainer>
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
-      <CustomToastProvider>
-        <ToastViewport name="CustomViewPort" top={0} alignContent="center" />
-
+      <CustomToastProvider swipeDirection="up">
         <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />
       </CustomToastProvider>
     </OverlayContainer>
