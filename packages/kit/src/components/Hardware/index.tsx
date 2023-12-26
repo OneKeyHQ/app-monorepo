@@ -30,30 +30,15 @@ const mockListenDeviceResult = () => {
 
 export const confirmOnClassic = async () => {
   const event = mockListenDeviceResult();
-  // const dialog = Dialog.show({
-  //   disableDrag: true,
-  //   dismissOnOverlayPress: false,
-  //   showFooter: false,
-  //   floatingPanelProps: {
-  //     mt: '$5',
-  //     mb: 'auto',
-  //   },
-  //   renderContent: <ConfirmOnClassic />,
-  //   onDismiss: () => {
-  //     event.cancel();
-  //   },
-  // });
-  // setTimeout(async () => {
-  //   event.confirm();
-  //   await dialog.close();
-  // }, 3500);
-  // await event.run();
+
   const toast = Toast.show({
     children: <ConfirmOnClassic />,
   });
-  setTimeout(() => {
-    void toast.close();
-  }, 9999999);
+  setTimeout(async () => {
+    event.confirm();
+    await toast.close();
+  }, 3500);
+  await event.run();
 };
 
 export const confirmPinOnDevice = async () => {
