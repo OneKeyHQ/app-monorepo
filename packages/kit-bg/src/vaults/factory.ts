@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable new-cap */
-import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -62,6 +66,7 @@ export async function createVaultInstance(options: IVaultOptions) {
   const vaultsLoader: Record<string, () => Promise<{ default: VaultBase }>> = {
     [IMPL_EVM]: () => import('./impls/evm/Vault') as any,
     [IMPL_BTC]: () => import('./impls/btc/Vault') as any,
+    [IMPL_TBTC]: () => import('./impls/tbtc/Vault') as any,
   };
   const VaultClass = (await vaultsLoader[network.impl]()).default;
 

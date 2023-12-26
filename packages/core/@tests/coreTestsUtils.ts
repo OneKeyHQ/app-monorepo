@@ -60,11 +60,13 @@ async function expectGetAddressFromPublicOk({
   coreApi,
   networkInfo,
   hdAccounts,
+  addressEncoding,
   publicKeyGetter,
 }: {
   coreApi: CoreChainApiBase;
   networkInfo: ICoreApiNetworkInfo;
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
+  addressEncoding?: EAddressEncodings;
   publicKeyGetter?: (params: { account: ICoreTestsAccountInfo }) => Promise<{
     publicKey: string;
   }>;
@@ -76,6 +78,7 @@ async function expectGetAddressFromPublicOk({
     const { address, addresses } = await coreApi.getAddressFromPublic({
       networkInfo,
       publicKey,
+      addressEncoding,
     });
     expect(address).toEqual(account.address);
     if (addresses) {
@@ -88,15 +91,18 @@ async function expectGetAddressFromPrivateOk({
   coreApi,
   networkInfo,
   hdAccounts,
+  addressEncoding,
 }: {
   coreApi: CoreChainApiBase;
   networkInfo: ICoreApiNetworkInfo;
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
+  addressEncoding?: EAddressEncodings;
 }) {
   for (const account of hdAccounts) {
     const { address, addresses } = await coreApi.getAddressFromPrivate({
       networkInfo,
       privateKeyRaw: account.xpvtRaw || account.privateKeyRaw,
+      addressEncoding,
     });
     expect(address).toEqual(account.address);
     if (addresses) {
@@ -195,9 +201,6 @@ async function expectSignTransactionOk({
       credentials: {},
       account: signAccount,
       unsignedTx: unsignedTx ?? {
-        inputs: [],
-        outputs: [],
-        payload: {},
         encodedTx: encodedTx || '',
       },
     };

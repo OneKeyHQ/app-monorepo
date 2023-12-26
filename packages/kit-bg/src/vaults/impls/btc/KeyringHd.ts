@@ -30,7 +30,7 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    return this.baseSignTransactionBtc(params);
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {

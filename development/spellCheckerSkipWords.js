@@ -1,4 +1,6 @@
 module.exports = [
+  'nonWitnessInputPrevTxids',
+  'ordQueryStatus',
   'Blockie',
   'Unspaced',
   'hd',

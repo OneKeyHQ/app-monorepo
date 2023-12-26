@@ -10,12 +10,17 @@ import { ECPairFactory } from 'ecpair';
 
 import { ecc } from '../../../secret';
 
-import type { ICoreApiSignAccount, ITxInputToSign } from '../../../types';
-import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
+import { IAddressValidation } from '@onekeyhq/shared/types/address';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
+import {
+  EAddressEncodings,
+  type ICoreApiSignAccount,
+  type ITxInputToSign,
+} from '../../../types';
+import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 
 export * from './networks';
 
@@ -142,4 +147,76 @@ export function getInputsToSignFromPsbt({
     }
   });
   return inputsToSign;
+}
+
+export function isBRC20Token(tokenAddress?: string) {
+  return (
+    tokenAddress?.startsWith('brc20') || tokenAddress?.startsWith('brc-20')
+  );
+}
+
+export function validateBtcAddress({
+  network,
+  address,
+}: {
+  network: IBtcForkNetwork;
+  address: string;
+}): IAddressValidation {
+  let encoding: EAddressEncodings | undefined;
+
+  if (isBRC20Token(address)) {
+    return {
+      isValid: true,
+      normalizedAddress: address,
+      displayAddress: address,
+    };
+  }
+
+  try {
+    const decoded = BitcoinJsAddress.fromBase58Check(address);
+    if (decoded.version === network.pubKeyHash && decoded.hash.length === 20) {
+      encoding = EAddressEncodings.P2PKH;
+    } else if (
+      decoded.version === network.scriptHash &&
+      decoded.hash.length === 20
+    ) {
+      encoding = EAddressEncodings.P2SH_P2WPKH;
+    }
+  } catch (e) {
+    try {
+      const decoded = BitcoinJsAddress.fromBech32(address);
+      if (
+        decoded.version === 0x00 &&
+        decoded.prefix === network.bech32 &&
+        decoded.data.length === 20
+      ) {
+        encoding = EAddressEncodings.P2WPKH;
+      } else if (
+        decoded.version === 0x00 &&
+        decoded.prefix === network.bech32 &&
+        decoded.data.length === 32
+      ) {
+        encoding = EAddressEncodings.P2WSH;
+      } else if (
+        decoded.version === 0x01 &&
+        decoded.prefix === network.bech32 &&
+        decoded.data.length === 32
+      ) {
+        encoding = EAddressEncodings.P2TR;
+      }
+    } catch (_) {
+      // ignore error
+    }
+  }
+
+  return encoding
+    ? {
+        displayAddress: address,
+        normalizedAddress: address,
+        encoding,
+        isValid: true,
+      }
+    : {
+        isValid: false,
+      };
 }

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
+import type { ICoreApiNetworkInfo } from '@onekeyhq/core/src/types';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -89,12 +90,32 @@ export class VaultContext {
     return networkUtils.getNetworkImpl({ networkId: this.networkId });
   }
 
+  async getVaultSettings() {
+    return getVaultSettings({ networkId: this.networkId });
+  }
+
   async getNetworkInfo() {
     return getVaultSettingsNetworkInfo({ networkId: this.networkId });
   }
 
-  async getVaultSettings() {
-    return getVaultSettings({ networkId: this.networkId });
+  async getCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
+    const network = await this.getNetwork();
+    const networkInfo = await this.getNetworkInfo();
+    // check presetNetworks.extensions.providerOptions
+    const { addressPrefix, curve } = networkInfo;
+    const networkImpl = await this.getNetworkImpl();
+    const chainId = await this.getNetworkChainId();
+    const { isTestnet } = network;
+    const { networkId } = this;
+    return {
+      isTestnet,
+      networkChainCode: networkImpl,
+      chainId,
+      networkId,
+      networkImpl,
+      addressPrefix,
+      curve,
+    };
   }
 
   async getRpcUrl() {

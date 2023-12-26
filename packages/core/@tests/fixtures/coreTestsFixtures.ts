@@ -14,6 +14,8 @@ export type ICoreTestsAccountInfo = {
   path: string;
   relPaths?: string[];
   xpub?: string;
+  // getExportedCredential -> const xprvRaw = bufferUtils.bytesToHex(xprv) -> return bs58check.encode(xprv);
+  // getPrivateKeyByCredential -> xprv -> xprvRaw buffer
   xpvtRaw?: string;
   publicKey: string; // pub, pubKey TODO rename
   // publicKeyHex

@@ -88,6 +88,7 @@ export type IUnsignedTxPro = IUnsignedTx & {
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
+  opReturn?: string; // BTC opReturn?
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {

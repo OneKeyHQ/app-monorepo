@@ -1,10 +1,6 @@
 // eslint-disable-next-line max-classes-per-file
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import type {
-  ICoreApiNetworkInfo,
-  ISignedMessagePro,
-  ISignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { EVaultKeyringTypes } from '../types';
 
@@ -44,26 +40,6 @@ export abstract class KeyringBase extends VaultContext {
 
   isKeyringWatching() {
     return this.keyringType === EVaultKeyringTypes.watching;
-  }
-
-  async baseGetCoreApiNetworkInfo(): Promise<ICoreApiNetworkInfo> {
-    const network = await this.getNetwork();
-    const networkInfo = await this.getNetworkInfo();
-    // check presetNetworks.extensions.providerOptions
-    const { addressPrefix, curve } = networkInfo;
-    const networkImpl = await this.getNetworkImpl();
-    const chainId = await this.vault.getNetworkChainId();
-    const { isTestnet } = network;
-    const { networkId } = this;
-    return {
-      isTestnet,
-      networkChainCode: networkImpl,
-      chainId,
-      networkId,
-      networkImpl,
-      addressPrefix,
-      curve,
-    };
   }
 
   abstract signTransaction(

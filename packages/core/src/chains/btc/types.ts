@@ -34,8 +34,8 @@ export type IBtcInput = {
   txid: string;
   vout: number;
   value: string;
-  // address: string;
-  // path: string;
+  address: string;
+  path: string;
 };
 
 export type IBtcOutput = {

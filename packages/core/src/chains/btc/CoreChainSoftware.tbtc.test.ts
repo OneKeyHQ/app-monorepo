@@ -1,8 +1,6 @@
-import { compressPublicKey } from '@onekeyhq/core/src/secret';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
+import { EAddressEncodings } from '../../types';
 
 import CoreChainHd from './CoreChainHd';
 
@@ -15,48 +13,51 @@ const {
   txSamples,
 } = coreTestsFixtures.prepareCoreChainTestsFixtures({
   networkInfo: {
-    networkChainCode: 'fil',
-    chainId: '314',
-    networkId: 'fil--314',
-    networkImpl: 'fil',
+    networkChainCode: 'tbtc',
+    chainId: '0',
+    networkId: 'tbtc--0',
+    networkImpl: 'tbtc',
     isTestnet: false,
   },
-  hdAccountTemplate: "m/44'/461'/0'/0/$$INDEX$$",
+  hdAccountTemplate: "m/86'/1'/$$INDEX$$'/0/0",
   hdAccounts: [
     {
-      address: 'f1frgkdjp35l3tolawlodk32qnwipzuy5iirkc6by',
+      address: 'tb1pzutpcaymsyxtmz325ucsjed4evp9mea05tsf32wnkx46vsjrqtrq4d3dmr',
       addresses: {
-        'fil--314': 'f1frgkdjp35l3tolawlodk32qnwipzuy5iirkc6by',
+        '0/0': 'tb1pzutpcaymsyxtmz325ucsjed4evp9mea05tsf32wnkx46vsjrqtrq4d3dmr',
       },
-      path: "m/44'/461'/0'/0/0",
+      path: "m/86'/1'/0'",
+      relPaths: ['0/0'],
+      xpub: 'tpubDDTvhBUGrta8vHYvED7NVpRB64nP9n4v8zScbV1yyi3Rc7fwH9o5qsWbyhv9JjwCPfzhJHJCsLppzRyFp2W4VFy4kssk5SkFf6gRK6NmDZV',
+      xpvtRaw:
+        '0435839403c3eead31800000001c87e07493cb492ed74196dcd8e10c45c636b012bdcef82fd2ebfe617ade7a4300ceb67d363bbddfe1d5c625840cdee8fc6ff521faead360673c5f2720ea1c1e0f',
       publicKey:
-        '04638c02212becc981df1a1393dd9bce3a5f42ed5b3294889fa9da6d4ea967ea7804fec8b4a8b91fef6e4e7035916d9f3ec046cfae410ee7be9fb1f10229175fb4',
+        '03afd8a231856550c5bcdb6aec16da37b082c72f9e1196940db5a6504e9f328af6',
       privateKeyRaw:
-        'dc14e60956a745b439f5061fda64b42d8df150629a3455182629289cda86e87b',
+        'a2e4e08007d3af5951b0a9cb30c683134b0641e14f5898a177ffbd00e2cbd3a4',
     },
   ],
   txSamples: [
     {
       unsignedTx: {
-        encodedTx: '',
-        rawTxUnsigned:
-          '0504003665284cd84d9de003dac3389ac1d61b60039fe95f8b9de603dcc0ea4ecdec640065020000d62400001800000091b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3adb6a2726a6b98028731ef0c8a348880f377ec034eabb3a8aad7e04b49969ac9',
+        encodedTx: {
+          inputs: [],
+          outputs: [],
+        },
+        // opReturn
       },
       signedTx: {
         'encodedTx': null,
-        txid: '',
-        rawTx: '',
-        signature:
-          '0x007806aea9f31e5b2317a3cb4266ff0e206b15a959fa4da2d861d9d26e134b279cf591ca099e3711c62df36f34d81ee69f08b20e764cf336b0d67a7f2b21580a09',
+        'txid': '',
+        'rawTx': '',
       },
     },
   ],
   msgSamples: [],
 });
 
-// wasm module
-// yarn jest packages/core/src/chains/fil/CoreChainSoftware.test.ts
-describe('FIL Core tests', () => {
+// yarn jest packages/core/src/chains/btc/CoreChainSoftware.test.ts
+describe('BTC Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,
@@ -68,16 +69,7 @@ describe('FIL Core tests', () => {
       coreApi,
       networkInfo,
       hdAccounts,
-      publicKeyGetter(params) {
-        const {
-          account: { publicKey },
-        } = params;
-        return Promise.resolve({
-          publicKey: bufferUtils.bytesToHex(
-            compressPublicKey('secp256k1', bufferUtils.toBuffer(publicKey)),
-          ),
-        });
-      },
+      addressEncoding: EAddressEncodings.P2TR, // taproot address
     });
   });
   it('getAddressFromPrivate', async () => {
@@ -86,6 +78,7 @@ describe('FIL Core tests', () => {
       coreApi,
       networkInfo,
       hdAccounts,
+      addressEncoding: EAddressEncodings.P2TR, // taproot address
     });
   });
   it('getAddressesFromHd', async () => {
@@ -96,6 +89,7 @@ describe('FIL Core tests', () => {
       hdAccounts,
       hdAccountTemplate,
       hdCredential,
+      addressEncoding: EAddressEncodings.P2TR, // taproot address
     });
   });
   it('getPrivateKeys hd', async () => {
@@ -108,9 +102,9 @@ describe('FIL Core tests', () => {
     });
   });
 
-  // TODO: jest NOT support import() at:  @zondax/izari-filecoin import('@ipld/dag-cbor')
   it.skip('signTransaction', async () => {
     const coreApi = new CoreChainHd();
+    // TODO BTC tx mock
     await coreTestsUtils.expectSignTransactionOk({
       coreApi,
       networkInfo,
@@ -119,6 +113,7 @@ describe('FIL Core tests', () => {
       txSamples,
     });
   });
+
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage

@@ -1,4 +1,8 @@
-import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type {
@@ -16,6 +20,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   > = {
     [IMPL_EVM]: () => import('./impls/evm/settings'),
     [IMPL_BTC]: () => import('./impls/btc/settings'),
+    [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
   };
   const settings = (await settingsLoader[impl]()).default;
   return settings;
