@@ -414,7 +414,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ -e \"../dist/chunks\" ]; then\n    cp -r ../dist/chunks/* ${TARGET_BUILD_DIR}/${TARGET_NAME}.app/\nfi\n";
+			shellScript = "if [ -d \"../dist/chunks\" ]; then\n    cp -r ../dist/chunks/* ${TARGET_BUILD_DIR}/${TARGET_NAME}.app/\nfi\n";
 		};
 		D8981D2998B0CB74725DB299 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
