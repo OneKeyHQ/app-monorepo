@@ -4,7 +4,7 @@ export interface IDiscoveryHomePageData {
 }
 
 export interface IDiscoveryBanner {
-  _id: string;
+  bannerId: string;
   src: string;
   href: string;
   hrefType: string;
@@ -13,31 +13,25 @@ export interface IDiscoveryBanner {
 }
 
 export interface ICategory {
-  id: string;
+  categoryId: string;
   name: string;
   dapps: IDApp[];
 }
 
 export interface IDApp {
-  _id: string;
-  dappradarId: string;
+  dappId: string;
   name: string;
   url: string;
   logo: string;
   originLogo: string;
   description: string;
   networkIds: string[];
-  categories: IDAppCategory[];
+  categories: ICategory[];
   tags: IDAppTag[];
 }
 
-interface IDAppCategory {
-  id: string;
-  name: string;
-}
-
 export interface IDAppTag {
-  id: string;
+  tagId: string;
   name: string;
   color: string;
 }

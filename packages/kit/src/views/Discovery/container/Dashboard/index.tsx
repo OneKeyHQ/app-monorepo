@@ -114,11 +114,11 @@ const DiscoveryListHeader = ({
     estimatedItemSize="$10"
     horizontal
     showsHorizontalScrollIndicator={false}
-    keyExtractor={(item) => item.id}
+    keyExtractor={(item) => item.categoryId}
     renderItem={({ item }) => (
       <ListItem
-        onPress={() => setActiveId(item.id)}
-        bg={activeId === item.id ? '$bgActive' : '$bg'}
+        onPress={() => setActiveId(item.categoryId)}
+        bg={activeId === item.categoryId ? '$bgActive' : '$bg'}
       >
         <Text>{item.name}</Text>
       </ListItem>
@@ -136,7 +136,7 @@ const DiscoveryListContainer = ({
   const [dAppListDataSource, setDAppListDataSource] = useState<IDApp[]>([]);
   const { result } = usePromiseResult(async () => {
     const data = await backgroundApiProxy.serviceDiscovery.fetchCategoryList();
-    setActiveId(data[0].id);
+    setActiveId(data[0].categoryId);
     setDAppListDataSource(data[0].dapps);
     return data;
   }, []);
@@ -170,7 +170,7 @@ const DiscoveryListContainer = ({
           setActiveId={setActiveId}
         />
       }
-      keyExtractor={(item) => item._id}
+      keyExtractor={(item) => item.dappId}
       renderItem={({ item }) => (
         <ListItem
           avatarProps={{

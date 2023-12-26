@@ -86,9 +86,7 @@ function SearchModal() {
       );
       setSearchList([
         {
-          // TODO: Replace _id field
-          _id: SEARCH_ITEM_ID,
-          dappradarId: '',
+          dappId: SEARCH_ITEM_ID,
           // TODO: i18n
           name: `Search "${searchValue}"`,
           url: '',
@@ -132,7 +130,7 @@ function SearchModal() {
             <ListView
               estimatedItemSize="$10"
               data={searchList}
-              keyExtractor={(item) => item._id}
+              keyExtractor={(item) => item.dappId}
               renderItem={({ item }) => (
                 <ListItem
                   avatarProps={{
@@ -146,7 +144,7 @@ function SearchModal() {
                     numberOfLines: 1,
                   }}
                   onPress={() => {
-                    if (item._id === SEARCH_ITEM_ID) {
+                    if (item.dappId === SEARCH_ITEM_ID) {
                       handleOpenWebSite({
                         webSite: {
                           url: searchValue,

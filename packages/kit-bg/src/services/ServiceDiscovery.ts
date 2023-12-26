@@ -67,10 +67,8 @@ class ServiceDiscovery extends ServiceBase {
     }
     const client = await this.getClient();
     const {
-      data: {
-        data: { data: dapps },
-      },
-    } = await client.get<{ data: { data: IDApp[]; next: string } }>(
+      data: { data: dapps },
+    } = await client.get<{ data: IDApp[]; next: string }>(
       '/utility/v1/discover/dapp/search',
       {
         params: {

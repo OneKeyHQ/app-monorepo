@@ -475,7 +475,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           id: tabId,
           url: dApp.url,
           title: dApp.name,
-          dAppId: dApp._id,
+          dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
           userTriggered: true,
           isNewWindow,
