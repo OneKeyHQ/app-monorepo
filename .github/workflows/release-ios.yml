@@ -11,7 +11,7 @@ on:
       is-split-bundle:
         description: 'Should it run as split-bundle?'
         required: false
-        default: 'true'
+        default: ''
 jobs:
   release-ios:
     runs-on: ubuntu-latest
