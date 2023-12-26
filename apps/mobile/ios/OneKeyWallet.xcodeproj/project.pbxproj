@@ -232,6 +232,7 @@
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				03B908104778C43B74243E6A /* [CP] Embed Pods Frameworks */,
 				C274DAC62AE2644400755275 /* Embed Foundation Extensions */,
+				C214A9FD2B3A799D00878A6F /* Copy Split Bundle */,
 			);
 			buildRules = (
 			);
@@ -395,6 +396,25 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		C214A9FD2B3A799D00878A6F /* Copy Split Bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Split Bundle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cp -r ../dist/chunks/* ${TARGET_BUILD_DIR}/\n";
 		};
 		D8981D2998B0CB74725DB299 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
