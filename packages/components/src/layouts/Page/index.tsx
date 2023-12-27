@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -10,7 +10,7 @@ import { PageFooter } from './PageFooter';
 import { FooterActions } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 
-import type { IPageContentOptions, IPageFooterRef } from './PageContext';
+import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
 import type { IScrollViewRef } from '../ScrollView';
 import type { NativeScrollPoint } from 'react-native';
