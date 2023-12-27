@@ -43,8 +43,8 @@ function SendProgressContainer() {
         <Stack height="100%" alignItems="center" justifyContent="center">
           {isSendSuccess ? (
             <LottieView
-              width={100}
-              height={100}
+              width="100%"
+              height="$24"
               autoPlay
               loop={false}
               source={require('../../../../../assets/animations/lottie_send_success_feedback.json')}
