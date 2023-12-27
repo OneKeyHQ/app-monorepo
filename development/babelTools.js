@@ -69,14 +69,6 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
-  const customAliasForComponents = (name, file) => {
-    // const filename = file.opts.filename;
-    if (name.startsWith('use')) {
-      return `@onekeyhq/components/src/Provider/hooks/${name}`;
-    }
-    return `@onekeyhq/components/src/${name}`;
-  };
-
   const {
     isJest,
     isDev,
