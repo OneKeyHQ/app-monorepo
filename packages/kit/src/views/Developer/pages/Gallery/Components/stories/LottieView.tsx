@@ -30,8 +30,8 @@ const LottieDemo = () => {
         {!!show && (
           <LottieView
             ref={ref}
-            width={100}
-            height={100}
+            width="100%"
+            height="$24"
             autoPlay={autoPlay}
             loop={loop}
             source={require('../../../../../../../assets/animations/lottie_send_success_feedback.json')}

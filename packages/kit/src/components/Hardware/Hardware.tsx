@@ -37,8 +37,8 @@ export function ConfirmOnClassic() {
           alignItems="center"
         >
           <LottieView
-            width={64}
-            height={64}
+            width="$16"
+            height="$16"
             source={require('../../../assets/animations/confirm-on-classic.json')}
           />
         </Stack>
