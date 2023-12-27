@@ -32,6 +32,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
+import type { IBtcUTXOInfo, ICollectUTXOsOptions } from './types';
 import type { IDBAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -39,7 +40,6 @@ import type {
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
-import type { IBtcUTXOInfo, ICollectUTXOsOptions } from './types';
 
 // btc vault
 export default class VaultBtc extends VaultBase {
@@ -123,9 +123,9 @@ export default class VaultBtc extends VaultBase {
   async _buildEncodedTxFromTransfer(
     transfersInfo: ITransferInfo[],
   ): Promise<IEncodedTxBtc> {
-    const network = await this.getNetwork();
+    // const network = await this.getNetwork();
     if (transfersInfo.length === 1) {
-      const transferInfo = transfersInfo[0];
+      // const transferInfo = transfersInfo[0];
       return {
         inputs: [
           {
@@ -158,6 +158,7 @@ export default class VaultBtc extends VaultBase {
   async _buildEncodedTxFromBatchTransfer(
     transfersInfo: ITransferInfo[],
   ): Promise<IEncodedTxBtc> {
+    console.log(transfersInfo);
     throw new NotImplemented();
   }
 
@@ -173,6 +174,7 @@ export default class VaultBtc extends VaultBase {
   async collectTxs(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
+    console.log(txids);
     // const blockbook = await this.blockbook;
     const lookup: {
       [txid: string]: string; // rawTx string
@@ -191,6 +193,7 @@ export default class VaultBtc extends VaultBase {
   async collectUTXOsInfoByApi(
     options: ICollectUTXOsOptions = {},
   ): Promise<IBtcUTXOInfo> {
+    console.log(options);
     // .get(`/api/v2/utxo/${xpub}`)
     return Promise.resolve({
       utxos: [],

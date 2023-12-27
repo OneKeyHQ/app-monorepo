@@ -118,6 +118,7 @@ export default class Vault extends VaultBase {
   }
 
   async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
+    console.log(transfersInfo);
     // TODO EVM batch transfer through contract
     return {
       from: '',

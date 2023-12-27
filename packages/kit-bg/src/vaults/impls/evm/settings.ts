@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
+
 import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoMapBase,

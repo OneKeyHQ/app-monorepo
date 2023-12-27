@@ -321,6 +321,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       xpub: string;
       xpubSegwit?: string;
       address: string;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     }) => Promise<{ isUsed: boolean }> = async (query) =>
       Promise.resolve({ isUsed: true });
 
