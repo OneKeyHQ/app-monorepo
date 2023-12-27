@@ -2,11 +2,15 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
 import LottieViewWeb from 'lottie-react';
+import { usePropsAndStyle } from 'tamagui';
 
 import type { ILottieViewProps } from './type';
 
 export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
   ({ source, autoPlay = false, loop, ...props }, ref) => {
+    const [restProps, style] = usePropsAndStyle(props, {
+      resolveValues: 'auto',
+    });
     const animationRef = useRef<any>(null);
 
     useImperativeHandle(ref as any, () => ({
@@ -26,7 +30,8 @@ export const LottieView = forwardRef<typeof LottieViewWeb, ILottieViewProps>(
         animationData={source}
         autoPlay={autoPlay}
         loop={loop}
-        {...props}
+        style={style as any}
+        {...(restProps as any)}
         lottieRef={animationRef}
       />
     );

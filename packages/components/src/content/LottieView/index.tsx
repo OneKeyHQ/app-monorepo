@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
+import { usePropsAndStyle } from 'tamagui';
 
 import type { ILottieViewProps } from './type';
 import type { LottieViewProps as LottieNativeProps } from 'lottie-react-native';
@@ -15,6 +16,9 @@ export const LottieView = forwardRef<
   const animationRef = useRef<AnimatedLottieView | null>();
 
   const appStateRef = useRef(AppState.currentState);
+  const [restProps, style] = usePropsAndStyle(props, {
+    resolveValues: 'auto',
+  });
   useEffect(() => {
     // fix animation is stopped after entered background state on iOS
     // https://github.com/lottie-react-native/lottie-react-native/issues/412
@@ -52,7 +56,8 @@ export const LottieView = forwardRef<
       resizeMode={resizeMode}
       source={source as LottieNativeProps['source']}
       loop={loop}
-      {...props}
+      style={style as any}
+      {...restProps}
       ref={animationRef as LegacyRef<AnimatedLottieView>}
     />
   );
