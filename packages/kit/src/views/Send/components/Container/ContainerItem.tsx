@@ -2,7 +2,7 @@ import { Stack } from '@onekeyhq/components';
 
 function ContainerItem({ children }: { children: React.ReactNode }) {
   return (
-    <Stack width="100%" padding="$4">
+    <Stack width="100%" px="$4" py="$3">
       {children}
     </Stack>
   );

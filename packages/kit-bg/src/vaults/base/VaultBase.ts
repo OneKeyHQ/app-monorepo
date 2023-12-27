@@ -37,6 +37,7 @@ import type { KeyringBase } from './KeyringBase';
 import type { IDBWalletType } from '../../dbs/local/types';
 import type {
   IBroadcastTransactionParams,
+  IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
   IBuildUnsignedTxParams,
@@ -103,6 +104,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
+
+  abstract buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
     params: IBuildUnsignedTxParams,

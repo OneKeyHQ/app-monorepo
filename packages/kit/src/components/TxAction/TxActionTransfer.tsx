@@ -10,6 +10,8 @@ import {
 
 import { buildTxActionDirection } from '../../utils/txAction';
 
+import { TxActionCommonT1 } from './TxActionCommon';
+
 import type { ITxActionProps } from './types';
 
 export function getTxActionTransferInfo(props: ITxActionProps) {
@@ -136,8 +138,38 @@ function TxActionTransferT0(props: ITxActionProps) {
   );
 }
 
-function TxActionTransferT1() {
-  return null;
+function TxActionTransferT1(props: ITxActionProps) {
+  const intl = useIntl();
+  const {
+    transferIcon,
+    transferTarget,
+    transferDirection,
+    transferAmount,
+    transferSymbol,
+  } = getTxActionTransferInfo(props);
+
+  let title = '';
+  let content = '';
+  let description = '';
+
+  if (transferDirection === EDecodedTxDirection.OUT) {
+    title = intl.formatMessage({ id: 'action__send' });
+    content = `- ${transferAmount} ${transferSymbol}`;
+    description = `To: ${transferTarget}`;
+  } else {
+    title = intl.formatMessage({ id: 'action__receive' });
+    content = `+ ${transferAmount} ${transferSymbol}`;
+    description = `From: ${transferTarget}`;
+  }
+
+  return (
+    <TxActionCommonT1
+      title={title}
+      icon={transferIcon}
+      content={content}
+      description={description}
+    />
+  );
 }
 
 export { TxActionTransferT0, TxActionTransferT1 };
