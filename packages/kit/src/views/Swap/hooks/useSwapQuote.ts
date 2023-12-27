@@ -38,8 +38,8 @@ export function useSwapQuote() {
               const aBN = new BigNumber(a.toAmount);
               return bBN.comparedTo(aBN);
             });
-            setQuoteList(res);
           }
+          setQuoteList(res);
           setQuoteFetching(false);
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

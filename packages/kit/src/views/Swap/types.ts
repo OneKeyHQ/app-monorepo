@@ -27,9 +27,15 @@ export interface ISwapToken {
   contractAddress: string; // native token ''
   symbol: string;
   decimals: number;
+  name?: string;
   logoURI?: string;
   swapSwftCode?: string;
   swapSwftUnSupportCode?: string;
+  balance?: string;
+  balanceParsed?: string;
+  price?: number;
+  price24h?: number;
+  fiatValue?: string;
 }
 
 // quote

@@ -82,10 +82,12 @@ const SwapTokenSelectModal = () => {
     ({ item }: { item: ISwapToken }) => (
       <ListItem
         key={`${item.symbol} - ${item.networkId}`}
-        title={`${item.symbol} - ${
+        title={`${item.name ?? item.symbol} - ${
           item.contractAddress ? item.contractAddress : 'nativeToken'
         }`}
-        subtitle={item.providers}
+        subtitle={`${item.providers}${
+          item.balanceParsed ? ` - ${item.balanceParsed}` : ''
+        }`}
         avatarProps={{ source: { uri: item.logoURI } }}
         onPress={() => {
           void onSelectToken(item);

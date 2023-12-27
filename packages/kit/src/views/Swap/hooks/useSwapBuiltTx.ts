@@ -42,10 +42,7 @@ export function useSwapBuildTx() {
         userAddress: mockAddress,
         provider: selectQuote.info.provider as ESwapProviders,
       });
-      if (res) {
-        setSwapBuildTxResult(res);
-      }
-      console.log(res);
+      setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);
     }
   }, [

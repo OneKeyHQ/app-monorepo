@@ -40,3 +40,4 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
 }
 
 export const mockAddress = '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
+export const mockNetworkId = 'evm--1';

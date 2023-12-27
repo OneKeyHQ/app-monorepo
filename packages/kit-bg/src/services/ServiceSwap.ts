@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import { Toast } from '@onekeyhq/components';
 import { CrossChainSwapProviders } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
@@ -67,6 +68,9 @@ export default class ServiceSwap extends ServiceBase {
     type,
     limit = 50,
     next,
+    accountAddress,
+    accountNetworkId,
+    accountXpub,
   }: {
     type: 'from' | 'to';
     networkId?: string;
@@ -74,6 +78,9 @@ export default class ServiceSwap extends ServiceBase {
     fromToken?: ISwapToken;
     limit?: number;
     next?: string;
+    accountAddress?: string;
+    accountNetworkId?: string;
+    accountXpub?: string;
   }): Promise<{ result: ISwapToken[]; next?: string }> {
     if (this._tokensCancelSource) {
       this._tokensCancelSource.cancel('tokens request canceled');
@@ -94,6 +101,9 @@ export default class ServiceSwap extends ServiceBase {
       type,
       limit,
       next,
+      accountAddress,
+      accountNetworkId,
+      accountXpub,
     };
     this._tokensCancelSource = axios.CancelToken.source();
     const fetchUrl = `${getFiatEndpoint()}/exchange/tokens`;
@@ -105,6 +115,7 @@ export default class ServiceSwap extends ServiceBase {
       if (data?.code === 0 && data?.data) {
         return { result: data.data.data, next: data.data.next };
       }
+      Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
       if (axios.isCancel(e)) {
         throw new Error('cancel');
@@ -169,13 +180,14 @@ export default class ServiceSwap extends ServiceBase {
       if (data.code === 0 && data.data) {
         return data.data;
       }
+      Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
       if (axios.isCancel(e)) {
         console.error('fetchQuote--cancel', e);
         throw new Error('cancel');
       } else {
         // TODO: toast
-        console.error('fetchQuotes--error', e);
+        Toast.error({ title: 'error', message: 'internal error' });
       }
     }
     return [];
@@ -219,14 +231,18 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
     };
     const client = await this.getClient();
-
-    const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-      '/exchange/build_tx',
-      { params },
-    );
-    if (data.code === 0 && data.data) {
-      return data.data;
+    try {
+      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+        '/exchange/build_tx',
+        { params },
+      );
+      if (data.code === 0 && data.data) {
+        return data.data;
+      }
+      Toast.error({ title: 'error', message: data?.message });
+    } catch (e) {
+      Toast.error({ title: 'error', message: 'internal error' });
     }
-    throw new Error('fetchBuildTx error');
+    return undefined;
   }
 }

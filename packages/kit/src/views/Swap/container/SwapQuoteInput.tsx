@@ -50,7 +50,10 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
               onInputChange={setFromInputAmount}
               inputValue={fromInputAmount}
             />
-            <SwapTokenCurrencyValue value="99999" currency="$" />
+            <SwapTokenCurrencyValue
+              value={fromToken?.fiatValue ?? '0.0'}
+              currency="$"
+            />
           </YStack>
           <SwapTokenSelectTrigger
             loading={fetchLoading}
@@ -62,7 +65,12 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         </XStack>
         {/* todo account logic */}
         <XStack>
-          <SwapTokenBalance balance={8888.88} symbol="BTC" />
+          <SwapTokenBalance
+            balance={
+              fromToken?.balanceParsed ? Number(fromToken.balanceParsed) : 0.0
+            }
+            symbol={fromToken?.symbol ?? ''}
+          />
           <SwapFromAmountPercentage
             selectItems={swapFromAmountPercentageItems}
             onSelectItem={(item) => {
@@ -92,7 +100,10 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
               inputValue={swapQuoteCurrentSelect?.toAmount ?? ''}
               disabled
             />
-            <SwapTokenCurrencyValue value="99999" currency="$" />
+            <SwapTokenCurrencyValue
+              value={toToken?.fiatValue ?? '0.0'}
+              currency="$"
+            />
           </YStack>
           <SwapTokenSelectTrigger
             loading={fetchLoading}
@@ -104,7 +115,12 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         </XStack>
         {/* todo account logic */}
         <XStack justifyContent="flex-start">
-          <SwapTokenBalance balance={8888.88} symbol="BTC" />
+          <SwapTokenBalance
+            balance={
+              toToken?.balanceParsed ? Number(toToken.balanceParsed) : 0.0
+            }
+            symbol={toToken?.symbol ?? ''}
+          />
         </XStack>
       </YStack>
     </YStack>

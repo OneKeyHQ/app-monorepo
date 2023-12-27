@@ -6,6 +6,7 @@ import {
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
 } from '../../../states/jotai/contexts/swap';
+import { mockAddress, mockNetworkId } from '../utils/utils';
 
 import type { ISwapToken } from '../types';
 
@@ -55,6 +56,9 @@ export function useSwapTokenList(
         type: selectTokenModalType,
         fromToken,
         keywords,
+        accountAddress: mockAddress,
+        accountNetworkId: mockNetworkId,
+        // accountXpub: mockAddress,
       });
       setCurrentTokens(result);
     },
