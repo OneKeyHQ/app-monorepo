@@ -9,7 +9,12 @@ import { useSource } from './hook';
 import type { IImageSourceProps } from './type';
 import type { ImageStyle, StyleProp } from 'react-native';
 
-export function ImageSource({ source, delayMs, ...props }: IImageSourceProps) {
+export function ImageSource({
+  source,
+  src,
+  delayMs,
+  ...props
+}: IImageSourceProps) {
   const startTime = useRef(Date.now());
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -35,7 +40,7 @@ export function ImageSource({ source, delayMs, ...props }: IImageSourceProps) {
     }
   }, [delayMs, setLoading]);
 
-  const imageSource = useSource(source);
+  const imageSource = useSource(source, src);
   if (!imageSource) {
     return null;
   }
@@ -43,7 +48,7 @@ export function ImageSource({ source, delayMs, ...props }: IImageSourceProps) {
   style.height = style.height ? (style.height as number) : '100%';
   return (
     <NativeImage
-      source={source}
+      source={imageSource}
       {...restProps}
       width={style.width as number}
       height={style.height as number}

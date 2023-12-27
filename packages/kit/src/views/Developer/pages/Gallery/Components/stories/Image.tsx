@@ -9,7 +9,7 @@ const ImageGallery = () => (
     boundaryConditions={[]}
     elements={[
       {
-        title: 'load Image',
+        title: 'load Image via source',
         element: (
           <YStack space={10}>
             <Image
@@ -23,6 +23,18 @@ const ImageGallery = () => (
               source={{
                 uri: 'https://onekey-asset.com/assets/btc/btc.png',
               }}
+            />
+          </YStack>
+        ),
+      },
+      {
+        title: 'load Image via src',
+        element: (
+          <YStack space={10}>
+            <Image
+              height="$10"
+              width="$10"
+              src="https://onekey-asset.com/assets/btc/btc.png"
             />
           </YStack>
         ),
@@ -83,9 +95,7 @@ const ImageGallery = () => (
             <Image height="$10" width="$10">
               <Image.Source
                 delayMs={2500}
-                source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
-                }}
+                src="https://onekey-asset.com/assets/btc/btc.png"
               />
               <Image.Skeleton />
             </Image>

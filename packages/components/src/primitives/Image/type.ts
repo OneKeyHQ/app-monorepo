@@ -16,16 +16,18 @@ export type IImageFallbackProps = PropsWithChildren<
 
 export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
 
-export type IImageSourceProps = Omit<ImageProps, 'width' | 'height'> &
+export type IImageSourceProps = Omit<
+  ImageProps,
+  'width' | 'height' | 'source'
+> &
   StackStyleProps & {
     delayMs?: number;
+    src?: string;
+    source?: ImageProps['source'];
   };
-export type IImageProps = PropsWithChildren<
-  Omit<IImageSourceProps, 'source'> & {
-    source?: IImageSourceProps['source'];
-  }
->;
+export type IImageProps = PropsWithChildren<IImageSourceProps>;
 
 export type IUseSource = (
   source?: ImageSourcePropType,
+  src?: string,
 ) => ImageSourcePropType | undefined;
