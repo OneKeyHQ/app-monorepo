@@ -1,4 +1,4 @@
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 
 import {
   ConfirmOnClassic,
@@ -28,22 +28,13 @@ const mockListenDeviceResult = () => {
 
 export const confirmOnClassic = async () => {
   const event = mockListenDeviceResult();
-  const dialog = Dialog.show({
-    disableDrag: true,
-    dismissOnOverlayPress: false,
-    showFooter: false,
-    floatingPanelProps: {
-      mt: '$5',
-      mb: 'auto',
-    },
-    renderContent: <ConfirmOnClassic />,
-    onDismiss: () => {
-      event.cancel();
-    },
+
+  const toast = Toast.show({
+    children: <ConfirmOnClassic />,
   });
   setTimeout(async () => {
     event.confirm();
-    await dialog.close();
+    await toast.close();
   }, 3500);
   await event.run();
 };

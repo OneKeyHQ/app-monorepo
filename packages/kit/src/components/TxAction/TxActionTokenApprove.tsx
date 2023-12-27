@@ -3,6 +3,8 @@ import { useIntl } from 'react-intl';
 import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { TxActionCommonT1 } from './TxActionCommon';
+
 import type { ITxActionProps } from './types';
 
 function getTxActionTokenApproveInfo(props: ITxActionProps) {
@@ -51,8 +53,25 @@ function TxActionTokenApproveT0(props: ITxActionProps) {
   );
 }
 
-function TxActionTokenApproveT1() {
-  return null;
+function TxActionTokenApproveT1(props: ITxActionProps) {
+  const intl = useIntl();
+  const { approveIcon, approveSpender, approveAmount, approveSymbol } =
+    getTxActionTokenApproveInfo(props);
+
+  const title = intl.formatMessage({ id: 'form__approved' });
+  const content = `${approveAmount} ${approveSymbol}`;
+  const description = `to: ${accountUtils.shortenAddress({
+    address: approveSpender,
+  })}`;
+
+  return (
+    <TxActionCommonT1
+      title={title}
+      icon={approveIcon}
+      content={content}
+      description={description}
+    />
+  );
 }
 
 export { TxActionTokenApproveT0, TxActionTokenApproveT1 };

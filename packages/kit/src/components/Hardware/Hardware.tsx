@@ -20,25 +20,35 @@ import type { IButtonProps } from '@onekeyhq/components';
 
 export function ConfirmOnClassic() {
   return (
-    <XStack alignItems="center" mb="$-2.5" mt="$2.5" ml="$-2.5">
-      <Stack
-        w="$16"
-        h="$16"
-        bg="$bgStrong"
-        borderRadius="$2"
-        style={{ borderCurve: 'continuous' }}
-        justifyContent="center"
-        alignItems="center"
-      >
-        <LottieView
-          width="$16"
-          height="$16"
-          source={require('../../../assets/animations/confirm-on-classic.json')}
-        />
-      </Stack>
-      <SizableText size="$bodyLgMedium" textAlign="center" pl="$4">
-        Confirm on Device
-      </SizableText>
+    <XStack
+      $gtMd={{ minWidth: '$80' }}
+      $md={{ px: '$1' }}
+      py="$3"
+      justifyContent="space-around"
+    >
+      <XStack alignItems="center">
+        <Stack
+          w="$16"
+          h="$16"
+          bg="$bgStrong"
+          borderRadius="$2"
+          style={{ borderCurve: 'continuous' }}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <LottieView
+            width="$16"
+            height="$16"
+            source={require('../../../assets/animations/confirm-on-classic.json')}
+          />
+        </Stack>
+        <SizableText size="$bodyLgMedium" textAlign="center" pl="$4">
+          Confirm on Device
+        </SizableText>
+      </XStack>
+      <Toast.Close>
+        <IconButton icon="CrossedSmallOutline" />
+      </Toast.Close>
     </XStack>
   );
 }
