@@ -48,7 +48,7 @@ const tsRules = {
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
   '@typescript-eslint/naming-convention': [
-    'warn',
+    'error',
     {
       'selector': ['interface', 'typeAlias'],
       'format': ['PascalCase'],
