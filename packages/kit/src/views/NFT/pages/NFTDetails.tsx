@@ -64,6 +64,10 @@ const details: {
     value: 'Ethereum',
   },
   {
+    label: 'Token ID',
+    value: '101525',
+  },
+  {
     label: 'Token Standard',
     value: 'ERC-721',
   },
@@ -157,19 +161,19 @@ export function NFTDetails() {
             space="$5"
           >
             {/* Details */}
-            <Stack space="$3">
+            <Stack space="$4">
               {details.map(({ label, value, onPress, iconAfter }) => (
                 <XStack
                   key={label}
                   justifyContent="space-between"
                   alignItems="center"
-                  onPress={onPress}
                 >
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {label}
                   </SizableText>
                   <XStack
                     alignItems="center"
+                    onPress={onPress}
                     {...(onPress && {
                       userSelect: 'none',
                       hoverStyle: {
@@ -203,18 +207,16 @@ export function NFTDetails() {
             {/* Attributes */}
             <Divider />
             <Stack>
-              <Heading size="$headingMd">Attributes</Heading>
+              <Heading size="$headingSm">Attributes</Heading>
               <XStack m="$-1" pt="$2.5" flexWrap="wrap">
                 {attributes.map(({ traitType, value }) => (
                   <Stack
-                    bg="$bgSubdued"
                     key={traitType}
                     py="$2"
                     px="$3.5"
                     m="$1"
-                    borderRadius="$3"
-                    borderWidth={StyleSheet.hairlineWidth}
-                    borderColor="$borderSubdued"
+                    bg="$bgStrong"
+                    borderRadius="$2"
                     style={{
                       borderCurve: 'continuous',
                     }}

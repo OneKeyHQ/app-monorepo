@@ -1,6 +1,13 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, SectionList, Stack } from '@onekeyhq/components';
+import {
+  Empty,
+  ListItem,
+  SectionList,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountHistoryTx,
@@ -33,30 +40,60 @@ function TxHistoryListEmpty() {
   );
 }
 
+const fakeData = [
+  {
+    title: 'DEC 20, 2023',
+    data: [
+      {
+        title: 'Send',
+        type: 'send',
+      },
+    ],
+  },
+];
+
+const getTitle = (type) => {
+  if (type === 'send') return 'Send';
+};
+
 function TxHistoryListView(props: IProps) {
   const { data, accountAddress, onContentSizeChange } = props;
+  console.log(data);
   return (
     <SectionList
       h="100%"
-      ListHeaderComponentStyle={{
-        mt: '$4',
-        mb: '$2',
-      }}
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
-      sections={data}
-      renderSectionHeader={({ section }) => (
-        <TxHistorySectionHeader {...section} />
-      )}
+      sections={fakeData}
+      // renderSectionHeader={({ section }) => (
+      //   <TxHistorySectionHeader {...section} />
+      // )}
       ListHeaderComponent={TxHistoryListHeader}
       ListEmptyComponent={TxHistoryListEmpty}
-      estimatedItemSize="$10"
-      renderItem={({ item }: { item: IAccountHistoryTx }) => (
-        <TxHistoryListItem
-          key={item.id}
-          historyTx={item}
-          accountAddress={accountAddress}
-        />
+      estimatedItemSize={60}
+      // renderItem={({ item }: { item: IAccountHistoryTx }) => (
+      //   <TxHistoryListItem
+      //     key={item.id}
+      //     historyTx={item}
+      //     accountAddress={accountAddress}
+      //   />
+      // )}
+      renderItem={({ item }) => (
+        <ListItem>
+          <ListItem.Text
+            primary={item.title}
+            secondary={
+              <XStack space="$0.5">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  To
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  addr1q8x...dsnackw2
+                </SizableText>
+              </XStack>
+            }
+          />
+        </ListItem>
       )}
     />
   );

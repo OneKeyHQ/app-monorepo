@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { TokenDetails } from '../pages';
+import { LowValueTokens, TokenDetails } from '../pages';
 
 import { ETokenPages } from './type';
 
@@ -13,5 +13,9 @@ export const TokenRouter: IModalFlowNavigatorConfig<
   {
     name: ETokenPages.TokenDetails,
     component: TokenDetails,
+  },
+  {
+    name: ETokenPages.LowValueTokens,
+    component: LowValueTokens,
   },
 ];
