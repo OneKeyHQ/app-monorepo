@@ -1,10 +1,15 @@
 import BigNumber from 'bignumber.js';
 
-import type {
-  IFeeInfoUnit,
-  IGasEIP1559,
-  IGasLegacy,
+import type { ILocaleIds } from '@onekeyhq/components';
+import {
+  EGasType,
+  type IFeeInfoUnit,
+  type IGasEIP1559,
+  type IGasLegacy,
 } from '@onekeyhq/shared/types/gas';
+
+const PRESET_GAS_ICON = ['🚴‍♂️️', '🚗', '🚅'];
+const PRESET_GAS_LABEL = ['content__slow', 'content__normal', 'content__fast'];
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -56,7 +61,7 @@ export function calculateTotalFeeRange(
   }
 
   if (feeInfo.isBtcForkChain) {
-    const fee = new BigNumber(feeInfo.gasBTC?.btcFee ?? '0')
+    const fee = new BigNumber(feeInfo.gasUTXO?.feeValue ?? '0')
       .shiftedBy(-displayDecimals)
       .toFixed(displayDecimals);
     return {
@@ -105,4 +110,31 @@ export function calculateTotalFeeNative({
       ),
     ) // onChainValue -> nativeAmount
     .toFixed(displayDecimal);
+}
+
+export function getGasLabel({
+  gasType,
+  gasPresetIndex,
+}: {
+  gasType: EGasType;
+  gasPresetIndex?: number;
+}) {
+  if (gasType === EGasType.Custom) {
+    return 'content__custom';
+  }
+
+  return PRESET_GAS_LABEL[gasPresetIndex || 1] as ILocaleIds;
+}
+export function getGasIcon({
+  gasType,
+  gasPresetIndex,
+}: {
+  gasType: EGasType;
+  gasPresetIndex?: number;
+}) {
+  if (gasType === EGasType.Custom) {
+    return '⚙️';
+  }
+
+  return PRESET_GAS_ICON[gasPresetIndex || 1];
 }

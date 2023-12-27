@@ -9,6 +9,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -22,6 +23,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
+  IBuildDecodedTxParams,
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
@@ -37,6 +39,23 @@ export default class Vault extends VaultBase {
       return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    // TODO evm decode tx impl
+    return Promise.resolve({
+      txid: '',
+      owner: '',
+      signer: '',
+      nonce: 0,
+      actions: [],
+      networkId: '',
+      accountId: '',
+      status: EDecodedTxStatus.Pending,
+      extraInfo: null,
+    });
   }
 
   override async buildUnsignedTx(options: {

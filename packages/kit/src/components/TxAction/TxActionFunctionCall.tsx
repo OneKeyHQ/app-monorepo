@@ -3,6 +3,8 @@ import { useIntl } from 'react-intl';
 import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { TxActionCommonT1 } from './TxActionCommon';
+
 import type { ITxActionProps } from './types';
 
 function getTxActionFunctionCallInfo(props: ITxActionProps) {
@@ -48,8 +50,21 @@ function TxActionFunctionCallT0(props: ITxActionProps) {
   );
 }
 
-function TxActionFunctionCallT1() {
-  return null;
+function TxActionFunctionCallT1(props: ITxActionProps) {
+  const intl = useIntl();
+  const { target, functionName } = getTxActionFunctionCallInfo(props);
+
+  const title = intl.formatMessage({ id: 'transaction__contract_interaction' });
+  const content = functionName;
+  const description = `To: ${target}`;
+
+  return (
+    <TxActionCommonT1
+      title={title}
+      content={content}
+      description={description}
+    />
+  );
 }
 
 export { TxActionFunctionCallT0, TxActionFunctionCallT1 };

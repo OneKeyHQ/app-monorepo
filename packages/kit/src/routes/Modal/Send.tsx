@@ -3,7 +3,7 @@ import {
   SendAddressInput,
   SendAddressInputWithProvider,
   SendAmountInput,
-  SendConfirm,
+  SendConfirmWithProvider,
   SendProgress,
 } from '@onekeyhq/kit/src/views/Send';
 import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
@@ -27,7 +27,7 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   },
   {
     name: EModalSendRoutes.SendConfirm,
-    component: SendConfirm,
+    component: SendConfirmWithProvider,
   },
   {
     name: EModalSendRoutes.SendProgress,

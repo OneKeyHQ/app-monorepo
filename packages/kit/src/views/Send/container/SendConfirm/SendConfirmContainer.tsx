@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,10 @@ import { Page, ScrollView, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Modal/type';
+import {
+  useSendConfirmActions,
+  withSendConfirmProvider,
+} from '../../../../states/jotai/contexts/send-confirm';
 import { InteractInfo } from '../../components/InteractInfo';
 import { SendActions } from '../../components/SendActions';
 import { SingerInfo } from '../../components/SingerInfo';
@@ -28,6 +32,8 @@ function SendConfirmContainer() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId, unsignedTxs, transfersInfo } = route.params;
 
+  const { updateUnsignedTxs } = useSendConfirmActions().current;
+
   const handleConfirm = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.pushModal(EModalRoutes.SendModal, {
@@ -41,6 +47,11 @@ function SendConfirmContainer() {
     });
   }, [accountId, navigation, networkId, transfersInfo, unsignedTxs]);
 
+  useEffect(
+    () => updateUnsignedTxs(unsignedTxs),
+    [unsignedTxs, updateUnsignedTxs],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -51,10 +62,7 @@ function SendConfirmContainer() {
           <YStack space="$5">
             <InteractInfo />
             <SingerInfo />
-            <TxActionsContainer
-              unsignedTxs={unsignedTxs}
-              transfersInfo={transfersInfo}
-            />
+            <TxActionsContainer />
           </YStack>
         </ScrollView>
       </Page.Body>
@@ -75,4 +83,8 @@ function SendConfirmContainer() {
   );
 }
 
-export { SendConfirmContainer };
+const SendAssetInputContainerWithProvider = memo(
+  withSendConfirmProvider(SendConfirmContainer),
+);
+
+export { SendConfirmContainer, SendAssetInputContainerWithProvider };
