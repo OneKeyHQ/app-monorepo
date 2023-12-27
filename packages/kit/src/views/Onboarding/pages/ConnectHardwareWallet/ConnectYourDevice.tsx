@@ -82,8 +82,8 @@ const FirmwareAuthenticationDialogContent = ({
                 alignItems="center"
               >
                 <LottieView
-                  width={64}
-                  height={64}
+                  width="$16"
+                  height="$16"
                   source={require('../../../../../assets/animations/confirm-on-classic.json')}
                 />
               </Stack>
@@ -323,6 +323,8 @@ export function ConnectYourDevice() {
         {/* animation */}
         <Stack p="$5" pt="$0" mb="$4" alignItems="center" bg="$bgSubdued">
           <LottieView
+            width="100%"
+            height="$56"
             source={
               platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
             }
