@@ -303,10 +303,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           'getSignersMap ERROR: address is required, is privateKeys including fullPath?',
         );
       }
-      signers[address] = await this.buildSignerBtc({
+      const signer = await this.buildSignerBtc({
         privateKey,
         password,
       });
+      signers[address] = signer;
     }
     return signers;
   }
@@ -339,6 +340,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // P2TR taproot
     if (input && input.tapInternalKey) {
       const privateKey = await signer.getPrvkey();
+      const privateKeyHex = await signer.getPrvkeyHex();
+      const publicKeyHex = await signer.getPubkeyHex();
       const tweakedSigner = tweakSigner(privateKey, publicKey, {
         network,
       });

@@ -191,7 +191,7 @@ async function expectSignTransactionOk({
   hdCredential: ICoreTestsHdCredential;
 }) {
   const { password } = hdCredential;
-  for (const { encodedTx, unsignedTx, signedTx } of txSamples) {
+  for (const { encodedTx, unsignedTx, signedTx, btcExtraInfo } of txSamples) {
     const signAccount: ICoreApiSignAccount = account;
     signAccount.pub = signAccount.pub || account.publicKey;
     signAccount.pubKey = signAccount.pubKey || account.publicKey;
@@ -203,6 +203,7 @@ async function expectSignTransactionOk({
       unsignedTx: unsignedTx ?? {
         encodedTx: encodedTx || '',
       },
+      btcExtraInfo,
     };
     const resultHd = await coreApi.signTransaction({
       ...signTxPayload,
@@ -215,7 +216,7 @@ async function expectSignTransactionOk({
       credentials: {
         imported: encryptImportedCredential({
           password,
-          credential: { privateKey: account.privateKeyRaw },
+          credential: { privateKey: account.xpvtRaw || account.privateKeyRaw },
         }),
       },
     });

@@ -105,7 +105,7 @@ export type ICoreApiSignBtcExtraInfo = {
     [txid: string]: string; // rawTx string
   };
   pathToAddresses: {
-    [path: string]: {
+    [fullPath: string]: {
       address: string;
       relPath: string;
     };
