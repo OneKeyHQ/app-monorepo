@@ -6,7 +6,7 @@ import { styled, withStaticProperties } from 'tamagui';
 
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../Stack';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';

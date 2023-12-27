@@ -52,6 +52,16 @@ const ImageGallery = () => (
                 <Skeleton width="100%" height="100%" />
               </Image.Fallback>
             </Image>
+
+            <Image height="$10" width="$10">
+              <Image.Source
+                delayMs={2500}
+                source={{
+                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                }}
+              />
+              <Image.Skeleton />
+            </Image>
             <Image height="$10" width="$10">
               <Image.Source
                 source={{
@@ -61,6 +71,23 @@ const ImageGallery = () => (
               <Image.Fallback delayMs={2500}>
                 <Skeleton width="100%" height="100%" />
               </Image.Fallback>
+            </Image>
+          </YStack>
+        ),
+      },
+
+      {
+        title: 'Loading Fallback',
+        element: (
+          <YStack>
+            <Image height="$10" width="$10">
+              <Image.Source
+                delayMs={2500}
+                source={{
+                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                }}
+              />
+              <Image.Skeleton />
             </Image>
           </YStack>
         ),

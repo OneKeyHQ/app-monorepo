@@ -6,10 +6,11 @@ import { withStaticProperties } from 'tamagui';
 import { Stack } from '../Stack';
 
 import { ImageContext } from './context';
-import { ImageFallback } from './ImageFallback';
+import { ImageFallback, ImageSkeleton } from './ImageFallback';
 import { ImageSource } from './ImageSource';
 
 import type { IImageProps, IImageSourceProps } from './type';
+import { Skeleton } from 'moti/skeleton';
 
 function ImageContainer({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
@@ -38,10 +39,12 @@ function BasicImage({ children, ...props }: IImageProps) {
 export const Image = withStaticProperties(BasicImage, {
   Source: ImageSource,
   Fallback: ImageFallback,
+  Skeleton: ImageSkeleton,
 });
 
 export type {
   IImageFallbackProps,
   IImageSourceProps,
   IImageProps,
+  IImageSkeletonProps,
 } from './type';

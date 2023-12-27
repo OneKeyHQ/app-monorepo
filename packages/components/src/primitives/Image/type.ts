@@ -14,6 +14,8 @@ export type IImageFallbackProps = PropsWithChildren<
   }
 >;
 
+export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
+
 export type IImageSourceProps = Omit<ImageProps, 'width' | 'height'> &
   StackStyleProps & {
     delayMs?: number;
