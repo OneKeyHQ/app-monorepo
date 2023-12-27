@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { Dialog, Toast } from '@onekeyhq/components';
 
 import {
