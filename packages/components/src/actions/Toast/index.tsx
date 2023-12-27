@@ -1,9 +1,19 @@
+import type { RefObject } from 'react';
+import { createRef } from 'react';
+
+import { ToastProvider } from '@tamagui/toast';
 import { toast } from 'burnt';
 import { getTokens } from 'tamagui';
 
+import { Portal } from '../../hocs';
 import { Icon } from '../../primitives';
 
-interface IToastProps {
+import { ShowToaster, ShowToasterClose } from './ShowToaster';
+
+import type { IShowToasterInstance, IShowToasterProps } from './ShowToaster';
+import type { IPortalManager } from '../../hocs';
+
+export interface IToastProps {
   title: string;
   message?: string;
   /**
@@ -69,4 +79,53 @@ export const Toast = {
   message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
+  show: ({ onClose, children, onDismiss }: IShowToasterProps) => {
+    let instanceRef: RefObject<IShowToasterInstance> | undefined =
+      createRef<IShowToasterInstance>();
+    let portalRef:
+      | {
+          current: IPortalManager;
+        }
+      | undefined;
+
+    const handleClose = () =>
+      new Promise<void>((resolve) => {
+        void onClose?.();
+        // Remove the React node after the animation has finished.
+        setTimeout(() => {
+          if (instanceRef) {
+            instanceRef = undefined;
+          }
+          if (portalRef) {
+            portalRef.current.destroy();
+            portalRef = undefined;
+          }
+          onDismiss?.();
+          resolve();
+        }, 300);
+      });
+    portalRef = {
+      current: Portal.Render(
+        Portal.Constant.TOASTER_OVERLAY_PORTAL,
+        <ShowToaster ref={instanceRef} onClose={handleClose}>
+          {children}
+        </ShowToaster>,
+      ),
+    };
+    return {
+      close: async () => instanceRef?.current?.close(),
+    };
+  },
+  Close: ShowToasterClose,
 };
+
+export { useToaster } from './ShowToaster';
+export type { IShowToasterProps } from './ShowToaster';
+
+export function ShowToastProvider() {
+  return (
+    <ToastProvider swipeDirection="up">
+      <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />
+    </ToastProvider>
+  );
+}
