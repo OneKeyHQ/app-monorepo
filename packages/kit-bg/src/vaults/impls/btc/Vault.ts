@@ -129,7 +129,7 @@ export default class VaultBtc extends VaultBase {
       return {
         inputs: [
           {
-            // TBTC first taproot address
+            // TBTC: zoo zoo ... vote(24 words), HD wallet,  first taproot address
             address:
               'tb1pzutpcaymsyxtmz325ucsjed4evp9mea05tsf32wnkx46vsjrqtrq4d3dmr',
             path: "m/86'/1'/0'/0/0",
