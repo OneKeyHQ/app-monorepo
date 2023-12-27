@@ -23,7 +23,7 @@ function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
   });
   const themeVariant = useThemeVariant();
   return (
-    <Stack ref={ref}>
+    <Stack ref={ref} flex={1}>
       <MotiSkeleton colorMode={themeVariant} {...(style as any)} {...restProps}>
         {children}
       </MotiSkeleton>

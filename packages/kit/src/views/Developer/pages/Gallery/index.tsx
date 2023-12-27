@@ -47,6 +47,7 @@ import ToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Compon
 import TooltipGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView';
+import ImageGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image';
 
 import { EGalleryRoutes } from '../routes';
 
@@ -163,5 +164,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentHardware,
     component: HardwareGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImage,
+    component: ImageGallery,
   },
 ];
