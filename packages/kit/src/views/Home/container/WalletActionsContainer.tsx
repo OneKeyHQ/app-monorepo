@@ -18,7 +18,7 @@ function WalletActionsContainer() {
       screen: EModalSendRoutes.SendAssetInput,
       params: {
         networkId: 'evm--1',
-        accountId: '',
+        accountId: "hd-1--m/44'/60'/0'/0/0",
         transfersInfo: [
           {
             from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
