@@ -1,12 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import {
-  memo,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated, {
   useAnimatedStyle,
