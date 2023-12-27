@@ -5,6 +5,7 @@ import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { convertHistoryToSectionGroups } from '../../../utils/history';
 import { TxHistoryListView } from '../components/TxHistoryListView';
+import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -16,14 +17,21 @@ function TxHistoryListContainer(props: IProps) {
   const { onContentSizeChange } = props;
   const formatDate = useFormatDate();
 
-  const history = usePromiseResult(async () => {
-    const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-      accountId: "hd-1--m/44'/60'/0'/0/0",
-      networkId: 'evm--1',
-      accountAddress,
-    });
-    return r;
-  }, []);
+  const history = usePromiseResult(
+    async () => {
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        networkId: 'evm--1',
+        accountAddress,
+      });
+      return r;
+    },
+    [],
+    {
+      debounced: DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+    },
+  );
 
   const historySections = useMemo(
     () =>
