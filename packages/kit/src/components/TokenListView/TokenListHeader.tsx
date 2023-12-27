@@ -18,10 +18,10 @@ function TokenListHeader({ tableLayout }: IProps) {
   const media = useMedia();
 
   return (
-    <Stack>
+    <Stack p="$5" pb="$3">
       <XStack justifyContent="space-between">
         <SearchBar
-          placeholder="Search token"
+          placeholder="Search..."
           containerProps={{
             flex: 1,
             mr: '$2.5',
@@ -38,48 +38,39 @@ function TokenListHeader({ tableLayout }: IProps) {
       </XStack>
       {tableLayout && (
         <XStack space="$3" pt="$5">
-          <SizableText
-            color="$textSubdued"
-            size="$headingXs"
-            mr={44}
-            w="$56"
-            $gt2xl={{
-              w: '$72',
-            }}
-          >
-            Name
+          <SizableText color="$textSubdued" size="$headingXs" mr={44} w="$32">
+            Assets
           </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size="$headingXs"
-            w="$48"
-            $gt2xl={{
-              w: '$72',
-            }}
-          >
-            Balance
-          </SizableText>
-          {media.gtXl && (
+          <XStack space="$2">
             <SizableText
               color="$textSubdued"
-              size="$headingXs"
               textAlign="right"
-              w="$40"
+              size="$headingXs"
+              w="$32"
+              $gtXl={{
+                w: '$56',
+              }}
               $gt2xl={{
                 w: '$72',
               }}
             >
               Price
             </SizableText>
-          )}
+            <Stack w="$24" />
+          </XStack>
           <SizableText
             color="$textSubdued"
             size="$headingXs"
+            textAlign="right"
+            w="$36"
             $gtXl={{
-              color: '$textDisabled',
+              w: '$56',
+            }}
+            $gt2xl={{
+              w: '$72',
             }}
           >
-            24h Change
+            Balance
           </SizableText>
           <SizableText
             flex={1}

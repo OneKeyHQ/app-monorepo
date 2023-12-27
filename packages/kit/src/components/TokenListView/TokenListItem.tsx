@@ -1,16 +1,12 @@
 import type { IListItemProps } from '@onekeyhq/components';
-import {
-  Icon,
-  ListItem,
-  SizableText,
-  Stack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, ListItem, Stack, XStack } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenBalanceView } from './TokenBalanceView';
-// import { TokenPriceView } from './TokenPriceView';
-// import { TokenValueView } from './TokenValueView';
+import { TokenPriceChangeView } from './TokenPriceChangeView';
+import { TokenPriceView } from './TokenPriceView';
+import { TokenSymbolView } from './TokenSymbolView';
+import { TokenValueView } from './TokenValueView';
 
 type IProps = {
   token: IAccountToken;
@@ -20,8 +16,9 @@ type IProps = {
 
 function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
   const { token, onPress, tableLayout, ...rest } = props;
-  const media = useMedia();
   const tokenInfo = token.info;
+
+  console.log(tokenInfo.isNative);
 
   return (
     <ListItem
@@ -35,6 +32,16 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
           alignItems: 'center',
           children: <Icon name="ImageMountainSolid" />,
         },
+        ...(tokenInfo.isNative && {
+          cornerIconProps: {
+            name: 'GasSolid',
+            size: '$4',
+            containerProps: {
+              borderRadius: 5,
+              right: '$-1.5',
+            },
+          },
+        }),
         ...(tableLayout && {
           size: '$8',
         }),
@@ -55,85 +62,76 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
               flex: 1,
             })}
       >
-        {/* name */}
-        <SizableText
+        <TokenSymbolView
           size="$bodyLgMedium"
           numberOfLines={1}
           {...(tableLayout && {
-            w: '$56',
-            $gt2xl: {
-              w: '$72',
-            },
+            w: '$32',
           })}
-        >
-          {tokenInfo.name}
-        </SizableText>
-
-        {/* balance */}
-        <TokenBalanceView
-          size="$bodyMd"
-          color="$textSubdued"
-          $key={token.$key ?? ''}
           symbol={tokenInfo.symbol}
+        />
+
+        <XStack space="$2">
+          <TokenPriceView
+            size="$bodyMd"
+            color="$textSubdued"
+            $key={token.$key ?? ''}
+            {...(tableLayout && {
+              size: '$bodyLg',
+              color: '$text',
+              w: '$32',
+              textAlign: 'right',
+              $gtXl: {
+                w: '$56',
+              },
+              $gt2xl: {
+                w: '$72',
+              },
+            })}
+          />
+          <TokenPriceChangeView
+            $key={token.$key ?? ''}
+            size="$bodyMd"
+            {...(tableLayout && {
+              size: '$bodyLg',
+              w: '$24',
+            })}
+          />
+        </XStack>
+      </Stack>
+
+      <Stack
+        {...(tableLayout && {
+          flex: 1,
+          flexDirection: 'row',
+          space: '$3',
+        })}
+      >
+        <TokenBalanceView
+          size="$bodyLgMedium"
+          $key={token.$key ?? ''}
+          textAlign="right"
           {...(tableLayout && {
-            size: '$bodyLg',
-            color: '$text',
-            w: '$48',
+            w: '$36',
+            $gtXl: {
+              w: '$56',
+            },
             $gt2xl: {
               w: '$72',
             },
           })}
         />
-      </Stack>
-
-      {/* price */}
-      {tableLayout && media.gtXl && (
-        <SizableText
-          w="$40"
-          $gt2xl={{
-            w: '$72',
-          }}
-          textAlign="right"
-          numberOfLines={1}
-        >
-          $23456.78
-        </SizableText>
-      )}
-
-      <Stack
-        {...(tableLayout && {
-          flex: 1,
-          flexDirection: 'row-reverse',
-          space: '$3',
-        })}
-      >
-        {/* value */}
-        <SizableText
-          size="$bodyLgMedium"
+        <TokenValueView
+          $key={token.$key ?? ''}
+          color="$textSubdued"
+          size="$bodyMd"
           textAlign="right"
           {...(tableLayout && {
             flex: 1,
+            color: '$text',
+            size: '$bodyLgMedium',
           })}
-        >
-          $1000.00
-        </SizableText>
-
-        {/*
-          change
-          1. +x.xx% is positive (textSuccess)
-          2. -x.xx% is negative (textCritical)
-          3. 0.00% is neutral (textSubdued)
-        */}
-        <SizableText
-          size="$bodyMd"
-          color="$textSuccess"
-          textAlign="right"
-          {...(tableLayout && {
-            size: '$bodyLg',
-          })}
-        >
-          +5.00%
-        </SizableText>
+        />
       </Stack>
     </ListItem>
   );

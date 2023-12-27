@@ -63,16 +63,18 @@ function TokenListView(props: IProps) {
     });
   }, [navigation]);
 
+  const handleLowValueTokensPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.LowValueTokens,
+    });
+  }, [navigation]);
+
   return (
     <ListView
       estimatedItemSize={60}
       scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
       ListHeaderComponent={renderHeader}
-      ListHeaderComponentStyle={{
-        p: '$5',
-        pb: '$3',
-      }}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
       renderItem={({ item }) => (
@@ -89,7 +91,7 @@ function TokenListView(props: IProps) {
           {tableLayout && <Divider mx="$5" />}
           <ListItem
             mb="$5"
-            onPress={() => console.log('clicked')}
+            onPress={handleLowValueTokensPress}
             userSelect="none"
           >
             <Stack
@@ -103,7 +105,7 @@ function TokenListView(props: IProps) {
                 size={tableLayout ? '$6' : '$7'}
               />
             </Stack>
-            <ListItem.Text flex={1} primary="5 low value tokens" />
+            <ListItem.Text flex={1} primary="3 Low-value Assets" />
             <ListItem.Text primary="$36.28" />
           </ListItem>
         </>

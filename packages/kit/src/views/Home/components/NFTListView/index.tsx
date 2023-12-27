@@ -48,11 +48,14 @@ function NFTListView(props: IProps) {
     //   renderItem={({ item }) => <NFTListItem nft={item} key={item.itemId} />}
     // />
 
-    <XStack flexWrap="wrap" p="$2.5">
-      {data.map((item) => (
-        <NFTListItem nft={item} key={item.itemId} />
-      ))}
-    </XStack>
+    <Stack>
+      <NFTListHeader />
+      <XStack flexWrap="wrap" px="$2.5">
+        {data.map((item) => (
+          <NFTListItem nft={item} key={item.itemId} />
+        ))}
+      </XStack>
+    </Stack>
   );
 }
 

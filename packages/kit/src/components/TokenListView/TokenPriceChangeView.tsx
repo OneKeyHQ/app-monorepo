@@ -11,20 +11,27 @@ type IProps = {
   $key: string;
 } & ISizableTextProps;
 
-function TokenPriceView(props: IProps) {
+function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
 
   const content = useMemo(
     () => (
-      <SizableText {...rest}>
-        ${new BigNumber(token.price).toFixed(2)}
+      <SizableText
+        color={
+          new BigNumber(token.price24h).isPositive()
+            ? '$textSuccess'
+            : '$textCritical'
+        }
+        {...rest}
+      >
+        {new BigNumber(token.price24h).toFixed(2)}%
       </SizableText>
     ),
-    [rest, token.price],
+    [rest, token.price24h],
   );
   return content;
 }
 
-export { TokenPriceView };
+export { TokenPriceChangeView };
