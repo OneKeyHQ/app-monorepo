@@ -3,7 +3,7 @@ export enum ENFTType {
   ERC1155 = 'erc1155',
 }
 
-export type Traits = {
+export type ITraits = {
   traitType: string;
   value: string;
 };
@@ -21,7 +21,7 @@ export type IAccountNFT = {
     image: string;
     itemUrl: string;
     name: string;
-    attributes: Traits[];
+    attributes: ITraits[];
   };
 };
 
