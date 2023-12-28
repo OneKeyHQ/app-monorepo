@@ -19,6 +19,7 @@ import type {
   ILocalDBTxGetRecordByIdResult,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
   ILocalDBWithTransactionTask,
   IRealmDBSchemaMap,
 } from '../types';
@@ -63,15 +64,24 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
 
   // ----------------------------------------------
 
-  async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
-    this.realm.beginTransaction();
+  async withTransaction<T>(
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T> {
+    if (!options?.readOnly) {
+      this.realm.beginTransaction();
+    }
     try {
       const tx = {};
       const result = await task(tx);
-      this.realm.commitTransaction();
+      if (!options?.readOnly) {
+        this.realm.commitTransaction();
+      }
       return result;
     } catch (error) {
-      this.realm.cancelTransaction();
+      if (!options?.readOnly) {
+        this.realm.cancelTransaction();
+      }
       throw error;
     }
   }
@@ -79,19 +89,25 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
-    return this.withTransaction(async (tx) => {
-      const { records } = await this.txGetAllRecords({ ...params, tx });
-      return { records };
-    });
+    return this.withTransaction(
+      async (tx) => {
+        const { records } = await this.txGetAllRecords({ ...params, tx });
+        return { records };
+      },
+      { readOnly: true },
+    );
   }
 
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    return this.withTransaction(async (tx) => {
-      const [record] = await this.txGetRecordById({ ...params, tx });
-      return record;
-    });
+    return this.withTransaction(
+      async (tx) => {
+        const [record] = await this.txGetRecordById({ ...params, tx });
+        return record;
+      },
+      { readOnly: true },
+    );
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(

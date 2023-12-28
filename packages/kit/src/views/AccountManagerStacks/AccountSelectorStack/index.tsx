@@ -25,7 +25,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
   );
 }
 
-export function AccountSelectorStackPage() {
+export default function AccountSelectorStackPage() {
   return (
     <AccountSelectorProviderMirror
       config={{
