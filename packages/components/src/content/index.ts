@@ -7,7 +7,6 @@ export * from './Empty';
 export * from './LottieView';
 export * from './Progress';
 export * from './QRCode';
-export * from './Skeleton';
 export * from './Splash';
 export * from './Divider';
 export * from './SheetGrabber';
