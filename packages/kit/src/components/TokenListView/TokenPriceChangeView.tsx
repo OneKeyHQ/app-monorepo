@@ -15,21 +15,19 @@ function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
+  const isPositive = new BigNumber(token.price24h).isPositive();
 
   const content = useMemo(
     () => (
       <SizableText
-        color={
-          new BigNumber(token.price24h).isPositive()
-            ? '$textSuccess'
-            : '$textCritical'
-        }
+        color={isPositive ? '$textSuccess' : '$textCritical'}
         {...rest}
       >
+        {isPositive && '+'}
         {new BigNumber(token.price24h).toFixed(2)}%
       </SizableText>
     ),
-    [rest, token.price24h],
+    [isPositive, rest, token.price24h],
   );
   return content;
 }

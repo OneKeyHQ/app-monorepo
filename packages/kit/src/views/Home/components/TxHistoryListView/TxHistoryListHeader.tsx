@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,6 +15,8 @@ import {
 
 function TxHistoryListHeader() {
   const intl = useIntl();
+  const [val, setVal] = useState(true);
+
   return (
     <XStack justifyContent="space-between" p="$5" pb="$3">
       <SearchBar
@@ -27,12 +31,12 @@ function TxHistoryListHeader() {
         title="Settings"
         renderTrigger={<IconButton icon="SwitchOutline" />}
         renderContent={
-          <Stack>
+          <Stack py="$2">
             <ListItem
               title="Hide Zero-Value Transfers"
               subtitle="Avoid scam attempts by hiding transfers of zero-value tokens."
             >
-              <Switch size="small" />
+              <Switch size="small" value={val} onChange={setVal} />
             </ListItem>
           </Stack>
         }
