@@ -9,6 +9,8 @@ import { convertHistoryToSectionGroups } from '../../../utils/history';
 import { TxHistoryListView } from '../components/TxHistoryListView';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
 
+import { mockData } from './mockData';
+
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
@@ -51,7 +53,8 @@ function TxHistoryListContainer(props: IProps) {
 
   return (
     <TxHistoryListView
-      data={historySections}
+      data={mockData}
+      showHeader
       isLoading={history.isLoading}
       accountAddress={accountAddress}
       onContentSizeChange={onContentSizeChange}
