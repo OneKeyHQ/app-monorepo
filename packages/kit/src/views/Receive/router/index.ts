@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { LightingInvoice, QrCode } from '../pages';
+import { LightingInvoice, QrCode } from '../Pages';
 
 import { EReceivePages } from './type';
 
