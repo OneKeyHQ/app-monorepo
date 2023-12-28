@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { SizableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {
   $key: string;
@@ -16,13 +15,11 @@ function TokenPriceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
 
+  const price = getFormattedNumber(token.price, { decimal: 4 });
+
   const content = useMemo(
-    () => (
-      <SizableText {...rest}>
-        ${new BigNumber(token.price).toFixed(2)}
-      </SizableText>
-    ),
-    [rest, token.price],
+    () => <SizableText {...rest}>${price}</SizableText>,
+    [price, rest],
   );
   return content;
 }

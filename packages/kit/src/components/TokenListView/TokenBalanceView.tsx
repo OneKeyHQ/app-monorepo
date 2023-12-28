@@ -1,11 +1,10 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { SizableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {
   $key: string;
@@ -16,13 +15,11 @@ function TokenBalanceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key || ''];
 
+  const balance = getFormattedNumber(token.balanceParsed);
+
   const content = useMemo(
-    () => (
-      <SizableText {...rest}>
-        {new BigNumber(token.balanceParsed).toFixed(2)}
-      </SizableText>
-    ),
-    [rest, token],
+    () => <SizableText {...rest}>{balance}</SizableText>,
+    [balance, rest],
   );
   return content;
 }
