@@ -4,6 +4,7 @@
   },
   "build": {
     "base": {
+      "node": "20.0.0",
       "android": {
         "image": "ubuntu-22.04-jdk-11-ndk-r21e",
         "ndk": "23.1.7779620",
