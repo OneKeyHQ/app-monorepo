@@ -40,3 +40,5 @@ export function ImportAddress() {
     </Page>
   );
 }
+
+export default ImportAddress;

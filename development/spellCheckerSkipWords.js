@@ -588,4 +588,5 @@ module.exports = [
   'COMMITHASH',
   'swipeable',
   'nft',
+  'Webpack',
 ];
