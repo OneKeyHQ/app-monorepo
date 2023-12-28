@@ -1,4 +1,5 @@
 import {
+  Divider,
   Heading,
   Image,
   Page,
@@ -6,6 +7,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+
+import { TxHistoryListView } from '../../Home/components/TxHistoryListView';
+
+import type { IHistoryListItemProps } from '../../Home/components/TxHistoryListView/HistoryListItem';
 
 const headerTitle = () => (
   <XStack alignItems="center">
@@ -22,24 +27,65 @@ const headerTitle = () => (
   </XStack>
 );
 
+const data: { title: string; data: IHistoryListItemProps[] }[] = [
+  {
+    title: 'DEC 20, 2023',
+    data: [
+      {
+        title: 'Send',
+        description: {
+          prefix: 'To',
+          children: 'addr1q...ckw2',
+        },
+        change: '-0.01 ETH',
+        avatar: {
+          circular: true,
+          fallbackIcon: 'ArrowTopSolid',
+        },
+      },
+    ],
+  },
+  {
+    title: 'DEC 19, 2023',
+    data: [
+      {
+        title: 'Receive',
+        description: {
+          prefix: 'To',
+          children: 'addr1q...ckw2',
+        },
+        change: '+0.01 ETH',
+        avatar: {
+          circular: true,
+          fallbackIcon: 'ArrowBottomSolid',
+        },
+      },
+    ],
+  },
+];
+
 export function TokenDetails() {
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header headerTitle={headerTitle} />
-      <Page.Body px="$5">
-        <SizableText>Balance</SizableText>
-        <Stack
-          $gtMd={{
-            flexDirection: 'row',
-            alignItems: 'baseline',
-            space: '$2',
-          }}
-        >
-          <Heading size="$heading5xl">2.35</Heading>
-          <SizableText color="$textSubdued" size="$bodyLgMedium">
-            $3,836.97
-          </SizableText>
+      <Page.Body>
+        <Stack px="$5">
+          <SizableText>Balance</SizableText>
+          <Stack
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              space: '$2',
+            }}
+          >
+            <Heading size="$heading5xl">2.35</Heading>
+            <SizableText color="$textSubdued" size="$bodyLgMedium">
+              $3,836.97
+            </SizableText>
+          </Stack>
         </Stack>
+        <Divider my="$5" />
+        <TxHistoryListView data={data} />
       </Page.Body>
     </Page>
   );
