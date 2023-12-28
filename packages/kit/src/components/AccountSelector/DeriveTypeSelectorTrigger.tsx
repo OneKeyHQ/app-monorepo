@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { Select, Text } from '@onekeyhq/components';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -40,6 +41,28 @@ export function DeriveTypeSelectorTrigger({ num }: { num: number }) {
       deriveInfoItems.find((item) => item.value === selectedAccount.deriveType),
     [deriveInfoItems, selectedAccount.deriveType],
   );
+  useEffect(() => {
+    if (
+      !currentDeriveInfo &&
+      deriveInfoItems.length > 0 &&
+      deriveInfoItems[0].value &&
+      selectedAccount.deriveType !== deriveInfoItems[0].value
+    ) {
+      actions.current.updateSelectedAccount({
+        num,
+        builder: (v) => ({
+          ...v,
+          deriveType: deriveInfoItems[0].value as IAccountDeriveTypes,
+        }),
+      });
+    }
+  }, [
+    actions,
+    currentDeriveInfo,
+    deriveInfoItems,
+    num,
+    selectedAccount.deriveType,
+  ]);
 
   if (!isReady) {
     return null;
@@ -54,6 +77,7 @@ export function DeriveTypeSelectorTrigger({ num }: { num: number }) {
         })}
       </Text>
       <Select
+        key={`${selectedAccount.deriveType}-${selectedAccount.networkId || ''}`}
         items={deriveInfoItems}
         value={selectedAccount.deriveType}
         onChange={(type) =>

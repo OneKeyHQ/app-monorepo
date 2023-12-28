@@ -1,4 +1,9 @@
 module.exports = [
+  'impls',
+  'txids',
+  'ord',
+  'nonWitnessInputPrevTxids',
+  'ordQueryStatus',
   'Blockie',
   'Unspaced',
   'hd',

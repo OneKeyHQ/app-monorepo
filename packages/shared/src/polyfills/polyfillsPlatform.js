@@ -43,6 +43,7 @@ if (typeof Buffer === 'undefined') {
 
 if (typeof crypto === 'undefined') {
   try {
+    // check packages/shared/src/modules3rdParty/cross-crypto/verify.ts
     shimsInjectedLog('crypto');
     // eslint-disable-next-line no-const-assign
     global.crypto = require('crypto'); // cross-crypto/index.native.js

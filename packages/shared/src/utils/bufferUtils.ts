@@ -55,7 +55,7 @@ function bytesToText(
   return toBuffer(bytes).toString(encoding || 'utf8');
 }
 
-export default {
+const bufferUtils = {
   toBuffer,
   bytesToHex,
   bytesToText,
@@ -65,3 +65,8 @@ export default {
   utf8ToBytes,
   bytesToUtf8,
 };
+
+// @ts-ignore
+global.$$bufferUtils = bufferUtils;
+
+export default bufferUtils;

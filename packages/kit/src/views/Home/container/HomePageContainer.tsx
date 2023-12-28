@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
@@ -15,9 +15,6 @@ import {
   AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EOnboardingPages } from '../../Onboarding/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -75,14 +72,6 @@ function HomePage() {
     [],
   );
 
-  const navigation = useAppNavigation();
-
-  useEffect(() => {
-    navigation.pushFullModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.GetStarted,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror
