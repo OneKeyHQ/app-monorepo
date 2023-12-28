@@ -327,6 +327,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             >
               <Icon name="PlusSmallOutline" />
             </Stack>
+            {/* Add account */}
             <ListItem.Text
               userSelect="none"
               primary="Add account"

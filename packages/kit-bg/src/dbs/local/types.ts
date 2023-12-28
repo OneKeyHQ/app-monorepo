@@ -392,9 +392,15 @@ export type ILocalDBRecordUpdater<T extends ELocalDBStoreNames> = <
 export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
+export type ILocalDBWithTransactionOptions = {
+  readOnly?: boolean;
+};
 
 export interface ILocalDBAgent {
-  withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T>;
+  withTransaction<T>(
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T>;
 
   // TODO get with query
   getAllRecords<T extends ELocalDBStoreNames>(
