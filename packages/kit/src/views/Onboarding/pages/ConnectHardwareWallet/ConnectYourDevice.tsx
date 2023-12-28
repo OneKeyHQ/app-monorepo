@@ -383,3 +383,5 @@ export function ConnectYourDevice() {
     </Page>
   );
 }
+
+export default ConnectYourDevice;

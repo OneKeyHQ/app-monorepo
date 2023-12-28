@@ -228,3 +228,5 @@ export function GetStarted() {
     </Page>
   );
 }
+
+export default GetStarted;

@@ -103,3 +103,5 @@ export function OneKeyHardwareWallet() {
     </Page>
   );
 }
+
+export default OneKeyHardwareWallet;

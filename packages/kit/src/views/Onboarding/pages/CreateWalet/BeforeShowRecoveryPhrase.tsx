@@ -85,3 +85,5 @@ export function BeforeShowRecoveryPhrase() {
     </Page>
   );
 }
+
+export default BeforeShowRecoveryPhrase;

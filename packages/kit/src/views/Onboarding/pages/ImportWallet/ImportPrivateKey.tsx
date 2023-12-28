@@ -36,3 +36,5 @@ export function ImportPrivateKey() {
     </Page>
   );
 }
+
+export default ImportPrivateKey;
