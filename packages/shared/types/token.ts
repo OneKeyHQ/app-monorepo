@@ -11,9 +11,9 @@ export type IToken = {
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
-  price: number;
-  price24h: number;
   fiatValue: string;
+  price: number;
+  price24h?: number;
 };
 
 export type IAccountToken = ITokenFiat & { info: IToken } & { $key: string };
