@@ -6,9 +6,7 @@
   "scripts": {
     "postinstall": "yarn keytar",
     "keytar": "bash development/build_keytar.sh",
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf __generated__",
+    "clean": "rimraf ./build-electron && rimraf .tamagui && rimraf ./build && rimraf ./dist && rimraf __generated__",
     "clean:build": "rimraf ./build-electron && rimraf ./build && rimraf ./dist",
     "start": "yarn dev",
     "dev": "yarn keytar && npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",

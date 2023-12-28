@@ -11,12 +11,16 @@
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "native-bundle": "react-native start",
+    "clean": " yarn clean:build",
+    "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui",
+    "clean:cache": "rm -rf $TMPDIR/metro-bundler-cache-* && rm -rf $TMPDIR/metro-file-map-* && rm -rf $TMPDIR/metro-cache ",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
     "native-bundle:analyze": "react-native-bundle-visualizer"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "react-native-bundle-visualizer": "^3.1.3"
+    "react-native-bundle-visualizer": "^3.1.3",
+    "rimraf": "^3"
   },
   "dependencies": {
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
