@@ -18,8 +18,6 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
   const { token, onPress, tableLayout, ...rest } = props;
   const tokenInfo = token.info;
 
-  console.log(tokenInfo.isNative);
-
   return (
     <ListItem
       key={tokenInfo.name}
@@ -35,10 +33,9 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
         ...(tokenInfo.isNative && {
           cornerIconProps: {
             name: 'GasSolid',
-            size: '$4',
+            size: '$3.5',
             containerProps: {
-              borderRadius: 5,
-              right: '$-1.5',
+              borderRadius: 4,
             },
           },
         }),

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useMedia } from 'tamagui';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -13,6 +15,7 @@ type IProps = {
 const accountAddress = '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
 
 function TxHistoryListContainer(props: IProps) {
+  const media = useMedia();
   const { onContentSizeChange } = props;
   const formatDate = useFormatDate();
 
@@ -44,6 +47,9 @@ function TxHistoryListContainer(props: IProps) {
       isLoading={history.isLoading}
       accountAddress={accountAddress}
       onContentSizeChange={onContentSizeChange}
+      {...(media.gtLg && {
+        tableLayout: true,
+      })}
     />
   );
 }

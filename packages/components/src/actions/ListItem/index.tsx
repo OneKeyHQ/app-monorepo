@@ -78,7 +78,7 @@ const ListItemAvatarCornerImage = ({
 );
 
 /* Avatar */
-type IListItemAvatarProps = {
+export type IListItemAvatarProps = {
   /** A string representing the remote URL of the image. */
   src?: AvatarImageProps['src'];
   /** A local file resource, such as `require('./test.jpg')` */
@@ -355,11 +355,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
 
 export const ListItem = withStaticProperties(ListItemComponent, {
   Text: ListItemText,
-  Avatar: {
-    Component: ListItemAvatar,
+  Avatar: withStaticProperties(ListItemAvatar, {
     CornerIcon: ListItemAvatarCornerIcon,
     CornerImage: ListItemAvatarCornerImage,
-  },
+  }),
   IconButton: ListItemIconButton,
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
