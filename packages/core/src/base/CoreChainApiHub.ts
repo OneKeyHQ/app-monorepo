@@ -2,7 +2,7 @@
 // import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
 // import CoreChainBch from '../chains/bch';
-// import CoreChainBtc from '../chains/btc';
+import CoreChainBtc from '../chains/btc';
 // import CoreChainCfx from '../chains/cfx';
 // import CoreChainCosmos from '../chains/cosmos';
 // import CoreChainDoge from '../chains/doge';
@@ -25,7 +25,7 @@ export class CoreChainApiHub {
 
   evm = new CoreChainEvm();
 
-  // btc = new CoreChainBtc();
+  btc = new CoreChainBtc();
 
   // bch = new CoreChainBch();
 

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, YStack } from '@onekeyhq/components';
+import { Button, Page, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -14,6 +14,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProvider } from '../../../components/AccountSelector';
 import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '../../../views/Onboarding/router/type';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
@@ -28,6 +30,7 @@ const TabMe = () => {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const onLock = useCallback(() => {
     backgroundApiProxy.servicePassword.lockApp().catch(console.error);
   }, []);
@@ -44,6 +47,15 @@ const TabMe = () => {
             }}
           >
             切换到首页
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.pushFullModal(EModalRoutes.OnboardingModal, {
+                screen: EOnboardingPages.GetStarted,
+              });
+            }}
+          >
+            Onboarding
           </Button>
           <Button onPress={onPress}>
             {intl.formatMessage({ id: 'title__settings' })}
@@ -67,6 +79,19 @@ const TabMe = () => {
           >
             清空缓存密码
           </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.serviceSend.demoSend({
+                networkId: activeAccount.network?.id || '',
+                accountId: activeAccount.account?.id || '',
+              });
+            }}
+          >
+            测试发送流程(使用首页的账户选择器)
+          </Button>
+          <Text>
+            {activeAccount.network?.id}, {activeAccount.account?.id}
+          </Text>
         </YStack>
       </Page.Body>
     </Page>

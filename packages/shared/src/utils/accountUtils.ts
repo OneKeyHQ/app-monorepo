@@ -29,12 +29,14 @@ function buildHDAccountId({
   template,
   path,
   idSuffix,
+  isUtxo,
 }: {
   walletId: string;
   index?: number;
   template?: string;
   path?: string;
   idSuffix?: string;
+  isUtxo?: boolean;
 }): string {
   let usedPath = path;
   if (!usedPath) {
@@ -52,6 +54,9 @@ function buildHDAccountId({
   // EVM LedgerLive ID:  hd-1--m/44'/60'/0'/0/0--LedgerLive
   if (idSuffix) {
     id = `${walletId}--${usedPath}--${idSuffix}`;
+  }
+  if (isUtxo) {
+    id = id.replace(/\/0\/0$/i, '');
   }
   return id;
 }

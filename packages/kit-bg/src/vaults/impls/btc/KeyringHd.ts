@@ -3,7 +3,7 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-import type { IDBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.btc.hd;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
@@ -23,14 +23,14 @@ export class KeyringHd extends KeyringHdBase {
 
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
-  ): Promise<Array<IDBSimpleAccount>> {
-    return this.basePrepareAccountsHd(params);
+  ): Promise<IDBUtxoAccount[]> {
+    return this.basePrepareAccountsHdBtc(params);
   }
 
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    return this.baseSignTransactionBtc(params);
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {

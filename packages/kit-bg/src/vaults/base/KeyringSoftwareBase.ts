@@ -25,6 +25,7 @@ import type {
   IDBUtxoAccount,
   IDBVariantAccount,
 } from '../../dbs/local/types';
+import type VaultBtc from '../impls/btc/Vault';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
@@ -64,6 +65,36 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     };
   }
 
+  async baseSignTransactionBtc(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+
+    const vault = this.vault as VaultBtc;
+
+    const { password, unsignedTx } = params;
+
+    const credentials = await this.baseGetCredentialsInfo(params);
+
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
+    const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+      unsignedTx,
+    });
+
+    const result = await this.coreApi.signTransaction({
+      networkInfo,
+      unsignedTx,
+      account,
+      password,
+      credentials,
+      btcExtraInfo, // TODO move btcExtraInfo to unsignedTx
+    });
+    return result;
+  }
+
   async baseSignTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -76,7 +107,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const credentials = await this.baseGetCredentialsInfo(params);
 
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const result = await this.coreApi.signTransaction({
       networkInfo,
@@ -98,7 +129,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const dbAccount = await this.getDbAccount();
 
     const credentials = await this.baseGetCredentialsInfo(params);
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const result = await Promise.all(
       messages.map((msg) =>
@@ -123,7 +154,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const dbAccount = await this.getDbAccount();
     const credentials = await this.baseGetCredentialsInfo({ password });
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeys = await this.coreApi.getPrivateKeys({
       networkInfo,
@@ -151,7 +182,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const { name, privateKey } = params;
     const { coinType, accountType } = options;
 
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
     const { address, addresses, publicKey } =
@@ -187,7 +218,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const { name, privateKey } = params;
     const { coinType, accountType } = options;
 
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
     const { address, addresses, publicKey, xpub, path, xpubSegwit } =
@@ -218,15 +249,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
-    options: {
-      accountType: EDBAccountType;
-      usedIndexes: number[];
-    },
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { password, names, deriveInfo } = params;
+    const { password, names, deriveInfo, indexes } = params;
+    const usedIndexes = indexes;
     const { coinType, template, namePrefix, idSuffix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
@@ -234,9 +262,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.walletId) {
       throw new Error('walletId is not defined');
     }
-    const { accountType, usedIndexes } = options;
-
-    const networkInfo = await this.baseGetCoreApiNetworkInfo();
+    const settings = await this.getVaultSettings();
+    const { accountType } = settings;
+    const networkInfo = await this.getCoreApiNetworkInfo();
 
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressInfos } = await this.coreApi.getAddressesFromHd({
@@ -281,6 +309,28 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return ret;
   }
 
+  async basePrepareAccountsHdBtc(
+    params: IPrepareHdAccountsParams,
+  ): Promise<IDBUtxoAccount[]> {
+    const sdkBtc = await import('@onekeyhq/core/src/chains/btc/sdkBtc');
+    sdkBtc.initBitcoinEcc();
+    const { deriveInfo } = params;
+    const { addressEncoding } = deriveInfo;
+
+    const checkIsAccountUsed: (query: {
+      xpub: string;
+      xpubSegwit?: string;
+      address: string;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    }) => Promise<{ isUsed: boolean }> = async (query) =>
+      Promise.resolve({ isUsed: true });
+
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding,
+      checkIsAccountUsed,
+    });
+  }
+
   async basePrepareAccountsHdUtxo(
     params: IPrepareHdAccountsParams,
     options: {
@@ -318,7 +368,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const credentials = await this.baseGetCredentialsInfo({ password });
     const { addresses: addressesInfo } = await this.coreApi.getAddressesFromHd({
-      networkInfo: await this.baseGetCoreApiNetworkInfo(),
+      networkInfo: await this.getCoreApiNetworkInfo(),
       template,
       hdCredential: checkIsDefined(credentials.hd),
       password,

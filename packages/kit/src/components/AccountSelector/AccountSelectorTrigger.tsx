@@ -19,6 +19,7 @@ import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
   useActiveAccount,
+  useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
@@ -80,6 +81,9 @@ export function AccountSelectorTrigger({
   onlyAccountSelector?: boolean;
 }) {
   const contextData = useAccountSelectorContextData();
+  const {
+    selectedAccount: { networkId },
+  } = useSelectedAccount({ num });
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
@@ -103,11 +107,15 @@ export function AccountSelectorTrigger({
       {!onlyAccountSelector ? (
         <>
           <NetworkSelectorTrigger
-            key={`NetworkSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
           <DeriveTypeSelectorTrigger
-            key={`DeriveTypeSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`DeriveTypeSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
         </>

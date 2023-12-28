@@ -103,30 +103,35 @@ const classicCreateNewWalletSteps = [
   getSetPinStep('classic'),
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const classicImportWalletSteps = [
   getImportWalletStep('classic'),
   getEnterRecoveryPhraseStep('classic'),
   getSetPinStep('classic'),
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const miniCreateNewWalletSteps = [
   getCreateNewWalletStep('mini'),
   getWriteDownRecoveryPhraseStep('mini'),
   getSetPinStep('mini'),
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const miniImportWalletSteps = [
   getImportWalletStep('mini'),
   getEnterRecoveryPhraseStep('mini'),
   getSetPinStep('mini'),
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const touchCreateNewWalletSteps = [
   getCreateNewWalletStep('touch'),
   getSetPinStep('touch'),
   getWriteDownRecoveryPhraseStep('touch'),
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const touchImportWalletSteps = [
   getImportWalletStep('touch'),
   getSetPinStep('touch'),

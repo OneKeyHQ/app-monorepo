@@ -14,9 +14,6 @@ describe('Nexa Utils Tests', () => {
   it('Nexa Utils signEncodedTx #1', async () => {
     const signedTx = await signEncodedTx(
       {
-        'inputs': [],
-        'outputs': [],
-        'payload': {},
         'encodedTx': {
           'inputs': [
             {
@@ -97,9 +94,6 @@ describe('Nexa Utils Tests', () => {
   it('Nexa Utils signEncodedTx #2', async () => {
     const signedTx = await signEncodedTx(
       {
-        'inputs': [],
-        'outputs': [],
-        'payload': {},
         'encodedTx': {
           'inputs': [
             {
@@ -164,9 +158,6 @@ describe('Nexa Utils Tests', () => {
   it('Nexa Utils signEncodedTx #3: Transfer out all the balances.', async () => {
     const signedTx = await signEncodedTx(
       {
-        'inputs': [],
-        'outputs': [],
-        'payload': {},
         'encodedTx': {
           'inputs': [
             {

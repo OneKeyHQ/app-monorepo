@@ -51,6 +51,7 @@ export type ICoreApiGetAddressQueryImportedBase = {
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
     template?: string; // TODO use addressEncoding?
+    addressEncoding?: EAddressEncodings;
   };
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
@@ -59,6 +60,7 @@ export type ICoreApiGetAddressQueryPublicKey = {
   networkInfo: ICoreApiNetworkInfo;
   publicKey: string;
   publicKeyInfo?: ISecretPublicKeyInfo;
+  addressEncoding?: EAddressEncodings;
 };
 export type ICoreApiGetAddressItem = {
   address: string;
@@ -98,10 +100,12 @@ export type ICoreApiSignBasePayload = {
   btcExtraInfo?: ICoreApiSignBtcExtraInfo;
 };
 export type ICoreApiSignBtcExtraInfo = {
-  inputAddressesEncodings?: string[];
-  nonWitnessPrevTxs?: { [txid: string]: string };
+  inputAddressesEncodings?: Array<EAddressEncodings | undefined>;
+  nonWitnessPrevTxs?: {
+    [txid: string]: string; // rawTx string
+  };
   pathToAddresses: {
-    [path: string]: {
+    [fullPath: string]: {
       address: string;
       relPath: string;
     };

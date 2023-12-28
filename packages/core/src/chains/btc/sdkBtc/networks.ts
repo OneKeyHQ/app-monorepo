@@ -178,7 +178,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
 export type IBtcForkExtendedNetworks = keyof typeof extendedNetworks;
 
 export function getBtcForkNetwork(
-  chainCode: string | undefined,
+  chainCode: string | undefined, // btc, tbtc, bch, doge, btg, dgb, nmc, vtc, dash
 ): IBtcForkNetwork {
   if (!chainCode) {
     throw new Error('getBtcForkNetwork ERROR: chainCode is undefined');

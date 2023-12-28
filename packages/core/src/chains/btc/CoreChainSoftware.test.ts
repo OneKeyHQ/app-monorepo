@@ -63,6 +63,7 @@ describe('BTC Core tests', () => {
       coreApi,
       networkInfo,
       hdAccounts,
+      addressEncoding: EAddressEncodings.P2SH_P2WPKH,
     });
   });
   it('getAddressFromPrivate', async () => {
@@ -71,6 +72,7 @@ describe('BTC Core tests', () => {
       coreApi,
       networkInfo,
       hdAccounts,
+      addressEncoding: EAddressEncodings.P2SH_P2WPKH,
     });
   });
   it('getAddressesFromHd', async () => {

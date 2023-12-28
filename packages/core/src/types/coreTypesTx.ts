@@ -1,5 +1,8 @@
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
+import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
@@ -14,6 +17,8 @@ import type BigNumber from 'bignumber.js';
 
 export type IEncodedTx =
   | string
+  | IEncodedTxEvm
+  | IEncodedTxBtc
   | IEncodedTxAda
   | IEncodedTxCfx
   | IEncodedTxCosmos
@@ -23,8 +28,7 @@ export type IEncodedTx =
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
-  | IEncodedTxNexa
-  | IEncodedTxEvm;
+  | IEncodedTxNexa;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
@@ -80,9 +84,11 @@ export type IUnsignedTx = {
 };
 export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
+  feeInfo?: IFeeInfoUnit | undefined;
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
+  opReturn?: string; // BTC opReturn?
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {

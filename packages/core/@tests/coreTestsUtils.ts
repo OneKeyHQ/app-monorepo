@@ -60,11 +60,13 @@ async function expectGetAddressFromPublicOk({
   coreApi,
   networkInfo,
   hdAccounts,
+  addressEncoding,
   publicKeyGetter,
 }: {
   coreApi: CoreChainApiBase;
   networkInfo: ICoreApiNetworkInfo;
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
+  addressEncoding?: EAddressEncodings;
   publicKeyGetter?: (params: { account: ICoreTestsAccountInfo }) => Promise<{
     publicKey: string;
   }>;
@@ -76,6 +78,7 @@ async function expectGetAddressFromPublicOk({
     const { address, addresses } = await coreApi.getAddressFromPublic({
       networkInfo,
       publicKey,
+      addressEncoding,
     });
     expect(address).toEqual(account.address);
     if (addresses) {
@@ -88,15 +91,18 @@ async function expectGetAddressFromPrivateOk({
   coreApi,
   networkInfo,
   hdAccounts,
+  addressEncoding,
 }: {
   coreApi: CoreChainApiBase;
   networkInfo: ICoreApiNetworkInfo;
   hdAccounts: IPrepareCoreChainTestsFixturesOptions['hdAccounts'];
+  addressEncoding?: EAddressEncodings;
 }) {
   for (const account of hdAccounts) {
     const { address, addresses } = await coreApi.getAddressFromPrivate({
       networkInfo,
       privateKeyRaw: account.xpvtRaw || account.privateKeyRaw,
+      addressEncoding,
     });
     expect(address).toEqual(account.address);
     if (addresses) {
@@ -185,7 +191,7 @@ async function expectSignTransactionOk({
   hdCredential: ICoreTestsHdCredential;
 }) {
   const { password } = hdCredential;
-  for (const { encodedTx, unsignedTx, signedTx } of txSamples) {
+  for (const { encodedTx, unsignedTx, signedTx, btcExtraInfo } of txSamples) {
     const signAccount: ICoreApiSignAccount = account;
     signAccount.pub = signAccount.pub || account.publicKey;
     signAccount.pubKey = signAccount.pubKey || account.publicKey;
@@ -195,11 +201,9 @@ async function expectSignTransactionOk({
       credentials: {},
       account: signAccount,
       unsignedTx: unsignedTx ?? {
-        inputs: [],
-        outputs: [],
-        payload: {},
         encodedTx: encodedTx || '',
       },
+      btcExtraInfo,
     };
     const resultHd = await coreApi.signTransaction({
       ...signTxPayload,
@@ -212,7 +216,7 @@ async function expectSignTransactionOk({
       credentials: {
         imported: encryptImportedCredential({
           password,
-          credential: { privateKey: account.privateKeyRaw },
+          credential: { privateKey: account.xpvtRaw || account.privateKeyRaw },
         }),
       },
     });

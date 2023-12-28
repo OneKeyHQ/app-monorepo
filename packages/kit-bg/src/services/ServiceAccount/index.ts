@@ -246,6 +246,7 @@ class ServiceAccount extends ServiceBase {
       return localDb.getAccount({ accountId });
     }
     if (indexedAccountId) {
+      const settings = await getVaultSettings({ networkId });
       const deriveInfo = await this.getDeriveInfo({
         networkId,
         deriveType,
@@ -260,6 +261,7 @@ class ServiceAccount extends ServiceBase {
         index,
         template,
         idSuffix,
+        isUtxo: settings.isUtxo,
       });
       return localDb.getAccount({ accountId: realAccountId });
     }

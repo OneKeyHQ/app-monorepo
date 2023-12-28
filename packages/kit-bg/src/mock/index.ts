@@ -10,16 +10,6 @@ export function mockGetWalletIdFromAccountId({
   return 'hd-1';
 }
 
-export function mockGetChainInfo({ networkId }: { networkId: string }) {
-  return {
-    implOptions: {
-      addressPrefix: '',
-      curve: 'secp256k1',
-    },
-    code: 'evm',
-  };
-}
-
 export function mockIsAccountCompatibleWithNetwork({
   accountId,
   networkId,
@@ -30,7 +20,10 @@ export function mockIsAccountCompatibleWithNetwork({
   return true;
 }
 
-export const mockPresetNetworks: Record<'evm' | 'goerli', IServerNetwork> = {
+export const mockPresetNetworks: Record<
+  'evm' | 'goerli' | 'btc' | 'tbtc',
+  IServerNetwork
+> = {
   evm: {
     'balance2FeeDecimals': 9,
     'chainId': '1',
@@ -191,6 +184,95 @@ export const mockPresetNetworks: Record<'evm' | 'goerli', IServerNetwork> = {
         'block': 'https://goerli.etherscan.io/block/{block}',
         'name': 'https://goerli.etherscan.io/',
         'transaction': 'https://goerli.etherscan.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  btc: {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'btc',
+    'decimals': 8,
+    'extensions': {
+      'position': 2,
+      'providerOptions': {
+        'hardwareCoinName': 'btc',
+      },
+    },
+    'id': 'btc--0',
+    'impl': 'btc',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
+    'name': 'Bitcoin',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/btc',
+      },
+      {
+        'url': 'https://1rpc.io/btc',
+      },
+    ],
+    'shortcode': 'btc',
+    'shortname': 'BTC',
+    'symbol': 'BTC',
+    'feeMeta': {
+      'code': 'btc',
+      'decimals': 8,
+      'symbol': 'BTC',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+        'platform': 'ordinals',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/address/{address}',
+        'block': 'https://mempool.space/block/{block}',
+        'name': 'https://mempool.space/',
+        'transaction': 'https://mempool.space/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  tbtc: {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'tbtc',
+    'decimals': 8,
+    'id': 'tbtc--0',
+    'impl': 'tbtc',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+    'name': 'Bitcoin Testnet',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/tbtc',
+      },
+    ],
+    'shortcode': 'tbtc',
+    'shortname': 'TBTC',
+    'symbol': 'TBTC',
+    'feeMeta': {
+      'code': 'tbtc',
+      'decimals': 8,
+      'symbol': 'TBTC',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/testnet/address/{address}',
+        'block': 'https://mempool.space/testnet/block/{block}',
+        'name': 'https://mempool.space/testnet/',
+        'transaction': 'https://mempool.space/testnet/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
