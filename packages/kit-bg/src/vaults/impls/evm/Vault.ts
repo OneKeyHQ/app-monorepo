@@ -7,6 +7,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -45,6 +46,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
+    noopObject(params);
     // TODO evm decode tx impl
     return Promise.resolve({
       txid: '',

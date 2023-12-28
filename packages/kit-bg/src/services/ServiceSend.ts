@@ -210,8 +210,6 @@ class ServiceSend extends ServiceBase {
     });
     return { ...signedTx, encodedTx: unsignedTx.encodedTx };
   }
-  
 }
 
 export default ServiceSend;
-

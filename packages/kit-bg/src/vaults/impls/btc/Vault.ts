@@ -22,7 +22,9 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -37,12 +39,18 @@ import type { IDBAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
+  IBuildDecodedTxParams,
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
 
 // btc vault
 export default class VaultBtc extends VaultBase {
+  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
+    noopObject(params);
+    throw new Error('Method not implemented.');
+  }
+
   override broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {

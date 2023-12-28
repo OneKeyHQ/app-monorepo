@@ -35,7 +35,7 @@ export type IContextType = {
 };
 
 const CustomToasterContext = createContext({} as IContextType);
-const SHOW_TOAST_VIEWPORT_NAME = "SHOW_TOAST_VIEWPORT_NAME"
+const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
 
 function BasicShowToaster(
   {
