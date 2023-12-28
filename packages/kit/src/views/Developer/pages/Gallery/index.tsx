@@ -14,6 +14,7 @@ import FormGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Compone
 import HardwareGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware';
 import IconGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton';
+import ImageGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image';
 import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
 import JotaiContextGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery';
@@ -47,7 +48,6 @@ import ToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Compon
 import TooltipGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip';
 import TypographyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Typography';
 import WebviewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView';
-import ImageGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image';
 
 import { EGalleryRoutes } from '../routes';
 
