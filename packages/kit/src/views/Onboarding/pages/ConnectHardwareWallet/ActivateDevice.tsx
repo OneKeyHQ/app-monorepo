@@ -218,3 +218,5 @@ export function ActivateDevice() {
     </Page>
   );
 }
+
+export default ActivateDevice;

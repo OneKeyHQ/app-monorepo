@@ -6,7 +6,7 @@ import { styled, withStaticProperties } from 'tamagui';
 
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 
-import { Stack } from '../../primitives';
+import { Stack } from '../Stack';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
@@ -23,7 +23,7 @@ function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
   });
   const themeVariant = useThemeVariant();
   return (
-    <Stack ref={ref}>
+    <Stack ref={ref} flex={1}>
       <MotiSkeleton colorMode={themeVariant} {...(style as any)} {...restProps}>
         {children}
       </MotiSkeleton>
