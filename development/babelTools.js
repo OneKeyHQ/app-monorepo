@@ -139,13 +139,17 @@ function normalizeConfig({ platform, config }) {
       },
     ],
     /* FIX:
-       TypeError: undefined is not an object (evaluating 'this._callListeners.bind')
+       TypeError: undefined is not an object. (evaluating 'this._callListeners.bind')
+       And Don't remove any plugin here, it will cause other error.
+        https://github.com/facebook/react-native/issues/36828
      */
+    ['@babel/plugin-transform-flow-strip-types'],
     ['@babel/plugin-proposal-decorators', { 'legacy': true }],
     ['@babel/plugin-proposal-class-properties', { 'loose': true }],
     ['@babel/plugin-proposal-private-methods', { 'loose': true }],
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
     ['@babel/plugin-proposal-export-namespace-from'],
+    ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
     // isDev && [
