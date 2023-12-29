@@ -79,7 +79,7 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       if (manualLocking) {
         return true;
       }
-      if (platformEnv.isWeb) {
+      if (platformEnv.isWeb || platformEnv.isDev) {
         return !unLock && String(appLockDuration) !== ELockDuration.Never;
       }
       return !unLock;
