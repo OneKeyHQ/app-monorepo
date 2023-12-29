@@ -6,7 +6,7 @@ module.exports = babelTools.normalizeConfig({
     presets: [
       [
         'babel-preset-expo',
-        { web: { unstable_transformProfile: 'hermes-stable' } },
+        { web: { unstable_transformProfile: 'hermes-canary' } },
       ],
     ],
     plugins: [
