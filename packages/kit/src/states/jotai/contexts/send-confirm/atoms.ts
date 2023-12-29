@@ -1,6 +1,5 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { ICustomGas } from '@onekeyhq/shared/types/gas';
-import { EGasType } from '@onekeyhq/shared/types/gas';
+import type { EGasType, ICustomGas } from '@onekeyhq/shared/types/gas';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -20,13 +19,8 @@ export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
 >([]);
 
-export const { atom: sendGasTypeAtom, use: useSendGasTypeAtom } =
-  contextAtom<EGasType>(EGasType.Standard);
+export const { atom: sendSelectedGasAtom, use: useSendSelectedGasAtom } =
+  contextAtom<EGasType.Custom | number>(1);
 
 export const { atom: customGasAtom, use: useCustomGasAtom } =
   contextAtom<ICustomGas | null>(null);
-
-export const {
-  atom: selectedPresetGasIndexAtom,
-  use: useSelectedPresetGasIndexAtom,
-} = contextAtom<number>(1);

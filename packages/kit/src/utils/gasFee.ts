@@ -29,7 +29,7 @@ export function calculateTotalFeeRange(
   const { common, gas, gasEIP1559 } = feeInfo;
   const limit = common?.limitUsed || common?.limit;
   const limitForDisplay = common?.limitForDisplay ?? limit;
-  if (feeInfo.isEIP1559) {
+  if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;
     const min = new BigNumber(limit as string)
@@ -60,8 +60,8 @@ export function calculateTotalFeeRange(
     };
   }
 
-  if (feeInfo.isBtcForkChain) {
-    const fee = new BigNumber(feeInfo.gasUTXO?.feeValue ?? '0')
+  if (feeInfo.feeUTXO) {
+    const fee = new BigNumber(feeInfo.feeUTXO?.feeValue ?? '0')
       .shiftedBy(-displayDecimals)
       .toFixed(displayDecimals);
     return {
@@ -112,6 +112,44 @@ export function calculateTotalFeeNative({
     .toFixed(displayDecimal);
 }
 
+export function calculateFeeForSend({
+  feeInfo,
+  nativeTokenPrice,
+  nativeDecimal = 8,
+  fiatDecimal = 2,
+}: {
+  feeInfo: IFeeInfoUnit;
+  nativeTokenPrice: number;
+  nativeDecimal?: number;
+  fiatDecimal?: number;
+}) {
+  const feeRange = calculateTotalFeeRange(feeInfo);
+  const total = feeRange.max;
+  const totalForDisplay = feeRange.maxForDisplay;
+  const totalNative = calculateTotalFeeNative({
+    amount: total,
+    feeInfo,
+    displayDecimal: nativeDecimal,
+  });
+  const totalNativeForDisplay = calculateTotalFeeNative({
+    amount: totalForDisplay,
+    feeInfo,
+    displayDecimal: nativeDecimal,
+  });
+  const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed(fiatDecimal);
+
+  return {
+    total,
+    totalForDisplay,
+    totalNative,
+    totalNativeForDisplay,
+    totalFiatForDisplay,
+    feeRange,
+  };
+}
+
 export function getGasLabel({
   gasType,
   gasPresetIndex,
@@ -123,7 +161,7 @@ export function getGasLabel({
     return 'content__custom';
   }
 
-  return PRESET_GAS_LABEL[gasPresetIndex || 1] as ILocaleIds;
+  return PRESET_GAS_LABEL[gasPresetIndex ?? 1] as ILocaleIds;
 }
 export function getGasIcon({
   gasType,
@@ -136,5 +174,5 @@ export function getGasIcon({
     return '⚙️';
   }
 
-  return PRESET_GAS_ICON[gasPresetIndex || 1];
+  return PRESET_GAS_ICON[gasPresetIndex ?? 1];
 }

@@ -9,8 +9,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   contextAtomMethod,
   customGasAtom,
-  selectedPresetGasIndexAtom,
-  sendGasTypeAtom,
+  sendSelectedGasAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -21,19 +20,15 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
     },
   );
 
-  updateSendGasType = contextAtomMethod((get, set, sendGasType: EGasType) => {
-    set(sendGasTypeAtom(), sendGasType);
-  });
+  updateSendSelectedGas = contextAtomMethod(
+    (get, set, sendSelectedGas: EGasType.Custom | number) => {
+      set(sendSelectedGasAtom(), sendSelectedGas);
+    },
+  );
 
   updateCustomGas = contextAtomMethod((get, set, customGas: ICustomGas) => {
     set(customGasAtom(), customGas);
   });
-
-  updateSelectedPresetGasIndex = contextAtomMethod(
-    (get, set, index: number) => {
-      set(selectedPresetGasIndexAtom(), index);
-    },
-  );
 }
 
 const createActions = memoFn(() => {
@@ -44,15 +39,12 @@ const createActions = memoFn(() => {
 export function useSendConfirmActions() {
   const actions = createActions();
   const updateUnsignedTxs = actions.updateUnsignedTxs.use();
-  const updateSendGasType = actions.updateSendGasType.use();
+  const updateSendSelectedGas = actions.updateSendSelectedGas.use();
   const updateCustomGas = actions.updateCustomGas.use();
-  const updateSelectedPresetGasIndex =
-    actions.updateSelectedPresetGasIndex.use();
 
   return useRef({
     updateUnsignedTxs,
-    updateSendGasType,
+    updateSendSelectedGas,
     updateCustomGas,
-    updateSelectedPresetGasIndex,
   });
 }

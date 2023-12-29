@@ -5,8 +5,6 @@ import {
 import type {
   IEstimateGasParams,
   IEstimateGasResp,
-  IFeeInfoUnit,
-  IGasEIP1559,
 } from '@onekeyhq/shared/types/gas';
 
 import ServiceBase from './ServiceBase';
@@ -26,23 +24,11 @@ class ServiceGas extends ServiceBase {
       '/wallet/v1/account/estimate-fee',
       params,
     );
-    return resp.data.data;
-  }
+    const gasFee = resp.data.data;
 
-  @backgroundMethod()
-  async fetchFeeInfoUnit(
-    params: { presetIndex: number } & IEstimateGasParams,
-  ): Promise<IFeeInfoUnit> {
-    const { presetIndex, ...restParams } = params;
-    const gasFee = await this.estimateGasFee(restParams);
-
-    if (gasFee.fees.length === 5) {
-      gasFee.fees = gasFee.fees.slice(1, 4);
-    }
-
-    const baseInfo = {
-      isEIP1559: gasFee.isEIP1559,
+    return {
       common: {
+        baseFeeValue: gasFee.baseFeeValue,
         limit: gasFee.limit ?? DEFAULT_GAS_LIMIT,
         limitForDisplay:
           gasFee.limitForDisplay ?? gasFee.limit ?? DEFAULT_GAS_LIMIT,
@@ -51,21 +37,11 @@ class ServiceGas extends ServiceBase {
         nativeDecimals: gasFee.nativeDecimals,
         nativeSymbol: gasFee.nativeSymbol,
       },
-    };
-
-    if (baseInfo.isEIP1559) {
-      return {
-        ...baseInfo,
-        gasEIP1559: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as IGasEIP1559,
-      };
-    }
-
-    return {
-      ...baseInfo,
-      gas: {
-        gasPrice: (gasFee.fees[presetIndex] ?? gasFee.fees[0]) as string,
-        gasLimit: baseInfo.common.limit,
-      },
+      gas: gasFee.gas,
+      gasEIP1559: gasFee.gasEIP1559,
+      feeUTXO: gasFee.gasUTXO,
+      nativeTokenPrice: gasFee.nativeTokenPrice,
+      prediction: gasFee.prediction,
     };
   }
 }

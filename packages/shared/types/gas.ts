@@ -6,11 +6,10 @@ export enum EGasType {
 }
 
 export type IGasEIP1559 = {
-  confidence: 0;
   baseFeePerGas: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
-  gasPrice: string;
+  gasPrice?: string;
 };
 
 export type IGasLegacy = {
@@ -18,25 +17,32 @@ export type IGasLegacy = {
   gasLimit: string;
 };
 
-export type IGasUTXO = {
+export type IFeeUTXO = {
   feeRate?: string;
   feeValue?: string;
 };
 
 export type ICustomGasLegacy = {
   gasPrice: string;
+  gasLimit: string;
 };
 
 export type ICustomGasEIP1559 = {
+  baseFeePerGas: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
 };
 
-export type ICustomGasUTXO = {
+export type ICustomFeeUTXO = {
   feeRate: string;
 };
 
-export type ICustomGas = ICustomGasLegacy | ICustomGasEIP1559 | ICustomGasUTXO;
+export type ICustomGas = {
+  gas: ICustomGasLegacy;
+  gasEIP1559: ICustomGasEIP1559;
+  feeUTXO: ICustomFeeUTXO;
+  gasLimit: string;
+};
 
 export type IEstimateGasParams = {
   networkId: string;
@@ -44,8 +50,6 @@ export type IEstimateGasParams = {
 };
 
 export type IFeeInfoUnit = {
-  isEIP1559?: boolean;
-  isBtcForkChain?: boolean;
   common?: {
     baseFeeValue?: string;
     limit?: string;
@@ -58,17 +62,26 @@ export type IFeeInfoUnit = {
   };
   gas?: IGasLegacy;
   gasEIP1559?: IGasEIP1559;
-  gasUTXO?: IGasUTXO;
+  feeUTXO?: IFeeUTXO;
 };
+
+export type IGasEIP1559Prediction = IGasEIP1559 & { confidence: number };
 
 export type IEstimateGasResp = {
   isEIP1559: true;
-  feeDecimals: 0;
+  feeDecimals: number;
   feeSymbol: string;
-  nativeDecimals: 0;
+  nativeDecimals: number;
   nativeSymbol: string;
-  fees: IGasEIP1559[] | string[];
   baseFeeValue?: string;
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+  gasUTXO?: IFeeUTXO[];
   limit: string;
   limitForDisplay: string;
+  nativeTokenPrice: {
+    price: number;
+    price24h: number;
+  };
+  prediction?: IGasEIP1559Prediction[];
 };
