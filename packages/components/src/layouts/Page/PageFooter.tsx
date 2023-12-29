@@ -9,7 +9,7 @@ import Animated, {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { usePageType } from '../../hocs';
+import { usePageType, EPageType } from '../../hocs';
 import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
 
@@ -22,7 +22,7 @@ const useSafeAreaBottom = () => {
   const pageType = usePageType();
   const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
-  return safeAreaEnabled && pageType === 'modal' ? bottom : 0;
+  return safeAreaEnabled && pageType === EPageType.modal ? bottom : 0;
 };
 
 const Placeholder = () => {
