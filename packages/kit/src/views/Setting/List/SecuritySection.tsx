@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Dialog, ListItem } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
-import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -19,6 +18,7 @@ import {
 
 import { useOptions } from '../AppLock/useOptions';
 
+import { useSetPasswordCallback } from './hooks';
 import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
@@ -62,24 +62,10 @@ const AppLockItem = () => {
 
 const SetPasswordItem = () => {
   const intl = useIntl();
-  const onPress = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({ id: 'title__set_password' }),
-      renderContent: (
-        <PasswordSetupContainer
-          onSetupRes={async (data) => {
-            if (data) {
-              await dialog.close();
-            }
-          }}
-        />
-      ),
-      showFooter: false,
-    });
-  }, [intl]);
+  const onSetPassword = useSetPasswordCallback();
   return (
     <ListItem
-      onPress={onPress}
+      onPress={onSetPassword}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
     />

@@ -108,7 +108,7 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setEndpoint(endpointType: IEndpointType) {
+  public async setEndpointType(endpointType: IEndpointType) {
     await settingsPersistAtom.set((prev) => ({ ...prev, endpointType }));
   }
 }

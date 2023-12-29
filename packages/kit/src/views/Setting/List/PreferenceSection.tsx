@@ -112,7 +112,7 @@ const CurrencyListItem = () => {
       onPress={onPress}
     >
       <ListItem.Text
-        primary={settings.currencyInfo?.id.toUpperCase()}
+        primary={settings.currencyInfo.id.toUpperCase()}
         align="right"
       />
     </ListItem>
