@@ -2,6 +2,39 @@ import type { IHistoryListItemProps } from '../components/TxHistoryListView/Hist
 
 export const mockData: { title: string; data: IHistoryListItemProps[] }[] = [
   {
+    title: 'Pending',
+    data: [
+      {
+        pending: true,
+        title: 'Send',
+        description: {
+          prefix: 'To',
+          children: 'addr1q...ckw2',
+        },
+        change: '-0.01 ETH',
+        avatar: {
+          circular: true,
+          src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+          fallbackIcon: 'QuestionmarkSolid',
+        },
+      },
+      {
+        pending: true,
+        title: 'Send',
+        description: {
+          prefix: 'To',
+          children: 'bc1p38...d5sv',
+        },
+        change: '-1 BTC',
+        avatar: {
+          circular: true,
+          src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+          fallbackIcon: 'QuestionmarkSolid',
+        },
+      },
+    ],
+  },
+  {
     title: 'DEC 20, 2023 (Send)',
     data: [
       {

@@ -1,14 +1,12 @@
 import { useCallback } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
+  DescriptionList,
   Divider,
   Heading,
-  Icon,
   Image,
   Page,
   SizableText,
@@ -161,49 +159,21 @@ export function NFTDetails() {
             space="$5"
           >
             {/* Details */}
-            <Stack space="$4">
+            <DescriptionList>
               {details.map(({ label, value, onPress, iconAfter }) => (
-                <XStack
-                  key={label}
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                <DescriptionList.Item key={label}>
+                  <DescriptionList.Item.Key size="$bodyMd" color="$textSubdued">
                     {label}
-                  </SizableText>
-                  <XStack
-                    alignItems="center"
+                  </DescriptionList.Item.Key>
+                  <DescriptionList.Item.Value
                     onPress={onPress}
-                    {...(onPress && {
-                      userSelect: 'none',
-                      hoverStyle: {
-                        opacity: 0.6,
-                      },
-                      '$platform-native': {
-                        hitSlop: {
-                          top: 8,
-                          right: 8,
-                          bottom: 8,
-                          left: 8,
-                        },
-                      },
-                    })}
+                    iconAfter={iconAfter}
                   >
-                    <SizableText size="$bodyMdMedium" textAlign="right">
-                      {value}
-                    </SizableText>
-                    {iconAfter && (
-                      <Icon
-                        ml="$1"
-                        color="$iconSubdued"
-                        name={iconAfter}
-                        size="$4"
-                      />
-                    )}
-                  </XStack>
-                </XStack>
+                    {value}
+                  </DescriptionList.Item.Value>
+                </DescriptionList.Item>
               ))}
-            </Stack>
+            </DescriptionList>
             {/* Attributes */}
             <Divider />
             <Stack>

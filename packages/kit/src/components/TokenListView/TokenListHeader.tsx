@@ -9,13 +9,27 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../routes/Modal/type';
+import { ETokenPages } from '../../views/Token/router/type';
+
 type IProps = {
   tableLayout?: boolean;
 };
 
 function TokenListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const media = useMedia();
+
+  const handleHiddenPress = () => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.TokenList,
+      params: {
+        title: 'Hidden Assets',
+      },
+    });
+  };
 
   return (
     <Stack p="$5" pb="$3">
@@ -32,6 +46,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           {...(media.gtMd && {
             icon: 'EyeOffOutline',
           })}
+          onPress={handleHiddenPress}
         >
           3 Hidden
         </Button>
@@ -70,7 +85,7 @@ function TokenListHeader({ tableLayout }: IProps) {
               w: '$72',
             }}
           >
-            Balance
+            Amount
           </SizableText>
           <SizableText
             flex={1}

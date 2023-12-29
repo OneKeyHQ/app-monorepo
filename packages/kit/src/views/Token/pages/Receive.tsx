@@ -22,7 +22,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 
 type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
-export function QrCode() {
+export function Receive() {
   const [chain, setChain] = useState('Bitcoin');
   const [addressType, setAddressType] = useState('Nested SegWit');
   const [isHardwareWallet, setIsHardwareWallet] = useState(true);
@@ -107,7 +107,13 @@ export function QrCode() {
               borderCurve: 'continuous',
             }}
           >
-            <QRCode value="https://onekey.so/" size={240} />
+            <QRCode
+              value="https://onekey.so/"
+              logo={{
+                uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+              }}
+              size={240}
+            />
             {!isShowQRCode && (
               <Stack
                 position="absolute"

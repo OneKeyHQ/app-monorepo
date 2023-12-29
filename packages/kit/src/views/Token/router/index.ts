@@ -1,6 +1,12 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { LowValueTokens, TokenDetails } from '../pages';
+import {
+  History,
+  NFTDetails,
+  Receive,
+  TokenDetails,
+  TokenList,
+} from '../pages';
 
 import { ETokenPages } from './type';
 
@@ -15,7 +21,19 @@ export const TokenRouter: IModalFlowNavigatorConfig<
     component: TokenDetails,
   },
   {
-    name: ETokenPages.LowValueTokens,
-    component: LowValueTokens,
+    name: ETokenPages.TokenList,
+    component: TokenList,
+  },
+  {
+    name: ETokenPages.NFTDetails,
+    component: NFTDetails,
+  },
+  {
+    name: ETokenPages.Receive,
+    component: Receive,
+  },
+  {
+    name: ETokenPages.History,
+    component: History,
   },
 ];

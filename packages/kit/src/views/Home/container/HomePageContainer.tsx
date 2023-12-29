@@ -7,20 +7,24 @@ import { YStack, useMedia } from 'tamagui';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
+  Form,
   Icon,
   IconButton,
   Image,
+  Input,
   Page,
   Popover,
   Select,
   SizableText,
   Stack,
   Tab,
+  TextArea,
   Toast,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
-import { getTokens } from '@onekeyhq/components/src/hooks';
+import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -35,7 +39,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EChainSelectorPages } from '../../ChainSelector/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
-import { EReceivePages } from '../../Receive/router/type';
+import { ETokenPages } from '../../Token/router/type';
 
 import { DefiListContainer } from './DefiListContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -72,6 +76,7 @@ function HeaderAction({
 }
 
 function HomePage() {
+  const form = useForm();
   const [addressType, setAddressType] = useState('nested-segWit');
   const navigation = useAppNavigation();
 
@@ -118,14 +123,23 @@ function HomePage() {
   }, [navigation]);
 
   const handleReceivePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EReceivePages.LightingInvoice,
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.Receive,
     });
   }, [navigation]);
 
   const navigateOnboardingModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
+  const handleSendPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.TokenList,
+      params: {
+        title: 'Select a Token',
+      },
     });
   }, [navigation]);
 
@@ -308,11 +322,53 @@ function HomePage() {
           <HeaderAction
             // icon="ArrowTopOutline"
             label="Send"
+            onPress={handleSendPress}
           />
           <HeaderAction
             // icon="ArrowBottomOutline"
             label="Receive"
-            onPress={handleReceivePress}
+            onPress={() =>
+              Dialog.confirm({
+                title: 'Lighting Invoice',
+                renderContent: (
+                  <Stack>
+                    <Form form={form}>
+                      <Form.Field
+                        label="Amount"
+                        name="amount"
+                        description="$0.00"
+                      >
+                        <Input
+                          placeholder="Enter amount"
+                          size="large"
+                          keyboardType="number-pad"
+                          addOns={[
+                            {
+                              label: 'sats',
+                            },
+                          ]}
+                        />
+                      </Form.Field>
+                      <Form.Field
+                        label="Description"
+                        description="Enter a brief description for the payment. This helps the recipient identify and record the transaction."
+                        name="description"
+                        optional
+                      >
+                        <TextArea
+                          size="large"
+                          placeholder="e.g., Coffee purchase, Invoice #12345"
+                        />
+                      </Form.Field>
+                    </Form>
+                  </Stack>
+                ),
+                onConfirm: async ({ close }) => {
+                  await close();
+                  handleReceivePress();
+                },
+              })
+            }
           />
           <HeaderAction
             // icon="SwitchHorOutline"
@@ -322,7 +378,7 @@ function HomePage() {
         </XStack>
       </Stack>
     ),
-    [handleChainPress, handleReceivePress],
+    [form, handleChainPress, handleReceivePress],
   );
 
   // useMemo(() => {
