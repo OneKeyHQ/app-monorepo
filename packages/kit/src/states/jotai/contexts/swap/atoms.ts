@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import {
   ESwapSlippageSegmentKey,
   ESwapStepStateType,
+  ESwapTxHistoryStatus,
 } from '../../../../views/Swap/types';
 import { isOnlySupportSingleChainProvider } from '../../../../views/Swap/utils/utils';
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -14,6 +15,7 @@ import type {
   ISwapSlippageSegmentItem,
   ISwapStepState,
   ISwapToken,
+  ISwapTxHistory,
 } from '../../../../views/Swap/types';
 
 const {
@@ -161,3 +163,20 @@ export const { atom: swapStepStateAtom, use: useSwapStepStateAtom } =
     stepState.disabled = buildTxFetching;
     return stepState;
   });
+
+export const {
+  atom: swapReceiverAddressAtom,
+  use: useSwapReceiverAddressAtom,
+} = contextAtom<string>('');
+
+// swap tx history
+export const { atom: swapTxHistoryAtom, use: useSwapTxHistoryAtom } =
+  contextAtom<ISwapTxHistory[]>([]);
+
+export const {
+  atom: swapTxHistoryPendingAtom,
+  use: useSwapTxHistoryPendingAtom,
+} = contextAtomComputed((get) => {
+  const list = get(swapTxHistoryAtom());
+  return list.filter((item) => item.status === ESwapTxHistoryStatus.PENDING);
+});

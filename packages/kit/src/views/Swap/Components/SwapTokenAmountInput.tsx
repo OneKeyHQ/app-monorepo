@@ -16,9 +16,8 @@ const SwapTokenAmountInput = ({
   inputValue,
   disabled,
   loading,
-}: ISwapTokenAmountInputProps) => {
-  console.log('SwapInput');
-  return loading ? (
+}: ISwapTokenAmountInputProps) =>
+  loading ? (
     <Skeleton w="$20" h="$10" />
   ) : (
     <Input
@@ -32,6 +31,5 @@ const SwapTokenAmountInput = ({
       }}
     />
   );
-};
 
 export default memo(SwapTokenAmountInput);

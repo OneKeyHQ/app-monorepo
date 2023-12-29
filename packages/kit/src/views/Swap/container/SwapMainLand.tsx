@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Toast, XStack, YStack } from '@onekeyhq/components';
+import { Button, Toast, XStack, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -10,6 +10,7 @@ import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../router/Routers';
 
 import SwapActionsState from './SwapActionsState';
+import SwapHistoryButtonContainer from './SwapHistoryButtonContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
@@ -40,6 +41,12 @@ const SwapMainLoad = () => {
     });
   }, [navigation]);
 
+  const onOpenHistoryListModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapHistoryList,
+    });
+  }, []);
+
   const onApprove = useCallback((allowanceValue: number) => {
     console.log('onApprove-', allowanceValue); // -1 means infinite
     // todo
@@ -59,6 +66,9 @@ const SwapMainLoad = () => {
   return (
     <YStack flex={1} space="$4">
       <XStack justifyContent="flex-end">
+        <SwapHistoryButtonContainer
+          onHistoryButtonPress={onOpenHistoryListModal}
+        />
         <SwapSlippageTrigger onOpenSlippageModal={onOpenSlippageModal} />
       </XStack>
       <SwapQuoteInput onSelectToken={onSelectToken} />

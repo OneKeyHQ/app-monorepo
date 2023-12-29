@@ -5,7 +5,8 @@ const endpointsMap: Record<
   fiat: {
     prd: 'https://api.onekeycn.com/api',
     // test: 'https://api-sandbox.onekeytest.com/api',
-    test: 'http://127.0.0.1:7001',
+    // test: 'http://127.0.0.1:7001',
+    test: 'http://10.44.22.148:7001',
   },
   wss: {
     prd: 'wss://api.onekeycn.com',

@@ -8,6 +8,8 @@ export default function useListenTabFocusState(
 ) {
   const currentTabName = useNavigationState((state) => {
     const rootState = state.routes.find(({ name }) => name === 'main')?.state;
+    console.log('rootState', rootState);
+    console.log('state--', state);
     return rootState?.routeNames?.[rootState?.index || 0] || '';
   });
   useEffect(() => {

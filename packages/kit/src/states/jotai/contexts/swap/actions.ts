@@ -1,6 +1,7 @@
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { getTimeStamp } from '../../../../utils/helper';
 import { moveNetworkToFirst } from '../../../../views/Swap/utils/utils';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -10,9 +11,10 @@ import {
   swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapTxHistoryAtom,
 } from './atoms';
 
-import type { ISwapToken } from '../../../../views/Swap/types';
+import type { ISwapToken, ISwapTxHistory } from '../../../../views/Swap/types';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
@@ -21,6 +23,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapNetworks(), sortNetworks);
     await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
       data: sortNetworks,
+    });
+  });
+
+  syncSwapHistorySimpleDb = contextAtomMethod(async (get) => {
+    const currentHistoryList = get(swapTxHistoryAtom());
+    await backgroundApiProxy.simpleDb.swapHistory.setRawData({
+      histories: currentHistoryList,
     });
   });
 
@@ -56,6 +65,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
   });
+
+  addSwapHistoryItem = contextAtomMethod(
+    async (get, set, item: ISwapTxHistory) => {
+      const currentHistoryList = get(swapTxHistoryAtom());
+      const histories = [item, ...currentHistoryList];
+      set(swapTxHistoryAtom(), histories);
+      await this.syncSwapHistorySimpleDb.call(set);
+    },
+  );
+
+  updateSwapHistoryItem = contextAtomMethod(
+    async (get, set, item: ISwapTxHistory) => {
+      const currentHistoryList = get(swapTxHistoryAtom());
+      const index = currentHistoryList.findIndex(
+        (i) => i.txInfo.txId === item.txInfo.txId,
+      );
+      if (index !== -1) {
+        const updated = getTimeStamp();
+        item.date = { ...item.date, updated };
+        currentHistoryList[index] = item;
+        set(swapTxHistoryAtom(), currentHistoryList);
+        await this.syncSwapHistorySimpleDb.call(set);
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -66,10 +100,14 @@ export const useSwapActions = () => {
   const selectToToken = actions.selectToToken.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
+  const updateSwapHistoryItem = actions.updateSwapHistoryItem.use();
+  const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   return {
     selectFromToken,
     selectToToken,
     alternationToken,
     syncNetworksSort,
+    updateSwapHistoryItem,
+    addSwapHistoryItem,
   };
 };

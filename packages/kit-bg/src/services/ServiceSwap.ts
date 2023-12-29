@@ -13,6 +13,7 @@ import type {
 import {
   EExchangeProtocol,
   ESwapProviders,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import {
   backgroundClass,
@@ -244,5 +245,41 @@ export default class ServiceSwap extends ServiceBase {
       Toast.error({ title: 'error', message: 'internal error' });
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async fetchTxState({
+    txId,
+    provider,
+    networkId,
+    protocol,
+    ctx,
+  }: {
+    txId: string;
+    networkId: string;
+    protocol?: EExchangeProtocol;
+    provider?: ESwapProviders;
+    ctx?: any;
+  }): Promise<ESwapTxHistoryStatus> {
+    const params = {
+      txId,
+      protocol,
+      provider,
+      ctx,
+      networkId,
+    };
+    const client = await this.getClient();
+    try {
+      const { data } = await client.get<
+        IFetchResponse<{ state: ESwapTxHistoryStatus }>
+      >('/exchange/state_tx', { params });
+      if (data?.code === 0 && data?.data?.state) {
+        return data.data.state;
+      }
+      Toast.error({ title: 'error', message: data?.message });
+    } catch (e) {
+      Toast.error({ title: 'error', message: 'internal error' });
+    }
+    return ESwapTxHistoryStatus.PENDING;
   }
 }

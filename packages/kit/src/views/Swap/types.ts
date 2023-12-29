@@ -73,7 +73,7 @@ export interface IAllowanceResult {
 }
 
 export interface IFetchQuoteInfo {
-  provider: string;
+  provider: ESwapProviders;
   providerName: string;
   providerLogo?: string;
 }
@@ -148,6 +148,41 @@ export interface IFetchResponse<T> {
   code: number;
   data: T;
   message: string;
+}
+
+// tx history
+
+export enum ESwapTxHistoryStatus {
+  SUCCESS = 'success',
+  FAILED = 'failed',
+  PENDING = 'pending',
+}
+export interface ISwapTxHistory {
+  status: ESwapTxHistoryStatus;
+  ctx?: any;
+  syncInterval?: NodeJS.Timeout;
+  baseInfo: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromAmount: string;
+    toAmount: string;
+  };
+  txInfo: {
+    txId: string;
+    sender: string;
+    receiver: string;
+    netWorkFee?: string;
+  };
+  swapInfo: {
+    provider: IFetchQuoteInfo;
+    instantRate: string;
+    protocolFee?: number;
+    oneKeyFee?: number;
+  };
+  date: {
+    created: number;
+    updated: number;
+  };
 }
 
 // component -----------------
