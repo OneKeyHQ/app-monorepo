@@ -1,11 +1,11 @@
 import { Suspense, lazy, memo } from 'react';
 
 const LazyLoad = (factory: () => Promise<{ default: any }>) => {
-  const Component = lazy(factory);
+  const LazyLoadComponent = lazy(factory);
   function LazyLoadContainer(props: any) {
     return (
       <Suspense>
-        <Component {...props} />
+        <LazyLoadComponent {...props} />
       </Suspense>
     );
   }
