@@ -7,7 +7,12 @@ module.exports = babelTools.normalizeConfig({
     targets: {
       electron: packageJson.devDependencies.electron,
     },
-    presets: ['babel-preset-expo'],
+    presets: [
+      [
+        'babel-preset-expo',
+        { web: { unstable_transformProfile: 'hermes-stable' } },
+      ],
+    ],
     plugins: [
       // FIX: Uncaught Error: Reanimated 2 failed to create a worklet, maybe you forgot to add Reanimated's babel plugin?
       'react-native-reanimated/plugin',
