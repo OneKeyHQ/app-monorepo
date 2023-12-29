@@ -9,7 +9,7 @@ import Animated, {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { usePageType, EPageType } from '../../hocs';
+import { EPageType, usePageType } from '../../hocs';
 import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
 
