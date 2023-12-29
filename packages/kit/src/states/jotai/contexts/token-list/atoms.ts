@@ -16,10 +16,10 @@ export {
 
 export const { atom: tokenListAtom, use: useTokenListAtom } = contextAtom<{
   tokens: IAccountToken[];
-  keys: string[];
+  keys: string;
 }>({
   tokens: [],
-  keys: [],
+  keys: '',
 });
 
 export const { atom: tokenListMapAtom, use: useTokenListMapAtom } =
