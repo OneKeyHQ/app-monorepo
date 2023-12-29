@@ -1,6 +1,6 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-export enum EGasType {
+export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',
 }
@@ -37,7 +37,7 @@ export type ICustomFeeUTXO = {
   feeRate: string;
 };
 
-export type ICustomGas = {
+export type ICustomFeeInfo = {
   gas: ICustomGasLegacy;
   gasEIP1559: ICustomGasEIP1559;
   feeUTXO: ICustomFeeUTXO;

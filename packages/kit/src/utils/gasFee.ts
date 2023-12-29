@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { ILocaleIds } from '@onekeyhq/components';
 import {
-  EGasType,
+  EFeeType,
   type IFeeInfoUnit,
   type IGasEIP1559,
   type IGasLegacy,
@@ -154,10 +154,10 @@ export function getGasLabel({
   gasType,
   gasPresetIndex,
 }: {
-  gasType: EGasType;
+  gasType: EFeeType;
   gasPresetIndex?: number;
 }) {
-  if (gasType === EGasType.Custom) {
+  if (gasType === EFeeType.Custom) {
     return 'content__custom';
   }
 
@@ -167,10 +167,10 @@ export function getGasIcon({
   gasType,
   gasPresetIndex,
 }: {
-  gasType: EGasType;
+  gasType: EFeeType;
   gasPresetIndex?: number;
 }) {
-  if (gasType === EGasType.Custom) {
+  if (gasType === EFeeType.Custom) {
     return '⚙️';
   }
 

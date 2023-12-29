@@ -8,6 +8,7 @@ export enum EModalSendRoutes {
   SendConfirm = 'SendConfirm',
   SendProgress = 'SendProgress',
   SendFeedback = 'SendFeedback',
+  SendCustomFee = 'SendCustomFee',
 }
 
 export type IModalSendParamList = {
@@ -37,5 +38,10 @@ export type IModalSendParamList = {
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
     transfersInfo: ITransferInfo[];
+  };
+  [EModalSendRoutes.SendCustomFee]: {
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
   };
 };

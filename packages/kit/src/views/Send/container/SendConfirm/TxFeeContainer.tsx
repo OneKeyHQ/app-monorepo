@@ -6,14 +6,14 @@ import type { ISelectItem } from '@onekeyhq/components';
 import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import { EGasType } from '@onekeyhq/shared/types/gas';
+import { EFeeType } from '@onekeyhq/shared/types/gas';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
-  useCustomGasAtom,
+  useCustomFeeAtom,
   useSendConfirmActions,
-  useSendSelectedGasAtom,
+  useSendSelectedFeeAtom,
 } from '../../../../states/jotai/contexts/send-confirm';
 import {
   calculateFeeForSend,
@@ -28,12 +28,12 @@ type IProps = {
   unsignedTxs: IUnsignedTxPro[];
 };
 
-function TxGasFeeContainer(props: IProps) {
+function TxFeeContainer(props: IProps) {
   const { networkId, unsignedTxs } = props;
   const intl = useIntl();
-  const [sendSelectedGas] = useSendSelectedGasAtom();
-  const [customGas] = useCustomGasAtom();
-  const { updateSendSelectedGas } = useSendConfirmActions().current;
+  const [sendSelectedFee] = useSendSelectedFeeAtom();
+  const [customFee] = useCustomFeeAtom();
+  const { updateSendSelectedFee } = useSendConfirmActions().current;
 
   const { result: gasFee, isLoading } = usePromiseResult(
     async () => {
@@ -79,13 +79,13 @@ function TxGasFeeContainer(props: IProps) {
           leading: (
             <SizableText fontSize={32}>
               {getGasIcon({
-                gasType: EGasType.Standard,
+                gasType: EFeeType.Standard,
                 gasPresetIndex: i,
               })}
             </SizableText>
           ),
           label: intl.formatMessage({
-            id: getGasLabel({ gasType: EGasType.Standard, gasPresetIndex: i }),
+            id: getGasLabel({ gasType: EFeeType.Standard, gasPresetIndex: i }),
           }),
           value: String(i),
           total,
@@ -116,14 +116,14 @@ function TxGasFeeContainer(props: IProps) {
         leading: (
           <SizableText fontSize={32}>
             {getGasIcon({
-              gasType: EGasType.Custom,
+              gasType: EFeeType.Custom,
             })}
           </SizableText>
         ),
         label: intl.formatMessage({
-          id: getGasLabel({ gasType: EGasType.Custom }),
+          id: getGasLabel({ gasType: EFeeType.Custom }),
         }),
-        value: EGasType.Custom,
+        value: EFeeType.Custom,
         // total,
         // totalNative,
         // totalNativeForDisplay,
@@ -137,33 +137,33 @@ function TxGasFeeContainer(props: IProps) {
   }, [gasFee, intl]);
 
   const { selectedGas, gasSelectorValue } = useMemo(() => {
-    if (sendSelectedGas.gasType === EGasType.Custom) {
+    if (sendSelectedFee.feeType === EFeeType.Custom) {
       return {
         selectedGas: gasSelectorItems[gasSelectorItems.length - 1],
-        gasSelectorValue: EGasType.Custom,
+        gasSelectorValue: EFeeType.Custom,
       };
     }
     return {
-      selectedGas: gasSelectorItems[sendSelectedGas.presetIndex],
-      gasSelectorValue: String(sendSelectedGas.presetIndex),
+      selectedGas: gasSelectorItems[sendSelectedFee.presetIndex],
+      gasSelectorValue: String(sendSelectedFee.presetIndex),
     };
-  }, [gasSelectorItems, sendSelectedGas]);
+  }, [gasSelectorItems, sendSelectedFee]);
 
   const handleSelectedGasOnChange = useCallback(
     (value: string | ISelectItem) => {
-      if (value === EGasType.Custom) {
-        updateSendSelectedGas({
-          gasType: EGasType.Custom,
+      if (value === EFeeType.Custom) {
+        updateSendSelectedFee({
+          feeType: EFeeType.Custom,
           presetIndex: 0,
         });
       } else {
-        updateSendSelectedGas({
-          gasType: EGasType.Standard,
+        updateSendSelectedFee({
+          feeType: EFeeType.Standard,
           presetIndex: Number(value),
         });
       }
     },
-    [updateSendSelectedGas],
+    [updateSendSelectedFee],
   );
 
   if (isLoading)
@@ -174,7 +174,7 @@ function TxGasFeeContainer(props: IProps) {
     );
 
   return (
-    <XStack py="$2" justifyContent="space-around">
+    <XStack py="$2" alignItems="center" justifyContent="space-around">
       <YStack flex={1}>
         <XStack alignItems="center" space="$1">
           <SizableText size="$bodyLg">{`${
@@ -196,4 +196,4 @@ function TxGasFeeContainer(props: IProps) {
     </XStack>
   );
 }
-export { TxGasFeeContainer };
+export { TxFeeContainer };
