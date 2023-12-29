@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
-import { Spinner, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EGasType } from '@onekeyhq/shared/types/gas';
 
@@ -22,7 +21,6 @@ import {
   getGasLabel,
 } from '../../../../utils/gasFee';
 import { GasSelector } from '../../components/GasSelector';
-import { GasSelectorTrigger } from '../../components/GasSelector/GasSelectorTrigger';
 
 type IProps = {
   accountId: string;
@@ -30,13 +28,12 @@ type IProps = {
   unsignedTxs: IUnsignedTxPro[];
 };
 
-const DEFAULT_PRESET_INDEX = 1;
-
 function TxGasFeeContainer(props: IProps) {
   const { networkId, unsignedTxs } = props;
-  const [settings] = useSettingsPersistAtom();
+  const intl = useIntl();
   const [sendSelectedGas] = useSendSelectedGasAtom();
   const [customGas] = useCustomGasAtom();
+  const { updateSendSelectedGas } = useSendConfirmActions().current;
 
   const { result: gasFee, isLoading } = usePromiseResult(
     async () => {
@@ -87,7 +84,9 @@ function TxGasFeeContainer(props: IProps) {
               })}
             </SizableText>
           ),
-          label: getGasLabel({ gasType: EGasType.Standard, gasPresetIndex: i }),
+          label: intl.formatMessage({
+            id: getGasLabel({ gasType: EGasType.Standard, gasPresetIndex: i }),
+          }),
           value: String(i),
           total,
           totalNative,
@@ -121,7 +120,9 @@ function TxGasFeeContainer(props: IProps) {
             })}
           </SizableText>
         ),
-        label: getGasLabel({ gasType: EGasType.Custom }),
+        label: intl.formatMessage({
+          id: getGasLabel({ gasType: EGasType.Custom }),
+        }),
         value: EGasType.Custom,
         // total,
         // totalNative,
@@ -133,14 +134,37 @@ function TxGasFeeContainer(props: IProps) {
     }
 
     return [];
-  }, [gasFee]);
+  }, [gasFee, intl]);
 
-  const selectedGas = useMemo(() => {
-    if (sendSelectedGas === EGasType.Custom) {
-      return gasSelectorItems[gasSelectorItems.length - 1];
+  const { selectedGas, gasSelectorValue } = useMemo(() => {
+    if (sendSelectedGas.gasType === EGasType.Custom) {
+      return {
+        selectedGas: gasSelectorItems[gasSelectorItems.length - 1],
+        gasSelectorValue: EGasType.Custom,
+      };
     }
-    return gasSelectorItems[DEFAULT_PRESET_INDEX];
+    return {
+      selectedGas: gasSelectorItems[sendSelectedGas.presetIndex],
+      gasSelectorValue: String(sendSelectedGas.presetIndex),
+    };
   }, [gasSelectorItems, sendSelectedGas]);
+
+  const handleSelectedGasOnChange = useCallback(
+    (value: string | ISelectItem) => {
+      if (value === EGasType.Custom) {
+        updateSendSelectedGas({
+          gasType: EGasType.Custom,
+          presetIndex: 0,
+        });
+      } else {
+        updateSendSelectedGas({
+          gasType: EGasType.Standard,
+          presetIndex: Number(value),
+        });
+      }
+    },
+    [updateSendSelectedGas],
+  );
 
   if (isLoading)
     return (
@@ -164,6 +188,11 @@ function TxGasFeeContainer(props: IProps) {
           Fee Estimate
         </SizableText>
       </YStack>
+      <GasSelector
+        items={gasSelectorItems}
+        value={gasSelectorValue}
+        onChange={handleSelectedGasOnChange}
+      />
     </XStack>
   );
 }

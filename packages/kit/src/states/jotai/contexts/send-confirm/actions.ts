@@ -21,7 +21,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   );
 
   updateSendSelectedGas = contextAtomMethod(
-    (get, set, sendSelectedGas: EGasType.Custom | number) => {
+    (get, set, sendSelectedGas: { gasType: EGasType; presetIndex: number }) => {
       set(sendSelectedGasAtom(), sendSelectedGas);
     },
   );

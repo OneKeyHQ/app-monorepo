@@ -8,8 +8,8 @@ import {
   type IGasLegacy,
 } from '@onekeyhq/shared/types/gas';
 
-const PRESET_GAS_ICON = ['🚴‍♂️️', '🚗', '🚅'];
-const PRESET_GAS_LABEL = ['content__slow', 'content__normal', 'content__fast'];
+const PRESET_GAS_ICON = ['🚅️', '🚗', '🚴‍♂️'];
+const PRESET_GAS_LABEL = ['content__fast', 'content__normal', 'content__slow'];
 
 function nilError(message: string): number {
   throw new Error(message);
