@@ -14,7 +14,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../../routes/Modal/type';
-import { ENFTPages } from '../../../NFT/router/type';
+import { ETokenPages } from '../../../Token/router/type';
 
 type IProps = {
   nft: IAccountNFT;
@@ -26,8 +26,8 @@ function NFTListItem(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleNFTPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.NFTModal, {
-      screen: ENFTPages.NFTDetails,
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.NFTDetails,
     });
   }, [navigation]);
 

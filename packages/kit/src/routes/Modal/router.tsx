@@ -4,9 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
-import { NFTRouter } from '../../views/NFT/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
-import { ReceiveRouter } from '../../views/Receive/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { TokenRouter } from '../../views/Token/router';
 
@@ -40,16 +38,8 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: ModalSendStack,
   },
   {
-    name: EModalRoutes.ReceiveModal,
-    children: ReceiveRouter,
-  },
-  {
     name: EModalRoutes.TokenModal,
     children: TokenRouter,
-  },
-  {
-    name: EModalRoutes.NFTModal,
-    children: NFTRouter,
   },
 ];
 

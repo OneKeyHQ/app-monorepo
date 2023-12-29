@@ -1,5 +1,6 @@
 import type { IKeyOfIcons, IListItemProps } from '@onekeyhq/components';
 import {
+  Button,
   Icon,
   ListItem,
   SizableText,
@@ -21,6 +22,7 @@ export type IHistoryListItemProps = {
   };
   change?: string;
   changeDescription?: string;
+  pending?: boolean;
   tableLayout?: boolean;
 };
 
@@ -210,37 +212,63 @@ export function HistoryListItem({
   description,
   change,
   changeDescription,
+  pending,
   tableLayout,
   ...rest
 }: IHistoryListItemProps & IListItemProps) {
   return (
-    <ListItem userSelect="none" {...rest}>
-      <HistoryListItemAvatar avatar={avatar} tableLayout={tableLayout} />
-      <Stack
-        flex={1}
-        {...(tableLayout && {
-          flexDirection: 'row',
-          space: '$3',
-        })}
-      >
-        <HistoryListItemTitle title={title} tableLayout={tableLayout} />
-        <HistoryListItemDescription
-          description={description}
-          tableLayout={tableLayout}
-        />
-      </Stack>
-      <Stack
-        {...(tableLayout && {
-          flexDirection: 'row-reverse',
-          space: '$3',
-        })}
-      >
-        <HistoryListItemChange change={change} tableLayout={tableLayout} />
-        <HistoryListItemChangeDescription
-          changeDescription={changeDescription}
-          tableLayout={tableLayout}
-        />
-      </Stack>
-    </ListItem>
+    <Stack
+      {...(tableLayout && {
+        flexDirection: 'row',
+      })}
+    >
+      <ListItem flex={1} userSelect="none" {...rest}>
+        <HistoryListItemAvatar avatar={avatar} tableLayout={tableLayout} />
+        <Stack
+          flex={1}
+          {...(tableLayout && {
+            flexDirection: 'row',
+            space: '$3',
+          })}
+        >
+          <HistoryListItemTitle title={title} tableLayout={tableLayout} />
+          <HistoryListItemDescription
+            description={description}
+            tableLayout={tableLayout}
+          />
+        </Stack>
+        <Stack
+          {...(tableLayout && {
+            flexDirection: 'row-reverse',
+            space: '$3',
+          })}
+        >
+          <HistoryListItemChange change={change} tableLayout={tableLayout} />
+          <HistoryListItemChangeDescription
+            changeDescription={changeDescription}
+            tableLayout={tableLayout}
+          />
+        </Stack>
+      </ListItem>
+      {pending && (
+        <XStack
+          px="$5"
+          space="$2.5"
+          alignItems="center"
+          {...(tableLayout
+            ? {
+                flexDirection: 'row-reverse',
+              }
+            : { pb: '$2.5', pl: 72 })}
+        >
+          <Button size="small" variant="primary">
+            Speed Up
+          </Button>
+          <Button size="small" variant="tertiary" m="$0">
+            Cancel
+          </Button>
+        </XStack>
+      )}
+    </Stack>
   );
 }

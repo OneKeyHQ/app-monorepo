@@ -65,7 +65,12 @@ function TokenListView(props: IProps) {
 
   const handleLowValueTokensPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.LowValueTokens,
+      screen: ETokenPages.TokenList,
+      params: {
+        title: 'Low-value Assets',
+        helpText:
+          'Assets valued below 0.1% of your total holdings and less than $1,000 fall into this category.',
+      },
     });
   }, [navigation]);
 

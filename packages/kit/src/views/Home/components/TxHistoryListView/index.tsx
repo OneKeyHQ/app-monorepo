@@ -35,6 +35,7 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
   showHeader?: boolean;
+  onItemPress?: () => void; // test only, should remove in the future
 };
 
 function TxHistoryListEmpty() {
@@ -65,8 +66,14 @@ const ItemSeparatorComponent = ({ leadingItem }) => {
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
-  const { data, showHeader, accountAddress, tableLayout, onContentSizeChange } =
-    props;
+  const {
+    data,
+    showHeader,
+    accountAddress,
+    onItemPress,
+    tableLayout,
+    onContentSizeChange,
+  } = props;
 
   return (
     <SectionList
@@ -96,8 +103,9 @@ function TxHistoryListView(props: IProps) {
           avatar={item.avatar}
           change={item.change}
           changeDescription={item.changeDescription}
+          pending={item.pending}
           tableLayout={tableLayout}
-          onPress={() => console.log('clicked')}
+          onPress={onItemPress}
         />
       )}
       ListFooterComponent={ListFooterComponent}

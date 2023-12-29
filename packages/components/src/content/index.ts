@@ -11,3 +11,4 @@ export * from './Splash';
 export * from './Divider';
 export * from './SheetGrabber';
 export * from './ConfirmHighlighter';
+export * from './DescriptionList';

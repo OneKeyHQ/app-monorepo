@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useMedia } from 'tamagui';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../routes/Modal/type';
 import { convertHistoryToSectionGroups } from '../../../utils/history';
+import { ETokenPages } from '../../Token/router/type';
 import { TxHistoryListView } from '../components/TxHistoryListView';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
 
@@ -21,6 +24,13 @@ function TxHistoryListContainer(props: IProps) {
   const media = useMedia();
   const { onContentSizeChange } = props;
   const formatDate = useFormatDate();
+  const navigation = useAppNavigation();
+
+  const handleHistoryItemPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.History,
+    });
+  }, [navigation]);
 
   const history = usePromiseResult(
     async () => {
@@ -54,6 +64,7 @@ function TxHistoryListContainer(props: IProps) {
   return (
     <TxHistoryListView
       data={mockData}
+      onItemPress={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}
       accountAddress={accountAddress}

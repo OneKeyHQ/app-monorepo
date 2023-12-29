@@ -15,30 +15,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ETokenPages } from '../router/type';
 
-const headerRight = () => (
-  <Popover
-    title="Define"
-    renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
-    renderContent={
-      <Stack p="$5">
-        <SizableText>
-          Assets valued below 0.1% of your total holdings and less than $1,000
-          fall into this category.
-        </SizableText>
-      </Stack>
-    }
-  />
-);
-
 export const TOKENDATA = [
-  {
-    src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
-    title: 'BTC',
-    amount: '30.00',
-    price: '$10000',
-    value: '$902,617.17',
-    change: '+4.32%',
-  },
   {
     src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
     title: 'ETH',
@@ -46,6 +23,14 @@ export const TOKENDATA = [
     price: '$10000',
     value: '$3,836.97',
     change: '+4.32%',
+  },
+  {
+    src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
+    title: 'USDC',
+    amount: '4000',
+    price: '$1',
+    value: '$4,000.00',
+    change: '+0.15%',
   },
   {
     src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
@@ -57,16 +42,35 @@ export const TOKENDATA = [
   },
 ];
 
-export function LowValueTokens() {
+export function TokenList(props) {
+  const { route } = props;
+  const pageTitle = route?.params?.title;
+  const pageHelpText = route?.params?.helpText;
   const navigation = useAppNavigation();
 
   const handleListItemPress = useCallback(() => {
     navigation.push(ETokenPages.TokenDetails);
   }, [navigation]);
 
+  const headerRight = useCallback(() => {
+    if (!pageHelpText) return null;
+
+    return (
+      <Popover
+        title="Define"
+        renderTrigger={<HeaderIconButton icon="QuestionmarkOutline" />}
+        renderContent={
+          <Stack p="$5">
+            <SizableText>{pageHelpText}</SizableText>
+          </Stack>
+        }
+      />
+    );
+  }, [pageHelpText]);
+
   return (
     <Page>
-      <Page.Header title="Low-value Assets" headerRight={headerRight} />
+      <Page.Header title={pageTitle} headerRight={headerRight} />
       <Page.Body>
         <ListView
           estimatedItemSize={60}
@@ -78,7 +82,7 @@ export function LowValueTokens() {
               avatarProps={{
                 src: item.src,
               }}
-              onPress={handleListItemPress}
+              onPress={route?.params?.onTokenPress || handleListItemPress}
             >
               <ListItem.Text
                 flex={1}
