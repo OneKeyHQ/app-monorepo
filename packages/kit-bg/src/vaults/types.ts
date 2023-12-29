@@ -207,6 +207,8 @@ export interface ISignTransactionParams {
   password: string;
 }
 
+export type ISignAndSendTransactionParams = ISignTransactionParams;
+
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;

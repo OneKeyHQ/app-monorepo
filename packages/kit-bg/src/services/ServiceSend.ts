@@ -20,6 +20,7 @@ import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
+  ISignAndSendTransactionParams,
   ISignTransactionParams,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -209,6 +210,19 @@ class ServiceSend extends ServiceBase {
       password,
     });
     return { ...signedTx, encodedTx: unsignedTx.encodedTx };
+  }
+
+  @backgroundMethod()
+  public async signAndSendTransaction(
+    params: ISendTxBaseParams & ISignAndSendTransactionParams,
+  ) {
+    const { networkId, accountId, unsignedTx, password } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const signedTx = await vault.signTransaction({
+      unsignedTx,
+      password,
+    });
+    return this.broadcastTransaction({ networkId, signedTx });
   }
 }
 
