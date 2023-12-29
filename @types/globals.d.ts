@@ -24,6 +24,8 @@ declare global {
   var $backgroundApi: IBackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
 
+  var $$walletPressTS: number;
+
   var $$navigationShortcuts: any;
   var $$simpleDb: any;
   var $$localDb: LocalDbBase;

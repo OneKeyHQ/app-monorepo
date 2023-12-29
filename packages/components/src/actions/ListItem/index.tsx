@@ -164,6 +164,14 @@ const ListItemText = (props: IListItemTextProps) => {
             primary
           ) : (
             <SizableText
+              onTextLayout={() => {
+                console.log(
+                  'Perf: onTextLayout',
+                  primary,
+                  '---',
+                  Date.now() - global.$$walletPressTS,
+                );
+              }}
               textAlign={align}
               size="$bodyLgMedium"
               {...primaryTextProps}
@@ -277,6 +285,14 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     renderItemText,
     ...rest
   } = props;
+
+  if (title) {
+    console.log(
+      'Perf: ListItemComponent render',
+      title,
+      Date.now() - global.$$walletPressTS,
+    );
+  }
 
   return (
     <Stack

@@ -92,6 +92,7 @@ export function WalletList({ num }: IWalletListProps) {
 
   const onWalletPress = useCallback(
     (focusedWallet: IAccountSelectorFocusedWallet) => {
+      global.$$walletPressTS = Date.now();
       actions.current.updateSelectedAccount({
         num,
         builder: (account) => ({
@@ -99,6 +100,7 @@ export function WalletList({ num }: IWalletListProps) {
           focusedWallet,
         }),
       });
+      console.log('Perf: onWalletPress', Date.now() - global.$$walletPressTS);
     },
     [actions, num],
   );
