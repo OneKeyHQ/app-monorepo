@@ -26,10 +26,12 @@ export interface IModalFlowNavigatorConfig<
   disableClose?: boolean;
 }
 
-export const makeModalComponent =
-  (Component: ComponentType<any>) =>
-  // eslint-disable-next-line react/display-name
-  (props: any) => {
+const map = new Map();
+const makeModalComponent = (Component: ComponentType<any>) => {
+  if (map.get(Component)) {
+    return map.get(Component) as ComponentType<any>;
+  }
+  function ModalContainer(props: any) {
     const value = useMemo(
       () =>
         ({
@@ -43,7 +45,10 @@ export const makeModalComponent =
         <Component {...props} pageType="modal" />
       </NavigationContext.Provider>
     );
-  };
+  }
+  map.set(Component, ModalContainer);
+  return ModalContainer;
+};
 
 interface IModalFlowNavigatorProps<
   RouteName extends string,
@@ -95,7 +100,6 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
                 })
               : '',
           };
-
           return (
             <ModalStack.Screen
               key={`Modal-Flow-${name as string}`}
