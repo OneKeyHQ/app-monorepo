@@ -1,7 +1,7 @@
 import { Button, IconButton } from '@onekeyhq/components';
 
 import {
-  useSwapTxHistoryList,
+  useSwapTxHistoryListSyncFromSimpleDb,
   useSwapTxHistoryStateSyncInterval,
 } from '../hooks/useSwapTxHistory';
 
@@ -12,7 +12,7 @@ interface ISwapHistoryButtonContainerProps {
 const SwapHistoryButtonContainer = ({
   onHistoryButtonPress,
 }: ISwapHistoryButtonContainerProps) => {
-  useSwapTxHistoryList();
+  useSwapTxHistoryListSyncFromSimpleDb();
   const { swapTxHistoryPending } = useSwapTxHistoryStateSyncInterval();
   return swapTxHistoryPending.length > 0 ? (
     <Button

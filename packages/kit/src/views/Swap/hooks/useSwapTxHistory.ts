@@ -1,9 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { ETabSwapRoutes } from '../../../routes/Tab/Swap/type';
 import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useSwapActions,
@@ -20,13 +19,16 @@ import { mockAddress } from '../utils/utils';
 
 import type { ISwapTxHistory } from '../types';
 
-export function useSwapTxHistoryList() {
+export function useSwapTxHistoryListSyncFromSimpleDb() {
   const [, setSwapHistory] = useSwapTxHistoryAtom();
   const { isLoading } = usePromiseResult(
     async () => {
       const histories =
         await backgroundApiProxy.simpleDb.swapHistory.getSwapHistoryList();
-      setSwapHistory(histories);
+      const sortHistories = histories.sort(
+        (a, b) => a.date.created - b.date.created,
+      );
+      setSwapHistory(sortHistories);
     },
     [setSwapHistory],
     {
@@ -39,14 +41,13 @@ export function useSwapTxHistoryList() {
 export function useSwapTxHistoryStateSyncInterval() {
   const [swapTxHistoryPending] = useSwapTxHistoryPendingAtom();
   const { updateSwapHistoryItem } = useSwapActions();
+  const internalRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const generateSwapPendingHistoryInterval = useCallback(() => {
     if (swapTxHistoryPending.length > 0) {
       swapTxHistoryPending.forEach(async (swapTxHistory) => {
-        if (!swapTxHistory.syncInterval) {
+        if (!internalRef.current[swapTxHistory.txInfo.txId]) {
           const interval = setInterval(async () => {
-            console.log('interval run--id', swapTxHistory.txInfo.txId);
-            console.log('interval run', interval);
             const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
               txId: swapTxHistory.txInfo.txId,
               provider: swapTxHistory.swapInfo.provider.provider,
@@ -55,94 +56,41 @@ export function useSwapTxHistoryStateSyncInterval() {
             });
             if (txState !== ESwapTxHistoryStatus.PENDING) {
               clearInterval(interval);
+              delete internalRef.current[swapTxHistory.txInfo.txId];
               await updateSwapHistoryItem({
                 ...swapTxHistory,
                 status: txState,
-                syncInterval: undefined,
               });
             }
           }, 1000 * 5);
-          await updateSwapHistoryItem({
-            ...swapTxHistory,
-            syncInterval: interval,
-          });
+          internalRef.current[swapTxHistory.txInfo.txId] = interval;
         }
       });
     }
   }, [swapTxHistoryPending, updateSwapHistoryItem]);
 
   const cleanupInterval = useCallback(() => {
-    swapTxHistoryPending.forEach(async (swapTxHistory) => {
-      console.log('1113');
-      if (swapTxHistory.syncInterval) {
-        console.log('interval clear--id', swapTxHistory.syncInterval);
-        clearInterval(swapTxHistory.syncInterval);
-        await updateSwapHistoryItem({
-          ...swapTxHistory,
-          syncInterval: undefined,
-        });
-      }
+    const currentInternalRef = internalRef.current;
+    Object.entries(currentInternalRef).forEach(([key, value]) => {
+      clearInterval(value);
+      delete currentInternalRef[key];
     });
-  }, [swapTxHistoryPending, updateSwapHistoryItem]);
+  }, []);
 
   useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
-    console.log('isFocus---', isFocus);
     if (isFocus) {
       generateSwapPendingHistoryInterval();
     } else {
       cleanupInterval();
     }
   });
-  //   useEffect(() => {
-  //     if (swapTxHistoryPending.length > 0) {
-  //       swapTxHistoryPending.forEach(async (swapTxHistory) => {
-  //         if (!swapTxHistory.syncInterval) {
-  //           const interval = setInterval(async () => {
-  //             console.log('interval run--id', swapTxHistory.txInfo.txId);
-  //             console.log('interval run', interval);
-  //             const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
-  //               txId: swapTxHistory.txInfo.txId,
-  //               provider: swapTxHistory.swapInfo.provider.provider,
-  //               protocol: EExchangeProtocol.SWAP,
-  //               networkId: swapTxHistory.baseInfo.fromToken.networkId,
-  //             });
-  //             if (txState !== ESwapTxHistoryStatus.PENDING) {
-  //               clearInterval(interval);
-  //               await updateSwapHistoryItem({
-  //                 ...swapTxHistory,
-  //                 status: txState,
-  //                 syncInterval: undefined,
-  //               });
-  //             }
-  //           }, 1000 * 5);
-  //           await updateSwapHistoryItem({
-  //             ...swapTxHistory,
-  //             syncInterval: interval,
-  //           });
-  //         }
-  //       });
-  //     }
-  //     return () => {
-  //       console.log('interval clear');
-  //       const cleanup = async () => {
-  //         console.log('1112');
-  //         await Promise.all(
-  //           swapTxHistoryPending.map(async (swapTxHistory) => {
-  //             console.log('1113');
-  //             if (swapTxHistory.syncInterval) {
-  //               console.log('interval clear--id', swapTxHistory.syncInterval);
-  //               clearInterval(swapTxHistory.syncInterval);
-  //               await updateSwapHistoryItem({
-  //                 ...swapTxHistory,
-  //                 syncInterval: undefined,
-  //               });
-  //             }
-  //           }),
-  //         );
-  //       };
-  //       void cleanup();
-  //     };
-  //   }, [swapTxHistoryPending, updateSwapHistoryItem]);
+
+  useEffect(
+    () => () => {
+      cleanupInterval();
+    },
+    [cleanupInterval],
+  );
   return {
     swapTxHistoryPending,
   };

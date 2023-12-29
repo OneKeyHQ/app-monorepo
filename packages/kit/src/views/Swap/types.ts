@@ -160,7 +160,6 @@ export enum ESwapTxHistoryStatus {
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
-  syncInterval?: NodeJS.Timeout;
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;

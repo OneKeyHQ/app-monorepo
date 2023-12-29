@@ -41,7 +41,7 @@ const SwapBuildTxDemo = () => {
         <Button
           onPress={async () => {
             await generateSwapHistoryItem({
-              txId: '0x733bd9b1aa40373d2f9e3d2f086c872894b4f14cfbb212801dd415ad5dadee45',
+              txId: '0x15b67f7943226e9f60679d71ea6563124628eb2064b6ee9e9cc6abda6e5747c2',
               netWorkFee: '8888',
             });
             navigation.pop();
@@ -53,7 +53,5 @@ const SwapBuildTxDemo = () => {
     </Page>
   );
 };
-
-// 0x15b67f7943226e9f60679d71ea6563124628eb2064b6ee9e9cc6abda6e5747c2
 
 export default withSwapProvider(SwapBuildTxDemo);

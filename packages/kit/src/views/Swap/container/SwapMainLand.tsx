@@ -45,7 +45,7 @@ const SwapMainLoad = () => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
     });
-  }, []);
+  }, [navigation]);
 
   const onApprove = useCallback((allowanceValue: number) => {
     console.log('onApprove-', allowanceValue); // -1 means infinite

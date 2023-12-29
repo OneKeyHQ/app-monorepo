@@ -269,6 +269,7 @@ export default class ServiceSwap extends ServiceBase {
       networkId,
     };
     const client = await this.getClient();
+    console.log('ctx--', ctx);
     try {
       const { data } = await client.get<
         IFetchResponse<{ state: ESwapTxHistoryStatus }>

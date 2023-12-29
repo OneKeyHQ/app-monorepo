@@ -29,7 +29,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     const data = await this.getRawData();
     const histories = data?.histories ?? [];
     const index = histories.findIndex(
-      (i) => i.txInfo.txHash === item.txInfo.txHash,
+      (i) => i.txInfo.txId === item.txInfo.txId,
     );
     if (index !== -1) {
       histories[index] = item;
