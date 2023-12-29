@@ -16,7 +16,7 @@ export type ITokenFiat = {
   price24h?: number;
 };
 
-export type IAccountToken = ITokenFiat & { info: IToken } & { $key: string };
+export type IAccountToken = { $key: string; info: IToken };
 
 export type IFetchAccountTokensParams = {
   networkId: string;
@@ -31,15 +31,8 @@ export type IFetchAccountTokensParams = {
 
 export type IFetchAccountTokensResp = {
   data: IAccountToken[];
-  next: string;
-};
-
-export type IFetchAccountTokensForDeepRefreshResp = {
-  tokens: IAccountToken[];
-  keys: string[];
-  map: {
-    [key: string]: ITokenFiat;
-  };
+  keys: string;
+  map: Record<string, ITokenFiat>; // key: networkId_tokenAddress
   next: string;
 };
 

@@ -23,15 +23,13 @@ function TokenListContainer(props: IProps) {
 
   const promise = usePromiseResult(
     async () => {
-      const r =
-        await backgroundApiProxy.serviceToken.fetchAccountTokensForDeepRefresh({
-          accountId: '',
-          networkId: 'evm--1',
-          accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-          // for performance testing
-          limit: 300,
-        });
-      refreshTokenList(r);
+      const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+        networkId: 'evm--1',
+        accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+        // for performance testing
+        limit: 300,
+      });
+      refreshTokenList({ keys: r.keys, tokens: r.data });
       refreshTokenListMap(r.map);
     },
     [refreshTokenList, refreshTokenListMap],
