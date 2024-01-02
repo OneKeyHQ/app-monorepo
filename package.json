@@ -32,7 +32,7 @@
     "app:android": "yarn workspace @onekeyhq/mobile android",
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
     "icon:build": "yarn workspace @onekeyhq/components icon:build",
-    "clean": "yarn workspaces foreach -A  -p run clean && yarn workspaces foreach -A -p exec 'rm -rf node_modules' && rm -rf node_modules",
+    "clean": "yarn workspaces foreach -A  -p run clean && ./development/scripts/clean_workspace.sh",
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "_tsc": "sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'",
     "reinstall": "yarn clean && yarn install",
