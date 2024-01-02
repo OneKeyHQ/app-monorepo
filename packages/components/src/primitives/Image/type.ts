@@ -10,6 +10,7 @@ export type IImageContext = {
 
 export type IImageFallbackProps = PropsWithChildren<
   StackStyleProps & {
+    /** Milliseconds to wait before showing the fallback, to prevent flicker */
     delayMs?: number;
   }
 >;
