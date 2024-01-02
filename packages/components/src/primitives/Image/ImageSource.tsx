@@ -50,6 +50,7 @@ export function ImageSource({
     <NativeImage
       source={imageSource}
       {...restProps}
+      borderRadius={style.borderRadius as number}
       width={style.width as number}
       height={style.height as number}
       onLoadStart={handleLoadStart}

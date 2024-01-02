@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useMemo, useState } from 'react';
 
-import { Skeleton } from 'moti/skeleton';
 import { withStaticProperties } from 'tamagui';
 
 import { Stack } from '../Stack';
@@ -26,13 +25,25 @@ function ImageContainer({ children }: PropsWithChildren) {
   );
 }
 
-function BasicImage({ children, ...props }: IImageProps) {
+function BasicImage({ children, size, width, height, ...props }: IImageProps) {
+  const imageHeight = height || size;
+  const imageWidth = width || size;
   return children ? (
-    <Stack position="relative" {...props}>
+    <Stack
+      position="relative"
+      width={imageWidth}
+      height={imageHeight}
+      overflow="hidden"
+      {...props}
+    >
       <ImageContainer>{children}</ImageContainer>
     </Stack>
   ) : (
-    <ImageSource {...(props as IImageSourceProps)} />
+    <ImageSource
+      width={imageWidth}
+      height={imageHeight}
+      {...(props as IImageSourceProps)}
+    />
   );
 }
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Avatar, Icon, Stack, Text, XStack } from '@onekeyhq/components';
+import { Icon, Image, Stack, Text, XStack } from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -47,12 +47,12 @@ function MobileTabListPinnedItem({
         borderRadius="$2.5"
         testID={`tab-list-stack-pinned-${id}`}
       >
-        <Avatar size="$4" borderRadius="$1">
-          <Avatar.Image src={tab?.favicon} />
-          <Avatar.Fallback>
+        <Image size="$4" borderRadius="$1">
+          <Image.Source src={tab?.favicon} />
+          <Image.Fallback>
             <Icon name="GlobusOutline" size="$4" />
-          </Avatar.Fallback>
-        </Avatar>
+          </Image.Fallback>
+        </Image>
         <Text flex={1} variant="$bodySm" numberOfLines={1} ml="$2">
           {tab?.title || ''}
         </Text>
