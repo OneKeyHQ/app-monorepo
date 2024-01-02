@@ -2,14 +2,16 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
-import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
+import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
+import { Spinner, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EFeeType } from '@onekeyhq/shared/types/gas';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../../routes/Modal/type';
 import {
   useCustomFeeAtom,
   useSendConfirmActions,
@@ -21,6 +23,9 @@ import {
   getGasLabel,
 } from '../../../../utils/gasFee';
 import { GasSelector } from '../../components/GasSelector';
+import { EModalSendRoutes } from '../../router';
+
+import type { IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;
@@ -34,6 +39,8 @@ function TxFeeContainer(props: IProps) {
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const { updateSendSelectedFee } = useSendConfirmActions().current;
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
   const { result: gasFee, isLoading } = usePromiseResult(
     async () => {
@@ -73,7 +80,7 @@ function TxFeeContainer(props: IProps) {
           totalFiatForDisplay,
         } = calculateFeeForSend({
           feeInfo,
-          nativeTokenPrice: gasFee.nativeTokenPrice.price,
+          nativeTokenPrice: gasFee.common.nativeTokenPrice,
         });
         items.push({
           leading: (
@@ -92,6 +99,7 @@ function TxFeeContainer(props: IProps) {
           totalNative,
           totalNativeForDisplay,
           totalFiatForDisplay,
+          feeInfo,
         });
       }
 
@@ -149,12 +157,16 @@ function TxFeeContainer(props: IProps) {
     };
   }, [gasSelectorItems, sendSelectedFee]);
 
-  const handleSelectedGasOnChange = useCallback(
+  const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {
       if (value === EFeeType.Custom) {
-        updateSendSelectedFee({
-          feeType: EFeeType.Custom,
-          presetIndex: 0,
+        navigation.pushModal(EModalRoutes.SendModal, {
+          screen: EModalSendRoutes.SendCustomFee,
+          params: {
+            networkId,
+            accountId: '',
+            customFee: customFee ?? (selectedGas.feeInfo as IFeeInfoUnit),
+          },
         });
       } else {
         updateSendSelectedFee({
@@ -163,7 +175,13 @@ function TxFeeContainer(props: IProps) {
         });
       }
     },
-    [updateSendSelectedFee],
+    [
+      customFee,
+      navigation,
+      networkId,
+      selectedGas?.feeInfo,
+      updateSendSelectedFee,
+    ],
   );
 
   if (isLoading)
@@ -191,7 +209,7 @@ function TxFeeContainer(props: IProps) {
       <GasSelector
         items={gasSelectorItems}
         value={gasSelectorValue}
-        onChange={handleSelectedGasOnChange}
+        onChange={handleSelectedFeeOnChange}
       />
     </XStack>
   );

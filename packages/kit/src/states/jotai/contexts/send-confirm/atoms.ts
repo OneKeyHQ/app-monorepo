@@ -1,5 +1,5 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { ICustomFeeInfo } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EFeeType } from '@onekeyhq/shared/types/gas';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -30,4 +30,4 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
   });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } =
-  contextAtom<ICustomFeeInfo | null>(null);
+  contextAtom<IFeeInfoUnit | null>(null);

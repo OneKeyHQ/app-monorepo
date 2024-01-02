@@ -9,3 +9,4 @@ export {
   SendAssetInputContainerWithProvider as SendConfirmWithProvider,
 } from './container/SendConfirm/SendConfirmContainer';
 export { SendProgressContainer as SendProgress } from './container/SendProgress/SendProgressContainer';
+export { SendCustomFeeContainer as SendCustomFee } from './container/SendCustomFee/SendCustomFeeContainer';
