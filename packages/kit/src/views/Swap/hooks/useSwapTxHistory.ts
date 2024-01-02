@@ -43,7 +43,7 @@ export function useSwapTxHistoryStateSyncInterval() {
   const { updateSwapHistoryItem } = useSwapActions();
   const internalRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-  const generateSwapPendingHistoryInterval = useCallback(() => {
+  const triggerSwapPendingHistoryInterval = useCallback(() => {
     if (swapTxHistoryPending.length > 0) {
       swapTxHistoryPending.forEach(async (swapTxHistory) => {
         if (!internalRef.current[swapTxHistory.txInfo.txId]) {
@@ -53,6 +53,7 @@ export function useSwapTxHistoryStateSyncInterval() {
               provider: swapTxHistory.swapInfo.provider.provider,
               protocol: EExchangeProtocol.SWAP,
               networkId: swapTxHistory.baseInfo.fromToken.networkId,
+              ctx: swapTxHistory.ctx,
             });
             if (txState !== ESwapTxHistoryStatus.PENDING) {
               clearInterval(interval);
@@ -69,7 +70,7 @@ export function useSwapTxHistoryStateSyncInterval() {
     }
   }, [swapTxHistoryPending, updateSwapHistoryItem]);
 
-  const cleanupInterval = useCallback(() => {
+  const cleanupSwapPendingHistoryInterval = useCallback(() => {
     const currentInternalRef = internalRef.current;
     Object.entries(currentInternalRef).forEach(([key, value]) => {
       clearInterval(value);
@@ -78,18 +79,19 @@ export function useSwapTxHistoryStateSyncInterval() {
   }, []);
 
   useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
+    console.log('isFocus', isFocus);
     if (isFocus) {
-      generateSwapPendingHistoryInterval();
+      triggerSwapPendingHistoryInterval();
     } else {
-      cleanupInterval();
+      cleanupSwapPendingHistoryInterval();
     }
   });
 
   useEffect(
     () => () => {
-      cleanupInterval();
+      cleanupSwapPendingHistoryInterval();
     },
-    [cleanupInterval],
+    [cleanupSwapPendingHistoryInterval],
   );
   return {
     swapTxHistoryPending,

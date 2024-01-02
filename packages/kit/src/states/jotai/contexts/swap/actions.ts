@@ -12,6 +12,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapTxHistoryAtom,
+  swapTxHistoryStatusChangeAtom,
 } from './atoms';
 
 import type { ISwapToken, ISwapTxHistory } from '../../../../views/Swap/types';
@@ -86,6 +87,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         item.date = { ...item.date, updated };
         currentHistoryList[index] = item;
         set(swapTxHistoryAtom(), currentHistoryList);
+        set(swapTxHistoryStatusChangeAtom(), (items) => {
+          if (!items.find((i) => i.txInfo.txId === item.txInfo.txId)) {
+            return [...items, item];
+          }
+          return items;
+        });
         await this.syncSwapHistorySimpleDb.call(set);
       }
     },

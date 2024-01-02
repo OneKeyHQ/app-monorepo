@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, Toast, XStack, YStack } from '@onekeyhq/components';
+import { XStack, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -53,13 +53,11 @@ const SwapMainLoad = () => {
   }, []);
 
   const onBuildTx = useCallback(async () => {
-    try {
-      await buildTx();
+    const res = await buildTx();
+    if (res) {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapBuildTxDemo,
       });
-    } catch (e) {
-      Toast.error({ title: '', message: 'build TX error' });
     }
   }, [buildTx, navigation]);
 

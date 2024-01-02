@@ -19,7 +19,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getFiatEndpoint } from '@onekeyhq/shared/src/config/endpoint';
+
+import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
 
@@ -54,9 +55,10 @@ export default class ServiceSwap extends ServiceBase {
       if (data.code === 0 && data.data) {
         return data.data;
       }
+      Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
-      // TODO: toast
-      console.error('fetchSwapNetworks--error', e);
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
     }
     return [];
   }
@@ -107,12 +109,17 @@ export default class ServiceSwap extends ServiceBase {
       accountXpub,
     };
     this._tokensCancelSource = axios.CancelToken.source();
-    const fetchUrl = `${getFiatEndpoint()}/exchange/tokens`;
+    const endpoints = await getEndpoints();
+    const fetchUrl = `${endpoints.http}/exchange/tokens`;
     // const client = await this.getClient();
     try {
       const { data } = await axios.get<
         IFetchResponse<{ next?: string; data: ISwapToken[] }>
-      >(fetchUrl, { params, cancelToken: this._tokensCancelSource.token });
+      >(fetchUrl, {
+        params,
+        cancelToken: this._tokensCancelSource.token,
+        baseURL: endpoints.http,
+      });
       if (data?.code === 0 && data?.data) {
         return { result: data.data.data, next: data.data.next };
       }
@@ -121,8 +128,8 @@ export default class ServiceSwap extends ServiceBase {
       if (axios.isCancel(e)) {
         throw new Error('cancel');
       } else {
-        // TODO: toast
-        console.error('fetchSwapTokens--error', e);
+        const error = e as { message: string };
+        Toast.error({ title: 'error', message: error?.message });
         return { result: [], next: undefined };
       }
     } finally {
@@ -171,11 +178,16 @@ export default class ServiceSwap extends ServiceBase {
       userAddress,
     };
     this._quoteCancelSource = axios.CancelToken.source();
-    const fetchUrl = `${getFiatEndpoint()}/exchange/quote`;
+    const endpoints = await getEndpoints();
+    const fetchUrl = `${endpoints.http}/exchange/quote`;
     try {
       const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
-        { params, cancelToken: this._quoteCancelSource.token },
+        {
+          params,
+          cancelToken: this._quoteCancelSource.token,
+          baseURL: endpoints.http,
+        },
       );
       this._quoteCancelSource = undefined;
       if (data.code === 0 && data.data) {
@@ -184,11 +196,10 @@ export default class ServiceSwap extends ServiceBase {
       Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
       if (axios.isCancel(e)) {
-        console.error('fetchQuote--cancel', e);
         throw new Error('cancel');
       } else {
-        // TODO: toast
-        Toast.error({ title: 'error', message: 'internal error' });
+        const error = e as { message: string };
+        Toast.error({ title: 'error', message: error?.message });
       }
     }
     return [];
@@ -242,7 +253,8 @@ export default class ServiceSwap extends ServiceBase {
       }
       Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
-      Toast.error({ title: 'error', message: 'internal error' });
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
     }
     return undefined;
   }
@@ -269,17 +281,17 @@ export default class ServiceSwap extends ServiceBase {
       networkId,
     };
     const client = await this.getClient();
-    console.log('ctx--', ctx);
     try {
-      const { data } = await client.get<
+      const { data } = await client.post<
         IFetchResponse<{ state: ESwapTxHistoryStatus }>
-      >('/exchange/state_tx', { params });
+      >('/exchange/state_tx', params);
       if (data?.code === 0 && data?.data?.state) {
         return data.data.state;
       }
       Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
-      Toast.error({ title: 'error', message: 'internal error' });
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
     }
     return ESwapTxHistoryStatus.PENDING;
   }

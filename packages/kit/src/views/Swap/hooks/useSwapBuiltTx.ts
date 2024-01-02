@@ -12,8 +12,6 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { mockAddress } from '../utils/utils';
 
-import type { ESwapProviders } from '../types';
-
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -40,10 +38,11 @@ export function useSwapBuildTx() {
         slippagePercentage: slippagePercentage.value.toFixed(),
         receivingAddress: mockAddress,
         userAddress: mockAddress,
-        provider: selectQuote.info.provider as ESwapProviders,
+        provider: selectQuote.info.provider,
       });
       setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);
+      return res;
     }
   }, [
     fromToken,

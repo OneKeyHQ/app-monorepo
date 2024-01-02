@@ -67,6 +67,7 @@ const SwapHistoryListModal = () => {
             txHistory: item,
           });
         }}
+        avatarProps={{ source: { uri: item.baseInfo.toToken.logoURI } }}
         title={item.txInfo.txId}
       />
     ),
