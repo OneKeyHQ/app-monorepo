@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useMemo, useState } from 'react';
 
-import { withStaticProperties } from 'tamagui';
+import { Circle, withStaticProperties } from 'tamagui';
 
 import { Stack } from '../Stack';
 
@@ -25,11 +25,19 @@ function ImageContainer({ children }: PropsWithChildren) {
   );
 }
 
-function BasicImage({ children, size, width, height, ...props }: IImageProps) {
+function BasicImage({
+  children,
+  size,
+  width,
+  height,
+  circular,
+  ...props
+}: IImageProps) {
   const imageHeight = height || size;
   const imageWidth = width || size;
+  const Container = circular ? Circle : Stack;
   return children ? (
-    <Stack
+    <Container
       position="relative"
       width={imageWidth}
       height={imageHeight}
@@ -37,7 +45,7 @@ function BasicImage({ children, size, width, height, ...props }: IImageProps) {
       {...props}
     >
       <ImageContainer>{children}</ImageContainer>
-    </Stack>
+    </Container>
   ) : (
     <ImageSource
       width={imageWidth}

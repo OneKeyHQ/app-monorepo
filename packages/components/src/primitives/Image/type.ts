@@ -20,6 +20,7 @@ export type IImageSourceProps = Omit<
   ImageProps,
   'width' | 'height' | 'source' | 'borderRadius' | 'size'
 > & {
+  circular?: boolean;
   delayMs?: number;
   src?: string;
   source?: ImageProps['source'];
