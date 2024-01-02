@@ -31,7 +31,7 @@ export function WalletAvatarBase({
       <Image.Source
         source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
       />
-      <Image.Fallback>
+      <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
         <Text>{wallet?.avatarInfo?.emoji ?? '😀'}</Text>
       </Image.Fallback>
     </Image>
