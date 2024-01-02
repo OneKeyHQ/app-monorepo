@@ -49,7 +49,7 @@ function MobileTabListPinnedItem({
       >
         <Image size="$4" borderRadius="$1">
           <Image.Source src={tab?.favicon} />
-          <Image.Fallback>
+          <Image.Fallback delayMs={100}>
             <Icon name="GlobusOutline" size="$4" />
           </Image.Fallback>
         </Image>
