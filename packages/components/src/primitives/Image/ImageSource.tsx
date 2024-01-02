@@ -4,7 +4,7 @@ import { usePropsAndStyle } from '@tamagui/core';
 import { Image as NativeImage } from 'react-native';
 
 import { ImageContext } from './context';
-import { useSource } from './hook';
+import { useSource } from './hooks';
 
 import type { IImageSourceProps } from './type';
 import type { ImageStyle, StyleProp } from 'react-native';
