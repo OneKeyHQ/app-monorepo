@@ -1,7 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useMemo, useState } from 'react';
 
-import { Skeleton } from 'moti/skeleton';
 import { withStaticProperties } from 'tamagui';
 
 import { Stack } from '../Stack';
