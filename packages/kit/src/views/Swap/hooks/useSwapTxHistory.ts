@@ -79,7 +79,6 @@ export function useSwapTxHistoryStateSyncInterval() {
   }, []);
 
   useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
-    console.log('isFocus', isFocus);
     if (isFocus) {
       triggerSwapPendingHistoryInterval();
     } else {

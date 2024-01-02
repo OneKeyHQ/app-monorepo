@@ -14,7 +14,6 @@ const SwapHistoryButtonContainer = ({
 }: ISwapHistoryButtonContainerProps) => {
   useSwapTxHistoryListSyncFromSimpleDb();
   const { swapTxHistoryPending } = useSwapTxHistoryStateSyncInterval();
-  console.log('swapTxHistoryPending-', swapTxHistoryPending);
   return swapTxHistoryPending.length > 0 ? (
     <Button
       onPress={onHistoryButtonPress}
