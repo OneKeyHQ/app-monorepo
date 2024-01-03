@@ -47,7 +47,7 @@ function FeeOverviewContainer(props: IProps) {
       title = `${minFeeNative} ${nativeSymbol}`;
       description = `${intl.formatMessage({
         id: 'content__max_fee',
-      })} ${totalFeeNative} ${nativeSymbol}`;
+      })}: ${totalFeeNative} ${nativeSymbol}`;
     }
 
     return {
@@ -57,7 +57,7 @@ function FeeOverviewContainer(props: IProps) {
   }, [feeInfo, intl, nativeSymbol, nativeTokenPrice]);
 
   return (
-    <XStack>
+    <XStack px="$5" paddingBottom="$5" paddingTop="$2">
       <YStack>
         <Text variant="$heading2xl">{overview.title}</Text>
         <Text variant="$bodyMd" color="$textSubdued">

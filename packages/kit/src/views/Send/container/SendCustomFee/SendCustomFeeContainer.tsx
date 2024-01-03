@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { YStack } from 'tamagui';
 
-import { Form, Input, Page, useForm } from '@onekeyhq/components';
+import { Divider, Form, Input, Page, useForm } from '@onekeyhq/components';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
 
@@ -176,7 +176,9 @@ function SendCustomFeeContainer() {
       <Page.Header title="Custom Fee" />
       <Page.Body>
         <FeeOverviewContainer feeInfo={customFeeInfo} />
+        <Divider />
         <Form form={form}>{renderCustomFeeForm()}</Form>
+        
       </Page.Body>
     </Page>
   );
