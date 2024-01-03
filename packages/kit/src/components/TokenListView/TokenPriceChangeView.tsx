@@ -15,7 +15,7 @@ function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
-  const priceChange = token.price24h ?? 0;
+  const priceChange = token?.price24h ?? 0;
   const isPositive = new BigNumber(priceChange).isPositive();
 
   const content = useMemo(

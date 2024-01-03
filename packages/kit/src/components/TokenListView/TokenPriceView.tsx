@@ -15,7 +15,7 @@ function TokenPriceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
 
-  const price = getFormattedNumber(token.price, { decimal: 4 });
+  const price = getFormattedNumber(token?.price, { decimal: 4 });
 
   const content = useMemo(
     () => <SizableText {...rest}>${price}</SizableText>,

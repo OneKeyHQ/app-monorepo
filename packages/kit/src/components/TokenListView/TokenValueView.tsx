@@ -15,7 +15,7 @@ function TokenValueView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
 
   const token = tokenListMap[$key];
-  const value = getFormattedNumber(token.fiatValue, { decimal: 2 });
+  const value = getFormattedNumber(token?.fiatValue, { decimal: 2 });
 
   const content = useMemo(
     () => <SizableText {...rest}>${value}</SizableText>,
