@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Avatar,
   Divider,
   Empty,
   Icon,
@@ -53,7 +52,11 @@ function TxHistoryListEmpty() {
   );
 }
 
-const ItemSeparatorComponent = ({ leadingItem }) => {
+const ItemSeparatorComponent = ({
+  leadingItem,
+}: {
+  leadingItem: { section: IHistoryListSectionGroup; index: number };
+}) => {
   const { section, index } = leadingItem;
 
   if (!section || index === section.data.length - 1) {
