@@ -44,8 +44,6 @@ export function ImageSource({
   if (!imageSource) {
     return null;
   }
-  style.width = style.width ? (style.width as number) : '100%';
-  style.height = style.height ? (style.height as number) : '100%';
   return (
     <NativeImage
       source={imageSource}
