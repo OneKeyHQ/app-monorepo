@@ -33,7 +33,7 @@ export interface ISwapToken {
   swapSwftUnSupportCode?: string;
   balance?: string;
   balanceParsed?: string;
-  price?: number;
+  price: number;
   price24h?: number;
   fiatValue?: string;
 }
@@ -165,6 +165,8 @@ export interface ISwapTxHistory {
     toToken: ISwapToken;
     fromAmount: string;
     toAmount: string;
+    fromNetwork?: ISwapNetwork;
+    toNetwork?: ISwapNetwork;
   };
   txInfo: {
     txId: string;

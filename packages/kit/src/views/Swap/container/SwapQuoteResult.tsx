@@ -1,6 +1,4 @@
-import { memo, useMemo, useState } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { memo, useMemo } from 'react';
 
 import { YStack } from '@onekeyhq/components';
 
@@ -9,7 +7,9 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import SwapQuoteResultCell from '../components/SwapQuoteResultCell';
+import SwapCommonInfoItem from '../components/SwapCommonInfoItem';
+import SwapProviderInfoItem from '../components/SwapProviderInfoItem';
+import SwapRateInfoItem from '../components/SwapRateInfoItem';
 import { useSwapQuote } from '../hooks/useSwapQuote';
 
 interface ISwapQuoteResultProps {
@@ -21,30 +21,12 @@ const SwapQuoteResult = ({
   receivedAddress,
   onOpenProviderList,
 }: ISwapQuoteResultProps) => {
-  const [rateCalculateReverse, setRateCalculateReverse] = useState(false);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
   const { quoteFetching } = useSwapQuote();
 
-  const rate = useMemo(() => {
-    if (!quoteResult) return '-';
-    const instanceRate = new BigNumber(quoteResult?.instantRate);
-    const oneBN = new BigNumber(1);
-    if (!instanceRate.isNaN() && fromToken && toToken) {
-      return !rateCalculateReverse
-        ? `1 ${fromToken?.symbol} = ${instanceRate.toFixed()} ${
-            toToken?.symbol
-          }`
-        : `1 ${toToken?.symbol} = ${oneBN
-            .dividedBy(instanceRate)
-            .decimalPlaces(6, BigNumber.ROUND_DOWN)
-            .toFixed()} ${fromToken?.symbol}`;
-    }
-    return '-';
-  }, [fromToken, quoteResult, rateCalculateReverse, toToken]);
-
-  const protocolFee = useMemo(
+  const protocolFee = useMemo<string | undefined>(
     () =>
       // TODO: calculate protocol fee fetch price api
       undefined,
@@ -59,36 +41,42 @@ const SwapQuoteResult = ({
       borderColor="$bgPrimaryActive"
       borderWidth="$0.5"
     >
-      <SwapQuoteResultCell
-        onPress={() => {
-          setRateCalculateReverse((pre) => !pre);
-        }}
-        title="Rate"
-        value={rate}
-        loading={quoteFetching}
+      <SwapRateInfoItem
+        rate={quoteResult.instantRate}
+        isLoading={quoteFetching}
+        fromToken={fromToken}
+        toToken={toToken}
       />
-      <SwapQuoteResultCell
-        title="Provider"
-        value={quoteResult.info.providerName ?? quoteResult.info.provider}
-        loading={quoteFetching}
+      <SwapProviderInfoItem
+        providerName={quoteResult.info.providerName}
+        providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
+        isLoading={quoteFetching}
+        showBest
+        showLock={!!quoteResult.allowanceResult}
         onPress={() => {
           onOpenProviderList?.();
         }}
       />
       {protocolFee && (
-        <SwapQuoteResultCell
+        <SwapCommonInfoItem
           title="Protocol Fee"
-          value={protocolFee}
-          loading={quoteFetching}
+          value={`$${protocolFee}`}
+          isLoading={quoteFetching}
         />
       )}
-      <SwapQuoteResultCell
+      <SwapCommonInfoItem
         title="Onekey Fee"
         value={`%${quoteResult.fee.percentageFee}`}
-        loading={quoteFetching}
+        isLoading={quoteFetching}
       />
       {receivedAddress && (
-        <SwapQuoteResultCell title="Received Address" value={receivedAddress} />
+        <SwapCommonInfoItem
+          title="Received Address"
+          value={receivedAddress}
+          onPress={() => {
+            // TODO open account select
+          }}
+        />
       )}
     </YStack>
   );

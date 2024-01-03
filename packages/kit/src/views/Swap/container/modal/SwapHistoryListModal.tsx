@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import {
   type IPageNavigationProp,
-  ListItem,
   Page,
   SectionList,
   Stack,
@@ -10,8 +9,9 @@ import {
 } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useLocaleVariant } from '../../../../hooks/useLocaleVariant';
+import useFormatDate from '../../../../hooks/useFormatDate';
 import { useSwapTxHistoryAtom } from '../../../../states/jotai/contexts/swap';
+import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -27,19 +27,15 @@ interface ISectionData {
 
 const SwapHistoryListModal = () => {
   const [swapTxHistoryList] = useSwapTxHistoryAtom();
-  const locale = useLocaleVariant();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-
+  const { formatDate } = useFormatDate();
   const sectionData = useMemo(() => {
     const groupByMonth = swapTxHistoryList.reduce<
       Record<string, ISwapTxHistory[]>
     >((acc, item) => {
       const date = new Date(item.date.created);
-      const monthYear = date.toLocaleString(locale, {
-        month: 'long',
-        year: 'numeric',
-      });
+      const monthYear = formatDate(date, { hideTimeForever: true });
 
       if (!acc[monthYear]) {
         acc[monthYear] = [];
@@ -57,18 +53,17 @@ const SwapHistoryListModal = () => {
       }),
     );
     return result;
-  }, [locale, swapTxHistoryList]);
+  }, [formatDate, swapTxHistoryList]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (
-      <ListItem
-        onPress={() => {
+      <SwapTxHistoryListCell
+        item={item}
+        onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistory: item,
           });
         }}
-        avatarProps={{ source: { uri: item.baseInfo.toToken.logoURI } }}
-        title={item.txInfo.txId}
       />
     ),
     [navigation],

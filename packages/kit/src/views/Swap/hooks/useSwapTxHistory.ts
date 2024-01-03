@@ -8,6 +8,7 @@ import {
   useSwapActions,
   useSwapBuildTxResultAtom,
   useSwapFromTokenAmountAtom,
+  useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTxHistoryAtom,
@@ -100,6 +101,7 @@ export function useSwapTxHistoryStateSyncInterval() {
 export function useSwapTxHistoryActions() {
   const { addSwapHistoryItem } = useSwapActions();
   const [swapBuildTxResult] = useSwapBuildTxResultAtom(); // current build tx result
+  const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -114,6 +116,12 @@ export function useSwapTxHistoryActions() {
             fromAmount: fromTokenAmount,
             fromToken,
             toToken,
+            fromNetwork: swapNetworks.find(
+              (item) => item.networkId === fromToken.networkId,
+            ),
+            toNetwork: swapNetworks.find(
+              (item) => item.networkId === toToken.networkId,
+            ),
           },
           txInfo: {
             txId,
@@ -139,6 +147,7 @@ export function useSwapTxHistoryActions() {
       fromToken,
       fromTokenAmount,
       swapBuildTxResult,
+      swapNetworks,
       toToken,
     ],
   );
