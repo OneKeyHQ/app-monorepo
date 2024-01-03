@@ -1,9 +1,15 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
 import { mnemonicToRevealableSeed, revealEntropyToMnemonic } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
-import { decrypt, encrypt, encryptString } from './encryptors/aes256';
+import {
+  decrypt,
+  encrypt,
+  encryptString,
+  ensureSensitiveTextEncoded,
+} from './encryptors/aes256';
 import { hash160 } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
 
@@ -293,6 +299,9 @@ function N(
   encryptedExtPriv: IBip32ExtendedKey,
   password: string,
 ): IBip32ExtendedKey {
+  if (!platformEnv.isJest) {
+    ensureSensitiveTextEncoded(password);
+  }
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const extPriv: IBip32ExtendedKey = {
     key: decrypt(password, encryptedExtPriv.key),

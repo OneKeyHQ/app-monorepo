@@ -38,8 +38,6 @@ const {
   txSamples: [
     {
       unsignedTx: {
-        inputs: [],
-        outputs: [],
         payload: {
           address: 'nexatest:nqtsq5g5n00l0akmkpyfm9w4ry69gj8x2s5vnk03mxx9yypz',
         },

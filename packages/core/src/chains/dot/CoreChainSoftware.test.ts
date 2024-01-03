@@ -37,9 +37,6 @@ const {
   txSamples: [
     {
       unsignedTx: {
-        inputs: [],
-        outputs: [],
-        payload: {},
         encodedTx: '',
         rawTxUnsigned:
           '0504003665284cd84d9de003dac3389ac1d61b60039fe95f8b9de603dcc0ea4ecdec640065020000d62400001800000091b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3adb6a2726a6b98028731ef0c8a348880f377ec034eabb3a8aad7e04b49969ac9',

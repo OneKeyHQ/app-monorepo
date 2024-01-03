@@ -159,3 +159,5 @@ export function ConnectWallet() {
     </Page>
   );
 }
+
+export default ConnectWallet;

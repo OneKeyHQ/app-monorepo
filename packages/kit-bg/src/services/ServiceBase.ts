@@ -1,5 +1,7 @@
 import axios from 'axios';
+import memoizee from 'memoizee';
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
@@ -10,7 +12,6 @@ import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { AxiosInstance } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
@@ -18,16 +19,14 @@ export type IServiceBaseProps = {
 
 @backgroundClass()
 export default class ServiceBase {
-  private _client!: AxiosInstance;
-
   constructor({ backgroundApi }: IServiceBaseProps) {
     this.backgroundApi = backgroundApi;
   }
 
   backgroundApi: IBackgroundApi;
 
-  async getClient(endpointName?: EEndpointName) {
-    if (!this._client) {
+  getClient = memoizee(
+    async (endpointName?: EEndpointName) => {
       let endpoint = '';
       const endpoints = await getEndpoints();
       if (endpointName) {
@@ -39,13 +38,19 @@ export default class ServiceBase {
         endpoint = endpoints.http;
       }
 
-      this._client = axios.create({
+      const client = axios.create({
         baseURL: endpoint,
         timeout: 60 * 1000,
       });
-    }
-    return this._client;
-  }
+      return client;
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: getTimeDurationMs({ minute: 10 }),
+      max: 2,
+    },
+  );
 
   @backgroundMethod()
   async getActiveWalletAccount() {

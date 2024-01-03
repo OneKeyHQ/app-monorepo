@@ -150,7 +150,10 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
       outputChunkFns.push(
         (async () => {
           const dir = path.resolve(outputChunkDir, `${hash}.bundle`);
-          await fs.writeFile(dir, code);
+          await fs.writeFile(
+            dir,
+            `${code}\n(pendingChunks["${hash}"]||[]).forEach((resolve)=>resolve());delete pendingChunks["${hash}"];`,
+          );
           console.log(`info Writing chunk bundle output to: ${dir}`);
         })(),
       );
@@ -160,6 +163,13 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
 
   for (const arr of map.get(mainModuleId).modules) {
     if (arr[0] === fileToIdMap.get(chunkModuleIdToHashMapPath)) {
+      const idHashMap = Object.keys(chunkModuleIdToHashMap).reduce(
+        (prev, key) => {
+          prev[key] = chunkModuleIdToHashMap[key].hash;
+          return prev;
+        },
+        {},
+      );
       const ast = parser.parse(arr[1]);
       traverse(ast, {
         FunctionExpression(nodePath) {
@@ -167,7 +177,7 @@ module.exports = async (entryPoint, prepend, graph, bundleOptions) => {
             .get('body.body.0')
             .get('expression')
             .get('right')
-            .replaceWithSourceString(JSON.stringify(chunkModuleIdToHashMap));
+            .replaceWithSourceString(JSON.stringify(idHashMap));
         },
       });
       const { code } = generate(ast, { minified: true });

@@ -66,7 +66,6 @@ module.exports = async () => {
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',
       'packages/core/src/chains/bch',
-      'packages/core/src/chains/btc',
       'packages/core/src/chains/cfx',
       'packages/core/src/chains/cosmos',
       'packages/core/src/chains/doge',

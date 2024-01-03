@@ -120,3 +120,5 @@ export function RecoveryPhrase() {
     </Page>
   );
 }
+
+export default RecoveryPhrase;

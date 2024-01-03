@@ -66,7 +66,7 @@ export type IServerNetwork = {
   rpcURLs: INetworkRpcURL[];
   priceConfigs: INetworkPriceConfig[];
   explorers: INetworkExplorerConfig[];
-  extensions: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 };
