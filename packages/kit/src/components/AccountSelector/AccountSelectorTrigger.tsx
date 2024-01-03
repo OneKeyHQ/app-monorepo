@@ -3,10 +3,10 @@ import { useCallback } from 'react';
 import makeBlockie from 'ethereum-blockies-base64';
 
 import {
-  Avatar,
   Button,
   Dialog,
   Icon,
+  Image,
   ScrollView,
   Skeleton,
   Text,
@@ -56,14 +56,14 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image
+      <Image size="$6" borderRadius="$1">
+        <Image.Source
           src={makeBlockie(indexedAccount?.idHash ?? account?.address ?? '--')}
         />
-        <Avatar.Fallback>
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
+        </Image.Fallback>
+      </Image>
 
       <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
         {activeAccountName}
