@@ -26,7 +26,7 @@ function TokenListHeader({ tableLayout }: IProps) {
     navigation.pushModal(EModalRoutes.TokenModal, {
       screen: ETokenPages.TokenList,
       params: {
-        title: 'Hidden Assets',
+        title: 'Blocked Assets',
       },
     });
   };
@@ -48,7 +48,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           })}
           onPress={handleHiddenPress}
         >
-          3 Hidden
+          3 Blocked
         </Button>
       </XStack>
       {tableLayout && (

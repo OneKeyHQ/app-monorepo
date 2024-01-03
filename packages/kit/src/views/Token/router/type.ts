@@ -17,5 +17,5 @@ export type ITokenParamList = {
   [ETokenPages.NFTDetails]: undefined;
   [ETokenPages.Receive]: undefined;
   [ETokenPages.History]: { status?: string };
-  [ETokenPages.Send]: { tokenUrl?: string };
+  [ETokenPages.Send]: { tokenUrl?: string; isNFT?: boolean };
 };

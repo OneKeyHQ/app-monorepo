@@ -1,9 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
+  ActionList,
+  Alert,
   Button,
   Divider,
   Heading,
+  HeightTransition,
   Icon,
   Image,
   ListItem,
@@ -13,7 +16,9 @@ import {
   Toast,
   XGroup,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -21,21 +26,6 @@ import { TxHistoryListView } from '../../Home/components/TxHistoryListView';
 import { ETokenPages } from '../router/type';
 
 import type { IHistoryListItemProps } from '../../Home/components/TxHistoryListView/HistoryListItem';
-
-const headerTitle = () => (
-  <XStack alignItems="center">
-    <Image
-      width="$6"
-      height="$6"
-      source={{
-        uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-      }}
-    />
-    <Heading pl="$2" size="$headingLg">
-      USDC
-    </Heading>
-  </XStack>
-);
 
 const data: { title: string; data: IHistoryListItemProps[] }[] = [
   {
@@ -75,7 +65,9 @@ const data: { title: string; data: IHistoryListItemProps[] }[] = [
 ];
 
 export function TokenDetails() {
+  const [isBlocked, setIsBlocked] = useState(false);
   const navigation = useAppNavigation();
+  const media = useMedia();
 
   const handleReceivePress = useCallback(() => {
     navigation.push(ETokenPages.Receive);
@@ -85,11 +77,87 @@ export function TokenDetails() {
     navigation.push(ETokenPages.History);
   }, [navigation]);
 
+  const handleSendPress = useCallback(() => {
+    navigation.push(ETokenPages.Send);
+  }, [navigation]);
+
+  const headerTitle = useCallback(
+    () => (
+      <XStack alignItems="center">
+        <Image
+          width="$6"
+          height="$6"
+          source={{
+            uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
+          }}
+        />
+        <Heading pl="$2" size="$headingLg">
+          USDC
+        </Heading>
+      </XStack>
+    ),
+    [],
+  );
+
+  const headerRight = useCallback(
+    () => (
+      <ActionList
+        title="Actions"
+        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
+        sections={[
+          {
+            items: [
+              {
+                label: 'Copy Token Contrast',
+                icon: 'Copy1Outline',
+                onPress: () => Toast.success({ title: 'Copied' }),
+              },
+              {
+                label: 'View on Etherscan',
+                icon: 'ShareOutline',
+              },
+            ],
+          },
+          {
+            items: [
+              {
+                label: isBlocked ? 'Unblock' : 'Block',
+                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+                onPress: () => {
+                  setIsBlocked(!isBlocked);
+                },
+              },
+            ],
+          },
+        ]}
+      />
+    ),
+    [isBlocked],
+  );
+
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={headerTitle} />
+      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
       <Page.Body>
-        {/* <Alert title="" /> */}
+        <HeightTransition>
+          {isBlocked && (
+            <Stack key="alert">
+              <Alert
+                icon="EyeOffOutline"
+                fullBleed
+                type="info"
+                title="This token is currently blocked and won't appear in the list"
+                action={{
+                  primary: 'Unblock',
+                  onPrimaryPress: () => {
+                    setIsBlocked(false);
+                  },
+                }}
+              />
+              <Stack h="$5" />
+            </Stack>
+          )}
+        </HeightTransition>
         <Stack px="$5" pb="$5">
           <XStack alignItems="center">
             <SizableText flex={1} color="$textSubdued">
@@ -108,31 +176,11 @@ export function TokenDetails() {
                 style={{
                   borderCurve: 'continuous',
                 }}
-              >
-                <Image
-                  width="$4"
-                  height="$4"
-                  source={{
-                    uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-                  }}
-                />
-                <SizableText pl="$2" size="$bodyMd" color="$textSubdued">
-                  0x02b8...eb48
-                </SizableText>
-              </XStack>
-              <Stack
-                alignItems="center"
-                justifyContent="center"
-                py="$0.5"
-                px="$1.5"
                 hoverStyle={{
                   bg: '$bgHover',
                 }}
                 pressStyle={{
                   bg: '$bgActive',
-                }}
-                style={{
-                  borderCurve: 'continuous',
                 }}
                 $platform-native={{
                   hitSlop: {
@@ -146,32 +194,43 @@ export function TokenDetails() {
                   })
                 }
               >
-                <Icon size="$4" name="Copy1Outline" color="$iconSubdued" />
-              </Stack>
-              <Stack
-                alignItems="center"
-                justifyContent="center"
-                py="$0.5"
-                px="$1.5"
-                hoverStyle={{
-                  bg: '$bgHover',
-                }}
-                pressStyle={{
-                  bg: '$bgActive',
-                }}
-                style={{
-                  borderCurve: 'continuous',
-                }}
-                $platform-native={{
-                  hitSlop: {
-                    top: 8,
-                    bottom: 8,
-                    right: 8,
-                  },
-                }}
-              >
-                <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
-              </Stack>
+                <Image
+                  width="$4"
+                  height="$4"
+                  source={{
+                    uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                  }}
+                />
+                <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
+                  0x02b8...eb48
+                </SizableText>
+              </XStack>
+              {media.gtMd && (
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  py="$0.5"
+                  px="$1.5"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                  style={{
+                    borderCurve: 'continuous',
+                  }}
+                  $platform-native={{
+                    hitSlop: {
+                      top: 8,
+                      bottom: 8,
+                      right: 8,
+                    },
+                  }}
+                >
+                  <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
+                </Stack>
+              )}
             </XGroup>
           </XStack>
           <Stack
@@ -185,7 +244,7 @@ export function TokenDetails() {
             <SizableText size="$bodyLgMedium">$4,000.00</SizableText>
           </Stack>
           <XStack pt="$5" space="$2.5">
-            <Button>Send</Button>
+            <Button onPress={handleSendPress}>Send</Button>
             <Button onPress={handleReceivePress}>Receive</Button>
             <Button>Swap</Button>
             <Button icon="DotHorOutline" pl="$2.5" pr="$0.5" />

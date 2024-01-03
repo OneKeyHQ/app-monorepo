@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
+import type {
+  PropsWithChildren,
+  ReactChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
@@ -73,7 +78,7 @@ const getChildProps = (
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     label?: string;
-    description?: string;
+    description?: string | ReactNode;
     optional?: boolean;
   }>;
 
@@ -133,11 +138,13 @@ function Field({
               </SizableText>
             )}
           </HeightTransition>
-          {description ? (
+          {typeof description === 'string' ? (
             <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}
             </SizableText>
-          ) : null}
+          ) : (
+            description
+          )}
         </Fieldset>
       )}
     />

@@ -295,6 +295,7 @@ function BaseInput(
                     {...(onPress &&
                       !disabled &&
                       !loading && {
+                        userSelect: 'none',
                         hoverStyle: {
                           bg: '$bgHover',
                         },

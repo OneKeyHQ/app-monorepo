@@ -1,5 +1,13 @@
+import { isNative } from 'lodash';
+
 import type { IListItemProps } from '@onekeyhq/components';
-import { Icon, ListItem, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  ListItem,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenBalanceView } from './TokenBalanceView';
@@ -59,14 +67,23 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
               flex: 1,
             })}
       >
-        <TokenSymbolView
-          size="$bodyLgMedium"
-          numberOfLines={1}
+        <XStack
+          alignItems="center"
           {...(tableLayout && {
             w: '$32',
           })}
-          symbol={tokenInfo.symbol}
-        />
+        >
+          <TokenSymbolView
+            size="$bodyLgMedium"
+            numberOfLines={1}
+            symbol={tokenInfo.symbol}
+          />
+          {tokenInfo.isNative && (
+            <SizableText size="$bodyLgMedium" color="$textSuccess" pl="$2">
+              3.77% APR
+            </SizableText>
+          )}
+        </XStack>
 
         <XStack space="$2">
           <TokenPriceView

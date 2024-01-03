@@ -139,6 +139,13 @@ function HomePage() {
       screen: ETokenPages.TokenList,
       params: {
         title: 'Select a Token',
+        onTokenPress: () => {
+          navigation.push(ETokenPages.Send, {
+            params: {
+              fromTokenList: true,
+            },
+          });
+        },
       },
     });
   }, [navigation]);
@@ -409,7 +416,7 @@ function HomePage() {
       }
       renderContent={
         <XStack justifyContent="space-between" alignItems="center" px="$2">
-          <YStack>
+          {/* <YStack>
             <AccountSelectorProvider
               config={{
                 sceneName: EAccountSelectorSceneName.home,
@@ -421,7 +428,7 @@ function HomePage() {
               <AccountSelectorActiveAccount num={0} />
             </AccountSelectorProvider>
           </YStack>
-          <WalletActionsContainer />
+          <WalletActionsContainer /> */}
         </XStack>
       }
     />

@@ -16,6 +16,9 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ETokenPages } from '../router/type';
+
 const attributes = [
   {
     traitType: 'Background',
@@ -87,6 +90,7 @@ const details: {
 ];
 
 export function NFTDetails() {
+  const navigation = useAppNavigation();
   const device = 'Touch';
 
   const headerRight = useCallback(
@@ -101,6 +105,10 @@ export function NFTDetails() {
     ),
     [],
   );
+
+  const handleSendPress = useCallback(() => {
+    navigation.push(ETokenPages.Send, { isNFT: true });
+  }, [navigation]);
 
   return (
     <Page scrollEnabled>
@@ -147,7 +155,7 @@ export function NFTDetails() {
                 </SizableText>
               </Stack>
             </Stack>
-            <Button icon="ArrowTopOutline" mt="$5">
+            <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
               Send
             </Button>
           </Stack>

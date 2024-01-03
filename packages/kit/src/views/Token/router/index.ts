@@ -4,6 +4,7 @@ import {
   History,
   NFTDetails,
   Receive,
+  Send,
   TokenDetails,
   TokenList,
 } from '../pages';
@@ -35,5 +36,9 @@ export const TokenRouter: IModalFlowNavigatorConfig<
   {
     name: ETokenPages.History,
     component: History,
+  },
+  {
+    name: ETokenPages.Send,
+    component: Send,
   },
 ];

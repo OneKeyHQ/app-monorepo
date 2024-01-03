@@ -26,24 +26,6 @@ const histories: {
 }[][] = [
   [
     {
-      key: 'Hash',
-      value: '0xd878...144f',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-    {
-      key: 'Time',
-      value: 'Dec 04 2023, 21:33',
-    },
-  ],
-  [
-    {
-      key: 'Token',
-      value: '1000 USDC',
-      imgUrl:
-        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-    },
-    {
       key: 'From',
       value: '0x123456...34567890',
       iconAfter: 'Copy1Outline',
@@ -55,6 +37,34 @@ const histories: {
       iconAfter: 'Copy1Outline',
       onPress: () => Toast.success({ title: 'Copied' }),
     },
+  ],
+  [
+    {
+      key: 'Token',
+      value: '1000 USDC',
+      imgUrl:
+        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
+    },
+    {
+      key: 'Token Contrast',
+      value: '0xa0b8...eb48',
+      iconAfter: 'Copy1Outline',
+      onPress: () => Toast.success({ title: 'Copied' }),
+    },
+  ],
+  [
+    {
+      key: 'Hash',
+      value: '0xd878...144f',
+      iconAfter: 'Copy1Outline',
+      onPress: () => Toast.success({ title: 'Copied' }),
+    },
+    {
+      key: 'Time',
+      value: 'Dec 04 2023, 21:33',
+    },
+  ],
+  [
     {
       key: 'Chain',
       value: 'Ethereum',
@@ -113,6 +123,7 @@ export function History() {
         {histories.map((section, index) => (
           <DescriptionList
             mx="$5"
+            // space="$0"
             key={index}
             {...(index !== 0 && {
               borderTopWidth: StyleSheet.hairlineWidth,
@@ -121,17 +132,24 @@ export function History() {
               pt: '$4',
             })}
           >
-            {section.map((item) => (
+            {section.map((item, itemIndex = index) => (
               <DescriptionList.Item
                 key={item.key}
-                $gtMd={{
-                  justifyContent: 'flex-start',
-                }}
+                {...(itemIndex !== 0 &&
+                  {
+                    // mt: '$2',
+                    // pt: '$2',
+                    // borderTopWidth: StyleSheet.hairlineWidth,
+                    // borderTopColor: '$borderSubdued',
+                  })}
+                // $gtMd={{
+                //   justifyContent: 'flex-start',
+                // }}
               >
                 <DescriptionList.Item.Key
-                  $gtMd={{
-                    flexBasis: '20%',
-                  }}
+                // $gtMd={{
+                //   flexBasis: '20%',
+                // }}
                 >
                   {item.key}
                 </DescriptionList.Item.Key>
