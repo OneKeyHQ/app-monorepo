@@ -16,9 +16,9 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useOptions } from '../AppLock/useOptions';
 
-import { useSetPasswordCallback } from './hooks';
 import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../types';
@@ -47,25 +47,16 @@ const AppLockItem = () => {
       title={intl.formatMessage({ id: 'form__app_lock' })}
       drillIn
     >
-      <ListItem.Text
-        primary={text}
-        align="right"
-        primaryTextProps={
-          {
-            // tone: 'subdued',
-          }
-        }
-      />
+      <ListItem.Text primary={text} align="right" />
     </ListItem>
   ) : null;
 };
 
 const SetPasswordItem = () => {
   const intl = useIntl();
-  const onSetPassword = useSetPasswordCallback();
   return (
     <ListItem
-      onPress={onSetPassword}
+      onPress={() => backgroundApiProxy.servicePassword.promptPasswordVerify()}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
     />

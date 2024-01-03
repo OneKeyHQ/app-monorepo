@@ -19,7 +19,6 @@ import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHd
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EOnboardingPages } from '../../../views/Onboarding/router/type';
-import { useSetPasswordCallback } from '../../../views/Setting/List/hooks';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
@@ -42,14 +41,14 @@ const SwitchEndpointButton = () => {
 const LockNowButton = () => {
   const intl = useIntl();
   const [passwordSetting] = usePasswordPersistAtom();
-  const setPassword = useSetPasswordCallback();
   const onLock = useCallback(async () => {
     if (passwordSetting.isPasswordSet) {
       await backgroundApiProxy.servicePassword.lockApp();
     } else {
-      setPassword(() => backgroundApiProxy.servicePassword.lockApp());
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
     }
-  }, [passwordSetting.isPasswordSet, setPassword]);
+  }, [passwordSetting.isPasswordSet]);
   return (
     <Button onPress={onLock}>
       {intl.formatMessage({ id: 'action__lock_now' })}
