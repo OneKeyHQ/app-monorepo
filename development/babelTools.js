@@ -69,14 +69,6 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
-  const customAliasForComponents = (name, file) => {
-    // const filename = file.opts.filename;
-    if (name.startsWith('use')) {
-      return `@onekeyhq/components/src/Provider/hooks/${name}`;
-    }
-    return `@onekeyhq/components/src/${name}`;
-  };
-
   const {
     isJest,
     isDev,
@@ -147,7 +139,9 @@ function normalizeConfig({ platform, config }) {
       },
     ],
     /* FIX:
-       TypeError: undefiend is not an object (evaluating 'this._callListeners.bind')
+       TypeError: undefined is not an object. (evaluating 'this._callListeners.bind')
+       And Don't remove any plugin here, it will cause other error.
+        https://github.com/facebook/react-native/issues/36828
      */
     ['@babel/plugin-transform-flow-strip-types'],
     ['@babel/plugin-proposal-decorators', { 'legacy': true }],
