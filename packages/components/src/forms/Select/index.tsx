@@ -227,7 +227,12 @@ function SelectContent() {
         extraData: value,
         renderItem,
         p: '$1',
-        $md: { p: '$3' },
+        $md: {
+          p: '$3',
+          // fix warning of `FlashList's rendered size is not usable`.
+          // minHeight is 2 * $3 + $1(2px)
+          minHeight: '$7',
+        },
       };
       return sections ? (
         <SectionList
