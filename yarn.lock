@@ -4971,6 +4971,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
 
@@ -5088,6 +5089,7 @@ __metadata:
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.3.0"
     realm-flipper-plugin-device: "npm:^1.1.0"
+    rimraf: "npm:^3"
     stream-http: "npm:^3.2.0"
     text-encoding: "npm:^0.7.0"
     uuid: "npm:^3.0.0"
@@ -5120,6 +5122,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
 
@@ -5130,6 +5133,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
 

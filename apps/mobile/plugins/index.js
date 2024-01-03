@@ -15,12 +15,6 @@ module.exports = (config, projectRoot) => {
     const connect = require('connect');
     const dynamicImports = require('./dynamicImports');
     const { fileToIdMap } = require('./map');
-    const fileMapCacheDirectoryPath = path.resolve(
-      projectRoot,
-      'node_modules',
-      '.cache/file-map-cache',
-    );
-    fs.ensureDirSync(fileMapCacheDirectoryPath);
     const workspaceRoot = path.resolve(projectRoot, '../..');
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
@@ -29,7 +23,6 @@ module.exports = (config, projectRoot) => {
       path.resolve(projectRoot, 'node_modules'),
       path.resolve(workspaceRoot, 'node_modules'),
     ];
-    config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
 
     // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
     // config.resolver.disableHierarchicalLookup = true;
