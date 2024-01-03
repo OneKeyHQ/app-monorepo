@@ -9,7 +9,7 @@
         "image": "ubuntu-22.04-jdk-11-ndk-r21e",
         "ndk": "23.1.7779620",
         "env": {
-          "PLATFORM": "android",
+          "PLATFORM": "android"
         }
       },
       "ios": {

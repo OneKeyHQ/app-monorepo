@@ -6,7 +6,12 @@ module.exports = function (api) {
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
-      presets: ['babel-preset-expo'],
+      presets: [
+        [
+          'babel-preset-expo',
+          { native: { unstable_transformProfile: 'hermes-stable' } },
+        ],
+      ],
       plugins: [
         [
           require('@tamagui/babel-plugin/dist/cjs/index.native'),

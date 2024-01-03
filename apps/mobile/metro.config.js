@@ -1,7 +1,8 @@
 /* eslint-disable spellcheck/spell-checker */
 // Learn more https://docs.expo.dev/guides/monorepos
 const { getDefaultConfig } = require('expo/metro-config');
-// const path = require('path');
+const path = require('path');
+const fs = require('fs-extra');
 
 // Find the project and workspace directories
 const projectRoot = __dirname;
@@ -46,6 +47,26 @@ config.resolver.extraNodeModules = {
 // ];
 // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
 // config.resolver.disableHierarchicalLookup = true;
+
+const fileMapCacheDirectoryPath = path.resolve(
+  projectRoot,
+  'node_modules',
+  '.cache/file-map-cache',
+);
+fs.ensureDirSync(fileMapCacheDirectoryPath);
+const cacheStoreDirectoryPath = path.resolve(
+  projectRoot,
+  'node_modules',
+  '.cache/metro-cache',
+);
+fs.ensureDirSync(cacheStoreDirectoryPath);
+
+config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
+config.cacheStores = ({ FileStore }) => [
+  new FileStore({
+    root: cacheStoreDirectoryPath,
+  }),
+];
 
 const splitCodePlugin = require('./plugins');
 

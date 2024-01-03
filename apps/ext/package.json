@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "clean": "rimraf ./build",
     "start": "WEB_PORT=3180 webpack serve",
+    "clean": "yarn clean:build",
+    "clean:build": "rimraf ./build && rimraf .tamagui && rimraf ./node_modules/.cache",
     "build": "cross-env NODE_ENV=production webpack build",
     "build:all": "yarn clean && yarn build && node ../../development/webpack/ext/zip.js",
     "start:v3": "EXT_MANIFEST_V3=1 WEB_PORT=3180 webpack serve",
@@ -19,5 +20,8 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*"
+  },
+  "devDependencies": {
+    "rimraf": "^3"
   }
 }
