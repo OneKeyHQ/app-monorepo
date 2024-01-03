@@ -122,3 +122,5 @@ export function Selector() {
     </Page>
   );
 }
+
+export default Selector;
