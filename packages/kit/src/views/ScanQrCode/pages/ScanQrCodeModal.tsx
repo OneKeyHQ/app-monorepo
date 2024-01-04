@@ -17,7 +17,7 @@ import type {
 } from '../router/type';
 import type { RouteProp } from '@react-navigation/core';
 
-export function ScanQrCodeModal() {
+export default function ScanQrCodeModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
@@ -29,6 +29,14 @@ export function ScanQrCodeModal() {
     >();
   const { callback } = route.params;
 
+  const overrideCallback = useCallback(
+    (value: string) => {
+      callback(value);
+      navigation.pop();
+    },
+    [navigation, callback],
+  );
+
   const pickImage = useCallback(async () => {
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
@@ -37,9 +45,9 @@ export function ScanQrCodeModal() {
 
     if (!result.canceled) {
       const data = await scanFromURLAsync(result.assets[0].uri);
-      if (data) callback(data);
+      if (data) overrideCallback(data);
     }
-  }, [callback]);
+  }, [overrideCallback]);
   const headerRightCall = useCallback(
     () => (
       <HeaderIconButton onPress={pickImage} icon="ImageSquareMountainOutline" />
@@ -58,12 +66,7 @@ export function ScanQrCodeModal() {
         headerRight={headerRightCall}
       />
       <Page.Body>
-        <ScanQrCode
-          handleBarCodeScanned={(value) => {
-            navigation.pop();
-            callback(value);
-          }}
-        />
+        <ScanQrCode handleBarCodeScanned={overrideCallback} />
       </Page.Body>
     </Page>
   );

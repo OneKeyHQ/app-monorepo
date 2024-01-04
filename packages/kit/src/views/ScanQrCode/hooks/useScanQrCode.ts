@@ -1,16 +1,12 @@
-import { ERootRoutes } from '../../../routes/enum';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EScanQrCodeModalPages } from '../router/type';
 
-import type { NavigationProp } from '@react-navigation/native';
-
-export function startScanQrCode(
-  navigation: NavigationProp<any, any, any, any, any, any>,
-) {
-  return new Promise((resolve, reject) => {
-    navigation.navigate(ERootRoutes.Modal, {
-      screen: EModalRoutes.ScanQrCodeModal,
-      params: {
+export default function useScanQrCode() {
+  const navigation = useAppNavigation();
+  const start = () =>
+    new Promise<string>((resolve, reject) => {
+      navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
         screen: EScanQrCodeModalPages.ScanQrCodeModal,
         params: {
           callback: (value: string) => {
@@ -21,7 +17,9 @@ export function startScanQrCode(
             }
           },
         },
-      },
+      });
     });
-  });
+  return {
+    start,
+  };
 }

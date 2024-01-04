@@ -2,8 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { Button, ScanQrCode, Stack } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../../../../hooks/useAppNavigation';
-import { startScanQrCode } from '../../../../../ScanQrCode/utils';
+import useScanQrCode from '../../../../../ScanQrCode/hooks/useScanQrCode';
 
 import { Layout } from './utils/Layout';
 
@@ -28,16 +27,17 @@ const ScanQrCameraDemo = () => {
 };
 
 const ScanQRCodeGallery = () => {
-  const navigation = useAppNavigation();
+  const scanQrCode = useScanQrCode();
   const openScanQrCodeModal = useCallback(() => {
-    startScanQrCode(navigation as any)
+    scanQrCode
+      .start()
       .then((value) => {
         alert(value);
       })
       .catch((e) => {
         console.log(e);
       });
-  }, [navigation]);
+  }, [scanQrCode]);
   return (
     <Layout
       description=".."
