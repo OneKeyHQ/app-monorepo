@@ -450,7 +450,7 @@ PODS:
     - glog
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (0.1.0):
+  - react-native-lite-card (1.0.0):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
   - react-native-metrix (0.6.3):
@@ -736,7 +736,7 @@ DEPENDENCIES:
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
-  - react-native-lite-card (from `../../../node_modules/react-native-lite-card`)
+  - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -903,7 +903,7 @@ EXTERNAL SOURCES:
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-lite-card:
-    :path: "../../../node_modules/react-native-lite-card"
+    :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-metrix:
     :path: "../../../node_modules/react-native-metrix"
   react-native-mmkv:
@@ -1054,7 +1054,7 @@ SPEC CHECKSUMS:
   React-jsinspector: aef73cbd43b70675f572214d10fa438c89bf11ba
   React-logger: 2e4aee3e11b3ec4fa6cfd8004610bbb3b8d6cca4
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: 22b10c01facd0ddd60da44e014be60dd31b50635
+  react-native-lite-card: f3cfb10aac251f2cdcd9287c64537170d5c31404
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
