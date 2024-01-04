@@ -24,34 +24,31 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
     );
   }, []);
 
-  if (currentPermission === PermissionStatus.GRANTED) {
-    return (
-      <ScanCamera
-        style={{
-          flex: 1,
-        }}
-        isActive={isFocused}
-        onScannedCode={handleBarCodeScanned}
+  if (currentPermission !== PermissionStatus.GRANTED) {
+    return null;
+  }
+  return (
+    <ScanCamera
+      style={{
+        flex: 1,
+      }}
+      isActive={isFocused}
+      onScannedCode={handleBarCodeScanned}
+    >
+      <YStack
+        fullscreen
+        alignItems="center"
+        justifyContent="center"
+        overflow="hidden"
       >
-        <YStack
-          fullscreen
-          alignItems="center"
-          justifyContent="center"
-          overflow="hidden"
+        <Stack
+          borderWidth={400}
+          borderColor="rgba(0,0,0,.5)"
+          borderRadius={425}
         >
-          <Stack
-            borderWidth={400}
-            borderColor="rgba(0,0,0,.5)"
-            borderRadius={425}
-          >
-            <Stack w={256} h={256} borderRadius="$6" />
-          </Stack>
-        </YStack>
-      </ScanCamera>
-    );
-  }
-  if (currentPermission === PermissionStatus.DENIED) {
-    // return <PermissionDialog type="camera" />;
-  }
-  return null;
+          <Stack w={256} h={256} borderRadius="$6" />
+        </Stack>
+      </YStack>
+    </ScanCamera>
+  );
 }
