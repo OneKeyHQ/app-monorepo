@@ -8,8 +8,8 @@ import {
   type IGasLegacy,
 } from '@onekeyhq/shared/types/gas';
 
-const PRESET_GAS_ICON = ['🚅️', '🚗', '🚴‍♂️'];
-const PRESET_GAS_LABEL = ['content__fast', 'content__normal', 'content__slow'];
+const PRESET_FEE_ICON = ['🚅️', '🚗', '🚴‍♂️'];
+const PRESET_FEE_LABEL = ['content__fast', 'content__normal', 'content__slow'];
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -32,24 +32,24 @@ export function calculateTotalFeeRange(
   if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;
-    const min = new BigNumber(limit as string)
+    const min = new BigNumber(limit)
       .times(
         new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
       .toFixed(displayDecimals);
 
-    const minForDisplay = new BigNumber(limitForDisplay as string)
+    const minForDisplay = new BigNumber(limitForDisplay)
       .times(
         new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
       .toFixed(displayDecimals);
 
     // MAX: maxFeePerGas * limit
-    const max = new BigNumber(limit as string)
+    const max = new BigNumber(limit)
       .times(gasInfo.maxFeePerGas)
       .toFixed(displayDecimals);
 
-    const maxForDisplay = new BigNumber(limitForDisplay as string)
+    const maxForDisplay = new BigNumber(limitForDisplay)
       .times(gasInfo.maxFeePerGas)
       .toFixed(displayDecimals);
     return {
@@ -73,9 +73,9 @@ export function calculateTotalFeeRange(
   }
 
   const gasInfo = gas as IGasLegacy;
-  const max = new BigNumber(limit as string).times(gasInfo.gasPrice).toFixed();
+  const max = new BigNumber(limit).times(gasInfo.gasPrice).toFixed();
 
-  const maxForDisplay = new BigNumber(limitForDisplay as string)
+  const maxForDisplay = new BigNumber(limitForDisplay)
     .times(gasInfo.gasPrice)
     .toFixed();
 
@@ -150,29 +150,45 @@ export function calculateFeeForSend({
   };
 }
 
-export function getGasLabel({
-  gasType,
-  gasPresetIndex,
+export function getFeeLabel({
+  feeType,
+  presetIndex,
 }: {
-  gasType: EFeeType;
-  gasPresetIndex?: number;
+  feeType: EFeeType;
+  presetIndex?: number;
 }) {
-  if (gasType === EFeeType.Custom) {
+  if (feeType === EFeeType.Custom) {
     return 'content__custom';
   }
 
-  return PRESET_GAS_LABEL[gasPresetIndex ?? 1] as ILocaleIds;
+  return PRESET_FEE_LABEL[presetIndex ?? 1] as ILocaleIds;
 }
-export function getGasIcon({
-  gasType,
-  gasPresetIndex,
+export function getFeeIcon({
+  feeType,
+  presetIndex,
 }: {
-  gasType: EFeeType;
-  gasPresetIndex?: number;
+  feeType: EFeeType;
+  presetIndex?: number;
 }) {
-  if (gasType === EFeeType.Custom) {
+  if (feeType === EFeeType.Custom) {
     return '⚙️';
   }
 
-  return PRESET_GAS_ICON[gasPresetIndex ?? 1];
+  return PRESET_FEE_ICON[presetIndex ?? 1];
+}
+export function getFeeConfidenceLevelStyle(confidence: number) {
+  if (confidence <= 70) {
+    return {
+      badgeType: 'critical',
+    };
+  }
+  if (confidence <= 90) {
+    return {
+      badgeType: 'warning',
+    };
+  }
+
+  return {
+    badgeType: 'success',
+  };
 }

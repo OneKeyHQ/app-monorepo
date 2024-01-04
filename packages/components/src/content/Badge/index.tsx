@@ -3,6 +3,13 @@ import { createStyledContext, withStaticProperties } from 'tamagui';
 
 import { SizableText, XStack } from '../../primitives';
 
+export type IBadgeType =
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'default';
+
 const BadgeContext = createStyledContext<{
   badgeSize: 'lg' | 'sm';
   badgeType: 'success' | 'info' | 'warning' | 'critical' | 'default';
@@ -21,7 +28,6 @@ const BadgeFrame = styled(XStack, {
   style: {
     borderCurve: 'continuous',
   },
-
   variants: {
     badgeType: {
       success: {

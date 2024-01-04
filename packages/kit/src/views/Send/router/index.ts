@@ -44,5 +44,6 @@ export type IModalSendParamList = {
     networkId: string;
     accountId: string;
     customFee: IFeeInfoUnit;
+    onApply: (feeInfo: IFeeInfoUnit) => void;
   };
 };

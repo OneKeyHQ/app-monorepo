@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { EFeeType, ICustomFeeInfo } from '@onekeyhq/shared/types/gas';
+import type { EFeeType, IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -26,7 +26,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
     },
   );
 
-  updateCustomFee = contextAtomMethod((get, set, customFee: ICustomFeeInfo) => {
+  updateCustomFee = contextAtomMethod((get, set, customFee: IFeeInfoUnit) => {
     set(customFeeAtom(), customFee);
   });
 }

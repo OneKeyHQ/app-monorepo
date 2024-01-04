@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 
 import { useSendSelectedFeeAtom } from '../../../../states/jotai/contexts/send-confirm';
-import { getGasIcon, getGasLabel } from '../../../../utils/gasFee';
+import { getFeeIcon, getFeeLabel } from '../../../../utils/gasFee';
 
 type IProps = ComponentProps<typeof XStack>;
 
@@ -25,9 +25,9 @@ function GasSelectorTrigger(props: IProps) {
         </SizableText>
         <SizableText size="$bodyLg">
           {intl.formatMessage({
-            id: getGasLabel({
-              gasType: sendSelectedFee.feeType,
-              gasPresetIndex: sendSelectedFee.presetIndex,
+            id: getFeeLabel({
+              feeType: sendSelectedFee.feeType,
+              presetIndex: sendSelectedFee.presetIndex,
             }),
           })}
         </SizableText>

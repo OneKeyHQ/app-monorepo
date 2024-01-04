@@ -3,21 +3,36 @@ import { useCallback, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { YStack } from 'tamagui';
 
-import { Divider, Form, Input, Page, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Form,
+  Input,
+  Page,
+  ScrollView,
+  Stack,
+  YStack,
+  useForm,
+} from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
+import { FeePredictionContainer } from './FeePredictionContainer';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendCustomFeeContainer() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendCustomFee>>();
 
-  const { networkId, customFee } = route.params;
+  const { networkId, customFee, onApply } = route.params;
 
   const { feeDecimals, feeSymbol, nativeSymbol } = customFee.common;
 
@@ -66,6 +81,29 @@ function SendCustomFeeContainer() {
     ],
   );
 
+  const shouldRenderFeePrediction = useMemo(
+    () => [OnekeyNetwork.eth, OnekeyNetwork.polygon].includes(networkId),
+    [networkId],
+  );
+
+  const isApplyButtonDisabled = useMemo(() => {
+    if (!form.formState.isValid) return true;
+    return false;
+  }, [form.formState.isValid]);
+
+  const handleSelectFeePrediction = useCallback(
+    (prediction: IGasEIP1559Prediction) => {
+      form.setValue('priorityFee', prediction.maxPriorityFeePerGas);
+      form.setValue('maxFee', prediction.maxFeePerGas);
+    },
+    [form],
+  );
+
+  const handleApplyCustomFee = useCallback(() => {
+    onApply(customFeeInfo);
+    navigation.pop();
+  }, [customFeeInfo, navigation, onApply]);
+
   const renderCustomFeeForm = useCallback(() => {
     if (customFee.gas) {
       return (
@@ -75,6 +113,9 @@ function SendCustomFeeContainer() {
               id: 'content__gas_price',
             })}(${feeSymbol})`}
             name="gasPrice"
+            rules={{
+              required: true,
+            }}
           >
             <Input flex={1} />
           </Form.Field>
@@ -83,6 +124,9 @@ function SendCustomFeeContainer() {
               id: 'content__gas_limit',
             })}
             name="gasLimit"
+            rules={{
+              required: true,
+            }}
           >
             <Input flex={1} />
           </Form.Field>
@@ -108,6 +152,9 @@ function SendCustomFeeContainer() {
               id: 'form__priority_fee',
             })}(${feeSymbol})`}
             name="priorityFee"
+            rules={{
+              required: true,
+            }}
           >
             <Input
               flex={1}
@@ -123,6 +170,9 @@ function SendCustomFeeContainer() {
               id: 'form__max_fee',
             })}(${feeSymbol})`}
             name="maxFee"
+            rules={{
+              required: true,
+            }}
           >
             <Input
               flex={1}
@@ -138,6 +188,9 @@ function SendCustomFeeContainer() {
               id: 'content__gas_limit',
             })}
             name="gasLimit"
+            rules={{
+              required: true,
+            }}
           >
             <Input flex={1} />
           </Form.Field>
@@ -153,6 +206,9 @@ function SendCustomFeeContainer() {
               id: 'form__fee_rate',
             })}
             name="feeRate"
+            rules={{
+              required: true,
+            }}
           >
             <Input flex={1} />
           </Form.Field>
@@ -175,11 +231,35 @@ function SendCustomFeeContainer() {
     <Page>
       <Page.Header title="Custom Fee" />
       <Page.Body>
-        <FeeOverviewContainer feeInfo={customFeeInfo} />
-        <Divider />
-        <Form form={form}>{renderCustomFeeForm()}</Form>
-        
+        <ScrollView>
+          <FeeOverviewContainer feeInfo={customFeeInfo} />
+          <Divider />
+          <Stack padding="$5">
+            <Form form={form}>{renderCustomFeeForm()}</Form>
+          </Stack>
+          {shouldRenderFeePrediction ? (
+            <>
+              <Divider />
+              <FeePredictionContainer
+                networkId={networkId}
+                onSelected={handleSelectFeePrediction}
+              />
+            </>
+          ) : null}
+        </ScrollView>
       </Page.Body>
+      <Page.Footer>
+        <YStack padding="$5" space="$2">
+          <Button
+            size="large"
+            variant="primary"
+            disabled={isApplyButtonDisabled}
+            onPress={handleApplyCustomFee}
+          >
+            {intl.formatMessage({ id: 'action__apply' })}
+          </Button>
+        </YStack>
+      </Page.Footer>
     </Page>
   );
 }

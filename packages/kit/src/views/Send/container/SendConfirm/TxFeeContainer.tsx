@@ -19,8 +19,8 @@ import {
 } from '../../../../states/jotai/contexts/send-confirm';
 import {
   calculateFeeForSend,
-  getGasIcon,
-  getGasLabel,
+  getFeeIcon,
+  getFeeLabel,
 } from '../../../../utils/gasFee';
 import { GasSelector } from '../../components/GasSelector';
 import { EModalSendRoutes } from '../../router';
@@ -38,7 +38,8 @@ function TxFeeContainer(props: IProps) {
   const intl = useIntl();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
-  const { updateSendSelectedFee } = useSendConfirmActions().current;
+  const { updateSendSelectedFee, updateCustomFee } =
+    useSendConfirmActions().current;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -92,7 +93,7 @@ function TxFeeContainer(props: IProps) {
             </SizableText>
           ),
           label: intl.formatMessage({
-            id: getGasLabel({ gasType: EFeeType.Standard, gasPresetIndex: i }),
+            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
           value: String(i),
           total,
@@ -129,7 +130,7 @@ function TxFeeContainer(props: IProps) {
           </SizableText>
         ),
         label: intl.formatMessage({
-          id: getGasLabel({ gasType: EFeeType.Custom }),
+          id: getFeeLabel({ feeType: EFeeType.Custom }),
         }),
         value: EFeeType.Custom,
         // total,
@@ -166,6 +167,13 @@ function TxFeeContainer(props: IProps) {
             networkId,
             accountId: '',
             customFee: customFee ?? (selectedGas.feeInfo as IFeeInfoUnit),
+            onApply: (feeInfo: IFeeInfoUnit) => {
+              updateSendSelectedFee({
+                feeType: EFeeType.Custom,
+                presetIndex: 0,
+              });
+              updateCustomFee(feeInfo);
+            },
           },
         });
       } else {
@@ -180,6 +188,7 @@ function TxFeeContainer(props: IProps) {
       navigation,
       networkId,
       selectedGas?.feeInfo,
+      updateCustomFee,
       updateSendSelectedFee,
     ],
   );
