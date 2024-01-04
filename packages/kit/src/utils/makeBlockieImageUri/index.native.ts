@@ -3,7 +3,7 @@ import RNFS from 'react-native-fs';
 
 export default function makeBlockieImageUri(id: string) {
   return new Promise<string>((resolve) => {
-    const filepath = `${RNFS.CachesDirectoryPath}/eth_base64_cache_${id}.png`;
+    const filepath = `file://${RNFS.CachesDirectoryPath}/eth_base64_cache_${id}.png`;
 
     const createNewEthBase64 = () => {
       const data = makeBlockie(id);
