@@ -1,4 +1,9 @@
 module.exports = [
+  'impls',
+  'txids',
+  'ord',
+  'nonWitnessInputPrevTxids',
+  'ordQueryStatus',
   'Blockie',
   'Unspaced',
   'hd',
@@ -583,4 +588,5 @@ module.exports = [
   'COMMITHASH',
   'swipeable',
   'nft',
+  'Webpack',
 ];

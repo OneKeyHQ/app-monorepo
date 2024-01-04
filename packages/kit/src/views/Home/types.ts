@@ -39,7 +39,7 @@ export type IOverviewQueryTaskItem = Pick<
   scanType: EOverviewScanTaskType;
 };
 
-export type EOverviewServiceNames = string;
+export type IOverviewServiceNames = string;
 export enum EOverviewScanTaskType {
   'token' = 'token',
   'defi' = 'defi',
@@ -137,7 +137,7 @@ export interface IOverviewDeFiProtocolInfo {
   protocolTokenInfo?: ITokenInfo;
 }
 
-export enum OverviewDeFiPoolType {
+export enum EOverviewDeFiPoolType {
   Pool = 'Pool',
   Locked = 'Locked',
   Farming = 'Farming',
@@ -155,10 +155,10 @@ export interface IOverviewDeFiPortfolioItem
   extends IBaseOverviewQuery,
     IOverviewDeFiProtocolInfo {
   // TODO rename serviceCode
-  buildByService: EOverviewServiceNames;
+  buildByService: IOverviewServiceNames;
 
   poolCode: string; // poolContractAddress, pool.id, poolId, id, lpAddress
-  poolType: OverviewDeFiPoolType;
+  poolType: EOverviewDeFiPoolType;
   poolName: string;
   poolUrl: string;
   volatilityType?: string; // Stable, Volatile
@@ -199,10 +199,10 @@ export interface IOverviewDeFiPortfolio
   $scanStartTime?: string;
   $scanFinishedTime?: string;
   // TODO rename serviceCode
-  buildByService: EOverviewServiceNames;
+  buildByService: IOverviewServiceNames;
 }
 
-export interface ProjectItem {
+export interface IProjectItem {
   active_user_count_24h: number;
   chain: string;
   contract_call_count_24h: number;
@@ -228,13 +228,13 @@ export interface ProjectItem {
   tvl: string;
 }
 
-export type OverviewDefiRes = {
+export type IOverviewDefiRes = {
   _id: {
     networkId: string;
     address: string;
     protocolId: string;
   };
-  pools: [OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]][];
+  pools: [EOverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]][];
   poolSize: number;
   protocolValue: string;
   protocolUrl?: string;
@@ -244,23 +244,23 @@ export type OverviewDefiRes = {
   protocolIcon: string;
 };
 
-export enum OverviewModalRoutes {
+export enum EOverviewModalRoutes {
   OverviewProtocolDetail = 'OverviewProtocolDetail',
 }
 
-export type OverviewModalRoutesParams = {
-  [OverviewModalRoutes.OverviewProtocolDetail]: {
+export type IOverviewModalRoutesParams = {
+  [EOverviewModalRoutes.OverviewProtocolDetail]: {
     networkId: string;
     accountId: string;
     poolCode?: string;
-    protocol: OverviewDefiRes;
+    protocol: IOverviewDefiRes;
   };
 };
 
-export interface OverviewAllNetworksPortfolioRes {
+export interface IOverviewAllNetworksPortfolioRes {
   [EOverviewScanTaskType.token]: IOverviewAllNetworksToken[];
   [EOverviewScanTaskType.nfts]: any[];
-  [EOverviewScanTaskType.defi]: OverviewDefiRes[];
+  [EOverviewScanTaskType.defi]: IOverviewDefiRes[];
 }
 
 export interface IOverviewAllNetworksToken {
@@ -335,5 +335,5 @@ export type IOverviewTokenDetailListItem = {
   protocolId?: string;
   onPress?: () => void;
   poolCode?: string;
-  protocol?: OverviewDefiRes;
+  protocol?: IOverviewDefiRes;
 };

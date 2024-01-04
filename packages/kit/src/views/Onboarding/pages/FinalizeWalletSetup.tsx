@@ -135,3 +135,5 @@ export function FinalizeWalletSetup({
     </AccountSelectorProviderMirror>
   );
 }
+
+export default FinalizeWalletSetup;

@@ -75,3 +75,5 @@ export function VerifyRecoveryPhrase({
     </Page>
   );
 }
+
+export default VerifyRecoveryPhrase;

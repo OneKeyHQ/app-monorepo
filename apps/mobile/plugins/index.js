@@ -3,18 +3,18 @@
 const _ = require('lodash');
 
 module.exports = (config, projectRoot) => {
-  if (process.env.NODE_ENV !== 'production' && process.env.SPLIT_BUNDLE) {
-    const path = require('path');
+  const path = require('path');
+  const dotenv = require('dotenv');
+  // Just for reading Expo mobile environment variables `SPLIT_BUNDLE`,
+  // So we don't create another .expo.plugin file.
+  dotenv.config({
+    path: path.resolve(__dirname, '../../../.env.expo'),
+  });
+  if (process.env.SPLIT_BUNDLE) {
     const fs = require('fs-extra');
     const connect = require('connect');
     const dynamicImports = require('./dynamicImports');
     const { fileToIdMap } = require('./map');
-    const fileMapCacheDirectoryPath = path.resolve(
-      projectRoot,
-      'node_modules',
-      '.cache/file-map-cache',
-    );
-    fs.ensureDirSync(fileMapCacheDirectoryPath);
     const workspaceRoot = path.resolve(projectRoot, '../..');
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
@@ -23,7 +23,6 @@ module.exports = (config, projectRoot) => {
       path.resolve(projectRoot, 'node_modules'),
       path.resolve(workspaceRoot, 'node_modules'),
     ];
-    config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
 
     // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
     // config.resolver.disableHierarchicalLookup = true;
@@ -58,7 +57,8 @@ module.exports = (config, projectRoot) => {
         .replace(
           '__CHUNK_MODULE_ID_TO_HASH_MAP__',
           path.join(__dirname, './chunkModuleIdToHashMap.js'),
-        ),
+        )
+        .replace('__NODE_ENV__', process.env.NODE_ENV),
       'utf8',
     );
     config.transformer.asyncRequireModulePath = asyncRequireModulePath;
@@ -93,18 +93,12 @@ module.exports = (config, projectRoot) => {
     //     true;
     // })();
 
-    config.serializer.createModuleIdFactory = () => {
-      let nextId = 0;
-      return (path) => {
-        let id = fileToIdMap.get(path);
-        if (typeof id !== 'number') {
-          // eslint-disable-next-line no-plusplus
-          nextId += 1;
-          id = nextId;
-          fileToIdMap.set(path, id);
-        }
-        return id;
-      };
+    config.serializer.createModuleIdFactory = () => (path) => {
+      const id = fileToIdMap.get(path);
+      if (typeof id !== 'number') {
+        return fileToIdMap.safeSet(path);
+      }
+      return id;
     };
 
     const beforeCustomSerializer = (
@@ -117,7 +111,7 @@ module.exports = (config, projectRoot) => {
         // to entry file injection of global variables __APP__
         if (entryPoint === key) {
           for (const { data } of value.output) {
-            data.code = `__APP__= {}\n${data.code}`;
+            data.code = `var pendingChunks = {};\n${data.code}`;
           }
           break;
         }
@@ -167,6 +161,14 @@ module.exports = (config, projectRoot) => {
             next();
           }
         });
+    config.hooks = {
+      onEnd: () =>
+        new Promise((resolve) => {
+          const { linkAssets } = require('./linkAssets');
+          linkAssets(projectRoot);
+          resolve();
+        }),
+    };
   }
   return config;
 };
