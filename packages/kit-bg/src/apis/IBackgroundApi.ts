@@ -11,6 +11,7 @@ import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletCon
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
@@ -76,7 +77,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   servicePassword: ServicePassword;
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
-  serviceDiscovery: ServiceDiscovery;
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
   serviceAccount: ServiceAccount;
@@ -87,4 +87,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceValidator: ServiceValidator;
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;
+  serviceDiscovery: ServiceDiscovery;
+  serviceDApp: ServiceDApp;
 }

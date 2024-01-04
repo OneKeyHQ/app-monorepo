@@ -60,16 +60,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceDiscovery() {
-    const ServiceDiscovery =
-      require('../services/ServiceDiscovery') as typeof import('../services/ServiceDiscovery');
-    const value = new ServiceDiscovery.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceDiscovery', { value });
-    return value;
-  }
-
   get serviceAccount() {
     const Service =
       require('../services/ServiceAccount') as typeof import('../services/ServiceAccount');
@@ -177,6 +167,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceGas', { value });
+    return value;
+  }
+
+  get serviceDiscovery() {
+    const ServiceDiscovery =
+      require('../services/ServiceDiscovery') as typeof import('../services/ServiceDiscovery');
+    const value = new ServiceDiscovery.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDiscovery', { value });
+    return value;
+  }
+
+  get serviceDApp() {
+    const ServiceDApp =
+      require('../services/ServiceDApp') as typeof import('../services/ServiceDApp');
+    const value = new ServiceDApp.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDApp', { value });
     return value;
   }
 }

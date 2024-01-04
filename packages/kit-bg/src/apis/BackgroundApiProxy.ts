@@ -9,6 +9,7 @@ import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletCon
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
@@ -45,10 +46,6 @@ class BackgroundApiProxy
 
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 
-  serviceDiscovery = this._createProxyService(
-    'serviceDiscovery',
-  ) as ServiceDiscovery;
-
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
@@ -68,6 +65,12 @@ class BackgroundApiProxy
   ) as ServiceNameResolver;
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
+  serviceDiscovery = this._createProxyService(
+    'serviceDiscovery',
+  ) as ServiceDiscovery;
+
+  serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 
