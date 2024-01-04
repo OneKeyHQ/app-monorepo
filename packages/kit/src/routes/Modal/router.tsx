@@ -6,6 +6,7 @@ import { AccountManagerStacks } from '../../views/AccountManagerStacks';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { TestModalRouter } from '../../views/TestModal/router';
+import { WalletConnectRouter } from '../../views/WalletConnect/router';
 
 import { ModalDiscoveryStack } from './Discovery';
 import { ModalSendStack } from './Send';
@@ -35,6 +36,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.WalletConnectModal,
+    children: WalletConnectRouter,
   },
 ];
 
