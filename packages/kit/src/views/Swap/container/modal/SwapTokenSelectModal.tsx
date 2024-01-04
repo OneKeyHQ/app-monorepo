@@ -38,8 +38,8 @@ const SwapTokenSelectModal = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
   const type = useMemo(
-    () => route?.params?.type ?? 'from',
-    [route?.params?.type],
+    () => route.params?.type ?? 'from',
+    [route.params?.type],
   );
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [swapNetworks] = useSwapNetworksAtom();

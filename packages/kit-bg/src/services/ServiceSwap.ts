@@ -7,6 +7,7 @@ import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchResponse,
+  IFetchSwapTxHistoryStatusResponse,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/kit/src/views/Swap/types';
@@ -272,7 +273,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol?: EExchangeProtocol;
     provider?: ESwapProviders;
     ctx?: any;
-  }): Promise<ESwapTxHistoryStatus> {
+  }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
       protocol,
@@ -283,16 +284,16 @@ export default class ServiceSwap extends ServiceBase {
     const client = await this.getClient();
     try {
       const { data } = await client.post<
-        IFetchResponse<{ state: ESwapTxHistoryStatus }>
+        IFetchResponse<IFetchSwapTxHistoryStatusResponse>
       >('/exchange/state_tx', params);
-      if (data?.code === 0 && data?.data?.state) {
-        return data.data.state;
+      if (data?.code === 0 && data?.data) {
+        return data.data;
       }
       Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
     }
-    return ESwapTxHistoryStatus.PENDING;
+    return { state: ESwapTxHistoryStatus.FAILED };
   }
 }

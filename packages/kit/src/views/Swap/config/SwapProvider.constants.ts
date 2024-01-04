@@ -26,3 +26,7 @@ export const swapSlippageItems: ISwapSlippageSegmentItem[] = [
   { key: ESwapSlippageSegmentKey.ZERO_FIVE, value: 0.5 },
   { key: ESwapSlippageSegmentKey.ONE, value: 1 },
 ];
+
+export const socketBridgeScanUrl = 'https://socketscan.io/tx/';
+
+export const networkTransactionExplorerReplaceStr = '{transaction}';

@@ -10,11 +10,19 @@ const SwapOnChainInfoItem = ({
   value,
   onCopy,
 }: ISwapOnChainInfoItemProps) => (
-  <XStack justifyContent="space-between">
+  <XStack flex={1} space="$4" justifyContent="space-between">
     <Text>{title}</Text>
-    <XStack>
-      <Text>{value}</Text>
-      <IconButton icon="Copy1Outline" onPress={onCopy} />
+    <XStack flex={1} justifyContent="flex-end">
+      <Text textAlign="right" w="90%" wordWrap="break-word">
+        {value}
+      </Text>
+      <IconButton
+        h="$6"
+        w="$6"
+        size="small"
+        icon="Copy2Outline"
+        onPress={onCopy}
+      />
     </XStack>
   </XStack>
 );

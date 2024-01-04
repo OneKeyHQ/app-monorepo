@@ -19,6 +19,7 @@ export interface ISwapNetwork {
   logoURI?: string;
   protocol: string;
   providers: string;
+  explorer?: string; // '..../{transaction}' need replace {transaction} to txId
 }
 export interface ISwapToken {
   networkId: string;
@@ -157,6 +158,11 @@ export enum ESwapTxHistoryStatus {
   FAILED = 'failed',
   PENDING = 'pending',
 }
+
+export interface IFetchSwapTxHistoryStatusResponse {
+  state: ESwapTxHistoryStatus;
+  crossChainReceiveTxHash?: string;
+}
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
@@ -173,6 +179,7 @@ export interface ISwapTxHistory {
     sender: string;
     receiver: string;
     netWorkFee?: string;
+    receiverTransactionId?: string;
   };
   swapInfo: {
     provider: IFetchQuoteInfo;

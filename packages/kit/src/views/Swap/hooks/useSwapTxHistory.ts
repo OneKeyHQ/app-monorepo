@@ -49,19 +49,25 @@ export function useSwapTxHistoryStateSyncInterval() {
       swapTxHistoryPending.forEach(async (swapTxHistory) => {
         if (!internalRef.current[swapTxHistory.txInfo.txId]) {
           const interval = setInterval(async () => {
-            const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
-              txId: swapTxHistory.txInfo.txId,
-              provider: swapTxHistory.swapInfo.provider.provider,
-              protocol: EExchangeProtocol.SWAP,
-              networkId: swapTxHistory.baseInfo.fromToken.networkId,
-              ctx: swapTxHistory.ctx,
-            });
-            if (txState !== ESwapTxHistoryStatus.PENDING) {
+            const txStatusRes =
+              await backgroundApiProxy.serviceSwap.fetchTxState({
+                txId: swapTxHistory.txInfo.txId,
+                provider: swapTxHistory.swapInfo.provider.provider,
+                protocol: EExchangeProtocol.SWAP,
+                networkId: swapTxHistory.baseInfo.fromToken.networkId,
+                ctx: swapTxHistory.ctx,
+              });
+            if (txStatusRes.state !== ESwapTxHistoryStatus.PENDING) {
               clearInterval(interval);
               delete internalRef.current[swapTxHistory.txInfo.txId];
               await updateSwapHistoryItem({
                 ...swapTxHistory,
-                status: txState,
+                status: txStatusRes.state,
+                txInfo: {
+                  ...swapTxHistory.txInfo,
+                  receiverTransactionId:
+                    txStatusRes.crossChainReceiveTxHash || '',
+                },
               });
             }
           }, 1000 * 5);
