@@ -7,6 +7,7 @@ import type {
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -57,6 +58,9 @@ export interface IBackgroundApiBridge {
   connectWebEmbedBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
+  // **** WalletConnect
+  walletConnect: ProviderApiWalletConnect;
+
   // **** dapp provider api
   providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
@@ -65,8 +69,6 @@ export interface IBackgroundApiBridge {
   ): Promise<IJsonRpcResponse<T>>;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
-  // walletConnect: ProviderApiWalletConnect; // TODO move to IBackgroundApiBridge
-
   simpleDb: SimpleDb;
 
   // **** services

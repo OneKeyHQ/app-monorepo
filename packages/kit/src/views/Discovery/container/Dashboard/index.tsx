@@ -2,6 +2,7 @@ import { Button, Page, SearchBar, Stack, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 
 function Dashboard() {
@@ -33,6 +34,13 @@ function Dashboard() {
             }}
           >
             Search Modal
+          </Button>
+          <Button
+            onPress={() => {
+              void backgroundApiProxy.walletConnect.initialize();
+            }}
+          >
+            Wallet Connect
           </Button>
         </YStack>
       </Page.Body>

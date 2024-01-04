@@ -20,6 +20,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   // vaultFactory = this.engine.vaultFactory;
 
+  get walletConnect() {
+    const ProviderApiWalletConnect =
+      require('../providers/ProviderApiWalletConnect/ProviderApiWalletConnect') as typeof import('../providers/ProviderApiWalletConnect/ProviderApiWalletConnect');
+    const value = new ProviderApiWalletConnect.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'walletConnect', { value });
+    return value;
+  }
+
   get servicePromise() {
     const Service =
       require('../services/ServicePromise') as typeof import('../services/ServicePromise');

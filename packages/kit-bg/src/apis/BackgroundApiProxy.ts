@@ -5,6 +5,7 @@ import { SimpleDbProxy } from '../dbs/simple/base/SimpleDbProxy';
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -27,6 +28,10 @@ class BackgroundApiProxy
   implements IBackgroundApi
 {
   simpleDb = new SimpleDbProxy(this);
+
+  walletConnect = this._createProxyService(
+    'walletConnect',
+  ) as ProviderApiWalletConnect;
 
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 
