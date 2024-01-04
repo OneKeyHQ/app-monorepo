@@ -61,8 +61,16 @@ class ServiceSend extends ServiceBase {
     unsignedTx = await vault.updateUnsignedTx({
       unsignedTx,
       feeInfo: {
+        common: {
+          limit: '0x5208', // 21000
+          limitForDisplay: '0x5208', // 21000
+          nativeDecimals: 18,
+          nativeSymbol: 'ETH',
+          feeDecimals: 9,
+          feeSymbol: 'Gwei',
+          nativeTokenPrice: 2000,
+        },
         gas: {
-          gasLimit: '0x5208', // 21000
           gasPrice: '0x2a', // 42
         },
       },

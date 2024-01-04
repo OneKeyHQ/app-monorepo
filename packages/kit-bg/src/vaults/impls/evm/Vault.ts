@@ -155,12 +155,14 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
+
     const tx = {
       ...encodedTx,
       ...gasInfo,
     };
-    if (!isNil(feeInfo?.gas?.gasLimit)) {
-      tx.gas = feeInfo?.gas?.gasLimit;
+    if (!isNil(feeInfo?.common?.limit)) {
+      tx.gas = feeInfo?.common?.limit;
+      tx.gasLimit = feeInfo?.common?.limit;
     }
     return Promise.resolve(tx);
   }
