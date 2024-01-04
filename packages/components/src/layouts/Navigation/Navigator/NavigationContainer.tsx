@@ -1,5 +1,5 @@
 import type { MutableRefObject } from 'react';
-import { createContext, createRef, useContext, useEffect, useRef } from 'react';
+import { createContext, createRef, useContext, useEffect } from 'react';
 
 import { NavigationContainer as RNNavigationContainer } from '@react-navigation/native';
 
