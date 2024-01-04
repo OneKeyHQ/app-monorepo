@@ -4,10 +4,11 @@ import { useMemo } from 'react';
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { createURL } from 'expo-linking';
 
-import type {
-  ICommonNavigatorConfig,
-  INavigationContainerProps,
-  ITabNavigatorExtraConfig,
+import {
+  type ICommonNavigatorConfig,
+  type INavigationContainerProps,
+  type ITabNavigatorExtraConfig,
+  useRouterEventsRef,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
@@ -105,19 +106,22 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   };
 };
 
-export const useRouterConfig = () =>
-  useMemo(() => {
+export const useRouterConfig = () => {
+  const routerRef = useRouterEventsRef();
+  return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
     return {
       routerConfig: rootRouter,
-      containerProps: platformEnv.isRuntimeBrowser
-        ? ({
-            documentTitle: {
-              formatter: () => 'OneKey',
-            },
-            linking: buildLinking(rootRouter),
-          } as INavigationContainerProps)
-        : undefined,
+      containerProps: {
+        documentTitle: {
+          formatter: () => 'OneKey',
+        },
+        onStateChange: (state) => {
+          routerRef.current.forEach((cb) => cb?.(state));
+        },
+        linking: buildLinking(rootRouter),
+      } as INavigationContainerProps,
     };
-  }, []);
+  }, [routerRef]);
+};
