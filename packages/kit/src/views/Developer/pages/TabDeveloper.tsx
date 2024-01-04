@@ -60,6 +60,17 @@ function PartContainer({
   );
 }
 
+function StartTimePanel() {
+  const { jsBundleLoadedTime, fpTime } = getMeasureTime();
+  return (
+    <PartContainer title="Startup Time(ms)">
+      <Text>JS Loaded Time: {jsBundleLoadedTime}</Text>
+      <Text>FP Time: {fpTime}</Text>
+      <Text>First Rendering time: {fpTime - jsBundleLoadedTime}</Text>
+    </PartContainer>
+  );
+}
+
 const TabDeveloper = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
@@ -152,9 +163,7 @@ const TabDeveloper = () => {
               Async Import Test
             </Button>
           </PartContainer>
-          <PartContainer title="Cold Startup Time(ms)">
-            <Text>{getMeasureTime().jsBundleLoadedTime}</Text>
-          </PartContainer>
+          <StartTimePanel />
         </ScrollView>
       </Page.Body>
     </Page>

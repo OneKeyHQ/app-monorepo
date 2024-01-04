@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+
 import { Image, Stack } from '../../primitives';
 
 import type { ISplashViewProps } from './type';

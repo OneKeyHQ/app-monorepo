@@ -12,6 +12,7 @@ import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';
 
 import type { LayoutChangeEvent } from 'react-native';
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 
 export type ISplashProps = PropsWithChildren<{
   onReady: () => Promise<boolean>;
@@ -30,10 +31,12 @@ export function Splash({ onReady, children }: ISplashProps) {
     if (!readyRef.current) {
       setTimeout(() => {
         handleCheck();
+        markFPTime();
       }, 10);
     } else {
       setTimeout(() => {
         changeLoadingVisibility(false);
+        markFPTime();
       });
     }
   }, []);
