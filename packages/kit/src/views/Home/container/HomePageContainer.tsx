@@ -431,7 +431,7 @@ function HomePage() {
     () => (
       <Page>
         <Page.Header
-          // headerTitle={headerTitle}
+          headerTitle={headerTitle}
           headerRight={headerRight}
         />
         <Page.Body>
