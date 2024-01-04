@@ -6,7 +6,7 @@ const BLOCKIE_IMAGE_CACHE_DIR = `file://${RNFS.DocumentDirectoryPath}/blockies_a
 
 export default function makeBlockieImageUri(id: string) {
   return new Promise<string>((resolve) => {
-    const filepath = `${BLOCKIE_IMAGE_CACHE_DIR}/${id.replace('/', '')}.png`;
+    const filepath = `${BLOCKIE_IMAGE_CACHE_DIR}/${id.replace('/', '_')}.png`;
 
     const createNewEthBase64 = () => {
       const data = makeBlockie(id);
