@@ -62,7 +62,7 @@ class ServiceDApp extends ServiceBase {
       });
       const modalScreens = screens;
       const routeNames = [ERootRoutes.Modal, ...modalScreens];
-      const sourceInfo: IDappSourceInfo = {
+      const $sourceInfo: IDappSourceInfo = {
         id,
         origin: request.origin || '',
         hostname: uriUtils.getHostNameFromUrl({ url: request.origin || '' }),
@@ -74,7 +74,7 @@ class ServiceDApp extends ServiceBase {
         // stringify required, nested object not working with Ext route linking
         query: JSON.stringify(
           {
-            sourceInfo, // TODO rename $sourceInfo
+            $sourceInfo,
             ...params,
             _$t: Date.now(),
           },
