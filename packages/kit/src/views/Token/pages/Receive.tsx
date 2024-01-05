@@ -169,19 +169,38 @@ export function Receive() {
                 style={{
                   wordBreak: 'break-all',
                 }}
-                {...(!isShowAddress && {
-                  userSelect: 'none',
-                  color: '$transparent',
-                  textShadowColor: '$text',
-                  textShadowOffset: {
-                    width: 0,
-                    height: 0,
-                  },
-                  textShadowRadius: 20,
-                })}
+                // {...(!isShowAddress && {
+                //   userSelect: 'none',
+                //   color: '$transparent',
+                //   textShadowColor: '$text',
+                //   textShadowOffset: {
+                //     width: 0,
+                //     height: 0,
+                //   },
+                //   textShadowRadius: 20,
+                // })}
               >
                 37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
               </SizableText>
+
+              {!isShowAddress && (
+                <BlurView
+                  // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
+                  borderRadius="$3"
+                  contentStyle={{
+                    borderRadius: '$3',
+                    width: '100%',
+                    height: '100%',
+                    borderCurve: 'continuous',
+                  }}
+                  position="absolute"
+                  intensity={38}
+                  top="$0"
+                  left="$0"
+                  right="$0"
+                  bottom="$0"
+                />
+              )}
             </ConfirmHighlighter>
 
             {isHardwareWallet &&
