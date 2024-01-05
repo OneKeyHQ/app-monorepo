@@ -1,16 +1,54 @@
 diff --git a/node_modules/babel-preset-expo/index.js b/node_modules/babel-preset-expo/index.js
-index 2099ee3..2f2b75b 100644
+index 2099ee3..9054f46 100644
 --- a/node_modules/babel-preset-expo/index.js
 +++ b/node_modules/babel-preset-expo/index.js
-@@ -4,7 +4,6 @@ let hasWarnedJsxRename = false;
+@@ -2,12 +2,20 @@ const lazyImportsBlacklist = require('./lazy-imports-blacklist');
  
+ let hasWarnedJsxRename = false;
+ 
++function getIsDev(caller) {
++  if (caller?.isDev != null) return caller.isDev;
++
++  // https://babeljs.io/docs/options#envname
++  return process.env.BABEL_ENV === 'development' || process.env.NODE_ENV === 'development';
++}
++
  module.exports = function (api, options = {}) {
    const { web = {}, native = {} } = options;
--
+ 
    const bundler = api.caller(getBundler);
    const isWebpack = bundler === 'webpack';
    let platform = api.caller(getPlatform);
-@@ -105,7 +104,8 @@ module.exports = function (api, options = {}) {
++  const isDev = api.caller(getIsDev);
+ 
+   // If the `platform` prop is not defined then this must be a custom config that isn't
+   // defining a platform in the babel-loader. Currently this may happen with Next.js + Expo web.
+@@ -39,6 +47,24 @@ module.exports = function (api, options = {}) {
+     );
+   }
+ 
++   // TODO: remove this on Expo 50.x
++  // fix(babel): fix unused platform code removal #25171
++  // https://github.com/expo/expo/pull/25171
++  if (require('@babel/plugin-transform-parameters')) {
++    // Metro applies this plugin too but it does it after the imports have been transformed which breaks
++    // the plugin. Here, we'll apply it before the commonjs transform, in production, to ensure `Platform.OS`
++    // is replaced with a string literal and `__DEV__` is converted to a boolean.
++    // Applying early also means that web can be transformed before the `react-native-web` transform mutates the import.
++    extraPlugins.push([
++        require('metro-transform-plugins/src/inline-plugin.js'),
++        {
++            dev: isDev,
++            inlinePlatform: true,
++            platform,
++        },
++    ]);
++  }
++
+   // Set true to disable `@babel/plugin-transform-react-jsx`
+   // we override this logic outside of the metro preset so we can add support for
+   // React 17 automatic JSX transformations.
+@@ -105,7 +131,8 @@ module.exports = function (api, options = {}) {
        ],
      ],
      plugins: [
