@@ -2,6 +2,7 @@ import type { IAccountManagerStacksParamList } from '../../views/AccountManagerS
 import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
+import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
 import type { IModalSendParamList } from '../../views/Send/router';
 import type { IModalSettingParamList } from '../../views/Setting/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
@@ -14,6 +15,7 @@ export enum EModalRoutes {
   OnboardingModal = 'OnboardingModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
+  ScanQrCodeModal = 'ScanQrCodeModal',
 }
 
 export type IModalParamList = {
@@ -24,4 +26,5 @@ export type IModalParamList = {
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
+  [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
 };
