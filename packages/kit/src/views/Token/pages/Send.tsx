@@ -1,9 +1,7 @@
 import { useState } from 'react';
 
-import { Unspaced } from 'tamagui';
-
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Button,
   Form,
   Icon,
   IconButton,
@@ -17,7 +15,11 @@ import {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-export function Send(props) {
+import type { ETokenPages, ITokenParamList } from '../router/type';
+
+export function Send(
+  props: IPageScreenProps<ITokenParamList, ETokenPages.Send>,
+) {
   const { route } = props;
   const isNFT = route?.params?.isNFT;
   const navigation = useAppNavigation();
