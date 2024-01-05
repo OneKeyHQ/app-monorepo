@@ -1,6 +1,7 @@
 import {
   type PropsWithChildren,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -8,11 +9,12 @@ import {
 
 import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+
 import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';
 
 import type { LayoutChangeEvent } from 'react-native';
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
 
 export type ISplashProps = PropsWithChildren<{
   onReady: () => Promise<boolean>;
@@ -31,14 +33,17 @@ export function Splash({ onReady, children }: ISplashProps) {
     if (!readyRef.current) {
       setTimeout(() => {
         handleCheck();
-        markFPTime();
       }, 10);
     } else {
       setTimeout(() => {
         changeLoadingVisibility(false);
-        markFPTime();
       });
     }
+  }, []);
+
+  const handleExitComplete = useCallback(() => {
+    console.log('markFPTime');
+    markFPTime();
   }, []);
 
   const handleChildrenLayout = useCallback(
@@ -61,7 +66,7 @@ export function Splash({ onReady, children }: ISplashProps) {
       <ChildrenContent onLayout={handleChildrenLayout} visible={showChildren}>
         {children}
       </ChildrenContent>
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={handleExitComplete}>
         {showLoading && (
           <Stack
             key="splash-view"
