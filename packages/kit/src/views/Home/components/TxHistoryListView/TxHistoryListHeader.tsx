@@ -9,7 +9,6 @@ import {
   SearchBar,
   Stack,
   Switch,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 

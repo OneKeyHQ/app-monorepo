@@ -1,9 +1,6 @@
-import { useIntl } from 'react-intl';
-
 import { SearchBar, XStack } from '@onekeyhq/components';
 
 function NFTListHeader() {
-  const intl = useIntl();
   return (
     <XStack p="$5" pb="$3">
       <SearchBar

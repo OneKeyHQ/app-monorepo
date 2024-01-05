@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { YStack, useMedia } from 'tamagui';
+import { useMedia } from 'tamagui';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -438,7 +438,7 @@ function HomePage() {
     () => (
       <Page>
         <Page.Header
-          // headerTitle={headerTitle}
+          headerTitle={headerTitle}
           headerRight={headerRight}
         />
         <Page.Body>

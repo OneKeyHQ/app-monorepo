@@ -287,7 +287,7 @@ function BaseInput(
                 };
 
                 return (
-                  <Group.Item>
+                  <Group.Item key={`${iconName || index}-${label || index}`}>
                     <XStack
                       onPress={onPress}
                       key={`${iconName || ''}-${label || ''}`}
