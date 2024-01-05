@@ -41,3 +41,5 @@ export function ImportRecoveryPhrase() {
     </Page>
   );
 }
+
+export default ImportRecoveryPhrase;

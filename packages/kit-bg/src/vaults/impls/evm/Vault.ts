@@ -7,8 +7,10 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -22,10 +24,12 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
+  IBuildDecodedTxParams,
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
 
+// evm vault
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
@@ -37,6 +41,24 @@ export default class Vault extends VaultBase {
       return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    noopObject(params);
+    // TODO evm decode tx impl
+    return Promise.resolve({
+      txid: '',
+      owner: '',
+      signer: '',
+      nonce: 0,
+      actions: [],
+      networkId: '',
+      accountId: '',
+      status: EDecodedTxStatus.Pending,
+      extraInfo: null,
+    });
   }
 
   override async buildUnsignedTx(options: {
@@ -117,6 +139,7 @@ export default class Vault extends VaultBase {
   }
 
   async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
+    console.log(transfersInfo);
     // TODO EVM batch transfer through contract
     return {
       from: '',

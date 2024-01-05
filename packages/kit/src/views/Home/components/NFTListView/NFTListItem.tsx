@@ -1,15 +1,6 @@
 import { useCallback } from 'react';
 
-import { Square } from 'tamagui';
-
-import {
-  Avatar,
-  Icon,
-  Image,
-  ListItem,
-  SizableText,
-  Stack,
-} from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';

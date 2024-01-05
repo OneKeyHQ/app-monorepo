@@ -63,7 +63,7 @@ function TxHistoryListContainer(props: IProps) {
 
   return (
     <TxHistoryListView
-      data={mockData}
+      data={mockData as any}
       onItemPress={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}

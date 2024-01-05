@@ -124,7 +124,9 @@ export abstract class CoreChainApiBase {
         password,
         credential: credentials.imported,
       });
-      privateKeys[account.path] = bufferUtils.bytesToHex(encrypt(password, p));
+      const encryptPrivateKey = bufferUtils.bytesToHex(encrypt(password, p));
+      privateKeys[account.path] = encryptPrivateKey;
+      privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
       throw new Error('No private keys found');

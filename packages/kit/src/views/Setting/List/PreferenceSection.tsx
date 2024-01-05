@@ -111,7 +111,7 @@ const CurrencyListItem = () => {
       drillIn
       onPress={onPress}
     >
-      <ListItem.Text primary={settings.currency.toUpperCase()} align="right" />
+      <ListItem.Text primary={settings.currency?.toUpperCase()} align="right" />
     </ListItem>
   );
 };

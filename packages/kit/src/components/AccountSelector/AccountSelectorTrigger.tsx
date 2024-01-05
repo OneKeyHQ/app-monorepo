@@ -3,10 +3,10 @@ import { useCallback } from 'react';
 import makeBlockie from 'ethereum-blockies-base64';
 
 import {
-  Avatar,
   Button,
   Dialog,
   Icon,
+  Image,
   ScrollView,
   Skeleton,
   Text,
@@ -19,6 +19,7 @@ import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
   useActiveAccount,
+  useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
@@ -55,14 +56,14 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image
+      <Image size="$6" borderRadius="$1">
+        <Image.Source
           src={makeBlockie(indexedAccount?.idHash ?? account?.address ?? '--')}
         />
-        <Avatar.Fallback>
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
+        </Image.Fallback>
+      </Image>
 
       <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
         {activeAccountName}
@@ -80,6 +81,9 @@ export function AccountSelectorTrigger({
   onlyAccountSelector?: boolean;
 }) {
   const contextData = useAccountSelectorContextData();
+  const {
+    selectedAccount: { networkId },
+  } = useSelectedAccount({ num });
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
@@ -103,11 +107,15 @@ export function AccountSelectorTrigger({
       {!onlyAccountSelector ? (
         <>
           <NetworkSelectorTrigger
-            key={`NetworkSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
           <DeriveTypeSelectorTrigger
-            key={`DeriveTypeSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`DeriveTypeSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
         </>

@@ -178,3 +178,5 @@ export function ImportWalletOptions() {
     </Page>
   );
 }
+
+export default ImportWalletOptions;

@@ -5,8 +5,8 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Avatar,
   Icon,
+  Image,
   ListView,
   Page,
   ScrollView,
@@ -159,12 +159,12 @@ function HomePage() {
               onPress={navigateAccountManagerStacks}
               maxWidth="$40"
             >
-              <Avatar size="$6" borderRadius="$1">
-                <Avatar.Image src="https://placehold.co/120x120?text=A" />
-                <Avatar.Fallback>
+              <Image size="$6" borderRadius="$1">
+                <Image.Source src="https://placehold.co/120x120?text=A" />
+                <Image.Fallback>
                   <Skeleton w="$6" h="$6" />
-                </Avatar.Fallback>
-              </Avatar>
+                </Image.Fallback>
+              </Image>
               <Text
                 flex={1}
                 variant="$bodyMdMedium"

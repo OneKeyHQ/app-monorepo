@@ -1,5 +1,3 @@
-import { isNative } from 'lodash';
-
 import type { IListItemProps } from '@onekeyhq/components';
 import {
   Icon,

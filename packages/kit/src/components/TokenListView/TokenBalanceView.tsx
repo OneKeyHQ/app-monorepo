@@ -15,7 +15,7 @@ function TokenBalanceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key || ''];
 
-  const balance = getFormattedNumber(token.balanceParsed);
+  const balance = getFormattedNumber(token?.balanceParsed);
 
   const content = useMemo(
     () => <SizableText {...rest}>{balance}</SizableText>,

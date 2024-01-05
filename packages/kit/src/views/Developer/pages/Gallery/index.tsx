@@ -14,6 +14,7 @@ import FormGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Compone
 import HardwareGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware';
 import IconGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon';
 import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton';
+import ImageGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image';
 import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
 import JotaiContextGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery';
 import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery';
@@ -163,5 +164,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentHardware,
     component: HardwareGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImage,
+    component: ImageGallery,
   },
 ];

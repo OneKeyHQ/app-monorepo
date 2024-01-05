@@ -15,7 +15,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
   }, []);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         <WalletList num={num} />
@@ -25,7 +25,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
   );
 }
 
-export function AccountSelectorStackPage() {
+export default function AccountSelectorStackPage() {
   return (
     <AccountSelectorProviderMirror
       config={{
