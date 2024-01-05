@@ -181,6 +181,7 @@ export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;
   idHash: string;
+  avatar?: string;
 };
 export type IDBAccountDerivation = IDBBaseObject & {
   walletId: string;
