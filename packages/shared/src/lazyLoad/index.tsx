@@ -1,13 +1,15 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, memo } from 'react';
 
-// eslint-disable-next-line react/display-name
-const LazyLoad = (func: any) => (props: any) => {
-  const Component = lazy(func);
-  return (
-    <Suspense>
-      <Component {...props} />
-    </Suspense>
-  );
+const LazyLoad = (factory: () => Promise<{ default: any }>) => {
+  const Component = lazy(factory);
+  function Component1(props: any) {
+    return (
+      <Suspense>
+        <Component {...props} />
+      </Suspense>
+    );
+  }
+  return memo(Component1);
 };
 
 export default LazyLoad;

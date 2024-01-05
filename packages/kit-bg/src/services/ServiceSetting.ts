@@ -18,6 +18,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IEndpointType } from '../states/jotai/atoms/settings';
+
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -101,8 +103,13 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setCurrency(currency: string) {
-    await settingsPersistAtom.set((prev) => ({ ...prev, currency }));
+  public async setCurrency(currencyInfo: { id: string; symbol: string }) {
+    await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+  }
+
+  @backgroundMethod()
+  public async setEndpointType(endpointType: IEndpointType) {
+    await settingsPersistAtom.set((prev) => ({ ...prev, endpointType }));
   }
 }
 

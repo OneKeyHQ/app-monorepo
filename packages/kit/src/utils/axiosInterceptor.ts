@@ -43,7 +43,7 @@ axios.interceptors.request.use(async (config) => {
   const headerPlatform = [platform, channel].filter(Boolean).join('-');
 
   config.headers.set('X-Onekey-Request-ID', generateUUID());
-  config.headers.set('X-Onekey-Request-Currency', settings.currency);
+  config.headers.set('X-Onekey-Request-Currency', settings.currencyInfo.id);
   config.headers.set('X-Onekey-Request-Locale', locale);
   config.headers.set('X-Onekey-Request-Theme', theme);
   config.headers.set('X-Onekey-Request-Platform', headerPlatform);
