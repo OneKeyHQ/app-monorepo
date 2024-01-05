@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,18 +10,25 @@ import {
   Image,
   Page,
   Text,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import useFormatDate from '../../../../hooks/useFormatDate';
+import { openUrlExternal } from '../../../../utils/openUrl';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapHistoryTokenInfoItem from '../../components/SwapHistoryTokenInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapOnChainInfoItem from '../../components/SwapOnChainInfoItem';
+import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import SwapTxHistoryStatusItem from '../../components/SwapTxHistoryStatusItem';
+import {
+  useSwapTxHistoryActions,
+  useSwapTxHistoryDetailParser,
+} from '../../hooks/useSwapTxHistory';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type {
@@ -38,23 +46,42 @@ const SwapHistoryDetailModal = () => {
     >();
   const intl = useIntl();
   const { txHistory } = route.params ?? {};
-  const { formatDate } = useFormatDate();
+  const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
   const onSwapAgain = useCallback(() => {
-    // todo swap again actions
+    swapAgainUseHistoryItem(txHistory);
+    navigation.popStack();
+  }, [navigation, swapAgainUseHistoryItem, txHistory]);
+  const onCopy = useCallback(async (copyText: string) => {
+    await Clipboard.setStringAsync(copyText);
+    Toast.success({ title: 'success', message: 'copied' });
   }, []);
-  const onCopy = useCallback((copyText: string) => {
-    // todo copy actions
+  const onViewInBrowser = useCallback((url: string) => {
+    openUrlExternal(url);
   }, []);
-  const onViewInBrowser = useCallback(() => {}, []);
   const onSupport = useCallback(() => {}, []);
-  const onShare = useCallback(() => {}, []);
+  const onShare = useCallback(() => {
+    console.log('----share');
+  }, []);
+  const {
+    statusLabel,
+    usedTime,
+    onCopyDetailInfo,
+    createDateTime,
+    updateDateTime,
+    networkFee,
+    protocolFee,
+    oneKeyFee,
+  } = useSwapTxHistoryDetailParser(txHistory);
+
   return (
     <Page scrollEnabled>
       {txHistory ? (
         <>
           <YStack separator space="$4" px="$4">
             <SwapTxHistoryStatusItem
-              item={txHistory}
+              status={txHistory.status}
+              statusTitle={statusLabel}
+              usedTime={usedTime}
               onSwapAgain={onSwapAgain}
             />
             <YStack>
@@ -76,40 +103,49 @@ const SwapHistoryDetailModal = () => {
                 title="Send"
                 value={txHistory.txInfo.sender}
                 onCopy={() => {
-                  onCopy(txHistory.txInfo.sender);
+                  void onCopy(txHistory.txInfo.sender);
                 }}
               />
               <SwapOnChainInfoItem
                 title="Receive"
                 value={txHistory.txInfo.receiver}
                 onCopy={() => {
-                  onCopy(txHistory.txInfo.receiver);
+                  void onCopy(txHistory.txInfo.receiver);
                 }}
               />
               <SwapOnChainInfoItem
                 title="Hash"
                 value={txHistory.txInfo.txId}
                 onCopy={() => {
-                  onCopy(txHistory.txInfo.txId);
+                  void onCopy(txHistory.txInfo.txId);
                 }}
               />
-              <SwapCommonInfoItem
-                title="Network Fee"
-                value={`${txHistory.txInfo.netWorkFee ?? 0} ${
-                  txHistory.baseInfo.fromNetwork?.symbol ?? '-'
-                }`}
+              {networkFee && (
+                <SwapCommonInfoItem title="Network Fee" value={networkFee} />
+              )}
+            </YStack>
+            <YStack>
+              <Text>SWAP INFO</Text>
+              <SwapRateInfoItem
+                rate={txHistory.swapInfo.instantRate}
+                fromToken={txHistory.baseInfo.fromToken}
+                toToken={txHistory.baseInfo.toToken}
               />
+              <SwapProviderInfoItem
+                providerIcon={txHistory.swapInfo.provider.providerLogo ?? ''}
+                providerName={txHistory.swapInfo.provider.providerName}
+              />
+              {protocolFee && (
+                <SwapCommonInfoItem title="Protocol Fee" value={protocolFee} />
+              )}
+              {oneKeyFee && (
+                <SwapCommonInfoItem title="OneKey Fee" value={oneKeyFee} />
+              )}
             </YStack>
             <YStack>
               <Text>TIME</Text>
-              <SwapCommonInfoItem
-                title="Created"
-                value={formatDate(new Date(txHistory.date.created))}
-              />
-              <SwapCommonInfoItem
-                title="updated"
-                value={formatDate(new Date(txHistory.date.updated))}
-              />
+              <SwapCommonInfoItem title="Created" value={createDateTime} />
+              <SwapCommonInfoItem title="updated" value={updateDateTime} />
             </YStack>
             <XStack justifyContent="space-between">
               <XStack>
@@ -129,7 +165,12 @@ const SwapHistoryDetailModal = () => {
             <Button flex={1} icon="HelpSupportOutline" onPress={onSupport}>
               {intl.formatMessage({ id: 'action__support' })}
             </Button>
-            <Button flex={1} icon="ShareArrowSolid" onPress={onShare}>
+            <Button
+              flex={1}
+              icon="ShareArrowSolid"
+              onPress={onShare}
+              onLongPress={onCopyDetailInfo}
+            >
               {intl.formatMessage({ id: 'action__share' })}
             </Button>
           </XStack>

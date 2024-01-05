@@ -37,6 +37,7 @@ const SwapQuoteResult = ({
     <YStack
       m="$4"
       p="$2"
+      space="$4"
       borderRadius="$4"
       borderColor="$bgPrimaryActive"
       borderWidth="$0.5"

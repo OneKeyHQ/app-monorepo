@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+
+import BigNumber from 'bignumber.js';
+import * as Clipboard from 'expo-clipboard';
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useFormatDate from '../../../hooks/useFormatDate';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ETabRoutes } from '../../../routes/Tab/type';
@@ -108,9 +115,9 @@ export function useSwapTxHistoryActions() {
   const { addSwapHistoryItem } = useSwapActions();
   const [swapBuildTxResult] = useSwapBuildTxResultAtom(); // current build tx result
   const [swapNetworks] = useSwapNetworksAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
+  const [toToken, setToken] = useSwapSelectToTokenAtom();
+  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   // const [receiverAddress] = useSwapReceiverAddressAtom();
   const generateSwapHistoryItem = useCallback(
     async ({ txId, netWorkFee }: { txId: string; netWorkFee: string }) => {
@@ -123,10 +130,10 @@ export function useSwapTxHistoryActions() {
             fromToken,
             toToken,
             fromNetwork: swapNetworks.find(
-              (item) => item.networkId === fromToken.networkId,
+              (item) => item?.networkId === fromToken.networkId,
             ),
             toNetwork: swapNetworks.find(
-              (item) => item.networkId === toToken.networkId,
+              (item) => item?.networkId === toToken.networkId,
             ),
           },
           txInfo: {
@@ -158,5 +165,118 @@ export function useSwapTxHistoryActions() {
     ],
   );
 
-  return { generateSwapHistoryItem };
+  const swapAgainUseHistoryItem = useCallback(
+    (item: ISwapTxHistory) => {
+      setFromToken(item?.baseInfo.fromToken);
+      setToken(item?.baseInfo.toToken);
+      setFromTokenAmount(item?.baseInfo.fromAmount);
+    },
+    [setFromToken, setFromTokenAmount, setToken],
+  );
+  return { generateSwapHistoryItem, swapAgainUseHistoryItem };
+}
+
+export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
+  const intl = useIntl();
+  const { formatDate } = useFormatDate();
+
+  const statusLabel = useMemo(() => {
+    if (item?.status === ESwapTxHistoryStatus.FAILED) {
+      return intl.formatMessage({ id: 'transaction__failed' });
+    }
+    if (item?.status === ESwapTxHistoryStatus.SUCCESS) {
+      return intl.formatMessage({ id: 'transaction__success' });
+    }
+    return intl.formatMessage({ id: 'transaction__pending' });
+  }, [intl, item?.status]);
+
+  const usedTime = useMemo(() => {
+    if (!item || item?.status === ESwapTxHistoryStatus.PENDING) {
+      return '';
+    }
+    const { created, updated } = item.date;
+    const usedTimeMinusRes = new BigNumber(updated)
+      .minus(new BigNumber(created))
+      .dividedBy(1000)
+      .dividedBy(60)
+      .decimalPlaces(0, BigNumber.ROUND_UP)
+      .toFixed(0);
+    return `${usedTimeMinusRes} minutes used`;
+  }, [item]);
+
+  const createDateTime = useMemo(() => {
+    const date = new Date(item?.date.created);
+    return formatDate(date);
+  }, [formatDate, item?.date.created]);
+
+  const updateDateTime = useMemo(() => {
+    const date = new Date(item?.date.updated);
+    return formatDate(date);
+  }, [formatDate, item?.date.updated]);
+
+  const networkFee = useMemo(
+    () =>
+      item?.txInfo?.netWorkFee
+        ? `${item?.txInfo.netWorkFee} ${
+            item?.baseInfo.fromNetwork?.symbol ?? ''
+          }`
+        : '',
+    [item?.baseInfo?.fromNetwork?.symbol, item?.txInfo?.netWorkFee],
+  );
+
+  const protocolFee = useMemo(
+    () => (item?.swapInfo?.protocolFee ? `$${item?.swapInfo.protocolFee}` : ''),
+    [item?.swapInfo.protocolFee],
+  );
+
+  const oneKeyFee = useMemo(
+    () => (item?.swapInfo.oneKeyFee ? `${item?.swapInfo.oneKeyFee}%` : ''),
+    [item?.swapInfo.oneKeyFee],
+  );
+
+  const onCopyDetailInfo = useCallback(async () => {
+    const detailInfo = `${statusLabel}\n${usedTime}\n${
+      item?.baseInfo.fromAmount
+    }${item?.baseInfo.fromToken.symbol}(${
+      item?.baseInfo.fromNetwork?.name ?? '-'
+    })\n${item?.baseInfo.toAmount}${item?.baseInfo.toToken.symbol}(${
+      item?.baseInfo.toNetwork?.name ?? '-'
+    })\nON-CHAIN INFO\n${intl.formatMessage({ id: 'action__send' })} ${
+      item?.txInfo.sender
+    }\n${intl.formatMessage({ id: 'action__receive' })} ${
+      item?.txInfo.receiver
+    }\n${intl.formatMessage({ id: 'content__hash' })} ${
+      item?.txInfo.txId
+    }\n${intl.formatMessage({
+      id: 'form__network_fee',
+    })} ${networkFee}\nSWAP INFO\n${intl.formatMessage({
+      id: 'form__rate',
+    })} 1 ${item?.baseInfo.fromToken.symbol} = ${item?.swapInfo.instantRate} ${
+      item?.baseInfo.toToken.symbol
+    }\nProvider ${
+      item?.swapInfo.provider.providerName
+    }\nProtocol Fee ${protocolFee}\nOneKey Fee ${oneKeyFee}\nCreated ${createDateTime}\nUpdated ${updateDateTime}`;
+    await Clipboard.setStringAsync(detailInfo);
+    Toast.success({ title: 'sucess', message: 'copy success' });
+  }, [
+    statusLabel,
+    item,
+    intl,
+    usedTime,
+    createDateTime,
+    updateDateTime,
+    oneKeyFee,
+    networkFee,
+    protocolFee,
+  ]);
+  return {
+    statusLabel,
+    usedTime,
+    onCopyDetailInfo,
+    createDateTime,
+    updateDateTime,
+    networkFee,
+    protocolFee,
+    oneKeyFee,
+  };
 }

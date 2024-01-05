@@ -39,7 +39,11 @@ const SwapRateInfoItem = ({
       <Text>Rate</Text>
       <XStack>
         <Text>{rateContent}</Text>
-        <IconButton onPress={handleExchangeRate} icon="SwitchHorOutline" />
+        <IconButton
+          size="small"
+          onPress={handleExchangeRate}
+          icon="SwitchHorOutline"
+        />
       </XStack>
     </XStack>
   );
