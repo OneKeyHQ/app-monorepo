@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   ListItem,
@@ -14,6 +15,8 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ETokenPages } from '../router/type';
+
+import type { ITokenParamList } from '../router/type';
 
 export const TOKENDATA = [
   {
@@ -42,7 +45,9 @@ export const TOKENDATA = [
   },
 ];
 
-export function TokenList(props) {
+export function TokenList(
+  props: IPageScreenProps<ITokenParamList, ETokenPages.TokenList>,
+) {
   const { route } = props;
   const pageTitle = route?.params?.title;
   const pageHelpText = route?.params?.helpText;

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -220,13 +221,15 @@ export function TokenDetails() {
                   style={{
                     borderCurve: 'continuous',
                   }}
-                  $platform-native={{
-                    hitSlop: {
-                      top: 8,
-                      bottom: 8,
-                      right: 8,
-                    },
-                  }}
+                  $platform-native={
+                    {
+                      hitSlop: {
+                        top: 8,
+                        bottom: 8,
+                        right: 8,
+                      },
+                    } as IStackProps
+                  }
                 >
                   <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
                 </Stack>
@@ -269,7 +272,11 @@ export function TokenDetails() {
           <Button variant="primary">Stake</Button>
         </ListItem>
         <Divider mb="$2.5" />
-        <TxHistoryListView data={data} onItemPress={handleHistoryItemPress} />
+        <TxHistoryListView
+          accountAddress=""
+          data={data as any}
+          onItemPress={handleHistoryItemPress}
+        />
       </Page.Body>
     </Page>
   );
