@@ -169,16 +169,6 @@ export function Receive() {
                 style={{
                   wordBreak: 'break-all',
                 }}
-                // {...(!isShowAddress && {
-                //   userSelect: 'none',
-                //   color: '$transparent',
-                //   textShadowColor: '$text',
-                //   textShadowOffset: {
-                //     width: 0,
-                //     height: 0,
-                //   },
-                //   textShadowRadius: 20,
-                // })}
               >
                 37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
               </SizableText>
