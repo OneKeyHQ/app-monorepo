@@ -589,4 +589,7 @@ module.exports = [
   'swipeable',
   'nft',
   'Webpack',
+  'namespace',
+  'namespaces',
+  'eip',
 ];

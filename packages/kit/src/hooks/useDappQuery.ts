@@ -2,13 +2,15 @@ import { useRoute } from '@react-navigation/core';
 
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
+interface IBaseQueryInfo {
+  $sourceInfo?: IDappSourceInfo;
+}
+
 // TODO: Add T Type
-function useDappQuery() {
+function useDappQuery<T = unknown>() {
   const route = useRoute();
   const query = (route.params as { query: string })?.query ?? '';
-  let queryInfo: {
-    $sourceInfo?: IDappSourceInfo;
-  } = {};
+  let queryInfo: IBaseQueryInfo & T = {} as IBaseQueryInfo & T;
 
   try {
     if (query) {
