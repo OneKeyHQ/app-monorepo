@@ -6,15 +6,12 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
+import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
 import type { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
 import { deserializeTx } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/txBuilder';
 import { TransactionWrapper } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper';
 import { getAminoSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/wrapper/utils';
-import {
-  getADR36SignDoc,
-  getDataForADR36,
-} from '@onekeyhq/engine/src/vaults/impl/cosmos/utils';
 import type VaultCosmos from '@onekeyhq/engine/src/vaults/impl/cosmos/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -401,6 +398,38 @@ class ProviderApiCosmos extends ProviderApiBase {
     return Promise.resolve(res.txid);
   }
 
+  private async signArbitraryMessage(
+    request: IJsBridgeMessagePayload,
+    params: {
+      chainId: string;
+      signer: string;
+      data: string;
+    },
+  ) {
+    const paramsData = {
+      data: params.data,
+      signer: params.signer,
+    };
+
+    const networkId = this.convertCosmosChainId(params.chainId);
+    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
+      request,
+      {
+        unsignedMessage: {
+          type: CommonMessageTypes.SIGN_MESSAGE,
+          message: JSON.stringify(paramsData),
+          secure: true,
+        },
+        signOnly: true,
+        networkId,
+      },
+    )) as string;
+
+    return deserializeTx(
+      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
+    );
+  }
+
   @permissionRequired()
   @providerApiMethod()
   public async signArbitrary(
@@ -413,24 +442,7 @@ class ProviderApiCosmos extends ProviderApiBase {
   ): Promise<any> {
     debugLogger.providerApi.info('cosmos signArbitrary', params);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [data, isADR36WithString] = getDataForADR36(params.data);
-    const unsignDoc = getADR36SignDoc(params.signer, data);
-    const networkId = this.convertCosmosChainId(params.chainId);
-
-    const encodeTx = unsignDoc;
-    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
-      request,
-      {
-        encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
-        signOnly: true,
-        networkId,
-      },
-    )) as ISignedTxPro;
-
-    const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
-    );
+    const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
@@ -466,26 +478,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     },
   ): Promise<any> {
     debugLogger.providerApi.info('cosmos verifyArbitrary', params);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [data, isADR36WithString] = getDataForADR36(params.data);
-    const unsignDoc = getADR36SignDoc(params.signer, data);
-
-    const networkId = this.convertCosmosChainId(params.chainId);
-
-    const encodeTx = unsignDoc;
-    const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
-      request,
-      {
-        encodedTx: TransactionWrapper.fromAminoSignDoc(encodeTx, undefined),
-        signOnly: true,
-        networkId,
-      },
-    )) as ISignedTxPro;
-
-    const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
-    );
+    const txInfo = await this.signArbitraryMessage(request, params);
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
