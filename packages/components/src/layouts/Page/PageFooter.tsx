@@ -9,9 +9,9 @@ import Animated, {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePageType } from '../../hocs';
 import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
-import { NavigationContext } from '../Navigation/context';
 
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
@@ -19,7 +19,7 @@ import { FooterActions } from './PageFooterActions';
 import type { IPageFooterProps } from './type';
 
 const useSafeAreaBottom = () => {
-  const { pageType } = useContext(NavigationContext);
+  const pageType = usePageType();
   const { safeAreaEnabled } = useContext(PageContext);
   const { bottom } = useSafeAreaInsets();
   return safeAreaEnabled && pageType === 'modal' ? bottom : 0;

@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 import { Button, Page, Text, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePasswordPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -21,9 +24,40 @@ import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
 
+const SwitchEndpointButton = () => {
+  const [settings] = useSettingsPersistAtom();
+  const onToggleEndpoint = useCallback(async () => {
+    await backgroundApiProxy.serviceSetting.setEndpointType(
+      settings.endpointType === 'prod' ? 'test' : 'prod',
+    );
+  }, [settings.endpointType]);
+  return (
+    <Button onPress={onToggleEndpoint}>
+      Toggle Endpoint (current is {settings.endpointType})
+    </Button>
+  );
+};
+
+const LockNowButton = () => {
+  const intl = useIntl();
+  const [passwordSetting] = usePasswordPersistAtom();
+  const onLock = useCallback(async () => {
+    if (passwordSetting.isPasswordSet) {
+      await backgroundApiProxy.servicePassword.lockApp();
+    } else {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
+    }
+  }, [passwordSetting.isPasswordSet]);
+  return (
+    <Button onPress={onLock}>
+      {intl.formatMessage({ id: 'action__lock_now' })}
+    </Button>
+  );
+};
+
 const TabMe = () => {
   const intl = useIntl();
-  const [settings] = usePasswordPersistAtom();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -31,9 +65,6 @@ const TabMe = () => {
     });
   }, [navigation]);
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const onLock = useCallback(() => {
-    backgroundApiProxy.servicePassword.lockApp().catch(console.error);
-  }, []);
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
@@ -60,17 +91,13 @@ const TabMe = () => {
           <Button onPress={onPress}>
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
-          {settings.isPasswordSet ? (
-            <Button onPress={onLock}>
-              {intl.formatMessage({ id: 'action__lock_now' })}
-            </Button>
-          ) : null}
+          <LockNowButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
-
+          <SwitchEndpointButton />
           <CreateHdWalletForm />
           <Button
             onPress={() => {
