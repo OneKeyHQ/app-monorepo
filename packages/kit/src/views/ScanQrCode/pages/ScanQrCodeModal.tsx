@@ -24,7 +24,7 @@ export default function ScanQrCodeModal() {
     useRoute<
       RouteProp<
         IScanQrCodeModalParamList,
-        EScanQrCodeModalPages.ScanQrCodeModal
+        EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
   const { callback } = route.params;

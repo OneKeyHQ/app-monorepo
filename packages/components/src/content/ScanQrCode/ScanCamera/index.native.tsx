@@ -8,8 +8,7 @@ export function ScanCamera({
   style,
   isActive,
   children,
-  // eslint-disable-next-line spellcheck/spell-checker
-  onScannedCode,
+  handleScanResult,
   ...rest
 }: IScanCameraProps) {
   if (!isActive) {
@@ -21,9 +20,11 @@ export function ScanCamera({
       <CameraScreen
         hideControls
         scanBarcode
-        onReadCode={(event) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, spellcheck/spell-checker
-          onScannedCode?.(event.nativeEvent.codeStringValue);
+        onReadCode={({ nativeEvent: { codeStringValue } }) => {
+          if (typeof codeStringValue !== 'string') {
+            return;
+          }
+          handleScanResult?.(codeStringValue);
         }}
         {...rest}
       />

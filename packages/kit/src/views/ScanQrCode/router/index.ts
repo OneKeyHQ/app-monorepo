@@ -12,7 +12,7 @@ export const ScanQrCodeModalRouter: IModalFlowNavigatorConfig<
   IScanQrCodeModalParamList
 >[] = [
   {
-    name: EScanQrCodeModalPages.ScanQrCodeModal,
+    name: EScanQrCodeModalPages.ScanQrCodeStack,
     component: ScanQrCodeModal,
   },
 ];

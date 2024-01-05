@@ -7,7 +7,7 @@ export default function useScanQrCode() {
   const start = () =>
     new Promise<string>((resolve, reject) => {
       navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
-        screen: EScanQrCodeModalPages.ScanQrCodeModal,
+        screen: EScanQrCodeModalPages.ScanQrCodeStack,
         params: {
           callback: (value: string) => {
             if (value?.length > 0) {

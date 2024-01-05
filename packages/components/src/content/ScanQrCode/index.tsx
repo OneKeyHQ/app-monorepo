@@ -33,7 +33,7 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
         flex: 1,
       }}
       isActive={isFocused}
-      onScannedCode={handleBarCodeScanned}
+      handleScanResult={handleBarCodeScanned}
     >
       <YStack
         fullscreen

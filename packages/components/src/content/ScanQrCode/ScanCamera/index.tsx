@@ -9,7 +9,7 @@ export function ScanCamera({
   style,
   isActive,
   children,
-  onScannedCode,
+  handleScanResult,
   ...rest
 }: IScanCameraProps) {
   if (!isActive) {
@@ -18,7 +18,7 @@ export function ScanCamera({
   return (
     <Camera
       style={style}
-      onBarCodeScanned={({ data }) => onScannedCode?.(data)}
+      onBarCodeScanned={({ data }) => handleScanResult?.(data)}
       barCodeScannerSettings={{
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],

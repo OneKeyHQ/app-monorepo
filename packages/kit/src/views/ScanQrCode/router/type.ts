@@ -1,9 +1,9 @@
 export enum EScanQrCodeModalPages {
-  ScanQrCodeModal = 'ScanQrCodeModal',
+  ScanQrCodeStack = 'ScanQrCodeStack',
 }
 
 export type IScanQrCodeModalParamList = {
-  [EScanQrCodeModalPages.ScanQrCodeModal]: {
+  [EScanQrCodeModalPages.ScanQrCodeStack]: {
     callback: (value: string) => void;
   };
 };
