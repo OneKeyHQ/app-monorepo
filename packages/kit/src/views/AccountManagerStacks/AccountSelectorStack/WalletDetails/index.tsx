@@ -259,6 +259,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
               // eslint-disable-next-line spellcheck/spell-checker
               src: item.avatar,
               fallbackProps: {
+                delay: 150,
                 children: <Skeleton w="$10" h="$10" />,
               },
               // cornerImageProps: item.networkImageSrc
