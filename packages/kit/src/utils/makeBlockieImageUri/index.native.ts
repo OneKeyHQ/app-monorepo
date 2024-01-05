@@ -1,7 +1,10 @@
 import makeBlockie from 'ethereum-blockies-base64';
 import RNFS from 'react-native-fs';
 
-import { BLOCKIE_IMAGE_CACHE_DIR } from './BlockieImageCache.const';
+import {
+  BLOCKIE_IMAGE_BASE64_PREFIX,
+  BLOCKIE_IMAGE_CACHE_DIR,
+} from './BlockieImageCache.const';
 
 export default function makeBlockieImageUri(id: string) {
   return new Promise<string>((resolve) => {
@@ -14,7 +17,7 @@ export default function makeBlockieImageUri(id: string) {
         void RNFS.write(
           filepath,
           // Although it's a bit complicated, we only decode base64 once to improve performance.
-          data.replace('data:image/png;base64,', ''),
+          data.replace(BLOCKIE_IMAGE_BASE64_PREFIX, ''),
           0,
           'base64',
         );
