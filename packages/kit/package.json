@@ -32,7 +32,6 @@
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",
     "react-intl": "^5.21.2",
-    "react-native-camera-kit": "14.0.0-beta2",
     "react-redux": "^8.0.5",
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",

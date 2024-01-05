@@ -30,6 +30,7 @@ import ProgressGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Com
 import QRCodeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRCode';
 import RadioGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Radio';
 import RefreshControlGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RefreshControl';
+import ScanQrCodeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScanQrCode';
 import ScrollViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScrollView';
 import SectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SectionList';
 import SegmentControlGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentControl';
@@ -140,6 +141,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.componentQRCode,
     component: QRCodeGallery,
+  },
+  {
+    name: EGalleryRoutes.componentScanQrCode,
+    component: ScanQrCodeGallery,
   },
   {
     name: EGalleryRoutes.ComponentWebview,

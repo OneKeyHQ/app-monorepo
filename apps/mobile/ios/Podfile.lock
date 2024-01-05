@@ -585,6 +585,8 @@ PODS:
     - React-jsi (= 0.72.5)
     - React-logger (= 0.72.5)
     - React-perflogger (= 0.72.5)
+  - ReactNativeCameraKit (14.0.0-beta2):
+    - React-Core
   - ReactNativeKeyboardManager (6.5.11-2):
     - IQKeyboardManagerSwift (= 6.5.11)
     - React-Core
@@ -761,6 +763,7 @@ DEPENDENCIES:
   - React-runtimescheduler (from `../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
   - React-utils (from `../../../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
@@ -954,6 +957,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/utils"
   ReactCommon:
     :path: "../../../node_modules/react-native/ReactCommon"
+  ReactNativeCameraKit:
+    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeKeyboardManager:
     :path: "../../../node_modules/react-native-keyboard-manager"
   RealmJS:
@@ -1076,6 +1081,7 @@ SPEC CHECKSUMS:
   React-runtimescheduler: cc32add98c45c5df18436a6a52a7e1f6edec102c
   React-utils: 7a9918a1ffdd39aba67835d42386f592ea3f8e76
   ReactCommon: 91ece8350ebb3dd2be9cef662abd78b6948233c0
+  ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
   RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
   RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
@@ -1099,4 +1105,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: ec8d48e35e02009d25628accc05f708f9632b5cf
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1
