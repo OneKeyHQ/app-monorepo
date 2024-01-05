@@ -42,15 +42,7 @@ const ThemeListItem = () => {
       title={intl.formatMessage({ id: 'form__theme' })}
       drillIn
     >
-      <ListItem.Text
-        primary={themes[theme]}
-        align="right"
-        primaryTextProps={
-          {
-            // tone: 'subdued',
-          }
-        }
-      />
+      <ListItem.Text primary={themes[theme]} align="right" />
     </ListItem>
   );
 };
@@ -81,15 +73,7 @@ const LocaleListItem = () => {
       title={intl.formatMessage({ id: 'form__language' })}
       drillIn
     >
-      <ListItem.Text
-        primary={labels[locale]}
-        align="right"
-        primaryTextProps={
-          {
-            // tone: 'subdued',
-          }
-        }
-      />
+      <ListItem.Text primary={labels[locale]} align="right" />
     </ListItem>
   );
 };
@@ -104,6 +88,7 @@ const CurrencyListItem = () => {
   }, [navigation]);
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const text = settings.currencyInfo?.id ?? '';
   return (
     <ListItem
       icon="DollarOutline"
@@ -111,7 +96,7 @@ const CurrencyListItem = () => {
       drillIn
       onPress={onPress}
     >
-      <ListItem.Text primary={settings.currency?.toUpperCase()} align="right" />
+      <ListItem.Text primary={text.toUpperCase()} align="right" />
     </ListItem>
   );
 };

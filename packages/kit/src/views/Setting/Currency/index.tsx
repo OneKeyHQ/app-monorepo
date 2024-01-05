@@ -53,13 +53,16 @@ const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
 const CurrencyItem: FC<{ item: ICurrencyItem }> = ({ item }) => {
   const [settings] = useSettingsPersistAtom();
   const onPress = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setCurrency(item.id);
+    await backgroundApiProxy.serviceSetting.setCurrency({
+      id: item.id,
+      symbol: item.unit,
+    });
   }, [item]);
   return (
     <ListItem
       title={`${item.id.toUpperCase()} - ${item.unit}`}
       subtitle={item.name}
-      checkMark={settings.currency === item.id}
+      checkMark={settings.currencyInfo.id === item.id}
       onPress={onPress}
     />
   );
