@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
-import { IPageNavigationProp, Page, Stack, Text } from '@onekeyhq/components';
+import { Page, Stack, Text } from '@onekeyhq/components';
 import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { getChainData } from '../data/chainsUtils';
 import { EIP155_EVENTS, EIP155_SIGNING_METHODS } from '../data/EIP155Data';
@@ -17,13 +18,11 @@ function SessionProposalModal() {
   const { $sourceInfo, proposal } = useDappQuery<{
     proposal: Web3WalletTypes.SessionProposal;
   }>();
-  console.log('====>$: ', $sourceInfo, proposal);
-  const { activeAccount, activeAccountName } = useActiveAccount({ num: 0 });
-  useEffect(() => {
-    console.log('====>activeAccount: ', activeAccount);
-    console.log('====>activeAccountName: ', activeAccountName);
-    console.log(getChainData('eip155:1'));
-  }, [activeAccount, activeAccountName]);
+  const dappApprove = useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
+  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const requestedChains = useMemo(() => {
     if (!proposal) return [];
@@ -119,8 +118,10 @@ function SessionProposalModal() {
       proposal: proposal.params,
       supportedNamespaces,
     });
-    console.log(approvedNamespaces);
-  }, [proposal?.params, supportedNamespaces]);
+    void dappApprove.resolve({
+      result: approvedNamespaces,
+    });
+  }, [proposal?.params, supportedNamespaces, dappApprove]);
 
   return (
     <Page>
@@ -134,7 +135,9 @@ function SessionProposalModal() {
         onConfirmText="Approval"
         onCancelText="Reject"
         onConfirm={onApproval}
-        onCancel={() => alert('cancel')}
+        onCancel={() => {
+          dappApprove.reject();
+        }}
       />
     </Page>
   );
