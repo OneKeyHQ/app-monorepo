@@ -1,10 +1,11 @@
 import { DefaultTheme } from '@react-navigation/native';
-import { Platform } from 'react-native';
 
-export const hasNativeHeaderView = Platform.OS === 'ios';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export const hasNativeHeaderView = platformEnv.isNativeIOS;
 
 export const hasStackNavigatorModal =
-  Platform.OS === 'ios' || Platform.OS === 'android';
+  platformEnv.isNativeIOS || platformEnv.isNativeAndroid;
 
 export const TransparentModalTheme = {
   ...DefaultTheme,

@@ -5,6 +5,8 @@ import { EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
+export type IEndpointType = 'prod' | 'test';
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: ILocaleSymbol;
@@ -18,8 +20,11 @@ export type ISettingsPersistAtom = {
   spendDustUTXO: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
-  endpointType: 'prod' | 'test';
-  currency: string;
+  endpointType: IEndpointType;
+  currencyInfo: {
+    symbol: string;
+    id: string;
+  };
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -38,7 +43,10 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       spendDustUTXO: false,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
       endpointType: 'prod',
-      currency: 'usd',
+      currencyInfo: {
+        id: 'usd',
+        symbol: '$',
+      },
     },
   });
 
