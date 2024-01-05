@@ -111,7 +111,7 @@ function BaseSectionList<T>(
 
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
-      return [];
+      return undefined;
     }
     return reloadSections
       .map((item, index) =>

@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Dialog, ListItem } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
-import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -17,6 +16,7 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useOptions } from '../AppLock/useOptions';
 
 import { Section } from './Section';
@@ -47,39 +47,16 @@ const AppLockItem = () => {
       title={intl.formatMessage({ id: 'form__app_lock' })}
       drillIn
     >
-      <ListItem.Text
-        primary={text}
-        align="right"
-        primaryTextProps={
-          {
-            // tone: 'subdued',
-          }
-        }
-      />
+      <ListItem.Text primary={text} align="right" />
     </ListItem>
   ) : null;
 };
 
 const SetPasswordItem = () => {
   const intl = useIntl();
-  const onPress = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({ id: 'title__set_password' }),
-      renderContent: (
-        <PasswordSetupContainer
-          onSetupRes={async (data) => {
-            if (data) {
-              await dialog.close();
-            }
-          }}
-        />
-      ),
-      showFooter: false,
-    });
-  }, [intl]);
   return (
     <ListItem
-      onPress={onPress}
+      onPress={() => backgroundApiProxy.servicePassword.promptPasswordVerify()}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
     />
