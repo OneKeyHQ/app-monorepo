@@ -115,6 +115,7 @@ export interface ISwapStepState {
   disabled: boolean;
   isCrossChain: boolean;
   wrongMsg?: string;
+  rateWarning?: string;
 }
 
 // build_tx

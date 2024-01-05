@@ -23,9 +23,22 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [selectCurrentProvider] = useSwapResultQuoteCurrentSelectAtom();
   const wrongMsgComponent = useMemo(() => {
-    if (swapStepState.wrongMsg) {
+    if (swapStepState.wrongMsg || swapStepState.rateWarning) {
       return (
-        <Alert description={swapStepState.wrongMsg} icon="PlaceholderOutline" />
+        <YStack>
+          {swapStepState.wrongMsg && (
+            <Alert
+              description={swapStepState.wrongMsg}
+              icon="PlaceholderOutline"
+            />
+          )}
+          {swapStepState.rateWarning && (
+            <Alert
+              description={swapStepState.rateWarning}
+              icon="PlaceholderOutline"
+            />
+          )}
+        </YStack>
       );
     }
     return null;

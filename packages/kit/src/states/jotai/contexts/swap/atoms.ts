@@ -86,6 +86,33 @@ export const {
     : list[0];
 });
 
+export const {
+  atom: swapQuoteTokenMarketingRateWarningAtom,
+  use: useSwapQuoteRateMarketingRateWarningAtom,
+} = contextAtomComputed((get) => {
+  const fromToken = get(swapSelectFromTokenAtom());
+  const toToken = get(swapSelectToTokenAtom());
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  if (!quoteResult) {
+    return '';
+  }
+  if (!fromToken?.price || !toToken?.price) {
+    return 'no price';
+  }
+  const fromTokenPrice = new BigNumber(fromToken.price);
+  const toTokenPrice = new BigNumber(toToken.price);
+  const marketingRate = fromTokenPrice.dividedBy(toTokenPrice).decimalPlaces(6);
+  const quoteRateBN = new BigNumber(quoteResult.instantRate);
+  const difference = marketingRate
+    .dividedBy(quoteRateBN)
+    .minus(1)
+    .multipliedBy(100);
+  if (difference.comparedTo(5) === 1) {
+    return `rate difference high ${difference.decimalPlaces(2).toFixed()}%`;
+  }
+  return '';
+});
+
 // swap build_tx
 export const {
   atom: swapSlippagePercentageAtom,
@@ -112,12 +139,14 @@ export const { atom: swapStepStateAtom, use: useSwapStepStateAtom } =
     const fromTokenAmount = get(swapFromTokenAmountAtom());
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
+    const rateWarning = get(swapQuoteTokenMarketingRateWarningAtom());
     const isCrossChain = fromToken?.networkId !== toToken?.networkId;
     const stepState: ISwapStepState = {
       type: ESwapStepStateType.PRE,
       isLoading: quoteFetching,
       disabled: true,
       isCrossChain,
+      rateWarning,
     };
     if (quoteFetching) {
       stepState.type = ESwapStepStateType.QUOTE;
