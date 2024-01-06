@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 
 import {
-  Avatar,
   Button,
   Dialog,
   Icon,
+  Image,
   ScrollView,
   Skeleton,
   Text,
@@ -62,12 +62,12 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image src={accountAvatar} />
-        <Avatar.Fallback>
+      <Image size="$6" borderRadius="$1">
+        <Image.Source src={accountAvatar} />
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
+        </Image.Fallback>
+      </Image>
 
       <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
         {activeAccountName}

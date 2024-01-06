@@ -20,7 +20,7 @@ export interface IButtonProps extends ThemeableStackProps {
   iconAfter?: IKeyOfIcons;
   disabled?: boolean;
   loading?: boolean;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   color?: ColorTokens;
 }
 

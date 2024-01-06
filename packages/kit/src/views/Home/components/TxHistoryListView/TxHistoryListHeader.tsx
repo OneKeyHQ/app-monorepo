@@ -1,14 +1,45 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Text, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  ListItem,
+  Popover,
+  SearchBar,
+  Stack,
+  Switch,
+  XStack,
+} from '@onekeyhq/components';
 
 function TxHistoryListHeader() {
   const intl = useIntl();
+  const [val, setVal] = useState(true);
+
   return (
-    <XStack px="$2">
-      <Text variant="$headingLg">
-        {intl.formatMessage({ id: 'transaction__history' })}
-      </Text>
+    <XStack justifyContent="space-between" p="$5" pb="$3">
+      <SearchBar
+        placeholder="Search..."
+        containerProps={{
+          flex: 1,
+          mr: '$2.5',
+          maxWidth: '$80',
+        }}
+      />
+      <Popover
+        title="Settings"
+        renderTrigger={<IconButton icon="SwitchOutline" />}
+        renderContent={
+          <Stack py="$2">
+            <ListItem
+              title="Hide Zero-Value Transfers"
+              subtitle="Avoid scam attempts by hiding transfers of zero-value tokens."
+            >
+              <Switch size="small" value={val} onChange={setVal} />
+            </ListItem>
+          </Stack>
+        }
+      />
     </XStack>
   );
 }

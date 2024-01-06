@@ -1,6 +1,4 @@
-import { Image } from 'react-native';
-
-import { Avatar, Stack, Text } from '@onekeyhq/components';
+import { Image, Stack, Text } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -24,25 +22,19 @@ export function WalletAvatarBase({
   img?: IAllWalletAvatarImageNames;
   wallet: IDBWallet | undefined;
 }) {
-  // eslint-disable-next-line no-param-reassign
-  img = img || wallet?.avatarInfo?.img;
+  const theImg = img || wallet?.avatarInfo?.img;
+  if (!theImg) {
+    return null;
+  }
   return (
-    <Avatar size={size}>
-      {img ? (
-        <Image
-          // flex={1}
-          width={40}
-          height={20}
-          style={{
-            width: 40,
-            height: 40,
-          }}
-          source={AllWalletAvatarImages[img] ?? AllWalletAvatarImages.bear}
-        />
-      ) : (
+    <Image size={size}>
+      <Image.Source
+        source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
+      />
+      <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
         <Text>{wallet?.avatarInfo?.emoji ?? '😀'}</Text>
-      )}
-    </Avatar>
+      </Image.Fallback>
+    </Image>
   );
 }
 

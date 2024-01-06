@@ -589,4 +589,7 @@ module.exports = [
   'swipeable',
   'nft',
   'Webpack',
+  'gt2xl',
+  'calc',
+  '100vw',
 ];

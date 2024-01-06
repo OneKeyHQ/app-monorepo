@@ -15,7 +15,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
   }, []);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         <WalletList num={num} />

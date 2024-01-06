@@ -1,4 +1,3 @@
-export * from './Avatar';
 export * from './Badge';
 export * from './HeightTransition';
 export * from './LinearGradient';
@@ -11,3 +10,5 @@ export * from './ScanQrCode';
 export * from './Splash';
 export * from './Divider';
 export * from './SheetGrabber';
+export * from './ConfirmHighlighter';
+export * from './DescriptionList';

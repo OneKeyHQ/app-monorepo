@@ -22,36 +22,36 @@ const ButtonsGallery = () => (
         element: (
           <Stack space="$1">
             <XStack space="$1">
-              <Badge type="default" size="sm">
+              <Badge badgeType="default" badgeSize="sm">
                 Badge
               </Badge>
-              <Badge type="success" size="sm">
+              <Badge badgeType="success" badgeSize="sm">
                 Badge
               </Badge>
-              <Badge type="info" size="sm">
+              <Badge badgeType="info" badgeSize="sm">
                 Badge
               </Badge>
-              <Badge type="warning" size="sm">
+              <Badge badgeType="warning" badgeSize="sm">
                 Badge
               </Badge>
-              <Badge type="critical" size="sm">
+              <Badge badgeType="critical" badgeSize="sm">
                 Badge
               </Badge>
             </XStack>
             <XStack space="$1">
-              <Badge type="default" size="lg">
+              <Badge badgeType="default" badgeSize="lg">
                 Badge
               </Badge>
-              <Badge type="success" size="lg">
+              <Badge badgeType="success" badgeSize="lg">
                 Badge
               </Badge>
-              <Badge type="info" size="lg">
+              <Badge badgeType="info" badgeSize="lg">
                 Badge
               </Badge>
-              <Badge type="warning" size="lg">
+              <Badge badgeType="warning" badgeSize="lg">
                 Badge
               </Badge>
-              <Badge type="critical" size="lg">
+              <Badge badgeType="critical" badgeSize="lg">
                 Badge
               </Badge>
             </XStack>

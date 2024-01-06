@@ -1,6 +1,5 @@
 import { ActionList, IconButton } from '../../../../actions';
-import { Avatar } from '../../../../content';
-import { Icon, Text, XStack } from '../../../../primitives';
+import { Icon, Image, Text, XStack } from '../../../../primitives';
 
 import type { IActionListSection } from '../../../../actions';
 import type { IKeyOfIcons, Stack } from '../../../../primitives';
@@ -52,16 +51,16 @@ export function DesktopTabItem(
         />
       )}
       {avatarSrc && (
-        <Avatar borderRadius="$1" size="$4.5" m="$px">
-          <Avatar.Image src={avatarSrc} />
-          <Avatar.Fallback>
+        <Image borderRadius="$1" size="$4.5" m="$px">
+          <Image.Source src={avatarSrc} />
+          <Image.Fallback>
             <Icon
               size="$4.5"
               name="GlobusOutline"
               color={selected ? '$iconActive' : '$iconSubdued'}
             />
-          </Avatar.Fallback>
-        </Avatar>
+          </Image.Fallback>
+        </Image>
       )}
       {label && (
         <Text

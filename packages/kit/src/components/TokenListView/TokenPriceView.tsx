@@ -1,35 +1,25 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
-import { ListItem } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {
   $key: string;
-} & React.ComponentProps<typeof ListItem.Text>;
+} & ISizableTextProps;
 
 function TokenPriceView(props: IProps) {
   const { $key, ...rest } = props;
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key];
 
+  const price = getFormattedNumber(token?.price, { decimal: 4 });
+
   const content = useMemo(
-    () => (
-      <ListItem.Text
-        align="right"
-        primary={new BigNumber(token.price).toFixed(2)}
-        secondary={`${new BigNumber(token.price24h).toFixed(2)}%`}
-        secondaryTextProps={{
-          color: new BigNumber(token.price24h).isPositive()
-            ? '$textSuccess'
-            : '$textCritical',
-        }}
-        {...rest}
-      />
-    ),
-    [rest, token.price, token.price24h],
+    () => <SizableText {...rest}>${price}</SizableText>,
+    [price, rest],
   );
   return content;
 }
