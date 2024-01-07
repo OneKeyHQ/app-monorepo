@@ -1,4 +1,4 @@
-import { isFunction } from 'lodash';
+import { isFunction, merge } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { LOCALES } from '@onekeyhq/components';
@@ -18,7 +18,10 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IEndpointType } from '../states/jotai/atoms/settings';
+import type {
+  IEndpointType,
+  ISettingsPersistAtom,
+} from '../states/jotai/atoms/settings';
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -108,8 +111,11 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setEndpointType(endpointType: IEndpointType) {
-    await settingsPersistAtom.set((prev) => ({ ...prev, endpointType }));
+  public async setDevMode(devMode: Partial<ISettingsPersistAtom['devMode']>) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      devMode: merge({}, prev.devMode, devMode),
+    }));
   }
 }
 

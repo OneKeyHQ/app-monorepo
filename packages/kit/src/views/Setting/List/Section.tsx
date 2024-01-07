@@ -1,13 +1,14 @@
-import type { FC, ReactNode } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
 
 import { Stack, Text } from '@onekeyhq/components';
 
 export type ISectionProps = {
   title: string;
+  titleProps?: ComponentProps<typeof Text>;
   children: ReactNode;
 };
 
-export const Section: FC<ISectionProps> = ({ title, children }) => (
+export const Section: FC<ISectionProps> = ({ title, titleProps, children }) => (
   <Stack>
     <Text
       variant="$headingSm"
@@ -15,6 +16,7 @@ export const Section: FC<ISectionProps> = ({ title, children }) => (
       paddingBottom="$2"
       paddingTop="$5"
       color="$textSubdued"
+      {...titleProps}
     >
       {title}
     </Text>
