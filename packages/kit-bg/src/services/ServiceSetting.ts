@@ -18,10 +18,7 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type {
-  IEndpointType,
-  ISettingsPersistAtom,
-} from '../states/jotai/atoms/settings';
+import type { ISettingsPersistAtom } from '../states/jotai/atoms/settings';
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
