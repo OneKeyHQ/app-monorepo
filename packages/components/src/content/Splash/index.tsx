@@ -8,7 +8,7 @@ import {
 
 import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 
 import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';

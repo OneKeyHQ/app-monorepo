@@ -5,7 +5,7 @@ import type {
   stop,
 } from 'react-native-metrix';
 
-export type { metrixUpdateInfo } from 'react-native-metrix';
+export type { metrixUpdateInfo as IMetricsUpdateInfo } from 'react-native-metrix';
 
 export type IGetTimeSinceStartupFunc = typeof getTimeSinceStartup;
 export type IOnUpdateFunc = typeof onUpdate;
