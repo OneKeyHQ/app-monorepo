@@ -64,7 +64,7 @@ function StartTimePanel() {
   const { jsBundleLoadedTime, fpTime } = useMeasureTime();
   return (
     <PartContainer title="Startup Time(ms)">
-      <Text>Loaded Time: {jsBundleLoadedTime}</Text>
+      <Text>Load Time: {jsBundleLoadedTime}</Text>
       <Text>Render time: {fpTime - jsBundleLoadedTime}</Text>
       <Text>Startup Time: {fpTime}</Text>
     </PartContainer>
