@@ -90,3 +90,8 @@ export enum EHomeTab {
   HISTORY = 'history',
   TOOLS = 'tools',
 }
+
+export enum EAssetType {
+  Token = 'Token',
+  NFT = 'NFT',
+}

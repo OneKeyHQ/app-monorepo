@@ -1,8 +1,7 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -19,6 +18,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
+import { Page, Popover, Stack, Tab, XStack } from '@onekeyhq/components';
+import { getTokens } from '@onekeyhq/components/src/hooks';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -68,11 +69,12 @@ function HeaderAction({
   );
 }
 
-function HomePage() {
-  const form = useForm();
-  const [addressType, setAddressType] = useState('nested-segWit');
-  const navigation = useAppNavigation();
+import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { NFTListContainer } from './NFTListContainer';
+import { TokenListContainerWithProvider } from './TokenListContainer';
+import { TxHistoryListContainer } from './TxHistoryContainer';
 
+function HomePage() {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
@@ -297,7 +299,7 @@ function HomePage() {
           <Tab
             // @ts-expect-error
             data={tabs}
-            ListHeaderComponent={<>{renderHeaderView()}</>}
+            ListHeaderComponent={<HomeHeaderContainer />}
             initialScrollIndex={0}
             stickyHeaderIndices={[1]}
             $md={{
@@ -305,7 +307,6 @@ function HomePage() {
             }}
             $gtMd={{
               width: screenWidth - sideBarWidth,
-              // maxWidth: 1024,
             }}
             refreshControl={
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
@@ -315,7 +316,7 @@ function HomePage() {
         </Page.Body>
       </Page>
     ),
-    [tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
+    [headerTitle, tabs, screenWidth, sideBarWidth, onRefresh],
   );
 }
 
