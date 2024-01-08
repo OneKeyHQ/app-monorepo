@@ -1,6 +1,7 @@
 import {
   type PropsWithChildren,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,49 +11,21 @@ import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 
 import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 
-import { ChildrenContent } from './ChildrenContent';
 import { SplashView } from './SplashView';
 
-import type { LayoutChangeEvent } from 'react-native';
+export type ISplashProps = PropsWithChildren;
 
-export type ISplashProps = PropsWithChildren<{
-  onReady: () => Promise<boolean>;
-}>;
-
-export function Splash({ onReady, children }: ISplashProps) {
+export function Splash({ children }: ISplashProps) {
   const [showLoading, changeLoadingVisibility] = useState(true);
-  const [showChildren, changeChildrenVisibility] = useState(false);
-  const readyRef = useRef(false);
-  const handleReady = useCallback(async () => {
-    changeChildrenVisibility(true);
-    readyRef.current = await onReady();
-  }, [onReady]);
 
-  const handleCheck = useCallback(() => {
-    if (!readyRef.current) {
-      setTimeout(() => {
-        handleCheck();
-      }, 10);
-    } else {
-      setTimeout(() => {
-        changeLoadingVisibility(false);
-      });
-    }
+  const handleSplashReady = useCallback(() => {
+    changeLoadingVisibility(false);
+    markFPTime();
   }, []);
 
   const handleExitComplete = useCallback(() => {
     markFPTime();
   }, []);
-
-  const handleChildrenLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const { height } = e.nativeEvent.layout;
-      if (height) {
-        handleCheck();
-      }
-    },
-    [handleCheck],
-  );
 
   const bgColor = useMemo(
     () => getTokenValue('$bgAppDark', 'color') as string,
@@ -61,15 +34,13 @@ export function Splash({ onReady, children }: ISplashProps) {
 
   return (
     <Stack flex={1}>
-      <ChildrenContent onLayout={handleChildrenLayout} visible={showChildren}>
-        {children}
-      </ChildrenContent>
+      {children}
       <AnimatePresence onExitComplete={handleExitComplete}>
         {showLoading && (
           <Stack
             key="splash-view"
             bg={bgColor}
-            animation="medium"
+            animation="50ms"
             position="absolute"
             top={0}
             left={0}
@@ -81,7 +52,7 @@ export function Splash({ onReady, children }: ISplashProps) {
               opacity: 0,
             }}
           >
-            <SplashView onReady={handleReady} />
+            <SplashView onReady={handleSplashReady} />
           </Stack>
         )}
       </AnimatePresence>
