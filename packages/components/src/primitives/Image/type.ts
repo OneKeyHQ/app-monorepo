@@ -10,6 +10,7 @@ export type IImageContext = {
 
 export type IImageFallbackProps = PropsWithChildren<
   StackStyleProps & {
+    /** Milliseconds to wait before showing the fallback, to prevent flicker */
     delayMs?: number;
   }
 >;
@@ -18,13 +19,14 @@ export type IImageSkeletonProps = Omit<IImageFallbackProps, 'children'>;
 
 export type IImageSourceProps = Omit<
   ImageProps,
-  'width' | 'height' | 'source'
-> &
-  StackStyleProps & {
-    delayMs?: number;
-    src?: string;
-    source?: ImageProps['source'];
-  };
+  'width' | 'height' | 'source' | 'borderRadius' | 'size'
+> & {
+  circular?: boolean;
+  delayMs?: number;
+  src?: string;
+  source?: ImageProps['source'];
+  size?: StackStyleProps['width'];
+} & StackStyleProps;
 export type IImageProps = PropsWithChildren<IImageSourceProps>;
 
 export type IUseSource = (

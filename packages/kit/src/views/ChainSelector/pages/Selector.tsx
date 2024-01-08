@@ -102,6 +102,7 @@ export function Selector() {
                     opacity: 0,
                     scale: 0,
                   }}
+                  cursor="move"
                   icon="DragOutline"
                   onPressIn={drag}
                 />
@@ -122,3 +123,5 @@ export function Selector() {
     </Page>
   );
 }
+
+export default Selector;

@@ -48,7 +48,7 @@ const AlertFrame = styled(XStack, {
   context: AlertContext,
   paddingHorizontal: '$4',
   paddingVertical: '$3.5',
-  alignItems: 'flex-start',
+  alignItems: 'center',
   space: '$2',
   backgroundColor: '$bgSubdued',
   borderColor: '$borderSubdued',

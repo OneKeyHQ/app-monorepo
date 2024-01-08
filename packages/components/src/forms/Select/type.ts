@@ -18,6 +18,7 @@ export interface ISelectItem {
   label: string;
   value: string;
   leading?: ListItemProps['icon'];
+  description?: string;
 }
 
 export interface ISelectItemProps extends ISelectItem {
@@ -41,5 +42,6 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   disabled?: boolean;
   sheetProps?: SheetProps;
+  floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
 }>;

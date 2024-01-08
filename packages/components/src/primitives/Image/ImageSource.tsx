@@ -4,7 +4,7 @@ import { usePropsAndStyle } from '@tamagui/core';
 import { Image as NativeImage } from 'react-native';
 
 import { ImageContext } from './context';
-import { useSource } from './hook';
+import { useSource } from './hooks';
 
 import type { IImageSourceProps } from './type';
 import type { ImageStyle, StyleProp } from 'react-native';
@@ -50,8 +50,9 @@ export function ImageSource({
     <NativeImage
       source={imageSource}
       {...restProps}
-      width={style.width as number}
-      height={style.height as number}
+      borderRadius={style.borderRadius as number}
+      width={undefined}
+      height={undefined}
       onLoadStart={handleLoadStart}
       onLoadEnd={handleLoadEnd}
       style={style as StyleProp<ImageStyle>}

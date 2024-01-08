@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// eslint-disable-next-line spellcheck/spell-checker
-import makeBlockie from 'ethereum-blockies-base64';
 import { AnimatePresence } from 'tamagui';
 
 import {
@@ -36,6 +34,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../../../states/jotai/contexts/accountSelector';
+import makeBlockieImageUri from '../../../../utils/makeBlockieImageUri';
 import { EOnboardingPages } from '../../../Onboarding/router/type';
 import { AccountRenameButton } from '../../AccountRename';
 
@@ -95,9 +94,16 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
       }
-      return serviceAccount.getAccountsOfWallet({
-        walletId: selectedAccount?.focusedWallet,
-      });
+      return serviceAccount
+        .getAccountsOfWallet({
+          walletId: selectedAccount?.focusedWallet,
+        })
+        .then(async (value) => {
+          for (const item of value?.accounts ?? []) {
+            item.avatar = await makeBlockieImageUri(item.idHash || item.id);
+          }
+          return value;
+        });
     }, [selectedAccount?.focusedWallet, serviceAccount]);
   const accounts =
     accountsResult?.accounts ?? (emptyArray as unknown as IDBIndexedAccount[]);
@@ -251,8 +257,9 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              src: makeBlockie(item.idHash || item.id),
+              src: item.avatar,
               fallbackProps: {
+                delayMs: 150,
                 children: <Skeleton w="$10" h="$10" />,
               },
               // cornerImageProps: item.networkImageSrc

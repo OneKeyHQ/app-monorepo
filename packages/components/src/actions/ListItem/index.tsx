@@ -6,17 +6,9 @@ import type {
 } from 'react';
 import { isValidElement } from 'react';
 
-import {
-  AnimatePresence,
-  type AvatarFallbackProps,
-  type AvatarImageProps,
-  type AvatarProps,
-  type StackProps,
-  Unspaced,
-  withStaticProperties,
-} from 'tamagui';
+import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
-import { Avatar, Divider } from '../../content';
+import { Divider } from '../../content';
 import { Icon, Image, SizableText, Stack } from '../../primitives';
 import { IconButton } from '../IconButton';
 
@@ -26,12 +18,18 @@ import type {
   IImageProps,
   ISizableTextProps,
 } from '../../primitives';
+import type {
+  AvatarFallbackProps,
+  AvatarImageProps,
+  AvatarProps,
+  StackProps,
+} from 'tamagui';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: StackProps;
 }
 
-/* Avatar Corner Icon */
+/* Image Corner Icon */
 const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
   const { name, containerProps, ...rest } = props;
 
@@ -70,15 +68,15 @@ const ListItemAvatarCornerImage = ({
     borderRadius="$full"
     zIndex="$1"
   >
-    <Avatar size="$4" circular {...rest}>
-      <Avatar.Image src={src} />
-      <Avatar.Fallback {...fallbackProps} />
-    </Avatar>
+    <Image size="$4" circular {...(rest as any)}>
+      <Image.Source src={src} />
+      <Image.Fallback {...fallbackProps} />
+    </Image>
   </Stack>
 );
 
 /* Avatar */
-type IListItemAvatarProps = {
+export type IListItemAvatarProps = {
   /** A string representing the remote URL of the image. */
   src?: AvatarImageProps['src'];
   /** A local file resource, such as `require('./test.jpg')` */
@@ -103,23 +101,21 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
 
   return (
     <Stack>
-      <Avatar
+      <Image
         size="$10"
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
-        {...rest}
+        {...(rest as any)}
       >
         {source ? (
           <Image flex={1} width="100%" source={source} resizeMode="center" />
         ) : (
           <>
-            <Avatar.Image src={src} />
-            <Avatar.Fallback {...fallbackProps} />
+            <Image.Source src={src} />
+            <Image.Fallback {...fallbackProps} />
           </>
         )}
-      </Avatar>
+      </Image>
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
       {children}
@@ -355,11 +351,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
 
 export const ListItem = withStaticProperties(ListItemComponent, {
   Text: ListItemText,
-  Avatar: {
-    Component: ListItemAvatar,
+  Avatar: withStaticProperties(ListItemAvatar, {
     CornerIcon: ListItemAvatarCornerIcon,
     CornerImage: ListItemAvatarCornerImage,
-  },
+  }),
   IconButton: ListItemIconButton,
   CheckMark: ListItemCheckMark,
   Separator: ListItemSeparator,
