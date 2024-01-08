@@ -155,7 +155,6 @@ function HomePage() {
     () => (
       <Stack
         p="$5"
-        // onLayout={() => markFPTime()}
         $gtMd={{
           flexDirection: 'row',
           justifyContent: 'space-between',
