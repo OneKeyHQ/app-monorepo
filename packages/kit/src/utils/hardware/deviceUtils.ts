@@ -1,5 +1,6 @@
 /* eslint-disable no-promise-executor-return */
 import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
+import { isEmpty } from 'lodash';
 import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
@@ -251,7 +252,7 @@ class DeviceUtils {
     console.error('deviceUtils.showErrorToast ERROR: ', error);
 
     try {
-      const { className, key, code, info } = error || {};
+      const { className, key, code, info, message } = error || {};
 
       if (code === HardwareErrorCode.DeviceInterruptedFromOutside) {
         return false;
@@ -338,8 +339,8 @@ class DeviceUtils {
           errorMessage = formatMessage({ id: key }, info);
         } else if (defKey) {
           errorMessage = formatMessage({ id: defKey }, info);
-          // } else if (message && !isEmpty(message)) {
-          //   errorMessage = message;
+        } else if (ignoreKeys.includes(key) && message && !isEmpty(message)) {
+          errorMessage = message;
         } else if (key && key !== 'onekey_error') {
           errorMessage = formatMessage({ id: key }, info);
         }
