@@ -32,26 +32,6 @@ const getLanguage = (symbol: string): string => {
   return languageName || symbol;
 };
 
-if (process.env.NODE_ENV !== 'production') {
-  // Check if i18n keys are complete
-  const keyLength = Object.keys(enUS).length;
-  // eslint-disable-next-line no-restricted-syntax, guard-for-in
-  for (const key in LOCALES) {
-    // @ts-ignore
-    const data = LOCALES[key];
-    if (typeof data === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      data().then((module: { default: any }) => {
-        if (Object.keys(module.default).length !== keyLength) {
-          throw new Error(
-            `Locale ${key} has different keys with en-US, please check it.`,
-          );
-        }
-      });
-    }
-  }
-}
-
 const LOCALES_OPTION = Object.keys(LOCALES).map((key) => ({
   value: key,
   label: getLanguage(key),

@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
