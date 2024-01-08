@@ -1,7 +1,6 @@
 import {
   type PropsWithChildren,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -42,7 +41,6 @@ export function Splash({ onReady, children }: ISplashProps) {
   }, []);
 
   const handleExitComplete = useCallback(() => {
-    console.log('markFPTime');
     markFPTime();
   }, []);
 

@@ -1,3 +1,11 @@
+/* eslint-disable import/first */
+/* eslint-disable import/order */
+const {
+  markJsBundleLoadedTime,
+} = require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix');
+
+markJsBundleLoadedTime();
+
 import '@onekeyhq/shared/src/polyfills';
 import { registerRootComponent } from 'expo';
 

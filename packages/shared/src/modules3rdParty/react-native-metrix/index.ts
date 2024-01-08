@@ -1,18 +1,12 @@
 import {
-  getTimeSinceStartup,
-  onUpdate,
-  start,
-  stop,
-} from 'react-native-metrix';
-
-import {
   clearLogFolder,
   initLogFolder,
   metrixLogger,
   uploadMetricsLogFile,
 } from './logger';
+import { getTimeSinceStartup, onUpdate, start, stop } from './metrix';
 
-import type { metrixUpdateInfo } from 'react-native-metrix';
+import type { metrixUpdateInfo } from './type';
 
 const PLACEHOLDER = -1;
 const measureTime = {
