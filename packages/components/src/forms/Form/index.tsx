@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
+import type {
+  PropsWithChildren,
+  ReactChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import { Children, cloneElement, isValidElement } from 'react';
 
 import { noop } from 'lodash';
@@ -6,7 +11,7 @@ import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
 import { HeightTransition } from '../../content';
-import { Label, SizableText, YStack } from '../../primitives';
+import { Label, SizableText, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -73,10 +78,18 @@ const getChildProps = (
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     label?: string;
-    description?: string;
+    description?: string | ReactNode;
+    optional?: boolean;
   }>;
 
-function Field({ name, label, description, rules, children }: IFieldProps) {
+function Field({
+  name,
+  label,
+  optional,
+  description,
+  rules,
+  children,
+}: IFieldProps) {
   const {
     control,
     formState: { errors },
@@ -90,9 +103,14 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
           {label && (
-            <Label htmlFor={name} mb="$1.5">
-              {label}
-            </Label>
+            <XStack mb="$1.5">
+              <Label htmlFor={name}>{label}</Label>
+              {optional && (
+                <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                  (Optional)
+                </SizableText>
+              )}
+            </XStack>
           )}
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
@@ -120,11 +138,13 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
               </SizableText>
             )}
           </HeightTransition>
-          {description ? (
+          {typeof description === 'string' ? (
             <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}
             </SizableText>
-          ) : null}
+          ) : (
+            description
+          )}
         </Fieldset>
       )}
     />

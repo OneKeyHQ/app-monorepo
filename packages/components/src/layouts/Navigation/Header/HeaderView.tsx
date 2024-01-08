@@ -115,7 +115,7 @@ function HeaderView({
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
-                : headerRight
+                : (headerRight as any)
             }
             headerTitle={
               typeof headerTitle === 'function'
