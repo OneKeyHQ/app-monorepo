@@ -2,7 +2,9 @@ import ISO6391 from 'iso-639-1';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { LOCALES as _LOCALES, enUS } from './localeJsonMap';
+import { LOCALES as _LOCALES } from './localeJsonMap';
+
+import type { enUS } from './localeJsonMap';
 
 export type ILocaleSymbol = keyof typeof _LOCALES | 'system';
 export type ILocaleIds = keyof typeof enUS;
