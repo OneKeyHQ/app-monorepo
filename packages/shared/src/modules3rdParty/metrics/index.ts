@@ -31,17 +31,17 @@ export const subscribeToMetrics = (
 ) => onUpdate(callback);
 
 export const useMeasureTime = () => {
-  const [info, setInfo] = useState<typeof measureTime>(measureTime);
+  const [info, setInfo] = useState({} as typeof measureTime);
   const fetchMeasure = useCallback(
     () =>
       setTimeout(() => {
         if (
-          measureTime.fpTime !== PLACEHOLDER ||
-          measureTime.jsBundleLoadedTime !== PLACEHOLDER
+          measureTime.fpTime === PLACEHOLDER ||
+          measureTime.jsBundleLoadedTime === PLACEHOLDER
         ) {
-          setInfo(measureTime);
-        } else {
           fetchMeasure();
+        } else {
+          setInfo(measureTime);
         }
       }, 10),
     [],
