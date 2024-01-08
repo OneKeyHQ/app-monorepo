@@ -20,7 +20,6 @@ export function Splash({ children }: ISplashProps) {
 
   const handleSplashReady = useCallback(() => {
     changeLoadingVisibility(false);
-    markFPTime();
   }, []);
 
   const handleExitComplete = useCallback(() => {
