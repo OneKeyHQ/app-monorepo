@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { getTimeSinceStartup, onUpdate } from './metrix';
+import { getTimeSinceStartup, onUpdate } from './metrics';
 
 import type { IMetricsUpdateInfo } from './type';
 
