@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
-import { useSafeAreaInsets } from '../../hooks';
+import { useBackHandler, useSafeAreaInsets } from '../../hooks';
 import { Text, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -122,6 +122,16 @@ function RawPopover({
   const openPopover = useCallback(() => {
     onOpenChange?.(true);
   }, [onOpenChange]);
+
+  const handleBackPress = useCallback(() => {
+    if (!isOpen) {
+      return false;
+    }
+    closePopover();
+    return true;
+  }, [closePopover, isOpen]);
+
+  useBackHandler(handleBackPress);
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
