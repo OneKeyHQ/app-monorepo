@@ -208,6 +208,7 @@ const LNURLAuth = () => {
         await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
           password,
           walletId,
+          networkId: networkId ?? '',
           lnurlDetail: lnurlDetails,
         });
         ToastManager.show({
@@ -255,6 +256,7 @@ const LNURLAuth = () => {
     [
       lnurlDetails,
       walletId,
+      networkId,
       closeModal,
       messages.successText,
       intl,

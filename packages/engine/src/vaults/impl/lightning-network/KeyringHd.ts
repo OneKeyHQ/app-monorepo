@@ -1,7 +1,12 @@
 import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { mnemonicToSeedSync } from 'bip39';
 
+import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import { getPathSuffix } from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/lnurl';
+import HashKeySigner from '@onekeyhq/engine/src/vaults/impl/lightning-network/helper/signer';
+import { getBitcoinBip32 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -25,6 +30,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxLightning, ILightningHDSignatureParams } from './types';
+import type { LNURLAuthServiceResponse, LNURLDetails } from './types/lnurl';
 import type LightningVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
@@ -181,5 +187,62 @@ export class KeyringHd extends KeyringHdBase {
 
   signature(params: ILightningHDSignatureParams) {
     return signature(params);
+  }
+
+  async lnurlAuth({
+    lnurlDetail,
+    password,
+  }: {
+    lnurlDetail: LNURLAuthServiceResponse;
+    password: string;
+  }) {
+    if (lnurlDetail.tag !== 'login') {
+      throw new Error('lnurl-auth: invalid tag');
+    }
+
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const mnemonic = mnemonicFromEntropy(entropy, password);
+    const seed = mnemonicToSeedSync(mnemonic);
+    const root = getBitcoinBip32().fromSeed(seed);
+    // See https://github.com/lnurl/luds/blob/luds/05.md
+    const hashingKey = root.derivePath(`m/138'/0`);
+    const hashingPrivateKey = hashingKey.privateKey;
+    if (!hashingPrivateKey) {
+      throw new Error('lnurl-auth: invalid hashing key');
+    }
+    const url = new URL(lnurlDetail.url);
+
+    const pathSuffix = getPathSuffix(url.host, bytesToHex(hashingPrivateKey));
+
+    let linkingKey = root.derivePath(`m/138'`);
+    for (const index of pathSuffix) {
+      linkingKey = linkingKey.derive(index);
+    }
+
+    if (!linkingKey.privateKey) {
+      throw new Error('lnurl-auth: invalid linking private key');
+    }
+
+    const linkingKeyPriv = bytesToHex(linkingKey.privateKey);
+
+    if (!linkingKeyPriv) {
+      throw new Error('Invalid linkingKey');
+    }
+
+    const signer = new HashKeySigner(linkingKeyPriv);
+
+    const k1 = hexToBytes(lnurlDetail.k1);
+    const signedMessage = signer.sign(k1);
+    const signedMessageDERHex = signedMessage.toDER('hex');
+
+    const loginURL = url;
+    loginURL.searchParams.set('sig', signedMessageDERHex);
+    loginURL.searchParams.set('key', signer.pkHex);
+    loginURL.searchParams.set('t', Date.now().toString());
+
+    return loginURL.toString();
   }
 }
