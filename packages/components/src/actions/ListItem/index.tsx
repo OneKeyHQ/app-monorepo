@@ -199,6 +199,10 @@ const ListItemCheckMark = (props: StackProps) => (
       opacity: 0,
       scale: 0,
     }}
+    exitStyle={{
+      opacity: 0,
+      scale: 0,
+    }}
     {...props}
   >
     <Icon name="CheckRadioSolid" color="$iconActive" />
