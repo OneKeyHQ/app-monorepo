@@ -39,9 +39,9 @@ export default class ServiceBase {
         endpoint = endpoints.http;
       }
       const options =
-        platformEnv.isDev && process.env.ONEKEY_PROXY
+        platformEnv.isDev && process.env.ONEKEY_PROXY 
           ? {
-              baseURL: '/',
+              baseURL:  platformEnv.isExtension ? 'http://localhost:3180' : '/',
               timeout: 60 * 1000,
               headers: {
                 'x-proxy': endpoint,
