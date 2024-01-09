@@ -145,11 +145,13 @@ export default class ServiceSwap extends ServiceBase {
     toToken,
     fromTokenAmount,
     userAddress,
+    slippagePercentage,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
     userAddress?: string;
+    slippagePercentage: number;
   }): Promise<IFetchQuoteResult[]> {
     if (this._quoteCancelSource) {
       this._quoteCancelSource.cancel('quote request canceled');
@@ -177,6 +179,7 @@ export default class ServiceSwap extends ServiceBase {
       protocol: EExchangeProtocol.SWAP,
       providers: supportedProviders.join(','),
       userAddress,
+      slippagePercentage,
     };
     this._quoteCancelSource = axios.CancelToken.source();
     const endpoints = await getEndpoints();
@@ -224,7 +227,7 @@ export default class ServiceSwap extends ServiceBase {
     provider: ESwapProviders;
     userAddress: string;
     receivingAddress: string;
-    slippagePercentage: string;
+    slippagePercentage: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params = {
       fromTokenAddress: fromToken.contractAddress,

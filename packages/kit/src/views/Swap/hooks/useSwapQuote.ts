@@ -1,13 +1,12 @@
 import { useCallback } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useSwapQuoteFetchingAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 import { mockAddress } from '../utils/utils';
 
@@ -16,6 +15,7 @@ export function useSwapQuote() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setQuoteList] = useSwapQuoteListAtom();
+  const [swapSlippage] = useSwapSlippagePercentageAtom();
   const quoteFetch = useCallback(
     async (fromAmount: number) => {
       if (
@@ -31,14 +31,8 @@ export function useSwapQuote() {
             toToken,
             fromTokenAmount: fromAmount.toString(),
             userAddress: mockAddress,
+            slippagePercentage: swapSlippage.value,
           });
-          if (res && res?.length > 0) {
-            res.sort((a, b) => {
-              const bBN = new BigNumber(b.toAmount);
-              const aBN = new BigNumber(a.toAmount);
-              return bBN.comparedTo(aBN);
-            });
-          }
           setQuoteList(res);
           setQuoteFetching(false);
         } catch (e: any) {
@@ -53,7 +47,7 @@ export function useSwapQuote() {
         setQuoteList([]);
       }
     },
-    [fromToken, setQuoteFetching, setQuoteList, toToken],
+    [fromToken, setQuoteFetching, setQuoteList, swapSlippage.value, toToken],
   );
   return {
     quoteFetching,

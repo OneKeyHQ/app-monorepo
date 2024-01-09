@@ -35,7 +35,7 @@ export function useSwapBuildTx() {
         toToken,
         toTokenAmount: selectQuote.toAmount,
         fromTokenAmount,
-        slippagePercentage: slippagePercentage.value.toFixed(),
+        slippagePercentage: slippagePercentage.value,
         receivingAddress: mockAddress,
         userAddress: mockAddress,
         provider: selectQuote.info.provider,

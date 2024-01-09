@@ -52,7 +52,7 @@ const SwapQuoteResult = ({
         providerName={quoteResult.info.providerName}
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
         isLoading={quoteFetching}
-        showBest
+        showBest={quoteResult.isBest}
         showLock={!!quoteResult.allowanceResult}
         onPress={() => {
           onOpenProviderList?.();

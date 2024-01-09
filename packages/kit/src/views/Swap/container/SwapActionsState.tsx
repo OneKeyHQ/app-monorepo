@@ -23,7 +23,10 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [selectCurrentProvider] = useSwapResultQuoteCurrentSelectAtom();
   const wrongMsgComponent = useMemo(() => {
-    if (swapStepState.wrongMsg || swapStepState.rateWarning) {
+    if (
+      (swapStepState.wrongMsg || swapStepState.rateWarning) &&
+      !swapStepState.isLoading
+    ) {
       return (
         <YStack>
           {swapStepState.wrongMsg && (

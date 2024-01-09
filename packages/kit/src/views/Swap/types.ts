@@ -54,7 +54,7 @@ export interface IFetchQuotesParams {
   toTokenSwftCode?: string;
   userAddress?: string;
   receivingAddress?: string;
-  slippagePercentage?: string;
+  slippagePercentage?: number;
 }
 
 export interface IFetchQuoteResult {
@@ -64,6 +64,7 @@ export interface IFetchQuoteResult {
   instantRate: string;
   allowanceResult?: IAllowanceResult;
   estimatedTime?: string;
+  isBest?: boolean;
   limit?: IFetchQuoteLimit;
 }
 

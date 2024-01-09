@@ -42,8 +42,8 @@ const SwapProviderSelectModal = () => {
   );
 
   const providerPriceSpread = useCallback(
-    (item: IFetchQuoteResult, index: number) => {
-      if (index !== 0) {
+    (item: IFetchQuoteResult) => {
+      if (!item.isBest) {
         const firstItem = swapQuoteList[0];
         const firstPrice = new BigNumber(firstItem.toAmount);
         const currentPrice = new BigNumber(item.toAmount);
@@ -76,8 +76,11 @@ const SwapProviderSelectModal = () => {
             {isAllowance && <Icon name="LockSolid" />}
           </XStack>
           <Text>{`${item.toAmount} ${toToken?.symbol ?? ''}`}</Text>
-          <Badge type={index === 0 ? 'success' : 'critical'} size="sm">
-            {providerPriceSpread(item, index)}
+          <Badge
+            badgeType={index === 0 ? 'success' : 'critical'}
+            badgeSize="sm"
+          >
+            {providerPriceSpread(item)}
           </Badge>
         </ListItem>
       );

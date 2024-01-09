@@ -21,10 +21,10 @@ const SwapTxHistoryListCell = ({
     if (item.status !== ESwapTxHistoryStatus.SUCCESS) {
       return (
         <Badge
-          type={
+          badgeType={
             item.status === ESwapTxHistoryStatus.FAILED ? 'critical' : 'default'
           }
-          size="lg"
+          badgeSize="lg"
         />
       );
     }
