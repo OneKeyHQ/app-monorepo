@@ -7,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpoints } from '../endpoints';
@@ -37,11 +38,20 @@ export default class ServiceBase {
       } else {
         endpoint = endpoints.http;
       }
-
-      const client = axios.create({
-        baseURL: endpoint,
-        timeout: 60 * 1000,
-      });
+      const options =
+        platformEnv.isDev && process.env.ONEKEY_PROXY
+          ? {
+              baseURL: '/',
+              timeout: 60 * 1000,
+              headers: {
+                'x-proxy': endpoint,
+              },
+            }
+          : {
+              baseURL: endpoint,
+              timeout: 60 * 1000,
+            };
+      const client = axios.create(options);
       return client;
     },
     {

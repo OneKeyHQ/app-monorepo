@@ -22,6 +22,7 @@
     "app:ext:v3:build": "yarn workspace @onekeyhq/ext build:v3",
     "app:ext:v3:build:all": "yarn workspace @onekeyhq/ext build:all:v3",
     "app:web": "yarn workspace @onekeyhq/web start",
+    "app:web:proxy": "yarn workspace @onekeyhq/web start:proxy",
     "app:web:build": "yarn workspace @onekeyhq/web build",
     "app:web-embed": "yarn workspace @onekeyhq/web-embed start",
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
