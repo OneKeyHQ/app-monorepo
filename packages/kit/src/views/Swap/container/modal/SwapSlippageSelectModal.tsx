@@ -12,7 +12,7 @@ import {
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useSwapSlippagePercentageAtom } from '../../../../states/jotai/contexts/swap';
-import SwapSlippageSegmentGroup from '../../components/SwapSlippageSegmentGroup';
+import SwapSlippageSegmentGroup from '../../Components/SwapSlippageSegmentGroup';
 import {
   ESwapSlippageSegmentKey,
   type ISwapSlippageSegmentItem,

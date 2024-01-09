@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Avatar, Image, Spinner, Text, XStack } from '@onekeyhq/components';
+import { Image, Spinner, Text, XStack } from '@onekeyhq/components';
 
 import type { ISwapToken } from '../types';
 
@@ -26,15 +26,14 @@ const SwapTokenSelectTrigger = ({
     >
       {currentToken ? (
         <>
-          <Avatar size="$10" borderRadius="$5" mr="$2">
-            <Image
-              flex={1}
-              width="100%"
-              source={{ uri: currentToken.logoURI }}
-              resizeMode="center"
-            />
-          </Avatar>
-
+          <Image
+            borderRadius="$5"
+            w="$10"
+            h="$10"
+            mr="$2"
+            source={{ uri: currentToken.logoURI }}
+            // resizeMode="center"
+          />
           <Text>{currentToken.symbol}</Text>
         </>
       ) : (

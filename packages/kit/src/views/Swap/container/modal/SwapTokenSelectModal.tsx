@@ -21,7 +21,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../../states/jotai/contexts/swap';
-import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
+import NetworkToggleGroup from '../../Components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { EModalSwapRoutes } from '../../router/Routers';
 import { withSwapProvider } from '../WithSwapProvider';

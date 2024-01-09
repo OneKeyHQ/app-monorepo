@@ -7,9 +7,9 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import SwapCommonInfoItem from '../components/SwapCommonInfoItem';
-import SwapProviderInfoItem from '../components/SwapProviderInfoItem';
-import SwapRateInfoItem from '../components/SwapRateInfoItem';
+import SwapCommonInfoItem from '../Components/SwapCommonInfoItem';
+import SwapProviderInfoItem from '../Components/SwapProviderInfoItem';
+import SwapRateInfoItem from '../Components/SwapRateInfoItem';
 import { useSwapQuote } from '../hooks/useSwapQuote';
 
 interface ISwapQuoteResultProps {

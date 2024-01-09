@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Avatar, Button, Image, Text, XStack } from '@onekeyhq/components';
+import { Button, Image, Text, XStack } from '@onekeyhq/components';
 
 import type { ISwapNetwork } from '../types';
 
@@ -46,14 +46,13 @@ const SwapNetworkToggleGroup = ({
         }}
       >
         <XStack space="$2" justifyContent="center" alignItems="center">
-          <Avatar size="$4">
-            <Image
-              flex={1}
-              width="100%"
-              source={{ uri: network.logoURI }}
-              resizeMode="center"
-            />
-          </Avatar>
+          <Image
+            w="$4"
+            h="$4"
+            borderRadius="$2"
+            source={{ uri: network.logoURI }}
+            // resizeMode="center"
+          />
           <Text>
             {network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'}
           </Text>

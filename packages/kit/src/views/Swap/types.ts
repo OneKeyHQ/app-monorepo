@@ -18,7 +18,6 @@ export interface ISwapNetwork {
   shortcode?: string;
   logoURI?: string;
   protocol: string;
-  providers: string;
   explorer?: string; // '..../{transaction}' need replace {transaction} to txId
 }
 export interface ISwapToken {

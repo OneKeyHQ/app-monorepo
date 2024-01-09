@@ -9,11 +9,11 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import SwapFromAmountPercentage from '../components/SwapFromAmountPercentage';
-import SwapTokenAmountInput from '../components/SwapTokenAmountInput';
-import SwapTokenBalance from '../components/SwapTokenBalance';
-import SwapTokenCurrencyValue from '../components/SwapTokenCurrencyValue';
-import SwapTokenSelectTrigger from '../components/SwapTokenSelectTrigger';
+import SwapFromAmountPercentage from '../Components/SwapFromAmountPercentage';
+import SwapTokenAmountInput from '../Components/SwapTokenAmountInput';
+import SwapTokenBalance from '../Components/SwapTokenBalance';
+import SwapTokenCurrencyValue from '../Components/SwapTokenCurrencyValue';
+import SwapTokenSelectTrigger from '../Components/SwapTokenSelectTrigger';
 import { swapFromAmountPercentageItems } from '../config/SwapProvider.constants';
 import { useSwapQuote } from '../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../hooks/useSwapTokens';

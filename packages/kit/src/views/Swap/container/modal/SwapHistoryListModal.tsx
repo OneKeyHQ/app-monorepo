@@ -11,7 +11,7 @@ import {
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { useSwapTxHistoryAtom } from '../../../../states/jotai/contexts/swap';
-import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import SwapTxHistoryListCell from '../../Components/SwapTxHistoryListCell';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
