@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 
-import { Button, Stack, Text, YStack } from '@onekeyhq/components';
+import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -66,11 +66,11 @@ const DemoRootHome = () => {
             justifyContent="center"
             alignItems="center"
           >
-            <Text variant="$bodyLgMedium">🦄</Text>
+            <SizableText size="$bodyLgMedium">🦄</SizableText>
           </Stack>
-          <Text ml="$2" variant="$bodyLgMedium" userSelect="none">
+          <SizableText ml="$2" size="$bodyLgMedium" userSelect="none">
             Wallet Name
-          </Text>
+          </SizableText>
         </Stack>
       </Stack>
     ),

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
-import { Text } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 // import useIsActiveTab from '@onekeyhq/components/src/TabView/hooks/useIsActiveTab';
 
 export function NavigationFocusTools({
@@ -21,8 +21,8 @@ export function NavigationFocusTools({
   }, [componentName, isFocused]);
 
   return (
-    <Text>
+    <SizableText>
       {componentName} isFocused: {isFocused ? 'true' : 'false'}
-    </Text>
+    </SizableText>
   );
 }

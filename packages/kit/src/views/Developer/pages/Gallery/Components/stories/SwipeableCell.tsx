@@ -1,6 +1,11 @@
 import { useState } from 'react';
 
-import { ListView, Stack, SwipeableCell, Text } from '@onekeyhq/components';
+import {
+  ListView,
+  SizableText,
+  Stack,
+  SwipeableCell,
+} from '@onekeyhq/components';
 
 import { mapIndexToData } from './SortableListView';
 
@@ -63,7 +68,7 @@ const SwipeableCellGallery = () => {
             justifyContent="center"
             bg={item.backgroundColor}
           >
-            <Text color="white">{item.index}可左右拖动</Text>
+            <SizableText color="white">{item.index}可左右拖动</SizableText>
           </Stack>
         </SwipeableCell>
       )}

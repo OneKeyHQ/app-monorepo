@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { Accordion, Paragraph, Square } from 'tamagui';
 
-import { Button, Text } from '@onekeyhq/components';
+import { Button, SizableText } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -47,12 +47,12 @@ export function AccountSelectorDialog({ num }: { num: number }) {
 
   return (
     <>
-      <Text variant="$headingXl">
+      <SizableText size="$headingXl">
         账户选择器 {selectedAccount?.indexedAccountId}
-      </Text>
-      <Text>
+      </SizableText>
+      <SizableText>
         focusedWallet({wallets?.length}): {selectedAccount.focusedWallet}
-      </Text>
+      </SizableText>
 
       {wallets?.length && wallets?.length > 0 ? (
         <Accordion
@@ -97,7 +97,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
                 </Accordion.Trigger>
                 <Accordion.Content backgroundColor="#eee">
                   {accounts?.map((a) => (
-                    <Text
+                    <SizableText
                       onPress={() => {
                         actions.current.updateSelectedAccount({
                           num,
@@ -114,7 +114,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
                       {a.name} ({a?.walletId}) index={a.index}
                       {'   '}
                       {selectedAccount.indexedAccountId === a.id ? '✅' : ''}
-                    </Text>
+                    </SizableText>
                   ))}
                   <Button
                     onPress={async () => {
@@ -138,7 +138,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
 
       <DeriveTypeSelectorTrigger num={num} />
 
-      <Text variant="$headingXl">当前账户</Text>
+      <SizableText size="$headingXl">当前账户</SizableText>
       {/* <Suspense></Suspense> */}
       <AccountSelectorActiveAccount num={num} />
     </>
