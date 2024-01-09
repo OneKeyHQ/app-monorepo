@@ -25,14 +25,12 @@ function SendAssetInputContainer() {
     useTokenListActions().current;
 
   const route =
-    useRoute<
-      RouteProp<IModalSendParamList, EModalSendRoutes.SendAmountInput>
-    >();
+    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendAssetInput>>();
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { networkId, accountId, transfersInfo } = route.params;
+  const { networkId, accountId } = route.params;
 
   const promise = usePromiseResult(async () => {
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -45,20 +43,25 @@ function SendAssetInputContainer() {
 
   const handleTokenOnPress = useCallback(
     (token: IAccountToken) => {
-      const updatedTransfersInfo = transfersInfo.map((transferInfo) => ({
-        ...transferInfo,
-        token: token.info.address,
-      }));
       navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendAddressInput,
+        screen: EModalSendRoutes.SendDataInput,
         params: {
           networkId,
           accountId,
-          transfersInfo: updatedTransfersInfo,
+          isNFT: false,
+          token: token.info,
+          transfersInfo: [
+            {
+              from: '',
+              to: '',
+              token: token.info.address,
+              amount: '',
+            },
+          ],
         },
       });
     },
-    [accountId, navigation, networkId, transfersInfo],
+    [accountId, navigation, networkId],
   );
 
   return (

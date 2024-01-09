@@ -9,6 +9,8 @@ import type {
   IFetchTokenDetailParams,
 } from '@onekeyhq/shared/types/token';
 
+import simpleDb from '../dbs/simple/simpleDb';
+
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -37,6 +39,32 @@ class ServiceToken extends ServiceBase {
       { params },
     );
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async updateLocalTokens({
+    networkId,
+    tokens,
+  }: {
+    networkId: string;
+    tokens: IAccountToken[];
+  }) {
+    return simpleDb.localTokens.updateTokens({
+      [networkId]: tokens,
+    });
+  }
+
+  @backgroundMethod()
+  public async getNativeToken(networkId: string) {
+    const tokensMap = (await simpleDb.localTokens.getRawData())?.data;
+    if (tokensMap) {
+      const tokens = tokensMap[networkId];
+      const nativeToken = tokens?.find((token) => token.isNative);
+      if (nativeToken) {
+        return nativeToken;
+      }
+    }
+    return null;
   }
 }
 

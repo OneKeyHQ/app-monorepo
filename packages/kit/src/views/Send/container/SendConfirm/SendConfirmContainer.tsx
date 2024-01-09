@@ -83,8 +83,8 @@ function SendConfirmContainer() {
   );
 }
 
-const SendAssetInputContainerWithProvider = memo(
+const SendConfirmContainerWithProvider = memo(
   withSendConfirmProvider(SendConfirmContainer),
 );
 
-export { SendConfirmContainer, SendAssetInputContainerWithProvider };
+export { SendConfirmContainer, SendConfirmContainerWithProvider };

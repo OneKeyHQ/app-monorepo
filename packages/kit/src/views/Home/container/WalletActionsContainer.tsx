@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EModalSendRoutes } from '../../Send/router';
@@ -17,12 +18,6 @@ import { ETokenPages } from '../../Token/router/type';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
-import {
-  useTokenListAtom,
-  withTokenListProvider,
-} from '../../../states/jotai/contexts/token-list';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 function WalletActionsContainer() {
   const navigation =
@@ -30,20 +25,25 @@ function WalletActionsContainer() {
 
   const form = useForm();
 
-  const handleOnSend = useCallback(() => {
+  const handleOnSend = useCallback(async () => {
     // TODO: Check if it is a single token network by settings
     const isSingleTokenNetwork = false;
-    if (isSingleTokenNetwork) {
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
+      'evm--1',
+    );
+    if (isSingleTokenNetwork && nativeToken) {
       navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendAssetInput,
+        screen: EModalSendRoutes.SendDataInput,
         params: {
           networkId: 'evm--1',
           accountId: "hd-1--m/44'/60'/0'/0/0",
+          isNFT: false,
+          token: nativeToken,
         },
       });
     } else {
       navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendDataInput,
+        screen: EModalSendRoutes.SendAssetInput,
         params: {
           networkId: 'evm--1',
           accountId: "hd-1--m/44'/60'/0'/0/0",

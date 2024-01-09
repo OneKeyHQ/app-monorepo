@@ -15,24 +15,62 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
+const networkId = 'evm--1';
+
 function TokenListContainer(props: IProps) {
   const media = useMedia();
   const { onContentSizeChange } = props;
-  const { refreshTokenList, refreshTokenListMap } =
-    useTokenListActions().current;
+  const {
+    refreshTokenList,
+    refreshTokenListMap,
+    refreshRiskTokenList,
+    refreshRiskTokenListMap,
+    refreshSmallBalanceTokenList,
+    refreshSmallBalanceTokenListMap,
+  } = useTokenListActions().current;
 
   const promise = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        networkId: 'evm--1',
+        networkId,
         accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
         // for performance testing
         limit: 300,
       });
-      refreshTokenList({ keys: r.keys, tokens: r.data });
-      refreshTokenListMap(r.map);
+      refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+      refreshTokenListMap(r.tokens.map);
+      refreshRiskTokenList({
+        keys: r.riskTokens.keys,
+        riskyTokens: r.riskTokens.data,
+      });
+      refreshRiskTokenListMap(r.riskTokens.map);
+      refreshSmallBalanceTokenList({
+        keys: r.smallBalanceTokens.keys,
+        smallBalanceTokens: r.smallBalanceTokens.data,
+      });
+      refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
+
+      const allTokens = [
+        ...r.tokens.data,
+        ...r.riskTokens.data,
+        ...r.smallBalanceTokens.data,
+      ];
+
+      if (allTokens && allTokens.length) {
+        void backgroundApiProxy.serviceToken.updateLocalTokens({
+          networkId,
+          tokens: allTokens,
+        });
+      }
     },
-    [refreshTokenList, refreshTokenListMap],
+    [
+      refreshRiskTokenList,
+      refreshRiskTokenListMap,
+      refreshSmallBalanceTokenList,
+      refreshSmallBalanceTokenListMap,
+      refreshTokenList,
+      refreshTokenListMap,
+    ],
     {
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
@@ -41,6 +79,8 @@ function TokenListContainer(props: IProps) {
 
   return (
     <TokenListView
+      withHeader
+      withFooter
       isLoading={promise.isLoading}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {

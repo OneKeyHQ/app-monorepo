@@ -27,6 +27,8 @@ type IProps = {
   onRefresh?: () => void;
   onPress?: (token: IAccountToken) => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
+  withHeader?: boolean;
+  withFooter?: boolean;
 };
 
 function TokenListEmpty() {
@@ -46,7 +48,8 @@ function TokenListEmpty() {
 const ItemSeparatorComponent = () => <Divider mx="$5" />;
 
 function TokenListView(props: IProps) {
-  const { onContentSizeChange, onPress, tableLayout } = props;
+  const { onContentSizeChange, onPress, tableLayout, withHeader, withFooter } =
+    props;
   const navigation = useAppNavigation();
 
   const [tokenList] = useTokenListAtom();
@@ -79,7 +82,7 @@ function TokenListView(props: IProps) {
       estimatedItemSize={60}
       scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
-      ListHeaderComponent={renderHeader}
+      ListHeaderComponent={withHeader ? renderHeader : null}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
       renderItem={({ item }) => (
@@ -92,28 +95,30 @@ function TokenListView(props: IProps) {
         />
       )}
       ListFooterComponent={
-        <>
-          {tableLayout && <Divider mx="$5" />}
-          <ListItem
-            mb="$5"
-            onPress={handleLowValueTokensPress}
-            userSelect="none"
-          >
-            <Stack
-              p={tableLayout ? '$1' : '$1.5'}
-              borderRadius="$full"
-              bg="$bgStrong"
+        withFooter ? (
+          <>
+            {tableLayout && <Divider mx="$5" />}
+            <ListItem
+              mb="$5"
+              onPress={handleLowValueTokensPress}
+              userSelect="none"
             >
-              <Icon
-                name="ControllerRoundSolid"
-                color="$iconSubdued"
-                size={tableLayout ? '$6' : '$7'}
-              />
-            </Stack>
-            <ListItem.Text flex={1} primary="3 Low-value Assets" />
-            <ListItem.Text primary="$36.28" />
-          </ListItem>
-        </>
+              <Stack
+                p={tableLayout ? '$1' : '$1.5'}
+                borderRadius="$full"
+                bg="$bgStrong"
+              >
+                <Icon
+                  name="ControllerRoundSolid"
+                  color="$iconSubdued"
+                  size={tableLayout ? '$6' : '$7'}
+                />
+              </Stack>
+              <ListItem.Text flex={1} primary="3 Low-value Assets" />
+              <ListItem.Text primary="$36.28" />
+            </ListItem>
+          </>
+        ) : null
       }
       {...(tableLayout && {
         ItemSeparatorComponent,

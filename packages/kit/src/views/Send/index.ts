@@ -1,11 +1,12 @@
-export { SendAddressInputContainer as SendAddressInput } from './container/SendAddressInput/SendAddressInputContainer';
-export { SendAmountInputContainer as SendAmountInput } from './container/SendAmountInput/SendAmountInputContainer';
 export {
   SendAssetInputContainer as SendAssetInput,
-  SendAssetInputContainerWithProvider as SendAddressInputWithProvider,
+  SendAssetInputContainerWithProvider as SendAssetInputWithProvider,
 } from './container/SendAssetInput/SendAssetInputContainer';
+
+export { SendDataInputContainer as SendDataInput } from './container/SendDataInput/SendDataInputContainer';
+
 export {
   SendConfirmContainer as SendConfirm,
-  SendAssetInputContainerWithProvider as SendConfirmWithProvider,
+  SendConfirmContainerWithProvider as SendConfirmWithProvider,
 } from './container/SendConfirm/SendConfirmContainer';
 export { SendProgressContainer as SendProgress } from './container/SendProgress/SendProgressContainer';
