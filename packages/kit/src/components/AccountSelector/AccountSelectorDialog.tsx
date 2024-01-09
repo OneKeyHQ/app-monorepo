@@ -90,7 +90,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
                         animation="quick"
                         rotate={open ? '90deg' : '0deg'}
                       >
-                        <Text>➡️</Text>
+                        <SizableText>➡️</SizableText>
                       </Square>
                     </>
                   )}
