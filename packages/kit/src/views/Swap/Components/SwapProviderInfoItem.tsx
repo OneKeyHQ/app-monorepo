@@ -19,7 +19,7 @@ const SwapProviderInfoItem = ({
   isLoading ? (
     <Skeleton w="$20" />
   ) : (
-    <XStack justifyContent="space-between">
+    <XStack justifyContent="space-between" onPress={onPress}>
       <Text>Provider</Text>
       <XStack space="$2">
         {showBest && <Text>Best</Text>}

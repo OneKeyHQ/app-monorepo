@@ -5,6 +5,8 @@ import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import Share from '@onekeyhq/shared/src/modules3rdParty/react-native-share';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -26,6 +28,7 @@ import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
 import { mockAddress } from '../utils/utils';
 
 import type { ISwapTxHistory } from '../types';
+import type ViewShot from 'react-native-view-shot';
 
 export function useSwapTxHistoryListSyncFromSimpleDb() {
   const [, setSwapHistory] = useSwapTxHistoryAtom();
@@ -279,4 +282,23 @@ export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
     protocolFee,
     oneKeyFee,
   };
+}
+
+export function useSwapTxHistoryShare() {
+  const captureViewRef = useRef<ViewShot>(null);
+  const enableShare = useMemo(() => platformEnv.isNative, []);
+  const onShare = useCallback(async () => {
+    if (captureViewRef.current) {
+      const uri = await captureViewRef.current.capture?.();
+      // todo share
+      if (uri && enableShare) {
+        // Sharing.shareAsync(`file://${uri}`);
+        await Share.open({ url: uri });
+      }
+      // Sharing.shareAsync(`file://${uri}`, options);
+      Toast.success({ title: 'sucess', message: 'copy success' });
+    }
+  }, [enableShare]);
+
+  return { onShare, captureViewRef, enableShare };
 }
