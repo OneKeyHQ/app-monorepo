@@ -1,3 +1,5 @@
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
 export enum ETokenPages {
   TokenDetails = 'TokenDetails',
   TokenList = 'TokenList',
@@ -12,7 +14,12 @@ export type ITokenParamList = {
   [ETokenPages.TokenList]: {
     title?: string;
     helpText?: string;
-    onTokenPress?: () => void;
+    onPressToken?: () => void;
+    tokenList: {
+      tokens: IAccountToken[];
+      keys: string;
+      tokenMap: Record<string, ITokenFiat>;
+    };
   };
   [ETokenPages.NFTDetails]: undefined;
   [ETokenPages.Receive]: undefined;

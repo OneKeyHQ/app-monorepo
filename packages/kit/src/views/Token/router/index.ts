@@ -6,7 +6,7 @@ import {
   Receive,
   Send,
   TokenDetails,
-  TokenList,
+  TokenListWithProvider,
 } from '../pages';
 
 import { ETokenPages } from './type';
@@ -23,7 +23,7 @@ export const TokenRouter: IModalFlowNavigatorConfig<
   },
   {
     name: ETokenPages.TokenList,
-    component: TokenList,
+    component: TokenListWithProvider,
   },
   {
     name: ETokenPages.NFTDetails,

@@ -47,7 +47,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
-  refreshRiskTokenList = contextAtomMethod(
+  refreshRiskyTokenList = contextAtomMethod(
     (
       get,
       set,
@@ -64,7 +64,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
-  refreshRiskTokenListMap = contextAtomMethod(
+  refreshRiskyTokenListMap = contextAtomMethod(
     (
       get,
       set,
@@ -115,8 +115,8 @@ export function useTokenListActions() {
   const actions = createActions();
   const refreshTokenList = actions.refreshTokenList.use();
   const refreshTokenListMap = actions.refreshTokenListMap.use();
-  const refreshRiskTokenList = actions.refreshRiskTokenList.use();
-  const refreshRiskTokenListMap = actions.refreshRiskTokenListMap.use();
+  const refreshRiskyTokenList = actions.refreshRiskyTokenList.use();
+  const refreshRiskyTokenListMap = actions.refreshRiskyTokenListMap.use();
   const refreshSmallBalanceTokenList =
     actions.refreshSmallBalanceTokenList.use();
   const refreshSmallBalanceTokenListMap =
@@ -125,8 +125,8 @@ export function useTokenListActions() {
   return useRef({
     refreshTokenList,
     refreshTokenListMap,
-    refreshRiskTokenList,
-    refreshRiskTokenListMap,
+    refreshRiskyTokenList,
+    refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
   });

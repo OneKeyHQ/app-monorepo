@@ -23,8 +23,8 @@ function TokenListContainer(props: IProps) {
   const {
     refreshTokenList,
     refreshTokenListMap,
-    refreshRiskTokenList,
-    refreshRiskTokenListMap,
+    refreshRiskyTokenList,
+    refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
   } = useTokenListActions().current;
@@ -39,11 +39,11 @@ function TokenListContainer(props: IProps) {
       });
       refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
       refreshTokenListMap(r.tokens.map);
-      refreshRiskTokenList({
+      refreshRiskyTokenList({
         keys: r.riskTokens.keys,
         riskyTokens: r.riskTokens.data,
       });
-      refreshRiskTokenListMap(r.riskTokens.map);
+      refreshRiskyTokenListMap(r.riskTokens.map);
       refreshSmallBalanceTokenList({
         keys: r.smallBalanceTokens.keys,
         smallBalanceTokens: r.smallBalanceTokens.data,
@@ -64,8 +64,8 @@ function TokenListContainer(props: IProps) {
       }
     },
     [
-      refreshRiskTokenList,
-      refreshRiskTokenListMap,
+      refreshRiskyTokenList,
+      refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshTokenList,

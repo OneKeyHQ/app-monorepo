@@ -1,4 +1,4 @@
-import { useIntl } from 'react-intl';
+import { useCallback } from 'react';
 
 import {
   Button,
@@ -11,6 +11,10 @@ import {
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../routes/Modal/type';
+import {
+  useRiskyTokenListAtom,
+  useRiskyTokenListMapAtom,
+} from '../../states/jotai/contexts/token-list';
 import { ETokenPages } from '../../views/Token/router/type';
 
 type IProps = {
@@ -18,18 +22,28 @@ type IProps = {
 };
 
 function TokenListHeader({ tableLayout }: IProps) {
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const media = useMedia();
 
-  const handleHiddenPress = () => {
+  const [riskyTokenList] = useRiskyTokenListAtom();
+  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+
+  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
+
+  const handleHiddenPress = useCallback(() => {
+    if (riskyTokens.length === 0) return;
     navigation.pushModal(EModalRoutes.TokenModal, {
       screen: ETokenPages.TokenList,
       params: {
         title: 'Blocked Assets',
+        tokenList: {
+          tokens: riskyTokens,
+          keys: riskyTokenKeys,
+          tokenMap: riskyTokenListMap,
+        },
       },
     });
-  };
+  }, [navigation, riskyTokenKeys, riskyTokenListMap, riskyTokens]);
 
   return (
     <Stack p="$5" pb="$3">
@@ -48,7 +62,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           })}
           onPress={handleHiddenPress}
         >
-          3 Blocked
+          {`${riskyTokens.length} Blocked`}
         </Button>
       </XStack>
       {tableLayout && (
