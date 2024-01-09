@@ -340,54 +340,6 @@ export default class ServiceLightningNetwork extends ServiceBase {
     if (lnurlDetail.tag !== 'login') {
       throw new Error('lnurl-auth: invalid tag');
     }
-    if (isHardwareWallet({ walletId })) {
-      throw new Error('lnurl-auth: hardware wallet is not supported');
-    }
-    // const { entropy } = (await this.backgroundApi.engine.dbApi.getCredential(
-    //   walletId,
-    //   password,
-    // )) as ExportedSeedCredential;
-    // const mnemonic = mnemonicFromEntropy(entropy, password);
-    // const seed = mnemonicToSeedSync(mnemonic);
-    // const root = getBitcoinBip32().fromSeed(seed);
-    // // See https://github.com/lnurl/luds/blob/luds/05.md
-    // const hashingKey = root.derivePath(`m/138'/0`);
-    // const hashingPrivateKey = hashingKey.privateKey;
-
-    // if (!hashingPrivateKey) {
-    //   throw new Error('lnurl-auth: invalid hashing key');
-    // }
-
-    // const url = new URL(lnurlDetail.url);
-
-    // const pathSuffix = getPathSuffix(url.host, bytesToHex(hashingPrivateKey));
-
-    // let linkingKey = root.derivePath(`m/138'`);
-    // for (const index of pathSuffix) {
-    //   linkingKey = linkingKey.derive(index);
-    // }
-
-    // if (!linkingKey.privateKey) {
-    //   throw new Error('lnurl-auth: invalid linking private key');
-    // }
-
-    // const linkingKeyPriv = bytesToHex(linkingKey.privateKey);
-
-    // if (!linkingKeyPriv) {
-    //   throw new Error('Invalid linkingKey');
-    // }
-
-    // const signer = new HashKeySigner(linkingKeyPriv);
-
-    // const k1 = hexToBytes(lnurlDetail.k1);
-    // const signedMessage = signer.sign(k1);
-    // const signedMessageDERHex = signedMessage.toDER('hex');
-
-    // const loginURL = url;
-    // loginURL.searchParams.set('sig', signedMessageDERHex);
-    // loginURL.searchParams.set('key', signer.pkHex);
-    // loginURL.searchParams.set('t', Date.now().toString());
-
     const vault = (await this.backgroundApi.engine.getWalletOnlyVault(
       networkId,
       walletId,

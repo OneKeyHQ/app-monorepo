@@ -26,6 +26,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxLightning, ILightningHWSIgnatureParams } from './types';
+import type { LNURLAuthServiceResponse } from './types/lnurl';
 import type LightningVault from './Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
@@ -239,5 +240,37 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   override batchGetAddress(): Promise<{ path: string; address: string }[]> {
     throw new Error('Method not implemented.');
+  }
+
+  async lnurlAuth({ lnurlDetail }: { lnurlDetail: LNURLAuthServiceResponse }) {
+    if (lnurlDetail.tag !== 'login') {
+      throw new Error('lnurl-auth: invalid tag');
+    }
+
+    const url = new URL(lnurlDetail.url);
+
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.lnurlAuth(connectId, deviceId, {
+      ...passphraseState,
+      domain: url.hostname,
+      k1: lnurlDetail.k1,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+
+    const { signature, publickey } = response.payload;
+    if (!signature || !publickey) {
+      throw new OneKeyInternalError('Unable to get signature or publickey');
+    }
+
+    const loginURL = url;
+    loginURL.searchParams.set('sig', signature ?? '');
+    loginURL.searchParams.set('key', publickey ?? '');
+    loginURL.searchParams.set('t', Date.now().toString());
+
+    return loginURL.toString();
   }
 }
