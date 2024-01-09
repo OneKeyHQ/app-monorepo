@@ -69,7 +69,13 @@ function CommonAssetContent(props: IProps) {
   );
 
   return (
-    <>
+    <Stack
+      px="$5"
+      $gtMd={{
+        flexBasis: '66.6666%',
+      }}
+      space="$5"
+    >
       <DescriptionList>
         {details.map(({ label, value, onPress, iconAfter }) => (
           <DescriptionList.Item key={label}>
@@ -83,35 +89,31 @@ function CommonAssetContent(props: IProps) {
         ))}
       </DescriptionList>
       {/* Attributes */}
-      {attributes ? (
-        <>
-          <Divider />
-          <Stack>
-            <Heading size="$headingSm">Attributes</Heading>
-            <XStack m="$-1" pt="$2.5" flexWrap="wrap">
-              {attributes.map(({ traitType, value }) => (
-                <Stack
-                  key={traitType}
-                  py="$2"
-                  px="$3.5"
-                  m="$1"
-                  bg="$bgStrong"
-                  borderRadius="$2"
-                  style={{
-                    borderCurve: 'continuous',
-                  }}
-                >
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {traitType}
-                  </SizableText>
-                  <SizableText size="$bodyMdMedium">{value}</SizableText>
-                </Stack>
-              ))}
-            </XStack>
-          </Stack>
-        </>
-      ) : null}
-    </>
+      <Divider />
+      <Stack>
+        <Heading size="$headingSm">Attributes</Heading>
+        <XStack m="$-1" pt="$2.5" flexWrap="wrap">
+          {attributes?.map(({ traitType, value }) => (
+            <Stack
+              key={traitType}
+              py="$2"
+              px="$3.5"
+              m="$1"
+              bg="$bgStrong"
+              borderRadius="$2"
+              style={{
+                borderCurve: 'continuous',
+              }}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {traitType}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{value}</SizableText>
+            </Stack>
+          ))}
+        </XStack>
+      </Stack>
+    </Stack>
   );
 }
 

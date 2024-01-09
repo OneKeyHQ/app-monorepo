@@ -97,15 +97,7 @@ export function NFTDetails() {
               Send
             </Button>
           </Stack>
-          <Stack
-            px="$5"
-            $gtMd={{
-              flexBasis: '66.6666%',
-            }}
-            space="$5"
-          >
-            <DetailContent nft={nft} />
-          </Stack>
+          <DetailContent nft={nft} />
         </Stack>
       </Page.Body>
     </Page>
