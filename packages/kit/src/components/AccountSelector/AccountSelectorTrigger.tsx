@@ -1,12 +1,10 @@
 import { useCallback } from 'react';
 
-import makeBlockie from 'ethereum-blockies-base64';
-
 import {
-  Avatar,
   Button,
   Dialog,
   Icon,
+  Image,
   ScrollView,
   Skeleton,
   Text,
@@ -15,12 +13,14 @@ import {
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import makeBlockieImageUri from '../../utils/makeBlockieImageUri';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -34,6 +34,12 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+  const { result: accountAvatar } = usePromiseResult(
+    () =>
+      makeBlockieImageUri(indexedAccount?.idHash ?? account?.address ?? '--'),
+    [indexedAccount, account],
+    { checkIsFocused: false },
+  );
 
   return (
     <XStack
@@ -56,14 +62,12 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image
-          src={makeBlockie(indexedAccount?.idHash ?? account?.address ?? '--')}
-        />
-        <Avatar.Fallback>
+      <Image size="$6" borderRadius="$1">
+        <Image.Source src={accountAvatar} />
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
+        </Image.Fallback>
+      </Image>
 
       <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
         {activeAccountName}

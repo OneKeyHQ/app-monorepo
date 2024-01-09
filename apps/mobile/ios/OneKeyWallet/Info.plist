@@ -73,5 +73,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Use photo library to read QR images.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Use Camera to scan QR Code.</string>
 </dict>
 </plist>

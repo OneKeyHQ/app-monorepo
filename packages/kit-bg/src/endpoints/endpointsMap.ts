@@ -13,6 +13,7 @@ const endpointsMap: Record<IEndpointEnv, IEndpoint> = {
     // http: 'https://rest.onekeycn.com',
     http: 'http://192.168.5.152:7001',
     // http: 'http://10.44.22.148:7001',
+    // http: 'https://rest.onekeytest.com',
     websocket: '',
   },
 };
