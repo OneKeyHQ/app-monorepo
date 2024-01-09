@@ -179,7 +179,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
         </Button>
       </ListItem>
       <SectionList
-        pb="$3"
+        contentContainerStyle={{ pb: '$3' }}
         estimatedItemSize="$14"
         // extraData={[selectedAccountId, remember]}
         // {...(wallet?.type !== 'others' && {
