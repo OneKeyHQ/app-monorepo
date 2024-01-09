@@ -1,25 +1,35 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useMedia } from 'tamagui';
 
+import type { IToken } from '@onekeyhq/shared/types/token';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TokenListView } from '../../../components/TokenListView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../routes/Modal/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/token-list';
+import { ETokenPages } from '../../Token/router/type';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-const networkId = 'evm--1';
-
 function TokenListContainer(props: IProps) {
-  const media = useMedia();
   const { onContentSizeChange } = props;
+
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
+  const media = useMedia();
+  const navigation = useAppNavigation();
   const {
     refreshTokenList,
     refreshTokenListMap,
@@ -31,9 +41,10 @@ function TokenListContainer(props: IProps) {
 
   const promise = usePromiseResult(
     async () => {
+      if (!account || !network) return;
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        networkId,
-        accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+        networkId: network.id,
+        accountAddress: account.address,
         // for performance testing
         limit: 300,
       });
@@ -58,12 +69,14 @@ function TokenListContainer(props: IProps) {
 
       if (allTokens && allTokens.length) {
         void backgroundApiProxy.serviceToken.updateLocalTokens({
-          networkId,
+          networkId: network.id,
           tokens: allTokens,
         });
       }
     },
     [
+      account,
+      network,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
@@ -77,11 +90,28 @@ function TokenListContainer(props: IProps) {
     },
   );
 
+  const handleOnPressToken = useCallback(
+    (token: IToken) => {
+      if (!account || !network) return;
+      navigation.pushModal(EModalRoutes.TokenModal, {
+        screen: ETokenPages.TokenDetails,
+        params: {
+          accountId: account.id,
+          networkId: network.id,
+          tokenAddress: token.address,
+          isNative: token.isNative,
+        },
+      });
+    },
+    [account, navigation, network],
+  );
+
   return (
     <TokenListView
       withHeader
       withFooter
       isLoading={promise.isLoading}
+      onPressToken={handleOnPressToken}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,

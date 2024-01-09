@@ -11,6 +11,7 @@ import {
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../routes/Modal/type';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
@@ -25,17 +26,23 @@ function TokenListHeader({ tableLayout }: IProps) {
   const navigation = useAppNavigation();
   const media = useMedia();
 
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
   const [riskyTokenList] = useRiskyTokenListAtom();
   const [riskyTokenListMap] = useRiskyTokenListMapAtom();
 
   const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
 
   const handleHiddenPress = useCallback(() => {
-    if (riskyTokens.length === 0) return;
+    if (!account || !network || riskyTokens.length === 0) return;
     navigation.pushModal(EModalRoutes.TokenModal, {
       screen: ETokenPages.TokenList,
       params: {
         title: 'Blocked Assets',
+        accountId: account.id,
+        networkId: network.id,
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
@@ -43,7 +50,14 @@ function TokenListHeader({ tableLayout }: IProps) {
         },
       },
     });
-  }, [navigation, riskyTokenKeys, riskyTokenListMap, riskyTokens]);
+  }, [
+    account,
+    navigation,
+    network,
+    riskyTokenKeys,
+    riskyTokenListMap,
+    riskyTokens,
+  ]);
 
   return (
     <Stack p="$5" pb="$3">

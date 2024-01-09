@@ -1,15 +1,10 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Divider, Empty, ListView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
 import { useTokenListAtom } from '../../states/jotai/contexts/token-list';
-import { ETokenPages } from '../../views/Token/router/type';
 
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -49,16 +44,9 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
   } = props;
-  const navigation = useAppNavigation();
 
   const [tokenList] = useTokenListAtom();
   const { tokens } = tokenList;
-
-  const handleOnPressToken = useCallback(() => {
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.TokenDetails,
-    });
-  }, [navigation]);
 
   return (
     <ListView
@@ -74,7 +62,7 @@ function TokenListView(props: IProps) {
         <TokenListItem
           token={item}
           key={item.$key}
-          onPress={onPressToken ?? handleOnPressToken}
+          onPress={onPressToken}
           tableLayout={tableLayout}
         />
       )}

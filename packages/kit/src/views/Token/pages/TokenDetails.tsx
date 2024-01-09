@@ -273,7 +273,6 @@ export function TokenDetails() {
         </ListItem>
         <Divider mb="$2.5" />
         <TxHistoryListView
-          accountAddress=""
           data={data as any}
           onItemPress={handleHistoryItemPress}
         />

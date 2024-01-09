@@ -4,20 +4,26 @@ import { useRoute } from '@react-navigation/core';
 
 import { Page, Popover, SizableText, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/token-list';
+import { ETokenPages } from '../router/type';
 
-import type { ETokenPages, ITokenParamList } from '../router/type';
+import type { ITokenParamList } from '../router/type';
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenList() {
+  const navigation = useAppNavigation();
+
   const route = useRoute<RouteProp<ITokenParamList, ETokenPages.TokenList>>();
 
-  const { tokenList, title, helpText, onPressToken } = route.params;
+  const { accountId, networkId, tokenList, title, helpText, onPressToken } =
+    route.params;
   const { tokens, tokenMap, keys } = tokenList;
 
   const { refreshTokenList, refreshTokenListMap } =
@@ -39,6 +45,18 @@ function TokenList() {
     );
   }, [helpText]);
 
+  const handleOnPressToken = useCallback(
+    (token: IToken) => {
+      navigation.push(ETokenPages.TokenDetails, {
+        accountId,
+        networkId,
+        tokenAddress: token.address,
+        isNative: token.isNative,
+      });
+    },
+    [accountId, navigation, networkId],
+  );
+
   useEffect(() => {
     if (keys && tokens && tokenMap) {
       refreshTokenList({
@@ -53,7 +71,7 @@ function TokenList() {
     <Page>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
-        <TokenListView onPressToken={onPressToken} />
+        <TokenListView onPressToken={onPressToken ?? handleOnPressToken} />
       </Page.Body>
     </Page>
   );

@@ -1,35 +1,16 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Divider,
-  Empty,
-  Icon,
-  Image,
-  ListItem,
-  SectionList,
-  SizableText,
-  Stack,
-  XStack,
-  ZStack,
-} from '@onekeyhq/components';
+import { Divider, Empty, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IAccountHistoryTx,
-  IHistoryListSectionGroup,
-} from '@onekeyhq/shared/types/history';
+import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
 
 import { HistoryListItem } from './HistoryListItem';
 import { TxHistoryListHeader } from './TxHistoryListHeader';
-import { TxHistoryListItem } from './TxHistoryListItem';
-import { TxHistorySectionHeader } from './TxHistorySectionHeader';
 
 import type { IHistoryListItemProps } from './HistoryListItem';
 
 type IProps = {
   data: IHistoryListSectionGroup[];
-  accountAddress: string;
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
@@ -69,14 +50,8 @@ const ItemSeparatorComponent = ({
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
-  const {
-    data,
-    showHeader,
-    accountAddress,
-    onItemPress,
-    tableLayout,
-    onContentSizeChange,
-  } = props;
+  const { data, showHeader, onItemPress, tableLayout, onContentSizeChange } =
+    props;
 
   return (
     <SectionList
@@ -84,21 +59,11 @@ function TxHistoryListView(props: IProps) {
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
       sections={data}
-      // renderSectionHeader={({ section }) => (
-      //   <TxHistorySectionHeader {...section} />
-      // )}
       renderSectionHeader={({ section: { title } }) => (
         <SectionList.SectionHeader title={title} />
       )}
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize={60}
-      // renderItem={({ item }: { item: IAccountHistoryTx }) => (
-      //   <TxHistoryListItem
-      //     key={item.id}
-      //     historyTx={item}
-      //     accountAddress={accountAddress}
-      //   />
-      // )}
       renderItem={({ item }: { item: IHistoryListItemProps }) => (
         <HistoryListItem
           title={item.title}

@@ -263,38 +263,10 @@ function HomePage() {
     [],
   );
 
-  const headerRight = () => (
-    <Popover
-      title="Wallets"
-      renderTrigger={
-        <Stack>
-          <HeaderIconButton icon="SettingsOutline" />
-        </Stack>
-      }
-      renderContent={
-        <XStack justifyContent="space-between" alignItems="center" px="$2">
-          {/* <YStack>
-            <AccountSelectorProvider
-              config={{
-                sceneName: EAccountSelectorSceneName.home,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-            >
-              <AccountSelectorTrigger num={0} />
-              <AccountSelectorActiveAccount num={0} />
-            </AccountSelectorProvider>
-          </YStack>
-          <WalletActionsContainer /> */}
-        </XStack>
-      }
-    />
-  );
-
   return useMemo(
     () => (
       <Page>
-        <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+        <Page.Header headerTitle={headerTitle} />
         <Page.Body>
           <Tab
             // @ts-expect-error

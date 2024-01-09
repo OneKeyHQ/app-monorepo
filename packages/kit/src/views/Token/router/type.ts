@@ -10,18 +10,30 @@ export enum ETokenPages {
 }
 
 export type ITokenParamList = {
-  [ETokenPages.TokenDetails]: undefined;
+  [ETokenPages.TokenDetails]: {
+    accountId: string;
+    networkId: string;
+    tokenAddress: string;
+    isNative?: boolean;
+  };
   [ETokenPages.TokenList]: {
     title?: string;
     helpText?: string;
     onPressToken?: () => void;
+    accountId: string;
+    networkId: string;
     tokenList: {
       tokens: IAccountToken[];
       keys: string;
       tokenMap: Record<string, ITokenFiat>;
     };
   };
-  [ETokenPages.NFTDetails]: undefined;
+  [ETokenPages.NFTDetails]: {
+    networkId: string;
+    accountAddress: string;
+    collectionAddress: string;
+    itemId: string;
+  };
   [ETokenPages.Receive]: undefined;
   [ETokenPages.History]: { status?: string };
   [ETokenPages.Send]: { tokenUrl?: string; isNFT?: boolean };

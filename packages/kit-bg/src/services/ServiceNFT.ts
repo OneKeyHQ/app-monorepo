@@ -5,6 +5,8 @@ import {
 import type {
   IFetchAccountNFTsParams,
   IFetchAccountNFTsResp,
+  IFetchNFTDetailsParams,
+  IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
 
 import ServiceBase from './ServiceBase';
@@ -23,6 +25,18 @@ class ServiceNFT extends ServiceBase {
     }>('/wallet/v1/account/nft/list', {
       params,
     });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
+    const client = await this.getClient();
+    const resp = await client.get<IFetchNFTDetailsResp>(
+      '/wallet/v1/account/nft/detail',
+      {
+        params,
+      },
+    );
     return resp.data.data;
   }
 }

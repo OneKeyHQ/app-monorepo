@@ -1,97 +1,45 @@
 import { useCallback } from 'react';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  ActionList,
-  Button,
-  DescriptionList,
-  Divider,
-  Heading,
-  Image,
-  Page,
-  SizableText,
-  Stack,
-  Toast,
-  XStack,
-} from '@onekeyhq/components';
+import { useRoute } from '@react-navigation/core';
+
+import { ActionList, Button, Page, Spinner, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents';
 import { ETokenPages } from '../router/type';
 
-const attributes = [
-  {
-    traitType: 'Background',
-    value: 'Grey blue',
-  },
-  {
-    traitType: 'Body',
-    value: 'Puppets',
-  },
-  {
-    traitType: 'Clothes',
-    value: 'Caveman vest',
-  },
-  {
-    traitType: 'Eyes',
-    value: 'Black',
-  },
-  {
-    traitType: 'Mouth',
-    value: 'Golden tooth',
-  },
-  {
-    traitType: 'Head',
-    value: 'Dark purple dreadlocks',
-  },
-  {
-    traitType: 'Accessories',
-    value: 'Rotten apple',
-  },
-];
-
-const details: {
-  label: string;
-  value: string;
-  onPress?: () => void;
-  iconAfter?: IKeyOfIcons;
-}[] = [
-  {
-    label: 'Collection',
-    value: 'X Rabbits Club',
-  },
-  {
-    label: 'Chain',
-    value: 'Ethereum',
-  },
-  {
-    label: 'Token ID',
-    value: '101525',
-  },
-  {
-    label: 'Token Standard',
-    value: 'ERC-721',
-  },
-  {
-    label: 'Contrast Address',
-    value: '0x534d...ee04',
-    onPress: () =>
-      Toast.success({
-        title: 'Copied',
-      }),
-    iconAfter: 'Copy1Outline',
-  },
-  {
-    label: 'Last Updated',
-    value: 'Apr 09 2022',
-    onPress: () => console.log('external link'),
-    iconAfter: 'OpenOutline',
-  },
-];
+import type { ITokenParamList } from '../router/type';
+import type { RouteProp } from '@react-navigation/core';
 
 export function NFTDetails() {
   const navigation = useAppNavigation();
   const device = 'Touch';
+
+  const route = useRoute<RouteProp<ITokenParamList, ETokenPages.NFTDetails>>();
+  const { networkId, accountAddress, collectionAddress, itemId } = route.params;
+
+  const { ImageContent, DetailContent } = getNFTDetailsComponents();
+
+  const result = usePromiseResult(
+    async () => {
+      const r = await backgroundApiProxy.serviceNFT.fetchNFTDetails({
+        networkId,
+        accountAddress,
+        collectionAddress,
+        itemId,
+      });
+      return r;
+    },
+    [accountAddress, collectionAddress, itemId, networkId],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const nft = result.result;
 
   const headerRight = useCallback(
     () => (
@@ -110,9 +58,22 @@ export function NFTDetails() {
     navigation.push(ETokenPages.Send, { isNFT: true });
   }, [navigation]);
 
+  if (!nft)
+    return (
+      <Page>
+        <Page.Body>
+          {result.isLoading ? (
+            <Stack justifyContent="center" alignItems="center">
+              <Spinner />
+            </Stack>
+          ) : null}
+        </Page.Body>
+      </Page>
+    );
+
   return (
     <Page scrollEnabled>
-      <Page.Header title="X Rabbit #3720" headerRight={headerRight} />
+      <Page.Header title={nft.metadata.name} headerRight={headerRight} />
       <Page.Body>
         <Stack
           $gtMd={{
@@ -129,30 +90,7 @@ export function NFTDetails() {
           >
             <Stack pb="100%">
               <Stack position="absolute" left={0} top={0} bottom={0} right={0}>
-                <Image
-                  width="100%"
-                  height="100%"
-                  source={{
-                    uri: 'https://xrc-frontend-gyd8dlc0g-xrc.vercel.app/v3_cover.png',
-                  }}
-                  style={{
-                    borderRadius: 12,
-                  }}
-                />
-                <SizableText
-                  size="$bodyLgMedium"
-                  position="absolute"
-                  right="$0"
-                  bottom="$0"
-                  px="$2"
-                  bg="$bgInverse"
-                  color="$textInverse"
-                  borderRadius="$3"
-                  borderWidth={2}
-                  borderColor="$bgApp"
-                >
-                  x2
-                </SizableText>
+                <ImageContent nft={nft} />
               </Stack>
             </Stack>
             <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
@@ -166,47 +104,7 @@ export function NFTDetails() {
             }}
             space="$5"
           >
-            {/* Details */}
-            <DescriptionList>
-              {details.map(({ label, value, onPress, iconAfter }) => (
-                <DescriptionList.Item key={label}>
-                  <DescriptionList.Item.Key size="$bodyMd" color="$textSubdued">
-                    {label}
-                  </DescriptionList.Item.Key>
-                  <DescriptionList.Item.Value
-                    onPress={onPress}
-                    iconAfter={iconAfter}
-                  >
-                    {value}
-                  </DescriptionList.Item.Value>
-                </DescriptionList.Item>
-              ))}
-            </DescriptionList>
-            {/* Attributes */}
-            <Divider />
-            <Stack>
-              <Heading size="$headingSm">Attributes</Heading>
-              <XStack m="$-1" pt="$2.5" flexWrap="wrap">
-                {attributes.map(({ traitType, value }) => (
-                  <Stack
-                    key={traitType}
-                    py="$2"
-                    px="$3.5"
-                    m="$1"
-                    bg="$bgStrong"
-                    borderRadius="$2"
-                    style={{
-                      borderCurve: 'continuous',
-                    }}
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {traitType}
-                    </SizableText>
-                    <SizableText size="$bodyMdMedium">{value}</SizableText>
-                  </Stack>
-                ))}
-              </XStack>
-            </Stack>
+            <DetailContent nft={nft} />
           </Stack>
         </Stack>
       </Page.Body>

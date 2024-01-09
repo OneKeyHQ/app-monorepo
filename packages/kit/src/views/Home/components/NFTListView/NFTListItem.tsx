@@ -1,11 +1,5 @@
-import { useCallback } from 'react';
-
 import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { ETokenPages } from '../../../Token/router/type';
 
 type IProps = {
   nft: IAccountNFT;
@@ -14,13 +8,6 @@ type IProps = {
 
 function NFTListItem(props: IProps) {
   const { nft, onPress } = props;
-  const navigation = useAppNavigation();
-
-  const handleNFTPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.NFTDetails,
-    });
-  }, [navigation]);
 
   return (
     <Stack
@@ -46,10 +33,9 @@ function NFTListItem(props: IProps) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      // onPress={() => {
-      //   onPress?.(nft);
-      // }}
-      onPress={handleNFTPress}
+      onPress={() => {
+        onPress?.(nft);
+      }}
       userSelect="none"
     >
       <Stack pb="100%">

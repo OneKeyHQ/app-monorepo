@@ -3,15 +3,16 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Divider, Icon, ListItem, Stack } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../routes/Modal/type';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
 } from '../../states/jotai/contexts/token-list';
 import { ETokenPages } from '../../views/Token/router/type';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IProps = {
   tableLayout?: boolean;
@@ -20,6 +21,9 @@ type IProps = {
 function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
 
@@ -44,12 +48,15 @@ function TokenListFooter(props: IProps) {
   ]);
 
   const handleLowValueTokensPress = useCallback(() => {
+    if (!account || !network || smallBalanceTokens.length === 0) return;
     navigation.pushModal(EModalRoutes.TokenModal, {
       screen: ETokenPages.TokenList,
       params: {
         title: 'Low-value Assets',
         helpText:
           'Assets valued below 0.1% of your total holdings and less than $1,000 fall into this category.',
+        accountId: account.id,
+        networkId: network.id,
         tokenList: {
           tokens: smallBalanceTokens,
           keys: smallBalanceTokenKeys,
@@ -58,7 +65,9 @@ function TokenListFooter(props: IProps) {
       },
     });
   }, [
+    account,
     navigation,
+    network,
     smallBalanceTokenKeys,
     smallBalanceTokenListMap,
     smallBalanceTokens,

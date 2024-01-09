@@ -7,6 +7,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertHistoryToSectionGroups } from '../../../utils/history';
 import { ETokenPages } from '../../Token/router/type';
 import { TxHistoryListView } from '../components/TxHistoryListView';
@@ -18,13 +19,15 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-const accountAddress = '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
-
 function TxHistoryListContainer(props: IProps) {
-  const media = useMedia();
   const { onContentSizeChange } = props;
+
+  const media = useMedia();
   const formatDate = useFormatDate();
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
 
   const handleHistoryItemPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.TokenModal, {
@@ -34,14 +37,15 @@ function TxHistoryListContainer(props: IProps) {
 
   const history = usePromiseResult(
     async () => {
+      if (!account || !network) return;
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId: "hd-1--m/44'/60'/0'/0/0",
-        networkId: 'evm--1',
-        accountAddress,
+        accountId: account.id,
+        networkId: network.id,
+        accountAddress: account.address,
       });
       return r;
     },
-    [],
+    [account, network],
     {
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
@@ -67,7 +71,6 @@ function TxHistoryListContainer(props: IProps) {
       onItemPress={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}
-      accountAddress={accountAddress}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,
