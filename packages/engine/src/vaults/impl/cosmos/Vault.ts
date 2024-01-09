@@ -31,7 +31,6 @@ import type {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionSignMessage,
   IDecodedTxActionTokenTransfer,
   IDecodedTxLegacy,
   IEncodedTx,
