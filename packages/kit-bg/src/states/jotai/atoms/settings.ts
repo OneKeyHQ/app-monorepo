@@ -20,10 +20,13 @@ export type ISettingsPersistAtom = {
   spendDustUTXO: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
-  endpointType: IEndpointType;
   currencyInfo: {
     symbol: string;
     id: string;
+  };
+  devMode: {
+    enable: boolean;
+    enableTestEndpoint: boolean;
   };
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
@@ -42,10 +45,13 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
-      endpointType: 'prod',
       currencyInfo: {
         id: 'usd',
         symbol: '$',
+      },
+      devMode: {
+        enable: false,
+        enableTestEndpoint: false,
       },
     },
   });
