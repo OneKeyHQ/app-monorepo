@@ -24,20 +24,6 @@ import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
 
-const SwitchEndpointButton = () => {
-  const [settings] = useSettingsPersistAtom();
-  const onToggleEndpoint = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setEndpointType(
-      settings.endpointType === 'prod' ? 'test' : 'prod',
-    );
-  }, [settings.endpointType]);
-  return (
-    <Button onPress={onToggleEndpoint}>
-      Toggle Endpoint (current is {settings.endpointType})
-    </Button>
-  );
-};
-
 const LockNowButton = () => {
   const intl = useIntl();
   const [passwordSetting] = usePasswordPersistAtom();
@@ -97,7 +83,6 @@ const TabMe = () => {
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
-          <SwitchEndpointButton />
           <CreateHdWalletForm />
           <Button
             onPress={() => {
