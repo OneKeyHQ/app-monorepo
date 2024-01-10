@@ -4,7 +4,7 @@ import { SizableText, Stack } from '@onekeyhq/components';
 
 export type ISectionProps = {
   title: string;
-  titleProps?: ComponentProps<typeof Text>;
+  titleProps?: ComponentProps<typeof SizableText>;
   children: ReactNode;
 };
 
