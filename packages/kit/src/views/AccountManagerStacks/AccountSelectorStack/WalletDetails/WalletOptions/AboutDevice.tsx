@@ -1,4 +1,4 @@
-import { Dialog, Text, XStack } from '@onekeyhq/components';
+import { Dialog, SizableText, XStack } from '@onekeyhq/components';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -11,10 +11,10 @@ function DescriptionList({
 }) {
   return (
     <XStack justifyContent="space-between" alignItems="center" minHeight="$9">
-      <Text textAlign="right" color="$textSubdued" variant="$bodyMd">
+      <SizableText textAlign="right" color="$textSubdued" size="$bodyMd">
         {label}
-      </Text>
-      <Text variant="$bodyMdMedium">{description}</Text>
+      </SizableText>
+      <SizableText size="$bodyMdMedium">{description}</SizableText>
     </XStack>
   );
 }

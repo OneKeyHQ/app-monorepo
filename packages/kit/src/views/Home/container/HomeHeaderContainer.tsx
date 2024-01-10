@@ -1,7 +1,13 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Icon, Image, Skeleton, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -39,9 +45,15 @@ function HomeHeaderContainer() {
           <Skeleton w="$6" h="$6" />
         </Image.Fallback>
       </Image>
-      <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
         Account 1
-      </Text>
+      </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
