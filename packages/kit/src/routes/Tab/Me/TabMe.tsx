@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, Text, YStack } from '@onekeyhq/components';
+import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 import {
@@ -23,20 +23,6 @@ import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
-
-const SwitchEndpointButton = () => {
-  const [settings] = useSettingsPersistAtom();
-  const onToggleEndpoint = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setEndpointType(
-      settings.endpointType === 'prod' ? 'test' : 'prod',
-    );
-  }, [settings.endpointType]);
-  return (
-    <Button onPress={onToggleEndpoint}>
-      Toggle Endpoint (current is {settings.endpointType})
-    </Button>
-  );
-};
 
 const LockNowButton = () => {
   const intl = useIntl();
@@ -97,7 +83,6 @@ const TabMe = () => {
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
-          <SwitchEndpointButton />
           <CreateHdWalletForm />
           <Button
             onPress={() => {
@@ -116,9 +101,9 @@ const TabMe = () => {
           >
             测试发送流程(使用首页的账户选择器)
           </Button>
-          <Text>
+          <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}
-          </Text>
+          </SizableText>
         </YStack>
       </Page.Body>
     </Page>

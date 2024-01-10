@@ -1,7 +1,7 @@
 import type {
   IIconProps,
   IListItemProps,
-  ITextProps,
+  ISizableTextProps,
 } from '@onekeyhq/components';
 import { Icon, ListItem, Spinner, Stack } from '@onekeyhq/components';
 
@@ -14,8 +14,8 @@ export function WalletOptionItem({
   children,
   ...rest
 }: Omit<IListItemProps, 'icon'> & {
-  label: ITextProps['children'];
-  labelColor?: ITextProps['color'];
+  label: ISizableTextProps['children'];
+  labelColor?: ISizableTextProps['color'];
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
   isLoading?: boolean;

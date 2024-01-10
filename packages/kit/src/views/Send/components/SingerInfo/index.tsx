@@ -1,4 +1,4 @@
-import { Text } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 
 import { Container } from '../Container';
 
@@ -6,7 +6,7 @@ function SingerInfo() {
   return (
     <Container.Box title="With">
       <Container.Item>
-        <Text>0x12345678</Text>
+        <SizableText>0x12345678</SizableText>
       </Container.Item>
     </Container.Box>
   );

@@ -1,4 +1,4 @@
-import { Stack, Text, useMedia } from '@onekeyhq/components';
+import { SizableText, Stack, useMedia } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { WalletAvatar } from '../../../../components/WalletAvatar';
@@ -47,15 +47,15 @@ export function WalletListItem({
     >
       {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
       {media.gtMd && (
-        <Text
+        <SizableText
           flex={1}
           numberOfLines={1}
           mt="$1"
-          variant="$bodySm"
+          size="$bodySm"
           color={selected ? '$text' : '$textSubdued'}
         >
           {walletName}
-        </Text>
+        </SizableText>
       )}
     </Stack>
   );

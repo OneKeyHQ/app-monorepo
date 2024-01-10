@@ -6,8 +6,8 @@ import {
   Button,
   Dialog,
   Popover,
+  SizableText,
   Stack,
-  Text,
   Toast,
 } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -74,10 +74,10 @@ const ControlledPopoverByButton = () => {
       renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
       renderContent={
         <Stack space="$4" p="$5">
-          <Text>
+          <SizableText>
             Non exercitation ea laborum cupidatat sunt amet aute exercitation
             occaecat minim incididunt non est est voluptate.
-          </Text>
+          </SizableText>
           <Button variant="primary" onPress={() => setIsOpen(false)}>
             Button
           </Button>
