@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Page, Text } from '@onekeyhq/components';
+import { Page, SizableText } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -32,22 +32,23 @@ const Swap = () => {
   // );
   return (
     <Page>
-      {/* <Page.Header headerTitle={headerLeft} /> */}
-      <Text>Swap</Text>
-      {/* <AccountSelectorProvider
-        config={{
-          sceneName: EAccountSelectorSceneName.swap,
-          sceneUrl: '',
-        }}
-        enabledNum={[0, 1]}
-      >
-        <AccountSelectorTrigger num={0} />
-        <AccountSelectorActiveAccount num={0} />
+      <Page.Body space="$4">
+        <SizableText>Swap</SizableText>
+        {/* <AccountSelectorProvider
+          config={{
+            sceneName: EAccountSelectorSceneName.swap,
+            sceneUrl: '',
+          }}
+          enabledNum={[0, 1]}
+        >
+          <AccountSelectorTrigger num={0} />
+          <AccountSelectorActiveAccount num={0} />
 
         <AccountSelectorTrigger num={1} />
         <AccountSelectorActiveAccount num={1} />
-      </AccountSelectorProvider> */}
-      <SwapMainLand />
+      </AccountSelectorProvider>  */}
+        <SwapMainLand />
+      </Page.Body>
     </Page>
   );
 };

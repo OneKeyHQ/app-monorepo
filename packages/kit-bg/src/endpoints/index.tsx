@@ -8,7 +8,10 @@ import { endpointsMap } from './endpointsMap';
 
 export async function getEndpoints() {
   const settings = await settingsPersistAtom.get();
-  return endpointsMap[settings.endpointType];
+  if (settings.devMode.enable && settings.devMode.enableTestEndpoint) {
+    return endpointsMap.test;
+  }
+  return endpointsMap.prod;
 }
 
 export async function getEndpointDomainWhitelist() {

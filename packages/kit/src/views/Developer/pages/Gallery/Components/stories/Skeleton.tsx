@@ -2,7 +2,13 @@ import { useState } from 'react';
 
 import { MotiView } from 'moti';
 
-import { Button, Input, Skeleton, Text, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Input,
+  SizableText,
+  Skeleton,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -51,7 +57,7 @@ const SkeletonGroupDemo = () => {
               <Input />
             </Skeleton>
             <Skeleton>
-              <Text>Hello Onekey</Text>
+              <SizableText>Hello Onekey</SizableText>
             </Skeleton>
           </YStack>
         </Skeleton.Group>

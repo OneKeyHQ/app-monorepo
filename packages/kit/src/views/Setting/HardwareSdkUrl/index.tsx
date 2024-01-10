@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, Text } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
@@ -39,7 +39,9 @@ const HardwareSdkUrl = () => {
         }
       />
       <Stack px="$5">
-        <Text>{intl.formatMessage({ id: 'form__hardware_bridge_desc' })}</Text>
+        <SizableText>
+          {intl.formatMessage({ id: 'form__hardware_bridge_desc' })}
+        </SizableText>
       </Stack>
     </Page>
   );
