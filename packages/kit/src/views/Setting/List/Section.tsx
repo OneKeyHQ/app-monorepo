@@ -1,23 +1,25 @@
-import type { FC, ReactNode } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 
 export type ISectionProps = {
   title: string;
+  titleProps?: ComponentProps<typeof SizableText>;
   children: ReactNode;
 };
 
-export const Section: FC<ISectionProps> = ({ title, children }) => (
+export const Section: FC<ISectionProps> = ({ title, titleProps, children }) => (
   <Stack>
-    <Text
-      variant="$headingSm"
+    <SizableText
+      size="$headingSm"
       paddingHorizontal="$4"
       paddingBottom="$2"
       paddingTop="$5"
       color="$textSubdued"
+      {...titleProps}
     >
       {title}
-    </Text>
+    </SizableText>
     <Stack>{children}</Stack>
   </Stack>
 );

@@ -7,8 +7,8 @@ import {
   Icon,
   ListItem,
   SectionList,
+  SizableText,
   Stack,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 
@@ -64,7 +64,7 @@ const SectionListDemo = () => {
       sections={sectionListData}
       renderSectionHeader={({ section: { title } }) => (
         <Stack bg="$bg">
-          <Text variant="$headingXs">{title}</Text>
+          <SizableText size="$headingXs">{title}</SizableText>
         </Stack>
       )}
       ListHeaderComponent={XStack}
@@ -73,7 +73,7 @@ const SectionListDemo = () => {
       SectionSeparatorComponent={null}
       renderItem={({ item }) => (
         <XStack bg="$borderLight">
-          <Text>{item}</Text>
+          <SizableText>{item}</SizableText>
           <Divider />
           <XStack space="$8">
             <Button
@@ -105,9 +105,9 @@ const StickySectionListDemo = () => {
       renderSectionHeader={({ section: { title }, index }) => (
         <SectionList.SectionHeader title={title}>
           {index !== 0 ? null : (
-            <Text numberOfLines={1}>
+            <SizableText numberOfLines={1}>
               {title} (custom the children of section header)
-            </Text>
+            </SizableText>
           )}
         </SectionList.SectionHeader>
       )}

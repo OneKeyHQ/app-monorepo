@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable camelcase */
 import { atom } from 'jotai';
-import { isString } from 'lodash';
+import { isString, merge } from 'lodash';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage, {
@@ -115,12 +115,14 @@ export function atomWithStorage<Value>(
       }
       if (nextValue instanceof Promise) {
         return nextValue.then((resolvedValue) => {
-          set(baseAtom, resolvedValue);
-          return storage.setItem(key, resolvedValue);
+          const mergedValue = merge({}, initialValue, resolvedValue);
+          set(baseAtom, mergedValue);
+          return storage.setItem(key, mergedValue);
         });
       }
-      set(baseAtom, nextValue);
-      return storage.setItem(key, nextValue);
+      const mergedValue = merge({}, initialValue, nextValue);
+      set(baseAtom, mergedValue);
+      return storage.setItem(key, mergedValue);
     },
   );
 

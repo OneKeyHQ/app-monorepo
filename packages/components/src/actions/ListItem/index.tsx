@@ -107,14 +107,8 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...(rest as any)}
       >
-        {source ? (
-          <Image flex={1} width="100%" source={source} resizeMode="center" />
-        ) : (
-          <>
-            <Image.Source src={src} />
-            <Image.Fallback {...fallbackProps} />
-          </>
-        )}
+        <Image.Source src={src} source={source} />
+        <Image.Fallback {...fallbackProps} />
       </Image>
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
@@ -196,6 +190,10 @@ const ListItemCheckMark = (props: StackProps) => (
     key="checkMarkIndicator"
     animation="quick"
     enterStyle={{
+      opacity: 0,
+      scale: 0,
+    }}
+    exitStyle={{
       opacity: 0,
       scale: 0,
     }}

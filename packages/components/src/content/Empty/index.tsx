@@ -1,4 +1,4 @@
-import { Button, Icon, Text, YStack } from '../../primitives';
+import { Button, Icon, SizableText, YStack } from '../../primitives';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { YStackProps } from 'tamagui';
@@ -28,14 +28,14 @@ export function Empty(props: IEmptyProps) {
       {(title || description) && (
         <YStack alignItems="center" maxWidth="$64">
           {title && (
-            <Text variant="$headingXl" textAlign="center" mb="$2">
+            <SizableText size="$headingXl" textAlign="center" mb="$2">
               {title}
-            </Text>
+            </SizableText>
           )}
           {description && (
-            <Text variant="$bodyLg" textAlign="center" color="$textSubdued">
+            <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
               {description}
-            </Text>
+            </SizableText>
           )}
         </YStack>
       )}

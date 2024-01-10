@@ -27,9 +27,6 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
             ref={pageRef}
             scrollEventThrottle={30}
             onScroll={handleScroll as any}
-            contentContainerStyle={{
-              flex: 1,
-            }}
           >
             {children}
           </ScrollView>

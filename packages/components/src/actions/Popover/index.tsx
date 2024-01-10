@@ -9,7 +9,7 @@ import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
-import { Text, XStack, YStack } from '../../primitives';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -215,9 +215,9 @@ function RawPopover({
                   borderCurve: 'continuous',
                 }}
               >
-                <Text variant="$headingXl" color="$text">
+                <SizableText size="$headingXl" color="$text">
                   {title}
-                </Text>
+                </SizableText>
                 <IconButton
                   icon="CrossedSmallOutline"
                   size="small"
