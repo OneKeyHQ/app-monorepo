@@ -24,16 +24,19 @@ module.exports = ({ basePath }) => ({
     },
     onBeforeSetupMiddleware: (devServer) => {
       // proxy all requests with x-proxy header
-      devServer.app.use((req, res, next) => {
-        const target = req.headers['x-proxy'];
+      devServer.app.use((request, response, next) => {
+        const target = request.headers['x-proxy'];
         if (target) {
           const proxyMiddleware = createProxyMiddleware({
             target,
             changeOrigin: true,
             ws: false,
-            logLevel: 'debug',
+            logLevel: 'silent',
           });
-          return proxyMiddleware(req, res, next);
+          console.log(
+            `[X-Proxy] ${request.method} ${request.originalUrl} -> ${target}`,
+          );
+          return proxyMiddleware(request, response, next);
         }
         next();
       });
