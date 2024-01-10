@@ -388,7 +388,11 @@ const NostrSignEventModal = () => {
                   isChecked={autoSign}
                   onChange={setAutoSign}
                 />
-                <Text>Remember my choice and don't ask again</Text>
+                <Text>
+                  {intl.formatMessage({
+                    id: 'content__remember_my_choice_and_dont_ask_again',
+                  })}
+                </Text>
               </Box>
             )}
           </Box>
