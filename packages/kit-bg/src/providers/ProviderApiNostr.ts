@@ -183,6 +183,26 @@ class ProviderApiNostr extends ProviderApiBase {
     if (!params.event) {
       throw web3Errors.rpc.invalidInput();
     }
+
+    // Auto sign logic
+    const passwordCache = await this.getPasswordCache();
+    if (passwordCache && !isHardwareWallet({ walletId }) && request.origin) {
+      const url = new URL(request.origin);
+      const shouldAutoSign =
+        await this.backgroundApi.serviceNostr.getAutoSignStatus(url.hostname);
+      if (shouldAutoSign) {
+        const result = await this.backgroundApi.serviceNostr.signEvent({
+          walletId,
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+          password: typeof passwordCache === 'string' ? passwordCache : '',
+          event: params.event,
+        });
+
+        return (result?.data ?? {}) as NostrEvent;
+      }
+    }
+
     try {
       const signedEvent = await this.backgroundApi.serviceDapp.openModal({
         request,

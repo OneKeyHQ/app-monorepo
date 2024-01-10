@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  CheckBox,
   Modal,
   Text,
   ToastManager,
@@ -18,6 +19,7 @@ import {
   i18nSupportEventKinds,
 } from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
+import { isHdWallet as isHdWalletFn } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -60,8 +62,10 @@ const NostrSignEventModal = () => {
     closeWindowAfterResolved: true,
   });
 
+  const isHdWallet = isHdWalletFn({ walletId: walletId ?? '' });
   const interactInfo = useInteractWithInfo({ sourceInfo });
 
+  const [autoSign, setAutoSign] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
   const signType = useMemo<ESignType | undefined>(() => {
@@ -96,6 +100,12 @@ const NostrSignEventModal = () => {
             accountId: accountId ?? '',
             password,
             event: event ?? ({} as NostrEvent),
+            options: isHdWallet
+              ? {
+                  host: sourceInfo?.hostname ?? '',
+                  autoSign,
+                }
+              : undefined,
           });
         } else if (signType === ESignType.encrypt) {
           result = await backgroundApiProxy.serviceNostr.encrypt({
@@ -169,6 +179,9 @@ const NostrSignEventModal = () => {
       ciphertext,
       sigHash,
       signType,
+      autoSign,
+      sourceInfo?.hostname,
+      isHdWallet,
     ],
   );
 
@@ -339,32 +352,49 @@ const NostrSignEventModal = () => {
           paddingVertical: isVerticalLayout ? 16 : 24,
         },
         children: (
-          <Box>
-            <TxInteractInfo
-              origin={interactInfo?.url ?? ''}
-              name={interactInfo?.name}
-              icon={interactInfo?.icons[0]}
-              networkId=""
-              mb={0}
-            />
-            <Box
-              bg="surface-default"
-              borderColor="border-default"
-              borderWidth={1}
-              borderRadius={12}
-              paddingX={4}
-              paddingY={3}
-              my={4}
-            >
-              <Text mb={2} typography="Heading">
-                {signText}
-              </Text>
-              <Text typography="Body2" color="text-subdued">
-                {content}
-              </Text>
+          <Box h="full" flexDirection="column" justifyContent="space-between">
+            <Box>
+              <TxInteractInfo
+                origin={interactInfo?.url ?? ''}
+                name={interactInfo?.name}
+                icon={interactInfo?.icons[0]}
+                networkId=""
+                mb={0}
+              />
+              <Box
+                bg="surface-default"
+                borderColor="border-default"
+                borderWidth={1}
+                borderRadius={12}
+                paddingX={4}
+                paddingY={3}
+                my={4}
+              >
+                <Text mb={2} typography="Heading">
+                  {signText}
+                </Text>
+                <Text typography="Body2" color="text-subdued">
+                  {content}
+                </Text>
+              </Box>
+              {renderEncryptSignEventPlaintext}
+              {signType === ESignType.signEvent && renderEventDetails}
             </Box>
-            {renderEncryptSignEventPlaintext}
-            {signType === 'signEvent' && renderEventDetails}
+
+            {signType === ESignType.signEvent && isHdWallet && (
+              <Box alignItems="center" flexDirection="row">
+                <CheckBox
+                  containerStyle={{ mr: 2 }}
+                  isChecked={autoSign}
+                  onChange={setAutoSign}
+                />
+                <Text>
+                  {intl.formatMessage({
+                    id: 'content__remember_my_choice_and_dont_ask_again',
+                  })}
+                </Text>
+              </Box>
+            )}
           </Box>
         ),
       }}
