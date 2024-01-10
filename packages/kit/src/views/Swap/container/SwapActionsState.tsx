@@ -2,7 +2,13 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { XStack } from 'tamagui';
 
-import { Alert, Button, Spinner, Text, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Button,
+  SizableText,
+  Spinner,
+  YStack,
+} from '@onekeyhq/components';
 
 import {
   useSwapFromTokenAmountAtom,
@@ -102,7 +108,7 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
       >
         <XStack>
           {swapStepState.isLoading && <Spinner size="small" />}
-          <Text color="white">{actionText}</Text>
+          <SizableText color="white">{actionText}</SizableText>
         </XStack>
       </Button>
       {swapStepState.type === ESwapStepStateType.APPROVE &&
@@ -112,9 +118,9 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
           variant="primary"
           disabled={swapStepState.disabled}
         >
-          <Text>{`Approve Unlimited ${fromToken?.symbol ?? ''} to ${
+          <SizableText>{`Approve Unlimited ${fromToken?.symbol ?? ''} to ${
             selectCurrentProvider?.info.providerName ?? ''
-          }`}</Text>
+          }`}</SizableText>
         </Button>
       ) : null}
     </YStack>

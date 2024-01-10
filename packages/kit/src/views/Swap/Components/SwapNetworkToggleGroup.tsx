@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Button, Image, Text, XStack } from '@onekeyhq/components';
+import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
 
 import type { ISwapNetwork } from '../types';
 
@@ -53,9 +53,9 @@ const SwapNetworkToggleGroup = ({
             source={{ uri: network.logoURI }}
             // resizeMode="center"
           />
-          <Text>
+          <SizableText>
             {network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'}
-          </Text>
+          </SizableText>
         </XStack>
       </Button>
     ))}

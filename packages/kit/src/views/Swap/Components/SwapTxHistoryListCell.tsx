@@ -29,20 +29,20 @@ const SwapTxHistoryListCell = ({
       );
     }
     return (
-      <Text>
+      <SizableText>
         {item.baseInfo.fromNetwork?.networkId ===
         item.baseInfo.toNetwork?.networkId
           ? item.baseInfo.fromNetwork?.name ?? ''
           : `${item.baseInfo.fromNetwork?.name ?? ''} | ${
               item.baseInfo.toNetwork?.name ?? ''
             }`}
-      </Text>
+      </SizableText>
     );
   }, [item.baseInfo, item.status]);
 
   const title = useMemo(
     () => (
-      <Text>{`${item.baseInfo.fromToken.symbol.toUpperCase()} -> ${item.baseInfo.toToken.symbol.toUpperCase()}`}</Text>
+      <SizableText>{`${item.baseInfo.fromToken.symbol.toUpperCase()} -> ${item.baseInfo.toToken.symbol.toUpperCase()}`}</SizableText>
     ),
     [item.baseInfo.fromToken.symbol, item.baseInfo.toToken.symbol],
   );
@@ -62,17 +62,17 @@ const SwapTxHistoryListCell = ({
       <XStack>
         <Image source={{ uri: imageSource }} w="$10" h="$10" />
         <YStack>
-          <Text>{title}</Text>
-          <Text>{subContent}</Text>
+          <SizableText>{title}</SizableText>
+          <SizableText>{subContent}</SizableText>
         </YStack>
       </XStack>
       <YStack>
-        <Text>{`+${
+        <SizableText>{`+${
           item.baseInfo.toAmount
-        } ${item.baseInfo.toToken.symbol.toUpperCase()}`}</Text>
-        <Text>{`-${
+        } ${item.baseInfo.toToken.symbol.toUpperCase()}`}</SizableText>
+        <SizableText>{`-${
           item.baseInfo.fromAmount
-        } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}</Text>
+        } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}</SizableText>
       </YStack>
     </ListItem>
   );

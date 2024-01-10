@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Text, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 
 interface ISwapTokenCurrencyValueProps {
   value: string;
@@ -11,8 +11,8 @@ const SwapTokenCurrencyValue = ({
   currency,
 }: ISwapTokenCurrencyValueProps) => (
   <XStack>
-    <Text>{currency}</Text>
-    <Text>{value}</Text>
+    <SizableText>{currency}</SizableText>
+    <SizableText>{value}</SizableText>
   </XStack>
 );
 

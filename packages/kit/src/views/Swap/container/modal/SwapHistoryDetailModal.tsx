@@ -10,7 +10,7 @@ import {
   Icon,
   Image,
   Page,
-  Text,
+  SizableText,
   Toast,
   XStack,
   YStack,
@@ -104,7 +104,7 @@ const SwapHistoryDetailModal = () => {
                 />
               </YStack>
               <YStack>
-                <Text>ON-CHAIN INFO</Text>
+                <SizableText>ON-CHAIN INFO</SizableText>
                 <SwapOnChainInfoItem
                   title="Send"
                   value={txHistory.txInfo.sender}
@@ -131,7 +131,7 @@ const SwapHistoryDetailModal = () => {
                 )}
               </YStack>
               <YStack>
-                <Text>SWAP INFO</Text>
+                <SizableText>SWAP INFO</SizableText>
                 <SwapRateInfoItem
                   rate={txHistory.swapInfo.instantRate}
                   fromToken={txHistory.baseInfo.fromToken}
@@ -152,7 +152,7 @@ const SwapHistoryDetailModal = () => {
                 )}
               </YStack>
               <YStack>
-                <Text>TIME</Text>
+                <SizableText>TIME</SizableText>
                 <SwapCommonInfoItem title="Created" value={createDateTime} />
                 <SwapCommonInfoItem title="updated" value={updateDateTime} />
               </YStack>
@@ -162,7 +162,7 @@ const SwapHistoryDetailModal = () => {
                     resizeMode="contain"
                     source={require('../../../../../assets/logo.png')}
                   />
-                  <Text>OneKey</Text>
+                  <SizableText>OneKey</SizableText>
                 </XStack>
                 <SwapTxHistoryViewInBrowser
                   item={txHistory}

@@ -13,6 +13,7 @@ import SwapActionsState from './SwapActionsState';
 import SwapHistoryButtonContainer from './SwapHistoryButtonContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import { withSwapProvider } from './WithSwapProvider';
 
 const SwapMainLoad = () => {
   const { buildTx } = useSwapBuildTx();
@@ -75,4 +76,4 @@ const SwapMainLoad = () => {
     </YStack>
   );
 };
-export default memo(SwapMainLoad);
+export default memo(withSwapProvider(SwapMainLoad));

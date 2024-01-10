@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Button } from 'tamagui';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, Text, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { ESwapTxHistoryStatus } from '../types';
 
@@ -45,8 +45,8 @@ const SwapTxHistoryStatusItem = ({
           backgroundColor={iconProps.iconBackgroundColor}
         />
         <YStack>
-          <Text>{statusTitle}</Text>
-          {usedTime && <Text>{usedTime}</Text>}
+          <SizableText>{statusTitle}</SizableText>
+          {usedTime && <SizableText>{usedTime}</SizableText>}
         </YStack>
       </XStack>
       {status !== ESwapTxHistoryStatus.PENDING && (

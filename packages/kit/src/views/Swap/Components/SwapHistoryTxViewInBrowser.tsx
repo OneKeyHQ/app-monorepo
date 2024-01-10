@@ -3,7 +3,13 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListSection, IKeyOfIcons } from '@onekeyhq/components';
-import { ActionList, Icon, Text, Toast, XStack } from '@onekeyhq/components';
+import {
+  ActionList,
+  Icon,
+  SizableText,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 
 import {
   SingleChainSwapProviders,
@@ -82,7 +88,9 @@ const SwapTxHistoryViewInBrowser = ({
           }
         }}
       >
-        <Text>{intl.formatMessage({ id: 'action__view_in_browser' })}</Text>
+        <SizableText>
+          {intl.formatMessage({ id: 'action__view_in_browser' })}
+        </SizableText>
         <Icon name="LinkOutline" size="$4" />
       </XStack>
     ),

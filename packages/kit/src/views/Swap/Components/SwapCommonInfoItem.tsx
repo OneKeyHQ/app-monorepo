@@ -1,4 +1,4 @@
-import { Icon, Skeleton, Text, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 
 interface ISwapCommonInfoItemProps {
   title: string;
@@ -17,9 +17,9 @@ const SwapCommonInfoItem = ({
     <Skeleton w="$20" />
   ) : (
     <XStack onPress={onPress} justifyContent="space-between" h="$20">
-      <Text>{title}</Text>
+      <SizableText>{title}</SizableText>
       <XStack space="$2">
-        <Text>{value}</Text>
+        <SizableText>{value}</SizableText>
         {onPress && <Icon size="$3" name="ChevronRightSmallOutline" />}
       </XStack>
     </XStack>

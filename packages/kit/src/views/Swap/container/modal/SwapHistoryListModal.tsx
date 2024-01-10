@@ -4,8 +4,8 @@ import {
   type IPageNavigationProp,
   Page,
   SectionList,
+  SizableText,
   Stack,
-  Text,
 } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -75,7 +75,7 @@ const SwapHistoryListModal = () => {
         sections={sectionData}
         renderSectionHeader={({ section: { title } }) => (
           <Stack bg="$bg">
-            <Text variant="$headingXs">{title}</Text>
+            <SizableText variant="$headingXs">{title}</SizableText>
           </Stack>
         )}
         estimatedItemSize="$10"

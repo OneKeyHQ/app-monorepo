@@ -10,7 +10,7 @@ import {
   ListItem,
   ListView,
   Page,
-  Text,
+  SizableText,
   XStack,
 } from '@onekeyhq/components';
 
@@ -72,10 +72,12 @@ const SwapProviderSelectModal = () => {
               w="$10"
               h="$10"
             />
-            <Text>{item.info.providerName}</Text>
+            <SizableText>{item.info.providerName}</SizableText>
             {isAllowance && <Icon name="LockSolid" />}
           </XStack>
-          <Text>{`${item.toAmount} ${toToken?.symbol ?? ''}`}</Text>
+          <SizableText>{`${item.toAmount} ${
+            toToken?.symbol ?? ''
+          }`}</SizableText>
           <Badge
             badgeType={index === 0 ? 'success' : 'critical'}
             badgeSize="sm"
@@ -90,9 +92,9 @@ const SwapProviderSelectModal = () => {
   const headerComponent = useMemo(
     () => (
       <XStack justifyContent="space-around">
-        <Text>Provider</Text>
-        <Text>Recieved</Text>
-        <Text>Difference</Text>
+        <SizableText>Provider</SizableText>
+        <SizableText>Recieved</SizableText>
+        <SizableText>Difference</SizableText>
       </XStack>
     ),
     [],

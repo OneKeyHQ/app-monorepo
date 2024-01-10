@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Image, Spinner, Text, XStack } from '@onekeyhq/components';
+import { Image, SizableText, Spinner, XStack } from '@onekeyhq/components';
 
 import type { ISwapToken } from '../types';
 
@@ -34,10 +34,10 @@ const SwapTokenSelectTrigger = ({
             source={{ uri: currentToken.logoURI }}
             // resizeMode="center"
           />
-          <Text>{currentToken.symbol}</Text>
+          <SizableText>{currentToken.symbol}</SizableText>
         </>
       ) : (
-        <Text>请选择 token</Text>
+        <SizableText>请选择 token</SizableText>
       )}
     </XStack>
   );

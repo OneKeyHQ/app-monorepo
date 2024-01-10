@@ -2,7 +2,12 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { IconButton, Skeleton, Text, XStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 
 import type { ISwapToken } from '../types';
 
@@ -36,9 +41,9 @@ const SwapRateInfoItem = ({
     <Skeleton w="$20" />
   ) : (
     <XStack justifyContent="space-between">
-      <Text>Rate</Text>
+      <SizableText>Rate</SizableText>
       <XStack>
-        <Text>{rateContent}</Text>
+        <SizableText>{rateContent}</SizableText>
         <IconButton
           size="small"
           onPress={handleExchangeRate}

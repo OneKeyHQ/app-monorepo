@@ -1,4 +1,4 @@
-import { IconButton, Text, XStack } from '@onekeyhq/components';
+import { IconButton, SizableText, XStack } from '@onekeyhq/components';
 
 interface ISwapOnChainInfoItemProps {
   title: string;
@@ -11,11 +11,11 @@ const SwapOnChainInfoItem = ({
   onCopy,
 }: ISwapOnChainInfoItemProps) => (
   <XStack flex={1} space="$4" justifyContent="space-between">
-    <Text>{title}</Text>
+    <SizableText>{title}</SizableText>
     <XStack flex={1} justifyContent="flex-end">
-      <Text textAlign="right" w="90%" wordWrap="break-word">
+      <SizableText textAlign="right" w="90%" wordWrap="break-word">
         {value}
-      </Text>
+      </SizableText>
       <IconButton
         h="$6"
         w="$6"

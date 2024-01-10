@@ -1,4 +1,10 @@
-import { Icon, Image, Skeleton, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 
 interface ISwapProviderInfoItemProps {
   providerName: string;
@@ -20,11 +26,11 @@ const SwapProviderInfoItem = ({
     <Skeleton w="$20" />
   ) : (
     <XStack justifyContent="space-between" onPress={onPress}>
-      <Text>Provider</Text>
+      <SizableText>Provider</SizableText>
       <XStack space="$2">
-        {showBest && <Text>Best</Text>}
+        {showBest && <SizableText>Best</SizableText>}
         <Image source={{ uri: providerIcon }} w="$5" h="$5" />
-        <Text>{providerName}</Text>
+        <SizableText>{providerName}</SizableText>
         {showLock && <Icon name="LockOutline" />}
         {onPress && <Icon name="ChevronRightSmallOutline" />}
       </XStack>

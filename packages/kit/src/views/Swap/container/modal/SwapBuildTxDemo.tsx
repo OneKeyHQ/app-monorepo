@@ -1,5 +1,5 @@
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, Page, Text, YStack } from '@onekeyhq/components';
+import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useSwapBuildTxResultAtom } from '../../../../states/jotai/contexts/swap';
@@ -17,25 +17,25 @@ const SwapBuildTxDemo = () => {
   return (
     <Page scrollEnabled>
       <YStack space="$4">
-        <Text>{`Provider: ${swapBuildTxResult.result.info.providerName}`}</Text>
-        <Text>{`toAmount(after onekey fee): ${swapBuildTxResult.result.toAmount}`}</Text>
-        <Text>{`instantRate: ${swapBuildTxResult.result.instantRate}`}</Text>
+        <SizableText>{`Provider: ${swapBuildTxResult.result.info.providerName}`}</SizableText>
+        <SizableText>{`toAmount(after onekey fee): ${swapBuildTxResult.result.toAmount}`}</SizableText>
+        <SizableText>{`instantRate: ${swapBuildTxResult.result.instantRate}`}</SizableText>
         {swapBuildTxResult.tx && (
           <>
-            <Text mt="$4">Transaction</Text>
-            <Text>{`to: ${swapBuildTxResult.tx.to}`}</Text>
-            <Text>{`value: ${swapBuildTxResult.tx.value}`}</Text>
-            <Text>{`data: ${swapBuildTxResult.tx.data}`}</Text>
+            <SizableText mt="$4">Transaction</SizableText>
+            <SizableText>{`to: ${swapBuildTxResult.tx.to}`}</SizableText>
+            <SizableText>{`value: ${swapBuildTxResult.tx.value}`}</SizableText>
+            <SizableText>{`data: ${swapBuildTxResult.tx.data}`}</SizableText>
           </>
         )}
 
         {swapBuildTxResult.swftOrder && (
           <>
-            <Text mt="$4">Swft order</Text>
-            <Text>{`orderId: ${swapBuildTxResult.swftOrder.orderId}`}</Text>
-            <Text>{`platformAddr: ${swapBuildTxResult.swftOrder.platformAddr}`}</Text>
-            <Text>{`depositCoinCode: ${swapBuildTxResult.swftOrder.depositCoinCode}`}</Text>
-            <Text>{`depositCoinAmt: ${swapBuildTxResult.swftOrder.depositCoinAmt}`}</Text>
+            <SizableText mt="$4">Swft order</SizableText>
+            <SizableText>{`orderId: ${swapBuildTxResult.swftOrder.orderId}`}</SizableText>
+            <SizableText>{`platformAddr: ${swapBuildTxResult.swftOrder.platformAddr}`}</SizableText>
+            <SizableText>{`depositCoinCode: ${swapBuildTxResult.swftOrder.depositCoinCode}`}</SizableText>
+            <SizableText>{`depositCoinAmt: ${swapBuildTxResult.swftOrder.depositCoinAmt}`}</SizableText>
           </>
         )}
         <Button

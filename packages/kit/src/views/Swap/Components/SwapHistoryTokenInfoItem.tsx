@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Image, Text, XStack, YStack } from '@onekeyhq/components';
+import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import type { ISwapNetwork, ISwapToken } from '../types';
 
@@ -26,13 +26,13 @@ const SwapHistoryTokenInfoItem = ({
       <XStack>
         <Image w="$10" h="$10" source={{ uri: token.logoURI }} />
         <YStack>
-          <Text>{token.name}</Text>
-          <Text>{network?.name ?? ''}</Text>
+          <SizableText>{token.name}</SizableText>
+          <SizableText>{network?.name ?? ''}</SizableText>
         </YStack>
       </XStack>
       <YStack>
-        <Text>{amount}</Text>
-        <Text>{`$${amountFiatValue}`}</Text>
+        <SizableText>{amount}</SizableText>
+        <SizableText>{`$${amountFiatValue}`}</SizableText>
       </YStack>
     </XStack>
   );

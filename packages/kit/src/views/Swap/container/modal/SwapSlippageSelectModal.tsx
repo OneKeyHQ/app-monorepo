@@ -5,7 +5,7 @@ import {
   Button,
   Input,
   Page,
-  Text,
+  SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -100,12 +100,12 @@ const SwapSlippageSelectModal = () => {
           }}
           currentUsedSlippageItem={swapUsedSlippagePercentage}
         />
-        {detailLabel && <Text>{detailLabel}</Text>}
+        {detailLabel && <SizableText>{detailLabel}</SizableText>}
         <XStack justifyContent="center" alignItems="center">
-          <Text>Or</Text>
+          <SizableText>Or</SizableText>
         </XStack>
         <YStack>
-          <Text>Custom Amount</Text>
+          <SizableText>Custom Amount</SizableText>
           <Input
             value={customSlippagePercentage}
             placeholder={
@@ -126,13 +126,13 @@ const SwapSlippageSelectModal = () => {
             }}
           />
         </YStack>
-        <Text>What is slippage?</Text>
-        <Text>
+        <SizableText>What is slippage?</SizableText>
+        <SizableText>
           Slippage refers to the maximum percentage of funds that you are
           willing to lose when making a trade. Increasing this percentage can
           increase the likelihood of executing the trade, but it also increases
           the potential loss of assets.
-        </Text>
+        </SizableText>
       </YStack>
       <Button disabled={!canSave} onPress={onSave}>
         Save
