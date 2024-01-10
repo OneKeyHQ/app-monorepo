@@ -6,7 +6,7 @@ import { ListItem, Switch } from '@onekeyhq/components';
 import type { ISettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import { Section } from './Section';
 

@@ -4,9 +4,9 @@ import { Page, ScrollView } from '@onekeyhq/components';
 import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ListItemSelect } from '../Components/ListItemSelect';
-import { useLocaleOptions } from '../hooks';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { ListItemSelect } from '../../components/ListItemSelect';
+import { useLocaleOptions } from '../../hooks';
 
 export default function SettingLanguageModal() {
   const [settings] = useSettingsPersistAtom();
