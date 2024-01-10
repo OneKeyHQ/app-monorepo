@@ -1,14 +1,14 @@
 import { useIntl } from 'react-intl';
 
-import { Text, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 
 function DefiListHeader() {
   const intl = useIntl();
   return (
     <XStack px="$2">
-      <Text variant="$headingLg">
+      <SizableText size="$headingLg">
         {intl.formatMessage({ id: 'title__assets' })}
-      </Text>
+      </SizableText>
     </XStack>
   );
 }

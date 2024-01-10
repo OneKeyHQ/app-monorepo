@@ -1,4 +1,4 @@
-import { Select, Text } from '@onekeyhq/components';
+import { Select, SizableText } from '@onekeyhq/components';
 import { mockPresetNetworks } from '@onekeyhq/kit-bg/src/mock';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -27,7 +27,9 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
 
   return (
     <>
-      <Text variant="$headingXl">网络选择器 {selectedAccount.networkId}</Text>
+      <SizableText size="$headingXl">
+        网络选择器 {selectedAccount.networkId}
+      </SizableText>
       <Select
         items={getNetworksItems()}
         value={selectedAccount.networkId}

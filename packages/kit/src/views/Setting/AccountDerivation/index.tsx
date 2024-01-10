@@ -1,9 +1,9 @@
-import { ListItem, Page, Stack, Text } from '@onekeyhq/components';
+import { ListItem, Page, SizableText, Stack } from '@onekeyhq/components';
 
 const AccountDerivation = () => (
   <Page>
     <Stack px="$5" pt="$3">
-      <Text variant="$headingSm">ETHEREUM & EVM CHAINS</Text>
+      <SizableText size="$headingSm">ETHEREUM & EVM CHAINS</SizableText>
     </Stack>
     <Stack>
       <ListItem
