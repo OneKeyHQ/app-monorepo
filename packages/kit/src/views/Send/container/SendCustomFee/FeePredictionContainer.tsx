@@ -45,7 +45,7 @@ function FeePredictionContainer(props: IProps) {
           subtitle={subtitle}
           onPress={() => onSelected(item)}
         >
-          <Badge type={badgeType as IBadgeType} size="lg">
+          <Badge badgeType={badgeType as IBadgeType} badgeSize="lg">
             {intl.formatMessage(
               { id: 'form__str_probability' },
               { 0: `${item.confidence}%` },

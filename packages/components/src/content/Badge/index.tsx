@@ -12,7 +12,7 @@ export type IBadgeType =
 
 const BadgeContext = createStyledContext<{
   badgeSize: 'lg' | 'sm';
-  badgeType: 'success' | 'info' | 'warning' | 'critical' | 'default';
+  badgeType: IBadgeType;
 }>({
   badgeSize: 'sm',
   badgeType: 'default',
