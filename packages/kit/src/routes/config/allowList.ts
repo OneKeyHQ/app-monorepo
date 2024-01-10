@@ -2,13 +2,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabHomeRoutes } from '../../views/Home/router';
+import { EModalSettingRoutes } from '../../views/Setting/types';
 import { ERootRoutes } from '../enum';
+import { EModalRoutes } from '../Modal/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
   showParams: boolean;
+  showUrl?: boolean;
 }
 
 export type IScreenPathConfig = Record<
@@ -71,6 +74,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${EGalleryRoutes.Components}`]:
       {
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
+      {
+        showUrl: true,
         showParams: true,
       },
   } as Record<string, IAllowSettingItem>;
