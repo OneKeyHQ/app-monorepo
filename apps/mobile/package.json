@@ -58,7 +58,7 @@
     "react-native-keyboard-manager": "^6.5.11-1",
     "react-native-level-fs": "^3.0.1",
     "react-native-metrix": "^0.6.3",
-    "react-native-mmkv": "2.10.2",
+    "react-native-mmkv": "2.11.0",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "3.5.4",
     "react-native-restart": "0.0.27",
