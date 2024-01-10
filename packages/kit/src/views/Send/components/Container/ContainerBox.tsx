@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactElement } from 'react';
 import { cloneElement } from 'react';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 
 interface IContentItemProps {
   hasDivider?: boolean;
@@ -11,7 +11,7 @@ export type IContentItemBaseProps = IContentItemProps;
 
 type IProps = {
   title?: React.ReactNode;
-  titleProps?: ComponentProps<typeof Text>;
+  titleProps?: ComponentProps<typeof SizableText>;
   contentProps?: ComponentProps<typeof Stack>;
   blockProps?: ComponentProps<typeof Stack>;
   children:
@@ -26,9 +26,14 @@ function ContainerBox(props: IProps) {
   return (
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
-        <Text py="$2" variant="$headingSm" color="$textSubdued" {...titleProps}>
+        <SizableText
+          py="$2"
+          size="$headingSm"
+          color="$textSubdued"
+          {...titleProps}
+        >
           {title}
-        </Text>
+        </SizableText>
       ) : (
         title
       )}

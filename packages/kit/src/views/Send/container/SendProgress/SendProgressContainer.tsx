@@ -9,8 +9,8 @@ import {
   LottieView,
   Page,
   Progress,
+  SizableText,
   Stack,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -52,9 +52,9 @@ function SendProgressContainer() {
           ) : (
             <YStack padding="$4" space="$4">
               <Progress value={currentProgress} max={unsignedTxs.length} />
-              <Text>
+              <SizableText>
                 {currentProgress}/{unsignedTxs.length}
-              </Text>
+              </SizableText>
             </YStack>
           )}
         </Stack>

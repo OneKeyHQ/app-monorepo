@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { ListView, Stack, Tab, Text } from '@onekeyhq/components';
+import { ListView, SizableText, Stack, Tab } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
@@ -17,7 +17,7 @@ const FirstRoute = ({
     disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 10 }}>
-        <Text>Page 1 Row: {index}</Text>
+        <SizableText>Page 1 Row: {index}</SizableText>
       </Stack>
     )}
     onContentSizeChange={onContentSizeChange}
@@ -36,7 +36,7 @@ const SecondRoute = ({
     disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
-        <Text>Page 2 Row: {index}</Text>
+        <SizableText>Page 2 Row: {index}</SizableText>
       </Stack>
     )}
     onContentSizeChange={onContentSizeChange}

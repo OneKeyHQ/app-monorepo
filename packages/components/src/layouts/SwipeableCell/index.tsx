@@ -5,8 +5,8 @@ import { usePropsAndStyle } from '@tamagui/core';
 import { Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 
+import { SizableText } from '../../primitives/SizeableText';
 import { Stack, XStack } from '../../primitives/Stack';
-import { Text } from '../../primitives/Text';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ColorTokens, GetProps } from 'tamagui';
@@ -70,7 +70,7 @@ function SwipeableCellContainer({
               alignItems="center"
               onPress={() => item.onPress({ close })}
             >
-              <Text color="white">{item.title}</Text>
+              <SizableText color="white">{item.title}</SizableText>
             </Stack>
           </Animated.View>
         );

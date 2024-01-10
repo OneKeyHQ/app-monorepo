@@ -1,6 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { Page, Switch, Text, XStack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  SizableText,
+  Switch,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -12,9 +18,9 @@ const SettingProtectionModal = () => {
     <Page>
       <YStack px="$5">
         <XStack py="$3" justifyContent="space-between" alignItems="center">
-          <Text variant="$bodyMd">
+          <SizableText size="$bodyMd">
             {intl.formatMessage({ id: 'form__create_transactions' })}
-          </Text>
+          </SizableText>
           <Switch
             value={settings.protectCreateTransaction}
             onChange={(value) =>
@@ -25,9 +31,9 @@ const SettingProtectionModal = () => {
           />
         </XStack>
         <XStack py="$3" justifyContent="space-between" alignItems="center">
-          <Text variant="$bodyMd">
+          <SizableText size="$bodyMd">
             {intl.formatMessage({ id: 'form__create_delete_wallets' })}
-          </Text>
+          </SizableText>
           <Switch
             value={settings.protectCreateOrRemoveWallet}
             onChange={(value) =>

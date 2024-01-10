@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
-import { Button, Popover, Stack, Text } from '@onekeyhq/components';
+import { Button, Popover, SizableText, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -15,10 +15,10 @@ const PopoverDemo = () => {
       renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
       renderContent={
         <Stack space="$4" p="$5">
-          <Text>
+          <SizableText>
             Non exercitation ea laborum cupidatat sunt amet aute exercitation
             occaecat minim incididunt non est est voluptate.
-          </Text>
+          </SizableText>
           <Button variant="primary" onPress={() => setIsOpen(false)}>
             Button
           </Button>
@@ -46,10 +46,10 @@ const PopoverGallery = () => (
             renderTrigger={<Button>Uncontrolled Open</Button>}
             renderContent={({ closePopover }) => (
               <Stack space="$4" p="$5">
-                <Text>
+                <SizableText>
                   Non exercitation ea laborum cupidatat sunt amet aute
                   exercitation occaecat minim incididunt non est est voluptate.
-                </Text>
+                </SizableText>
                 <Button variant="primary" onPress={closePopover}>
                   Button
                 </Button>

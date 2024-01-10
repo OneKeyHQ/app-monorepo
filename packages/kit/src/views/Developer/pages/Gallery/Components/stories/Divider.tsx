@@ -1,4 +1,4 @@
-import { Divider, Text, XStack, YStack } from '@onekeyhq/components';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -22,15 +22,15 @@ const DividerGallery = () => (
         element: (
           <YStack space="$8">
             <YStack space="$4">
-              <Text>Line 1</Text>
+              <SizableText>Line 1</SizableText>
               <Divider width="100%" />
-              <Text>Line 2</Text>
+              <SizableText>Line 2</SizableText>
             </YStack>
 
             <XStack space="$4">
-              <Text>Left</Text>
+              <SizableText>Left</SizableText>
               <Divider vertical />
-              <Text>Right</Text>
+              <SizableText>Right</SizableText>
             </XStack>
           </YStack>
         ),

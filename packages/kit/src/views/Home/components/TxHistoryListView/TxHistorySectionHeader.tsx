@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 import { XStack } from 'tamagui';
 
-import { Text } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
 
 function TxHistorySectionHeader(props: IHistoryListSectionGroup) {
@@ -10,7 +10,7 @@ function TxHistorySectionHeader(props: IHistoryListSectionGroup) {
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
   return (
     <XStack px="$2">
-      <Text color="$textSubdued">{titleText}</Text>
+      <SizableText color="$textSubdued">{titleText}</SizableText>
     </XStack>
   );
 }

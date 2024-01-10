@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import type { ISwitchProps } from '@onekeyhq/components';
-import { Stack, Switch, Text } from '@onekeyhq/components';
+import { SizableText, Stack, Switch } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -31,11 +31,11 @@ const SwitchGallery = () => (
           <Stack space="$4">
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo />
-              <Text>Small</Text>
+              <SizableText>Small</SizableText>
             </Stack>
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo size="large" />
-              <Text>Large</Text>
+              <SizableText>Large</SizableText>
             </Stack>
           </Stack>
         ),
@@ -46,19 +46,19 @@ const SwitchGallery = () => (
           <Stack space="$4">
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo value={false} size="large" />
-              <Text>Default</Text>
+              <SizableText>Default</SizableText>
             </Stack>
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo value={false} size="large" disabled />
-              <Text>Default and disabled</Text>
+              <SizableText>Default and disabled</SizableText>
             </Stack>
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo value size="large" />
-              <Text>Checked</Text>
+              <SizableText>Checked</SizableText>
             </Stack>
             <Stack flexDirection="row" alignItems="center" space="$2">
               <SwitchDemo value size="large" disabled />
-              <Text>Checked and disabled</Text>
+              <SizableText>Checked and disabled</SizableText>
             </Stack>
           </Stack>
         ),

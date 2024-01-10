@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Text, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 
 import {
   useSelectedPresetGasIndexAtom,
@@ -20,20 +20,20 @@ function GasSelectorTrigger(props: IProps) {
   return (
     <XStack alignItems="center" space="$3" {...props}>
       <XStack alignItems="center">
-        <Text>
+        <SizableText>
           {getGasIcon({
             gasType: sendGasType,
             gasPresetIndex: selectedGasPresetIndex,
           })}
-        </Text>
-        <Text variant="$bodyLg">
+        </SizableText>
+        <SizableText size="$bodyLg">
           {intl.formatMessage({
             id: getGasLabel({
               gasType: sendGasType,
               gasPresetIndex: selectedGasPresetIndex,
             }),
           })}
-        </Text>
+        </SizableText>
       </XStack>
       <Icon
         hoverStyle={{

@@ -7,6 +7,5 @@ export * from './Label';
 export * from './Skeleton';
 export * from './Spinner';
 export * from './Stack';
-export * from './Text';
 export * from './SizeableText';
 export * from './Heading';

@@ -7,8 +7,8 @@ import {
   IconButton,
   ListView,
   Page,
+  SizableText,
   Stack,
-  Text,
   XStack,
   useMedia,
   useSafeAreaInsets,
@@ -167,9 +167,9 @@ export function WalletList({ num }: IWalletListProps) {
               ]}
             />
             {media.gtMd && (
-              <Text variant="$bodySm" color="$textSubdued" mt="$1">
+              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
                 Add wallet
-              </Text>
+              </SizableText>
             )}
           </Stack>
         }

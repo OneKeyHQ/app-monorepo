@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
-import { Select, Text } from '@onekeyhq/components';
+import { Select, SizableText } from '@onekeyhq/components';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -70,12 +70,12 @@ export function DeriveTypeSelectorTrigger({ num }: { num: number }) {
 
   return (
     <>
-      <Text variant="$headingXl">
+      <SizableText size="$headingXl">
         派生选择器{' '}
         {accountUtils.beautifyPathTemplate({
           template: currentDeriveInfo?.item?.template || '',
         })}
-      </Text>
+      </SizableText>
       <Select
         key={`${selectedAccount.deriveType}-${selectedAccount.networkId || ''}`}
         items={deriveInfoItems}

@@ -1,4 +1,4 @@
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { Button, SizableText, Stack } from '@onekeyhq/components';
 
 import {
   ProviderJotaiContextDemo,
@@ -17,11 +17,11 @@ function JotaiDemo1() {
   const actions = useDemoJotaiActions();
   return (
     <Stack space="$2">
-      <Text>
+      <SizableText>
         {profile.id}@{profile.name}
-      </Text>
-      <Text>{JSON.stringify(map, null, 2)}</Text>
-      <Text>{c}</Text>
+      </SizableText>
+      <SizableText>{JSON.stringify(map, null, 2)}</SizableText>
+      <SizableText>{c}</SizableText>
       <Button
         onPress={() => {
           // setA(JOTAI_RESET);

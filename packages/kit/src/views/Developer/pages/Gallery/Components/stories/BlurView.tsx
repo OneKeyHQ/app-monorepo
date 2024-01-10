@@ -3,8 +3,8 @@ import type { PropsWithChildren } from 'react';
 import {
   BlurView,
   ListView,
+  SizableText,
   Stack,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -55,7 +55,7 @@ function BasicDemo() {
       <BlurView w="90%" h="$20" intensity={70} />
       <BlurView w="80%" h="$20" margin="$4" borderRadius="$4" intensity={70} />
       <BlurView contentStyle={{ p: '$4' }} borderRadius="$4" intensity={70}>
-        <Text>999</Text>
+        <SizableText>999</SizableText>
       </BlurView>
     </Background>
   );
@@ -73,7 +73,7 @@ function ListDemo() {
           estimatedItemSize="$10"
           renderItem={({ item }) => (
             <BlurView m="$2" borderRadius="$2" contentStyle={{ p: '$2' }}>
-              <Text>{item}</Text>
+              <SizableText>{item}</SizableText>
             </BlurView>
           )}
         />

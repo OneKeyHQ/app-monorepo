@@ -437,10 +437,7 @@ function HomePage() {
   return useMemo(
     () => (
       <Page>
-        <Page.Header
-          headerTitle={headerTitle}
-          headerRight={headerRight}
-        />
+        <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
         <Page.Body>
           <Tab
             // @ts-expect-error

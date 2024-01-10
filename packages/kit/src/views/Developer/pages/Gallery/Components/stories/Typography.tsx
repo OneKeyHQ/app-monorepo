@@ -1,4 +1,4 @@
-import { Text, YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -21,21 +21,21 @@ const TypographyGallery = () => (
         title: 'Sans',
         element: (
           <YStack space="$2">
-            <Text variant="$heading5xl">heading5xl</Text>
-            <Text variant="$heading4xl">heading4xl</Text>
-            <Text variant="$heading3xl">heading3xl</Text>
-            <Text variant="$heading2xl">heading2xl</Text>
-            <Text variant="$headingXl">headingXl</Text>
-            <Text variant="$headingLg">headingLg</Text>
-            <Text variant="$headingMd">headingMd</Text>
-            <Text variant="$headingSm">headingSm</Text>
-            <Text variant="$headingXs">headingXs</Text>
-            <Text variant="$bodyLg">bodyLg</Text>
-            <Text variant="$bodyMd">bodyMd</Text>
-            <Text variant="$bodySm">bodySm</Text>
-            <Text variant="$bodyLgMedium">bodyLgMedium</Text>
-            <Text variant="$bodyMdMedium">bodyMdMedium</Text>
-            <Text variant="$bodySmMedium">bodySmMedium</Text>
+            <SizableText size="$heading5xl">heading5xl</SizableText>
+            <SizableText size="$heading4xl">heading4xl</SizableText>
+            <SizableText size="$heading3xl">heading3xl</SizableText>
+            <SizableText size="$heading2xl">heading2xl</SizableText>
+            <SizableText size="$headingXl">headingXl</SizableText>
+            <SizableText size="$headingLg">headingLg</SizableText>
+            <SizableText size="$headingMd">headingMd</SizableText>
+            <SizableText size="$headingSm">headingSm</SizableText>
+            <SizableText size="$headingXs">headingXs</SizableText>
+            <SizableText size="$bodyLg">bodyLg</SizableText>
+            <SizableText size="$bodyMd">bodyMd</SizableText>
+            <SizableText size="$bodySm">bodySm</SizableText>
+            <SizableText size="$bodyLgMedium">bodyLgMedium</SizableText>
+            <SizableText size="$bodyMdMedium">bodyMdMedium</SizableText>
+            <SizableText size="$bodySmMedium">bodySmMedium</SizableText>
           </YStack>
         ),
       },
@@ -43,12 +43,12 @@ const TypographyGallery = () => (
         title: 'Underline',
         element: (
           <YStack space="$2">
-            <Text variant="$bodyLg" textDecorationLine="underline">
+            <SizableText size="$bodyLg" textDecorationLine="underline">
               `variant="$bodyLg" textDecorationLine="underline"`
-            </Text>
-            <Text variant="$bodyMd" textDecorationLine="underline">
+            </SizableText>
+            <SizableText size="$bodyMd" textDecorationLine="underline">
               `variant="$bodyMd" textDecorationLine="underline"`
-            </Text>
+            </SizableText>
           </YStack>
         ),
       },
@@ -56,24 +56,30 @@ const TypographyGallery = () => (
         title: 'Colors',
         element: (
           <YStack space="$2">
-            <Text>Default</Text>
-            <Text color="$textSubdued">$textSubdued</Text>
-            <Text color="$textDisabled">$textDisabled</Text>
-            <Text color="$textInverse" backgroundColor="$bgInverse">
+            <SizableText>Default</SizableText>
+            <SizableText color="$textSubdued">$textSubdued</SizableText>
+            <SizableText color="$textDisabled">$textDisabled</SizableText>
+            <SizableText color="$textInverse" backgroundColor="$bgInverse">
               $textInverse
-            </Text>
-            <Text color="$textInverseSubdued" backgroundColor="$bgInverse">
+            </SizableText>
+            <SizableText
+              color="$textInverseSubdued"
+              backgroundColor="$bgInverse"
+            >
               $textInverseSubdued
-            </Text>
-            <Text color="$textOnColor" backgroundColor="$bgCriticalStrong">
+            </SizableText>
+            <SizableText
+              color="$textOnColor"
+              backgroundColor="$bgCriticalStrong"
+            >
               $textOnColor
-            </Text>
-            <Text color="$textSuccess">$textSuccess</Text>
-            <Text color="$textInfo">$textInfo</Text>
-            <Text color="$textCritical">$textCritical</Text>
-            <Text color="$textCaution">$textCaution</Text>
-            <Text color="$textInteractive">$textInteractive</Text>
-            <Text color="$textPlaceholder">$textPlaceholder</Text>
+            </SizableText>
+            <SizableText color="$textSuccess">$textSuccess</SizableText>
+            <SizableText color="$textInfo">$textInfo</SizableText>
+            <SizableText color="$textCritical">$textCritical</SizableText>
+            <SizableText color="$textCaution">$textCaution</SizableText>
+            <SizableText color="$textInteractive">$textInteractive</SizableText>
+            <SizableText color="$textPlaceholder">$textPlaceholder</SizableText>
           </YStack>
         ),
       },

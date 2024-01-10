@@ -3,10 +3,10 @@ import { useCallback, useState } from 'react';
 import {
   Button,
   Page,
+  SizableText,
   SortableCell,
   SortableListView,
   SwipeableCell,
-  Text,
 } from '@onekeyhq/components';
 
 export const mapIndexToData = (_d: any, index: number, array: any[]) => {
@@ -83,7 +83,9 @@ const SortableListViewGallery = () => {
                 deleteCell(getIndex);
               }}
             >
-              <Text color="white">{item.index}可左滑拖动删除</Text>
+              <SizableText color="white">
+                {item.index}可左滑拖动删除
+              </SizableText>
             </SortableCell>
           </SwipeableCell>
         )}

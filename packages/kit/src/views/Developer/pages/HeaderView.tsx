@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button, Text, YStack } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -64,9 +64,9 @@ export default function HomePageHeaderView() {
           <AccountSelectorTrigger num={0} />
           <AccountSelectorActiveAccount num={0} />
         </AccountSelectorProvider>
-        <Text>Header View Simple</Text>
-        <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
-        {headerHighMode && <Text py="$10">Very high</Text>}
+        <SizableText>Header View Simple</SizableText>
+        <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
+        {headerHighMode && <SizableText py="$10">Very high</SizableText>}
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>

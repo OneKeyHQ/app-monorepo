@@ -1,4 +1,4 @@
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { Button, SizableText, Stack } from '@onekeyhq/components';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -60,7 +60,9 @@ const DemoRootMe = () => {
           element: (
             <Stack>
               {new Array(1000).fill({}).map((_, index) => (
-                <Text>这是有1000个 View 的 BottomTab 卡顿测试{index}</Text>
+                <SizableText>
+                  这是有1000个 View 的 BottomTab 卡顿测试{index}
+                </SizableText>
               ))}
             </Stack>
           ),

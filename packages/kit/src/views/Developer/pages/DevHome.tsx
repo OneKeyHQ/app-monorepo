@@ -10,10 +10,10 @@ import {
   ListView,
   Page,
   ScrollView,
+  SizableText,
   Skeleton,
   Stack,
   Tab,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
@@ -38,7 +38,7 @@ const FirstRoute = ({
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
-      <Text>demo1</Text>
+      <SizableText>demo1</SizableText>
     </Stack>
   </ScrollView>
 );
@@ -52,9 +52,9 @@ const SecondRoute = ({
     scrollEnabled={platformEnv.isWebTouchable}
     disableScrollViewPanResponder
     renderItem={({ index }) => (
-      <Text color="$text" key={index}>
+      <SizableText color="$text" key={index}>
         demo2 ${index}
-      </Text>
+      </SizableText>
     )}
     estimatedItemSize={50}
     onContentSizeChange={onContentSizeChange}
@@ -72,7 +72,7 @@ const OtherRoute = ({
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
-      <Text>demo3</Text>
+      <SizableText>demo3</SizableText>
     </Stack>
   </ScrollView>
 );
@@ -88,7 +88,7 @@ const ListRoute = ({
     disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
-        <Text>Row: {index}</Text>
+        <SizableText>Row: {index}</SizableText>
       </Stack>
     )}
     estimatedItemSize={100}
@@ -165,15 +165,15 @@ function HomePage() {
                   <Skeleton w="$6" h="$6" />
                 </Image.Fallback>
               </Image>
-              <Text
+              <SizableText
                 flex={1}
-                variant="$bodyMdMedium"
+                size="$bodyMdMedium"
                 pl="$2"
                 pr="$1"
                 numberOfLines={1}
               >
                 Account 1
-              </Text>
+              </SizableText>
               <Icon
                 name="ChevronGrabberVerOutline"
                 size="$5"

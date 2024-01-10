@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
-import { Icon, Select, Stack, Text } from '@onekeyhq/components';
+import { Icon, Select, SizableText, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -89,9 +89,9 @@ const SelectCustomItem = () => {
     <Select
       placeholder="please select one"
       renderTrigger={({ value, label, placeholder }) => (
-        <Text>
+        <SizableText>
           {value ? `label: ${label || ''}, value: ${value}` : placeholder}
-        </Text>
+        </SizableText>
       )}
       items={items}
       value={val}
@@ -108,19 +108,19 @@ const sections: ISelectSection[] = [
       {
         label: 'Apple🍎',
         value: 'Apple',
-        leading: <Text variant="$bodyMdMedium">😀</Text>,
+        leading: <SizableText size="$bodyMdMedium">😀</SizableText>,
       },
 
       {
         label: 'Pear🌰',
         value: 'Pear',
-        leading: <Text variant="$bodyMdMedium">🚅</Text>,
+        leading: <SizableText size="$bodyMdMedium">🚅</SizableText>,
       },
 
       {
         label: 'Blackberry🫐',
         value: 'Blackberry',
-        leading: <Text variant="$bodyMdMedium">🚆</Text>,
+        leading: <SizableText size="$bodyMdMedium">🚆</SizableText>,
       },
 
       {

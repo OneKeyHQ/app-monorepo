@@ -1,8 +1,8 @@
 import type { ITourStep } from '@onekeyhq/components';
 import {
   Button,
+  SizableText,
   SpotlightTour,
-  Text,
   TourBox,
   TourStep,
   TourTrigger,
@@ -21,21 +21,23 @@ function Page() {
       <YStack>
         {/** Followed by assign width and height  */}
         <TourStep index={0} width={110} height={40}>
-          <Text variant="$headingXl">Introduction</Text>
+          <SizableText size="$headingXl">Introduction</SizableText>
         </TourStep>
-        <Text>
+        <SizableText>
           This is an example using the spotlight-tour library. Press the Start
           button to see it in action.
-        </Text>
+        </SizableText>
       </YStack>
       <YStack>
         {/** Followed by this text's width and height  */}
         <TourStep index={1}>
-          <Text width="30%" variant="$headingXl">
+          <SizableText width="30%" size="$headingXl">
             Documentation
-          </Text>
+          </SizableText>
         </TourStep>
-        <Text>Please, read the documentation before installing.</Text>
+        <SizableText>
+          Please, read the documentation before installing.
+        </SizableText>
       </YStack>
     </YStack>
   );

@@ -10,8 +10,8 @@ import {
   Form,
   Input,
   ScrollView,
+  SizableText,
   Stack,
-  Text,
   Toast,
   XStack,
   YStack,
@@ -242,7 +242,7 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.show({
                   title: 'show',
-                  renderContent: <Text>Show</Text>,
+                  renderContent: <SizableText>Show</SizableText>,
                 })
               }
             >
@@ -252,7 +252,7 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.confirm({
                   title: 'confirm',
-                  renderContent: <Text>wait 1500ms</Text>,
+                  renderContent: <SizableText>wait 1500ms</SizableText>,
                   onConfirm: () =>
                     new Promise((resolve) => {
                       setTimeout(() => {
@@ -272,7 +272,7 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.cancel({
                   title: 'confirm',
-                  renderContent: <Text>cancel</Text>,
+                  renderContent: <SizableText>cancel</SizableText>,
                 })
               }
             >
@@ -290,7 +290,7 @@ const DialogGallery = () => (
                 Dialog.confirm({
                   title: 'show',
                   confirmButtonProps: { disabled: true },
-                  renderContent: <Text>Show</Text>,
+                  renderContent: <SizableText>Show</SizableText>,
                 })
               }
             >

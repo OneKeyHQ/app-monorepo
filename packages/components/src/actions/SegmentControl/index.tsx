@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
-import { styled } from 'tamagui';
+import { SizableText, styled } from 'tamagui';
 
-import { Text, XStack, YStack } from '../../primitives';
+import { XStack, YStack } from '../../primitives';
 
 import type { GetProps } from 'tamagui';
 
@@ -64,13 +64,13 @@ function SegmentControlItem({
       })}
       {...rest}
     >
-      <Text
-        variant="$bodyMdMedium"
+      <SizableText
+        size="$bodyMdMedium"
         textAlign="center"
         color={active ? '$text' : '$textSubdued'}
       >
         {label}
-      </Text>
+      </SizableText>
     </YStack>
   );
 }

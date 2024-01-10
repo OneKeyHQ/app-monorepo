@@ -1,8 +1,8 @@
 import {
   Page,
+  SizableText,
   Stack,
   Switch,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -16,7 +16,7 @@ const SpendUTXO = () => {
     <Page>
       <YStack px="$5">
         <XStack py="$3" justifyContent="space-between" alignItems="center">
-          <Text variant="$bodyMd">Spend Dust UTXO</Text>
+          <SizableText size="$bodyMd">Spend Dust UTXO</SizableText>
           <Switch
             value={settings.spendDustUTXO}
             onChange={async (value) => {
@@ -25,12 +25,12 @@ const SpendUTXO = () => {
           />
         </XStack>
         <Stack>
-          <Text color="$textSubdued" variant="$bodySm">
+          <SizableText color="$textSubdued" size="$bodySm">
             Using dust UTXO will increase unnecessary transaction fee, and may
             reduce the anonymity and privacy of transactions. It’s recommended
             to disable this feature in order to avoid malicious tracking on
             chain.
-          </Text>
+          </SizableText>
         </Stack>
       </YStack>
     </Page>

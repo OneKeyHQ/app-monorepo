@@ -3,8 +3,8 @@ import { Suspense } from 'react';
 import {
   Button,
   Dialog,
+  SizableText,
   Spinner,
-  Text,
   Toast,
   XStack,
   YStack,
@@ -96,13 +96,13 @@ const PasswordDemoGallery = () => {
               </Button>
               <Button onPress={handlePasswordVerify}>密码验证弹窗</Button>
               <XStack justifyContent="space-between">
-                <Text>生物识别</Text>
+                <SizableText>生物识别</SizableText>
                 <Suspense fallback={<Spinner size="large" />}>
                   <BiologyAuthSwitchContainer />
                 </Suspense>
               </XStack>
               <XStack justifyContent="space-between">
-                <Text>Chrome生物识别</Text>
+                <SizableText>Chrome生物识别</SizableText>
                 <Suspense fallback={<Spinner size="large" />}>
                   <WebAuthSwitchContainer />
                 </Suspense>

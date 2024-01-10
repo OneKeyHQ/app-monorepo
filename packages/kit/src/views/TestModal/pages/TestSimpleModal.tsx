@@ -4,8 +4,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Page,
+  SizableText,
   Switch,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -40,26 +40,32 @@ export function TestSimpleModal() {
       <Page.Body bg="burlywood">
         <XStack>
           <Switch value={showHeader} onChange={changeHeaderStatus} />
-          <Text>{showHeader ? 'Show Header' : 'Hide Header'}</Text>
+          <SizableText>
+            {showHeader ? 'Show Header' : 'Hide Header'}
+          </SizableText>
         </XStack>
         <XStack>
           <Switch value={showFooter} onChange={changeFooterStatus} />
-          <Text>{showFooter ? 'Show Footer' : 'Hide Fotter'}</Text>
+          <SizableText>
+            {showFooter ? 'Show Footer' : 'Hide Fotter'}
+          </SizableText>
         </XStack>
         <XStack>
           <Switch
             value={showCustomFooter}
             onChange={changeCustomFooterStatus}
           />
-          <Text>
+          <SizableText>
             {showCustomFooter ? 'Show Custom Footer' : 'Hide Custom Fotter'}
-          </Text>
+          </SizableText>
         </XStack>
         <XStack>
           <Switch value={showNewHeader} onChange={changeNewHeaderStatus} />
-          <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
+          <SizableText>
+            {showNewHeader ? 'Show New Header' : 'Hide New Header'}
+          </SizableText>
         </XStack>
-        <Text>这是一个普通的 Modal 测试</Text>
+        <SizableText>这是一个普通的 Modal 测试</SizableText>
         <YStack space="$4" m="$4">
           <Button onPress={navigateToNextPage}>Push to Next Page</Button>
           <Page.Close>
@@ -118,7 +124,7 @@ export function TestSimpleModal() {
               width="100%"
             >
               <Button>Close All</Button>
-              <Text>+</Text>
+              <SizableText>+</SizableText>
               <Button>Done</Button>
             </XStack>
           ) : null}

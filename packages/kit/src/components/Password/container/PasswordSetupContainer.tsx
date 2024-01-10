@@ -1,6 +1,6 @@
 import { Suspense, memo, useCallback, useState } from 'react';
 
-import { Stack, Text, Toast, XStack } from '@onekeyhq/components';
+import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordWebAuthInfoAtom,
@@ -22,7 +22,7 @@ const BiologyAuthContainer = () => {
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   return biologyAuthIsSupport || webAuthIsSupport ? (
     <XStack justifyContent="space-between" alignItems="center">
-      <Text variant="bodyMdMedium">Authentication with FaceID</Text>
+      <SizableText size="$bodyMdMedium">Authentication with FaceID</SizableText>
       <Stack>
         <UniversalContainerWithSuspense />
       </Stack>

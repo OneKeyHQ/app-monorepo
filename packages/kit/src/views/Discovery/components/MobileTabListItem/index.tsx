@@ -6,8 +6,8 @@ import {
   Icon,
   IconButton,
   Image,
+  SizableText,
   Stack,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -76,15 +76,15 @@ function MobileTabListItem({
               <Icon name="GlobusOutline" size="$4" />
             </Image.Fallback>
           </Image>
-          <Text
+          <SizableText
             flex={1}
-            variant="$bodySm"
+            size="$bodySm"
             textAlign="left"
             numberOfLines={1}
             mx="$2"
           >
             {tab?.title || ''}
-          </Text>
+          </SizableText>
           <IconButton
             variant="tertiary"
             size="small"

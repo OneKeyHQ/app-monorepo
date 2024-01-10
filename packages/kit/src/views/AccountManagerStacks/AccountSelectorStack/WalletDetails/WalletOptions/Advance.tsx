@@ -1,4 +1,10 @@
-import { Dialog, ListItem, Stack, Switch, Text } from '@onekeyhq/components';
+import {
+  Dialog,
+  ListItem,
+  SizableText,
+  Stack,
+  Switch,
+} from '@onekeyhq/components';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -18,12 +24,12 @@ export function Advance() {
               <ListItem title="Passphrase">
                 <Switch size="small" />
               </ListItem>
-              <Text px="$5" variant="$bodyMd">
+              <SizableText px="$5" size="$bodyMd">
                 Passphrase adds a custom phrase to your recovery phrase to
                 create a hidden wallet. Each hidden wallet has its passphrase.
                 Do not forget it, as it can't be retrieved & funds will be lost
                 permanently.
-              </Text>
+              </SizableText>
             </Stack>
           ),
           showFooter: false,
