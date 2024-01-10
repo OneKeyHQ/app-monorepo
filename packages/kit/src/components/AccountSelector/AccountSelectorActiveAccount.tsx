@@ -1,4 +1,4 @@
-import { Button, Text } from '@onekeyhq/components';
+import { Button, SizableText } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -19,20 +19,20 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
 
   return (
     <>
-      <Text>
+      <SizableText>
         {'>>>>>>'} {wallet?.name} -- {network?.name} --{' '}
         {selectedAccount?.deriveType}/{selectedAccount.indexedAccountId} --{' '}
         {account?.name}
-      </Text>
+      </SizableText>
       {account?.address ? (
         <>
-          <Text>
+          <SizableText>
             {accountUtils.shortenAddress({
               address: account?.address || '',
             })}
-          </Text>
-          <Text>{account?.id}</Text>
-          <Text>{account?.path}</Text>
+          </SizableText>
+          <SizableText>{account?.id}</SizableText>
+          <SizableText>{account?.path}</SizableText>
         </>
       ) : (
         <Button

@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Text, TextArea, YStack } from '@onekeyhq/components';
+import { SizableText, TextArea, YStack } from '@onekeyhq/components';
 
 type IProps = ComponentProps<typeof TextArea> & {
   networkId?: string;
@@ -38,7 +38,9 @@ function AddressInput(props: IProps) {
         }
         {...rest}
       />
-      {description && <Text color="$textSubdued">{description}</Text>}
+      {description && (
+        <SizableText color="$textSubdued">{description}</SizableText>
+      )}
     </YStack>
   );
 }

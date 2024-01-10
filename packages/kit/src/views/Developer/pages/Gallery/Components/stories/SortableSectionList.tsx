@@ -2,7 +2,11 @@ import { useState } from 'react';
 
 import { Pressable } from 'react-native';
 
-import { SortableCell, SortableSectionList, Text } from '@onekeyhq/components';
+import {
+  SizableText,
+  SortableCell,
+  SortableSectionList,
+} from '@onekeyhq/components';
 
 import { mapIndexToData } from './SortableListView';
 
@@ -45,7 +49,7 @@ const SortableSectionListGallery = () => {
             drag={drag}
             isActive={isActive}
           >
-            <Text color="white">{item.index}长按拖动</Text>
+            <SizableText color="white">{item.index}长按拖动</SizableText>
           </SortableCell>
         </Pressable>
       )}

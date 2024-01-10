@@ -7,8 +7,8 @@ import {
   Button,
   Page,
   ScrollView,
+  SizableText,
   Stack,
-  Text,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -44,7 +44,7 @@ function PartContainer({
   return (
     <YStack>
       <Stack paddingTop="$5" paddingBottom="$2.5">
-        <Text variant="$headingMd">{title}</Text>
+        <SizableText size="$headingMd">{title}</SizableText>
       </Stack>
 
       <YStack
@@ -150,7 +150,7 @@ const TabDeveloper = () => {
           </PartContainer>
 
           <PartContainer title="Commit Hash">
-            <Text>{process.env.COMMITHASH}</Text>
+            <SizableText>{process.env.COMMITHASH}</SizableText>
           </PartContainer>
 
           <PartContainer title="Commit Hash">

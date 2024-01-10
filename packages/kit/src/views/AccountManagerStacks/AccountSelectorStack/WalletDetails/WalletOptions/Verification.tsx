@@ -1,7 +1,13 @@
 import { useState } from 'react';
 
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
-import { Dialog, Spinner, Stack, Text, Toast } from '@onekeyhq/components';
+import {
+  Dialog,
+  SizableText,
+  Spinner,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -62,9 +68,9 @@ export function Verification() {
           renderContent: (
             <Stack borderRadius="$3" bg="$bgSubdued" p="$5">
               <Spinner size="large" />
-              <Text textAlign="center" mb="$2" mt="$5">
+              <SizableText textAlign="center" mb="$2" mt="$5">
                 Confirming if the firmware is officially released by OneKey
-              </Text>
+              </SizableText>
             </Stack>
           ),
           showFooter: false,

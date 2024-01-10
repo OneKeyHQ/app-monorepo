@@ -1,6 +1,6 @@
 import { YStack } from 'tamagui';
 
-import { Skeleton, Text } from '@onekeyhq/components';
+import { SizableText, Skeleton } from '@onekeyhq/components';
 
 type IProps = {
   address: string;
@@ -12,7 +12,7 @@ function WalletOverview(props: IProps) {
   const { address, value, isFetchingValue } = props;
   return (
     <YStack paddingHorizontal="$4" paddingVertical="$8" space="$1">
-      <Text
+      <SizableText
         color="$textSubdued"
         width="$16"
         overflow="hidden"
@@ -20,9 +20,9 @@ function WalletOverview(props: IProps) {
         textOverflow="ellipsis"
       >
         {address}
-      </Text>
+      </SizableText>
       <Skeleton show={isFetchingValue}>
-        <Text variant="$heading4xl">{value}</Text>
+        <SizableText size="$heading4xl">{value}</SizableText>
       </Skeleton>
     </YStack>
   );

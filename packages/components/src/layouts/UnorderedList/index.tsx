@@ -1,6 +1,6 @@
 import { Children, cloneElement, isValidElement } from 'react';
 
-import { Icon, Stack, Text, XStack } from '../../primitives';
+import { Icon, SizableText, Stack, XStack } from '../../primitives';
 
 import type { IIconProps } from '../../primitives';
 import type { StackProps, XStackProps } from 'tamagui';
@@ -25,9 +25,9 @@ export function UnOrderedListItem({
           <XStack w="$1.5" h="$1.5" borderRadius="$full" bg="$textSubdued" />
         )}
       </XStack>
-      <Text pl="$2" tag="p" variant="$bodyLg">
+      <SizableText pl="$2" tag="p" size="$bodyLg">
         {children}
-      </Text>
+      </SizableText>
     </XStack>
   );
 }
