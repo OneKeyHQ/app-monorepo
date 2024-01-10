@@ -45,6 +45,8 @@ export default class ServiceNostr extends ServiceBase {
     }),
   );
 
+  cacheAutoSignMap = new Map<string, boolean>();
+
   private async getCurrentAccountIndex(
     activeAccountId: string,
     activeNetworkId: string,
@@ -181,11 +183,24 @@ export default class ServiceNostr extends ServiceBase {
     accountId,
     password,
     event,
-  }: IGetNostrParams & { event: NostrEvent }) {
+    options,
+  }: IGetNostrParams & {
+    event: NostrEvent;
+    options?: {
+      host: string;
+      autoSign: boolean;
+    };
+  }) {
     try {
       if (!validateEvent(event)) {
         throw new Error('Invalid event');
       }
+
+      // update cache by options.autoSign
+      if (options?.host) {
+        this.cacheAutoSignMap.set(options.host, !!options?.autoSign);
+      }
+
       const nostrAccount = await this.getOrCreateNostrAccount({
         walletId,
         currentAccountId: accountId,
@@ -217,6 +232,14 @@ export default class ServiceNostr extends ServiceBase {
     } catch (e) {
       console.error(e);
     }
+  }
+
+  @backgroundMethod()
+  async getAutoSignStatus(host: string) {
+    if (!this.cacheAutoSignMap.has(host)) {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(this.cacheAutoSignMap.get(host));
   }
 
   @backgroundMethod()
