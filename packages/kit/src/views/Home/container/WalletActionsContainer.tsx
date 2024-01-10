@@ -13,6 +13,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EModalSendRoutes } from '../../Send/router';
 import { ETokenPages } from '../../Token/router/type';
 import { WalletActions } from '../components/WalletActions';
@@ -25,18 +26,23 @@ function WalletActionsContainer() {
 
   const form = useForm();
 
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
   const handleOnSend = useCallback(async () => {
+    if (!account || !network) return;
     // TODO: Check if it is a single token network by settings
     const isSingleTokenNetwork = false;
     const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
-      'evm--1',
+      network.id,
     );
     if (isSingleTokenNetwork && nativeToken) {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
         params: {
-          networkId: 'evm--1',
-          accountId: "hd-1--m/44'/60'/0'/0/0",
+          networkId: network.id,
+          accountId: account.id,
           isNFT: false,
           token: nativeToken,
         },
@@ -45,12 +51,12 @@ function WalletActionsContainer() {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendAssetInput,
         params: {
-          networkId: 'evm--1',
-          accountId: "hd-1--m/44'/60'/0'/0/0",
+          networkId: network.id,
+          accountId: account.id,
         },
       });
     }
-  }, [navigation]);
+  }, [account, navigation, network]);
 
   const handleOnReceive = useCallback(() => {
     Dialog.confirm({

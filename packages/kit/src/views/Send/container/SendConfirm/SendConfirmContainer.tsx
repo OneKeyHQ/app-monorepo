@@ -53,18 +53,16 @@ function SendConfirmContainer() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
       <Page.Body>
-        <ScrollView px="$5">
-          <YStack space="$5">
-            <InteractInfo />
-            <SingerInfo />
-            <TxActionsContainer />
-          </YStack>
-        </ScrollView>
+        <YStack space="$5">
+          <InteractInfo />
+          <SingerInfo />
+          <TxActionsContainer />
+        </YStack>
       </Page.Body>
       <Page.Footer>
         <Stack padding="$5">

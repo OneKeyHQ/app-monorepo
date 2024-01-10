@@ -7,6 +7,8 @@ import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
+  IToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -21,23 +23,61 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountTokens(
-    params: IFetchAccountTokensParams,
+    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
+    const { mergeTokens, ...rest } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
       '/wallet/v1/account/token/list',
-      params,
+      rest,
     );
+
+    if (mergeTokens) {
+      const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
+      const mergedTokens = [
+        ...tokens.data,
+        ...smallBalanceTokens.data,
+        ...riskTokens.data,
+      ];
+
+      const mergedKeys = `${tokens.keys}_${smallBalanceTokens.keys}_${riskTokens.keys}`;
+
+      const mergedTokenMap = {
+        ...tokens.map,
+        ...smallBalanceTokens.map,
+        ...riskTokens.map,
+      };
+
+      return {
+        tokens: {
+          data: mergedTokens,
+          keys: mergedKeys,
+          map: mergedTokenMap,
+        },
+        riskTokens: {
+          data: [],
+          keys: '',
+          map: {},
+        },
+        smallBalanceTokens: {
+          data: [],
+          keys: '',
+          map: {},
+        },
+      };
+    }
+
     return resp.data.data;
   }
 
   @backgroundMethod()
   public async fetchTokenDetail(params: IFetchTokenDetailParams) {
     const client = await this.getClient();
-    const resp = await client.get<{ data: IAccountToken }>(
-      '/wallet/v1/account/token/detail',
-      { params },
-    );
+    const resp = await client.get<{
+      data: {
+        info: IToken;
+      } & ITokenFiat;
+    }>('/wallet/v1/account/token/detail', { params });
     return resp.data.data;
   }
 
