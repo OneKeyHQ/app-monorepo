@@ -1,4 +1,4 @@
-import { Image, Stack, Text } from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -32,7 +32,7 @@ export function WalletAvatarBase({
         source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
       />
       <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
-        <Text>{wallet?.avatarInfo?.emoji ?? '😀'}</Text>
+        <SizableText>{wallet?.avatarInfo?.emoji ?? '😀'}</SizableText>
       </Image.Fallback>
     </Image>
   );
