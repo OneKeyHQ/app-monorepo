@@ -1,6 +1,6 @@
 import type { ComponentProps, FC, ReactNode } from 'react';
 
-import { Stack, Text } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 
 export type ISectionProps = {
   title: string;
@@ -10,8 +10,8 @@ export type ISectionProps = {
 
 export const Section: FC<ISectionProps> = ({ title, titleProps, children }) => (
   <Stack>
-    <Text
-      variant="$headingSm"
+    <SizableText
+      size="$headingSm"
       paddingHorizontal="$4"
       paddingBottom="$2"
       paddingTop="$5"
@@ -19,7 +19,7 @@ export const Section: FC<ISectionProps> = ({ title, titleProps, children }) => (
       {...titleProps}
     >
       {title}
-    </Text>
+    </SizableText>
     <Stack>{children}</Stack>
   </Stack>
 );

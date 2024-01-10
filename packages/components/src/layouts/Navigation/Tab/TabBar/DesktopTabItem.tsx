@@ -1,5 +1,5 @@
 import { ActionList, IconButton } from '../../../../actions';
-import { Icon, Image, Text, XStack } from '../../../../primitives';
+import { Icon, Image, SizableText, XStack } from '../../../../primitives';
 
 import type { IActionListSection } from '../../../../actions';
 import type { IKeyOfIcons, Stack } from '../../../../primitives';
@@ -63,15 +63,15 @@ export function DesktopTabItem(
         </Image>
       )}
       {label && (
-        <Text
+        <SizableText
           flex={1}
           numberOfLines={1}
           ml="$2"
           color="$text"
-          variant="$bodyMd"
+          size="$bodyMd"
         >
           {label}
-        </Text>
+        </SizableText>
       )}
       {actionList && (
         <ActionList

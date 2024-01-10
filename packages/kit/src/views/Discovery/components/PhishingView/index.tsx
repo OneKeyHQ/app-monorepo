@@ -6,7 +6,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
-  Text,
+  SizableText,
   UnOrderedList,
   YStack,
 } from '@onekeyhq/components';
@@ -49,12 +49,12 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
           >
             <Icon name="InfoCircleOutline" size="$8" color="$iconCritical" />
           </YStack>
-          <Text mt="$3" variant="$headingXl">
+          <SizableText mt="$3" size="$headingXl">
             {intl.formatMessage({ id: 'content__dapp_potential_risk' })}
-          </Text>
-          <Text variant="$bodyLg" py="$2">
+          </SizableText>
+          <SizableText size="$bodyLg" py="$2">
             {intl.formatMessage({ id: 'content__dapp_potential_risk_li_1' })}
-          </Text>
+          </SizableText>
           <UnOrderedList>
             <UnOrderedList.Item>
               {intl.formatMessage({ id: 'content__dapp_potential_risk_li_2' })}
@@ -66,7 +66,7 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
               {intl.formatMessage({ id: 'content__dapp_potential_risk_li_4' })}
             </UnOrderedList.Item>
           </UnOrderedList>
-          <Text mt="$2" color="$textSubdued">
+          <SizableText mt="$2" color="$textSubdued">
             {intl.formatMessage({
               id: 'content__dapp_potential_risk_continue',
             })}
@@ -81,7 +81,7 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
               continue to the site
             </Button>
             .
-          </Text>
+          </SizableText>
           <Button
             mt="$5"
             variant="primary"

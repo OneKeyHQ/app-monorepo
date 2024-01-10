@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, Text, YStack } from '@onekeyhq/components';
+import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
 import {
@@ -101,9 +101,9 @@ const TabMe = () => {
           >
             测试发送流程(使用首页的账户选择器)
           </Button>
-          <Text>
+          <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}
-          </Text>
+          </SizableText>
         </YStack>
       </Page.Body>
     </Page>
