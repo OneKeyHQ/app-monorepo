@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IBadgeType } from '@onekeyhq/components';
-import { Badge, ListItem, Text, YStack } from '@onekeyhq/components';
+import { Badge, ListItem, SizableText, YStack } from '@onekeyhq/components';
 import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -61,9 +61,9 @@ function FeePredictionContainer(props: IProps) {
 
   return (
     <YStack space="$4" px="$5" py="$2">
-      <Text variant="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued">
         Gas Fee Prediction
-      </Text>
+      </SizableText>
       <YStack>{prediction.map(renderPrediction)}</YStack>
     </YStack>
   );

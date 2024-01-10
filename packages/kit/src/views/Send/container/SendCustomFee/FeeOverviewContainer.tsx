@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Text, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import {
@@ -59,10 +59,10 @@ function FeeOverviewContainer(props: IProps) {
   return (
     <XStack px="$5" paddingBottom="$5" paddingTop="$2">
       <YStack>
-        <Text variant="$heading2xl">{overview.title}</Text>
-        <Text variant="$bodyMd" color="$textSubdued">
+        <SizableText size="$heading2xl">{overview.title}</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
           {overview.description}
-        </Text>
+        </SizableText>
       </YStack>
     </XStack>
   );

@@ -18,9 +18,9 @@ function GasSelectorTrigger(props: IProps) {
     <XStack alignItems="center" space="$3" {...props}>
       <XStack alignItems="center" space="$1">
         <SizableText>
-          {getGasIcon({
-            gasType: sendSelectedFee.feeType,
-            gasPresetIndex: sendSelectedFee.presetIndex,
+          {getFeeIcon({
+            feeType: sendSelectedFee.feeType,
+            presetIndex: sendSelectedFee.presetIndex,
           })}
         </SizableText>
         <SizableText size="$bodyLg">

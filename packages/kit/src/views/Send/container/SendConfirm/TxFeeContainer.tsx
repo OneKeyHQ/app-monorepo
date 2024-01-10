@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { Spinner, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EFeeType } from '@onekeyhq/shared/types/gas';
@@ -86,9 +86,9 @@ function TxFeeContainer(props: IProps) {
         items.push({
           leading: (
             <SizableText fontSize={32}>
-              {getGasIcon({
-                gasType: EFeeType.Standard,
-                gasPresetIndex: i,
+              {getFeeIcon({
+                feeType: EFeeType.Standard,
+                presetIndex: i,
               })}
             </SizableText>
           ),
@@ -124,8 +124,8 @@ function TxFeeContainer(props: IProps) {
       items.push({
         leading: (
           <SizableText fontSize={32}>
-            {getGasIcon({
-              gasType: EFeeType.Custom,
+            {getFeeIcon({
+              feeType: EFeeType.Custom,
             })}
           </SizableText>
         ),
