@@ -1,4 +1,4 @@
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { Button, SizableText, Stack } from '@onekeyhq/components';
 import {
   demoPriceAtom,
   demoReadOnlyAtom,
@@ -93,17 +93,19 @@ function JotaiDemo2() {
   const [isLightCN] = useSettingsIsLightCNAtom();
   return (
     <Stack space="$2">
-      <Text variant="$headingMd">高频数据分离</Text>
-      <Text>now={now}</Text>
-      <Text variant="$headingMd">低频数据整体打包，避免定义数据太零碎</Text>
-      <Text>theme={settings.theme}</Text>
-      <Text>locale={settings.locale}</Text>
-      <Text>{settings.instanceId}</Text>
-      <Text variant="$headingMd">UI 层修改数据</Text>
-      <Text>
+      <SizableText size="$headingMd">高频数据分离</SizableText>
+      <SizableText>now={now}</SizableText>
+      <SizableText size="$headingMd">
+        低频数据整体打包，避免定义数据太零碎
+      </SizableText>
+      <SizableText>theme={settings.theme}</SizableText>
+      <SizableText>locale={settings.locale}</SizableText>
+      <SizableText>{settings.instanceId}</SizableText>
+      <SizableText size="$headingMd">UI 层修改数据</SizableText>
+      <SizableText>
         UI 层通常不直接写数据，而是通过 background 的 service
         方法进行写数据，除非特别简单的场景可以在 UI 直接调用
-      </Text>
+      </SizableText>
       <Button
         onPress={() =>
           setSettings((v) => ({
@@ -124,15 +126,15 @@ function JotaiDemo2() {
       >
         修改 locale
       </Button>
-      <Text variant="$headingMd">
+      <SizableText size="$headingMd">
         响应式的计算数据（只读，globalAtomComputed）
-      </Text>
-      <Text>isLightCN={isLightCN.toString()}</Text>
-      <Text>
+      </SizableText>
+      <SizableText>isLightCN={isLightCN.toString()}</SizableText>
+      <SizableText>
         计算数据的写入函数 globalAtomComputedW 和 globalAtomComputedRW
         不考虑使用，而是通过 background 的 service 方法进行写数据
-      </Text>
-      <Text variant="$headingMd">background 获取数据</Text>
+      </SizableText>
+      <SizableText size="$headingMd">background 获取数据</SizableText>
       <Button
         onPress={async () => {
           const r = await backgroundApiProxy.serviceApp.demoJotaiGetSettings();
@@ -144,7 +146,7 @@ function JotaiDemo2() {
       >
         show settings
       </Button>
-      <Text variant="$headingMd">background 更新数据</Text>
+      <SizableText size="$headingMd">background 更新数据</SizableText>
       <Button
         onPress={async () => {
           const r =

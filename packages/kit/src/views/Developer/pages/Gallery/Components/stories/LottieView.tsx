@@ -4,8 +4,8 @@ import { useRef, useState } from 'react';
 import {
   Button,
   LottieView,
+  SizableText,
   Switch,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -39,7 +39,7 @@ const LottieDemo = () => {
         )}
       </XStack>
       <XStack space="$5" alignItems="center">
-        <Text>loop: </Text>
+        <SizableText>loop: </SizableText>
         <Switch
           value={loop}
           onChange={(value) => {
@@ -50,7 +50,7 @@ const LottieDemo = () => {
         />
       </XStack>
       <XStack space="$5" alignItems="center">
-        <Text>autoPlay: </Text>
+        <SizableText>autoPlay: </SizableText>
         <Switch
           value={autoPlay}
           onChange={(value) => {

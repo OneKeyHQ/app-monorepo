@@ -5,7 +5,7 @@ import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Page, Stack, Text } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -83,7 +83,7 @@ function MobileBrowser() {
           <HandleRebuildBrowserData />
           {displayHomePage ? (
             <Stack flex={1}>
-              <Text>Dashboard</Text>
+              <SizableText>Dashboard</SizableText>
               <Dashboard />
             </Stack>
           ) : (

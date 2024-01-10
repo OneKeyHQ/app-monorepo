@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Text, TextArea, Toast } from '@onekeyhq/components';
+import { Button, SizableText, TextArea, Toast } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -15,7 +15,7 @@ export function CreateHdWalletForm() {
 
   return (
     <>
-      <Text variant="$heading5xl">添加 HD 钱包</Text>
+      <SizableText size="$heading5xl">添加 HD 钱包</SizableText>
 
       <Button
         onPress={async () => {
