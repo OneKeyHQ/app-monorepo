@@ -19,7 +19,6 @@
     "react-content-loader": "^6.2.1",
     "react-dropzone": "^14.2.3",
     "react-hook-form": "^7.22.1",
-    "react-native-draggable-flatlist": "4.0.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modalize": "^2.1.1",

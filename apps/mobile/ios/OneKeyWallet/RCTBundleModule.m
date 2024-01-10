@@ -1,6 +1,6 @@
 #import "RCTBundleModule.h"
 #import <React/RCTBridge+Private.h>
-#import "Category/RCTBridge.h"
+#import "RCTBridge+RNPrivateBridge.h"
 
 @implementation RCTBundleModule
 

@@ -14,7 +14,8 @@
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
-    "native-bundle:analyze": "react-native-bundle-visualizer"
+    "native-bundle:analyze": "react-native-bundle-visualizer",
+    "eas-build-pre-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/react-native-lite-card/keys/keys.secret"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -25,6 +26,7 @@
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
+    "@onekeyfe/react-native-lite-card": "1.0.0",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
