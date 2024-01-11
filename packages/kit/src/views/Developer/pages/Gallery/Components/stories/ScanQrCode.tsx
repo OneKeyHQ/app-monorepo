@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { Button, ScanQrCode, Stack } from '@onekeyhq/components';
 
-import useScanQrCode from '../../../../../ScanQrCode/hooks/useScanQrCode';
+import { useScanQrCode } from '../../../../../../common/ScanQrCode/hooks/useScanQrCode';
 
 import { Layout } from './utils/Layout';
 

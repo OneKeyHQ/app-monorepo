@@ -8,6 +8,7 @@ import { ETabDeveloperRoutes } from './type';
 const DevHome = LazyLoad(() => import('./pages/DevHome'));
 const DevHomeStack1 = LazyLoad(() => import('./pages/DevHomeStack1'));
 const DevHomeStack2 = LazyLoad(() => import('./pages/DevHomeStack2'));
+const DevCommon = LazyLoad(() => import('./pages/Common'));
 
 export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -32,5 +33,9 @@ export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabDeveloperRoutes.DevHomeStack2,
     component: DevHomeStack2,
     translationId: 'wallet__wallet',
+  },
+  {
+    name: ETabDeveloperRoutes.Common,
+    component: DevCommon,
   },
 ];

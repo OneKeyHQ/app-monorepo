@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+
 type IChainItem = {
   chain: string;
   name: string;
@@ -40,9 +42,11 @@ export function Selector() {
   const [data, setData] = useState(DATA);
   const [selectedChain, setSelectedChain] = useState(DATA[0].chain);
   const [isEditMode, setIsEditMode] = useState(false);
+  const navigation = useAppNavigation();
 
   const handleListItemPress = (chain: IChainItem['chain']) => {
     setSelectedChain(chain);
+    navigation.pop();
   };
 
   const handleEditButtonPress = () => {

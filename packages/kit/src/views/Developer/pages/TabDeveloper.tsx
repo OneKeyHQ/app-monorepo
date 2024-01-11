@@ -86,7 +86,15 @@ const TabDeveloper = () => {
               Gallery
             </Button>
           </PartContainer>
-
+          <PartContainer title="Common">
+            <Button
+              onPress={() => {
+                navigation.push(ETabDeveloperRoutes.Common);
+              }}
+            >
+              Common
+            </Button>
+          </PartContainer>
           <PartContainer title="Debug Router & Tabs & List">
             <Button
               onPress={() => {

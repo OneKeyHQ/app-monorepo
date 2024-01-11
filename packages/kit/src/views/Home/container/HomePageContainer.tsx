@@ -28,6 +28,7 @@ import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EChainSelectorPages } from '../../../common/ChainSelector/router/type';
 import {
   AccountSelectorActiveAccount,
   AccountSelectorProvider,
@@ -37,7 +38,6 @@ import {
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EChainSelectorPages } from '../../ChainSelector/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
 import { ETokenPages } from '../../Token/router/type';
 

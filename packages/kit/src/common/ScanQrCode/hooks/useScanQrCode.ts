@@ -2,7 +2,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EScanQrCodeModalPages } from '../router/type';
 
-export default function useScanQrCode() {
+export function useScanQrCode() {
   const navigation = useAppNavigation();
   const start = () =>
     new Promise<string>((resolve, reject) => {
