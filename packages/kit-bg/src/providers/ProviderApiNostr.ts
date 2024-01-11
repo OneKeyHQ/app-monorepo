@@ -16,10 +16,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  IMPL_LIGHTNING,
-  IMPL_NOSTR,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_NOSTR } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   isHardwareWallet,
   isHdWallet,
@@ -42,7 +39,7 @@ interface HardwareDecryptionQueueItem {
 
 @backgroundClass()
 class ProviderApiNostr extends ProviderApiBase {
-  public providerName = IInjectedProviderNames.webln;
+  public providerName = IInjectedProviderNames.nostr;
 
   /**
    * Queue for hardware decryption.
@@ -65,28 +62,17 @@ class ProviderApiNostr extends ProviderApiBase {
   private decryptionTimeout = getTimeDurationMs({ minute: 1 });
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const data = async ({ origin }: { origin: string }) => {
+    const data = () => {
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: await this.getConnectedAccount({ origin }),
+          accounts: undefined,
         },
       };
       return result;
     };
 
     info.send(data);
-  }
-
-  private getConnectedAccount(request: IJsBridgeMessagePayload) {
-    const [account] = this.backgroundApi.serviceDapp.getActiveConnectedAccounts(
-      {
-        origin: request.origin as string,
-        impl: IMPL_LIGHTNING,
-      },
-    );
-
-    return Promise.resolve({ address: account?.address });
   }
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
