@@ -6,7 +6,7 @@ import { EAccountManagerStacksRoutes } from './types';
 import type { IAccountManagerStacksParamList } from './types';
 
 const AccountSelectorStackPage = LazyLoad(
-  () => import('./AccountSelectorStack'),
+  () => import('../pages/AccountSelectorStack'),
 );
 
 export const AccountManagerStacks: IModalFlowNavigatorConfig<

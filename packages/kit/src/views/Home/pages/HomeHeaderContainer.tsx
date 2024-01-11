@@ -11,7 +11,7 @@ import {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
+import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
 
 import type { ITabHomeParamList } from '../router/types';
 

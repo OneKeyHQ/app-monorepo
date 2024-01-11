@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/components';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 function AccountRenameDialog({
   indexedAccount,

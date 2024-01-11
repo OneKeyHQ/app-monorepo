@@ -17,7 +17,7 @@ import type {
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../../../views/AccountManagerStacks/types';
+import { EAccountManagerStacksRoutes } from '../../../../views/AccountManagerStacks/router/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {

@@ -5,11 +5,11 @@ import { AnimatePresence } from 'tamagui';
 import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
 import { WALLET_TYPE_HW } from '@onekeyhq/kit-bg/src/dbs/local/consts';
 
-import useAppNavigation from '../../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../../routes/Modal/type';
-import { useAccountSelectorEditModeAtom } from '../../../../../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '../../../../Onboarding/router/type';
-import { WalletRemoveButton } from '../../../WalletRemove';
+import useAppNavigation from '../../../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../../../routes/Modal/type';
+import { useAccountSelectorEditModeAtom } from '../../../../../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '../../../../../Onboarding/router/type';
+import { WalletRemoveButton } from '../../../../components/WalletRemove';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';

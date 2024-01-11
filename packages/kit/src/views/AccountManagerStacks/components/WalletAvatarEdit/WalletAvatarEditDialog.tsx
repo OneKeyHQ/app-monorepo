@@ -6,8 +6,8 @@ import { Dialog, Icon, Stack, XStack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { WalletAvatar } from '../../../components/WalletAvatar';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { WalletAvatar } from '../../../../components/WalletAvatar';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   const { serviceAccount } = backgroundApiProxy;

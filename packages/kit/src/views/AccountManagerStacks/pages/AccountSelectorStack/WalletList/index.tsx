@@ -23,15 +23,15 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
-} from '../../../../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '../../../Onboarding/router/type';
+} from '../../../../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '../../../../Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 

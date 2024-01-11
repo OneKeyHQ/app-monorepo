@@ -24,23 +24,23 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorEditModeAtom,
   useActiveAccount,
   useSelectedAccount,
-} from '../../../../states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '../../../../utils/makeBlockieImageUri';
-import { EOnboardingPages } from '../../../Onboarding/router/type';
-import { AccountRenameButton } from '../../AccountRename';
+} from '../../../../../states/jotai/contexts/accountSelector';
+import makeBlockieImageUri from '../../../../../utils/makeBlockieImageUri';
+import { EOnboardingPages } from '../../../../Onboarding/router/type';
+import { AccountRenameButton } from '../../../components/AccountRename';
 
 import { WalletOptions } from './WalletOptions';
 
-import type { IAccountGroupProps, IAccountProps } from '../../types';
+import type { IAccountGroupProps, IAccountProps } from '../../../router/types';
 
 export interface IWalletDetailsProps {
   num: number;

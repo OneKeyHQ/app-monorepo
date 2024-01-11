@@ -1,6 +1,6 @@
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import type { IWalletAvatarProps } from '../../components/WalletAvatar';
+import type { IWalletAvatarProps } from '../../../components/WalletAvatar';
 import type { AvatarImageProps } from 'tamagui';
 
 export enum EAccountManagerStacksRoutes {
