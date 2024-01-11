@@ -6,14 +6,14 @@ import { ListItem } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
+import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useLocaleOptions } from '../hooks';
+import { useLocaleOptions } from '../../hooks';
 
 import { Section } from './Section';
 
-import type { IModalSettingParamList } from '../types';
+import type { IModalSettingParamList } from '../../router/types';
 
 type IThemeValue = 'light' | 'dark' | 'system';
 
