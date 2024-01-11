@@ -72,7 +72,6 @@ import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
 import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
-import { Type } from './sdk/query/mintScanTypes';
 import { OneKeyQuery } from './sdk/query/OneKeyQuery';
 import { serializeSignedTx } from './sdk/txBuilder';
 import { TxMsgBuilder } from './sdk/txMsgBuilder';
