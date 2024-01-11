@@ -38,7 +38,7 @@
     "reinstall": "yarn clean && yarn install",
     "_lint": "node ./development/lintCheck",
     "_xcode": "node ./development/xcodeCheck",
-    "_folder-lint": "yarn workspaces foreach -A  -p exec 'yarn folderslint'",
+    "_folderslint": "yarn workspaces foreach -A -p --topological-dev run _folderslint",
     "lint:project": "yarn _tsc && yarn _lint && yarn _xcode && _folder-lint",
     "lint": "ultra lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",

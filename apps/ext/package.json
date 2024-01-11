@@ -13,7 +13,8 @@
     "build:all:v3": "yarn clean && yarn build && yarn build:v3 && node ../../development/webpack/ext/zip.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "_folderslint": "yarn folderslint"
   },
   "private": true,
   "dependencies": {
