@@ -12,7 +12,7 @@ const SwapFromAmountPercentage = ({
   selectItems,
   onSelectItem,
 }: ISwapFromAmountPercentageProps) => (
-  <XStack>
+  <XStack flex={1}>
     {selectItems.map((item) => (
       <Button
         key={item.label}

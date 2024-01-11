@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { XStack, YStack } from 'tamagui';
 
-import { Badge, Image, ListItem, Text } from '@onekeyhq/components';
+import { Badge, Image, ListItem, SizableText } from '@onekeyhq/components';
 
 import { ESwapTxHistoryStatus } from '../types';
 

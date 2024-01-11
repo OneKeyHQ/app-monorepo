@@ -7,7 +7,7 @@ interface ISwapTokenBalanceProps {
   symbol: string;
 }
 const SwapTokenBalance = ({ balance, symbol }: ISwapTokenBalanceProps) => (
-  <XStack>
+  <XStack flex={1}>
     <SizableText>Balance</SizableText>
     <SizableText>{balance}</SizableText>
     <SizableText>{symbol}</SizableText>

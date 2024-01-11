@@ -1,4 +1,6 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
 
 import { Button, XStack, YStack } from '@onekeyhq/components';
 
@@ -28,12 +30,37 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { quoteFetch, quoteFetching } = useSwapQuote();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
   const { alternationToken } = useSwapActions();
   const [swapQuoteCurrentSelect] = useSwapResultQuoteCurrentSelectAtom();
 
   useEffect(() => {
     void quoteFetch(Number(fromInputAmount));
   }, [fromInputAmount, quoteFetch]);
+
+  const amountPrice = useMemo(() => {
+    const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
+    const toTokenPriceBN = new BigNumber(toToken?.price ?? 0);
+    const fromTokenFiatValueBN = new BigNumber(
+      fromInputAmount ?? 0,
+    ).multipliedBy(fromTokenPriceBN);
+    const toTokenFiatValueBN = new BigNumber(
+      quoteResult?.toAmount ?? '0',
+    ).multipliedBy(toTokenPriceBN);
+    return {
+      fromTokenFiatValue: fromTokenFiatValueBN
+        .decimalPlaces(6, BigNumber.ROUND_DOWN)
+        .toFixed(),
+      toTokenFiatValue: toTokenFiatValueBN
+        .decimalPlaces(6, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    };
+  }, [
+    fromInputAmount,
+    fromToken?.price,
+    quoteResult?.toAmount,
+    toToken?.price,
+  ]);
 
   return (
     <YStack>
@@ -51,7 +78,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
               inputValue={fromInputAmount}
             />
             <SwapTokenCurrencyValue
-              value={fromToken?.fiatValue ?? '0.0'}
+              value={amountPrice.fromTokenFiatValue}
               currency="$"
             />
           </YStack>
@@ -64,7 +91,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           />
         </XStack>
         {/* todo account logic */}
-        <XStack>
+        <XStack justifyContent="space-between">
           <SwapTokenBalance
             balance={
               fromToken?.balanceParsed ? Number(fromToken.balanceParsed) : 0.0
@@ -101,7 +128,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
               disabled
             />
             <SwapTokenCurrencyValue
-              value={toToken?.fiatValue ?? '0.0'}
+              value={amountPrice.toTokenFiatValue}
               currency="$"
             />
           </YStack>

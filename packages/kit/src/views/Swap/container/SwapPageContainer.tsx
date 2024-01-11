@@ -5,7 +5,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 
