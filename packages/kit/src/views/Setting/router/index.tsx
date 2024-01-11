@@ -1,36 +1,38 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import type { IModalSettingParamList } from '@onekeyhq/kit/src/views/Setting/types';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
+import { EModalSettingRoutes } from './types';
+
+import type { IModalSettingParamList } from './types';
+
 const SettingAccountDerivationModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/AccountDerivation'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),
 );
 
 const SettingAppLockModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/AppLock'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/AppLock'),
 );
 
 const SettingCurrencyModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/Currency'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Currency'),
 );
 const SettingHardwareSdkUrlModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/HardwareSdkUrl'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/HardwareSdkUrl'),
 );
 const SettingListModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/List'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
 );
 const SettingProtectionModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/Protection'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
 const SettingSpendUTXOModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/SpendUTXO'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
 const SettingThemeModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/Theme'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Theme'),
 );
 const SettingLanguageModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/Language'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Language'),
 );
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes,
