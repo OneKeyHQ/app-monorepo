@@ -6,7 +6,7 @@
     "hooks",
     "provider/Container/**",
     "routes/config/**",
-    "routes/Modal",
+    "routes/Modal/*",
     "routes/Tab/*",
     "states/**",
     "utils/**",
