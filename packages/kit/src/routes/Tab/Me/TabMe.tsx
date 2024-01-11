@@ -4,11 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import {
-  usePasswordPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -23,20 +20,6 @@ import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
-
-const SwitchEndpointButton = () => {
-  const [settings] = useSettingsPersistAtom();
-  const onToggleEndpoint = useCallback(async () => {
-    await backgroundApiProxy.serviceSetting.setEndpointType(
-      settings.endpointType === 'prod' ? 'test' : 'prod',
-    );
-  }, [settings.endpointType]);
-  return (
-    <Button onPress={onToggleEndpoint}>
-      Toggle Endpoint (current is {settings.endpointType})
-    </Button>
-  );
-};
 
 const LockNowButton = () => {
   const intl = useIntl();
@@ -97,7 +80,6 @@ const TabMe = () => {
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
-          <SwitchEndpointButton />
           <CreateHdWalletForm />
           <Button
             onPress={() => {

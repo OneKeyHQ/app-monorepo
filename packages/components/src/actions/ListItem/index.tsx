@@ -103,7 +103,9 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
     <Stack>
       <Image
         size="$10"
-        borderCurve="continuous"
+        style={{
+          borderCurve: 'continuous',
+        }}
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...(rest as any)}
       >
@@ -190,6 +192,10 @@ const ListItemCheckMark = (props: StackProps) => (
     key="checkMarkIndicator"
     animation="quick"
     enterStyle={{
+      opacity: 0,
+      scale: 0,
+    }}
+    exitStyle={{
       opacity: 0,
       scale: 0,
     }}

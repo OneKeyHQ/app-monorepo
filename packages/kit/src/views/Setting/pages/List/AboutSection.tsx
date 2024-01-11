@@ -4,20 +4,40 @@ import { useIntl } from 'react-intl';
 
 import { ListItem } from '@onekeyhq/components';
 
-import { useHelpLink } from '../../../hooks/useHelpLink';
-import { UrlExternalListItem } from '../Components/UrlExternalListItem';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useHelpLink } from '../../../../hooks/useHelpLink';
+import { UrlExternalListItem } from '../../components/UrlExternalListItem';
 
 import { Section } from './Section';
+
+// for open dev mode
+let clickCount = 0;
+let startTime: Date | undefined;
 
 export const AboutSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const onPress = useCallback(() => {}, []);
   const intl = useIntl();
+  const handleOpenDevMode = useCallback(() => {
+    const nowTime = new Date();
+    if (
+      startTime === undefined ||
+      Math.round(nowTime.getTime() - startTime.getTime()) > 5000
+    ) {
+      startTime = nowTime;
+      clickCount = 0;
+    } else {
+      clickCount += 1;
+    }
+    if (clickCount >= 9) {
+      void backgroundApiProxy.serviceSetting.setDevMode({ enable: true });
+    }
+  }, []);
   return (
     <Section title={intl.formatMessage({ id: 'form__about_uppercase' })}>
       <ListItem
-        onPress={onPress}
+        onPress={handleOpenDevMode}
         icon="InfoCircleOutline"
         title={intl.formatMessage({ id: 'form__version' })}
         drillIn
