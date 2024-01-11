@@ -1,6 +1,6 @@
 import { Form, Input, Page, useForm } from '@onekeyhq/components';
 
-import { ChainSelectorTrigger, Tutorials } from '../../Components';
+import { ChainSelectorTrigger, Tutorials } from '../../adf';
 
 export function ImportAddress() {
   const form = useForm();

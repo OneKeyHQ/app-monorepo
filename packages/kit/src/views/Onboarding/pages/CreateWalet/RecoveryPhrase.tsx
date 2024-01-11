@@ -16,7 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { Tutorials } from '../../Components';
+import { Tutorials } from '../../adf';
 import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [

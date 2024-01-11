@@ -7,7 +7,7 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { PhaseInputArea } from '../../Components/PhaseInputArea';
+import { PhaseInputArea } from '../../adf/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
 
 import type { IOnboardingParamList } from '../../router/type';
