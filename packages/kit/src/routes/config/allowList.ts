@@ -3,7 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabHomeRoutes } from '../../views/Home/router';
 import { EOnboardingPages } from '../../views/Onboarding/router/type';
-import { EModalSettingRoutes } from '../../views/Setting/types';
+import { EModalSettingRoutes } from '../../views/Setting/router/types';
 import { ERootRoutes } from '../enum';
 import { EModalRoutes } from '../Modal/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
