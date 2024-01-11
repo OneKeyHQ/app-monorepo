@@ -12,17 +12,26 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
+import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+
 type IProps = {
+  networkId: string;
   nft: IAccountNFT;
 };
 
 function CommonAssetContent(props: IProps) {
   const intl = useIntl();
-  const { nft } = props;
+  const { networkId, nft } = props;
   const { attributes } = nft.metadata;
+
+  const network = usePromiseResult(
+    () => mockGetNetwork({ networkId }),
+    [networkId],
+  );
 
   const details: {
     label: string;
@@ -37,7 +46,7 @@ function CommonAssetContent(props: IProps) {
       },
       {
         label: intl.formatMessage({ id: 'network__network' }),
-        value: 'Ethereum',
+        value: network.result?.name ?? '',
       },
       {
         label: 'Token ID',
@@ -61,6 +70,7 @@ function CommonAssetContent(props: IProps) {
     ],
     [
       intl,
+      network.result?.name,
       nft.collectionAddress,
       nft.collectionName,
       nft.collectionType,

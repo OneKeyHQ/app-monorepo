@@ -1,4 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -10,17 +13,47 @@ import {
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EChainSelectorPages } from '../../ChainSelector/router/type';
+import { POLLING_INTERVAL_FOR_TOTAL_VALUE } from '../constants';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
 
 import type { ITabHomeParamList } from '../router/types';
 
 function HomeHeaderContainer() {
+  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
+  const [settings] = useSettingsPersistAtom();
+
+  const overview = usePromiseResult(async () => {
+    if (!account || !network) return;
+    const r = await backgroundApiProxy.serviceAddress.fetchAddressDetails({
+      networkId: network.id,
+      accountAddress: account.address,
+      withNetWorth: true,
+    });
+    return r;
+  }, [account, network]).result;
+
+  const totalValue = useMemo(
+    () =>
+      `${settings.currencyInfo.symbol}${intl.formatNumber(
+        new BigNumber(overview?.netWorth ?? 0).toNumber(),
+      )}`,
+    [intl, overview?.netWorth, settings.currencyInfo.symbol],
+  );
 
   const handleChainPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
@@ -141,7 +174,7 @@ function HomeHeaderContainer() {
               size: '$heading5xl',
             }}
           >
-            $2,235.00
+            {totalValue}
           </SizableText>
         </Stack>
       </Stack>

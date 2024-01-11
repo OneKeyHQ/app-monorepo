@@ -97,7 +97,7 @@ export function NFTDetails() {
               Send
             </Button>
           </Stack>
-          <DetailContent nft={nft} />
+          <DetailContent networkId={networkId} nft={nft} />
         </Stack>
       </Page.Body>
     </Page>
