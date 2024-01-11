@@ -4,11 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
-import {
-  usePasswordPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
