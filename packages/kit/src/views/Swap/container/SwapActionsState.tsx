@@ -28,6 +28,14 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [selectCurrentProvider] = useSwapResultQuoteCurrentSelectAtom();
+
+  const isApproveStepStatus = useMemo(
+    () =>
+      swapStepState.type === ESwapStepStateType.APPROVE &&
+      !swapStepState.isLoading,
+    [swapStepState.type, swapStepState.isLoading],
+  );
+
   const wrongMsgComponent = useMemo(() => {
     if (
       (swapStepState.wrongMsg || swapStepState.rateWarning) &&
@@ -101,6 +109,14 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
   return (
     <YStack space="$4">
       {wrongMsgComponent}
+      {isApproveStepStatus ? (
+        <XStack justifyContent="center">
+          <SizableText>{`Step 1: Approve ${
+            fromToken?.symbol ?? ''
+          }`}</SizableText>
+          <SizableText>{'-> Setp 2: Swap'}</SizableText>
+        </XStack>
+      ) : null}
       <Button
         onPress={onActionHandler}
         variant="primary"
@@ -111,8 +127,7 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
           <SizableText color="white">{actionText}</SizableText>
         </XStack>
       </Button>
-      {swapStepState.type === ESwapStepStateType.APPROVE &&
-      !swapStepState.isLoading ? (
+      {isApproveStepStatus ? (
         <Button
           onPress={onAction2Handler}
           variant="primary"

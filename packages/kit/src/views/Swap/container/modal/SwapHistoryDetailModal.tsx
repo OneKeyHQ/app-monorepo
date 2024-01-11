@@ -19,13 +19,13 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { openUrlExternal } from '../../../../utils/openUrl';
-import SwapCommonInfoItem from '../../Components/SwapCommonInfoItem';
-import SwapHistoryTokenInfoItem from '../../Components/SwapHistoryTokenInfoItem';
-import SwapTxHistoryViewInBrowser from '../../Components/SwapHistoryTxViewInBrowser';
-import SwapOnChainInfoItem from '../../Components/SwapOnChainInfoItem';
-import SwapProviderInfoItem from '../../Components/SwapProviderInfoItem';
-import SwapRateInfoItem from '../../Components/SwapRateInfoItem';
-import SwapTxHistoryStatusItem from '../../Components/SwapTxHistoryStatusItem';
+import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
+import SwapHistoryTokenInfoItem from '../../components/SwapHistoryTokenInfoItem';
+import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
+import SwapOnChainInfoItem from '../../components/SwapOnChainInfoItem';
+import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import SwapTxHistoryStatusItem from '../../components/SwapTxHistoryStatusItem';
 import {
   useSwapTxHistoryActions,
   useSwapTxHistoryDetailParser,

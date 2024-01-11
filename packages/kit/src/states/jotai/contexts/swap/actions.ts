@@ -97,6 +97,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
     },
   );
+
+  cleanSwapHistoryItems = contextAtomMethod(async (get, set) => {
+    set(swapTxHistoryAtom(), []);
+    await this.syncSwapHistorySimpleDb.call(set);
+  });
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -109,10 +114,12 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const updateSwapHistoryItem = actions.updateSwapHistoryItem.use();
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
+  const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   return {
     selectFromToken,
     selectToToken,
     alternationToken,
+    cleanSwapHistoryItems,
     syncNetworksSort,
     updateSwapHistoryItem,
     addSwapHistoryItem,

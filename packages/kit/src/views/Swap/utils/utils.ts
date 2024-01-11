@@ -10,6 +10,10 @@ export function validateInput(text: string) {
   return true;
 }
 
+export function shortContractAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 export function swapTokenPairsSupportedProviders(
   from: ISwapToken,
   to: ISwapToken,

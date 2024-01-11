@@ -4,10 +4,10 @@ import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  ListItem,
   ListView,
   Page,
   SearchBar,
+  SizableText,
   Spinner,
   YStack,
 } from '@onekeyhq/components';
@@ -21,7 +21,8 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../../states/jotai/contexts/swap';
-import NetworkToggleGroup from '../../Components/SwapNetworkToggleGroup';
+import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
+import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { EModalSwapRoutes } from '../../router/Routers';
 import { withSwapProvider } from '../WithSwapProvider';
@@ -53,12 +54,12 @@ const SwapTokenSelectModal = () => {
     type === 'from'
       ? swapNetworks.find(
           (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
-        )
+        ) ?? swapNetworks?.[0]
       : swapNetworks.find(
           (item: ISwapNetwork) =>
             item.networkId === toToken?.networkId ||
             item.networkId === onlySupportSingleNetWork,
-        ),
+        ) ?? swapNetworks?.[0],
   );
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
@@ -79,22 +80,21 @@ const SwapTokenSelectModal = () => {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ISwapToken }) => (
-      <ListItem
-        key={`${item.symbol} - ${item.networkId}`}
-        title={`${item.name ?? item.symbol} - ${
-          item.contractAddress ? item.contractAddress : 'nativeToken'
-        }`}
-        subtitle={`${item.providers}${
-          item.balanceParsed ? ` - ${item.balanceParsed}` : ''
-        }`}
-        avatarProps={{ source: { uri: item.logoURI } }}
-        onPress={() => {
-          void onSelectToken(item);
-        }}
-      />
-    ),
-    [onSelectToken],
+    ({ item }: { item: ISwapToken }) => {
+      const tokenNetwork = swapNetworks.find(
+        (network) => network.networkId === item.networkId,
+      );
+      return (
+        <SwapTokenSelectCell
+          isSearch={!!searchKeyword}
+          tokenNetwork={tokenNetwork}
+          selectNetwork={currentSelectNetwork}
+          token={item}
+          onSelectToken={onSelectToken}
+        />
+      );
+    },
+    [currentSelectNetwork, onSelectToken, searchKeyword, swapNetworks],
   );
 
   return (
@@ -103,12 +103,16 @@ const SwapTokenSelectModal = () => {
         h="$12"
         w="100%"
         value={searchKeyword}
+        clearTextOnFocus
         onChangeText={(text) => {
           const afterTrim = text.trim();
           setSearchKeyword(afterTrim);
         }}
       />
       <YStack h="$12" my="$4">
+        <SizableText>{`Select Network:${
+          currentSelectNetwork?.name ?? ''
+        }`}</SizableText>
         <NetworkToggleGroup
           type={type}
           onMoreNetwork={() => {
@@ -134,6 +138,7 @@ const SwapTokenSelectModal = () => {
         <YStack flex={1}>
           <ListView
             data={currentTokens}
+            ListHeaderComponent={<SizableText>SelectToken</SizableText>}
             renderItem={renderItem}
             estimatedItemSize="$10"
           />

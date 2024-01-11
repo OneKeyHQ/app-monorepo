@@ -5,7 +5,7 @@ import { XStack, YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import SwapSlippageTrigger from '../Components/SwapSlippageTrigger';
+import SwapSlippageTrigger from '../components/SwapSlippageTrigger';
 import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../router/Routers';
 

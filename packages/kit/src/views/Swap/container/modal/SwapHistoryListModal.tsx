@@ -1,7 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
 import {
+  Dialog,
   type IPageNavigationProp,
+  IconButton,
   Page,
   SectionList,
   SizableText,
@@ -10,8 +12,11 @@ import {
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import useFormatDate from '../../../../hooks/useFormatDate';
-import { useSwapTxHistoryAtom } from '../../../../states/jotai/contexts/swap';
-import SwapTxHistoryListCell from '../../Components/SwapTxHistoryListCell';
+import {
+  useSwapActions,
+  useSwapTxHistoryAtom,
+} from '../../../../states/jotai/contexts/swap';
+import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -30,6 +35,7 @@ const SwapHistoryListModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const { formatDate } = useFormatDate();
+  const { cleanSwapHistoryItems } = useSwapActions();
   const sectionData = useMemo(() => {
     const groupByMonth = swapTxHistoryList.reduce<
       Record<string, ISwapTxHistory[]>
@@ -55,6 +61,22 @@ const SwapHistoryListModal = () => {
     return result;
   }, [formatDate, swapTxHistoryList]);
 
+  const onDeleteHistory = useCallback(() => {
+    // dialog
+    Dialog.confirm({
+      title: 'Are you sure to delete all history?',
+      onConfirm: () => {
+        void cleanSwapHistoryItems();
+      },
+      onConfirmText: 'Delete',
+    });
+  }, [cleanSwapHistoryItems]);
+
+  const deleteButton = useCallback(
+    () => <IconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
+    [onDeleteHistory],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (
       <SwapTxHistoryListCell
@@ -70,12 +92,13 @@ const SwapHistoryListModal = () => {
   );
   return (
     <Page>
+      <Page.Header headerRight={deleteButton} />
       <SectionList
         renderItem={renderItem}
         sections={sectionData}
         renderSectionHeader={({ section: { title } }) => (
           <Stack bg="$bg">
-            <SizableText variant="$headingXs">{title}</SizableText>
+            <SizableText>{title}</SizableText>
           </Stack>
         )}
         estimatedItemSize="$10"
