@@ -2,7 +2,7 @@ import { isFunction, merge } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { LOCALES } from '@onekeyhq/components';
-import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/Currency';
+import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,

@@ -9,19 +9,19 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/types';
+import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useOptions } from '../AppLock/useOptions';
 
 import { Section } from './Section';
 
-import type { IModalSettingParamList } from '../types';
+import type { IModalSettingParamList } from '../../router/types';
 
 const AppLockItem = () => {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();

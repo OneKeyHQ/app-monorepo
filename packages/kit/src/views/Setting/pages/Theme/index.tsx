@@ -8,11 +8,11 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   type IListItemSelectOption,
   ListItemSelect,
-} from '../Components/ListItemSelect';
+} from '../../components/ListItemSelect';
 
 type IThemeValue = ISettingsPersistAtom['theme'];
 
