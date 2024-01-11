@@ -33,6 +33,7 @@
   "devDependencies": {
     "@svgr/cli": "6.3.1",
     "@types/qrcode": "^1.4.2",
+    "folderslint": "^1.2.0",
     "rimraf": "^3"
   },
   "scripts": {

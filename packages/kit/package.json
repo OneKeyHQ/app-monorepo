@@ -51,6 +51,7 @@
     "@types/d3-scale": "^4.0.3",
     "@types/d3-shape": "^3.1.1",
     "@types/mime": "^3",
-    "@types/socket.io-client": "^3.0.0"
+    "@types/socket.io-client": "^3.0.0",
+    "folderslint": "^1.2.0"
   }
 }

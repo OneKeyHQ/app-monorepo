@@ -4881,6 +4881,7 @@ __metadata:
     "@types/qrcode": "npm:^1.4.2"
     ethereum-blockies-base64: "npm:^1.0.2"
     expo-av: "npm:13.6.0"
+    folderslint: "npm:^1.2.0"
     iso-639-1: "npm:^2.1.13"
     lodash: "npm:^4.17.21"
     moti: "npm:^0.25.3"
@@ -4934,6 +4935,7 @@ __metadata:
     cosmjs-types: "npm:^0.8.0"
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.5.4"
+    folderslint: "npm:^1.2.0"
     js-conflux-sdk: "npm:^2.1.12"
     jsrsasign: "npm:^10.8.6"
     near-api-js: "npm:^2.1.4"
@@ -5023,6 +5025,7 @@ __metadata:
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:~0.20.1"
     expo-secure-store: "npm:12.5.0"
+    folderslint: "npm:^1.2.0"
     fuse.js: "npm:^6.5.3"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
@@ -16175,6 +16178,19 @@ __metadata:
   version: 0.206.0
   resolution: "flow-parser@npm:0.206.0"
   checksum: 26ab7c3f0c23953fac977bcd093b4f18b13a705ea57ef5be8591d100f4c55c83225ae27693bdec3ba38b1d591b9b47b2cd8845eac0bce69cced9d3417154f143
+  languageName: node
+  linkType: hard
+
+"folderslint@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "folderslint@npm:1.2.0"
+  dependencies:
+    chalk: "npm:^4.0.0"
+    glob: "npm:^7.1.6"
+    minimist: "npm:^1.2.0"
+  bin:
+    folderslint: index.js
+  checksum: 9054ceb6ef50e657a6ab7c0d08abff6b25e3e5a77c14772c6521115ba1e1fc9b5532bcf06ab65d3a5fc700487a5a1dc53df843c27bcb9e9bb0813a851508577b
   languageName: node
   linkType: hard
 

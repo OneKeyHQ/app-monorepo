@@ -46,6 +46,7 @@
   "devDependencies": {
     "@types/bchaddrjs": "^0.4.2",
     "@types/bs58": "^4.0.3",
-    "@types/jsrsasign": "^10.5.11"
+    "@types/jsrsasign": "^10.5.11",
+    "folderslint": "^1.2.0"
   }
 }
