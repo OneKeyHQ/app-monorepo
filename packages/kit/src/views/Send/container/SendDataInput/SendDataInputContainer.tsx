@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { debounce, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { YStack } from 'tamagui';
 
 import {
   Form,
@@ -21,10 +23,16 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import {
+  NameResolver,
+  useNameResolverState,
+} from '../../../../components/NameResolver';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { getFormattedNumber } from '../../../../utils/format';
+import { checkIsDomain } from '../../../../utils/helper';
 
+import type { INameResolverState } from '../../../../components/NameResolver';
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -32,10 +40,18 @@ function SendDataInputContainer() {
   const intl = useIntl();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
+  const [nameToResolve, setNameToResolve] = useState('');
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
+
+  const {
+    onChange: onNameResolverChange,
+    isValid: isValidName,
+    isSearching: isSearchingName,
+    address: resolvedAddress,
+  } = useNameResolverState();
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
@@ -98,45 +114,49 @@ function SendDataInputContainer() {
       nftAmount: '',
     },
     mode: 'onChange',
+    reValidateMode: 'onBlur',
   });
 
   // token amount or fiat amount
   const amount = form.watch('amount');
+  const toAddress = form.watch('to');
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
 
     const tokenPrice = tokenResult.result?.price;
 
-    if (isNil(tokenPrice)) return 0;
+    if (isNil(tokenPrice)) return '0';
 
     if (isUseFiat) {
-      return `${
-        getFormattedNumber(amountBN.dividedBy(tokenPrice), { decimal: 4 }) ?? 0
-      } ${tokenSymbol}`;
+      return (
+        getFormattedNumber(amountBN.dividedBy(tokenPrice), { decimal: 4 }) ??
+        '0'
+      );
     }
-    return `${currencySymbol}${
-      getFormattedNumber(amountBN.times(tokenPrice), { decimal: 4 }) ?? 0
-    }`;
-  }, [
-    amount,
-    currencySymbol,
-    isUseFiat,
-    tokenResult.result?.price,
-    tokenSymbol,
-  ]);
+    return (
+      getFormattedNumber(amountBN.times(tokenPrice), { decimal: 4 }) ?? '0'
+    );
+  }, [amount, isUseFiat, tokenResult.result?.price]);
 
   useEffect(() => {
     const subscription = form.watch(
       debounce((value, { name, type }) => {
         if (name === 'to' && type === 'change') {
-          console.log(value);
+          setNameToResolve(value.to);
+          if (!checkIsDomain(value.to)) {
+            // TODO validate address
+          }
         }
       }, 1000),
     );
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, setNameToResolve]);
 
+  const handleOnChangeAmountMode = useCallback(() => {
+    setIsUseFiat((prev) => !prev);
+    form.setValue('amount', linkedAmount);
+  }, [form, linkedAmount]);
   const handleOnSelectToken = useCallback(() => navigation.pop(), [navigation]);
   const handleOnSendMax = useCallback(() => {
     if (isUseFiat) {
@@ -151,7 +171,29 @@ function SendDataInputContainer() {
     tokenResult.result?.balanceParsed,
     tokenResult.result?.fiatValue,
   ]);
-  const handleOnConfirm = useCallback(() => {}, []);
+  const handleOnConfirm = useCallback(async () => {
+    // TODO: handleOnConfirm
+    // const account = await getAccount();
+    // const transfersInfo: ITransferInfo[] = [
+    //   {
+    //     from: account.address,
+    //     to: isValidName ? resolvedAddress : toAddress,
+    //     amount,
+    //     token: tokenResult.result?.info.address ?? '',
+    //   },
+    // ];
+    // const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
+    //   networkId,
+    //   accountId,
+    //   transfersInfo,
+    // });
+    // navigation.push(EModalSendRoutes.SendConfirm, {
+    //   accountId,
+    //   networkId,
+    //   unsignedTxs: [unsignedTx],
+    //   transfersInfo,
+    // });
+  }, []);
   const handleValidateTokenAmount = useCallback(
     (value: string) => {
       const tokenInfo = tokenResult.result;
@@ -168,10 +210,29 @@ function SendDataInputContainer() {
     },
     [isUseFiat, tokenResult.result],
   );
+  const handleOnNameResolverStateChange = useCallback(
+    (state: INameResolverState) => {
+      onNameResolverChange(state);
+      void form.trigger('to');
+    },
+    [form, onNameResolverChange],
+  );
 
   const isSubmitDisabled = useMemo(() => {
-    if (tokenResult.isLoading || nftResult.isLoading) return true;
-  }, [nftResult.isLoading, tokenResult.isLoading]);
+    if (tokenResult.isLoading || nftResult.isLoading || isSearchingName)
+      return true;
+
+    if (!form.formState.isValid || !toAddress || !amount) {
+      return true;
+    }
+  }, [
+    amount,
+    form.formState.isValid,
+    isSearchingName,
+    nftResult.isLoading,
+    toAddress,
+    tokenResult.isLoading,
+  ]);
 
   const renderTokenDataInputForm = useCallback(() => {
     const tokenInfo = tokenResult.result;
@@ -205,7 +266,10 @@ function SendDataInputContainer() {
         description={
           <XStack pt="$1.5" alignItems="center">
             <SizableText size="$bodyLg" color="$textSubdued" pr="$1">
-              ≈ {linkedAmount}
+              ≈
+              {isUseFiat
+                ? `${linkedAmount} ${tokenSymbol}`
+                : `${currencySymbol}${linkedAmount}`}
             </SizableText>
             <IconButton
               title={
@@ -216,7 +280,7 @@ function SendDataInputContainer() {
               iconProps={{
                 size: '$4',
               }}
-              onPress={() => setIsUseFiat(!isUseFiat)}
+              onPress={handleOnChangeAmountMode}
             />
           </XStack>
         }
@@ -254,6 +318,7 @@ function SendDataInputContainer() {
   }, [
     currencySymbol,
     form,
+    handleOnChangeAmountMode,
     handleOnSendMax,
     handleValidateTokenAmount,
     intl,
@@ -337,12 +402,19 @@ function SendDataInputContainer() {
                 variant="tertiary"
               />
             </XStack>
-            <Input
-              size="large"
-              placeholder={intl.formatMessage({
-                id: 'form__address_and_domain_placeholder',
-              })}
-            />
+            <YStack space="$4">
+              <Input
+                size="large"
+                placeholder={intl.formatMessage({
+                  id: 'form__address_and_domain_placeholder',
+                })}
+              />
+              <NameResolver
+                nameToResolve={nameToResolve}
+                networkId={networkId}
+                onChange={handleOnNameResolverStateChange}
+              />
+            </YStack>
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>

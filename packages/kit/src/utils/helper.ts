@@ -12,6 +12,9 @@ const MS_ONE_WEEK = 7 * MS_ONE_DAY;
 const MS_ONE_MONTH = 31 * MS_ONE_DAY;
 const MS_ONE_YEAR = 365 * MS_ONE_DAY;
 
+const DOMAIN_REGEXP =
+  /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
+
 export function getTimeDurationMs({
   seconds = 0,
   minute = 0,
@@ -89,3 +92,5 @@ export const sleepUntil = ({
     };
     checkCondition();
   });
+
+export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
