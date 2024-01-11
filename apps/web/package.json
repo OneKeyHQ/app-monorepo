@@ -14,6 +14,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
+    "folderslint": "^1.2.0",
     "rimraf": "^3"
   },
   "private": true

@@ -4967,6 +4967,7 @@ __metadata:
     electron-store: "npm:^8.1.0"
     electron-updater: "npm:^5.2.1"
     esbuild: "npm:0.15.18"
+    folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
@@ -4982,6 +4983,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -4990,6 +4992,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
+    folderslint: "npm:^1.2.0"
     idb: "npm:^7.1.1"
   languageName: unknown
   linkType: soft
@@ -5067,6 +5070,7 @@ __metadata:
     expo-haptics: "npm:12.6.0"
     expo-splash-screen: "npm:~0.20.5"
     expo-status-bar: "npm:~1.6.0"
+    folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:6.3.1"
@@ -5116,6 +5120,7 @@ __metadata:
     "@types/webextension-polyfill": "npm:^0.8.2"
     async-mutex: "npm:^0.3.2"
     flatted: "npm:^3.2.7"
+    folderslint: "npm:^1.2.0"
     js-base64: "npm:3.7.5"
     jsonschema: "npm:^1.4.1"
     localforage: "npm:^1.10.0"
@@ -5135,6 +5140,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -5146,6 +5152,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
