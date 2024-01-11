@@ -4,7 +4,7 @@ import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Rout
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
 import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
 import type { IModalSendParamList } from '../../views/Send/router';
-import type { IModalSettingParamList } from '../../views/Setting/types';
+import type { IModalSettingParamList } from '../../views/Setting/router/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
 import type { ITokenParamList } from '../../views/Token/router/type';
 

@@ -4,8 +4,8 @@ import { Page, SizableText, Stack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ListItemSelect } from '../Components/ListItemSelect';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { ListItemSelect } from '../../components/ListItemSelect';
 
 const useBridgeOptions = () => {
   const intl = useIntl();
