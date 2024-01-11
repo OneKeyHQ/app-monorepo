@@ -103,7 +103,9 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
     <Stack>
       <Image
         size="$10"
-        borderCurve="continuous"
+        style={{
+          borderCurve: 'continuous',
+        }}
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...(rest as any)}
       >

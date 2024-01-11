@@ -32,20 +32,25 @@ const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
         marginTop: getTokenValue('$4', 'size'),
       }
     : undefined,
-  actionList: [
-    {
-      items: [
+  actionList: platformEnv.isDesktop
+    ? [
         {
-          icon: 'CrossedLargeOutline',
-          label: 'Close All Tabs',
-          testID: 'tab-list-modal-close-all',
-          onPress: () => {
-            appEventBus.emit(EAppEventBusNames.CloseAllBrowserTab, undefined);
-          },
+          items: [
+            {
+              icon: 'CrossedLargeOutline',
+              label: 'Close All Tabs',
+              testID: 'tab-list-modal-close-all',
+              onPress: () => {
+                appEventBus.emit(
+                  EAppEventBusNames.CloseAllBrowserTab,
+                  undefined,
+                );
+              },
+            },
+          ],
         },
-      ],
-    },
-  ],
+      ]
+    : undefined,
 };
 
 export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
