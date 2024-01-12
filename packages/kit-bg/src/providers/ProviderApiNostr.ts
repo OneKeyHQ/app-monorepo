@@ -175,7 +175,10 @@ class ProviderApiNostr extends ProviderApiBase {
     if (passwordCache && !isHardwareWallet({ walletId }) && request.origin) {
       const url = new URL(request.origin);
       const shouldAutoSign =
-        await this.backgroundApi.serviceNostr.getAutoSignStatus(url.hostname);
+        await this.backgroundApi.serviceNostr.getAutoSignStatus(
+          accountId ?? '',
+          url.hostname,
+        );
       if (shouldAutoSign) {
         const result = await this.backgroundApi.serviceNostr.signEvent({
           walletId,

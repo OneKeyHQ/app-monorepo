@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
 import { isHdWallet as isHdWalletFn } from '@onekeyhq/shared/src/engine/engineUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -348,8 +349,8 @@ const NostrSignEventModal = () => {
       height={isDMEvent ? '580px' : '500px'}
       scrollViewProps={{
         contentContainerStyle: {
-          flex: 1,
           paddingVertical: isVerticalLayout ? 16 : 24,
+          flex: platformEnv.isNative ? undefined : 1,
         },
         children: (
           <Box h="full" flexDirection="column" justifyContent="space-between">
@@ -382,17 +383,15 @@ const NostrSignEventModal = () => {
             </Box>
 
             {signType === ESignType.signEvent && isHdWallet && (
-              <Box alignItems="center" flexDirection="row">
+              <Box py={3}>
                 <CheckBox
                   containerStyle={{ mr: 2 }}
                   isChecked={autoSign}
                   onChange={setAutoSign}
-                />
-                <Text>
-                  {intl.formatMessage({
+                  title={intl.formatMessage({
                     id: 'content__remember_my_choice_and_dont_ask_again',
                   })}
-                </Text>
+                />
               </Box>
             )}
           </Box>
