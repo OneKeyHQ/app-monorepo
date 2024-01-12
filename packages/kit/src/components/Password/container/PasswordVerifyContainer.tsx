@@ -2,9 +2,9 @@ import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import PasswordVerify from '../components/PasswordVerify';
 
 interface IPasswordVerifyProps {

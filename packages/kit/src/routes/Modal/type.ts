@@ -1,4 +1,4 @@
-import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/types';
+import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
 import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
