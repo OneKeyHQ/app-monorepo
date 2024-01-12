@@ -1,0 +1,55 @@
+diff --git a/node_modules/@tamagui/dismissable/dist/cjs/Dismissable.js b/node_modules/@tamagui/dismissable/dist/cjs/Dismissable.js
+index 48b2f65..057ed9f 100644
+--- a/node_modules/@tamagui/dismissable/dist/cjs/Dismissable.js
++++ b/node_modules/@tamagui/dismissable/dist/cjs/Dismissable.js
+@@ -64,7 +64,8 @@ const DismissableContext = React.createContext({
+       ) || (onFocusOutside == null || onFocusOutside(event), onInteractOutside == null || onInteractOutside(event), event.defaultPrevented || onDismiss == null || onDismiss());
+     });
+     return (0, import_use_escape_keydown.useEscapeKeydown)((event) => {
+-      index === context.layers.size - 1 && (onEscapeKeyDown == null || onEscapeKeyDown(event), !event.defaultPrevented && onDismiss && (event.preventDefault(), onDismiss()));
++      // We stop the bubbling of Escape events on Dialog
++      index === context.layers.size - 1 && (onEscapeKeyDown == null || onEscapeKeyDown(event), !event.defaultPrevented && onDismiss && (event.stopPropagation(), event.preventDefault(), onDismiss()));
+     }), React.useEffect(() => {
+       if (node)
+         return disableOutsidePointerEvents && (context.layersWithOutsidePointerEventsDisabled.size === 0 && (originalBodyPointerEvents = document.body.style.pointerEvents, document.body.style.pointerEvents = "none"), context.layersWithOutsidePointerEventsDisabled.add(node)), context.layers.add(node), dispatchUpdate(), () => {
+diff --git a/node_modules/@tamagui/dismissable/dist/esm/Dismissable.js b/node_modules/@tamagui/dismissable/dist/esm/Dismissable.js
+index 73fdc69..fe60b7e 100644
+--- a/node_modules/@tamagui/dismissable/dist/esm/Dismissable.js
++++ b/node_modules/@tamagui/dismissable/dist/esm/Dismissable.js
+@@ -41,7 +41,8 @@ const DismissableContext = React.createContext({
+       ) || (onFocusOutside?.(event), onInteractOutside?.(event), event.defaultPrevented || onDismiss?.());
+     });
+     return useEscapeKeydown((event) => {
+-      index === context.layers.size - 1 && (onEscapeKeyDown?.(event), !event.defaultPrevented && onDismiss && (event.preventDefault(), onDismiss()));
++      // We stop the bubbling of Escape events on Dialog
++      index === context.layers.size - 1 && (onEscapeKeyDown?.(event), !event.defaultPrevented && onDismiss && (event.stopPropagation(), event.preventDefault(), onDismiss()));
+     }), React.useEffect(() => {
+       if (node)
+         return disableOutsidePointerEvents && (context.layersWithOutsidePointerEventsDisabled.size === 0 && (originalBodyPointerEvents = document.body.style.pointerEvents, document.body.style.pointerEvents = "none"), context.layersWithOutsidePointerEventsDisabled.add(node)), context.layers.add(node), dispatchUpdate(), () => {
+diff --git a/node_modules/@tamagui/dismissable/dist/jsx/Dismissable.js b/node_modules/@tamagui/dismissable/dist/jsx/Dismissable.js
+index c5e25ac..bd94279 100644
+--- a/node_modules/@tamagui/dismissable/dist/jsx/Dismissable.js
++++ b/node_modules/@tamagui/dismissable/dist/jsx/Dismissable.js
+@@ -40,7 +40,8 @@ const DismissableContext = React.createContext({
+       ) || (onFocusOutside?.(event), onInteractOutside?.(event), event.defaultPrevented || onDismiss?.());
+     });
+     return useEscapeKeydown((event) => {
+-      index === context.layers.size - 1 && (onEscapeKeyDown?.(event), !event.defaultPrevented && onDismiss && (event.preventDefault(), onDismiss()));
++      // We stop the bubbling of Escape events on Dialog
++      index === context.layers.size - 1 && (onEscapeKeyDown?.(event), !event.defaultPrevented && onDismiss && (event.stopPropagation(), event.preventDefault(), onDismiss()));
+     }), React.useEffect(() => {
+       if (node)
+         return disableOutsidePointerEvents && (context.layersWithOutsidePointerEventsDisabled.size === 0 && (originalBodyPointerEvents = document.body.style.pointerEvents, document.body.style.pointerEvents = "none"), context.layersWithOutsidePointerEventsDisabled.add(node)), context.layers.add(node), dispatchUpdate(), () => {
+diff --git a/node_modules/@tamagui/dismissable/src/Dismissable.tsx b/node_modules/@tamagui/dismissable/src/Dismissable.tsx
+index bf126bb..6e8326e 100644
+--- a/node_modules/@tamagui/dismissable/src/Dismissable.tsx
++++ b/node_modules/@tamagui/dismissable/src/Dismissable.tsx
+@@ -92,6 +92,8 @@ const Dismissable = React.forwardRef<HTMLDivElement, DismissableProps>(
+       if (!isHighestLayer) return
+       onEscapeKeyDown?.(event)
+       if (!event.defaultPrevented && onDismiss) {
++        // We stop the bubbling of Escape events on Dialog
++        event.stopPropagation()
+         event.preventDefault()
+         onDismiss()
+       }

@@ -1,15 +1,15 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
-import { SizableText, Popover as TMPopover } from 'tamagui';
+import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
-import { useSafeAreaInsets } from '../../hooks';
-import { XStack, YStack } from '../../primitives';
+import { useBackHandler, useSafeAreaInsets } from '../../hooks';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -122,6 +122,16 @@ function RawPopover({
   const openPopover = useCallback(() => {
     onOpenChange?.(true);
   }, [onOpenChange]);
+
+  const handleBackPress = useCallback(() => {
+    if (!isOpen) {
+      return false;
+    }
+    closePopover();
+    return true;
+  }, [closePopover, isOpen]);
+
+  useBackHandler(handleBackPress);
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
