@@ -6,7 +6,8 @@
     "start": "webpack serve",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
-    "build": "cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
+    "build": "cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "_folderslint": "yarn folderslint"
   },
   "private": true,
   "dependencies": {
@@ -15,6 +16,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
+    "folderslint": "^1.2.0",
     "rimraf": "^3"
   }
 }

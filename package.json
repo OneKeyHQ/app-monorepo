@@ -39,9 +39,11 @@
     "clean:cache": "yarn workspaces foreach -A run clean:build",
     "_tsc": "sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'",
     "reinstall": "yarn clean && yarn install",
-    "_lint": "node ./development/lintCheck",
-    "_xcode": "node ./development/xcodeCheck",
-    "lint:project": "yarn _tsc && yarn _lint && yarn _xcode",
+    "_lint": "node ./development/lint/eslint",
+    "_xcode": "node ./development/lint/xcode",
+    "_lang": "node ./development/lint/lang",
+    "_folder": "yarn workspaces foreach -A -p --topological-dev run _folderslint",
+    "lint:project": "yarn _tsc && yarn _lint && yarn _xcode && yarn _folder && yarn _lang",
     "lint": "ultra lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
@@ -124,6 +126,7 @@
     "eslint-config-wesbos": "^3.1.4",
     "eslint-plugin-html": "^7.1.0",
     "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-import-path": "^0.0.2",
     "eslint-plugin-jest": "^27.1.7",
     "eslint-plugin-jsx-a11y": "^6.6.1",
     "eslint-plugin-prettier": "^4.2.1",
@@ -153,7 +156,8 @@
     "webpack-cli": "5.1.4",
     "webpack-dev-server": "^4.15.1",
     "webpack-manifest-plugin": "^5.0.0",
-    "webpack-subresource-integrity": "^5.2.0-rc.1"
+    "webpack-subresource-integrity": "^5.2.0-rc.1",
+    "worker-loader": "^3.0.8"
   },
   "resolutions": {
     "tronweb@^5.1.0": "5.1.0",

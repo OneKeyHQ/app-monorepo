@@ -3,7 +3,7 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import type { IWalletProps } from '../../views/AccountManagerStacks/types';
+import type { IWalletProps } from '../../views/AccountManagerStacks/router/types';
 import type { SizeTokens } from 'tamagui';
 
 export interface IWalletAvatarProps {

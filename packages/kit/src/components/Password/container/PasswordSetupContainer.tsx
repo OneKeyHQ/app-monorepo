@@ -1,12 +1,12 @@
 import { Suspense, memo, useCallback, useState } from 'react';
 
 import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetup from '../components/PasswordSetup';
 
