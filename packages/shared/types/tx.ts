@@ -100,10 +100,10 @@ export type IDecodedTxTransferInfo = {
   to: string;
   token: string;
   amount: string;
-  label: string;
   image: string;
   symbol: string;
   isNFT?: boolean;
+  label?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -127,7 +127,6 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   spender: string;
   amount: string;
   label: string;
-  content: string;
   tokenIcon: string;
 };
 

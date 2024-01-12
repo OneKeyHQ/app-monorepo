@@ -238,8 +238,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         from: tx.from,
         to: tx.to,
         label: tx.label.label,
-        sends: tx.sends,
-        receives: tx.receives,
+        sends: tx.sends.map((send) => ({ ...send, label: send.label.label })),
+        receives: tx.receives.map((receive) => ({
+          ...receive,
+          label: receive.label.label,
+        })),
       },
     };
   }
@@ -249,8 +252,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
-        label: approve.label,
-        content: tx.label.label,
+        label: approve.label.label ?? tx.label.label,
         owner: approve.from,
         spender: approve.to,
         tokenIcon: approve.image,

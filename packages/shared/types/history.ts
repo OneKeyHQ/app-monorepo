@@ -1,6 +1,6 @@
 import type { ILocaleIds } from '@onekeyhq/components';
 
-import type { IDecodedTx, IDecodedTxTransferInfo, IReplacedTxType } from './tx';
+import type { IDecodedTx, IReplacedTxType } from './tx';
 
 export enum EOnChainHistoryTransferType {
   Transfer,
@@ -14,7 +14,15 @@ export enum EOnChainHistoryTxStatus {
 
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
-} & IDecodedTxTransferInfo;
+  from: string;
+  to: string;
+  token: string;
+  amount: string;
+  image: string;
+  symbol: string;
+  label: IOnChainHistoryTxLabel;
+  isNFT?: boolean;
+};
 
 export type IOnChainHistoryTxLabel = {
   label: string;

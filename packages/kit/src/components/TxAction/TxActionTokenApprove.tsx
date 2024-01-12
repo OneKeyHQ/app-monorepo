@@ -10,7 +10,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const { action } = props;
   const { tokenApprove } = action;
   const approveIcon = tokenApprove?.tokenIcon ?? '';
-  const approveLabel = tokenApprove?.content ?? tokenApprove?.label ?? '';
+  const approveLabel = tokenApprove?.label ?? '';
   const approveAmount = tokenApprove?.amount ?? '';
   const approveSpender = tokenApprove?.spender ?? '';
 
@@ -24,6 +24,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 
 function TxActionTokenApproveT0(props: ITxActionProps) {
   const intl = useIntl();
+  const { tableLayout } = props;
   const { approveIcon, approveSpender, approveLabel } =
     getTxActionTokenApproveInfo(props);
 
@@ -43,7 +44,12 @@ function TxActionTokenApproveT0(props: ITxActionProps) {
   };
 
   return (
-    <TxActionCommonT0 title={title} avatar={avatar} description={description} />
+    <TxActionCommonT0
+      title={title}
+      avatar={avatar}
+      description={description}
+      tableLayout={tableLayout}
+    />
   );
 }
 

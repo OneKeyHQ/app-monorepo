@@ -39,6 +39,7 @@ function getTxActionTransferInfo(props: ITxActionProps) {
     const targets = uniq(map(receives, 'from'));
     if (targets.length === 1) {
       [transferTarget] = targets;
+    } else {
       transferTarget = from;
     }
   } else {
@@ -70,9 +71,10 @@ function buildTransferChangeInfo({
   let changeDescription = '';
 
   if (transfers.length === 1) {
-    change = `${new BigNumber(transfers[0].amount).abs().toFixed()} ${
-      transfers[0].symbol
-    }`;
+    change = `${
+      getFormattedNumber(new BigNumber(transfers[0].amount).abs().toFixed()) ??
+      '0'
+    } ${transfers[0].symbol}`;
   } else {
     const tokens = uniq(map(transfers, 'token'));
     if (tokens.length === 1) {
@@ -183,8 +185,8 @@ function TxActionTransferT0(props: ITxActionProps) {
       transfers: receives,
       intl,
     });
-    change = sendChangeInfo.change;
-    changeDescription = receiveChangeInfo.changeDescription;
+    change = receiveChangeInfo.change;
+    changeDescription = sendChangeInfo.change;
     description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = [
       receiveNFTIcon || receiveTokenIcon,
