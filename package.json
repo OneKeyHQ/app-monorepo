@@ -156,7 +156,8 @@
     "webpack-cli": "5.1.4",
     "webpack-dev-server": "^4.15.1",
     "webpack-manifest-plugin": "^5.0.0",
-    "webpack-subresource-integrity": "^5.2.0-rc.1"
+    "webpack-subresource-integrity": "^5.2.0-rc.1",
+    "worker-loader": "^3.0.8"
   },
   "resolutions": {
     "tronweb@^5.1.0": "5.1.0",

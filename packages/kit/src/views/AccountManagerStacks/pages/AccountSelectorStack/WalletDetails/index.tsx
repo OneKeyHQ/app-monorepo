@@ -23,7 +23,8 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '@onekeyhq/kit/src/utils/makeBlockieImageUri';
+import makeBlockieImageUriList from '@onekeyhq/kit/src/utils/makeBlockieImageUriList';
+import { AccountRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountRename';
 import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import type {
   IDBIndexedAccount,
@@ -35,8 +36,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-
-import { AccountRenameButton } from '../../../components/AccountRename';
 
 import { WalletOptions } from './WalletOptions';
 
@@ -99,9 +98,13 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
           walletId: selectedAccount?.focusedWallet,
         })
         .then(async (value) => {
-          for (const item of value?.accounts ?? []) {
-            item.avatar = await makeBlockieImageUri(item.idHash || item.id);
-          }
+          const accountList = value?.accounts ?? [];
+          const uriList = await makeBlockieImageUriList(
+            accountList.map((item) => item.idHash || item.id),
+          );
+          accountList.forEach(
+            (item, index) => (item.avatar = uriList?.[index]),
+          );
           return value;
         });
     }, [selectedAccount?.focusedWallet, serviceAccount]);
