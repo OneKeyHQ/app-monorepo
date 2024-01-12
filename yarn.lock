@@ -4822,6 +4822,7 @@ __metadata:
     eslint-config-wesbos: "npm:^3.1.4"
     eslint-plugin-html: "npm:^7.1.0"
     eslint-plugin-import: "npm:^2.26.0"
+    eslint-plugin-import-path: "npm:^0.0.2"
     eslint-plugin-jest: "npm:^27.1.7"
     eslint-plugin-jsx-a11y: "npm:^6.6.1"
     eslint-plugin-prettier: "npm:^4.2.1"
@@ -14686,6 +14687,13 @@ __metadata:
   dependencies:
     htmlparser2: "npm:^8.0.1"
   checksum: f19a5fda32056c38c4bf75fcb37ae2e495e004220de0fa1c6249c92438f191dba0011cf677834242da4939c80b06260f39d7968bf8f22fba9a160dba9bff7ebf
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-import-path@npm:^0.0.2":
+  version: 0.0.2
+  resolution: "eslint-plugin-import-path@npm:0.0.2"
+  checksum: 161ccdaa97801c85a90da9c5b4491028fba003114da046d117123d8943cd3dfe26e4392427d5524a0d6fb09c4a06fdd40ab97510b46721889b38084387c9ea68
   languageName: node
   linkType: hard
 
