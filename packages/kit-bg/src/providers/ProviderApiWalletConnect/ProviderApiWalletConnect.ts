@@ -5,10 +5,11 @@ import { Web3Wallet } from '@walletconnect/web3wallet';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // import { EWalletConnectPages } from '@onekeyhq/kit/src/views/WalletConnect/router';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNotSupportedChains } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
-} from '@onekeyhq/shared/src/consts/walletConnectConsts';
+} from '@onekeyhq/shared/src/walletConnect/constant';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
@@ -16,8 +17,6 @@ import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
 class ProviderApiWalletConnect {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     this.backgroundApi = backgroundApi;
-
-    console.log('=====>>>> ProviderApiWalletConnect Initalize');
   }
 
   backgroundApi: IBackgroundApi;
@@ -69,6 +68,16 @@ class ProviderApiWalletConnect {
 
   async onSessionProposal(proposal: Web3WalletTypes.SessionProposal) {
     console.log('onSessionProposal: ', proposal);
+    // check if all required networks are supported
+    const notSupportedChains = getNotSupportedChains(proposal);
+    if (notSupportedChains.length > 0) {
+      await this.web3Wallet?.rejectSession({
+        id: proposal.id,
+        reason: getSdkError('UNSUPPORTED_CHAINS'),
+      });
+      return;
+    }
+
     try {
       const result = await this.backgroundApi.serviceDApp.openModal({
         request: {},

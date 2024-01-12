@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
-import { Page, Stack, Text } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -52,29 +52,6 @@ function SessionProposalModal() {
     () => requestedChains.map((chain) => getChainData(chain)),
     [requestedChains],
   );
-
-  // get required chains that are not supported by the wallet
-  const notSupportedChains = useMemo(() => {
-    if (!proposal) return [];
-    const required = [];
-    for (const [key, values] of Object.entries(
-      proposal.params.requiredNamespaces,
-    )) {
-      const chains = key.includes(':') ? key : values.chains;
-      required.push(chains);
-    }
-    return required.flat().filter(
-      (chain) =>
-        !supportedChains
-          .map((supportedChain) => {
-            if (!supportedChain) return null;
-            return `${supportedChain?.namespace}:${supportedChain?.chainId}`;
-          })
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          .includes(chain!),
-    );
-  }, [proposal, supportedChains]);
-  console.log('notSupportedChains', notSupportedChains);
 
   const getAccountAddress = useCallback(
     (namespaces: string) => {
@@ -128,7 +105,7 @@ function SessionProposalModal() {
       <Page.Header title="Session Proposal" />
       <Page.Body>
         <Stack space="$3">
-          <Text>Session Proposal</Text>
+          <SizableText>Session Proposal</SizableText>
         </Stack>
       </Page.Body>
       <Page.Footer
