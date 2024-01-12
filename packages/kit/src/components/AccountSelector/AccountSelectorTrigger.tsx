@@ -20,7 +20,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '../../utils/makeBlockieImageUri';
+import makeBlockieImageUriList from '../../utils/makeBlockieImageUriList';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -36,7 +36,9 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const actions = useAccountSelectorActions();
   const { result: accountAvatar } = usePromiseResult(
     () =>
-      makeBlockieImageUri(indexedAccount?.idHash ?? account?.address ?? '--'),
+      makeBlockieImageUriList([
+        indexedAccount?.idHash ?? account?.address ?? '--',
+      ]).then((uriList) => uriList?.[0]),
     [indexedAccount, account],
     { checkIsFocused: false },
   );
