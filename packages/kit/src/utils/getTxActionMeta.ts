@@ -25,9 +25,7 @@ export function getTxActionMeta({ action }: { action: IDecodedTxAction }) {
   let components: ITxActionComponents;
 
   switch (action.type) {
-    case EDecodedTxActionType.NATIVE_TRANSFER:
-    case EDecodedTxActionType.TOKEN_TRANSFER:
-    case EDecodedTxActionType.NFT_TRANSFER:
+    case EDecodedTxActionType.TRANSFER:
       components = {
         T0: TxActionTransferT0,
         T1: TxActionTransferT1,

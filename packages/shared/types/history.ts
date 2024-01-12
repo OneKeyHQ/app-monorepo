@@ -1,8 +1,6 @@
 import type { ILocaleIds } from '@onekeyhq/components';
 
-import type { IAccountNFT } from './nft';
-import type { IToken } from './token';
-import type { IDecodedTx, IReplacedTxType } from './tx';
+import type { IDecodedTx, IDecodedTxTransferInfo, IReplacedTxType } from './tx';
 
 export enum EOnChainHistoryTransferType {
   Transfer,
@@ -16,21 +14,12 @@ export enum EOnChainHistoryTxStatus {
 
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
-  from: string;
-  to: string;
-  token: string;
-  amount: string;
-};
+} & IDecodedTxTransferInfo;
 
-export type IOnChainHistoryTxToken = {
-  price: number;
-  info: IToken;
+export type IOnChainHistoryTxLabel = {
+  label: string;
+  riskLevel: number;
 };
-export type IOnChainHistoryTxNFT = IAccountNFT;
-
-export type IOnChainHistoryTxAsset =
-  | IOnChainHistoryTxToken
-  | IOnChainHistoryTxNFT;
 
 export type IOnChainHistoryTx = {
   tx: string;
@@ -48,6 +37,7 @@ export type IOnChainHistoryTx = {
   functionCode: string;
   params: string[];
   value: string;
+  label: IOnChainHistoryTxLabel;
 };
 
 export type IAccountHistoryTx = {
@@ -72,13 +62,12 @@ export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
   accountAddress: string;
-  cursor?: string;
-  limit?: number;
+  tokenAddress?: string;
 };
 
 export type IFetchAccountHistoryResp = {
-  data: IOnChainHistoryTx[];
-  // <token address | NFT id, asset info>
-  tokens: Record<string, IOnChainHistoryTxAsset>;
-  next: string;
+  data: {
+    date: string;
+    items: IOnChainHistoryTx[];
+  }[];
 };

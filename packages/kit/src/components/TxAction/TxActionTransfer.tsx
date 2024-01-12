@@ -1,175 +1,201 @@
 import BigNumber from 'bignumber.js';
+import { isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  EDecodedTxActionType,
-  EDecodedTxDirection,
+import type {
+  IDecodedTxActionTransfer,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
-import { buildTxActionDirection } from '../../utils/txAction';
+import { getFormattedNumber } from '../../utils/format';
 
-import { TxActionCommonT1 } from './TxActionCommon';
+import { TxActionCommonT0, TxActionCommonT1 } from './TxActionCommon';
 
-import type { ITxActionProps } from './types';
+import type { ITxActionCommonProps, ITxActionProps } from './types';
+import type { IntlShape } from 'react-intl';
 
-export function getTxActionTransferInfo(props: ITxActionProps) {
-  const { action, accountAddress } = props;
+function getTxActionTransferInfo(props: ITxActionProps) {
+  const { action } = props;
 
-  // send | receive
-  let transferDirection = '';
-  // from | to
+  const { from, to, sends, receives, label } =
+    action.transfer as IDecodedTxActionTransfer;
+
   let transferTarget = '';
-  // token value
-  let transferValue = '';
-  // token icon | NFT image
-  let transferIcon = '';
-  // token symbol | NFT name
-  let transferSymbol = '';
-  // token amount | NFT amount
-  let transferAmount = '';
-  let transferFrom = '';
-  let transferTo = '';
 
-  if (action.type === EDecodedTxActionType.NATIVE_TRANSFER) {
-    const { nativeTransfer } = action;
-    transferIcon = nativeTransfer?.tokenInfo.logoURI ?? '';
-    transferAmount = nativeTransfer?.amount ?? '';
-    transferSymbol = nativeTransfer?.tokenInfo.symbol ?? '';
-    transferValue = new BigNumber(nativeTransfer?.tokenInfo.price ?? 0)
-      .times(nativeTransfer?.amount ?? 0)
-      .toFixed(2);
-    transferFrom = nativeTransfer?.from ?? '';
-    transferTo = nativeTransfer?.to ?? '';
-  }
+  const sendsWithNFT = sends.filter((send) => send.isNFT);
+  const sendsWithToken = sends.filter((send) => !send.isNFT);
+  const receivesWithToken = receives.filter((receive) => !receive.isNFT);
+  const receivesWithNFT = receives.filter((receive) => receive.isNFT);
 
-  if (action.type === EDecodedTxActionType.TOKEN_TRANSFER) {
-    const { tokenTransfer } = action;
-    transferIcon = tokenTransfer?.tokenInfo.logoURI ?? '';
-    transferAmount = tokenTransfer?.amount ?? '';
-    transferSymbol = tokenTransfer?.tokenInfo.symbol ?? '';
-    transferValue = new BigNumber(tokenTransfer?.tokenInfo.price ?? 0)
-      .times(tokenTransfer?.amount ?? 0)
-      .toFixed(2);
-    transferFrom = tokenTransfer?.from ?? '';
-    transferTo = tokenTransfer?.to ?? '';
-  }
-
-  if (action.type === EDecodedTxActionType.NFT_TRANSFER) {
-    const { nftTransfer } = action;
-    transferIcon = action.nftTransfer?.nftInfo.metadata.image ?? '';
-    transferAmount = nftTransfer?.amount ?? '';
-    transferSymbol = nftTransfer?.nftInfo.metadata.name ?? '';
-    transferFrom = action.nftTransfer?.from ?? '';
-    transferTo = action.nftTransfer?.to ?? '';
-  }
-
-  transferDirection = buildTxActionDirection({
-    from: transferFrom,
-    to: transferTo,
-    accountAddress,
-  });
-
-  if (transferDirection === EDecodedTxDirection.OUT) {
-    transferTarget = transferTo;
+  if (!isEmpty(sends) && isEmpty(receives)) {
+    const targets = uniq(map(receives, 'to'));
+    if (targets.length === 1) {
+      [transferTarget] = targets;
+    } else {
+      transferTarget = to;
+    }
+  } else if (isEmpty(sends) && !isEmpty(receives)) {
+    const targets = uniq(map(sends, 'from'));
+    if (targets.length === 1) {
+      [transferTarget] = targets;
+      transferTarget = from;
+    }
   } else {
-    transferTarget = transferFrom;
+    transferTarget = to;
   }
 
   return {
+    sends,
+    receives,
+    label,
     transferTarget,
-    transferValue,
-    transferIcon,
-    transferDirection,
-    transferSymbol,
-    transferAmount,
+    sendNFTIcon: sendsWithNFT[0]?.image,
+    receiveNFTIcon: receivesWithNFT[0]?.image,
+    sendTokenIcon: sendsWithToken[0]?.image,
+    receiveTokenIcon: receivesWithToken[0]?.image,
+  };
+}
+
+function buildTransferChangeInfo({
+  changeSymbol,
+  transfers,
+  intl,
+}: {
+  changeSymbol: string;
+  transfers: IDecodedTxTransferInfo[];
+  intl: IntlShape;
+}) {
+  let change = '';
+  let changeDescription = '';
+
+  if (transfers.length === 1) {
+    change = `${transfers[0].amount} ${transfers[0].symbol}`;
+  } else {
+    const tokens = uniq(map(transfers, 'token'));
+    const totalAmount =
+      getFormattedNumber(
+        transfers.reduce(
+          (acc, transfer) => acc.plus(transfer.amount),
+          new BigNumber(0),
+        ),
+      ) || '0';
+    if (tokens.length === 1) {
+      change = `${totalAmount} ${transfers[0].symbol}`;
+    } else {
+      const transfersWithNFT = transfers.filter((send) => send.isNFT);
+      const transfersWithToken = transfers.filter((send) => !send.isNFT);
+      if (transfersWithNFT.length === 0) {
+        change = `${tokens.length} ${intl.formatMessage({
+          id: 'title__assets',
+        })}`;
+        changeDescription = `${transfersWithToken[0].symbol} and more`;
+      } else if (transfersWithNFT.length === 1) {
+        change = `${transfersWithNFT[0].amount} ${transfersWithNFT[0].symbol}`;
+      } else {
+        const totalNFTs =
+          getFormattedNumber(
+            transfersWithNFT.reduce(
+              (acc, transfer) => acc.plus(transfer.amount),
+              new BigNumber(0),
+            ),
+          ) || '0';
+        change = `${totalNFTs} NFTs`;
+        changeDescription = `${transfersWithNFT[0].symbol} and more`;
+      }
+    }
+  }
+
+  return {
+    change: `${changeSymbol} ${change}`,
+    changeDescription,
   };
 }
 
 function TxActionTransferT0(props: ITxActionProps) {
+  const { tableLayout } = props;
   const intl = useIntl();
   const {
-    transferIcon,
+    sends,
+    receives,
+    label,
     transferTarget,
-    transferValue,
-    transferDirection,
-    transferAmount,
-    transferSymbol,
+    sendNFTIcon,
+    sendTokenIcon,
+    receiveNFTIcon,
+    receiveTokenIcon,
   } = getTxActionTransferInfo(props);
-
+  const description = {
+    prefix: '',
+    children: transferTarget,
+  };
+  const avatar: ITxActionCommonProps['avatar'] = {
+    circular: !(sendNFTIcon || receiveNFTIcon),
+    fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
+      ? 'QuestionmarkSolid'
+      : 'ImageMountainSolid',
+  };
   let title = '';
-  let subTitle = '';
-  let content = '';
-  if (transferDirection === EDecodedTxDirection.OUT) {
-    title = intl.formatMessage({ id: 'action__send' });
-    subTitle = `to: ${accountUtils.shortenAddress({
-      address: transferTarget,
-    })}`;
-    content = `- ${transferAmount} ${transferSymbol}`;
+  let change = '';
+  let changeDescription = '';
+
+  title = label;
+
+  if (!isEmpty(sends) && isEmpty(receives)) {
+    const changeInfo = buildTransferChangeInfo({
+      changeSymbol: '-',
+      transfers: sends,
+      intl,
+    });
+    change = changeInfo.change;
+    changeDescription = changeInfo.changeDescription;
+    description.prefix = intl.formatMessage({ id: 'content__to' });
+    avatar.src = sendNFTIcon || sendTokenIcon;
+  } else if (isEmpty(sends) && !isEmpty(receives)) {
+    const changeInfo = buildTransferChangeInfo({
+      changeSymbol: '+',
+      transfers: receives,
+      intl,
+    });
+    change = changeInfo.change;
+    changeDescription = changeInfo.changeDescription;
+    description.prefix = intl.formatMessage({ id: 'content__from' });
+    avatar.src = receiveNFTIcon || receiveTokenIcon;
   } else {
-    title = intl.formatMessage({ id: 'action__receive' });
-    subTitle = `from: ${accountUtils.shortenAddress({
-      address: transferTarget,
-    })}`;
-    content = `+ ${transferAmount} ${transferSymbol}`;
-  }
-  return (
-    <ListItem
-      title={title}
-      subtitle={subTitle}
-      avatarProps={{
-        src: transferIcon,
-        fallbackProps: {
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
-        },
-      }}
-    >
-      <ListItem.Text
-        align="right"
-        primary={content}
-        secondary={transferValue}
-        secondaryTextProps={{ color: '$textSubdued' }}
-      />
-    </ListItem>
-  );
-}
-
-function TxActionTransferT1(props: ITxActionProps) {
-  const intl = useIntl();
-  const {
-    transferIcon,
-    transferTarget,
-    transferDirection,
-    transferAmount,
-    transferSymbol,
-  } = getTxActionTransferInfo(props);
-
-  let title = '';
-  let content = '';
-  let description = '';
-
-  if (transferDirection === EDecodedTxDirection.OUT) {
-    title = intl.formatMessage({ id: 'action__send' });
-    content = `- ${transferAmount} ${transferSymbol}`;
-    description = `To: ${transferTarget}`;
-  } else {
-    title = intl.formatMessage({ id: 'action__receive' });
-    content = `+ ${transferAmount} ${transferSymbol}`;
-    description = `From: ${transferTarget}`;
+    const sendChangeInfo = buildTransferChangeInfo({
+      changeSymbol: '-',
+      transfers: receives,
+      intl,
+    });
+    const receiveChangeInfo = buildTransferChangeInfo({
+      changeSymbol: '+',
+      transfers: receives,
+      intl,
+    });
+    change = sendChangeInfo.change;
+    changeDescription = receiveChangeInfo.changeDescription;
+    description.prefix = intl.formatMessage({ id: 'content__to' });
+    avatar.src = [
+      receiveNFTIcon || receiveTokenIcon,
+      sendNFTIcon || sendTokenIcon,
+    ].filter(Boolean);
   }
 
   return (
-    <TxActionCommonT1
+    <TxActionCommonT0
       title={title}
-      icon={transferIcon}
-      content={content}
+      avatar={avatar}
       description={description}
+      change={change}
+      changeDescription={changeDescription}
+      tableLayout={tableLayout}
     />
   );
 }
+
+function TxActionTransferT1(props: ITxActionProps) {}
 
 export { TxActionTransferT0, TxActionTransferT1 };

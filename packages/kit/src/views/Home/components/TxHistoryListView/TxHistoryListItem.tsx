@@ -5,12 +5,11 @@ import { TxActionsListView } from '../../../../components/TxActionListView';
 
 type IProps = {
   historyTx: IAccountHistoryTx;
-  accountAddress: string;
   onPress?: (historyTx: IAccountHistoryTx) => void;
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, accountAddress } = props;
+  const { historyTx } = props;
   const { decodedTx } = historyTx;
 
   return (
@@ -18,7 +17,6 @@ function TxHistoryListItem(props: IProps) {
       <TxActionsListView
         historyTx={historyTx}
         decodedTx={decodedTx}
-        accountAddress={accountAddress}
         componentType="T0"
       />
     </Stack>

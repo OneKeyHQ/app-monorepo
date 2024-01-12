@@ -4,11 +4,9 @@ import { useMedia } from 'tamagui';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { convertHistoryToSectionGroups } from '../../../utils/history';
 import { ETokenPages } from '../../Token/router/type';
 import { TxHistoryListView } from '../components/TxHistoryListView';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
@@ -23,7 +21,6 @@ function TxHistoryListContainer(props: IProps) {
   const { onContentSizeChange } = props;
 
   const media = useMedia();
-  const formatDate = useFormatDate();
   const navigation = useAppNavigation();
   const {
     activeAccount: { account, network },
@@ -52,22 +49,9 @@ function TxHistoryListContainer(props: IProps) {
     },
   );
 
-  const historySections = useMemo(
-    () =>
-      convertHistoryToSectionGroups({
-        items: history.result,
-        formatDate: (date: number) =>
-          formatDate.formatDate(new Date(date), {
-            hideTheYear: true,
-            hideTimeForever: true,
-          }),
-      }),
-    [history.result, formatDate],
-  );
-
   return (
     <TxHistoryListView
-      data={mockData as any}
+      data={history.result ?? []}
       onItemPress={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}

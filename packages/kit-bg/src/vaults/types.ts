@@ -6,11 +6,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import type {
-  IAccountHistoryTx,
-  IOnChainHistoryTx,
-  IOnChainHistoryTxAsset,
-} from '@onekeyhq/shared/types/history';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -215,7 +211,5 @@ export interface ISignMessageParams {
 export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
-  tokens: Record<string, IOnChainHistoryTxAsset>;
-  onChainHistoryTxs: IOnChainHistoryTx[];
-  localHistoryTxs: IAccountHistoryTx[];
+  onChainHistoryTx: IOnChainHistoryTx;
 }

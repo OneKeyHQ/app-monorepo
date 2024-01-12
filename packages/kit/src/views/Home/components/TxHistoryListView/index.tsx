@@ -2,12 +2,13 @@ import { useIntl } from 'react-intl';
 
 import { Divider, Empty, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IHistoryListSectionGroup,
+} from '@onekeyhq/shared/types/history';
 
-import { HistoryListItem } from './HistoryListItem';
 import { TxHistoryListHeader } from './TxHistoryListHeader';
-
-import type { IHistoryListItemProps } from './HistoryListItem';
+import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IHistoryListSectionGroup[];
@@ -64,17 +65,8 @@ function TxHistoryListView(props: IProps) {
       )}
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize={60}
-      renderItem={({ item }: { item: IHistoryListItemProps }) => (
-        <HistoryListItem
-          title={item.title}
-          description={item.description}
-          avatar={item.avatar}
-          change={item.change}
-          changeDescription={item.changeDescription}
-          pending={item.pending}
-          tableLayout={tableLayout}
-          onPress={onItemPress}
-        />
+      renderItem={({ item }: { item: IAccountHistoryTx }) => (
+        <TxHistoryListItem historyTx={item} onPress={onItemPress} />
       )}
       ListFooterComponent={ListFooterComponent}
       {...(showHeader && {

@@ -1,11 +1,10 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { TxActionCommonT1 } from './TxActionCommon';
+import { TxActionCommonT0, TxActionCommonT1 } from './TxActionCommon';
 
-import type { ITxActionProps } from './types';
+import type { ITxActionCommonProps, ITxActionProps } from './types';
 
 function getTxActionFunctionCallInfo(props: ITxActionProps) {
   const { action } = props;
@@ -29,24 +28,18 @@ function TxActionFunctionCallT0(props: ITxActionProps) {
   const intl = useIntl();
   const { target, functionName } = getTxActionFunctionCallInfo(props);
 
-  const title = intl.formatMessage({ id: 'transaction__contract_interaction' });
-  const subTitle = `to: ${accountUtils.shortenAddress({ address: target })}`;
+  const title = functionName;
+  const avatar: ITxActionCommonProps['avatar'] = {
+    circular: true,
+    fallbackIcon: 'ImageMountainSolid',
+  };
+  const description = {
+    prefix: intl.formatMessage({ id: 'content__to' }),
+    children: accountUtils.shortenAddress({ address: target }),
+  };
 
   return (
-    <ListItem
-      title={title}
-      subtitle={subTitle}
-      avatarProps={{
-        fallbackProps: {
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
-        },
-      }}
-    >
-      <ListItem.Text primary={functionName} />
-    </ListItem>
+    <TxActionCommonT0 title={title} avatar={avatar} description={description} />
   );
 }
 

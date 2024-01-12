@@ -7,12 +7,12 @@ import { getDisplayedActions } from '../../utils/txAction';
 type IProps = {
   historyTx?: IAccountHistoryTx;
   decodedTx: IDecodedTx;
-  accountAddress: string;
   componentType?: 'T0' | 'T1';
+  tableLayout?: boolean;
 };
 
 function TxActionsListView(props: IProps) {
-  const { decodedTx, accountAddress, componentType = 'T0' } = props;
+  const { decodedTx, componentType = 'T0', tableLayout } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
 
@@ -24,7 +24,7 @@ function TxActionsListView(props: IProps) {
 
   const TxActionComponent = components[componentType];
 
-  return <TxActionComponent action={action} accountAddress={accountAddress} />;
+  return <TxActionComponent action={action} tableLayout={tableLayout} />;
 }
 
 export { TxActionsListView };
