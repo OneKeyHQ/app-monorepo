@@ -1,6 +1,6 @@
 import { isString } from 'lodash';
 
-import { Avatar, Icon, Text, XStack, YStack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 export function TxActionCommonT1(props: {
   title?: React.ReactNode;
@@ -12,33 +12,33 @@ export function TxActionCommonT1(props: {
   return (
     <YStack space="$1" px="$4" py="$3">
       {isString(title) ? (
-        <Text variant="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {title}
-        </Text>
+        </SizableText>
       ) : (
         title
       )}
       <XStack space="$2" alignItems="center">
         {isString(icon) ? (
-          <Avatar size="$8" circular>
-            <Avatar.Image src={icon} />
-            <Avatar.Fallback>
+          <Image size="$8" circular>
+            <Image.Source src={icon} />
+            <Image.Fallback>
               <Icon name="ImageMountainSolid" size="$8" />
-            </Avatar.Fallback>
-          </Avatar>
+            </Image.Fallback>
+          </Image>
         ) : (
           icon
         )}
         {isString(content) ? (
-          <Text variant="$headingXl">{content}</Text>
+          <SizableText size="$headingXl">{content}</SizableText>
         ) : (
           content
         )}
       </XStack>
       {isString(description) ? (
-        <Text variant="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {description}
-        </Text>
+        </SizableText>
       ) : (
         description
       )}

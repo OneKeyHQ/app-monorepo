@@ -8,8 +8,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
-import { useSafeAreaInsets } from '../../hooks';
-import { Text, XStack, YStack } from '../../primitives';
+import { useBackHandler, useSafeAreaInsets } from '../../hooks';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -123,6 +123,16 @@ function RawPopover({
     onOpenChange?.(true);
   }, [onOpenChange]);
 
+  const handleBackPress = useCallback(() => {
+    if (!isOpen) {
+      return false;
+    }
+    closePopover();
+    return true;
+  }, [closePopover, isOpen]);
+
+  useBackHandler(handleBackPress);
+
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
   const content = RenderContent
@@ -205,9 +215,9 @@ function RawPopover({
                   borderCurve: 'continuous',
                 }}
               >
-                <Text variant="$headingXl" color="$text">
+                <SizableText size="$headingXl" color="$text">
                   {title}
-                </Text>
+                </SizableText>
                 <IconButton
                   icon="CrossedSmallOutline"
                   size="small"

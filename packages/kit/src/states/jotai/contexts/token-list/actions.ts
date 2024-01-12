@@ -16,7 +16,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       set,
       tokenList: {
         tokens: IAccountToken[];
-        keys: string[];
+        keys: string;
       },
     ) => {
       if (!isEqual(get(tokenListAtom()), tokenList.keys)) {

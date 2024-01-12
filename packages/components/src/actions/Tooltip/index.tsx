@@ -1,12 +1,12 @@
 import { Tooltip as TMTooltip } from 'tamagui';
 
-import { Text } from '../../primitives';
+import { SizableText } from '../../primitives';
 
-import type { ITextProps } from '../../primitives';
+import type { ISizableTextProps } from '../../primitives';
 import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
-export function TooltipText({ children }: ITextProps) {
-  return <Text variant="$bodySm">{children}</Text>;
+export function TooltipText({ children }: ISizableTextProps) {
+  return <SizableText size="$bodySm">{children}</SizableText>;
 }
 
 export interface ITooltipProps extends TMTooltipProps {

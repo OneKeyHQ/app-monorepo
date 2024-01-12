@@ -1,11 +1,13 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/Stack';
+import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { TestModalRouter } from '../../views/TestModal/router';
+import { TokenRouter } from '../../views/Token/router';
 import { WalletConnectRouter } from '../../views/WalletConnect/router';
 
 import { ModalDiscoveryStack } from './Discovery';
@@ -40,6 +42,14 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.WalletConnectModal,
     children: WalletConnectRouter,
+  },
+  {
+    name: EModalRoutes.TokenModal,
+    children: TokenRouter,
+  },
+  {
+    name: EModalRoutes.ScanQrCodeModal,
+    children: ScanQrCodeModalRouter,
   },
 ];
 

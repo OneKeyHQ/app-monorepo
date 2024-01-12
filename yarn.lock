@@ -4754,6 +4754,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-lite-card@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: f45d0be4073a248eb2f49ed6d24a6df648db10ac7f32b3e7767fdb077a07722e56ab7801efec70bf049782fe510504ec1884b45cc6d7f4a0a343af7d45b0a7ff
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -4886,7 +4896,6 @@ __metadata:
     react-content-loader: "npm:^6.2.1"
     react-dropzone: "npm:^14.2.3"
     react-hook-form: "npm:^7.22.1"
-    react-native-draggable-flatlist: "npm:4.0.1"
     react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
     react-native-markdown-display: "npm:^7.0.0-alpha.2"
     react-native-modalize: "npm:^2.1.1"
@@ -5028,7 +5037,6 @@ __metadata:
     react-async-hook: "npm:^4.0.0"
     react-freeze: "npm:^1.0.3"
     react-intl: "npm:^5.21.2"
-    react-native-camera-kit: "npm:14.0.0-beta2"
     react-redux: "npm:^8.0.5"
     redux-logger: "npm:^3.0.6"
     redux-persist: "npm:^6.0.0"
@@ -5049,6 +5057,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.0"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -5070,6 +5079,7 @@ __metadata:
     react: "npm:18.2.0"
     react-native: "npm:0.72.5"
     react-native-bundle-visualizer: "npm:^3.1.3"
+    react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-draggable-flatlist: "npm:4.0.1"

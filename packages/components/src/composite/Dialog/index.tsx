@@ -19,8 +19,8 @@ import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useKeyboardHeight } from '../../hooks';
-import { Icon, Stack, Text } from '../../primitives';
+import { useBackHandler, useKeyboardHeight } from '../../hooks';
+import { Icon, SizableText, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
@@ -84,6 +84,16 @@ function DialogFrame({
     [onClose],
   );
 
+  const handleBackPress = useCallback(() => {
+    if (!open) {
+      return false;
+    }
+    handleOpenChange(false);
+    return true;
+  }, [handleOpenChange, open]);
+
+  useBackHandler(handleBackPress);
+
   const { bottom } = useSafeAreaInsets();
 
   const handleCancelButtonPress = useCallback(() => {
@@ -137,14 +147,14 @@ function DialogFrame({
       {(title || description) && (
         <Stack p="$5" pr="$16">
           {title && (
-            <Text variant="$headingXl" py="$px">
+            <SizableText size="$headingXl" py="$px">
               {title}
-            </Text>
+            </SizableText>
           )}
           {description && (
-            <Text variant="$bodyLg" pt="$1.5">
+            <SizableText size="$bodyLg" pt="$1.5">
               {description}
-            </Text>
+            </SizableText>
           )}
         </Stack>
       )}
@@ -222,7 +232,7 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open}>
+    <TMDialog open={open} onOpenChange={handleOpenChange}>
       <AnimatePresence>
         {open ? (
           <Stack

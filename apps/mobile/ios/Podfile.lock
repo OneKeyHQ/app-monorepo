@@ -450,6 +450,9 @@ PODS:
     - glog
   - react-native-get-random-values (1.9.0):
     - React-Core
+  - react-native-lite-card (1.0.0):
+    - RCT-Folly (= 2021.07.22.00)
+    - React-Core
   - react-native-metrix (0.6.3):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
@@ -585,6 +588,8 @@ PODS:
     - React-jsi (= 0.72.5)
     - React-logger (= 0.72.5)
     - React-perflogger (= 0.72.5)
+  - ReactNativeCameraKit (14.0.0-beta2):
+    - React-Core
   - ReactNativeKeyboardManager (6.5.11-2):
     - IQKeyboardManagerSwift (= 6.5.11)
     - React-Core
@@ -733,6 +738,7 @@ DEPENDENCIES:
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
+  - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
   - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
@@ -761,6 +767,7 @@ DEPENDENCIES:
   - React-runtimescheduler (from `../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
   - React-utils (from `../../../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
@@ -898,6 +905,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
+  react-native-lite-card:
+    :path: "../../../node_modules/@onekeyfe/react-native-lite-card"
   react-native-metrix:
     :path: "../../../node_modules/react-native-metrix"
   react-native-mmkv:
@@ -954,6 +963,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/utils"
   ReactCommon:
     :path: "../../../node_modules/react-native/ReactCommon"
+  ReactNativeCameraKit:
+    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeKeyboardManager:
     :path: "../../../node_modules/react-native-keyboard-manager"
   RealmJS:
@@ -1048,6 +1059,7 @@ SPEC CHECKSUMS:
   React-jsinspector: aef73cbd43b70675f572214d10fa438c89bf11ba
   React-logger: 2e4aee3e11b3ec4fa6cfd8004610bbb3b8d6cca4
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
+  react-native-lite-card: f3cfb10aac251f2cdcd9287c64537170d5c31404
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
@@ -1076,6 +1088,7 @@ SPEC CHECKSUMS:
   React-runtimescheduler: cc32add98c45c5df18436a6a52a7e1f6edec102c
   React-utils: 7a9918a1ffdd39aba67835d42386f592ea3f8e76
   ReactCommon: 91ece8350ebb3dd2be9cef662abd78b6948233c0
+  ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
   RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
   RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
@@ -1097,6 +1110,6 @@ SPEC CHECKSUMS:
   YogaKit: f782866e155069a2cca2517aafea43200b01fd5a
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: ec8d48e35e02009d25628accc05f708f9632b5cf
+PODFILE CHECKSUM: 84d3c28759161f7369902a67a0b27298bf0f43fd
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1

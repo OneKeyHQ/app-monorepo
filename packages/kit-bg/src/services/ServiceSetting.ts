@@ -1,8 +1,8 @@
-import { isFunction } from 'lodash';
+import { isFunction, merge } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { LOCALES } from '@onekeyhq/components';
-import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/Currency';
+import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -17,6 +17,8 @@ import {
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
+
+import type { ISettingsPersistAtom } from '../states/jotai/atoms/settings';
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -101,8 +103,16 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setCurrency(currency: string) {
-    await settingsPersistAtom.set((prev) => ({ ...prev, currency }));
+  public async setCurrency(currencyInfo: { id: string; symbol: string }) {
+    await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+  }
+
+  @backgroundMethod()
+  public async setDevMode(devMode: Partial<ISettingsPersistAtom['devMode']>) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      devMode: merge({}, prev.devMode, devMode),
+    }));
   }
 }
 

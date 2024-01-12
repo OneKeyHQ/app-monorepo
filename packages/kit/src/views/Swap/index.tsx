@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Page, Text } from '@onekeyhq/components';
+import { Page, SizableText } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -15,7 +15,7 @@ const Swap = () => {
   return (
     <Page>
       <Page.Body space="$4">
-        <Text>Swap</Text>
+        <SizableText>Swap</SizableText>
         <AccountSelectorProvider
           config={{
             sceneName: EAccountSelectorSceneName.swap,

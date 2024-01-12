@@ -54,7 +54,7 @@ export function QRCode({
     ? (logo as ImageURISource)?.uri
     : logo;
   const primaryColor = useThemeValue('text');
-  const secondaryColor = useThemeValue('bg');
+  const secondaryColor = useThemeValue('bgApp');
   const dots = useMemo(() => {
     const arr: ReactElement[] = [];
     const qrList = [

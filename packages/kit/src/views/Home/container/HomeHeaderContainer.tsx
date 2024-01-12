@@ -1,7 +1,13 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Avatar, Icon, Skeleton, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -33,15 +39,21 @@ function HomeHeaderContainer() {
       onPress={navigateAccountManagerStacks}
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image src="https://placehold.co/120x120?text=A" />
-        <Avatar.Fallback>
+      <Image size="$6" borderRadius="$1">
+        <Image.Source src="https://placehold.co/120x120?text=A" />
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
-      <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
+        </Image.Fallback>
+      </Image>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
         Account 1
-      </Text>
+      </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );

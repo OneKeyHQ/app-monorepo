@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Divider, Stack, Text, YStack } from '@onekeyhq/components';
+import { Divider, SizableText, Stack, YStack } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { TxActionsListView } from '../../../../components/TxActionListView';
@@ -45,9 +45,9 @@ function TxActionsContainer() {
         <Divider />
         <Container.Item>
           <Stack>
-            <Text textAlign="center" variant="$bodyMd">
+            <SizableText textAlign="center" size="$bodyMd">
               Details & Settings
-            </Text>
+            </SizableText>
           </Stack>
         </Container.Item>
       </Container.Box>

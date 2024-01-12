@@ -1,4 +1,4 @@
-import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/AppLock/const';
+import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';

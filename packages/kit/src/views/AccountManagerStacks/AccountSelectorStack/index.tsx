@@ -15,7 +15,7 @@ export function AccountSelectorStack({ num }: { num: number }) {
   }, []);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
         <WalletList num={num} />
@@ -29,10 +29,13 @@ export default function AccountSelectorStackPage() {
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+        sceneName: EAccountSelectorSceneName.home, // TODO read sceneName from router or jotai
       }}
     >
-      <AccountSelectorStack num={0} />
+      <AccountSelectorStack
+        // TODO read num from router or jotai
+        num={0}
+      />
     </AccountSelectorProviderMirror>
   );
 }

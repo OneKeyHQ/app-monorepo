@@ -592,4 +592,7 @@ module.exports = [
   'namespace',
   'namespaces',
   'eip',
+  'gt2xl',
+  'calc',
+  '100vw',
 ];
