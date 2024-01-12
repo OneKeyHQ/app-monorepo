@@ -154,6 +154,7 @@ export type IAddressQueryResult = {
   input?: string;
   isValid?: boolean;
   walletAccountName?: string;
+  addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   isFirstTransfer?: boolean;
@@ -228,6 +229,7 @@ function AddressInput(props: IAddressInputProps) {
             networkId,
             address: debounceText,
             enableNameResolve,
+            enableAddressBook,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -237,7 +239,7 @@ function AddressInput(props: IAddressInputProps) {
       }
     }
     void main();
-  }, [debounceText, networkId, enableNameResolve]);
+  }, [debounceText, networkId, enableNameResolve, enableAddressBook]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -306,6 +308,11 @@ function AddressInput(props: IAddressInputProps) {
                 {queryResult.walletAccountName ? (
                   <Badge badgeType="success" badgeSize="sm">
                     {queryResult.walletAccountName}
+                  </Badge>
+                ) : null}
+                {queryResult.addressBookName ? (
+                  <Badge badgeType="success" badgeSize="sm">
+                    {queryResult.addressBookName}
                   </Badge>
                 ) : null}
                 {queryResult.resolveAddress ? (

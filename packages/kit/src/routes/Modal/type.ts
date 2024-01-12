@@ -1,3 +1,4 @@
+import type { IModalAddressBookParamList } from '../../common/components/AddressBook/router/types';
 import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
 import type { IModalAssetDetailsParamList } from '../../views/AssetDetails/router/types';
 import type { IModalAssetListParamList } from '../../views/AssetList/router/types';
@@ -21,6 +22,7 @@ export enum EModalRoutes {
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
+  AddressBookModal = 'AddressBookModal',
 }
 
 export type IModalParamList = {
@@ -35,4 +37,5 @@ export type IModalParamList = {
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
+  [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
 };

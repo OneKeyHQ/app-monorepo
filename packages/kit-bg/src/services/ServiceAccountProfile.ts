@@ -20,6 +20,7 @@ type IQueryAddressArgs = {
   networkId: string;
   address: string;
   enableNameResolve?: boolean;
+  enableAddressBook?: boolean;
   enableWalletName?: boolean;
   enableFirstTransferCheck?: boolean;
 };
@@ -65,14 +66,11 @@ class ServiceAccountProfile extends ServiceBase {
     networkId,
     address,
     enableNameResolve,
+    enableAddressBook,
   }: IQueryAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (networkId) {
       result.isValid = await this.validateAddress({
-        networkId,
-        address,
-      });
-      await this.backgroundApi.serviceValidator.validateAddress({
         networkId,
         address,
       });
@@ -88,13 +86,21 @@ class ServiceAccountProfile extends ServiceBase {
           result.resolveOptions = resolveNames.names?.map((o) => o.value);
 
           if (!result.isValid) {
-            const resolveValidateResult =
-              await this.backgroundApi.serviceValidator.validateAddress({
-                networkId,
-                address: result.resolveAddress,
-              });
-            result.isValid = resolveValidateResult.isValid;
+            result.isValid = await this.validateAddress({
+              networkId,
+              address: result.resolveAddress,
+            });
           }
+        }
+      }
+      if (result.isValid && enableAddressBook) {
+        const addressBookItem =
+          await this.backgroundApi.serviceAddressBook.findItem({
+            networkId,
+            address: result.resolveAddress ?? result.input,
+          });
+        if (addressBookItem) {
+          result.addressBookName = addressBookItem.name;
         }
       }
     }

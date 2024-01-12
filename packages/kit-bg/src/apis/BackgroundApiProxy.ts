@@ -7,6 +7,7 @@ import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -87,6 +88,10 @@ class BackgroundApiProxy
   serviceHardware = this._createProxyService(
     'serviceHardware',
   ) as ServiceHardware;
+
+  serviceAddressBook = this._createProxyService(
+    'serviceAddressBook',
+  ) as ServiceAddressBook;
 }
 
 export default BackgroundApiProxy;

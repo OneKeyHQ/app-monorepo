@@ -9,6 +9,7 @@ import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -93,4 +94,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
   serviceOnboarding: ServiceOnboarding;
+  serviceAddressBook: ServiceAddressBook;
 }

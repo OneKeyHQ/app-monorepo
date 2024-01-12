@@ -9,4 +9,5 @@ export enum EAtomNames {
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   accountSelectorMapAtom = 'accountSelectorMapAtom',
+  addressBookPersistAtom = 'addressBookPersistAtom',
 }

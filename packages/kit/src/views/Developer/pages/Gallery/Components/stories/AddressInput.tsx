@@ -49,7 +49,7 @@ const TestComponent = () => {
             },
           }}
         >
-          <AddressInput networkId="evm--1" />
+          <AddressInput networkId="evm--1" enableAddressBook />
         </Form.Field>
       </Form>
       <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>

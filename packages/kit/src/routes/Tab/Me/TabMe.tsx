@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useAddressBookList } from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -34,6 +35,16 @@ const LockNowButton = () => {
   return (
     <Button onPress={onLock}>
       {intl.formatMessage({ id: 'action__lock_now' })}
+    </Button>
+  );
+};
+
+const AddressBookButton = () => {
+  const intl = useIntl();
+  const pick = useAddressBookList();
+  return (
+    <Button onPress={pick}>
+      {intl.formatMessage({ id: 'title__address_book' })}
     </Button>
   );
 };
@@ -73,6 +84,7 @@ const TabMe = () => {
           <Button onPress={onPress}>
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
+          <AddressBookButton />
           <LockNowButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
