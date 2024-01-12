@@ -9,19 +9,13 @@ import {
   Button,
   Dialog,
   Form,
-  Icon,
-  IconButton,
-  Image,
   Input,
   Page,
   Popover,
-  Select,
   SizableText,
   Stack,
   Tab,
   TextArea,
-  Toast,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
@@ -29,23 +23,22 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountHome,
   AccountSelectorProvider,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
+import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
+import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EChainSelectorPages } from '../../ChainSelector/router/type';
 import { EOnboardingPages } from '../../Onboarding/router/type';
 import { ETokenPages } from '../../Token/router/type';
 
-import { DefiListContainer } from './DefiListContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
-import { WalletActionsContainer } from './WalletActionsContainer';
 
 function HeaderAction({
   icon,
@@ -118,7 +111,7 @@ function HomePage() {
 
   const handleChainPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-      screen: EChainSelectorPages.Selector,
+      screen: EChainSelectorPages.ChainSelector,
     });
   }, [navigation]);
 
@@ -168,149 +161,11 @@ function HomePage() {
           <WalletActionsContainer />
         </XStack> */}
         <Stack>
-          <XStack mb="$1">
-            <XStack
-              alignItems="center"
-              onPress={handleChainPress}
-              p="$1"
-              m="$-1"
-              borderRadius="$2"
-              hoverStyle={{
-                bg: '$bgHover',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusable
-              focusStyle={{
-                outlineWidth: 2,
-                outlineColor: '$focusRing',
-                outlineStyle: 'solid',
-              }}
-              $platform-native={{
-                hitSlop: {
-                  top: 8,
-                  bottom: 8,
-                  left: 8,
-                },
-              }}
-            >
-              <Image
-                w="$5"
-                h="$5"
-                source={{
-                  uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
-                }}
-              />
-              <SizableText
-                userSelect="none"
-                pl="$2"
-                size="$bodyMd"
-                color="$textSubdued"
-              >
-                Bitcoin
-              </SizableText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                color="$iconSubdued"
-                size="$5"
-              />
-            </XStack>
-            <Tooltip
-              renderContent="Copy to clipboard"
-              placement="top"
-              renderTrigger={
-                <XStack
-                  alignItems="center"
-                  onPress={() =>
-                    Toast.success({
-                      title: 'Copied',
-                    })
-                  }
-                  p="$1"
-                  px="$2"
-                  my="$-1"
-                  ml="$1"
-                  borderRadius="$2"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
-                  focusable
-                  focusStyle={{
-                    outlineWidth: 2,
-                    outlineColor: '$focusRing',
-                    outlineStyle: 'solid',
-                  }}
-                  $platform-native={{
-                    hitSlop: {
-                      top: 8,
-                      right: 8,
-                      bottom: 8,
-                    },
-                  }}
-                >
-                  <SizableText
-                    userSelect="none"
-                    size="$bodyMd"
-                    color="$textSubdued"
-                  >
-                    37rdQk...PCTG
-                  </SizableText>
-                </XStack>
-              }
-            />
-            {/* <Select
-              title="Switch Type"
-              value={addressType}
-              onChange={setAddressType}
-              floatingPanelProps={{
-                width: '$80',
-              }}
-              items={[
-                {
-                  label: 'Nested SegWit',
-                  value: 'nested-segWit',
-                  description: "Starts with '3'. Medium network fee.",
-                },
-                {
-                  label: 'Taproot',
-                  value: 'taproot',
-                  description: "Starts with 'bc1p'. Extra low network fee.",
-                },
-                {
-                  label: 'Native SegWit',
-                  value: 'native-segWit',
-                  description: "Starts with with 'bc1'. Low network fee.",
-                },
-                {
-                  label: 'Legacy',
-                  value: 'legacy',
-                  description: "Starts with '1'. High network fee.",
-                },
-              ]}
-              renderTrigger={() => (
-                <IconButton
-                  title="Switch Type"
-                  icon="RepeatOutline"
-                  size="small"
-                  variant="tertiary"
-                  iconProps={{
-                    size: '$4.5',
-                  }}
-                  mx="$0"
-                  $platform-native={{
-                    hitSlop: {
-                      right: 8,
-                      top: 8,
-                      bottom: 8,
-                    },
-                  }}
-                />
-              )}
-            /> */}
+          <XStack mb="$1" alignItems="center">
+            {/* <NetworkSelectorTrigger num={0} /> */}
+            <NetworkSelectorTriggerHome num={0} />
+            <AccountSelectorActiveAccountHome num={0} />
+            <DeriveTypeSelectorTrigger miniMode num={0} />
           </XStack>
 
           <Stack mt="$1">

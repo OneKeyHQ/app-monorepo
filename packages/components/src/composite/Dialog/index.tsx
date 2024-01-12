@@ -19,7 +19,7 @@ import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
-import { useKeyboardHeight } from '../../hooks';
+import { useBackHandler, useKeyboardHeight } from '../../hooks';
 import { Icon, SizableText, Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -83,6 +83,16 @@ function DialogFrame({
     },
     [onClose],
   );
+
+  const handleBackPress = useCallback(() => {
+    if (!open) {
+      return false;
+    }
+    handleOpenChange(false);
+    return true;
+  }, [handleOpenChange, open]);
+
+  useBackHandler(handleBackPress);
 
   const { bottom } = useSafeAreaInsets();
 
@@ -222,7 +232,7 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open}>
+    <TMDialog open={open} onOpenChange={handleOpenChange}>
       <AnimatePresence>
         {open ? (
           <Stack
