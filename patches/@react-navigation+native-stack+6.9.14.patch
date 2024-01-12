@@ -11,13 +11,14 @@ index 206fb0b..60d9944 100644
  };
  
  export type HeaderBackButtonProps = HeaderButtonProps & {
-@@ -490,6 +492,9 @@ export type NativeStackNavigationOptions = {
+@@ -490,6 +492,10 @@ export type NativeStackNavigationOptions = {
     * Only supported on iOS and Android.
     */
    freezeOnBlur?: boolean;
 +
 +  disableClose?: boolean;
 +  allowDisableClose?: boolean;
++  shouldPopOnClickBackdrop?: boolean;
  };
  
  export type NativeStackNavigatorProps = DefaultNavigatorOptions<

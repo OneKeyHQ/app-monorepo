@@ -22,6 +22,7 @@ export interface IModalFlowNavigatorConfig<
   translationId?: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
+  shouldPopOnClickBackdrop?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -63,11 +64,13 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
           translationId,
           allowDisableClose,
           disableClose,
+          shouldPopOnClickBackdrop,
         }) => {
           const customOptions: IModalNavigationOptions = {
             ...options,
             allowDisableClose,
             disableClose,
+            shouldPopOnClickBackdrop,
             title: translationId
               ? intl.formatMessage({
                   id: translationId as ILocaleIds,

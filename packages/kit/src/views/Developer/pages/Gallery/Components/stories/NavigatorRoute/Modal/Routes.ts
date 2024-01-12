@@ -29,6 +29,7 @@ export enum EDemoLockedModalRoutes {
   DemoConfigLockedModal = 'DemoConfigLockedModal',
   DemoManualLockedViewModal = 'DemoManualLockedViewModal',
   DemoRepeatManualLockedViewModal = 'DemoRepeatManualLockedViewModal',
+  DemoShouldPopOnClickBackdropViewModal = 'DemoShouldPopOnClickBackdropViewModal',
 }
 
 export type IDemoLockedModalParamList = {
@@ -36,6 +37,7 @@ export type IDemoLockedModalParamList = {
   [EDemoLockedModalRoutes.DemoConfigLockedModal]: undefined;
   [EDemoLockedModalRoutes.DemoManualLockedViewModal]: undefined;
   [EDemoLockedModalRoutes.DemoRepeatManualLockedViewModal]: undefined;
+  [EDemoLockedModalRoutes.DemoShouldPopOnClickBackdropViewModal]: undefined;
 };
 
 export enum EDemoCoverageModalRoutes {

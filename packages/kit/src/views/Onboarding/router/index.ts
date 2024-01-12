@@ -82,6 +82,7 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.RecoveryPhrase,
     component: RecoveryPhrase,
+    shouldPopOnClickBackdrop: true,
   },
   {
     name: EOnboardingPages.VerifyRecoverPhrase,
