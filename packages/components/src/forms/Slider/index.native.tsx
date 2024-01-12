@@ -61,7 +61,6 @@ export function Slider({
       tapToSeek
       // The style type annotation returned by the usePropsAndStyle function is incorrect, it needs to be fixed by Tamagui.
       style={style as ViewStyle}
-      pointerEvents={'auto' as any}
       minimumValue={min}
       maximumValue={max}
       step={step}

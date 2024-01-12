@@ -6,8 +6,8 @@ import {
   Icon,
   Image,
   ScrollView,
+  SizableText,
   Skeleton,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -43,6 +43,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
 
   return (
     <XStack
+      role="button"
       alignItems="center"
       p="$1.5"
       mx="$-1.5"
@@ -69,9 +70,15 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
         </Image.Fallback>
       </Image>
 
-      <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
         {activeAccountName}
-      </Text>
+      </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );

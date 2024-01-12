@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Text } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 
 export function useFreezeProbe(
   componentName: string,
@@ -32,8 +32,8 @@ export function useFreezeProbe(
 export function FreezeProbe({ componentName }: { componentName: string }) {
   const count = useFreezeProbe(componentName);
   return (
-    <Text>
+    <SizableText>
       {componentName} Rerender Count: {count}
-    </Text>
+    </SizableText>
   );
 }

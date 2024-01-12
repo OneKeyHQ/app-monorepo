@@ -1,4 +1,4 @@
-import { Spinner, Text, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -62,12 +62,12 @@ function TxGasFeeContainer(props: IProps) {
   return (
     <XStack py="$2" justifyContent="space-around">
       <YStack flex={1}>
-        <Text variant="$bodyLg">{`${
+        <SizableText size="$bodyLg">{`${
           gasFee.result?.totalNativeForDisplay ?? ''
-        } ${gasFee.result?.feeInfo.common?.nativeSymbol ?? ''}`}</Text>
-        <Text variant="$bodyMd" color="$textSubdued">
+        } ${gasFee.result?.feeInfo.common?.nativeSymbol ?? ''}`}</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
           Fee Estimate
-        </Text>
+        </SizableText>
       </YStack>
       <GasSelectorTrigger flex={1} justifyContent="flex-end" />
     </XStack>

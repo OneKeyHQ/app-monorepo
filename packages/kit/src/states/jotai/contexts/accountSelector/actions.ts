@@ -54,8 +54,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> => {
       const { num, selectedAccount } = payload;
-      const { accountId, indexedAccountId, deriveType, networkId, walletId } =
-        selectedAccount;
+      const {
+        othersWalletAccountId,
+        indexedAccountId,
+        deriveType,
+        networkId,
+        walletId,
+      } = selectedAccount;
 
       let account: IDBAccount | undefined;
       let wallet: IDBWallet | undefined;
@@ -77,7 +82,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         try {
           const r = await serviceAccount.getAccountOfWallet({
             indexedAccountId,
-            accountId,
+            accountId: othersWalletAccountId,
             deriveType,
             networkId,
           });

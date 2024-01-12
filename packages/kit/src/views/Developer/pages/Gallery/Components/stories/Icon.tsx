@@ -1,5 +1,11 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, ListView, Stack, Text, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  ListView,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import Icons from '@onekeyhq/components/src/primitives/Icon/Icons';
 
 import { Layout } from './utils/Layout';
@@ -45,7 +51,7 @@ const IconGallery = () => (
             data={iconData}
             renderItem={({ item }) => (
               <Stack height="$28" key={item}>
-                <Text>{item}</Text>
+                <SizableText>{item}</SizableText>
                 <Stack position="absolute" bottom="$10">
                   <Icon name={item} />
                 </Stack>
