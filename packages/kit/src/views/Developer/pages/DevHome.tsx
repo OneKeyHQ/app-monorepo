@@ -21,7 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
+import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
 
 import HeaderView from './HeaderView';
 
