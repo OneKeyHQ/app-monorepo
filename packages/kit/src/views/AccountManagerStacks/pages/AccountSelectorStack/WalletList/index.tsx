@@ -180,7 +180,7 @@ export function WalletList({ num }: IWalletListProps) {
           walletName="Others"
           selected={false}
           wallet={undefined}
-          onPress={() => onWalletPress && onWalletPress('$$other')}
+          onPress={() => onWalletPress && onWalletPress('$$others')}
           walletAvatarProps={{
             img: 'cardDividers',
             wallet: undefined,
