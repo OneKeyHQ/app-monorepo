@@ -6,9 +6,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 const SpendUTXO = () => {
   const [settings] = useSettingsPersistAtom();

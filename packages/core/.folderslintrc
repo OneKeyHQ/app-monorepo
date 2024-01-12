@@ -1,0 +1,12 @@
+{
+  "root": "src",
+  "rules": [
+    "base/**",
+    "chains/**",
+    "consts/**",
+    "instance/**",
+    "secret/**",
+    "types/**",
+    "utils/**"
+   ]
+}

@@ -7,10 +7,12 @@ const {
   ENABLE_ANALYZER_HTML_REPORT,
   ANALYSE_MODULE,
   EXT_CHANNEL,
+  ONEKEY_PROXY,
 } = process.env;
 
 exports.WEB_PORT = WEB_PORT || 3000;
 exports.NODE_ENV = NODE_ENV || 'development';
+exports.ONEKEY_PROXY = ONEKEY_PROXY;
 exports.isDev = exports.NODE_ENV !== 'production';
 exports.PUBLIC_URL = PUBLIC_URL;
 

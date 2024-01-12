@@ -2,13 +2,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabHomeRoutes } from '../../views/Home/router';
+import { EOnboardingPages } from '../../views/Onboarding/router/type';
+import { EModalSettingRoutes } from '../../views/Setting/router/types';
 import { ERootRoutes } from '../enum';
+import { EModalRoutes } from '../Modal/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
   showParams: boolean;
+  showUrl?: boolean;
 }
 
 export type IScreenPathConfig = Record<
@@ -55,9 +59,23 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     }, '');
     return `/${path}`;
   }
+
+  function allowAllPageInModalRoute(
+    modalRoute: EModalRoutes,
+    pages: any,
+    rules: Record<string, IAllowSettingItem>,
+  ) {
+    Object.keys(pages).forEach((pageName) => {
+      rules[pagePath`${ERootRoutes.Modal}${modalRoute}${pageName}`] = {
+        showUrl: true,
+        showParams: true,
+      };
+    });
+  }
+
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
-  return {
+  const rules = {
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
       {
         showParams: true,
@@ -73,5 +91,18 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       {
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
   } as Record<string, IAllowSettingItem>;
+
+  allowAllPageInModalRoute(
+    EModalRoutes.OnboardingModal,
+    EOnboardingPages,
+    rules,
+  );
+
+  return rules;
 };

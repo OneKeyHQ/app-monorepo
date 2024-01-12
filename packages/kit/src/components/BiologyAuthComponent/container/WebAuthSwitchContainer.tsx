@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordWebAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import WebAuthSwitch from '../components/WebAuthSwitch';
 
 const WebAuthSwitchContainer = () => {
