@@ -37,10 +37,8 @@ import {
   useMedia,
   usePage,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';

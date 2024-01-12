@@ -2,12 +2,11 @@ import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback } from 'react';
 
 import { Toast } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 

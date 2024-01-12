@@ -13,6 +13,10 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -24,10 +28,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../../../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorEditModeAtom,

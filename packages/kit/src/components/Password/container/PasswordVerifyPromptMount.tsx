@@ -3,11 +3,9 @@ import { Suspense, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { Toast } from '@onekeyhq/components';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import PasswordUpdate from '../components/PasswordUpdate';
