@@ -1,12 +1,11 @@
 import { Button, SizableText, Stack } from '@onekeyhq/components';
-
 import {
   ProviderJotaiContextDemo,
   useDemoComputedAtom,
   useDemoJotaiActions,
   useDemoProfileAtom,
   useDemoProfilesMapAtom,
-} from '@onekeyhq/kit/src/../../states/jotai/contexts/demo';
+} from '@onekeyhq/kit/src/states/jotai/contexts/demo';
 
 import { Layout } from './utils/Layout';
 

@@ -1,7 +1,6 @@
 import { Stack } from '@onekeyhq/components';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 type IProps = {
   historyTx: IAccountHistoryTx;

@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Form, Page, YStack, useForm } from '@onekeyhq/components';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+
 import { SendAssets } from '../../components/SendAssets';
 import { EModalSendRoutes } from '../../router';
 

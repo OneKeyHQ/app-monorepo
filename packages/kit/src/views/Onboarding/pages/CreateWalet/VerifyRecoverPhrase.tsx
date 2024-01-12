@@ -3,10 +3,10 @@ import { isEqual } from 'lodash';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, Toast } from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
 

@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 
 import { Page, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItemSelect } from '../../components/ListItemSelect';
 
 import { useOptions } from './useOptions';

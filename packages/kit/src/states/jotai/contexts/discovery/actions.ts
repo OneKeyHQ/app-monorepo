@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -21,8 +22,6 @@ import {
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import {
   activeTabIdAtom,

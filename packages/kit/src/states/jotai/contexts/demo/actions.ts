@@ -1,6 +1,6 @@
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {

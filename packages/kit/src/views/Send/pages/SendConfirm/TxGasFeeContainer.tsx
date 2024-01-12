@@ -1,12 +1,12 @@
 import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/kit/src/utils/gasFee';
+
 import { GasSelectorTrigger } from '../../components/GasSelector/GasSelectorTrigger';
 
 type IProps = {

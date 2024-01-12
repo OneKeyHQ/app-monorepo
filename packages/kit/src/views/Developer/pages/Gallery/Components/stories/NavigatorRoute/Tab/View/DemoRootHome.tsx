@@ -3,11 +3,11 @@ import { useCallback, useLayoutEffect, useState } from 'react';
 import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import useCookie from '@onekeyhq/kit/src/hooks/useCookie';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import useCookie from '@onekeyhq/kit/src/@onekeyhq/kit/src/../hooks/useCookie';
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';

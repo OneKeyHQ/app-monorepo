@@ -2,6 +2,10 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -15,9 +19,6 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -30,7 +31,6 @@ import {
 } from './atoms';
 
 import type { IAccountSelectorActiveAccountInfo } from './atoms';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 const { serviceAccount } = backgroundApiProxy;
 class AccountSelectorActions extends ContextJotaiActionsBase {

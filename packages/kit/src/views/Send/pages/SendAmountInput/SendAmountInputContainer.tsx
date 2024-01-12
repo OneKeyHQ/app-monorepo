@@ -5,10 +5,10 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Input, Page, YStack } from '@onekeyhq/components';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+
 import { EModalSendRoutes } from '../../router';
 
 import type { IModalSendParamList } from '../../router';

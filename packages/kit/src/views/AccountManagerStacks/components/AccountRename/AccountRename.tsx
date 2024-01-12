@@ -7,9 +7,8 @@ import {
   ListItem,
   useMedia,
 } from '@onekeyhq/components';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 function AccountRenameDialog({
   indexedAccount,

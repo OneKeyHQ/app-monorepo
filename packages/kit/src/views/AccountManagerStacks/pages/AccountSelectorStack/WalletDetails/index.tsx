@@ -17,6 +17,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  useAccountSelectorActions,
+  useAccountSelectorEditModeAtom,
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import makeBlockieImageUri from '@onekeyhq/kit/src/utils/makeBlockieImageUri';
+import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -28,14 +36,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import {
-  useAccountSelectorActions,
-  useAccountSelectorEditModeAtom,
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/../states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '@onekeyhq/kit/src/../utils/makeBlockieImageUri';
-import { EOnboardingPages } from '@onekeyhq/kit/src/Onboarding/router/type';
 import { AccountRenameButton } from '../../../components/AccountRename';
 
 import { WalletOptions } from './WalletOptions';

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, ListItem } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -16,7 +17,6 @@ import {
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOptions } from '../AppLock/useOptions';
 
 import { Section } from './Section';

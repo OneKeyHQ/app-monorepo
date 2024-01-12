@@ -17,6 +17,12 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -25,13 +31,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { EModalRoutes } from '@onekeyhq/kit/src/../routes/Modal/type';
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '@onekeyhq/kit/src/Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 

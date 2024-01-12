@@ -4,8 +4,6 @@ import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -15,6 +13,8 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/token-list';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
 import { EModalSendRoutes } from '../../router';
 
 import type { IModalSendParamList } from '../../router';

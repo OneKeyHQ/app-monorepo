@@ -3,7 +3,6 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-
 import {
   useSelectedPresetGasIndexAtom,
   useSendGasTypeAtom,

@@ -3,13 +3,12 @@ import { useCallback } from 'react';
 import { AnimatePresence } from 'tamagui';
 
 import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
+import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import { WALLET_TYPE_HW } from '@onekeyhq/kit-bg/src/dbs/local/consts';
-
-import useAppNavigation from '@onekeyhq/kit/src/../../hooks/useAppNavigation';
-import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/../../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '@onekeyhq/kit/src/../Onboarding/router/type';
-import { WalletRemoveButton } from '@onekeyhq/kit/src/components/WalletRemove';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';

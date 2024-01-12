@@ -8,8 +8,7 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '@onekeyhq/kit/src/../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import ListPerformance from './ListPerformance';
 import { Layout } from './utils/Layout';
