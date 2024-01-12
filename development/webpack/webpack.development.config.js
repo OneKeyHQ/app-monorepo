@@ -2,6 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 const fs = require('fs');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 const { WEB_PORT } = require('./constant');
 
 module.exports = ({ basePath }) => ({
@@ -22,6 +23,25 @@ module.exports = ({ basePath }) => ({
       overlay: false,
     },
     onBeforeSetupMiddleware: (devServer) => {
+      // proxy all requests with x-proxy header
+      devServer.app.use((request, response, next) => {
+        const target = request.headers['x-proxy'];
+        if (target) {
+          const proxyMiddleware = createProxyMiddleware({
+            target,
+            changeOrigin: true,
+            ws: false,
+            logLevel: 'silent',
+          });
+          console.log(
+            `[X-Proxy] ${request.method} ${request.originalUrl} -> ${target}`,
+          );
+          return proxyMiddleware(request, response, next);
+        }
+        next();
+      });
+
+      // proxy react-render-tracker
       devServer.app.get(
         '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
         (req, res) => {

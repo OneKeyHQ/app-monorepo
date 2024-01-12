@@ -6,7 +6,7 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
 const { createtResolveExtensions } = require('./utils');
-const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
+const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -34,6 +34,7 @@ const basePlugins = [
     __DEV__: isDev,
     process: {
       env: {
+        ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
         TAMAGUI_TARGET: JSON.stringify('web'),
       },
