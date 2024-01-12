@@ -1,8 +1,8 @@
 import { type GetProps } from 'tamagui';
 
-import { Icon, SizableText, YStack } from '../../../../primitives';
+import { Icon, SizableText, YStack } from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 
-import type { IKeyOfIcons } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
 interface IMobileTabItemProps {

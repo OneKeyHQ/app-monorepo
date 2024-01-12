@@ -1,6 +1,6 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 
-import { HomePageContainer } from '../container/HomePageContainer';
+import { HomePageContainer } from '../pages/HomePageContainer';
 
 import { ETabHomeRoutes } from './types';
 
