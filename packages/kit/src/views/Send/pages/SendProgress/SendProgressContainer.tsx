@@ -46,7 +46,7 @@ function SendProgressContainer() {
               height="$24"
               autoPlay
               loop={false}
-              source={require('@onekeyhq/kit/src/assets/animations/lottie_send_success_feedback.json')}
+              source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
             />
           ) : (
             <YStack padding="$4" space="$4">
