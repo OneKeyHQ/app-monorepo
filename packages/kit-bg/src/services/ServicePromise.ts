@@ -81,7 +81,7 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  resolveCallback({ id, data }: IPromiseContainerResolve) {
+  async resolveCallback({ id, data }: IPromiseContainerResolve) {
     this._processCallback({
       method: 'resolve',
       id,

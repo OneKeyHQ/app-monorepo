@@ -30,13 +30,9 @@ export function getNotSupportedChains(
   for (const [key, values] of Object.entries(
     proposal.params.requiredNamespaces,
   )) {
-    const chainId = key.includes(':') ? key : values.chains;
-    if (Array.isArray(chainId)) {
-      required.push(...chainId);
-    } else if (typeof chainId === 'string') {
-      required.push(chainId);
-    }
+    const chainId = key.includes(':') ? key : values.chains ?? [];
+    required.push(chainId);
   }
 
-  return required.filter((chainId) => !getChainData(chainId));
+  return required.flat().filter((chainId) => !getChainData(chainId));
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
@@ -7,11 +7,16 @@ import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSel
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import { getChainData } from '../data/chainsUtils';
 import { EIP155_EVENTS, EIP155_SIGNING_METHODS } from '../data/EIP155Data';
 
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 function SessionProposalModal() {
@@ -23,6 +28,38 @@ function SessionProposalModal() {
     closeWindowAfterResolved: true,
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const actions = useAccountSelectorActions();
+
+  useEffect(() => {
+    void (async () => {
+      console.log('activeAccount: ', activeAccount);
+      const { account } = activeAccount;
+
+      // set default account
+      if (!account) {
+        const { wallets } =
+          await backgroundApiProxy.serviceAccount.getHDWallets();
+        const defaultWallet = wallets[0];
+        const accounts =
+          await backgroundApiProxy.serviceAccount.getAccountsOfWallet({
+            walletId: defaultWallet.id,
+          });
+        console.log('accounts: ', accounts);
+        const defaultAccount = accounts.accounts[0];
+        void actions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount: {
+            walletId: defaultWallet.id,
+            indexedAccountId: defaultAccount.id,
+            othersWalletAccountId: undefined,
+            networkId: 'evm--1',
+            deriveType: 'default',
+            focusedWallet: defaultWallet.id,
+          },
+        });
+      }
+    })();
+  }, [activeAccount, actions]);
 
   const requestedChains = useMemo(() => {
     if (!proposal) return [];
@@ -30,7 +67,7 @@ function SessionProposalModal() {
     for (const [key, values] of Object.entries(
       proposal.params.requiredNamespaces,
     )) {
-      const chains = key.includes(':') ? key : values.chains;
+      const chains = key.includes(':') ? key : values.chains ?? [];
       required.push(chains);
     }
 
@@ -38,7 +75,7 @@ function SessionProposalModal() {
     for (const [key, values] of Object.entries(
       proposal.params.optionalNamespaces,
     )) {
-      const chains = key.includes(':') ? key : values.chains;
+      const chains = key.includes(':') ? key : values.chains ?? [];
       optional.push(chains);
     }
     console.log('requestedChains', [
@@ -54,14 +91,14 @@ function SessionProposalModal() {
   );
 
   const getAccountAddress = useCallback(
-    (namespaces: string) => {
+    (namespaces: string, account: IAccountSelectorActiveAccountInfo) => {
       if (namespaces === 'eip155') {
         // TODO: get account address by namespace
-        return activeAccount?.account?.address ?? '';
+        return account?.account?.address ?? '';
       }
       return '';
     },
-    [activeAccount],
+    [],
   );
 
   const supportedNamespaces = useMemo(() => {
@@ -74,21 +111,20 @@ function SessionProposalModal() {
         accounts: string[];
       }
     > = {};
-    const eip155Chains = requestedChains.filter((c) =>
-      c?.includes('eip155'),
-    ) as string[];
+    const eip155Chains = requestedChains.filter((c) => c?.includes('eip155'));
     if (supportedChains.some((c) => c?.namespace === 'eip155')) {
       namespaces.eip155 = {
         chains: eip155Chains,
         methods: Object.values(EIP155_SIGNING_METHODS),
         events: Object.values(EIP155_EVENTS),
         accounts: eip155Chains.map(
-          (chain) => `${chain}:${getAccountAddress('eip155')}`,
+          (chain) => `${chain}:${getAccountAddress('eip155', activeAccount)}`,
         ),
       };
     }
     return namespaces;
-  }, [getAccountAddress, requestedChains, supportedChains]);
+    // should update when activeAccount changed
+  }, [getAccountAddress, requestedChains, supportedChains, activeAccount]);
 
   const onApproval = useCallback(() => {
     const approvedNamespaces = buildApprovedNamespaces({
@@ -98,14 +134,32 @@ function SessionProposalModal() {
     void dappApprove.resolve({
       result: approvedNamespaces,
     });
+    return Promise.resolve(true);
   }, [proposal?.params, supportedNamespaces, dappApprove]);
 
   return (
     <Page>
-      <Page.Header title="Session Proposal" />
+      <Page.Header title="Wallet Connect Session Proposal" />
       <Page.Body>
         <Stack space="$3">
-          <SizableText>Session Proposal</SizableText>
+          <SizableText>WalletConnect 授权账户</SizableText>
+          <Stack>
+            {Object.entries(supportedNamespaces).map(
+              ([namespace, { chains, accounts }]) => (
+                <Stack key={namespace}>
+                  <SizableText>Namespace: {namespace}</SizableText>
+                  {chains.map((_, index) => {
+                    const accountItem = accounts[index];
+                    return (
+                      <SizableText key={`${accountItem}`}>
+                        {accountItem}
+                      </SizableText>
+                    );
+                  })}
+                </Stack>
+              ),
+            )}
+          </Stack>
         </Stack>
       </Page.Body>
       <Page.Footer
@@ -121,10 +175,14 @@ function SessionProposalModal() {
 }
 
 function SessionProposalModalProvider() {
+  const { proposal } = useDappQuery<{
+    proposal: Web3WalletTypes.SessionProposal;
+  }>();
   return (
     <AccountSelectorProvider
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: proposal.params.proposer.metadata.url,
       }}
       enabledNum={[0]}
     >

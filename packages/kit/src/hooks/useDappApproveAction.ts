@@ -26,7 +26,7 @@ function useDappApproveAction({
     ({ close, error }: { close?: () => void; error?: Error } = {}) => {
       // eslint-disable-next-line no-param-reassign
       error = error || rejectError || web3Errors.provider.userRejectedRequest();
-      backgroundApiProxy.servicePromise.rejectCallback({
+      void backgroundApiProxy.servicePromise.rejectCallback({
         id,
         error: toPlainErrorObject(error),
       });
