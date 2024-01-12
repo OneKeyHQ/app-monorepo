@@ -1,27 +1,15 @@
 import { useState } from 'react';
 
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
+import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-type IChainItem = {
-  chain: string;
-  name: string;
-};
-
-const DATA: IChainItem[] = [
-  { chain: 'btc', name: 'Bitcoin' },
-  {
-    chain: 'eth',
-    name: 'Ethereum',
-  },
-  {
-    chain: 'matic',
-    name: 'Polygon',
-  },
-  {
-    chain: 'bnb',
-    name: 'BNB Smart Chain',
-  },
-];
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 function getHeaderRightComponent(
   isEditMode: boolean,
@@ -36,13 +24,26 @@ function getHeaderRightComponent(
 
 const CELL_HEIGHT = 48;
 
-export function Selector() {
-  const [data, setData] = useState(DATA);
-  const [selectedChain, setSelectedChain] = useState(DATA[0].chain);
+function ChainSelector({ num }: { num: number }) {
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num });
+  const actions = useAccountSelectorActions();
+  const navigation = useAppNavigation();
+
+  const [data, setData] = useState(mockPresetNetworksList);
+  const selectedChain = network?.id;
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const handleListItemPress = (chain: IChainItem['chain']) => {
-    setSelectedChain(chain);
+  const handleListItemPress = (networkId: string) => {
+    actions.current.updateSelectedAccount({
+      num,
+      builder: (v) => ({
+        ...v,
+        networkId,
+      }),
+    });
+    navigation.popStack();
   };
 
   const handleEditButtonPress = () => {
@@ -63,7 +64,7 @@ export function Selector() {
       <Page.Body>
         <SortableListView
           data={data}
-          keyExtractor={(item) => `${item.chain}`}
+          keyExtractor={(item) => `${item.id}`}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
             offset: index * CELL_HEIGHT,
@@ -74,12 +75,14 @@ export function Selector() {
             <ListItem
               h={CELL_HEIGHT}
               avatarProps={{
-                src: `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/${item.chain}.png`,
+                src:
+                  item.logoURI ||
+                  `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/${item.code}.png`,
                 size: '$8',
               }}
               title={item.name}
               {...(!isEditMode && {
-                onPress: () => handleListItemPress(item.chain),
+                onPress: () => handleListItemPress(item.id),
               })}
             >
               {isEditMode && (
@@ -107,7 +110,7 @@ export function Selector() {
                   onPressIn={drag}
                 />
               )}
-              {!isEditMode && selectedChain === item.chain && (
+              {!isEditMode && selectedChain === item.id && (
                 <ListItem.CheckMark
                   key="checkmark"
                   enterStyle={{
@@ -124,4 +127,14 @@ export function Selector() {
   );
 }
 
-export default Selector;
+export default function ChainSelectorPage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read sceneName from router or jotai
+      }}
+    >
+      <ChainSelector num={0} />
+    </AccountSelectorProviderMirror>
+  );
+}
