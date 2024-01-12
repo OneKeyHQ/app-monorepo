@@ -198,7 +198,10 @@ export default class ServiceNostr extends ServiceBase {
 
       // update cache by options.autoSign
       if (options?.host) {
-        this.cacheAutoSignMap.set(options.host, !!options?.autoSign);
+        this.cacheAutoSignMap.set(
+          `${accountId}-${options.host}`,
+          !!options?.autoSign,
+        );
       }
 
       const nostrAccount = await this.getOrCreateNostrAccount({
@@ -235,11 +238,12 @@ export default class ServiceNostr extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAutoSignStatus(host: string) {
-    if (!this.cacheAutoSignMap.has(host)) {
+  async getAutoSignStatus(accountId: string, host: string) {
+    const key = `${accountId}-${host}`;
+    if (!this.cacheAutoSignMap.has(key)) {
       return Promise.resolve(false);
     }
-    return Promise.resolve(this.cacheAutoSignMap.get(host));
+    return Promise.resolve(this.cacheAutoSignMap.get(key));
   }
 
   @backgroundMethod()
