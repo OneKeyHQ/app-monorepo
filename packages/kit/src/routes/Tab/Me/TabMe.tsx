@@ -10,7 +10,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import { AccountSelectorProvider } from '../../../components/AccountSelector';
 import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';

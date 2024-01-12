@@ -2,7 +2,8 @@ import { memo } from 'react';
 
 import { useMedia } from 'tamagui';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import { TokenListView } from '../../../components/TokenListView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {

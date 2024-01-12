@@ -1,4 +1,5 @@
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { DefiListView } from '../components/DefiListView';
 

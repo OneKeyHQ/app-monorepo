@@ -4,7 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import PasswordVerify from '../components/PasswordVerify';
 
 interface IPasswordVerifyProps {

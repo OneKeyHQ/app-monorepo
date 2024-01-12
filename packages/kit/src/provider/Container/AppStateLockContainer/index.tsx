@@ -7,7 +7,8 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
 import AppStateLock from './components/AppStateLock';
