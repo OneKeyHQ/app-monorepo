@@ -45,6 +45,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
 
   return (
     <XStack
+      role="button"
       alignItems="center"
       p="$1.5"
       mx="$-1.5"
