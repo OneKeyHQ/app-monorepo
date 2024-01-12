@@ -78,7 +78,11 @@ function ModalNavigator({
   const descriptor = descriptors[state.routes?.[state.index].key];
   const handleBackdropClick = useCallback(() => {
     if (!descriptor.options.disableClose) {
-      navigation.goBack();
+      if (descriptor.options.shouldPopOnClickBackdrop) {
+        navigation.goBack();
+      } else {
+        navigation?.getParent?.()?.goBack();
+      }
     }
   }, [navigation, descriptor]);
 

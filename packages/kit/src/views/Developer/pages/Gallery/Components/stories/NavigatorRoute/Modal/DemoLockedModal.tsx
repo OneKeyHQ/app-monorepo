@@ -256,6 +256,22 @@ const DemoRepeatManualLockedViewModal = () => {
       ]}
       elements={[
         {
+          title: '下一个例子',
+          element: (
+            <Button
+              variant="primary"
+              onPress={() => {
+                navigation.pushModal(ERootModalRoutes.DemoLockedModal, {
+                  screen:
+                    EDemoLockedModalRoutes.DemoShouldPopOnClickBackdropViewModal,
+                });
+              }}
+            >
+              下一个例子
+            </Button>
+          ),
+        },
+        {
           title: '切换锁定',
           element: (
             <Button
@@ -282,6 +298,53 @@ const DemoRepeatManualLockedViewModal = () => {
               <FreezeProbe componentName="DemoRepeatManualLockedViewModal" />
               <NavigationFocusTools componentName="DemoRepeatManualLockedViewModal" />
             </Stack>
+          ),
+        },
+      ]}
+    />
+  );
+};
+
+const DemoShouldPopOnClickBackdropViewModal = () => {
+  const navigation =
+    useDemoAppNavigation<IModalNavigationProp<IDemoLockedModalParamList>>();
+  const [shouldPopOnClickBackdrop, setShouldPopOnClickBackdrop] =
+    useState(true);
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      shouldPopOnClickBackdrop,
+    });
+  }, [navigation, shouldPopOnClickBackdrop]);
+
+  return (
+    <Layout
+      description="这是 shouldPopOnClickBackdrop 的使用例子"
+      suggestions={[
+        '设置 navigation.setOptions shouldPopOnClickBackdrop属性, 然后点击 Modal 的背景测试不同的效果',
+      ]}
+      boundaryConditions={[
+        '点击 Modal 背景时返回上一页: navigation.setOptions({\n' +
+          '                  shouldPopOnClickBackdrop: true,\n' +
+          '                });',
+        '点击 Modal 背景时退出整个 Modal: navigation.setOptions({\n' +
+          '                  shouldPopOnClickBackdrop: false,\n' +
+          '                });',
+      ]}
+      elements={[
+        {
+          title: `当前为: 点击 Modal 背景时${
+            shouldPopOnClickBackdrop ? '返回上一页' : '退出整个 Modal'
+          }`,
+          element: (
+            <Button
+              variant="primary"
+              onPress={() => {
+                setShouldPopOnClickBackdrop(!shouldPopOnClickBackdrop);
+              }}
+            >
+              切换为点击 Modal 背景时{' '}
+              {shouldPopOnClickBackdrop ? '退出整个 Modal' : '返回上一页'}
+            </Button>
           ),
         },
       ]}
@@ -316,5 +379,11 @@ export const LockedModalStack: IModalFlowNavigatorConfig<
     component: DemoRepeatManualLockedViewModal,
     translationId: 'Repeat Manual Locked Modal',
     allowDisableClose: true,
+  },
+  {
+    name: EDemoLockedModalRoutes.DemoShouldPopOnClickBackdropViewModal,
+    component: DemoShouldPopOnClickBackdropViewModal,
+    translationId: 'Should Pop On Click Backdrop Of Modal',
+    shouldPopOnClickBackdrop: true,
   },
 ];
