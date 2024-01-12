@@ -4864,6 +4864,7 @@ __metadata:
     webpack-dev-server: "npm:^4.15.1"
     webpack-manifest-plugin: "npm:^5.0.0"
     webpack-subresource-integrity: "npm:^5.2.0-rc.1"
+    worker-loader: "npm:^3.0.8"
   languageName: unknown
   linkType: soft
 
@@ -29181,6 +29182,18 @@ __metadata:
   version: 6.3.4
   resolution: "wonka@npm:6.3.4"
   checksum: 0f102630182828268b57b54102003449b97abbc2483392239baf856a2fca7b72ae9be67c208415124a3d26a320674ed64387e9bf07a8d0badedb5f607d2ccfdc
+  languageName: node
+  linkType: hard
+
+"worker-loader@npm:^3.0.8":
+  version: 3.0.8
+  resolution: "worker-loader@npm:3.0.8"
+  dependencies:
+    loader-utils: "npm:^2.0.0"
+    schema-utils: "npm:^3.0.0"
+  peerDependencies:
+    webpack: ^4.0.0 || ^5.0.0
+  checksum: 8b15818ff48e216f06805bdc30812c580ba22eb0471af0c074237dd9ea85ee51dc72e9da2944d12536e95ca009d49e0e52819d003bc362f446a77fab0604b779
   languageName: node
   linkType: hard
 
