@@ -56,16 +56,17 @@ import {
   selectUTXOs,
 } from './sdk';
 import { toTransaction } from './sdk/transaction';
+import {
+  calculateTxFee,
+  convertInputUtxos,
+  convertOutputUtxos,
+  determineFromAddress,
+  determineToAddresses,
+} from './sdk/transactionUtils';
 import settings from './settings';
 
 import type { Network } from '../../../types/network';
-import type { Token } from '../../../types/token';
-import type {
-  GetTransactionInput,
-  GetTransactionOutput,
-  GetTransactionResponse,
-  UnspentOutputInfo,
-} from './sdk';
+import type { UnspentOutputInfo } from './sdk';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
@@ -548,70 +549,6 @@ export default class Vault extends VaultBase {
     return txids.map((txid) => txStatuses.get(txid));
   }
 
-  convertInputUtxos(
-    utxos: GetTransactionInput[],
-    mineAddress: string,
-    tokenInfo: Token,
-  ) {
-    return utxos.map((utxo) => ({
-      address: utxo.previous_outpoint_address,
-      balance: new BigNumber(utxo.previous_outpoint_amount?.toString())
-        .shiftedBy(-tokenInfo.decimals)
-        .toFixed(),
-      balanceValue: utxo.previous_outpoint_amount?.toString(),
-      symbol: tokenInfo.symbol,
-      isMine: utxo.previous_outpoint_address === mineAddress,
-    }));
-  }
-
-  convertOutputUtxos(
-    utxos: GetTransactionOutput[],
-    mineAddress: string,
-    tokenInfo: Token,
-  ) {
-    return utxos.map((utxo) => ({
-      address: utxo.script_public_key_address,
-      balance: new BigNumber(utxo.amount?.toString())
-        .shiftedBy(-tokenInfo.decimals)
-        .toFixed(),
-      balanceValue: utxo.amount?.toString(),
-      symbol: tokenInfo.symbol,
-      isMine: utxo.script_public_key_address === mineAddress,
-    }));
-  }
-
-  determineFromAddress(
-    mineAddress: string,
-    hasSenderIncludeMine: boolean,
-    hasReceiverIncludeMine: boolean,
-    inputs: GetTransactionInput[],
-  ) {
-    if (hasSenderIncludeMine && !hasReceiverIncludeMine) {
-      return mineAddress;
-    }
-    if (!hasSenderIncludeMine && hasReceiverIncludeMine) {
-      return (
-        inputs.find((input) => input.previous_outpoint_address !== mineAddress)
-          ?.previous_outpoint_address || 'kaspa:00000000'
-      );
-    }
-    return mineAddress;
-  }
-
-  determineToAddresses(
-    mineAddress: string,
-    hasSenderIncludeMine: boolean,
-    hasReceiverIncludeMine: boolean,
-    outputs: GetTransactionOutput[],
-  ) {
-    if (hasSenderIncludeMine && !hasReceiverIncludeMine) {
-      return outputs
-        .filter((output) => output.script_public_key_address !== mineAddress)
-        .map((output) => output.script_public_key_address);
-    }
-    return [mineAddress];
-  }
-
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
@@ -646,29 +583,31 @@ export default class Vault extends VaultBase {
       const mineAddress = dbAccount.address;
       try {
         const { inputs, outputs } = tx;
+
         const actions: IDecodedTxAction[] = [];
 
-        const hasSenderIncludeMine = inputs.some(
+        const hasSenderIncludeMine = inputs?.some(
           (input) => input.previous_outpoint_address === mineAddress,
         );
-        const hasReceiverIncludeMine = outputs.some(
+        const hasReceiverIncludeMine = outputs?.some(
           (output) => output.script_public_key_address === mineAddress,
         );
 
-        const utxoFrom = this.convertInputUtxos(inputs, mineAddress, token);
-        const utxoTo = this.convertOutputUtxos(outputs, mineAddress, token);
+        const utxoFrom = convertInputUtxos(inputs, mineAddress, token);
+        const utxoTo = convertOutputUtxos(outputs, mineAddress, token);
 
-        const from = this.determineFromAddress(
+        const from = determineFromAddress(
           mineAddress,
           hasSenderIncludeMine,
           hasReceiverIncludeMine,
           inputs,
         );
-        const toAddresses = this.determineToAddresses(
+        const toAddresses = determineToAddresses(
           mineAddress,
           hasSenderIncludeMine,
           hasReceiverIncludeMine,
           outputs,
+          inputs,
         );
 
         toAddresses.forEach((to) => {
@@ -698,34 +637,12 @@ export default class Vault extends VaultBase {
           });
         });
 
-        let nativeFee = '';
-        try {
-          const inputAmount = tx.inputs.reduce(
-            (acc, input) => acc.plus(input.previous_outpoint_amount.toString()),
-            new BigNumber(0),
-          );
-
-          const outputAmount = tx.outputs
-            .filter(
-              (output) =>
-                output.script_public_key_address === dbAccount.address,
-            )
-            .reduce(
-              (acc, output) => acc.plus(output.amount.toString()),
-              new BigNumber(0),
-            );
-
-          if (inputAmount.isLessThanOrEqualTo(0)) {
-            nativeFee = '0';
-          } else {
-            nativeFee = inputAmount
-              .minus(outputAmount)
-              .shiftedBy(-decimals)
-              .toFixed();
-          }
-        } catch {
-          nativeFee = new BigNumber(tx.mass).shiftedBy(-decimals).toFixed();
-        }
+        const nativeFee = calculateTxFee({
+          mass: tx.mass,
+          inputs,
+          outputs,
+          decimals: token.decimals,
+        });
 
         const decodedTx: IDecodedTx = {
           txid: tx.transaction_id,
