@@ -11,8 +11,8 @@ import {
   Page,
   Stack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../../router/type';
 
 type IOptionItem = {

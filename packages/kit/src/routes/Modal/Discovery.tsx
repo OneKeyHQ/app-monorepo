@@ -4,16 +4,15 @@ import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 const SearchModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Discovery/container/SearchModal'),
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/SearchModal'),
 );
 
 const MobileTabListModal = LazyLoad(
-  () =>
-    import('@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal'),
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/MobileTabListModal'),
 );
 
 const FakeSearchModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Discovery/container/Dashboard/Search'),
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/Dashboard/Search'),
 );
 
 export const ModalDiscoveryStack: IModalFlowNavigatorConfig<

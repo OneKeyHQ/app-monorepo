@@ -12,7 +12,7 @@
 
 // export default WebviewGallery;
 
-import Browser from '@onekeyhq/kit/src/views/Discovery/container/Browser/Browser';
+import Browser from '@onekeyhq/kit/src/views/Discovery/pages/Browser/Browser';
 
 const WebviewGallery = () => <Browser />;
 

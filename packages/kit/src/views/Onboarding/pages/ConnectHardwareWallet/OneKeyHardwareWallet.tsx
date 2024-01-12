@@ -11,8 +11,7 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-
-import OneKeyAllProductsVideo from '../../../../../assets/onboarding/onekey-all-products.mp4';
+import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
 
 export function OneKeyHardwareWallet() {
   const video = useRef(null);

@@ -2,7 +2,7 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AccountManagerStacks } from '../../views/AccountManagerStacks';
+import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';

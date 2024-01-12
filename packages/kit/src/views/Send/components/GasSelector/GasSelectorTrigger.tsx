@@ -3,12 +3,11 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-
 import {
   useSelectedPresetGasIndexAtom,
   useSendGasTypeAtom,
-} from '../../../../states/jotai/contexts/send-confirm';
-import { getGasIcon, getGasLabel } from '../../../../utils/gasFee';
+} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+import { getGasIcon, getGasLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
 type IProps = ComponentProps<typeof XStack>;
 

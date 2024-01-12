@@ -1,4 +1,4 @@
-import type { IWalletProps } from './types';
+import type { IWalletProps } from './router/types';
 
 function generateRandomId() {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

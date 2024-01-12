@@ -7,8 +7,7 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 type IStep = {
   title?: string;
@@ -18,10 +17,10 @@ type IStep = {
 
 const getCreateNewWalletStep = (type: IStep['type']) => {
   const images = {
-    classic: require('../../../../../assets/onboarding/classic-create-new-wallet.png'),
-    mini: require('../../../../../assets/onboarding/mini-create-new-wallet.png'),
-    touch: require('../../../../../assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('../../../../../assets/onboarding/touch-create-new-wallet.png'),
+    classic: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
+    mini: require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png'),
+    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
   };
 
   return {
@@ -34,10 +33,10 @@ const getCreateNewWalletStep = (type: IStep['type']) => {
 
 const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
   const images = {
-    classic: require('../../../../../assets/onboarding/classic-write-down-recovery-phrase.png'),
-    mini: require('../../../../../assets/onboarding/mini-write-down-recovery-phrase.png'),
-    touch: require('../../../../../assets/onboarding/touch-write-down-recovery-phrase.png'),
-    pro: require('../../../../../assets/onboarding/touch-write-down-recovery-phrase.png'),
+    classic: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
+    mini: require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png'),
+    touch: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
+    pro: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
   };
 
   return {
@@ -50,10 +49,10 @@ const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
 
 const getSetPinStep = (type: IStep['type']) => {
   const images = {
-    classic: require('../../../../../assets/onboarding/classic-set-pin.png'),
-    mini: require('../../../../../assets/onboarding/mini-set-pin.png'),
-    touch: require('../../../../../assets/onboarding/touch-set-pin.png'),
-    pro: require('../../../../../assets/onboarding/touch-set-pin.png'),
+    classic: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
+    mini: require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png'),
+    touch: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
+    pro: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
   };
 
   return {
@@ -66,10 +65,10 @@ const getSetPinStep = (type: IStep['type']) => {
 
 const getImportWalletStep = (type: IStep['type']) => {
   const images = {
-    classic: require('../../../../../assets/onboarding/classic-import-wallet.png'),
-    mini: require('../../../../../assets/onboarding/mini-import-wallet.png'),
-    touch: require('../../../../../assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('../../../../../assets/onboarding/touch-create-new-wallet.png'),
+    classic: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
+    mini: require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png'),
+    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
   };
 
   return {
@@ -83,10 +82,10 @@ const getImportWalletStep = (type: IStep['type']) => {
 
 const getEnterRecoveryPhraseStep = (type: IStep['type']) => {
   const images = {
-    classic: require('../../../../../assets/onboarding/classic-enter-recovery-phrase.png'),
-    mini: require('../../../../../assets/onboarding/mini-enter-recovery-phrase.png'),
-    touch: require('../../../../../assets/onboarding/touch-enter-recovery-phrase.png'),
-    pro: require('../../../../../assets/onboarding/touch-enter-recovery-phrase.png'),
+    classic: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
+    mini: require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png'),
+    touch: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
+    pro: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
   };
 
   return {

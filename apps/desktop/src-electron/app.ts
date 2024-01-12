@@ -25,7 +25,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import initProcess, { restartBridge } from './process/index';
+import initProcess, { restartBridge } from './process';
 
 import type { IPrefType } from './preload';
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { CKDPriv, CKDPub, revealableSeedFromMnemonic, verify } from './index';
+import { CKDPriv, CKDPub, revealableSeedFromMnemonic, verify } from '.';
 
 import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';

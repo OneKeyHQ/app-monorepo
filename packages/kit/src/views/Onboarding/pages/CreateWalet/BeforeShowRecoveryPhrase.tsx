@@ -1,7 +1,7 @@
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, ListItem, Page, SizableText, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../../router/type';
 
 import type { ColorTokens } from 'tamagui';

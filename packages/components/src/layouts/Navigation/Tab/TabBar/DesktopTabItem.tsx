@@ -1,8 +1,13 @@
-import { ActionList, IconButton } from '../../../../actions';
-import { Icon, Image, SizableText, XStack } from '../../../../primitives';
+import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
+import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import {
+  Icon,
+  Image,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
 
-import type { IActionListSection } from '../../../../actions';
-import type { IKeyOfIcons, Stack } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { AvatarImage, GetProps } from 'tamagui';
 

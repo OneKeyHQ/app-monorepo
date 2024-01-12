@@ -1,6 +1,6 @@
 import { Portal } from '@onekeyhq/components';
 
-import DesktopCustomTabBar from '../../../views/Discovery/container/DesktopCustomTabBar';
+import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTabBar';
 
 export function PortalBodyContainer() {
   return (

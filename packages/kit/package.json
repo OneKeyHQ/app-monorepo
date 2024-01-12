@@ -43,6 +43,7 @@
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -51,6 +52,7 @@
     "@types/d3-scale": "^4.0.3",
     "@types/d3-shape": "^3.1.1",
     "@types/mime": "^3",
-    "@types/socket.io-client": "^3.0.0"
+    "@types/socket.io-client": "^3.0.0",
+    "folderslint": "^1.2.0"
   }
 }
