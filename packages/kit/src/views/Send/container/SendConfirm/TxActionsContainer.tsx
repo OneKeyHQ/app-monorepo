@@ -37,11 +37,7 @@ function TxActionsContainer() {
             : intl.formatMessage({ id: 'form__transaction' })
         }
       >
-        <TxActionsListView
-          componentType="T1"
-          decodedTx={decodedTx}
-          accountAddress=""
-        />
+        <TxActionsListView componentType="T1" decodedTx={decodedTx} />
         <Divider />
         <Container.Item>
           <Stack>

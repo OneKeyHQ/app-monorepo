@@ -10,8 +10,7 @@ export enum EDecodedTxDirection {
 export type IReplacedTxType = 'speedUp' | 'cancel';
 
 export enum EDecodedTxActionType {
-  // Token, Native Token, NFT transfer
-  TRANSFER = 'TRANSFER',
+  ASSET_TRANSFER = 'ASSET_TRANSFER',
 
   // Token
   TOKEN_APPROVE = 'TOKEN_APPROVE',
@@ -115,7 +114,7 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
   args: any[];
 };
 
-export type IDecodedTxActionTransfer = IDecodedTxActionBase & {
+export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   from: string;
   to: string;
   label: string;
@@ -146,8 +145,7 @@ export type IDecodedTxAction = {
   direction?: EDecodedTxDirection;
   hidden?: boolean;
 
-  transfer?: IDecodedTxActionTransfer;
-
+  assetTransfer?: IDecodedTxActionAssetTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   tokenActivate?: IDecodedTxActionTokenActivate;
 

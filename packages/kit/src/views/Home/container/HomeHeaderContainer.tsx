@@ -1,38 +1,22 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  Icon,
-  Image,
-  SizableText,
-  Stack,
-  Toast,
-  Tooltip,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { EChainSelectorPages } from '../../ChainSelector/router/type';
-import { POLLING_INTERVAL_FOR_TOTAL_VALUE } from '../constants';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
 
-import type { ITabHomeParamList } from '../router/types';
-
 function HomeHeaderContainer() {
   const intl = useIntl();
-  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   const {
     activeAccount: { account, network },
@@ -57,12 +41,6 @@ function HomeHeaderContainer() {
       )}`,
     [intl, overview?.netWorth, settings.currencyInfo.symbol],
   );
-
-  const handleChainPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-      screen: EChainSelectorPages.ChainSelector,
-    });
-  }, [navigation]);
 
   return (
     <Stack

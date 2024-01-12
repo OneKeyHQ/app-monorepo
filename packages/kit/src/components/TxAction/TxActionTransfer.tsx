@@ -2,14 +2,11 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
-  IDecodedTxActionTransfer,
+  IDecodedTxActionAssetTransfer,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
-import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import { getFormattedNumber } from '../../utils/format';
 
@@ -22,7 +19,7 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   const { action } = props;
 
   const { from, to, sends, receives, label } =
-    action.transfer as IDecodedTxActionTransfer;
+    action.assetTransfer as IDecodedTxActionAssetTransfer;
 
   let transferTarget = '';
 
@@ -32,14 +29,14 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   const receivesWithNFT = receives.filter((receive) => receive.isNFT);
 
   if (!isEmpty(sends) && isEmpty(receives)) {
-    const targets = uniq(map(receives, 'to'));
+    const targets = uniq(map(sends, 'to'));
     if (targets.length === 1) {
       [transferTarget] = targets;
     } else {
       transferTarget = to;
     }
   } else if (isEmpty(sends) && !isEmpty(receives)) {
-    const targets = uniq(map(sends, 'from'));
+    const targets = uniq(map(receives, 'from'));
     if (targets.length === 1) {
       [transferTarget] = targets;
       transferTarget = from;
@@ -73,17 +70,21 @@ function buildTransferChangeInfo({
   let changeDescription = '';
 
   if (transfers.length === 1) {
-    change = `${transfers[0].amount} ${transfers[0].symbol}`;
+    change = `${new BigNumber(transfers[0].amount).abs().toFixed()} ${
+      transfers[0].symbol
+    }`;
   } else {
     const tokens = uniq(map(transfers, 'token'));
-    const totalAmount =
-      getFormattedNumber(
-        transfers.reduce(
-          (acc, transfer) => acc.plus(transfer.amount),
-          new BigNumber(0),
-        ),
-      ) || '0';
     if (tokens.length === 1) {
+      const totalAmount =
+        getFormattedNumber(
+          transfers
+            .reduce(
+              (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
+              new BigNumber(0),
+            )
+            .toFixed(),
+        ) || '0';
       change = `${totalAmount} ${transfers[0].symbol}`;
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
@@ -94,14 +95,19 @@ function buildTransferChangeInfo({
         })}`;
         changeDescription = `${transfersWithToken[0].symbol} and more`;
       } else if (transfersWithNFT.length === 1) {
-        change = `${transfersWithNFT[0].amount} ${transfersWithNFT[0].symbol}`;
+        change = `${new BigNumber(transfersWithNFT[0].amount)
+          .abs()
+          .toFixed()} ${transfersWithNFT[0].symbol}`;
       } else {
         const totalNFTs =
           getFormattedNumber(
-            transfersWithNFT.reduce(
-              (acc, transfer) => acc.plus(transfer.amount),
-              new BigNumber(0),
-            ),
+            transfersWithNFT
+              .reduce(
+                (acc, transfer) =>
+                  acc.plus(new BigNumber(transfer.amount).abs()),
+                new BigNumber(0),
+              )
+              .toFixed(),
           ) || '0';
         change = `${totalNFTs} NFTs`;
         changeDescription = `${transfersWithNFT[0].symbol} and more`;
@@ -130,7 +136,9 @@ function TxActionTransferT0(props: ITxActionProps) {
   } = getTxActionTransferInfo(props);
   const description = {
     prefix: '',
-    children: transferTarget,
+    children: accountUtils.shortenAddress({
+      address: transferTarget,
+    }),
   };
   const avatar: ITxActionCommonProps['avatar'] = {
     circular: !(sendNFTIcon || receiveNFTIcon),
@@ -196,6 +204,8 @@ function TxActionTransferT0(props: ITxActionProps) {
   );
 }
 
-function TxActionTransferT1(props: ITxActionProps) {}
+function TxActionTransferT1(props: ITxActionProps) {
+  return null;
+}
 
 export { TxActionTransferT0, TxActionTransferT1 };

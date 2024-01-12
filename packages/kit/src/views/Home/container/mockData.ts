@@ -1,4 +1,4 @@
-import type { IHistoryListItemProps } from '../components/TxHistoryListView/HistoryListItem';
+import type { IHistoryListItemProps } from '../../../components/TxHistoryListView/HistoryListItem';
 
 export const mockData: { title: string; data: IHistoryListItemProps[] }[] = [
   {

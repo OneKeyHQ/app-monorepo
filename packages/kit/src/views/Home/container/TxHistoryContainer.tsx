@@ -1,17 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useMedia } from 'tamagui';
+import { useMedia } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ETokenPages } from '../../Token/router/type';
-import { TxHistoryListView } from '../components/TxHistoryListView';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
-
-import { mockData } from './mockData';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;

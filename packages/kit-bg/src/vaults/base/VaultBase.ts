@@ -233,8 +233,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   buildHistoryTransferAction(tx: IOnChainHistoryTx): IDecodedTxAction {
     return {
-      type: EDecodedTxActionType.TRANSFER,
-      transfer: {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer: {
         from: tx.from,
         to: tx.to,
         label: tx.label.label,

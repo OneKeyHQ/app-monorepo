@@ -25,7 +25,7 @@ export function getTxActionMeta({ action }: { action: IDecodedTxAction }) {
   let components: ITxActionComponents;
 
   switch (action.type) {
-    case EDecodedTxActionType.TRANSFER:
+    case EDecodedTxActionType.ASSET_TRANSFER:
       components = {
         T0: TxActionTransferT0,
         T1: TxActionTransferT1,

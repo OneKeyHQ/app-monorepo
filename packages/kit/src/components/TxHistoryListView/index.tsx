@@ -66,7 +66,11 @@ function TxHistoryListView(props: IProps) {
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize={60}
       renderItem={({ item }: { item: IAccountHistoryTx }) => (
-        <TxHistoryListItem historyTx={item} onPress={onItemPress} />
+        <TxHistoryListItem
+          historyTx={item}
+          onPress={onItemPress}
+          tableLayout={tableLayout}
+        />
       )}
       ListFooterComponent={ListFooterComponent}
       {...(showHeader && {

@@ -14,6 +14,8 @@ export type ITokenParamList = {
     accountId: string;
     networkId: string;
     tokenAddress: string;
+    tokenSymbol?: string;
+    tokenLogoURI?: string;
     isNative?: boolean;
   };
   [ETokenPages.TokenList]: {
