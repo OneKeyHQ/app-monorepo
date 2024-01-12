@@ -42,9 +42,11 @@ export function AccountSelectorProviderMirror({
 }) {
   const store = accountSelectorStore.getStore({ config });
   if (!store) {
-    throw new Error(
+    console.error(
       'AccountSelectorProviderMirror ERROR: primary store not initialized or removed',
+      config,
     );
+    return null;
   }
   return (
     <AccountSelectorJotaiProvider store={store} config={config}>

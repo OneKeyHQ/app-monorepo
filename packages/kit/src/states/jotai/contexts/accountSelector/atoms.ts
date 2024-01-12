@@ -30,7 +30,7 @@ const {
 export const defaultSelectedAccount: IAccountSelectorSelectedAccount = {
   walletId: undefined,
   indexedAccountId: undefined,
-  accountId: undefined,
+  othersWalletAccountId: undefined,
   networkId: undefined,
   deriveType: 'default',
   focusedWallet: undefined,

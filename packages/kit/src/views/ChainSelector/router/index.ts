@@ -5,14 +5,14 @@ import { EChainSelectorPages } from './type';
 
 import type { IChainSelectorParamList } from './type';
 
-const Selector = LazyLoad(() => import('../pages/Selector'));
+const ChainSelector = LazyLoad(() => import('../pages/ChainSelector'));
 
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   EChainSelectorPages,
   IChainSelectorParamList
 >[] = [
   {
-    name: EChainSelectorPages.Selector,
-    component: Selector,
+    name: EChainSelectorPages.ChainSelector,
+    component: ChainSelector,
   },
 ];

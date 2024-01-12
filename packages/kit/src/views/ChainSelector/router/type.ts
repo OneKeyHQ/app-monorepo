@@ -1,7 +1,7 @@
 export enum EChainSelectorPages {
-  Selector = 'Selector',
+  ChainSelector = 'ChainSelector',
 }
 
 export type IChainSelectorParamList = {
-  [EChainSelectorPages.Selector]: undefined;
+  [EChainSelectorPages.ChainSelector]: undefined;
 };

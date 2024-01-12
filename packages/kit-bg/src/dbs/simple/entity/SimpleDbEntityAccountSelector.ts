@@ -8,11 +8,14 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 import type { IDBWalletId } from '../../local/types';
 
-export type IAccountSelectorFocusedWallet = IDBWalletId | '$$other' | undefined; // TODO move to standalone atom
+export type IAccountSelectorFocusedWallet =
+  | IDBWalletId
+  | '$$others'
+  | undefined; // TODO move to standalone atom
 export interface IAccountSelectorSelectedAccount {
   walletId: IDBWalletId | undefined;
   indexedAccountId: string | undefined;
-  accountId: string | undefined; // for others wallet only
+  othersWalletAccountId: string | undefined; // for others wallet only
   networkId: string | undefined;
   deriveType: IAccountDeriveTypes; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
