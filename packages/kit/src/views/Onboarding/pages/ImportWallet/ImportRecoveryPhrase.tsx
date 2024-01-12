@@ -1,6 +1,6 @@
 import { Page } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
 

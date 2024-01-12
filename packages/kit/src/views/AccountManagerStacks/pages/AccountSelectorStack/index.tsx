@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Page } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { type IAccountProps } from '../../router/types';
 
 import { WalletDetails } from './WalletDetails';

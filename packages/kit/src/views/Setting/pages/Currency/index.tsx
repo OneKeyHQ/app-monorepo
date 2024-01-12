@@ -11,8 +11,8 @@ import {
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
 

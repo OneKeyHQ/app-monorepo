@@ -4,10 +4,10 @@ import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import { AccountSelectorProviderMirror } from '../../../../components/AccountSelector';
-import { useAccountSelectorActions } from '../../../../states/jotai/contexts/accountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
-import type { IAccountSelectorContextData } from '../../../../states/jotai/contexts/accountSelector';
+import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 export function WalletRemoveDialog({
   defaultValue,

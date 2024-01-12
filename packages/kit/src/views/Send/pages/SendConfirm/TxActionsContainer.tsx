@@ -4,10 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Divider, SizableText, Stack, YStack } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { TxActionsListView } from '../../../../components/TxActionListView';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { useUnsignedTxsAtom } from '../../../../states/jotai/contexts/send-confirm';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import { Container } from '../../components/Container';
 
 function TxActionsContainer() {

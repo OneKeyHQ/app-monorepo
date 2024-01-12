@@ -15,7 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -47,7 +47,7 @@ function SendProgressContainer() {
               height="$24"
               autoPlay
               loop={false}
-              source={require('../../../../../assets/animations/lottie_send_success_feedback.json')}
+              source={require('@onekeyhq/kit/src/../assets/animations/lottie_send_success_feedback.json')}
             />
           ) : (
             <YStack padding="$4" space="$4">

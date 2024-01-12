@@ -24,19 +24,19 @@ const wallets: IWalletGroup[] = [
     data: [
       {
         name: 'MetaMask',
-        logo: require('../../../../assets/onboarding/logo_metamask.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_metamask.png'),
       },
       {
         name: 'Trust Wallet',
-        logo: require('../../../../assets/onboarding/logo_trustwallet.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_trustwallet.png'),
       },
       {
         name: 'Rainbow',
-        logo: require('../../../../assets/onboarding/logo_rainbow.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_rainbow.png'),
       },
       {
         name: 'imToken',
-        logo: require('../../../../assets/onboarding/logo_imtoken.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_imtoken.png'),
       },
       {
         name: 'OKX Wallet',
@@ -46,7 +46,7 @@ const wallets: IWalletGroup[] = [
       },
       {
         name: 'TokenPocket',
-        logo: require('../../../../assets/onboarding/logo_tokenpocket.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_tokenpocket.png'),
       },
       {
         name: 'Zerion',
@@ -56,7 +56,7 @@ const wallets: IWalletGroup[] = [
       },
       {
         name: 'Walletconnect',
-        logo: require('../../../../assets/onboarding/logo_walletconnect.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_walletconnect.png'),
       },
     ],
   },
@@ -71,11 +71,11 @@ const wallets: IWalletGroup[] = [
       },
       {
         name: 'Amber',
-        logo: require('../../../../assets/onboarding/logo_amber.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_amber.png'),
       },
       {
         name: 'Cobo Wallet',
-        logo: require('../../../../assets/onboarding/logo_cobo_wallet.png'),
+        logo: require('@onekeyhq/kit/src/assets/onboarding/logo_cobo_wallet.png'),
       },
       {
         name: 'Jade Wallet',

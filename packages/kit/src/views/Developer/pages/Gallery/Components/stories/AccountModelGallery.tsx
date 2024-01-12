@@ -5,13 +5,13 @@ import * as crypto from 'crypto';
 import { Button, Input, Stack } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorActiveAccount,
   AccountSelectorProvider,
   AccountSelectorProviderMirror,
   AccountSelectorTrigger,
-} from '../../../../../../components/AccountSelector';
+} from '@onekeyhq/kit/src/../../components/AccountSelector';
 
 import { Layout } from './utils/Layout';
 

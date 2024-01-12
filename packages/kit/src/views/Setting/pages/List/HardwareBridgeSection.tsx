@@ -10,7 +10,7 @@ import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/type
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { openUrlExternal } from '../../../../utils/openUrl';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 import { Section } from './Section';
 

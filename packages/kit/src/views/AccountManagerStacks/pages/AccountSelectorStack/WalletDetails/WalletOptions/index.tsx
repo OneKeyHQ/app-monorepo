@@ -6,10 +6,10 @@ import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { WALLET_TYPE_HW } from '@onekeyhq/kit-bg/src/dbs/local/consts';
 
-import useAppNavigation from '../../../../../../hooks/useAppNavigation';
-import { useAccountSelectorEditModeAtom } from '../../../../../../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '../../../../../Onboarding/router/type';
-import { WalletRemoveButton } from '../../../../components/WalletRemove';
+import useAppNavigation from '@onekeyhq/kit/src/../../hooks/useAppNavigation';
+import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/../../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '@onekeyhq/kit/src/../Onboarding/router/type';
+import { WalletRemoveButton } from '@onekeyhq/kit/src/components/WalletRemove';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';

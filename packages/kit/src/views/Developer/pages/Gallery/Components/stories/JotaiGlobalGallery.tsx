@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/../../background/instance/backgroundApiProxy';
 
 import { Layout } from './utils/Layout';
 

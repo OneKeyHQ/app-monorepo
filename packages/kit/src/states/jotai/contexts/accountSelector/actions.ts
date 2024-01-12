@@ -15,9 +15,9 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../../../views/AccountManagerStacks/router/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -30,7 +30,7 @@ import {
 } from './atoms';
 
 import type { IAccountSelectorActiveAccountInfo } from './atoms';
-import type useAppNavigation from '../../../../hooks/useAppNavigation';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 const { serviceAccount } = backgroundApiProxy;
 class AccountSelectorActions extends ContextJotaiActionsBase {

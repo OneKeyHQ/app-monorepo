@@ -1,6 +1,6 @@
 import { Button, Stack } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/../../background/instance/backgroundApiProxy';
 
 import { Layout } from './utils/Layout';
 

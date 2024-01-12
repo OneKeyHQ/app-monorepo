@@ -12,11 +12,11 @@ import {
 } from '@onekeyhq/components';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
-import WebAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
-import PasswordSetupContainer from '../../../../../../components/Password/container/PasswordSetupContainer';
-import PasswordUpdateContainer from '../../../../../../components/Password/container/PasswordUpdateContainer';
+import backgroundApiProxy from '@onekeyhq/kit/src/../../background/instance/backgroundApiProxy';
+import BiologyAuthSwitchContainer from '@onekeyhq/kit/src/../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import WebAuthSwitchContainer from '@onekeyhq/kit/src/../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
+import PasswordSetupContainer from '@onekeyhq/kit/src/../../components/Password/container/PasswordSetupContainer';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/../../components/Password/container/PasswordUpdateContainer';
 
 import { Layout } from './utils/Layout';
 

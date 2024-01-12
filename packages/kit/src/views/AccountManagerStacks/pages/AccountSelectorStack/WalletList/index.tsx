@@ -26,12 +26,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EModalRoutes } from '../../../../../routes/Modal/type';
+import { EModalRoutes } from '@onekeyhq/kit/src/../routes/Modal/type';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
-} from '../../../../../states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '../../../../Onboarding/router/type';
+} from '@onekeyhq/kit/src/../states/jotai/contexts/accountSelector';
+import { EOnboardingPages } from '@onekeyhq/kit/src/Onboarding/router/type';
 
 import { WalletListItem } from './WalletListItem';
 

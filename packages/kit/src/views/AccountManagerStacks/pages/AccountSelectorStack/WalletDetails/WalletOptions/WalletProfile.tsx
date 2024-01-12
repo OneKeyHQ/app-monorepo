@@ -2,9 +2,9 @@ import { ListItem, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletAvatar } from '../../../../../../components/WalletAvatar';
-import { showWalletAvatarEditDialog } from '../../../../components/WalletAvatarEdit';
-import { WalletRenameButton } from '../../../../components/WalletRename';
+import { WalletAvatar } from '@onekeyhq/kit/src/../../components/WalletAvatar';
+import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/components/WalletAvatarEdit';
+import { WalletRenameButton } from '@onekeyhq/kit/src/components/WalletRename';
 
 export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
   return (

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 
 import { ListItem } from '@onekeyhq/components';
 
-import { openUrlExternal } from '../../../../utils/openUrl';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 type IUrlExternalListItemProps = {
   icon: ComponentProps<typeof ListItem>['icon'];

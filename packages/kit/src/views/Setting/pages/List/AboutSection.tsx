@@ -4,8 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { ListItem } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useHelpLink } from '../../../../hooks/useHelpLink';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { UrlExternalListItem } from '../../components/UrlExternalListItem';
 
 import { Section } from './Section';

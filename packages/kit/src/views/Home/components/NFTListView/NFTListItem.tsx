@@ -3,8 +3,8 @@ import { useCallback } from 'react';
 import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETokenPages } from '../../../Token/router/type';
 
 type IProps = {

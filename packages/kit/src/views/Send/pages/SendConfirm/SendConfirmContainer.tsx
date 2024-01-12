@@ -6,13 +6,13 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page, ScrollView, Stack, YStack } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useSendConfirmActions,
   withSendConfirmProvider,
-} from '../../../../states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import { InteractInfo } from '../../components/InteractInfo';
 import { SendActions } from '../../components/SendActions';
 import { SingerInfo } from '../../components/SingerInfo';

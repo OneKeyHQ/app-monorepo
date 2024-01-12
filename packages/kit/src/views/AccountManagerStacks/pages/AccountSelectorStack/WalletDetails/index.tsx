@@ -33,9 +33,9 @@ import {
   useAccountSelectorEditModeAtom,
   useActiveAccount,
   useSelectedAccount,
-} from '../../../../../states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '../../../../../utils/makeBlockieImageUri';
-import { EOnboardingPages } from '../../../../Onboarding/router/type';
+} from '@onekeyhq/kit/src/../states/jotai/contexts/accountSelector';
+import makeBlockieImageUri from '@onekeyhq/kit/src/../utils/makeBlockieImageUri';
+import { EOnboardingPages } from '@onekeyhq/kit/src/Onboarding/router/type';
 import { AccountRenameButton } from '../../../components/AccountRename';
 
 import { WalletOptions } from './WalletOptions';

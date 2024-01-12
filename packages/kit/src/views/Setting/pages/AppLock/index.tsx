@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Page, Stack } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItemSelect } from '../../components/ListItemSelect';
 
 import { useOptions } from './useOptions';

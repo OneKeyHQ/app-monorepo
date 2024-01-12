@@ -6,15 +6,15 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { TokenListView } from '../../../../components/TokenListView';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useTokenListActions,
   withTokenListProvider,
-} from '../../../../states/jotai/contexts/token-list';
+} from '@onekeyhq/kit/src/states/jotai/contexts/token-list';
 import { EModalSendRoutes } from '../../router';
 
 import type { IModalSendParamList } from '../../router';

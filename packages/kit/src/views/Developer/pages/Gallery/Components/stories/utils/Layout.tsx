@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 
-import backgroundApiProxy from '../../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/../../../background/instance/backgroundApiProxy';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {

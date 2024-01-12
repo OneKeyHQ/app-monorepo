@@ -34,7 +34,7 @@ const LottieDemo = () => {
             height="$24"
             autoPlay={autoPlay}
             loop={loop}
-            source={require('../../../../../../../assets/animations/lottie_send_success_feedback.json')}
+            source={require('@onekeyhq/kit/src/../../../assets/animations/lottie_send_success_feedback.json')}
           />
         )}
       </XStack>
