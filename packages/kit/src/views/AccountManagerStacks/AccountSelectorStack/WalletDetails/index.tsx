@@ -34,7 +34,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../../../states/jotai/contexts/accountSelector';
-import makeBlockieImageUri from '../../../../utils/makeBlockieImageUri';
+import makeBlockieImageUriList from '../../../../utils/makeBlockieImageUriList';
 import { EOnboardingPages } from '../../../Onboarding/router/type';
 import { AccountRenameButton } from '../../AccountRename';
 
@@ -99,9 +99,13 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
           walletId: selectedAccount?.focusedWallet,
         })
         .then(async (value) => {
-          for (const item of value?.accounts ?? []) {
-            item.avatar = await makeBlockieImageUri(item.idHash || item.id);
-          }
+          const accountList = value?.accounts ?? [];
+          const uriList = await makeBlockieImageUriList(
+            accountList.map((item) => item.idHash || item.id),
+          );
+          accountList.forEach(
+            (item, index) => (item.avatar = uriList?.[index]),
+          );
           return value;
         });
     }, [selectedAccount?.focusedWallet, serviceAccount]);

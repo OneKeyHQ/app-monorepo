@@ -290,6 +290,12 @@ module.exports = ({ platform, basePath, configName }) => ({
         test: /\.ejs$/i,
         use: ['html-loader', 'template-ejs-loader'],
       },
+      {
+        test: /\.worker\.(js|ts)$/,
+        use: {
+          loader: 'worker-loader',
+        },
+      },
     ],
   },
   resolve: {
