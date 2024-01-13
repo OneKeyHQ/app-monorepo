@@ -8,8 +8,11 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
+import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProvider } from '../../../components/AccountSelector';
 
 import type { SessionTypes } from '@walletconnect/types';
 
@@ -62,6 +65,35 @@ function ConnectionList() {
     [getActiveSessions],
   );
 
+  const updateSession = useCallback(
+    async (session: SessionTypes.Struct) => {
+      const { namespaces } = session;
+      const { accounts } = namespaces.eip155;
+      const newAccounts = accounts.map((account) => {
+        const [namespace, chainId, address] = account.split(':');
+        const newAddress =
+          address === '0x76f3f64cb3cD19debEE51436dF630a342B736C24'
+            ? '0xA9b4d559A98ff47C83B74522b7986146538cD4dF'
+            : '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
+        return `${namespace}:${chainId}:${newAddress}`;
+      });
+      const newNamespaces = {
+        ...namespaces,
+        eip155: {
+          ...namespaces.eip155,
+          accounts: [...newAccounts],
+        },
+      };
+      const { serviceDApp } = backgroundApiProxy;
+      await serviceDApp.updateWalletConnectSession(
+        session.topic,
+        newNamespaces,
+      );
+      void getActiveSessions();
+    },
+    [getActiveSessions],
+  );
+
   return (
     <Page>
       <Page.Header title="WalletConnect Sessions" />
@@ -74,6 +106,15 @@ function ConnectionList() {
               title={item.peer.metadata.name}
               subtitle={getFirstAccount(item)}
             >
+              {/* <AccountSelectorProvider
+                config={{
+                  sceneName: EAccountSelectorSceneName.discover,
+                  sceneUrl: item.peer.metadata.url,
+                }}
+                enabledNum={[0]}
+              >
+                <AccountSelectorTriggerHome num={0} />
+              </AccountSelectorProvider> */}
               <ListItem.IconButton
                 icon="CrossedSmallOutline"
                 iconProps={{
@@ -81,6 +122,9 @@ function ConnectionList() {
                 }}
                 onPress={() => disconnectSession(item.topic)}
               />
+              <Button onPress={() => updateSession(item)}>
+                Update Session
+              </Button>
             </ListItem>
           )}
         />

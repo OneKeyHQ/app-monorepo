@@ -15,6 +15,7 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import ServiceBase from './ServiceBase';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { SessionTypes } from '@walletconnect/types';
 
 function buildModalRouteParams({
   screens = [],
@@ -148,6 +149,17 @@ class ServiceDApp extends ServiceBase {
     return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
       topic,
       reason: getSdkError('USER_DISCONNECTED'),
+    });
+  }
+
+  @backgroundMethod()
+  async updateWalletConnectSession(
+    topic: string,
+    namespaces: SessionTypes.Namespaces,
+  ) {
+    return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
+      topic,
+      namespaces,
     });
   }
 }
