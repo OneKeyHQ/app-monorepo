@@ -3,9 +3,8 @@ import type { ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-
-import { useSendSelectedFeeAtom } from '../../../../states/jotai/contexts/send-confirm';
-import { getFeeIcon, getFeeLabel } from '../../../../utils/gasFee';
+import { useSendSelectedFeeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+import { getFeeIcon, getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
 type IProps = ComponentProps<typeof XStack>;
 

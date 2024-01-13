@@ -12,6 +12,7 @@ type INonGestureStackStyleProps = Omit<
   | 'onTouchStart'
   | 'onTouchMove'
   | 'onTouchEnd'
+  | 'pointerEvents'
 >;
 
 export interface IBaseSliderProps extends INonGestureStackStyleProps {

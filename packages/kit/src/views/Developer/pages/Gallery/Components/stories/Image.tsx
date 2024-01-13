@@ -15,7 +15,7 @@ const ImageGallery = () => (
             <Image
               height="$10"
               width="$10"
-              source={require('../../../../../../../assets/walletLogo/cosmos_keplr.png')}
+              source={require('@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png')}
             />
             <Image
               height="$10"
