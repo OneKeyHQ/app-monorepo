@@ -3,11 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, Stack, XStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { useActiveAccount } from '../../../../states/jotai/contexts/accountSelector';
 import { ETokenPages } from '../../../Token/router/type';
 
 import { NFTListHeader } from './NFTListHeader';

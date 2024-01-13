@@ -12,11 +12,10 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 
 type IProps = {
   networkId: string;
