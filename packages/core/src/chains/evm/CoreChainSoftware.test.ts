@@ -2,7 +2,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EMessageTypesEth } from '../../types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import CoreChainHd from './CoreChainHd';
 

@@ -595,4 +595,9 @@ module.exports = [
   'gt2xl',
   'calc',
   '100vw',
+  'Struct',
+  'ints',
+  'uints',
+  'ufixedM',
+  'ufixed',
 ];

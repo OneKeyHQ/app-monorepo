@@ -1,6 +1,7 @@
 import { getSdkError } from '@walletconnect/utils';
 import { debounce } from 'lodash';
 
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import {
   backgroundClass,
@@ -9,8 +10,11 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -161,6 +165,40 @@ class ServiceDApp extends ServiceBase {
       topic,
       namespaces,
     });
+  }
+
+  @backgroundMethod()
+  async signMessage({
+    unsignedMessage,
+    password,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage?: IUnsignedMessage;
+    password: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+
+    let validUnsignedMessage = unsignedMessage;
+    if (unsignedMessage) {
+      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
+    }
+
+    if (!validUnsignedMessage) {
+      throw new Error('Invalid unsigned message');
+    }
+
+    const [signedMessage] = await vault.keyring.signMessage({
+      messages: [validUnsignedMessage],
+      password,
+    });
+
+    return signedMessage;
   }
 }
 
