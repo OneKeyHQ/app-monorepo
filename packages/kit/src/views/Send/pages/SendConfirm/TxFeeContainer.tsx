@@ -5,23 +5,23 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
 import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import { EFeeType } from '@onekeyhq/shared/types/gas';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useCustomFeeAtom,
   useSendConfirmActions,
   useSendSelectedFeeAtom,
-} from '../../../../states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import {
   calculateFeeForSend,
   getFeeIcon,
   getFeeLabel,
-} from '../../../../utils/gasFee';
+} from '@onekeyhq/kit/src/utils/gasFee';
+import { EFeeType } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+
 import { GasSelector } from '../../components/GasSelector';
 import { EModalSendRoutes } from '../../router';
 
