@@ -4,12 +4,11 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
-} from '../../../../utils/gasFee';
+} from '@onekeyhq/kit/src/utils/gasFee';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 type IProps = {
   feeInfo: IFeeInfoUnit;

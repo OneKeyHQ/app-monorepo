@@ -4,11 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { IBadgeType } from '@onekeyhq/components';
 import { Badge, ListItem, SizableText, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getFeeConfidenceLevelStyle } from '@onekeyhq/kit/src/utils/gasFee';
 import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
-import { getFeeConfidenceLevelStyle } from '../../../../utils/gasFee';
 
 type IProps = {
   networkId: string;
