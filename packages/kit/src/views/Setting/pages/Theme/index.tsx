@@ -3,12 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   type ISettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
   type IListItemSelectOption,
   ListItemSelect,
