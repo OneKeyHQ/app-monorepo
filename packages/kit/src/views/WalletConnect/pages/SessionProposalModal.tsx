@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
-import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
 import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import {
   useAccountSelectorActions,
@@ -29,6 +30,7 @@ function SessionProposalModal() {
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
   const actions = useAccountSelectorActions();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
     void (async () => {

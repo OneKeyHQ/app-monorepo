@@ -4,7 +4,6 @@ import platformEnv from '../platformEnv';
 
 export const WALLET_CONNECT_V2_PROJECT_ID =
   process.env.WALLETCONNECT_PROJECT_ID;
-console.log('WALLET_CONNECT_V2_PROJECT_ID: ', WALLET_CONNECT_V2_PROJECT_ID);
 
 const platformName = [
   process.env.ONEKEY_PLATFORM ?? '',

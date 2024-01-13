@@ -1,3 +1,4 @@
+import { getSdkError } from '@walletconnect/utils';
 import { debounce } from 'lodash';
 
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
@@ -135,6 +136,20 @@ class ServiceDApp extends ServiceBase {
       trailing: true,
     },
   );
+
+  @backgroundMethod()
+  async getWalletConnectActiveSessions() {
+    await this.backgroundApi.walletConnect.initialize();
+    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+  }
+
+  @backgroundMethod()
+  async walletConnectDisconnect(topic: string) {
+    return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
+      topic,
+      reason: getSdkError('USER_DISCONNECTED'),
+    });
+  }
 }
 
 export default ServiceDApp;
