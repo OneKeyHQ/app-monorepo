@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
-
-import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';

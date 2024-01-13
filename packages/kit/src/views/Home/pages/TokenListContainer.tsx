@@ -2,9 +2,8 @@ import { memo, useCallback } from 'react';
 
 import { useMedia } from 'tamagui';
 
-import type { IToken } from '@onekeyhq/shared/types/token';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';

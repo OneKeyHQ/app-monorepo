@@ -5,9 +5,6 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
