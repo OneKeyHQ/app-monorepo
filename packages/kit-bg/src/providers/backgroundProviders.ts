@@ -6,7 +6,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 // import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
-// import ProviderApiEthereum from './ProviderApiEthereum';
+import ProviderApiEthereum from './ProviderApiEthereum';
 // import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
 // import ProviderApiPrivate from './ProviderApiPrivate';
@@ -31,9 +31,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.$private]: new ProviderApiPrivate({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.solana]: new ProviderApiSolana({
     //   backgroundApi,
     // }),

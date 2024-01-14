@@ -310,7 +310,10 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async resolvePasswordPromptDialog(promiseId: number, data: IPasswordRes) {
-    this.backgroundApi.servicePromise.resolveCallback({ id: promiseId, data });
+    void this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data,
+    });
     await passwordAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
@@ -322,7 +325,10 @@ export default class ServicePassword extends ServiceBase {
     promiseId: number,
     error: { message: string },
   ) {
-    this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
+    void this.backgroundApi.servicePromise.rejectCallback({
+      id: promiseId,
+      error,
+    });
     await passwordAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,

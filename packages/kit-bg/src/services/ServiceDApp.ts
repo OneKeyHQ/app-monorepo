@@ -3,6 +3,7 @@ import { debounce } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   backgroundClass,
   backgroundMethod,
@@ -20,7 +21,6 @@ import ServiceBase from './ServiceBase';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type { SessionTypes } from '@walletconnect/types';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
 function buildModalRouteParams({
   screens = [],
@@ -187,12 +187,10 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async signMessage({
     unsignedMessage,
-    password,
     networkId,
     accountId,
   }: {
     unsignedMessage?: IUnsignedMessage;
-    password: string;
     networkId: string;
     accountId: string;
   }) {
@@ -210,6 +208,8 @@ class ServiceDApp extends ServiceBase {
       throw new Error('Invalid unsigned message');
     }
 
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,

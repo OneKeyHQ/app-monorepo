@@ -5,6 +5,11 @@ import { buildApprovedNamespaces } from '@walletconnect/utils';
 import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
 import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import { getChainData } from '@onekeyhq/shared/src/walletConnect/chainsData';
+import {
+  EIP155_EVENTS,
+  EIP155_SIGNING_METHODS,
+} from '@onekeyhq/shared/src/walletConnect/EIP155Data';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -12,10 +17,9 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import {
   useAccountSelectorActions,
+  useAccountSelectorEditModeAtom,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import { getChainData } from '../data/chainsUtils';
-import { EIP155_EVENTS, EIP155_SIGNING_METHODS } from '../data/EIP155Data';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
@@ -48,6 +52,11 @@ function SessionProposalModal() {
           });
         console.log('accounts: ', accounts);
         const defaultAccount = accounts.accounts[0];
+        void actions.current.initFromStorage({
+          sceneName: EAccountSelectorSceneName.discover,
+          sceneUrl: proposal.params.proposer.metadata.url,
+          num: 0,
+        });
         void actions.current.reloadActiveAccountInfo({
           num: 0,
           selectedAccount: {
@@ -59,9 +68,24 @@ function SessionProposalModal() {
             focusedWallet: defaultWallet.id,
           },
         });
+        setTimeout(() => {
+          void actions.current.saveToStorage({
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: proposal.params.proposer.metadata.url,
+            num: 0,
+            selectedAccount: {
+              walletId: defaultWallet.id,
+              indexedAccountId: defaultAccount.id,
+              othersWalletAccountId: undefined,
+              networkId: 'evm--1',
+              deriveType: 'default',
+              focusedWallet: defaultWallet.id,
+            },
+          });
+        }, 500);
       }
     })();
-  }, [activeAccount, actions]);
+  }, [activeAccount, actions, proposal.params.proposer.metadata.url]);
 
   const requestedChains = useMemo(() => {
     if (!proposal) return [];

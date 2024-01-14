@@ -5,12 +5,19 @@ import { Web3Wallet } from '@walletconnect/web3wallet';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // import { EWalletConnectPages } from '@onekeyhq/kit/src/views/WalletConnect/router';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { getNotSupportedChains } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 
+import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
+
+import type {
+  IWalletConnectRequestOptions,
+  WalletConnectRequestProxy,
+} from './WalletConnectRequestProxy';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
 
@@ -22,6 +29,18 @@ class ProviderApiWalletConnect {
   backgroundApi: IBackgroundApi;
 
   web3Wallet?: IWeb3Wallet;
+
+  requestProxyMap: {
+    [networkImpl: string]: WalletConnectRequestProxy;
+  } = {
+    [IMPL_EVM]: new WalletConnectRequestProxyEth({
+      client: this,
+    }),
+  };
+
+  getRequestProxy({ networkImpl }: { networkImpl: string }) {
+    return this.requestProxyMap[networkImpl];
+  }
 
   @backgroundMethod()
   async initialize() {
@@ -104,8 +123,35 @@ class ProviderApiWalletConnect {
     }
   }
 
-  onSessionRequest(request: Web3WalletTypes.SessionRequest) {
+  async onSessionRequest(request: Web3WalletTypes.SessionRequest) {
     console.log('onSessionRequest: ', request);
+    const { topic, id } = request;
+    try {
+      const requestProxy = this.getRequestProxy({ networkImpl: IMPL_EVM });
+      const ret = await requestProxy.request(
+        { sessionRequest: request },
+        request.params.request,
+      );
+      console.log('====>onSessionRequest ret: ', ret);
+
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          result: ret,
+        },
+      });
+    } catch (error: any) {
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: getSdkError('USER_REJECTED', (error as Error)?.message),
+        },
+      });
+    }
   }
 
   onSessionDelete(args: Web3WalletTypes.SessionDelete) {
@@ -126,6 +172,10 @@ class ProviderApiWalletConnect {
       await this.initialize();
     }
     await this.web3Wallet?.pair({ uri });
+  }
+
+  getDAppOrigin(option: IWalletConnectRequestOptions) {
+    return option.sessionRequest?.verifyContext.verified.origin ?? '';
   }
 }
 
