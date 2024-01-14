@@ -1,7 +1,7 @@
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getTimeDurationMs } from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { getEIP155Chains } from './EIP155Data';
+import { EIP155_SIGNING_METHODS, getEIP155Chains } from './EIP155Data';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
@@ -36,3 +36,10 @@ export function getNotSupportedChains(
 
   return required.flat().filter((chainId) => !getChainData(chainId));
 }
+
+const supportMethodsMap: Record<string, string[]> = {
+  eip155: Object.values(EIP155_SIGNING_METHODS),
+};
+
+export const checkMethodSupport = (namespace: string, method: string) =>
+  (supportMethodsMap[namespace] ?? []).includes(method);

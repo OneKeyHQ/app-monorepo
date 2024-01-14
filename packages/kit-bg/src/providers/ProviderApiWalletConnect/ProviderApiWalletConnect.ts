@@ -6,7 +6,11 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // import { EWalletConnectPages } from '@onekeyhq/kit/src/views/WalletConnect/router';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { getNotSupportedChains } from '@onekeyhq/shared/src/walletConnect/chainsData';
+import {
+  checkMethodSupport,
+  getChainData,
+  getNotSupportedChains,
+} from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
@@ -126,6 +130,33 @@ class ProviderApiWalletConnect {
   async onSessionRequest(request: Web3WalletTypes.SessionRequest) {
     console.log('onSessionRequest: ', request);
     const { topic, id } = request;
+
+    // check request method is supported
+    const chain = getChainData(request.params.chainId);
+    if (!chain) {
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: getSdkError('UNSUPPORTED_CHAINS'),
+        },
+      });
+      return;
+    }
+
+    if (!checkMethodSupport(chain.namespace, request.params.request.method)) {
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: getSdkError('UNSUPPORTED_METHODS'),
+        },
+      });
+      return;
+    }
+
     try {
       const requestProxy = this.getRequestProxy({ networkImpl: IMPL_EVM });
       const ret = await requestProxy.request(
