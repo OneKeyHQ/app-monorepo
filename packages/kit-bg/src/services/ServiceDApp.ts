@@ -20,6 +20,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type { SessionTypes } from '@walletconnect/types';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
 function buildModalRouteParams({
   screens = [],
@@ -141,6 +142,22 @@ class ServiceDApp extends ServiceBase {
       trailing: true,
     },
   );
+
+  openSignMessageModal({
+    request,
+    unsignedMessage,
+  }: {
+    request: IJsBridgeMessagePayload;
+    unsignedMessage: IUnsignedMessage;
+  }) {
+    return this.openModal({
+      request,
+      screens: [EModalRoutes.WalletConnectModal, 'SignMessageModal'],
+      params: {
+        unsignedMessage,
+      },
+    });
+  }
 
   @backgroundMethod()
   async getWalletConnectActiveSessions() {

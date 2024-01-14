@@ -1,13 +1,16 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import ConnectionList from '../pages/ConnectionList';
 import SessionProposalModal from '../pages/SessionProposalModal';
+import SignMessageModal from '../pages/SignMessageModal';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 export enum EWalletConnectPages {
   'SessionProposalModal' = 'SessionProposalModal',
   'ConnectionList' = 'ConnectionList',
+  'SignMessageModal' = 'SignMessageModal',
 }
 
 export type IWalletConnectPagesParam = {
@@ -15,6 +18,9 @@ export type IWalletConnectPagesParam = {
     proposal: Web3WalletTypes.SessionProposal;
   };
   [EWalletConnectPages.ConnectionList]: undefined;
+  [EWalletConnectPages.SignMessageModal]: {
+    unsignedMessage: IUnsignedMessage;
+  };
 };
 
 export const WalletConnectRouter: IModalFlowNavigatorConfig<
@@ -28,5 +34,9 @@ export const WalletConnectRouter: IModalFlowNavigatorConfig<
   {
     name: EWalletConnectPages.ConnectionList,
     component: ConnectionList,
+  },
+  {
+    name: EWalletConnectPages.SignMessageModal,
+    component: SignMessageModal,
   },
 ];
