@@ -9,6 +9,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   checkMethodSupport,
   getChainData,
+  getNetworkImplByNamespace,
   getNotSupportedChains,
 } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
@@ -158,7 +159,8 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const requestProxy = this.getRequestProxy({ networkImpl: IMPL_EVM });
+      const networkImpl = getNetworkImplByNamespace(chain.namespace);
+      const requestProxy = this.getRequestProxy({ networkImpl });
       const ret = await requestProxy.request(
         { sessionRequest: request },
         request.params.request,

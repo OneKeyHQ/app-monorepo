@@ -1,9 +1,13 @@
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getTimeDurationMs } from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { IMPL_EVM } from '../engine/engineConsts';
+
 import { EIP155_SIGNING_METHODS, getEIP155Chains } from './EIP155Data';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+
+export type INamespaceUnion = 'eip155';
 
 export const WALLET_CONNECT_ALL_CHAINS = [...getEIP155Chains()];
 
@@ -37,9 +41,17 @@ export function getNotSupportedChains(
   return required.flat().filter((chainId) => !getChainData(chainId));
 }
 
-const supportMethodsMap: Record<string, string[]> = {
+const supportMethodsMap: Record<INamespaceUnion, string[]> = {
   eip155: Object.values(EIP155_SIGNING_METHODS),
 };
 
-export const checkMethodSupport = (namespace: string, method: string) =>
-  (supportMethodsMap[namespace] ?? []).includes(method);
+export const checkMethodSupport = (
+  namespace: INamespaceUnion,
+  method: string,
+) => (supportMethodsMap[namespace] ?? []).includes(method);
+
+const networkImplMap = {
+  eip155: IMPL_EVM,
+};
+export const getNetworkImplByNamespace = (namespace: INamespaceUnion) =>
+  networkImplMap[namespace];

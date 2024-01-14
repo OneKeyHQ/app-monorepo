@@ -9,7 +9,7 @@ export const getEIP155Chains = memoizee(
       .filter((n) => n.impl === IMPL_EVM)
       .map((n) => ({
         chainId: n.chainId,
-        namespace: 'eip155',
+        namespace: 'eip155' as const,
         name: n.name,
       })),
   {
