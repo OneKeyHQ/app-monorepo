@@ -18,12 +18,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
+import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import ConnectByBluetoothAnim from '../../../../../assets/animations/connect_by_bluetooth.json';
-import ConnectByUSBAnim from '../../../../../assets/animations/connect_by_usb.json';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../../router/type';
 
 const headerRight = (onPress: () => void) => (
@@ -84,7 +84,7 @@ const FirmwareAuthenticationDialogContent = ({
                 <LottieView
                   width="$16"
                   height="$16"
-                  source={require('../../../../../assets/animations/confirm-on-classic.json')}
+                  source={require('@onekeyhq/kit/assets/animations/confirm-on-classic.json')}
                 />
               </Stack>
               <SizableText textAlign="center" pl="$4">

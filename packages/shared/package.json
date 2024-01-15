@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "author": "",
@@ -22,5 +23,8 @@
     "react-native-uuid": "^2.0.1",
     "redux-persist": "^6.0.0",
     "webextension-polyfill": "^0.8.0"
+  },
+  "devDependencies": {
+    "folderslint": "^1.2.0"
   }
 }

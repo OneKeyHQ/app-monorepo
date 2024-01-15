@@ -59,6 +59,8 @@ const resolveScreens = (routes: typeof rootRouter) =>
       }, {} as IScreenPathConfig)
     : undefined;
 
+const MODAL_PATH = `/${ERootRoutes.Modal}`;
+const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const screenHierarchyConfig = resolveScreens(routes);
   if (!screenHierarchyConfig) {
@@ -81,8 +83,18 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
         return extHtmlFileUrl;
       }
       const defaultPath = getPathFromStateDefault(state, options);
-      const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
+      const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
+        FULL_SCREEN_MODAL_PATH,
+        MODAL_PATH,
+      );
+
       const rule = allowList[defaultPathWithoutQuery];
+
+      // By default, modal type routes do not display url path
+      if (defaultPathWithoutQuery.startsWith(MODAL_PATH) && !rule?.showUrl) {
+        return '/';
+      }
+
       const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
@@ -93,6 +105,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
         */
         return `${extHtmlFileUrl}#${newPath}`;
       }
+
       return newPath;
     },
     config: {

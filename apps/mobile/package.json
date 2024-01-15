@@ -15,10 +15,12 @@
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
     "native-bundle:analyze": "react-native-bundle-visualizer",
-    "eas-build-pre-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/react-native-lite-card/keys/keys.secret"
+    "eas-build-pre-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/react-native-lite-card/keys/keys.secret",
+    "_folderslint": "yarn folderslint"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "folderslint": "^1.2.0",
     "react-native-bundle-visualizer": "^3.1.3",
     "rimraf": "^3"
   },

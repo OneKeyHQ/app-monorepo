@@ -4822,6 +4822,7 @@ __metadata:
     eslint-config-wesbos: "npm:^3.1.4"
     eslint-plugin-html: "npm:^7.1.0"
     eslint-plugin-import: "npm:^2.26.0"
+    eslint-plugin-import-path: "npm:^0.0.2"
     eslint-plugin-jest: "npm:^27.1.7"
     eslint-plugin-jsx-a11y: "npm:^6.6.1"
     eslint-plugin-prettier: "npm:^4.2.1"
@@ -4865,6 +4866,7 @@ __metadata:
     webpack-dev-server: "npm:^4.15.1"
     webpack-manifest-plugin: "npm:^5.0.0"
     webpack-subresource-integrity: "npm:^5.2.0-rc.1"
+    worker-loader: "npm:^3.0.8"
   languageName: unknown
   linkType: soft
 
@@ -4882,6 +4884,7 @@ __metadata:
     "@types/qrcode": "npm:^1.4.2"
     ethereum-blockies-base64: "npm:^1.0.2"
     expo-av: "npm:13.6.0"
+    folderslint: "npm:^1.2.0"
     iso-639-1: "npm:^2.1.13"
     lodash: "npm:^4.17.21"
     moti: "npm:^0.25.3"
@@ -4935,6 +4938,7 @@ __metadata:
     cosmjs-types: "npm:^0.8.0"
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.5.4"
+    folderslint: "npm:^1.2.0"
     js-conflux-sdk: "npm:^2.1.12"
     jsrsasign: "npm:^10.8.6"
     near-api-js: "npm:^2.1.4"
@@ -4966,6 +4970,7 @@ __metadata:
     electron-store: "npm:^8.1.0"
     electron-updater: "npm:^5.2.1"
     esbuild: "npm:0.15.18"
+    folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
@@ -4981,6 +4986,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -4989,6 +4995,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
+    folderslint: "npm:^1.2.0"
     idb: "npm:^7.1.1"
   languageName: unknown
   linkType: soft
@@ -5024,6 +5031,7 @@ __metadata:
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:~0.20.1"
     expo-secure-store: "npm:12.5.0"
+    folderslint: "npm:^1.2.0"
     fuse.js: "npm:^6.5.3"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
@@ -5065,6 +5073,7 @@ __metadata:
     expo-haptics: "npm:12.6.0"
     expo-splash-screen: "npm:~0.20.5"
     expo-status-bar: "npm:~1.6.0"
+    folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:6.3.1"
@@ -5114,6 +5123,7 @@ __metadata:
     "@types/webextension-polyfill": "npm:^0.8.2"
     async-mutex: "npm:^0.3.2"
     flatted: "npm:^3.2.7"
+    folderslint: "npm:^1.2.0"
     js-base64: "npm:3.7.5"
     jsonschema: "npm:^1.4.1"
     localforage: "npm:^1.10.0"
@@ -5133,6 +5143,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -5144,6 +5155,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
   linkType: soft
@@ -14696,6 +14708,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eslint-plugin-import-path@npm:^0.0.2":
+  version: 0.0.2
+  resolution: "eslint-plugin-import-path@npm:0.0.2"
+  checksum: 161ccdaa97801c85a90da9c5b4491028fba003114da046d117123d8943cd3dfe26e4392427d5524a0d6fb09c4a06fdd40ab97510b46721889b38084387c9ea68
+  languageName: node
+  linkType: hard
+
 "eslint-plugin-import@npm:^2.26.0":
   version: 2.29.1
   resolution: "eslint-plugin-import@npm:2.29.1"
@@ -16201,6 +16220,19 @@ __metadata:
   version: 0.206.0
   resolution: "flow-parser@npm:0.206.0"
   checksum: 26ab7c3f0c23953fac977bcd093b4f18b13a705ea57ef5be8591d100f4c55c83225ae27693bdec3ba38b1d591b9b47b2cd8845eac0bce69cced9d3417154f143
+  languageName: node
+  linkType: hard
+
+"folderslint@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "folderslint@npm:1.2.0"
+  dependencies:
+    chalk: "npm:^4.0.0"
+    glob: "npm:^7.1.6"
+    minimist: "npm:^1.2.0"
+  bin:
+    folderslint: index.js
+  checksum: 9054ceb6ef50e657a6ab7c0d08abff6b25e3e5a77c14772c6521115ba1e1fc9b5532bcf06ab65d3a5fc700487a5a1dc53df843c27bcb9e9bb0813a851508577b
   languageName: node
   linkType: hard
 
@@ -29237,6 +29269,18 @@ __metadata:
   version: 6.3.4
   resolution: "wonka@npm:6.3.4"
   checksum: 0f102630182828268b57b54102003449b97abbc2483392239baf856a2fca7b72ae9be67c208415124a3d26a320674ed64387e9bf07a8d0badedb5f607d2ccfdc
+  languageName: node
+  linkType: hard
+
+"worker-loader@npm:^3.0.8":
+  version: 3.0.8
+  resolution: "worker-loader@npm:3.0.8"
+  dependencies:
+    loader-utils: "npm:^2.0.0"
+    schema-utils: "npm:^3.0.0"
+  peerDependencies:
+    webpack: ^4.0.0 || ^5.0.0
+  checksum: 8b15818ff48e216f06805bdc30812c580ba22eb0471af0c074237dd9ea85ee51dc72e9da2944d12536e95ca009d49e0e52819d003bc362f446a77fab0604b779
   languageName: node
   linkType: hard
 
