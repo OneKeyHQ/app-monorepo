@@ -28,7 +28,7 @@ function TxHistoryListContainer(props: IProps) {
   const handleHistoryItemPress = useCallback(
     (history: IAccountHistoryTx) => {
       if (!account || !network) return;
-      navigation.pushModal(EModalRoutes.AssetDetailsModal, {
+      navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
           networkId: network.id,

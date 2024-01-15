@@ -8,7 +8,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useTokenListActions,
   withTokenListProvider,
@@ -51,14 +50,11 @@ function SendAssetInputContainer() {
 
   const handleTokenOnPress = useCallback(
     (token: IAccountToken) => {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendDataInput,
-        params: {
-          networkId,
-          accountId,
-          isNFT: false,
-          token,
-        },
+      navigation.push(EModalSendRoutes.SendDataInput, {
+        networkId,
+        accountId,
+        isNFT: false,
+        token,
       });
     },
     [accountId, navigation, networkId],

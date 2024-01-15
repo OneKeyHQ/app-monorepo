@@ -49,7 +49,7 @@ function TokenListFooter(props: IProps) {
 
   const handleLowValueTokensPress = useCallback(() => {
     if (!account || !network || smallBalanceTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.AssetListModal, {
+    navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Low-value Assets',

@@ -8,9 +8,10 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
+import { EModalAssetDetailRoutes } from '../../../AssetDetails/router/types';
+
 import { NFTListHeader } from './NFTListHeader';
 import { NFTListItem } from './NFTListItem';
-import { EModalAssetDetailRoutes } from '../../../AssetDetails/router/types';
 
 type IProps = {
   data: IAccountNFT[];
@@ -45,7 +46,7 @@ function NFTListView(props: IProps) {
   const handleOnPressNFT = useCallback(
     (nft: IAccountNFT) => {
       if (!account || !network) return;
-      navigation.pushModal(EModalRoutes.AssetDetailsModal, {
+      navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.NFTDetails,
         params: {
           networkId: network.id,

@@ -19,7 +19,6 @@ import type {
   IModalAssetListParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
-import { EModalRoutes } from '../../../routes/Modal/type';
 
 function TokenList() {
   const navigation = useAppNavigation();
@@ -54,16 +53,13 @@ function TokenList() {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      navigation.pushModal(EModalRoutes.AssetDetailsModal, {
-        screen: EModalAssetDetailRoutes.TokenDetails,
-        params: {
-          accountId,
-          networkId,
-          tokenAddress: token.address,
-          tokenSymbol: token.symbol,
-          tokenLogoURI: token.logoURI,
-          isNative: token.isNative,
-        },
+      navigation.push(EModalAssetDetailRoutes.TokenDetails, {
+        accountId,
+        networkId,
+        tokenAddress: token.address,
+        tokenSymbol: token.symbol,
+        tokenLogoURI: token.logoURI,
+        isNative: token.isNative,
       });
     },
     [accountId, navigation, networkId],

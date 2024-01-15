@@ -37,7 +37,7 @@ function TokenListHeader({ tableLayout }: IProps) {
 
   const handleHiddenPress = useCallback(() => {
     if (!account || !network || riskyTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.AssetListModal, {
+    navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Blocked Assets',

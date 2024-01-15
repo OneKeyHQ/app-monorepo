@@ -93,7 +93,7 @@ function TokenListContainer(props: IProps) {
   const handleOnPressToken = useCallback(
     (token: IToken) => {
       if (!account || !network) return;
-      navigation.pushModal(EModalRoutes.AssetDetailsModal, {
+      navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,

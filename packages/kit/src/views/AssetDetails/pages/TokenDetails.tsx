@@ -114,7 +114,9 @@ export function TokenDetails() {
   );
 
   const handleReceivePress = useCallback(() => {
-    navigation.push(EModalReceiveRoutes.LightingInvoice);
+    navigation.pushFullModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.LightingInvoice,
+    });
   }, [navigation]);
 
   const handleHistoryItemPress = useCallback(() => {

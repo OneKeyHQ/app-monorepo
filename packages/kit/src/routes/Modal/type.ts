@@ -11,6 +11,7 @@ import type { IModalSettingParamList } from '../../views/Setting/router/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
 
 export enum EModalRoutes {
+  MainModal = 'MainModal',
   DiscoveryModal = 'DiscoveryModal',
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
@@ -20,11 +21,11 @@ export enum EModalRoutes {
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
-  AssetDetailsModal = 'AssetDetailsModal',
-  AssetListModal = 'AssetListModal',
 }
 
 export type IModalParamList = {
+  [EModalRoutes.MainModal]: IModalAssetListParamList &
+    IModalAssetDetailsParamList;
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.SettingModal]: IModalSettingParamList;
@@ -34,6 +35,4 @@ export type IModalParamList = {
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
-  [EModalRoutes.AssetDetailsModal]: IModalAssetDetailsParamList;
-  [EModalRoutes.AssetListModal]: IModalAssetListParamList;
 };
