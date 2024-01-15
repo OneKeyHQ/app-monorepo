@@ -48,12 +48,12 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       quoteResult?.toAmount ?? '0',
     ).multipliedBy(toTokenPriceBN);
     return {
-      fromTokenFiatValue: fromTokenFiatValueBN
-        .decimalPlaces(6, BigNumber.ROUND_DOWN)
-        .toFixed(),
-      toTokenFiatValue: toTokenFiatValueBN
-        .decimalPlaces(6, BigNumber.ROUND_DOWN)
-        .toFixed(),
+      fromTokenFiatValue: fromTokenFiatValueBN.isNaN()
+        ? '0'
+        : fromTokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed(),
+      toTokenFiatValue: toTokenFiatValueBN.isNaN()
+        ? '0'
+        : toTokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed(),
     };
   }, [
     fromInputAmount,

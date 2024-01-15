@@ -189,6 +189,7 @@ export const { atom: swapStepStateAtom, use: useSwapStepStateAtom } =
     }
     stepState.type = ESwapStepStateType.BUILD_TX;
     stepState.isLoading = buildTxFetching;
+    stepState.isWrapped = !!quoteCurrentSelect.isWrapped;
     stepState.disabled = buildTxFetching;
     return stepState;
   });

@@ -20,7 +20,12 @@ export function useSwapBuildTx() {
   const [selectQuote] = useSwapResultQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapBuildTxResult] = useSwapBuildTxResultAtom();
-
+  const wrappedTx = useCallback(async () => {
+    // todo wrapped tx
+  }, []);
+  const approveTx = useCallback(async (allowanceNumber: number) => {
+    // todo approve tx
+  }, []);
   const buildTx = useCallback(async () => {
     if (
       fromToken &&
@@ -54,5 +59,5 @@ export function useSwapBuildTx() {
     toToken,
   ]);
 
-  return { buildTx };
+  return { buildTx, wrappedTx, approveTx };
 }

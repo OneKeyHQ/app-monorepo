@@ -66,6 +66,7 @@ export interface IFetchQuoteResult {
   estimatedTime?: string;
   isBest?: boolean;
   limit?: IFetchQuoteLimit;
+  isWrapped?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -112,6 +113,7 @@ export enum ESwapStepStateType {
 export interface ISwapStepState {
   type: ESwapStepStateType;
   isLoading: boolean;
+  isWrapped?: boolean;
   disabled: boolean;
   isCrossChain: boolean;
   wrongMsg?: string;

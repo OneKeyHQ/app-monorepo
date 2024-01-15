@@ -16,7 +16,7 @@ import SwapQuoteResult from './SwapQuoteResult';
 import { withSwapProvider } from './WithSwapProvider';
 
 const SwapMainLoad = () => {
-  const { buildTx } = useSwapBuildTx();
+  const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
@@ -48,10 +48,17 @@ const SwapMainLoad = () => {
     });
   }, [navigation]);
 
-  const onApprove = useCallback((allowanceValue: number) => {
-    console.log('onApprove-', allowanceValue); // -1 means infinite
-    // todo
-  }, []);
+  const onApprove = useCallback(
+    async (allowanceValue: number) => {
+      await approveTx(allowanceValue);
+      console.log('onApprove-', allowanceValue); // -1 means infinite
+    },
+    [approveTx],
+  );
+
+  const onWrapped = useCallback(async () => {
+    const res = await wrappedTx();
+  }, [wrappedTx]);
 
   const onBuildTx = useCallback(async () => {
     const res = await buildTx();
@@ -71,7 +78,11 @@ const SwapMainLoad = () => {
         <SwapSlippageTrigger onOpenSlippageModal={onOpenSlippageModal} />
       </XStack>
       <SwapQuoteInput onSelectToken={onSelectToken} />
-      <SwapActionsState onBuildTx={onBuildTx} onApprove={onApprove} />
+      <SwapActionsState
+        onBuildTx={onBuildTx}
+        onApprove={onApprove}
+        onWrapped={onWrapped}
+      />
       <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
     </YStack>
   );

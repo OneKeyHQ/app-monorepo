@@ -20,10 +20,15 @@ import { ESwapStepStateType } from '../types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
+  onWrapped: () => void;
   onApprove: (allowanceValue: number) => void;
 }
 
-const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
+const SwapActionsState = ({
+  onBuildTx,
+  onApprove,
+  onWrapped,
+}: ISwapActionsStateProps) => {
   const [swapStepState] = useSwapStepStateAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
@@ -82,14 +87,15 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
     if (swapStepState.type === ESwapStepStateType.ACCOUNT_CHECK) {
       return 'Insufficient Balance';
     }
+    if (swapStepState.isWrapped) {
+      return 'Wrap';
+    }
     return 'Swap';
   }, [
     fromAmount,
     fromToken?.symbol,
     selectCurrentProvider?.info.providerName,
-    swapStepState.isCrossChain,
-    swapStepState.isLoading,
-    swapStepState.type,
+    swapStepState,
   ]);
 
   const onActionHandler = useCallback(() => {
@@ -98,9 +104,20 @@ const SwapActionsState = ({ onBuildTx, onApprove }: ISwapActionsStateProps) => {
       return;
     }
     if (swapStepState.type === ESwapStepStateType.BUILD_TX) {
+      if (swapStepState.isWrapped) {
+        onWrapped();
+        return;
+      }
       onBuildTx();
     }
-  }, [fromAmount, onApprove, onBuildTx, swapStepState.type]);
+  }, [
+    fromAmount,
+    onApprove,
+    onBuildTx,
+    onWrapped,
+    swapStepState.isWrapped,
+    swapStepState.type,
+  ]);
 
   const onAction2Handler = useCallback(() => {
     onApprove(-1); // -1 means approve unlimited
