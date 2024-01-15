@@ -3,7 +3,7 @@ import { isString } from 'lodash';
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { registerHandler } from './handler.desktop';
+import { registerHandler } from './handler';
 
 type IDeepLinkUrlParsedResult = undefined;
 export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
