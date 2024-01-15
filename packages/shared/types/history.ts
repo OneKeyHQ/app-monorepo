@@ -79,3 +79,13 @@ export type IFetchAccountHistoryResp = {
     items: IOnChainHistoryTx[];
   }[];
 };
+
+export type IFetchHistoryTxDetailsParams = {
+  networkId: string;
+  txid: string;
+};
+
+export type IFetchHistoryTxDetailsResp = {
+  data: IOnChainHistoryTx;
+  tokens: { info: IToken }[];
+};

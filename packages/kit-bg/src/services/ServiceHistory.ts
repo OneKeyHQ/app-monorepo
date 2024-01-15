@@ -6,6 +6,8 @@ import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchHistoryTxDetailsParams,
+  IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
 
 import { vaultFactory } from '../vaults/factory';
@@ -57,6 +59,18 @@ class ServiceHistory extends ServiceBase {
     }
 
     return txGroup;
+  }
+
+  @backgroundMethod()
+  public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
+    const client = await this.getClient();
+    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+      '/wallet/v1/account/history/detail',
+      {
+        params,
+      },
+    );
+    return resp.data.data;
   }
 }
 

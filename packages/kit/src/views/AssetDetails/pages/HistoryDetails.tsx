@@ -1,89 +1,169 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { useRoute } from '@react-navigation/core';
+import { format } from 'date-fns';
+import { isEmpty, isNil } from 'lodash';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  DescriptionList,
   Divider,
   Heading,
-  Icon,
   Image,
   ListItem,
   Page,
-  SizableText,
+  Spinner,
+  Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-const histories: {
-  key: string;
-  value: string;
-  iconAfter?: IKeyOfIcons;
-  onPress?: () => void;
-  imgUrl?: string;
-}[][] = [
-  [
-    {
-      key: 'From',
-      value: '0x123456...34567890',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-    {
-      key: 'To',
-      value: '0x123456...34567890',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-  ],
-  [
-    {
-      key: 'Token',
-      value: '1000 USDC',
-      imgUrl:
-        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-    },
-    {
-      key: 'Token Contrast',
-      value: '0xa0b8...eb48',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-  ],
-  [
-    {
-      key: 'Hash',
-      value: '0xd878...144f',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-    {
-      key: 'Time',
-      value: 'Dec 04 2023, 21:33',
-    },
-  ],
-  [
-    {
-      key: 'Chain',
-      value: 'Ethereum',
-      imgUrl:
-        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-    },
-    {
-      key: 'Fee',
-      value: '0.00487789 ETH',
-    },
-    {
-      key: 'Nonce',
-      value: '138',
-    },
-  ],
-];
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { TxDetails } from '../../../components/TxDetails';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+
+import type { IProps as ITxDetailsProps } from '../../../components/TxDetails';
+import type {
+  EModalAssetDetailRoutes,
+  IModalAssetDetailsParamList,
+} from '../router/types';
+import type { RouteProp } from '@react-navigation/core';
 
 function HistoryDetails() {
-  const status = 'pending';
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAssetDetailsParamList,
+        EModalAssetDetailRoutes.HistoryDetails
+      >
+    >();
+
+  const { networkId, historyTx } = route.params;
+
+  const network = usePromiseResult(
+    () => mockGetNetwork({ networkId }),
+    [networkId],
+  ).result;
+
+  const resp = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+        networkId,
+        txid: historyTx.decodedTx.txid,
+      }),
+    [historyTx.decodedTx.txid, networkId],
+    { watchLoading: true },
+  );
+
+  const nativeToken = usePromiseResult(
+    () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
+    [network?.id],
+  ).result;
+
+  const { data: txDetails } = resp.result ?? {};
+
+  const relatedAssetInfo = useMemo(() => {
+    if (!txDetails) return undefined;
+    const asset = txDetails.sends[0]?.info || txDetails.receives[0]?.info;
+
+    let assetInfo = {
+      address: '',
+      logoURI: '',
+      symbol: '',
+    };
+
+    if ((asset as IAccountNFT)?.itemId) {
+      const nft = asset as IAccountNFT;
+      assetInfo = {
+        address: nft.collectionAddress,
+        logoURI: nft.metadata.image,
+        symbol: nft.collectionSymbol,
+      };
+    }
+    if ((asset as IToken)?.name) {
+      const token = asset as IToken;
+      assetInfo = {
+        address: token.address,
+        logoURI: token.logoURI,
+        symbol: token.symbol,
+      };
+    }
+
+    return assetInfo;
+  }, [txDetails]);
+
+  const details = useMemo(() => {
+    if (!txDetails) return [];
+    return [
+      [
+        {
+          key: 'From',
+          value: txDetails.from,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+        {
+          key: 'To',
+          value: txDetails.to,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+      ],
+      [
+        {
+          key: 'Token',
+          value: relatedAssetInfo?.symbol,
+          imgUrl: relatedAssetInfo?.logoURI,
+        },
+        {
+          key: 'Token Contrast',
+          value: relatedAssetInfo?.address,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+      ],
+      [
+        {
+          key: 'Hash',
+          value: txDetails.tx,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+        {
+          key: 'Time',
+          value: format(new Date(txDetails.timestamp * 1000), 'PPpp'),
+        },
+      ],
+      [
+        {
+          key: 'Chain',
+          value: network?.name,
+          imgUrl: network?.logoURI,
+        },
+        {
+          key: 'Fee',
+          value: `${txDetails.gasFee} ${nativeToken?.symbol ?? ''}`,
+        },
+        {
+          key: 'Nonce',
+          value: txDetails.nonce,
+        },
+      ],
+    ].map((section) =>
+      section.filter((item) => !isNil(item.value) && !isEmpty(item.value)),
+    ) as ITxDetailsProps['details'];
+  }, [
+    nativeToken?.symbol,
+    network?.logoURI,
+    network?.name,
+    relatedAssetInfo?.address,
+    relatedAssetInfo?.logoURI,
+    relatedAssetInfo?.symbol,
+    txDetails,
+  ]);
 
   const headerTitle = useCallback(
     () => (
@@ -92,22 +172,29 @@ function HistoryDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
+            uri: relatedAssetInfo?.logoURI,
           }}
         />
         <Heading pl="$2" size="$headingLg">
-          Send
+          {txDetails?.label.label}
         </Heading>
       </XStack>
     ),
-    [],
+    [relatedAssetInfo?.logoURI, txDetails?.label.label],
   );
 
-  return (
-    <Page>
-      <Page.Header headerTitle={headerTitle} />
-      <Page.Body>
-        {status === 'pending' && (
+  const renderHistoryDetails = useCallback(() => {
+    if (resp.isLoading) {
+      return (
+        <Stack justifyContent="center" alignItems="center">
+          <Spinner />
+        </Stack>
+      );
+    }
+
+    return (
+      <Stack>
+        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
           <>
             <ListItem icon="ClockTimeHistoryOutline" title="Pending">
               <Button size="small" variant="tertiary">
@@ -120,62 +207,15 @@ function HistoryDetails() {
             <Divider mb="$5" pt="$3" />
           </>
         )}
-        {histories.map((section, index) => (
-          <DescriptionList
-            mx="$5"
-            // space="$0"
-            key={index}
-            {...(index !== 0 && {
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderColor: '$borderSubdued',
-              mt: '$4',
-              pt: '$4',
-            })}
-          >
-            {section.map((item, itemIndex = index) => (
-              <DescriptionList.Item
-                key={item.key}
-                {...(itemIndex !== 0 &&
-                  {
-                    // mt: '$2',
-                    // pt: '$2',
-                    // borderTopWidth: StyleSheet.hairlineWidth,
-                    // borderTopColor: '$borderSubdued',
-                  })}
-                // $gtMd={{
-                //   justifyContent: 'flex-start',
-                // }}
-              >
-                <DescriptionList.Item.Key
-                // $gtMd={{
-                //   flexBasis: '20%',
-                // }}
-                >
-                  {item.key}
-                </DescriptionList.Item.Key>
-                <XStack alignItems="center">
-                  {item.imgUrl && (
-                    <Image
-                      width="$5"
-                      height="$5"
-                      source={{
-                        uri: item.imgUrl,
-                      }}
-                      mr="$1.5"
-                    />
-                  )}
-                  <DescriptionList.Item.Value
-                    iconAfter={item.iconAfter}
-                    onPress={item.onPress}
-                  >
-                    {item.value}
-                  </DescriptionList.Item.Value>
-                </XStack>
-              </DescriptionList.Item>
-            ))}
-          </DescriptionList>
-        ))}
-      </Page.Body>
+        <TxDetails details={details} />
+      </Stack>
+    );
+  }, [resp.isLoading, historyTx.decodedTx.status, details]);
+
+  return (
+    <Page>
+      <Page.Header headerTitle={headerTitle} />
+      <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );
 }
