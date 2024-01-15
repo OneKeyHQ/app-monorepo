@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+import { ETxActionComponentType } from '@onekeyhq/shared/types';
 
 import { Container } from '../../components/Container';
 
@@ -37,7 +38,10 @@ function TxActionsContainer() {
             : intl.formatMessage({ id: 'form__transaction' })
         }
       >
-        <TxActionsListView componentType="T1" decodedTx={decodedTx} />
+        <TxActionsListView
+          componentType={ETxActionComponentType.DetailView}
+          decodedTx={decodedTx}
+        />
         <Divider />
         <Container.Item>
           <Stack>

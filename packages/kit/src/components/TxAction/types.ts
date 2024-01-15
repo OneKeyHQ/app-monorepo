@@ -1,4 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 export type ITxActionProps = {
@@ -7,8 +8,12 @@ export type ITxActionProps = {
 };
 
 export type ITxActionComponents = {
-  T0: (props: ITxActionProps) => JSX.Element | null;
-  T1: (props: ITxActionProps) => JSX.Element | null;
+  [ETxActionComponentType.ListView]: (
+    props: ITxActionProps,
+  ) => JSX.Element | null;
+  [ETxActionComponentType.DetailView]: (
+    props: ITxActionProps,
+  ) => JSX.Element | null;
 };
 
 export type ITxActionCommonProps = {

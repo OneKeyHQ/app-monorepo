@@ -2,7 +2,10 @@ import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { TxActionCommonT0, TxActionCommonT1 } from './TxActionCommon';
+import {
+  TxActionCommonDetailView,
+  TxActionCommonListView,
+} from './TxActionCommon';
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 
@@ -22,7 +25,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   };
 }
 
-function TxActionTokenApproveT0(props: ITxActionProps) {
+function TxActionTokenApproveListView(props: ITxActionProps) {
   const intl = useIntl();
   const { tableLayout } = props;
   const { approveIcon, approveSpender, approveLabel } =
@@ -44,7 +47,7 @@ function TxActionTokenApproveT0(props: ITxActionProps) {
   };
 
   return (
-    <TxActionCommonT0
+    <TxActionCommonListView
       title={title}
       avatar={avatar}
       description={description}
@@ -53,7 +56,7 @@ function TxActionTokenApproveT0(props: ITxActionProps) {
   );
 }
 
-function TxActionTokenApproveT1(props: ITxActionProps) {
+function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const intl = useIntl();
   const { approveIcon, approveSpender, approveLabel } =
     getTxActionTokenApproveInfo(props);
@@ -65,7 +68,7 @@ function TxActionTokenApproveT1(props: ITxActionProps) {
   })}`;
 
   return (
-    <TxActionCommonT1
+    <TxActionCommonDetailView
       title={title}
       icon={approveIcon}
       content={content}
@@ -74,4 +77,4 @@ function TxActionTokenApproveT1(props: ITxActionProps) {
   );
 }
 
-export { TxActionTokenApproveT0, TxActionTokenApproveT1 };
+export { TxActionTokenApproveListView, TxActionTokenApproveDetailView };

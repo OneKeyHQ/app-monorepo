@@ -95,3 +95,8 @@ export enum EAssetType {
   Token = 'Token',
   NFT = 'NFT',
 }
+
+export enum ETxActionComponentType {
+  ListView = 'ListView',
+  DetailView = 'DetailView',
+}
