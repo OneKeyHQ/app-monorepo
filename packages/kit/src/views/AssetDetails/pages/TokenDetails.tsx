@@ -98,6 +98,7 @@ export function TokenDetails() {
     if (!account || !network) return;
     const r = backgroundApiProxy.serviceHistory.fetchAccountHistory({
       accountId: account.id,
+      accountAddress: account.address,
       networkId,
       tokenAddress,
     });

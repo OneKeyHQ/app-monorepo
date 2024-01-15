@@ -69,6 +69,7 @@ export type IHistoryListSectionGroup = {
 export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
+  accountAddress: string;
   tokenAddress?: string;
 };
 
