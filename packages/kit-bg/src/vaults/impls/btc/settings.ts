@@ -60,6 +60,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  NFTEnabled: false,
+
   isUtxo: true,
 
   accountDeriveInfo,

@@ -88,6 +88,7 @@ export type IVaultSettings = {
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
   isUtxo: boolean;
+  NFTEnabled: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;

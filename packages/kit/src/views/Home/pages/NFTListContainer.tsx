@@ -1,3 +1,4 @@
+import { Empty, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -16,21 +17,40 @@ function NFTListContainer(props: IProps) {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
+  const isNFTEnabled = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNFT.getIsNetworkNFTEnabled({
+        networkId: network?.id ?? '',
+      }),
+    [network?.id],
+  ).result;
+
   const nfts = usePromiseResult(
     async () => {
-      if (!account || !network) return;
+      if (!account || !network || !isNFTEnabled) return;
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         networkId: network.id,
         accountAddress: account.address,
       });
       return r.data;
     },
-    [account, network],
+    [account, isNFTEnabled, network],
     {
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
   );
+
+  if (!isNFTEnabled) {
+    return (
+      <Stack h="100%" alignItems="center" justifyContent="center">
+        <Empty
+          title="Not Supported"
+          description="The chain does support NFT yet."
+        />
+      </Stack>
+    );
+  }
 
   return (
     <NFTListView
