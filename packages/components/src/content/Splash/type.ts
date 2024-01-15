@@ -7,6 +7,5 @@ export interface ISplashViewProps {
 }
 
 export type ISplashViewChildrenContentProps = PropsWithChildren<{
-  visible?: boolean;
   onLayout?: (event: LayoutChangeEvent) => void;
 }>;

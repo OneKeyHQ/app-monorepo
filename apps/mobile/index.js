@@ -2,7 +2,7 @@
 /* eslint-disable import/order */
 const {
   markJsBundleLoadedTime,
-} = require('@onekeyhq/shared/src/modules3rdParty/react-native-metrix');
+} = require('@onekeyhq/shared/src/modules3rdParty/metrics');
 
 markJsBundleLoadedTime();
 

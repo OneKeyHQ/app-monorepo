@@ -12,7 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { getMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/react-native-metrix';
+import { useMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -57,6 +57,17 @@ function PartContainer({
         {children}
       </YStack>
     </YStack>
+  );
+}
+
+function StartTimePanel() {
+  const { jsBundleLoadedTime, fpTime } = useMeasureTime();
+  return (
+    <PartContainer title="Startup Time(ms)">
+      <SizableText>Load Time: {jsBundleLoadedTime}</SizableText>
+      <SizableText>Render time: {fpTime - jsBundleLoadedTime}</SizableText>
+      <SizableText>Startup Time: {fpTime}</SizableText>
+    </PartContainer>
   );
 }
 
@@ -152,9 +163,7 @@ const TabDeveloper = () => {
               Async Import Test
             </Button>
           </PartContainer>
-          <PartContainer title="Cold Startup Time(ms)">
-            <SizableText>{getMeasureTime().jsBundleLoadedTime}</SizableText>
-          </PartContainer>
+          <StartTimePanel />
         </ScrollView>
       </Page.Body>
     </Page>
