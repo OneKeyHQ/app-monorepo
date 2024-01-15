@@ -2,7 +2,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -238,24 +238,51 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         from: tx.from,
         to: tx.to,
         label: tx.label.label,
-        sends: tx.sends.map((send) => ({ ...send, label: send.label.label })),
-        receives: tx.receives.map((receive) => ({
-          ...receive,
-          label: receive.label.label,
-        })),
+        sends: tx.sends.map((send) => this.buildHistoryTransfer(send)),
+        receives: tx.receives.map((receive) =>
+          this.buildHistoryTransfer(receive),
+        ),
       },
+    };
+  }
+
+  buildHistoryTransfer(transfer: IOnChainHistoryTxTransfer) {
+    let image = '';
+    let symbol = '';
+    let isNFT = false;
+    if (!isNil((transfer.info as IAccountNFT)?.itemId)) {
+      const info = transfer.info as IAccountNFT;
+      image = info.metadata.image;
+      symbol = info.metadata.name;
+      isNFT = true;
+    } else if (!isNil((transfer.info as IToken)?.address)) {
+      const info = transfer.info as IToken;
+      image = info.logoURI;
+      symbol = info.symbol;
+    }
+
+    return {
+      from: transfer.from,
+      to: transfer.to,
+      token: transfer.token,
+      amount: transfer.amount,
+      image,
+      symbol,
+      isNFT,
+      label: transfer.label.label,
     };
   }
 
   buildHistoryTxApproveAction(tx: IOnChainHistoryTx): IDecodedTxAction {
     const approve = tx.sends[0];
+    const transfer = this.buildHistoryTransfer(approve);
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         label: approve.label.label ?? tx.label.label,
         owner: approve.from,
         spender: approve.to,
-        tokenIcon: approve.image,
+        tokenIcon: transfer.image,
         amount: new BigNumber(approve.amount).abs().toFixed(),
       },
     };

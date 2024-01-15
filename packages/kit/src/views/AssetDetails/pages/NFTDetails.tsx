@@ -9,16 +9,22 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents';
-import { ETokenPages } from '../router/type';
+import { EModalSendRoutes } from '../../Send/router';
 
-import type { ITokenParamList } from '../router/type';
+import type {
+  EModalAssetDetailRoutes,
+  IModalAssetDetailsParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export function NFTDetails() {
   const navigation = useAppNavigation();
   const device = 'Touch';
 
-  const route = useRoute<RouteProp<ITokenParamList, ETokenPages.NFTDetails>>();
+  const route =
+    useRoute<
+      RouteProp<IModalAssetDetailsParamList, EModalAssetDetailRoutes.NFTDetails>
+    >();
   const { networkId, accountAddress, collectionAddress, itemId } = route.params;
 
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
@@ -55,7 +61,7 @@ export function NFTDetails() {
   );
 
   const handleSendPress = useCallback(() => {
-    navigation.push(ETokenPages.Send, { isNFT: true });
+    navigation.push(EModalSendRoutes.SendDataInput, { isNFT: true });
   }, [navigation]);
 
   if (!nft)

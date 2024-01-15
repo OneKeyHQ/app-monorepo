@@ -177,7 +177,7 @@ function TxActionTransferT0(props: ITxActionProps) {
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
       changeSymbol: '-',
-      transfers: receives,
+      transfers: sends,
       intl,
     });
     const receiveChangeInfo = buildTransferChangeInfo({
@@ -189,8 +189,8 @@ function TxActionTransferT0(props: ITxActionProps) {
     changeDescription = sendChangeInfo.change;
     description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = [
-      receiveNFTIcon || receiveTokenIcon,
       sendNFTIcon || sendTokenIcon,
+      receiveNFTIcon || receiveTokenIcon,
     ].filter(Boolean);
   }
 

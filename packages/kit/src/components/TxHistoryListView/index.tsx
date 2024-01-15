@@ -16,7 +16,7 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
   showHeader?: boolean;
-  onItemPress?: () => void; // test only, should remove in the future
+  onPressHistory?: (history: IAccountHistoryTx) => void;
 };
 
 function TxHistoryListEmpty() {
@@ -51,7 +51,7 @@ const ItemSeparatorComponent = ({
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
-  const { data, showHeader, onItemPress, tableLayout, onContentSizeChange } =
+  const { data, showHeader, onPressHistory, tableLayout, onContentSizeChange } =
     props;
 
   return (
@@ -68,7 +68,7 @@ function TxHistoryListView(props: IProps) {
       renderItem={({ item }: { item: IAccountHistoryTx }) => (
         <TxHistoryListItem
           historyTx={item}
-          onPress={onItemPress}
+          onPress={onPressHistory}
           tableLayout={tableLayout}
         />
       )}

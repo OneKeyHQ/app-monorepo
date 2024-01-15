@@ -9,11 +9,11 @@ type IProps = {
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout } = props;
+  const { historyTx, tableLayout, onPress } = props;
   const { decodedTx } = historyTx;
 
   return (
-    <Stack>
+    <Stack onPress={() => onPress?.(historyTx)}>
       <TxActionsListView
         historyTx={historyTx}
         decodedTx={decodedTx}

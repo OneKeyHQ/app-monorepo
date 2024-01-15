@@ -2,13 +2,14 @@ import { useCallback } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { ETokenPages } from '../../Token/router/type';
+import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
 
 type IProps = {
@@ -24,11 +25,19 @@ function TxHistoryListContainer(props: IProps) {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
-  const handleHistoryItemPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.History,
-    });
-  }, [navigation]);
+  const handleHistoryItemPress = useCallback(
+    (history: IAccountHistoryTx) => {
+      if (!account || !network) return;
+      navigation.pushModal(EModalRoutes.AssetDetailsModal, {
+        screen: EModalAssetDetailRoutes.HistoryDetails,
+        params: {
+          networkId: network.id,
+          historyTx: history,
+        },
+      });
+    },
+    [account, navigation, network],
+  );
 
   const history = usePromiseResult(
     async () => {
@@ -50,7 +59,7 @@ function TxHistoryListContainer(props: IProps) {
   return (
     <TxHistoryListView
       data={history.result ?? []}
-      onItemPress={handleHistoryItemPress}
+      onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}
       onContentSizeChange={onContentSizeChange}

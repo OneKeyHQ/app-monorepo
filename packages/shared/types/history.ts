@@ -1,5 +1,7 @@
 import type { ILocaleIds } from '@onekeyhq/components';
 
+import type { IAccountNFT } from './nft';
+import type { IToken } from './token';
 import type { IDecodedTx, IReplacedTxType } from './tx';
 
 export enum EOnChainHistoryTransferType {
@@ -18,10 +20,8 @@ export type IOnChainHistoryTxTransfer = {
   to: string;
   token: string;
   amount: string;
-  image: string;
-  symbol: string;
   label: IOnChainHistoryTxLabel;
-  isNFT?: boolean;
+  info: IToken | IAccountNFT;
 };
 
 export type IOnChainHistoryTxLabel = {

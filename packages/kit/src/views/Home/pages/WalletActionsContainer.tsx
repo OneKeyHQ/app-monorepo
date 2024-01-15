@@ -14,8 +14,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
-import { ETokenPages } from '../../Token/router/type';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
@@ -92,8 +92,8 @@ function WalletActionsContainer() {
       ),
       onConfirm: async ({ close }) => {
         await close();
-        navigation.pushModal(EModalRoutes.TokenModal, {
-          screen: ETokenPages.Receive,
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.LightingInvoice,
         });
       },
     });
