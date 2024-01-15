@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 
-export const LastActivityTracker = () => {
+const LastActivityTracker = () => {
   const refresh = useCallback(() => {
     if (AppState.currentState === 'active') {
       backgroundApiProxy.serviceSetting
@@ -18,3 +18,5 @@ export const LastActivityTracker = () => {
   useEffect(refresh, []);
   return null;
 };
+
+export default LastActivityTracker;
