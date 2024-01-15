@@ -53,7 +53,11 @@ const processDeepLinkUrl = memoizee(
         path === WalletConnectUniversalLinkPath
       ) {
         if (queryParams?.uri) {
-          wcUri = queryParams.uri as string;
+          wcUri = `${queryParams.uri as string}${
+            queryParams?.symKey
+              ? `&symKey=${queryParams?.symKey as string}`
+              : ''
+          }`;
         }
       }
 
@@ -70,7 +74,11 @@ const processDeepLinkUrl = memoizee(
           (hostname === WALLET_CONNECT_DEEP_LINK_NAME && !path)
         ) {
           if (queryParams?.uri) {
-            wcUri = queryParams.uri as string;
+            wcUri = `${queryParams.uri as string}${
+              queryParams?.symKey
+                ? `&symKey=${queryParams?.symKey as string}`
+                : ''
+            }`;
           }
         }
       }
@@ -96,10 +104,7 @@ const processDeepLinkUrl = memoizee(
       }
 
       if (wcUri) {
-        console.log(
-          'Create walletConnect connection by DeepLink: ',
-          wcUri.slice(0, 50),
-        );
+        console.log('Create walletConnect connection by DeepLink: ', wcUri);
 
         await backgroundApiProxy.walletConnect.initialize();
         await backgroundApiProxy.walletConnect.connect(wcUri);

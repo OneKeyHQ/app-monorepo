@@ -600,4 +600,5 @@ module.exports = [
   'uints',
   'ufixedM',
   'ufixed',
+  'sym', // WalletConnect uri params
 ];
