@@ -59,7 +59,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUtxo: false,
-  NFTEnabled: false,
+  NFTEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

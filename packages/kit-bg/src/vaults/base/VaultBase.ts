@@ -168,9 +168,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const { accountId, networkId, onChainHistoryTx } = params;
 
     try {
-      const action = this.buildHistoryTxAction({
-        tx: onChainHistoryTx,
-      });
+      const action = this.buildHistoryTxAction({ tx: onChainHistoryTx });
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,

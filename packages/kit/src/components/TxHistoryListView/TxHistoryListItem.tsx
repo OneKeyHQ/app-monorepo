@@ -16,7 +16,6 @@ function TxHistoryListItem(props: IProps) {
   return (
     <Stack onPress={() => onPress?.(historyTx)}>
       <TxActionsListView
-        historyTx={historyTx}
         decodedTx={decodedTx}
         tableLayout={tableLayout}
         componentType={ETxActionComponentType.ListView}

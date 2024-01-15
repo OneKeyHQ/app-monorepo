@@ -99,7 +99,6 @@ export function TokenDetails() {
     const r = backgroundApiProxy.serviceHistory.fetchAccountHistory({
       accountId: account.id,
       networkId,
-      accountAddress: account.address,
       tokenAddress,
     });
     return r;

@@ -6,7 +6,6 @@ import { getTxActionMeta } from '../../utils/getTxActionMeta';
 import { getDisplayedActions } from '../../utils/txAction';
 
 type IProps = {
-  historyTx?: IAccountHistoryTx;
   decodedTx: IDecodedTx;
   componentType?: ETxActionComponentType;
   tableLayout?: boolean;
