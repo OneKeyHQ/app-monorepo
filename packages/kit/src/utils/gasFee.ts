@@ -115,13 +115,13 @@ export function calculateTotalFeeNative({
 export function calculateFeeForSend({
   feeInfo,
   nativeTokenPrice,
-  nativeDecimal = 8,
-  fiatDecimal = 2,
+  nativeDisplayDecimal = 8,
+  fiatDisplayDecimal = 2,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
-  nativeDecimal?: number;
-  fiatDecimal?: number;
+  nativeDisplayDecimal?: number;
+  fiatDisplayDecimal?: number;
 }) {
   const feeRange = calculateTotalFeeRange(feeInfo);
   const total = feeRange.max;
@@ -129,16 +129,16 @@ export function calculateFeeForSend({
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
-    displayDecimal: nativeDecimal,
+    displayDecimal: nativeDisplayDecimal,
   });
   const totalNativeForDisplay = calculateTotalFeeNative({
     amount: totalForDisplay,
     feeInfo,
-    displayDecimal: nativeDecimal,
+    displayDecimal: nativeDisplayDecimal,
   });
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
     .multipliedBy(nativeTokenPrice)
-    .toFixed(fiatDecimal);
+    .toFixed(fiatDisplayDecimal);
 
   return {
     total,
