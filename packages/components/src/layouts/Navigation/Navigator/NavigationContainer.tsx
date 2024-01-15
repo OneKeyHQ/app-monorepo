@@ -24,7 +24,9 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
   const routerRef = useContext(RouterEventContext);
   useEffect(() => {
     routerRef.current.push(callback);
-    callback?.(rootNavigationRef.current?.getState());
+    if (rootNavigationRef.current) {
+      callback?.(rootNavigationRef.current?.getState());
+    }
     return () => {
       routerRef.current = routerRef.current.filter((i) => i !== callback);
     };

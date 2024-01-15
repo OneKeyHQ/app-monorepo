@@ -1,4 +1,4 @@
-import { rootNavigationRef, useOnRouterChange } from '@onekeyhq/components';
+import { useOnRouterChange } from '@onekeyhq/components';
 
 import { ERootRoutes } from '../routes/enum';
 
@@ -9,10 +9,10 @@ export default function useListenTabFocusState(
   callback: (isFocus: boolean) => void,
 ) {
   const tabNames = Array.isArray(tabName) ? tabName : [tabName];
-  useOnRouterChange(() => {
-    const rootState = rootNavigationRef.current
-      ?.getState()
-      .routes.find(({ name }) => name === ERootRoutes.Main)?.state;
+  useOnRouterChange((state) => {
+    const rootState = state?.routes.find(
+      ({ name }) => name === ERootRoutes.Main,
+    )?.state;
     const currentTabName = rootState?.routeNames
       ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
       : (rootState?.routes[0].name as ETabRoutes);
