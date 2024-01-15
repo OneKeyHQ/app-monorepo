@@ -78,7 +78,11 @@ function ModalNavigator({
   const descriptor = descriptors[state.routes?.[state.index].key];
   const handleBackdropClick = useCallback(() => {
     if (!descriptor.options.disableClose) {
-      navigation.goBack();
+      if (descriptor.options.shouldPopOnClickBackdrop) {
+        navigation.goBack();
+      } else {
+        navigation?.getParent?.()?.goBack();
+      }
     }
   }, [navigation, descriptor]);
 
@@ -152,6 +156,7 @@ function ModalNavigator({
             // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
             onPress={(e) => e?.stopPropagation()}
             testID="APP-Modal-Screen"
+            bg="$bgApp"
             overflow="hidden"
             width="100%"
             height="100%"

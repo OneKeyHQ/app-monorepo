@@ -43,6 +43,7 @@ function HeaderView({
     headerRight,
     headerTitle,
     headerTitleAlign,
+    headerTransparent = false,
     headerStyle,
     headerBackground,
     headerShown = true,
@@ -87,7 +88,10 @@ function HeaderView({
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
         alignItems="center"
-        backgroundColor="$bgApp"
+        bg={!headerTransparent ? '$bgApp' : 'transparent'}
+        style={
+          headerTransparent ? { position: 'absolute', right: 0, left: 0 } : {}
+        }
         // borderBottomWidth={StyleSheet.hairlineWidth}
         // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
@@ -111,7 +115,7 @@ function HeaderView({
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
-                : headerRight
+                : (headerRight as any)
             }
             headerTitle={
               typeof headerTitle === 'function'

@@ -4,13 +4,20 @@
   "main": "index.js",
   "scripts": {
     "start": "webpack serve",
-    "clean": "rimraf web-build",
-    "build": "yarn clean && cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh"
+    "start:proxy": "ONEKEY_PROXY=true yarn start",
+    "clean": "yarn clean:build",
+    "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
+    "build": "yarn clean && cross-env NODE_ENV=production webpack build && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "_folderslint": "yarn folderslint"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*"
+  },
+  "devDependencies": {
+    "folderslint": "^1.2.0",
+    "rimraf": "^3"
   },
   "private": true
 }

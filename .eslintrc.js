@@ -48,7 +48,7 @@ const tsRules = {
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
   '@typescript-eslint/naming-convention': [
-    'warn',
+    'error',
     {
       'selector': ['interface', 'typeAlias'],
       'format': ['PascalCase'],
@@ -114,7 +114,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck'],
+  plugins: ['spellcheck', 'import-path'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -168,6 +168,16 @@ module.exports = {
     worker: true,
   },
   rules: {
+    'import-path/parent-depth': ['error', 3],
+    'import-path/forbidden': [
+      'error',
+      [
+        {
+          'match': '/index$',
+          'message': 'Index on the end of path is redundant',
+        },
+      ],
+    ],
     'spellcheck/spell-checker': [
       1,
       {

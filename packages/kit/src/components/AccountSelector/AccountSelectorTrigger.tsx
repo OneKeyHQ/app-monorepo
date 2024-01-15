@@ -1,25 +1,26 @@
 import { useCallback } from 'react';
 
-import makeBlockie from 'ethereum-blockies-base64';
-
 import {
-  Avatar,
   Button,
   Dialog,
   Icon,
+  Image,
   ScrollView,
+  SizableText,
   Skeleton,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
   useActiveAccount,
+  useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import makeBlockieImageUriList from '../../utils/makeBlockieImageUriList';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -33,9 +34,18 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+  const { result: accountAvatar } = usePromiseResult(
+    () =>
+      makeBlockieImageUriList([
+        indexedAccount?.idHash ?? account?.address ?? '--',
+      ]).then((uriList) => uriList?.[0]),
+    [indexedAccount, account],
+    { checkIsFocused: false },
+  );
 
   return (
     <XStack
+      role="button"
       alignItems="center"
       p="$1.5"
       mx="$-1.5"
@@ -55,18 +65,22 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Avatar size="$6" borderRadius="$1">
-        <Avatar.Image
-          src={makeBlockie(indexedAccount?.idHash ?? account?.address ?? '--')}
-        />
-        <Avatar.Fallback>
+      <Image size="$6" borderRadius="$1">
+        <Image.Source src={accountAvatar} />
+        <Image.Fallback>
           <Skeleton w="$6" h="$6" />
-        </Avatar.Fallback>
-      </Avatar>
+        </Image.Fallback>
+      </Image>
 
-      <Text flex={1} variant="$bodyMdMedium" pl="$2" pr="$1" numberOfLines={1}>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
         {activeAccountName}
-      </Text>
+      </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
@@ -80,6 +94,9 @@ export function AccountSelectorTrigger({
   onlyAccountSelector?: boolean;
 }) {
   const contextData = useAccountSelectorContextData();
+  const {
+    selectedAccount: { networkId },
+  } = useSelectedAccount({ num });
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
@@ -103,11 +120,15 @@ export function AccountSelectorTrigger({
       {!onlyAccountSelector ? (
         <>
           <NetworkSelectorTrigger
-            key={`NetworkSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
           <DeriveTypeSelectorTrigger
-            key={`DeriveTypeSelectorTrigger-${num}-${config?.sceneName || ''}`}
+            key={`DeriveTypeSelectorTrigger-${networkId || ''}-${num}-${
+              config?.sceneName || ''
+            }`}
             num={num}
           />
         </>

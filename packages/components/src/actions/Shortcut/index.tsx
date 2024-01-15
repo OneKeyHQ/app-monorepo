@@ -1,14 +1,14 @@
-import { Text, XStack } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 
-import type { ITextProps } from '../../primitives';
+import type { ISizableTextProps } from '../../primitives';
 import type { XStackProps } from 'tamagui';
 
-function ShortCutKey(props: ITextProps) {
+function ShortCutKey(props: ISizableTextProps) {
   const { children, ...rest } = props;
 
   return (
-    <Text
-      variant="$headingXs"
+    <SizableText
+      size="$headingXs"
       color="$textSubdued"
       px="$0.5"
       borderRadius="$1"
@@ -19,7 +19,7 @@ function ShortCutKey(props: ITextProps) {
       {...rest}
     >
       {children}
-    </Text>
+    </SizableText>
   );
 }
 

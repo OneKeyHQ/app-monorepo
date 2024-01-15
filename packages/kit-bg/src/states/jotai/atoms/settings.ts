@@ -5,6 +5,8 @@ import { EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
+export type IEndpointType = 'prod' | 'test';
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: ILocaleSymbol;
@@ -18,8 +20,14 @@ export type ISettingsPersistAtom = {
   spendDustUTXO: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
-  endpointType: 'prod' | 'test';
-  currency: string;
+  currencyInfo: {
+    symbol: string;
+    id: string;
+  };
+  devMode: {
+    enable: boolean;
+    enableTestEndpoint: boolean;
+  };
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -37,8 +45,14 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
-      endpointType: 'prod',
-      currency: 'usd',
+      currencyInfo: {
+        id: 'usd',
+        symbol: '$',
+      },
+      devMode: {
+        enable: false,
+        enableTestEndpoint: false,
+      },
     },
   });
 

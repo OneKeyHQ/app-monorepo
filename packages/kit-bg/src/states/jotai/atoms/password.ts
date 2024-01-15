@@ -1,4 +1,4 @@
-import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/AppLock/const';
+import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -79,7 +79,7 @@ export const { target: appIsLocked, use: useAppIsLockedAtom } =
       if (manualLocking) {
         return true;
       }
-      if (platformEnv.isWeb) {
+      if (platformEnv.isWeb || platformEnv.isDev) {
         return !unLock && String(appLockDuration) !== ELockDuration.Never;
       }
       return !unLock;

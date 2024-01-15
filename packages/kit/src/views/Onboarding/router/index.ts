@@ -1,24 +1,55 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-
-import {
-  ActivateDevice,
-  BeforeShowRecoveryPhrase,
-  ConnectWallet,
-  ConnectYourDevice,
-  FinalizeWalletSetup,
-  GetStarted,
-  ImportAddress,
-  ImportPrivateKey,
-  ImportRecoveryPhrase,
-  ImportWalletOptions,
-  OneKeyHardwareWallet,
-  RecoveryPhrase,
-  VerifyRecoveryPhrase,
-} from '../pages';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { EOnboardingPages } from './type';
 
 import type { IOnboardingParamList } from './type';
+
+const ActivateDevice = LazyLoad(
+  () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
+);
+
+const ConnectYourDevice = LazyLoad(
+  () => import('../pages/ConnectHardwareWallet/ConnectYourDevice'),
+);
+
+const OneKeyHardwareWallet = LazyLoad(
+  () => import('../pages/ConnectHardwareWallet/OneKeyHardwareWallet'),
+);
+
+const BeforeShowRecoveryPhrase = LazyLoad(
+  () => import('../pages/CreateWalet/BeforeShowRecoveryPhrase'),
+);
+
+const RecoveryPhrase = LazyLoad(
+  () => import('../pages/CreateWalet/RecoveryPhrase'),
+);
+
+const VerifyRecoveryPhrase = LazyLoad(
+  () => import('../pages/CreateWalet/VerifyRecoverPhrase'),
+);
+
+const ConnectWallet = LazyLoad(() => import('../pages/ConnectWallet'));
+const FinalizeWalletSetup = LazyLoad(
+  () => import('../pages/FinalizeWalletSetup'),
+);
+const GetStarted = LazyLoad(() => import('../pages/GetStarted'));
+
+const ImportAddress = LazyLoad(
+  () => import('../pages/ImportWallet/ImportAddress'),
+);
+
+const ImportPrivateKey = LazyLoad(
+  () => import('../pages/ImportWallet/ImportPrivateKey'),
+);
+
+const ImportRecoveryPhrase = LazyLoad(
+  () => import('../pages/ImportWallet/ImportRecoveryPhrase'),
+);
+
+const ImportWalletOptions = LazyLoad(
+  () => import('../pages/ImportWallet/ImportWalletOptions'),
+);
 
 export const OnboardingRouter: IModalFlowNavigatorConfig<
   EOnboardingPages,
@@ -51,6 +82,7 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.RecoveryPhrase,
     component: RecoveryPhrase,
+    shouldPopOnClickBackdrop: true,
   },
   {
     name: EOnboardingPages.VerifyRecoverPhrase,

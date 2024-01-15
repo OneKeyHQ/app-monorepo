@@ -19,7 +19,6 @@
     "react-content-loader": "^6.2.1",
     "react-dropzone": "^14.2.3",
     "react-hook-form": "^7.22.1",
-    "react-native-draggable-flatlist": "4.0.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "^7.0.0-alpha.2",
     "react-native-modalize": "^2.1.1",
@@ -34,10 +33,12 @@
   "devDependencies": {
     "@svgr/cli": "6.3.1",
     "@types/qrcode": "^1.4.2",
+    "folderslint": "^1.2.0",
     "rimraf": "^3"
   },
   "scripts": {
     "icon:build": "rimraf src/primitives/Icon/react && svgr --config-file .svgrrc.json -d src/primitives/Icon/react svg && node src/primitives/Icon/script.js",
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"

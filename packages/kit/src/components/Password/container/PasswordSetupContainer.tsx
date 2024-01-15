@@ -1,12 +1,12 @@
 import { Suspense, memo, useCallback, useState } from 'react';
 
-import { Stack, Text, Toast, XStack } from '@onekeyhq/components';
+import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import PasswordSetup from '../components/PasswordSetup';
 
@@ -22,7 +22,7 @@ const BiologyAuthContainer = () => {
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   return biologyAuthIsSupport || webAuthIsSupport ? (
     <XStack justifyContent="space-between" alignItems="center">
-      <Text variant="bodyMdMedium">Authentication with FaceID</Text>
+      <SizableText size="$bodyMdMedium">Authentication with FaceID</SizableText>
       <Stack>
         <UniversalContainerWithSuspense />
       </Stack>

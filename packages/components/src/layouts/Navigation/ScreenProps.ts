@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react';
+import type { ComponentProps, ComponentType, ReactElement } from 'react';
 
 import type { HeaderButtonGroup } from './Header';
 import type HeaderIconButton from './Header/HeaderIconButton';
@@ -108,10 +108,13 @@ export type IStackNavigationOptions = Omit<
   headerSearchBarOptions?: INavSearchBarProps;
   headerRight?: (
     props: HeaderButtonProps,
-  ) => ReactElement<
-    | ComponentProps<typeof HeaderIconButton>
-    | ComponentProps<typeof HeaderButtonGroup>
-  >;
+  ) =>
+    | ComponentType
+    | null
+    | ReactElement<
+        | ComponentProps<typeof HeaderIconButton>
+        | ComponentProps<typeof HeaderButtonGroup>
+      >;
 };
 
 export type IPageScreenProps<

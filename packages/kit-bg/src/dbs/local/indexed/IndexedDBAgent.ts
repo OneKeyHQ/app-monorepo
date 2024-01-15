@@ -1,5 +1,7 @@
 import { isNil } from 'lodash';
 
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -21,6 +23,7 @@ import {
   type ILocalDBTxGetRecordByIdResult,
   type ILocalDBTxRemoveRecordsParams,
   type ILocalDBTxUpdateRecordsParams,
+  type ILocalDBWithTransactionOptions,
   type ILocalDBWithTransactionTask,
 } from '../types';
 
@@ -166,7 +169,11 @@ export class IndexedDBAgent extends LocalDbAgentBase {
 
   // ----------------------------------------------
 
-  async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
+  async withTransaction<T>(
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T> {
+    noopObject(options);
     const { tx, dbTx } = this._buildTransactionAndStores({
       db: this.indexed,
       alwaysCreate: true,

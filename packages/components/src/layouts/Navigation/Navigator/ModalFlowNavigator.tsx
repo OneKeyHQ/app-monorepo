@@ -1,10 +1,9 @@
-import type { ComponentType } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';
-import { NavigationContext } from '../context';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
@@ -13,7 +12,6 @@ import { hasStackNavigatorModal } from './CommonConfig';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ILocaleIds } from '../../../locale';
-import type { INavigationContextType } from '../context';
 import type { IModalNavigationOptions } from '../ScreenProps';
 import type { ParamListBase } from '@react-navigation/routers';
 
@@ -24,26 +22,8 @@ export interface IModalFlowNavigatorConfig<
   translationId?: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
+  shouldPopOnClickBackdrop?: boolean;
 }
-
-export const makeModalComponent =
-  (Component: ComponentType<any>) =>
-  // eslint-disable-next-line react/display-name
-  (props: any) => {
-    const value = useMemo(
-      () =>
-        ({
-          pageType: 'modal',
-        } as INavigationContextType),
-      [],
-    );
-
-    return (
-      <NavigationContext.Provider value={value}>
-        <Component {...props} pageType="modal" />
-      </NavigationContext.Provider>
-    );
-  };
 
 interface IModalFlowNavigatorProps<
   RouteName extends string,
@@ -84,23 +64,25 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
           translationId,
           allowDisableClose,
           disableClose,
+          shouldPopOnClickBackdrop,
         }) => {
           const customOptions: IModalNavigationOptions = {
             ...options,
             allowDisableClose,
             disableClose,
+            shouldPopOnClickBackdrop,
             title: translationId
               ? intl.formatMessage({
                   id: translationId as ILocaleIds,
                 })
               : '',
           };
-
+          const key = `Modal-Flow-${name as string}`;
           return (
             <ModalStack.Screen
-              key={`Modal-Flow-${name as string}`}
+              key={key}
               name={name}
-              component={makeModalComponent(component)}
+              component={PageTypeHOC(key, EPageType.modal, component)}
               // @ts-expect-error
               options={customOptions}
             />

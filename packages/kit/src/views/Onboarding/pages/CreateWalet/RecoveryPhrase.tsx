@@ -12,11 +12,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { Tutorials } from '../../Components';
+import { Tutorials } from '../../components';
 import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [
@@ -120,3 +120,5 @@ export function RecoveryPhrase() {
     </Page>
   );
 }
+
+export default RecoveryPhrase;

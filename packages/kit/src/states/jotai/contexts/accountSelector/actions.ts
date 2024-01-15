@@ -2,6 +2,10 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -15,9 +19,6 @@ import type {
   IServerNetwork,
 } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../../../views/AccountManagerStacks/types';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -30,7 +31,6 @@ import {
 } from './atoms';
 
 import type { IAccountSelectorActiveAccountInfo } from './atoms';
-import type useAppNavigation from '../../../../hooks/useAppNavigation';
 
 const { serviceAccount } = backgroundApiProxy;
 class AccountSelectorActions extends ContextJotaiActionsBase {
@@ -54,8 +54,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> => {
       const { num, selectedAccount } = payload;
-      const { accountId, indexedAccountId, deriveType, networkId, walletId } =
-        selectedAccount;
+      const {
+        othersWalletAccountId,
+        indexedAccountId,
+        deriveType,
+        networkId,
+        walletId,
+      } = selectedAccount;
 
       let account: IDBAccount | undefined;
       let wallet: IDBWallet | undefined;
@@ -77,7 +82,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         try {
           const r = await serviceAccount.getAccountOfWallet({
             indexedAccountId,
-            accountId,
+            accountId: othersWalletAccountId,
             deriveType,
             networkId,
           });

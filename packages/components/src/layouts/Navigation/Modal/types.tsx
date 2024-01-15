@@ -21,6 +21,7 @@ export type IModalNavigationConfig = NonNullable<unknown>;
 export type IModalNavigationOptions = IStackNavigationOptions & {
   allowDisableClose?: boolean;
   disableClose?: boolean;
+  shouldPopOnClickBackdrop?: boolean;
 };
 
 export type IModalNavigationEventMap = {

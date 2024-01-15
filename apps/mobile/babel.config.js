@@ -6,8 +6,17 @@ module.exports = function (api) {
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
-      presets: ['babel-preset-expo'],
+      presets: [
+        [
+          'babel-preset-expo',
+          { native: { unstable_transformProfile: 'hermes-stable' } },
+        ],
+      ],
       plugins: [
+        // eslint-disable-next-line spellcheck/spell-checker
+        // fix Reanimated error: [Reanimated] Tried to synchronously call a non-worklet function on the UI thread.
+        //  in react-native-gesture-handler
+        require('@babel/plugin-transform-shorthand-properties'),
         [
           require('@tamagui/babel-plugin/dist/cjs/index.native'),
           {

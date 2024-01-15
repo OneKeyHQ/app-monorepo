@@ -32,7 +32,6 @@
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",
     "react-intl": "^5.21.2",
-    "react-native-camera-kit": "14.0.0-beta2",
     "react-redux": "^8.0.5",
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
@@ -44,6 +43,7 @@
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
@@ -52,6 +52,7 @@
     "@types/d3-scale": "^4.0.3",
     "@types/d3-shape": "^3.1.1",
     "@types/mime": "^3",
-    "@types/socket.io-client": "^3.0.0"
+    "@types/socket.io-client": "^3.0.0",
+    "folderslint": "^1.2.0"
   }
 }

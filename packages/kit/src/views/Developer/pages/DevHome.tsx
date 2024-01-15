@@ -5,15 +5,15 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Avatar,
   Icon,
+  Image,
   ListView,
   Page,
   ScrollView,
+  SizableText,
   Skeleton,
   Stack,
   Tab,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
@@ -21,7 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/types';
+import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
 
 import HeaderView from './HeaderView';
 
@@ -38,7 +38,7 @@ const FirstRoute = ({
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
-      <Text>demo1</Text>
+      <SizableText>demo1</SizableText>
     </Stack>
   </ScrollView>
 );
@@ -52,9 +52,9 @@ const SecondRoute = ({
     scrollEnabled={platformEnv.isWebTouchable}
     disableScrollViewPanResponder
     renderItem={({ index }) => (
-      <Text color="$text" key={index}>
+      <SizableText color="$text" key={index}>
         demo2 ${index}
-      </Text>
+      </SizableText>
     )}
     estimatedItemSize={50}
     onContentSizeChange={onContentSizeChange}
@@ -72,7 +72,7 @@ const OtherRoute = ({
     onContentSizeChange={onContentSizeChange}
   >
     <Stack bg="#ff4081" height="$100">
-      <Text>demo3</Text>
+      <SizableText>demo3</SizableText>
     </Stack>
   </ScrollView>
 );
@@ -88,7 +88,7 @@ const ListRoute = ({
     disableScrollViewPanResponder
     renderItem={({ index }) => (
       <Stack style={{ padding: 20 }}>
-        <Text>Row: {index}</Text>
+        <SizableText>Row: {index}</SizableText>
       </Stack>
     )}
     estimatedItemSize={100}
@@ -159,21 +159,21 @@ function HomePage() {
               onPress={navigateAccountManagerStacks}
               maxWidth="$40"
             >
-              <Avatar size="$6" borderRadius="$1">
-                <Avatar.Image src="https://placehold.co/120x120?text=A" />
-                <Avatar.Fallback>
+              <Image size="$6" borderRadius="$1">
+                <Image.Source src="https://placehold.co/120x120?text=A" />
+                <Image.Fallback>
                   <Skeleton w="$6" h="$6" />
-                </Avatar.Fallback>
-              </Avatar>
-              <Text
+                </Image.Fallback>
+              </Image>
+              <SizableText
                 flex={1}
-                variant="$bodyMdMedium"
+                size="$bodyMdMedium"
                 pl="$2"
                 pr="$1"
                 numberOfLines={1}
               >
                 Account 1
-              </Text>
+              </SizableText>
               <Icon
                 name="ChevronGrabberVerOutline"
                 size="$5"

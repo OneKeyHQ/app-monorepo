@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, Text } from '@onekeyhq/components';
+import { Button, SizableText, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -52,7 +52,7 @@ const DemoRootHomeSearch = () => {
         {
           title: '使用说明',
           element: (
-            <Text variant="$bodyLg">{`这是一个简单的使用场景
+            <SizableText size="$bodyLg">{`这是一个简单的使用场景
             1. 需要给 Screen 或者 Layout 设置一个 skipLoading={platformEnv.isNativeIOS} 以确保 iOS controller.headerSearch 动画正常
 
             2. useEffect(() => {
@@ -65,7 +65,7 @@ const DemoRootHomeSearch = () => {
                   },
                 });
             }, []);
-          `}</Text>
+          `}</SizableText>
           ),
         },
         {

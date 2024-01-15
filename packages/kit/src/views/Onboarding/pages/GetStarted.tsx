@@ -49,7 +49,7 @@ export function GetStarted() {
           <Image
             w="$16"
             h="$16"
-            source={require('../../../../assets/logo-decorated.png')}
+            source={require('@onekeyhq/kit/assets/logo-decorated.png')}
           />
 
           <Heading
@@ -228,3 +228,5 @@ export function GetStarted() {
     </Page>
   );
 }
+
+export default GetStarted;

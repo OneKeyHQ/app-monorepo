@@ -1,9 +1,13 @@
-import { ActionList, IconButton } from '../../../../actions';
-import { Avatar } from '../../../../content';
-import { Icon, Text, XStack } from '../../../../primitives';
+import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
+import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import {
+  Icon,
+  Image,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
 
-import type { IActionListSection } from '../../../../actions';
-import type { IKeyOfIcons, Stack } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 import type { AvatarImage, GetProps } from 'tamagui';
 
@@ -52,27 +56,27 @@ export function DesktopTabItem(
         />
       )}
       {avatarSrc && (
-        <Avatar borderRadius="$1" size="$4.5" m="$px">
-          <Avatar.Image src={avatarSrc} />
-          <Avatar.Fallback>
+        <Image borderRadius="$1" size="$4.5" m="$px">
+          <Image.Source src={avatarSrc} />
+          <Image.Fallback>
             <Icon
               size="$4.5"
               name="GlobusOutline"
               color={selected ? '$iconActive' : '$iconSubdued'}
             />
-          </Avatar.Fallback>
-        </Avatar>
+          </Image.Fallback>
+        </Image>
       )}
       {label && (
-        <Text
+        <SizableText
           flex={1}
           numberOfLines={1}
           ml="$2"
           color="$text"
-          variant="$bodyMd"
+          size="$bodyMd"
         >
           {label}
-        </Text>
+        </SizableText>
       )}
       {actionList && (
         <ActionList

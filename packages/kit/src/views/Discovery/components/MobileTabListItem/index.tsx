@@ -1,12 +1,11 @@
 import { StyleSheet } from 'react-native';
 
 import {
-  Avatar,
   Icon,
   IconButton,
   Image,
+  SizableText,
   Stack,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -69,21 +68,21 @@ function MobileTabListItem({
       >
         {/* Header */}
         <XStack py="$2" pl="$2.5" pr="$2" alignItems="center">
-          <Avatar size="$4" borderRadius="$1">
-            <Avatar.Image src={tab?.favicon} />
-            <Avatar.Fallback>
+          <Image size="$4" borderRadius="$1">
+            <Image.Source src={tab?.favicon} />
+            <Image.Fallback>
               <Icon name="GlobusOutline" size="$4" />
-            </Avatar.Fallback>
-          </Avatar>
-          <Text
+            </Image.Fallback>
+          </Image>
+          <SizableText
             flex={1}
-            variant="$bodySm"
+            size="$bodySm"
             textAlign="left"
             numberOfLines={1}
             mx="$2"
           >
             {tab?.title || ''}
-          </Text>
+          </SizableText>
           <IconButton
             variant="tertiary"
             size="small"

@@ -1,58 +1,316 @@
-import ComponentsScreen from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components';
-import AccountModelGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery';
-import ActionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList';
-import AlertGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert';
-import BadgeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge';
-import BlurViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BlurView';
-import ButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Button';
-import CheckboxGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox';
-import DialogGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Dialog';
-import DividerGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Divider';
-import EmptyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Empty';
-import ErrorToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery';
-import FormGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Form';
-import HardwareGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware';
-import IconGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon';
-import IconButtonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton';
-import InputGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input';
-import JotaiContextGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery';
-import JotaiGlobalGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery';
-import LinearGradientGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient';
-import ListItemGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem';
-import ListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView';
-import LocalDBGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery';
-import LottieViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView';
-import DemoRootApp from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute';
-import PasswordDemoGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordDemo';
-import PopoverGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Popover';
-import ProgressGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Progress';
-import QRCodeGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRCode';
-import RadioGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Radio';
-import RefreshControlGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RefreshControl';
-import ScrollViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScrollView';
-import SectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SectionList';
-import SegmentControlGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentControl';
-import SelectGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Select';
-import ShortcutGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Shortcut';
-import SkeletonGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Skeleton';
-import SliderGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider';
-import SortableListViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableListView';
-import SortableSectionListGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList';
-import SpotlightTourGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour';
-import SwipeableCellGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell';
-import SwitchGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch';
-import TabViewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView';
-import TextAreaGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TextArea';
-import ToastGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Toast';
-import TooltipGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip';
-import TypographyGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Typography';
-import WebviewGallery from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView';
+import type { ComponentType } from 'react';
+
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { EGalleryRoutes } from '../routes';
 
+const ComponentsScreen = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
+);
+const AccountModelGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'
+    ),
+);
+const ActionListGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ActionList'
+    ),
+);
+const AlertGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Alert'
+    ),
+);
+const BadgeGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Badge'
+    ),
+);
+const BlurViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/BlurView'
+    ),
+);
+const ButtonGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Button'
+    ),
+);
+const CheckboxGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Checkbox'
+    ),
+);
+const DialogGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Dialog'
+    ),
+);
+const DividerGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Divider'
+    ),
+);
+const EmptyGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Empty'
+    ),
+);
+const ErrorToastGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'
+    ),
+);
+const FormGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Form'
+    ),
+);
+const HardwareGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware'
+    ),
+);
+const IconGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'
+    ),
+);
+const IconButtonGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/IconButton'
+    ),
+);
+const ImageGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Image'
+    ),
+);
+const InputGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Input'
+    ),
+);
+const JotaiContextGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery'
+    ),
+);
+const JotaiGlobalGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiGlobalGallery'
+    ),
+);
+const LinearGradientGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient'
+    ),
+);
+const ListItemGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem'
+    ),
+);
+const ListViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView'
+    ),
+);
+const LocalDBGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LocalDBGallery'
+    ),
+);
+const LottieViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LottieView'
+    ),
+);
+const DemoRootApp = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute'
+    ),
+);
+const PasswordDemoGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PasswordDemo'
+    ),
+);
+const PopoverGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Popover'
+    ),
+);
+const ProgressGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Progress'
+    ),
+);
+const QRCodeGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRCode'
+    ),
+);
+const RadioGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Radio'
+    ),
+);
+const RefreshControlGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RefreshControl'
+    ),
+);
+const ScanQrCodeGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScanQrCode'
+    ),
+);
+const ScrollViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ScrollView'
+    ),
+);
+const SectionListGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SectionList'
+    ),
+);
+const SegmentControlGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentControl'
+    ),
+);
+const SelectGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Select'
+    ),
+);
+const ShortcutGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Shortcut'
+    ),
+);
+const SkeletonGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Skeleton'
+    ),
+);
+const SliderGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider'
+    ),
+);
+const SortableListViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableListView'
+    ),
+);
+const SortableSectionListGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SortableSectionList'
+    ),
+);
+const SpotlightTourGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SpotlightTour'
+    ),
+);
+const SwipeableCellGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SwipeableCell'
+    ),
+);
+const SwitchGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'
+    ),
+);
+const TabViewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TabView'
+    ),
+);
+const TextAreaGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TextArea'
+    ),
+);
+const ToastGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Toast'
+    ),
+);
+const TooltipGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Tooltip'
+    ),
+);
+const TypographyGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Typography'
+    ),
+);
+const WebviewGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
-  component: () => React.JSX.Element;
+  component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
@@ -141,6 +399,10 @@ export const galleryScreenList: {
     component: QRCodeGallery,
   },
   {
+    name: EGalleryRoutes.componentScanQrCode,
+    component: ScanQrCodeGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentWebview,
     component: WebviewGallery,
   },
@@ -163,5 +425,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentHardware,
     component: HardwareGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentImage,
+    component: ImageGallery,
   },
 ];

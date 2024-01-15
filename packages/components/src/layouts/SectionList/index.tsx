@@ -9,12 +9,12 @@ import {
 
 import { withStaticProperties } from 'tamagui';
 
-import { Stack, Text, XStack } from '../../primitives';
+import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView';
 
+import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type { IListViewProps, IListViewRef } from '../ListView';
 import type { ListRenderItem } from 'react-native';
-import type { GetProps } from 'tamagui';
 
 type ISectionRenderInfo = (info: {
   section: any;
@@ -111,7 +111,7 @@ function BaseSectionList<T>(
 
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
-      return [];
+      return undefined;
     }
     return reloadSections
       .map((item, index) =>
@@ -201,19 +201,19 @@ const SectionHeader = ({
   titleProps,
   children,
   ...restProps
-}: GetProps<typeof XStack> & {
+}: IStackProps & {
   title?: string;
-  titleProps?: GetProps<typeof Text>;
+  titleProps?: ISizableTextProps;
 }) => (
   <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
-    <Text
+    <SizableText
       numberOfLines={1}
-      variant="$headingSm"
+      size="$headingSm"
       color="$textSubdued"
       {...titleProps}
     >
       {title}
-    </Text>
+    </SizableText>
     {children}
   </XStack>
 );

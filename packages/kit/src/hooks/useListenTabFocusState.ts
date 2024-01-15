@@ -1,16 +1,21 @@
-import { useEffect } from 'react';
+import { useOnRouterChange } from '@onekeyhq/components';
 
-import { useNavigationState } from '@react-navigation/native';
+import { ERootRoutes } from '../routes/enum';
+
+import type { ETabRoutes } from '../routes/Tab/type';
 
 export default function useListenTabFocusState(
-  tabName: string,
+  tabName: ETabRoutes | ETabRoutes[],
   callback: (isFocus: boolean) => void,
 ) {
-  const currentTabName = useNavigationState((state) => {
-    const rootState = state.routes.find(({ name }) => name === 'main')?.state;
-    return rootState?.routeNames?.[rootState?.index || 0] || '';
+  const tabNames = Array.isArray(tabName) ? tabName : [tabName];
+  useOnRouterChange((state) => {
+    const rootState = state?.routes.find(
+      ({ name }) => name === ERootRoutes.Main,
+    )?.state;
+    const currentTabName = rootState?.routeNames
+      ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
+      : (rootState?.routes[0].name as ETabRoutes);
+    callback(tabNames.includes(currentTabName));
   });
-  useEffect(() => {
-    callback(currentTabName === tabName);
-  }, [callback, currentTabName, tabName]);
 }

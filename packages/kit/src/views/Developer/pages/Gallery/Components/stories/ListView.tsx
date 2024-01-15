@@ -1,9 +1,14 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import type { IListViewRef } from '@onekeyhq/components';
-import { Button, Divider, ListView, Text, XStack } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../../../hooks/useAppNavigation';
+import {
+  Button,
+  Divider,
+  ListView,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import ListPerformance from './ListPerformance';
 import { Layout } from './utils/Layout';
@@ -37,7 +42,7 @@ const ListViewDemo = () => {
       ListFooterComponent={XStack}
       renderItem={({ item }) => (
         <XStack>
-          <Text>{item}</Text>
+          <SizableText>{item}</SizableText>
           <Divider />
           <XStack space="$8">
             <Button

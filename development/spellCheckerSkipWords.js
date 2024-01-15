@@ -1,4 +1,9 @@
 module.exports = [
+  'impls',
+  'txids',
+  'ord',
+  'nonWitnessInputPrevTxids',
+  'ordQueryStatus',
   'Blockie',
   'Unspaced',
   'hd',
@@ -585,4 +590,8 @@ module.exports = [
   'nft',
   'dappradar',
   'dapps',
+  'Webpack',
+  'gt2xl',
+  'calc',
+  '100vw',
 ];

@@ -1,5 +1,11 @@
-import { Icon, ListItem } from '@onekeyhq/components';
+import { useCallback } from 'react';
+
+import { Image, SizableText, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+
+import { ETokenPages } from '../../../Token/router/type';
 
 type IProps = {
   nft: IAccountNFT;
@@ -8,34 +14,81 @@ type IProps = {
 
 function NFTListItem(props: IProps) {
   const { nft, onPress } = props;
+  const navigation = useAppNavigation();
+
+  const handleNFTPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.TokenModal, {
+      screen: ETokenPages.NFTDetails,
+    });
+  }, [navigation]);
 
   return (
-    <ListItem
+    <Stack
       key={nft.itemId}
-      title={nft.metadata.name}
-      subtitle={nft.collectionName}
-      subtitleProps={{
-        numberOfLines: 1,
+      flexBasis="50%"
+      $gtSm={{
+        flexBasis: '33.333333%',
       }}
-      avatarProps={{
-        src: nft.metadata.image,
-        fallbackProps: {
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
-        },
+      $gtLg={{
+        flexBasis: '25%',
       }}
-      onPress={() => {
-        onPress?.(nft);
+      $gtXl={{
+        flexBasis: '20%',
       }}
-      outlineStyle="none"
-      borderRadius="$0"
-      paddingVertical="$4"
-      margin="0"
+      $gt2xl={{
+        flexBasis: '16.666666%',
+      }}
+      p="$2.5"
+      borderRadius="$4"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      // onPress={() => {
+      //   onPress?.(nft);
+      // }}
+      onPress={handleNFTPress}
+      userSelect="none"
     >
-      <ListItem.Text align="right" primary={nft.amount} />
-    </ListItem>
+      <Stack pb="100%">
+        <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
+          <Image
+            w="100%"
+            h="100%"
+            source={{ uri: nft.metadata.image }}
+            style={{
+              borderRadius: 10,
+            }}
+          />
+          {Number.parseInt(nft.amount, 10) > 1 && (
+            <SizableText
+              position="absolute"
+              right="$0"
+              bottom="$0"
+              size="$bodyMdMedium"
+              px="$2"
+              bg="$bgInverse"
+              color="$textInverse"
+              borderRadius="$2.5"
+              borderWidth={2}
+              borderColor="$bgApp"
+            >
+              x{nft.amount}
+            </SizableText>
+          )}
+        </Stack>
+      </Stack>
+      <Stack mt="$2">
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {nft.collectionName}
+        </SizableText>
+        <SizableText size="$bodyLgMedium" numberOfLines={1}>
+          {nft.metadata.name}
+        </SizableText>
+      </Stack>
+    </Stack>
   );
 }
 
