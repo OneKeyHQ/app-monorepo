@@ -15,10 +15,8 @@ export function SplashView({ onReady }: ISplashViewProps) {
     (e: LayoutChangeEvent) => {
       const { height, width } = e.nativeEvent.layout;
       if (height && width) {
-        setTimeout(() => {
-          removeWebLogo();
-          onReady();
-        }, 0);
+        removeWebLogo();
+        onReady();
       }
     },
     [onReady],

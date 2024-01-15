@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -315,7 +316,7 @@ function HomePage() {
         </Page.Body>
       </Page>
     ),
-    [tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
+    [headerTitle, tabs, renderHeaderView, screenWidth, sideBarWidth, onRefresh],
   );
 }
 
