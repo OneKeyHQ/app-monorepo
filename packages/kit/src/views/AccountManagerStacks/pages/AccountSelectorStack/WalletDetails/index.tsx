@@ -71,20 +71,20 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
           walletId: selectedAccount?.focusedWallet,
         });
         if (isHd || isHw) {
-          const wallet0 = await serviceAccount.getWallet({
+          const wallet = await serviceAccount.getWallet({
             walletId: selectedAccount?.focusedWallet,
           });
 
-          let device0: IDBDevice | undefined;
+          let device: IDBDevice | undefined;
           if (isHw) {
-            device0 = await serviceAccount.getWalletDevice({
+            device = await serviceAccount.getWalletDevice({
               walletId: selectedAccount?.focusedWallet,
             });
           }
 
           return {
-            wallet: wallet0,
-            device: device0,
+            wallet,
+            device,
           };
         }
       },

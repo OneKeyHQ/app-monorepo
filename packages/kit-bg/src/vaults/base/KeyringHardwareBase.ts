@@ -50,7 +50,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
   }) {
     const { deriveInfo, deviceParams } = params;
     const { dbDevice, confirmOnDevice } = deviceParams;
-    const { mac: connectId, deviceId } = dbDevice;
+    const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 

@@ -6,7 +6,7 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 function dbDeviceToSearchDevice(device: IDBDevice) {
   const result: SearchDevice = {
     ...device,
-    connectId: device.connectId || device.mac,
+    connectId: device.connectId,
     uuid: device.uuid,
     deviceId: device.deviceId,
     deviceType: device.deviceType as IDeviceType,

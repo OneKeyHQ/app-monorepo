@@ -363,7 +363,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHWHiddenWallet({ walletId }: { walletId: string }) {
     const device = await this.getWalletDevice({ walletId });
-    const connectId = device.mac;
+    const { connectId } = device;
 
     const passphraseState =
       await this.backgroundApi.serviceHardware.getPassphraseState({
@@ -392,18 +392,10 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHWWalletParams) {
     const { passphraseState } = params;
-    let result;
-    if (passphraseState) {
-      result = await localDb.createHWWallet({
-        ...params,
-        passphraseState,
-      });
-    } else {
-      result = await localDb.createHWWallet({
-        ...params,
-        passphraseState: '',
-      });
-    }
+    const result = await localDb.createHWWallet({
+      ...params,
+      passphraseState: passphraseState || '',
+    });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }

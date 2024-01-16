@@ -209,8 +209,7 @@ export type IDBDevicePayload = {
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
   featuresInfo?: IOneKeyDeviceFeatures; // readonly field
-  mac: string; // alias connectId
-  connectId?: string; // readonly field, alias mac
+  connectId: string; // alias mac
   name: string;
   uuid: string;
   deviceId: string;

@@ -539,9 +539,9 @@ ssphrase wallet
       const hashBuffer = sha256(
         bufferUtils.toBuffer(
           dbDevice
-            ? `${dbDevice.mac}.${dbDevice.deviceId}.${dbDevice.deviceType}.${
-                dbWallet?.passphraseState || ''
-              }.${index}`
+            ? `${dbDevice.connectId}.${dbDevice.deviceId}.${
+                dbDevice.deviceType
+              }.${dbWallet?.passphraseState || ''}.${index}`
             : indexedAccountId,
           'utf-8',
         ),
@@ -785,7 +785,7 @@ ssphrase wallet
           {
             id: dbDeviceId,
             name: walletName,
-            mac: connectId || '',
+            connectId: connectId || '',
             uuid: deviceUUID,
             deviceId,
             deviceType,
@@ -803,6 +803,7 @@ ssphrase wallet
         ids: [dbDeviceId],
         updater: (item) => {
           item.features = featuresStr;
+          item.updatedAt = now;
           return item;
         },
       });
@@ -1143,7 +1144,6 @@ ssphrase wallet
       name: ELocalDBStoreNames.Device,
       id: deviceId,
     });
-    device.connectId = device.mac;
     device.featuresInfo = JSON.parse(device.features) as IOneKeyDeviceFeatures;
     device.payloadJsonInfo = JSON.parse(device.payloadJson);
     return device;
