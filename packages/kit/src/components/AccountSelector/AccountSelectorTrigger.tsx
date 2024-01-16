@@ -124,6 +124,7 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
           activeWallet: wallet,
           num,
           navigation,
+          sceneName: EAccountSelectorSceneName.swap,
         })
       }
       maxWidth="$40"
