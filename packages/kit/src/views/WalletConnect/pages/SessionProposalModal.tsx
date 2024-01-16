@@ -13,12 +13,8 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/EIP155Data';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
@@ -32,8 +28,6 @@ function SessionProposalModal() {
     closeWindowAfterResolved: true,
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
 
   useEffect(() => {
     console.log('activeAccount: ', activeAccount);
@@ -118,7 +112,11 @@ function SessionProposalModal() {
   return (
     <Page>
       <Page.Header title="Wallet Connect Session Proposal" />
-      <AccountSelectorTriggerHome num={0} />
+      <AccountSelectorTriggerHome
+        sceneName={EAccountSelectorSceneName.discover}
+        sceneUrl={proposal.params.proposer.metadata.url}
+        num={0}
+      />
       <Page.Body>
         <Stack space="$3">
           <SizableText>WalletConnect 授权账户</SizableText>
