@@ -2,7 +2,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTx,
