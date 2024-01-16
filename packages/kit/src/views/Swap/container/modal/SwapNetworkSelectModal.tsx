@@ -10,12 +10,12 @@ import {
   Page,
   SearchBar,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapActions,
   useSwapNetworksAtom,
-} from '../../../../states/jotai/contexts/swap';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type {
@@ -38,7 +38,7 @@ const SwapNetworkSelectModal = () => {
 
   const setCurrentSelectNetwork = route?.params?.setCurrentSelectNetwork;
 
-  const { syncNetworksSort } = useSwapActions();
+  const { syncNetworksSort } = useSwapActions().current;
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapNetwork }) => (

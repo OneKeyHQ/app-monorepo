@@ -16,9 +16,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { openUrlExternal } from '../../../../utils/openUrl';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapHistoryTokenInfoItem from '../../components/SwapHistoryTokenInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';

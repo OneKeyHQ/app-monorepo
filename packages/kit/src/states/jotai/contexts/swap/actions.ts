@@ -1,8 +1,14 @@
+import { useRef } from 'react';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import type {
+  ISwapToken,
+  ISwapTxHistory,
+} from '@onekeyhq/kit/src/views/Swap/types';
+import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { getTimeStamp } from '../../../../utils/helper';
-import { moveNetworkToFirst } from '../../../../views/Swap/utils/utils';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
@@ -14,8 +20,6 @@ import {
   swapTxHistoryAtom,
   swapTxHistoryStatusChangeAtom,
 } from './atoms';
-
-import type { ISwapToken, ISwapTxHistory } from '../../../../views/Swap/types';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
@@ -115,7 +119,7 @@ export const useSwapActions = () => {
   const updateSwapHistoryItem = actions.updateSwapHistoryItem.use();
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
-  return {
+  return useRef({
     selectFromToken,
     selectToToken,
     alternationToken,
@@ -123,5 +127,5 @@ export const useSwapActions = () => {
     syncNetworksSort,
     updateSwapHistoryItem,
     addSwapHistoryItem,
-  };
+  });
 };

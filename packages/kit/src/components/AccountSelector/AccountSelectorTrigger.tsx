@@ -86,6 +86,67 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
   );
 }
 
+export function AccountSelectorTriggerSwap({ num }: { num: number }) {
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { wallet, indexedAccount, account },
+    activeAccountName,
+  } = useActiveAccount({ num });
+  console.log('wallet-', wallet);
+  console.log('num--', num, '--activeAccountName--:', activeAccountName);
+  const actions = useAccountSelectorActions();
+  const { result: accountAvatar } = usePromiseResult(
+    () =>
+      makeBlockieImageUriList([
+        indexedAccount?.idHash ?? account?.address ?? '--',
+      ]).then((uriList) => uriList?.[0]),
+    [indexedAccount, account],
+    { checkIsFocused: false },
+  );
+
+  return (
+    <XStack
+      role="button"
+      alignItems="center"
+      p="$1.5"
+      mx="$-1.5"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      onPress={() =>
+        actions.current.showAccountSelector({
+          activeWallet: wallet,
+          num,
+          navigation,
+        })
+      }
+      maxWidth="$40"
+    >
+      <Image size="$6" borderRadius="$1">
+        <Image.Source src={accountAvatar} />
+        <Image.Fallback>
+          <Skeleton w="$6" h="$6" />
+        </Image.Fallback>
+      </Image>
+
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
+        {activeAccountName}
+      </SizableText>
+      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
 export function AccountSelectorTrigger({
   num,
   onlyAccountSelector,

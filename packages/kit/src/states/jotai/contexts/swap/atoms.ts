@@ -4,10 +4,7 @@ import {
   ESwapSlippageSegmentKey,
   ESwapStepStateType,
   ESwapTxHistoryStatus,
-} from '../../../../views/Swap/types';
-import { isOnlySupportSingleChainProvider } from '../../../../views/Swap/utils/utils';
-import { createJotaiContext } from '../../utils/createJotaiContext';
-
+} from '@onekeyhq/kit/src/views/Swap/types';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -16,7 +13,10 @@ import type {
   ISwapStepState,
   ISwapToken,
   ISwapTxHistory,
-} from '../../../../views/Swap/types';
+} from '@onekeyhq/kit/src/views/Swap/types';
+import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+
+import { createJotaiContext } from '../../utils/createJotaiContext';
 
 const {
   Provider: ProviderJotaiContextSwap,

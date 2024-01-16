@@ -11,16 +11,16 @@ import {
   Spinner,
   YStack,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useSwapActions,
   useSwapNetworksAtom,
   useSwapOnlySupportSingleChainAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-} from '../../../../states/jotai/contexts/swap';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
@@ -47,7 +47,7 @@ const SwapTokenSelectModal = () => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [onlySupportSingleNetWork] = useSwapOnlySupportSingleChainAtom();
-  const { selectFromToken, selectToToken } = useSwapActions();
+  const { selectFromToken, selectToToken } = useSwapActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(() =>

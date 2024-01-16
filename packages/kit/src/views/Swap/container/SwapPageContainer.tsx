@@ -5,25 +5,27 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
+  AccountSelectorTriggerSwap,
 } from '../../../components/AccountSelector';
 
+import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 import SwapMainLand from './SwapMainLand';
 
 const SwapPageContainer = () => {
+  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror
         config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
       >
-        <AccountSelectorTriggerHome num={0} />
+        <AccountSelectorTriggerSwap num={0} />
       </AccountSelectorProviderMirror>
     ),
     [],
   );
   return (
     <Page>
-      <Page.Header headerTitle={headerTitle} />
+      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
       <Page.Body space="$4">
         <SwapMainLand />
       </Page.Body>

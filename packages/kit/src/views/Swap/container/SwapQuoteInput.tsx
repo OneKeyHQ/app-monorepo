@@ -31,7 +31,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
-  const { alternationToken } = useSwapActions();
+  const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapResultQuoteCurrentSelectAtom();
 
   useEffect(() => {

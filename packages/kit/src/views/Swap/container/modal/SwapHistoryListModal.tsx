@@ -9,13 +9,13 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import useFormatDate from '../../../../hooks/useFormatDate';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
   useSwapActions,
   useSwapTxHistoryAtom,
-} from '../../../../states/jotai/contexts/swap';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import {
   EModalSwapRoutes,
@@ -35,7 +35,7 @@ const SwapHistoryListModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const { formatDate } = useFormatDate();
-  const { cleanSwapHistoryItems } = useSwapActions();
+  const { cleanSwapHistoryItems } = useSwapActions().current;
   const sectionData = useMemo(() => {
     const groupByMonth = swapTxHistoryList.reduce<
       Record<string, ISwapTxHistory[]>

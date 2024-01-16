@@ -51,7 +51,7 @@ export function useSwapTxHistoryListSyncFromSimpleDb() {
 
 export function useSwapTxHistoryStateSyncInterval() {
   const [swapTxHistoryPending] = useSwapTxHistoryPendingAtom();
-  const { updateSwapHistoryItem } = useSwapActions();
+  const { updateSwapHistoryItem } = useSwapActions().current;
   const internalRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const triggerSwapPendingHistoryInterval = useCallback(() => {
@@ -115,7 +115,7 @@ export function useSwapTxHistoryStateSyncInterval() {
 }
 
 export function useSwapTxHistoryActions() {
-  const { addSwapHistoryItem } = useSwapActions();
+  const { addSwapHistoryItem } = useSwapActions().current;
   const [swapBuildTxResult] = useSwapBuildTxResultAtom(); // current build tx result
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
