@@ -351,6 +351,12 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
+
+  @backgroundMethod()
+  async getIsUTXOAccount({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.isUtxo;
+  }
 }
 
 export default ServiceAccount;

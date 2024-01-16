@@ -1,22 +1,32 @@
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
-import { DescriptionList, Image, XStack } from '@onekeyhq/components';
+import type { IKeyOfIcons, ILocaleIds } from '@onekeyhq/components';
+import {
+  Button,
+  DescriptionList,
+  Image,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 
 export type IProps = {
   details: {
-    key: string;
+    key: ILocaleIds;
     value?: string;
     iconAfter?: IKeyOfIcons;
     onPress?: () => void;
     imgUrl?: string;
   }[][];
+  isUTXO?: boolean;
+  onViewUTXOsPress?: () => void;
 };
 
 function TxDetails(props: IProps) {
-  const { details } = props;
+  const { details, isUTXO, onViewUTXOsPress } = props;
+  const intl = useIntl();
   return (
-    <>
+    <Stack>
       {details.map((section, index) => (
         <DescriptionList
           mx="$5"
@@ -30,7 +40,9 @@ function TxDetails(props: IProps) {
         >
           {section.map((item) => (
             <DescriptionList.Item key={item.key}>
-              <DescriptionList.Item.Key>{item.key}</DescriptionList.Item.Key>
+              <DescriptionList.Item.Key>
+                {intl.formatMessage({ id: item.key })}
+              </DescriptionList.Item.Key>
               <XStack alignItems="center">
                 {item.imgUrl && (
                   <Image
@@ -53,7 +65,14 @@ function TxDetails(props: IProps) {
           ))}
         </DescriptionList>
       ))}
-    </>
+      {isUTXO && (
+        <Stack mt="$5" mx="$5">
+          <Button size="medium" onPress={() => onViewUTXOsPress?.()}>
+            {intl.formatMessage({ id: 'form__view_inputs_outputs' })}
+          </Button>
+        </Stack>
+      )}
+    </Stack>
   );
 }
 

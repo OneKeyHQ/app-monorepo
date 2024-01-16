@@ -23,13 +23,12 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TxDetails } from '../../../components/TxDetails';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalAssetDetailRoutes } from '../router/types';
 
 import type { IProps as ITxDetailsProps } from '../../../components/TxDetails';
-import type {
-  EModalAssetDetailRoutes,
-  IModalAssetDetailsParamList,
-} from '../router/types';
+import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 function HistoryDetails() {
@@ -43,8 +42,15 @@ function HistoryDetails() {
 
   const { networkId, historyTx } = route.params;
 
+  const navigation = useAppNavigation();
+
   const network = usePromiseResult(
     () => mockGetNetwork({ networkId }),
+    [networkId],
+  ).result;
+
+  const isUTXO = usePromiseResult(
+    () => backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
     [networkId],
   ).result;
 
@@ -100,13 +106,13 @@ function HistoryDetails() {
     return [
       [
         {
-          key: 'From',
+          key: 'content__from',
           value: txDetails.from,
           iconAfter: 'Copy1Outline',
           onPress: () => Toast.success({ title: 'Copied' }),
         },
         {
-          key: 'To',
+          key: 'content__to',
           value: txDetails.to,
           iconAfter: 'Copy1Outline',
           onPress: () => Toast.success({ title: 'Copied' }),
@@ -114,12 +120,12 @@ function HistoryDetails() {
       ],
       [
         {
-          key: 'Token',
+          key: 'content__asset',
           value: relatedAssetInfo?.symbol,
           imgUrl: relatedAssetInfo?.logoURI,
         },
         {
-          key: 'Token Contrast',
+          key: 'content__contract_address',
           value: relatedAssetInfo?.address,
           iconAfter: 'Copy1Outline',
           onPress: () => Toast.success({ title: 'Copied' }),
@@ -127,28 +133,28 @@ function HistoryDetails() {
       ],
       [
         {
-          key: 'Hash',
+          key: 'content__hash',
           value: txDetails.tx,
           iconAfter: 'Copy1Outline',
           onPress: () => Toast.success({ title: 'Copied' }),
         },
         {
-          key: 'Time',
+          key: 'content__time',
           value: format(new Date(txDetails.timestamp * 1000), 'PPpp'),
         },
       ],
       [
         {
-          key: 'Chain',
+          key: 'network__network',
           value: network?.name,
           imgUrl: network?.logoURI,
         },
         {
-          key: 'Fee',
+          key: 'content__fee',
           value: `${txDetails.gasFee} ${nativeToken?.symbol ?? ''}`,
         },
         {
-          key: 'Nonce',
+          key: 'content__nonce',
           value: txDetails.nonce,
         },
       ],
@@ -164,6 +170,21 @@ function HistoryDetails() {
     relatedAssetInfo?.symbol,
     txDetails,
   ]);
+
+  const handleOnViewUTXOsPress = useCallback(() => {
+    if (!txDetails) return;
+    const { sends, receives } = txDetails;
+    navigation.push(EModalAssetDetailRoutes.UTXODetails, {
+      inputs: receives.map((receive) => ({
+        address: receive.from,
+        value: receive.amount,
+      })),
+      outputs: sends.map((send) => ({
+        address: send.to,
+        value: send.amount,
+      })),
+    });
+  }, [navigation, txDetails]);
 
   const headerTitle = useCallback(
     () => (
@@ -186,7 +207,7 @@ function HistoryDetails() {
   const renderHistoryDetails = useCallback(() => {
     if (resp.isLoading) {
       return (
-        <Stack justifyContent="center" alignItems="center">
+        <Stack h="100%" justifyContent="center" alignItems="center">
           <Spinner />
         </Stack>
       );
@@ -207,10 +228,20 @@ function HistoryDetails() {
             <Divider mb="$5" pt="$3" />
           </>
         )}
-        <TxDetails details={details} />
+        <TxDetails
+          details={details}
+          isUTXO={isUTXO}
+          onViewUTXOsPress={handleOnViewUTXOsPress}
+        />
       </Stack>
     );
-  }, [resp.isLoading, historyTx.decodedTx.status, details]);
+  }, [
+    resp.isLoading,
+    historyTx.decodedTx.status,
+    details,
+    isUTXO,
+    handleOnViewUTXOsPress,
+  ]);
 
   return (
     <Page>

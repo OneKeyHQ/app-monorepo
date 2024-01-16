@@ -9,8 +9,10 @@ import type {
   IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
 
-import ServiceBase from './ServiceBase';
 import { getVaultSettings } from '../vaults/settings';
+
+import ServiceBase from './ServiceBase';
+import { vaultFactory } from '../vaults/factory';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
@@ -43,7 +45,8 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async getIsNetworkNFTEnabled({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const settings = await vault.getVaultSettings();
     return settings.NFTEnabled;
   }
 }
