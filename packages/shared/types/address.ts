@@ -13,6 +13,7 @@ export type IFetchAddressDetailsParams = {
   xpub?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
+  withValidate?: boolean;
 };
 
 export type IFetchAddressDetailsResp = {
