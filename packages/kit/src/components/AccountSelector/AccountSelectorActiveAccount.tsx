@@ -68,10 +68,9 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { serviceAccount } = backgroundApiProxy;
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+  const { account } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
 
@@ -84,11 +83,15 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         renderTrigger={
           <XStack
             alignItems="center"
-            onPress={() =>
+            onPress={() => {
               Toast.success({
                 title: 'Copied',
-              })
-            }
+              });
+              console.log({
+                selectedAccount,
+                activeAccount,
+              });
+            }}
             p="$1"
             px="$2"
             my="$-1"
