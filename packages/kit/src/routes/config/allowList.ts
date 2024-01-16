@@ -101,7 +101,19 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       showUrl: true,
       showParams: true,
     },
+
+    // Settings Pages
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingAppLockModal}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingCurrencyModal}`]:
       {
         showUrl: true,
         showParams: true,
