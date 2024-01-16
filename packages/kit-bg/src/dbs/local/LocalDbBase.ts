@@ -15,15 +15,19 @@ import {
   PasswordNotSet,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
   WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
   WALLET_TYPE_WATCHING,
 } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -36,6 +40,7 @@ import {
   type IDBCreateHDWalletParams,
   type IDBCreateHWWalletParams,
   type IDBCredentialBase,
+  type IDBDevice,
   type IDBDevicePayload,
   type IDBIndexedAccount,
   type IDBRemoveWalletParams,
@@ -63,8 +68,6 @@ import {
   type ILocalDBTxUpdateRecordsParams,
   type ILocalDBWithTransactionTask,
 } from './types';
-
-import type { Device } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase implements ILocalDBAgent {
   protected abstract readyDb: Promise<ILocalDBAgent>;
@@ -462,11 +465,12 @@ ssphrase wallet
     });
   }
 
-  async getHDIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
+  async getIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
     const db = await this.readyDb;
     const { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.IndexedAccount,
     });
+    console.log('getIndexedAccountsOfWallet', records);
     return {
       accounts: records
         .filter((item) => item.walletId === walletId)
@@ -474,7 +478,7 @@ ssphrase wallet
     };
   }
 
-  async addHDIndexedAccount({
+  async addIndexedAccount({
     walletId,
     indexes,
     skipIfExists,
@@ -485,7 +489,7 @@ ssphrase wallet
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
-      await this.txAddHDIndexedAccount({
+      await this.txAddIndexedAccount({
         tx,
         walletId,
         skipIfExists,
@@ -494,7 +498,7 @@ ssphrase wallet
     });
   }
 
-  async txAddHDIndexedAccount({
+  async txAddIndexedAccount({
     tx,
     walletId,
     indexes,
@@ -505,10 +509,27 @@ ssphrase wallet
     indexes: number[];
     skipIfExists: boolean;
   }) {
-    if (!accountUtils.isHdWallet({ walletId })) {
+    if (
+      !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isHwWallet({ walletId })
+    ) {
       throw new OneKeyInternalError({
-        message: `txAddHDIndexedAccount ERROR: not hd wallet "${walletId}"`,
+        message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
       });
+    }
+    let dbDevice: IDBDevice | undefined;
+    let dbWallet: IDBWallet | undefined;
+    if (accountUtils.isHwWallet({ walletId })) {
+      [dbWallet] = await this.txGetWallet({ tx, walletId });
+      const deviceId = dbWallet.associatedDevice;
+      if (deviceId) {
+        const [device] = await this.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          id: deviceId,
+        });
+        dbDevice = device;
+      }
     }
     const records: IDBIndexedAccount[] = indexes.map((index) => {
       const indexedAccountId = accountUtils.buildIndexedAccountId({
@@ -516,9 +537,18 @@ ssphrase wallet
         index,
       });
       const hashBuffer = sha256(
-        bufferUtils.toBuffer(indexedAccountId, 'utf-8'),
+        bufferUtils.toBuffer(
+          dbDevice
+            ? `${dbDevice.mac}.${dbDevice.deviceId}.${dbDevice.deviceType}.${
+                dbWallet?.passphraseState || ''
+              }.${index}`
+            : indexedAccountId,
+          'utf-8',
+        ),
       );
-      const idHash = bufferUtils.bytesToHex(hashBuffer);
+      let idHash = bufferUtils.bytesToHex(hashBuffer);
+      idHash = idHash.slice(-42);
+      checkIsDefined(idHash);
       return {
         id: indexedAccountId,
         idHash,
@@ -527,14 +557,14 @@ ssphrase wallet
         name: `Account #${index + 1}`, // TODO i18n name
       };
     });
-    console.log('txAddHDIndexedAccount txAddRecords');
+    console.log('txAddIndexedAccount txAddRecords', records);
     await this.txAddRecords({
       tx,
       skipIfExists,
       name: ELocalDBStoreNames.IndexedAccount,
       records,
     });
-    console.log('txAddHDIndexedAccount txGetWallet');
+    console.log('txAddIndexedAccount txGetWallet');
     const [wallet] = await this.txGetWallet({
       tx,
       walletId,
@@ -570,9 +600,11 @@ ssphrase wallet
   async txAddHDNextIndexedAccount({
     tx,
     walletId,
+    onlyAddFirst,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
+    onlyAddFirst?: boolean;
   }) {
     console.log('txAddHDNextIndexedAccount');
     const [wallet] = await this.txGetWallet({
@@ -580,8 +612,11 @@ ssphrase wallet
       walletId,
     });
     console.log('txAddHDNextIndexedAccount get wallet', wallet);
-    const { nextIndex } = wallet;
-    await this.txAddHDIndexedAccount({
+    let { nextIndex } = wallet;
+    if (onlyAddFirst) {
+      nextIndex = 0;
+    }
+    await this.txAddIndexedAccount({
       tx,
       walletId,
       indexes: [nextIndex],
@@ -596,11 +631,43 @@ ssphrase wallet
     };
   }
 
+  async buildCreateHDAndHWWalletResult({
+    walletId,
+    addedHdAccountIndex,
+  }: {
+    walletId: string;
+    addedHdAccountIndex: number;
+  }) {
+    const dbWallet = await this.getWallet({
+      walletId,
+    });
+
+    const dbIndexedAccount = await this.getIndexedAccount({
+      id: accountUtils.buildIndexedAccountId({
+        walletId,
+        index: addedHdAccountIndex,
+      }),
+    });
+
+    let dbDevice: IDBDevice | undefined;
+    if (accountUtils.isHwWallet({ walletId })) {
+      dbDevice = await this.getWalletDevice({
+        walletId,
+      });
+    }
+
+    return {
+      wallet: dbWallet,
+      indexedAccount: dbIndexedAccount,
+      device: dbDevice,
+    };
+  }
+
   async createHDWallet(
     params: IDBCreateHDWalletParams,
   ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
     const db = await this.readyDb;
-    const { password, name, avatar, backuped, nextAccountIds, rs } = params;
+    const { password, name, avatar, backuped, rs } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
@@ -623,7 +690,7 @@ ssphrase wallet
             avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
-            nextAccountIds: nextAccountIds ?? {},
+            nextAccountIds: {},
             accounts: [],
             nextIndex: firstAccountIndex,
           },
@@ -649,6 +716,7 @@ ssphrase wallet
       const { nextIndex } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
+        onlyAddFirst: true,
       });
       addedHdAccountIndex = nextIndex;
 
@@ -663,41 +731,156 @@ ssphrase wallet
       });
     });
 
-    const dbWallet = await this.getWallet({
+    return this.buildCreateHDAndHWWalletResult({
       walletId,
+      addedHdAccountIndex,
     });
-
-    const dbIndexedAccount = await this.getIndexedAccount({
-      id: accountUtils.buildIndexedAccountId({
-        walletId: dbWallet.id,
-        index: addedHdAccountIndex,
-      }),
-    });
-    return { wallet: dbWallet, indexedAccount: dbIndexedAccount };
   }
 
-  addHWWallet(params: IDBCreateHWWalletParams): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
+  async createHWWallet(params: IDBCreateHWWalletParams) {
+    const db = await this.readyDb;
+    const { name, device, features, passphraseState } = params;
+    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
+    const { connectId } = device;
+    // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
+    const deviceType = device.deviceType || getDeviceType(features);
+    const deviceUUID = device.uuid || getDeviceUUID(features);
+    const deviceId = device.deviceId || features.device_id || '';
+    let walletName =
+      name ??
+      features.label ??
+      features.ble_name ??
+      `OneKey ${deviceUUID.slice(-4)}`;
+    if (passphraseState) {
+      // TODO use nextHidden in IDBWallet
+      walletName = 'Hidden Wallet #1';
+    }
+    const avatar: IAvatarInfo = {
+      img: deviceType,
+    };
+    const existingDevice = await this.getExistingDevice({
+      deviceId,
+      uuid: deviceUUID,
+    });
+    const dbDeviceId = existingDevice?.id || generateUUID();
+    // TODO move to accountUtils
+    let dbWalletId = `hw-${dbDeviceId}`;
+    if (passphraseState) {
+      dbWalletId = `hw-${dbDeviceId}-${passphraseState}`;
+    }
+    const featuresStr = JSON.stringify(features);
+
+    const firstAccountIndex = 0;
+
+    let addedHdAccountIndex = -1;
+
+    await db.withTransaction(async (tx) => {
+      // add db device
+      const now = Date.now();
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        skipIfExists: true,
+        records: [
+          {
+            id: dbDeviceId,
+            name: walletName,
+            mac: connectId || '',
+            uuid: deviceUUID,
+            deviceId,
+            deviceType,
+            features: featuresStr,
+            payloadJson: `{}`,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+      });
+
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          item.features = featuresStr;
+          return item;
+        },
+      });
+
+      // add db wallet
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        skipIfExists: true,
+        records: [
+          {
+            id: dbWalletId,
+            name: walletName,
+            avatar: avatar && JSON.stringify(avatar),
+            type: WALLET_TYPE_HW,
+            backuped: true,
+            associatedDevice: dbDeviceId,
+            deviceType,
+            passphraseState,
+            nextIndex: firstAccountIndex,
+            nextAccountIds: {},
+            accounts: [],
+          },
+        ],
+      });
+
+      // add first indexed account
+      const { nextIndex } = await this.txAddHDNextIndexedAccount({
+        tx,
+        walletId: dbWalletId,
+        onlyAddFirst: true,
+      });
+      addedHdAccountIndex = nextIndex;
+    });
+
+    return this.buildCreateHDAndHWWalletResult({
+      walletId: dbWalletId,
+      addedHdAccountIndex,
+    });
   }
 
   async removeWallet({
     walletId,
     password,
+    isHardware,
   }: IDBRemoveWalletParams): Promise<void> {
     const db = await this.readyDb;
-    await this.verifyPassword(password);
+    if (!isHardware) {
+      await this.verifyPassword(password);
+    }
     await db.withTransaction(async (tx) => {
       // call remove account & indexed account
       // remove credential
       // remove wallet
+
+      const [wallet] = await this.txGetWallet({
+        tx,
+        walletId,
+      });
+      if (isHardware) {
+        if (wallet.associatedDevice) {
+          await this.txRemoveRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [wallet.associatedDevice],
+          });
+        }
+      } else {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          ids: [walletId],
+        });
+      }
+
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
-        ids: [walletId],
-      });
-      await this.txRemoveRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
         ids: [walletId],
       });
     });
@@ -711,6 +894,7 @@ ssphrase wallet
     let wallet = await this.getWallet({ walletId });
 
     await db.withTransaction(async (tx) => {
+      // update wallet name
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -724,6 +908,20 @@ ssphrase wallet
           return w;
         },
       });
+      // update device name
+      if (wallet.associatedDevice) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [wallet.associatedDevice],
+          updater: (item) => {
+            if (params.name) {
+              item.name = params.name || item.name;
+            }
+            return item;
+          },
+        });
+      }
     });
     wallet = await this.getWallet({ walletId });
     return wallet;
@@ -905,16 +1103,50 @@ ssphrase wallet
   }
 
   // ---------------------------------------------- device
-  getDevices(): Promise<Device[]> {
-    throw new Error('Method not implemented.');
+
+  async getAllDevices(): Promise<IDBDevice[]> {
+    const { records: devices } = await this.getAllRecords({
+      name: ELocalDBStoreNames.Device,
+    });
+    return devices;
   }
 
-  getDevice(deviceId: string): Promise<Device> {
-    throw new Error('Method not implemented.');
+  async getExistingDevice({
+    deviceId,
+    uuid,
+  }: {
+    deviceId: string;
+    uuid: string;
+  }): Promise<IDBDevice | undefined> {
+    const devices = await this.getAllDevices();
+    return devices.find(
+      (item) => item.deviceId === deviceId && item.uuid === uuid,
+    );
   }
 
-  getDeviceByDeviceId(deviceId: string): Promise<Device> {
-    throw new Error('Method not implemented.');
+  async getWalletDevice({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IDBDevice> {
+    const wallet = await this.getWallet({
+      walletId,
+    });
+    if (wallet.associatedDevice) {
+      return this.getDevice(wallet.associatedDevice);
+    }
+    throw new Error('wallet associatedDevice not found');
+  }
+
+  async getDevice(deviceId: string): Promise<IDBDevice> {
+    const device = await this.getRecordById({
+      name: ELocalDBStoreNames.Device,
+      id: deviceId,
+    });
+    device.connectId = device.mac;
+    device.featuresInfo = JSON.parse(device.features) as IOneKeyDeviceFeatures;
+    device.payloadJsonInfo = JSON.parse(device.payloadJson);
+    return device;
   }
 
   updateDevicePayload(

@@ -2,6 +2,8 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 
+import { realmDBSchemasMap } from './schemas';
+
 import type { RealmObjectBase } from './base/RealmObjectBase';
 import type { ELocalDBStoreNames } from '../localDBStoreNames';
 import type {
@@ -153,12 +155,36 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     return Promise.resolve(undefined);
   }
 
+  checkSchemaPropertiesDefined({
+    name,
+    record,
+  }: {
+    name: ELocalDBStoreNames;
+    record: any;
+  }) {
+    if (process.env.NODE_ENV !== 'production') {
+      const schemaClass = realmDBSchemasMap[name];
+      const propertiesKeys = Object.keys(schemaClass.schema.properties);
+      const recordKeys = Object.keys(record || {});
+      recordKeys.forEach((key) => {
+        if (!propertiesKeys.includes(key)) {
+          throw new Error(`Realm schema properties missing: ${name} ${key}`);
+        }
+      });
+    }
+  }
+
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<void> {
     const { name, records, skipIfExists } = params;
     checkIsDefined(params.tx);
     checkIsDefined(params.name);
+
+    this.checkSchemaPropertiesDefined({
+      name,
+      record: records?.[0] || {},
+    });
 
     records.forEach((r) => {
       let shouldAdd = true;

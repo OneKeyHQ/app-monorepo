@@ -71,7 +71,7 @@ export function WalletList({ num }: IWalletListProps) {
   const { selectedAccount } = useSelectedAccount({ num });
 
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
-    () => serviceAccount.getHDWallets(),
+    () => serviceAccount.getHDAndHWWallets(),
     [serviceAccount],
     {
       checkIsFocused: false,
@@ -113,7 +113,9 @@ export function WalletList({ num }: IWalletListProps) {
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {(platformEnv.isExtension || platformEnv.isNativeAndroid) && (
+      {(platformEnv.isExtension ||
+        platformEnv.isNativeAndroid ||
+        platformEnv.isWeb) && (
         <XStack px="$5" py="$3.5">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />

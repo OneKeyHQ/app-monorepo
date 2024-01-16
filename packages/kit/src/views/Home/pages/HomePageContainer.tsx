@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
+import { YStack, useMedia } from 'tamagui';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -20,13 +20,15 @@ import {
 } from '@onekeyhq/components';
 import { getTokens, useForm } from '@onekeyhq/components/src/hooks';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
+  AccountSelectorActiveAccount,
   AccountSelectorActiveAccountHome,
   AccountSelectorProvider,
   AccountSelectorProviderMirror,
+  AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
@@ -40,6 +42,29 @@ import { ETokenPages } from '../../Token/router/type';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
+
+function HomeAccountSelectorInfoDemo() {
+  return (
+    <YStack mx="$2" my="$4">
+      <AccountSelectorTrigger num={0} />
+      <AccountSelectorActiveAccount num={0} />
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPinOnDevice();
+        }}
+      >
+        硬件输入 PIN
+      </Button>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
+        }}
+      >
+        硬件输入 Passphrase
+      </Button>
+    </YStack>
+  );
+}
 
 function HeaderAction({
   icon,
@@ -239,9 +264,11 @@ function HomePage() {
           />
           <HeaderAction icon="DotHorOutline" />
         </XStack>
+
+        <HomeAccountSelectorInfoDemo />
       </Stack>
     ),
-    [form, handleChainPress, handleReceivePress],
+    [form, handleReceivePress, handleSendPress],
   );
 
   // useMemo(() => {

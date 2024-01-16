@@ -17,7 +17,8 @@ import {
 export function AccountSelectorActiveAccount({ num }: { num: number }) {
   const { serviceAccount } = backgroundApiProxy;
   const {
-    activeAccount: { wallet, network, account },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    activeAccount: { wallet, network, account, indexedAccount },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
 
@@ -27,6 +28,7 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
     <>
       <SizableText>
         {'>>>>>>'} {wallet?.name} -- {network?.name} --{' '}
+        {/* {JSON.stringify(indexedAccount)} */}
         {selectedAccount?.deriveType}/{selectedAccount.indexedAccountId} --{' '}
         {account?.name}
       </SizableText>
@@ -46,7 +48,7 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
             if (!selectedAccount) {
               return;
             }
-            const c = await serviceAccount.addHDAccounts({
+            const c = await serviceAccount.addHDOrHWAccounts({
               walletId: selectedAccount?.walletId,
               networkId: selectedAccount?.networkId,
               indexedAccountId: selectedAccount?.indexedAccountId,
@@ -134,7 +136,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         if (!selectedAccount) {
           return;
         }
-        const c = await serviceAccount.addHDAccounts({
+        const c = await serviceAccount.addHDOrHWAccounts({
           walletId: selectedAccount?.walletId,
           networkId: selectedAccount?.networkId,
           indexedAccountId: selectedAccount?.indexedAccountId,
