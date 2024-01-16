@@ -41,16 +41,12 @@ function BookmarkListModal() {
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
   const { run, result } = usePromiseResult(
     async () => {
-      const data =
-        await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
-      const bookmarks = await Promise.all(
-        (data?.data ?? []).map(async (i) => ({
-          ...i,
-          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-        })),
-      );
-      setDataSource((bookmarks as IBrowserBookmark[]) || []);
-      return (data?.data as IBrowserBookmark[]) || [];
+      const bookmarks =
+        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+        });
+      setDataSource(bookmarks || []);
+      return bookmarks || [];
     },
     [],
     {

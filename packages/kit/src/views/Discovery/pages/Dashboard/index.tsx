@@ -27,11 +27,7 @@ import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusSta
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
-import {
-  useBrowserAction,
-  useBrowserBookmarkAction,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type {
   ICategory,
   IDApp,
@@ -313,32 +309,25 @@ function Dashboard() {
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
     return data;
   }, []);
-  const { getBookmarkData } = useBrowserBookmarkAction().current;
-  const { getHistoryData } = useBrowserHistoryAction().current;
   const { handleOpenWebSite } = useBrowserAction().current;
   const { result: bookmarkData, run: refreshBrowserBookmark } =
-    usePromiseResult(async () => {
-      const bookmarks = await getBookmarkData();
-      const slicedBookmarks = bookmarks.slice(0, 8);
-      return Promise.all(
-        slicedBookmarks.map(async (i) => ({
-          ...i,
-          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-        })),
-      );
-    }, [getBookmarkData]);
+    usePromiseResult(
+      async () =>
+        backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 8,
+        }),
+      [],
+    );
 
-  const { result: historyData, run: refreshBrowserHistory } =
-    usePromiseResult(async () => {
-      const histories = await getHistoryData();
-      const slicedHistory = histories.slice(0, 8);
-      return Promise.all(
-        slicedHistory.map(async (i) => ({
-          ...i,
-          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-        })),
-      );
-    }, [getHistoryData]);
+  const { result: historyData, run: refreshBrowserHistory } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceDiscovery.getHistoryData({
+        generateIcon: true,
+        sliceCount: 8,
+      }),
+    [],
+  );
 
   const handleSearchBarPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -359,8 +348,11 @@ function Dashboard() {
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
-      void refreshBrowserBookmark();
-      void refreshBrowserHistory();
+      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
+      setTimeout(() => {
+        void refreshBrowserBookmark();
+        void refreshBrowserHistory();
+      });
     }
   });
 

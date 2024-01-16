@@ -1,4 +1,10 @@
+import { isNumber } from 'lodash';
+
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+} from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -111,6 +117,57 @@ class ServiceDiscovery extends ServiceBase {
 
     const endpoints = await getEndpoints();
     return `${endpoints.http}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
+  }
+
+  @backgroundMethod()
+  async getBookmarkData(
+    options:
+      | {
+          generateIcon?: boolean;
+          sliceCount?: number;
+        }
+      | undefined,
+  ): Promise<IBrowserBookmark[]> {
+    const { generateIcon, sliceCount } = options ?? {};
+    const data =
+      await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
+    let dataSource = data?.data ?? [];
+    if (isNumber(sliceCount)) {
+      dataSource = dataSource.slice(0, sliceCount);
+    }
+    const bookmarks = await Promise.all(
+      dataSource.map(async (i) => ({
+        ...i,
+        logo: generateIcon ? await this.getWebsiteIcon(i.url) : undefined,
+      })),
+    );
+
+    return bookmarks;
+  }
+
+  @backgroundMethod()
+  async getHistoryData(
+    options:
+      | {
+          generateIcon?: boolean;
+          sliceCount?: number;
+        }
+      | undefined,
+  ): Promise<IBrowserHistory[]> {
+    const { generateIcon, sliceCount } = options ?? {};
+    const data = await this.backgroundApi.simpleDb.browserHistory.getRawData();
+    let dataSource = data?.data ?? [];
+    if (isNumber(sliceCount)) {
+      dataSource = dataSource.slice(0, sliceCount);
+    }
+    const bookmarks = await Promise.all(
+      dataSource.map(async (i) => ({
+        ...i,
+        logo: generateIcon ? await this.getWebsiteIcon(i.url) : undefined,
+      })),
+    );
+
+    return bookmarks;
   }
 }
 
