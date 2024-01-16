@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
-import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
 import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { getChainData } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
@@ -12,12 +13,10 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/EIP155Data';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import {
   useAccountSelectorActions,
-  useAccountSelectorEditModeAtom,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
@@ -37,55 +36,8 @@ function SessionProposalModal() {
   const navigation = useAppNavigation();
 
   useEffect(() => {
-    void (async () => {
-      console.log('activeAccount: ', activeAccount);
-      const { account } = activeAccount;
-
-      // set default account
-      if (!account) {
-        const { wallets } =
-          await backgroundApiProxy.serviceAccount.getHDWallets();
-        const defaultWallet = wallets[0];
-        const accounts =
-          await backgroundApiProxy.serviceAccount.getAccountsOfWallet({
-            walletId: defaultWallet.id,
-          });
-        console.log('accounts: ', accounts);
-        const defaultAccount = accounts.accounts[0];
-        void actions.current.initFromStorage({
-          sceneName: EAccountSelectorSceneName.discover,
-          sceneUrl: proposal.params.proposer.metadata.url,
-          num: 0,
-        });
-        void actions.current.reloadActiveAccountInfo({
-          num: 0,
-          selectedAccount: {
-            walletId: defaultWallet.id,
-            indexedAccountId: defaultAccount.id,
-            othersWalletAccountId: undefined,
-            networkId: 'evm--1',
-            deriveType: 'default',
-            focusedWallet: defaultWallet.id,
-          },
-        });
-        setTimeout(() => {
-          void actions.current.saveToStorage({
-            sceneName: EAccountSelectorSceneName.discover,
-            sceneUrl: proposal.params.proposer.metadata.url,
-            num: 0,
-            selectedAccount: {
-              walletId: defaultWallet.id,
-              indexedAccountId: defaultAccount.id,
-              othersWalletAccountId: undefined,
-              networkId: 'evm--1',
-              deriveType: 'default',
-              focusedWallet: defaultWallet.id,
-            },
-          });
-        }, 500);
-      }
-    })();
-  }, [activeAccount, actions, proposal.params.proposer.metadata.url]);
+    console.log('activeAccount: ', activeAccount);
+  }, [activeAccount]);
 
   const requestedChains = useMemo(() => {
     if (!proposal) return [];
@@ -166,6 +118,7 @@ function SessionProposalModal() {
   return (
     <Page>
       <Page.Header title="Wallet Connect Session Proposal" />
+      <AccountSelectorTriggerHome num={0} />
       <Page.Body>
         <Stack space="$3">
           <SizableText>WalletConnect 授权账户</SizableText>
@@ -204,6 +157,7 @@ function SessionProposalModalProvider() {
   const { proposal } = useDappQuery<{
     proposal: Web3WalletTypes.SessionProposal;
   }>();
+
   return (
     <AccountSelectorProvider
       config={{
