@@ -1,9 +1,11 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
+import { ETabDeveloperRoutes } from '../../views/Developer/type';
 import { ETabHomeRoutes } from '../../views/Home/router';
 import { EOnboardingPages } from '../../views/Onboarding/router/type';
 import { EModalSettingRoutes } from '../../views/Setting/router/types';
+import { ETestModalPages } from '../../views/TestModal/router/type';
 import { ERootRoutes } from '../enum';
 import { EModalRoutes } from '../Modal/type';
 import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
@@ -97,6 +99,71 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ActivateDevice}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.BeforeShowRecoveryPhrase}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ConnectWallet}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ConnectYourDevice}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.FinalizeWalletSetup}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.GetStarted}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportAddress}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportPrivateKey}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportRecoveryPhrase}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportWalletOptions}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.OneKeyHardwareWallet}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.RecoveryPhrase}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.VerifyRecoverPhrase}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isDev) {
@@ -109,6 +176,33 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       };
     });
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHome}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
+
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHomeStack1}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
+
+    rules[
+      pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.DevHomeStack2}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
+
+    rules[
+      pagePath`${ERootRoutes.Modal}${EModalRoutes.TestModal}${ETestModalPages.TestSimpleModal}`
+    ] = {
+      showUrl: true,
+      showParams: true,
+    };
   }
 
   return rules;
