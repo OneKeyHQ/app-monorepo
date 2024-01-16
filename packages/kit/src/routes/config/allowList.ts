@@ -6,6 +6,8 @@ import { EOnboardingPages } from '../../views/Onboarding/router/type';
 import { EModalSettingRoutes } from '../../views/Setting/router/types';
 import { ERootRoutes } from '../enum';
 import { EModalRoutes } from '../Modal/type';
+import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
+import { ETabMeRoutes } from '../Tab/Me/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
 
@@ -60,24 +62,12 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     return `/${path}`;
   }
 
-  function allowAllPageInModalRoute(
-    modalRoute: EModalRoutes,
-    pages: any,
-    rules: Record<string, IAllowSettingItem>,
-  ) {
-    Object.keys(pages).forEach((pageName) => {
-      rules[pagePath`${ERootRoutes.Modal}${modalRoute}${pageName}`] = {
-        showUrl: true,
-        showParams: true,
-      };
-    });
-  }
-
   // fill in the route name as the key according to the route stacks order
   // Page: /main/tab-Home/TabHomeStack1
   const rules = {
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
       {
+        showUrl: true,
         showParams: true,
       },
     // Page: /main/tab-Swap/TabSwap
@@ -85,12 +75,23 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     // it will automatically find the real route according to the route stacks.
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
       {
+        showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${EGalleryRoutes.Components}`]:
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
       {
+        showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
+      showUrl: true,
+      showParams: true,
+    },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
       {
         showUrl: true,
@@ -98,11 +99,17 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       },
   } as Record<string, IAllowSettingItem>;
 
-  allowAllPageInModalRoute(
-    EModalRoutes.OnboardingModal,
-    EOnboardingPages,
-    rules,
-  );
+  if (platformEnv.isDev) {
+    Object.values(EGalleryRoutes).forEach((pageName) => {
+      console.log(
+        pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${pageName}`,
+      );
+      rules[pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${pageName}`] = {
+        showUrl: true,
+        showParams: true,
+      };
+    });
+  }
 
   return rules;
 };
