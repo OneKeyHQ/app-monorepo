@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
 import { vaultFactory } from '../vaults/factory';
@@ -22,6 +23,7 @@ class ServiceValidator extends ServiceBase {
     networkId: string;
     address: string;
   }): Promise<IAddressValidation> {
+    noopObject(networkId);
     const vault = await vaultFactory.getVault({
       networkId: 'evm--5',
       accountId: "hd-1--m/44'/60'/0'/0/0",
@@ -32,6 +34,7 @@ class ServiceValidator extends ServiceBase {
 
   @backgroundMethod()
   async validateSendAmount({ amount }: { amount: string }): Promise<boolean> {
+    noopObject(amount);
     const vault = await vaultFactory.getVault({
       networkId: 'evm--5',
       accountId: "hd-1--m/44'/60'/0'/0/0",
