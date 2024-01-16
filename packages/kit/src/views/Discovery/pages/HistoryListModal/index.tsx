@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -55,14 +56,12 @@ function HistoryListModal() {
 
   const [page] = useState(1);
 
-  const [firstLoad, setFirstLoad] = useState<boolean>(true);
-  const { result, run } = usePromiseResult(
+  const { result: dataSource, run } = usePromiseResult(
     async () => {
       const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
         page,
       );
       const ret = groupDataByDate(data);
-      setFirstLoad(false);
       return ret;
     },
     [page],
@@ -71,12 +70,10 @@ function HistoryListModal() {
     },
   );
 
-  const dataSource = useMemo(() => result ?? [], [result]);
-
   const displayEmptyView = useMemo(() => {
-    if (firstLoad) return false;
+    if (isNil(dataSource)) return false;
     return dataSource.length === 0;
-  }, [dataSource, firstLoad]);
+  }, [dataSource]);
 
   const handleDeleteAll = useCallback(async () => {
     await removeAllBrowserHistory();
@@ -116,7 +113,7 @@ function HistoryListModal() {
             <SectionList
               height="100%"
               estimatedItemSize="$10"
-              sections={dataSource}
+              sections={isNil(dataSource) ? [] : dataSource}
               renderSectionHeader={({ section: { title } }) => (
                 <Stack bg="$bg" p="$3">
                   <SizableText size="$headingXs">{title}</SizableText>

@@ -3,6 +3,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
+
 import {
   Badge,
   IconButton,
@@ -52,16 +54,11 @@ const RecommendListContainer = ({
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => {
   const navigation = useAppNavigation();
-  const { result } = usePromiseResult(async () => {
+  const { result: dataSource } = usePromiseResult(async () => {
     const data =
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-    return data;
+    return data.categories.map((i) => ({ ...i, data: i.dapps })) ?? [];
   }, []);
-
-  const dataSource = useMemo(
-    () => result?.categories.map((i) => ({ ...i, data: i.dapps })) ?? [],
-    [result?.categories],
-  );
 
   const { handleOpenWebSite } = useBrowserAction().current;
 
@@ -69,7 +66,7 @@ const RecommendListContainer = ({
     <SectionList
       estimatedItemSize="$10"
       onContentSizeChange={onContentSizeChange}
-      sections={dataSource}
+      sections={isNil(dataSource) ? [] : dataSource}
       renderSectionHeader={({ section: { name } }) => (
         <Stack p="$3" bg="$bg">
           <SizableText size="$headingXs">{name}</SizableText>
@@ -140,7 +137,8 @@ const DiscoveryListContainer = ({
   const { handleOpenWebSite } = useBrowserAction().current;
   const [activeId, setActiveId] = useState('');
   const [dAppListDataSource, setDAppListDataSource] = useState<IDApp[]>([]);
-  const { result } = usePromiseResult(async () => {
+
+  const { result: headerDataSource } = usePromiseResult(async () => {
     const data = await backgroundApiProxy.serviceDiscovery.fetchCategoryList();
     setActiveId(data[0].categoryId);
     setDAppListDataSource(data[0].dapps);
@@ -162,14 +160,14 @@ const DiscoveryListContainer = ({
     }
   }, [dAppListResult?.data]);
 
-  const headerDataSource = useMemo(() => result ?? [], [result]);
+  // const headerDataSource = useMemo(() => result ?? [], [result]);
   return (
     <ListView
       data={dAppListDataSource}
       estimatedItemSize="$10"
       ListHeaderComponent={
         <DiscoveryListHeader
-          dataSource={headerDataSource}
+          dataSource={isNil(headerDataSource) ? [] : headerDataSource}
           onContentSizeChange={onContentSizeChange}
           activeId={activeId}
           setActiveId={setActiveId}

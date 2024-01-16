@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -37,9 +38,8 @@ function BookmarkListModal() {
     useBrowserBookmarkAction().current;
   const { handleOpenWebSite } = useBrowserAction().current;
 
-  const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
-  const { run } = usePromiseResult(
+  const { run, result } = usePromiseResult(
     async () => {
       const data =
         await backgroundApiProxy.simpleDb.browserBookmarks.getRawData();
@@ -49,7 +49,6 @@ function BookmarkListModal() {
           logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
         })),
       );
-      setFirstLoad(false);
       setDataSource((bookmarks as IBrowserBookmark[]) || []);
       return (data?.data as IBrowserBookmark[]) || [];
     },
@@ -60,9 +59,9 @@ function BookmarkListModal() {
   );
 
   const displayEmptyView = useMemo(() => {
-    if (firstLoad) return false;
-    return dataSource.length === 0;
-  }, [dataSource, firstLoad]);
+    if (isNil(result)) return false;
+    return result.length === 0;
+  }, [result]);
 
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
