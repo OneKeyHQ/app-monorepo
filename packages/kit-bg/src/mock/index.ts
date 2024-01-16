@@ -2,14 +2,6 @@
 
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 
-export function mockGetWalletIdFromAccountId({
-  accountId,
-}: {
-  accountId: string;
-}) {
-  return 'hd-1';
-}
-
 export function mockIsAccountCompatibleWithNetwork({
   accountId,
   networkId,

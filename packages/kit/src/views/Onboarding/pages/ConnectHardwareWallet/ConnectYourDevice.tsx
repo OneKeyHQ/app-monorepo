@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -15,16 +16,31 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
+import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
+import {
+  BleLocationServiceError,
+  InitIframeLoadFail,
+  InitIframeTimeout,
+  NeedBluetoothPermissions,
+  NeedBluetoothTurnedOn,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EOnboardingPages } from '../../router/type';
+
+import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 const headerRight = (onPress: () => void) => (
   <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
@@ -179,16 +195,66 @@ const FirmwareAuthenticationDialogContent = ({
   );
 };
 
-export function ConnectYourDevice() {
+export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+  const searchStateRef = useRef<'start' | 'stop'>('stop');
+  const actions = useAccountSelectorActions();
 
-  const handleHeaderRightPress = () => {
+  // deviceScan
+  useEffect(() => {
+    uiDeviceUtils.startDeviceScan(
+      (response) => {
+        if (!response.success) {
+          const error = uiDeviceUtils.convertDeviceError(response.payload);
+          if (platformEnv.isNative) {
+            if (
+              !(error instanceof NeedBluetoothTurnedOn) &&
+              !(error instanceof NeedBluetoothPermissions) &&
+              !(error instanceof BleLocationServiceError)
+            ) {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: error.key,
+                }),
+              });
+            } else {
+              uiDeviceUtils.stopScan();
+            }
+          } else if (
+            error instanceof InitIframeLoadFail ||
+            error instanceof InitIframeTimeout
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: error.key,
+              }),
+            });
+            uiDeviceUtils.stopScan();
+          }
+          setIsSearching(false);
+          return;
+        }
+
+        setSearchedDevices(response.payload);
+        console.log('startDeviceScan>>>>>', response.payload);
+      },
+      (state) => {
+        searchStateRef.current = state;
+      },
+    );
+  }, [intl]);
+
+  const handleHeaderRightPress = useCallback(() => {
     navigation.push(EOnboardingPages.OneKeyHardwareWallet);
-  };
+  }, [navigation]);
 
-  const handleWalletItemPress = () => {
+  const handleWalletItemPress = useCallback(() => {
     navigation.push(EOnboardingPages.FinalizeWalletSetup);
-  };
+  }, [navigation]);
 
   const handleSetupNewWalletPress = useCallback(() => {
     navigation.push(EOnboardingPages.ActivateDevice);
@@ -253,7 +319,7 @@ export function ConnectYourDevice() {
     });
   }, [handleSetupNewWalletPress]);
 
-  const handleFirmwareAuthentication = () => {
+  const handleFirmwareAuthentication = useCallback(() => {
     const firmwareAuthenticationDialog = Dialog.show({
       title: 'Firmware Authentication',
       renderContent: (
@@ -266,9 +332,40 @@ export function ConnectYourDevice() {
       ),
       showFooter: false,
     });
-  };
+  }, [handleNotActivatedDevicePress]);
 
-  const handleCheckingDevice = () => {
+  const handleHwWalletCreate = useCallback(
+    async ({ device }: { device: SearchDevice }) => {
+      const checkingDeviceDialog = Dialog.show({
+        title: 'Checking Device',
+        renderContent: (
+          <Stack
+            borderRadius="$3"
+            p="$5"
+            bg="$bgSubdued"
+            style={{ borderCurve: 'continuous' }}
+          >
+            <Spinner size="large" />
+          </Stack>
+        ),
+        showFooter: false,
+      });
+
+      await Promise.all([
+        await actions.current.createHWWalletWithHidden({
+          device,
+          features: (device as KnownDevice).features,
+        }),
+        await wait(1000),
+      ]);
+
+      await checkingDeviceDialog.close();
+      navigation.push(EOnboardingPages.FinalizeWalletSetup);
+    },
+    [actions, navigation],
+  );
+
+  const handleCheckingDevice = useCallback(() => {
     const checkingDeviceDialog = Dialog.show({
       title: 'Checking Device',
       renderContent: (
@@ -288,28 +385,72 @@ export function ConnectYourDevice() {
       await checkingDeviceDialog.close();
       handleFirmwareAuthentication();
     }, 1000);
-  };
+  }, [handleFirmwareAuthentication]);
 
-  const DevicesData = [
-    {
-      title: 'OneKey Classic',
-      src: HwWalletAvatarImages.classic,
-      onPress: handleCheckingDevice,
-    },
-    {
-      title: 'OneKey Mini',
-      src: HwWalletAvatarImages.mini,
-      onPress: handleWalletItemPress,
-    },
-    {
-      title: 'OneKey Touch',
-      src: HwWalletAvatarImages.touch,
-    },
-    {
-      title: 'OneKey Pro',
-      src: HwWalletAvatarImages.pro,
-    },
-  ];
+  const devicesData = useMemo(
+    () => [
+      /*
+      navigation.replace(RootRoutes.Onboarding, {
+          screen: EOnboardingRoutes.BehindTheScene,
+          params: {
+            password: '',
+            mnemonic: '',
+            isHardwareCreating: {
+              device,
+              features,
+            },
+            entry,
+          },
+        });
+      serviceAccount.createHWWallet
+      */
+      ...searchedDevices.map((item) => ({
+        title: item.name,
+        src: HwWalletAvatarImages[item.deviceType],
+        onPress: () => handleHwWalletCreate({ device: item }),
+      })),
+      {
+        title: 'OneKey Classic(Checking)',
+        src: HwWalletAvatarImages.classic,
+        onPress: handleCheckingDevice,
+      },
+      {
+        title: 'OneKey Classic(Firmware Verify)',
+        src: HwWalletAvatarImages.classic,
+        onPress: handleFirmwareAuthentication,
+      },
+      {
+        title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
+        src: HwWalletAvatarImages.classic1s,
+        onPress: handleNotActivatedDevicePress,
+      },
+      {
+        title: 'OneKey Pro(Activate Your Device)',
+        src: HwWalletAvatarImages.pro,
+        onPress: handleSetupNewWalletPress,
+      },
+      {
+        title: 'OneKey Touch(Finalize Wallet Setup)',
+        src: HwWalletAvatarImages.touch,
+        onPress: handleWalletItemPress,
+      },
+      {
+        title: 'OneKey Touch2(buy)',
+        src: HwWalletAvatarImages.touch,
+        onPress: handleHeaderRightPress,
+      },
+    ],
+    [
+      handleCheckingDevice,
+      handleFirmwareAuthentication,
+      handleHeaderRightPress,
+      handleHwWalletCreate,
+      handleNotActivatedDevicePress,
+      handleSetupNewWalletPress,
+      handleWalletItemPress,
+      searchedDevices,
+    ],
+  );
 
   return (
     <Page>
@@ -339,7 +480,7 @@ export function ConnectYourDevice() {
         {/* devices */}
         <HeightTransition>
           <Stack>
-            {DevicesData.map((item, index) => (
+            {devicesData.map((item, index) => (
               <ListItem
                 avatarProps={{
                   src: item.src,
@@ -384,4 +525,15 @@ export function ConnectYourDevice() {
   );
 }
 
+export function ConnectYourDevice() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+      }}
+    >
+      <ConnectYourDevicePage />
+    </AccountSelectorProviderMirror>
+  );
+}
 export default ConnectYourDevice;

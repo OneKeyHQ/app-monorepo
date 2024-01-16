@@ -29,6 +29,8 @@ export function WalletListItem({
       borderRadius="$3"
       style={{
         borderCurve: 'continuous',
+        // add opacity to hidden wallet
+        opacity: wallet?.passphraseState ? 0.6 : 1,
       }}
       {...(selected
         ? {

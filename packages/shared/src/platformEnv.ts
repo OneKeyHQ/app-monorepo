@@ -10,6 +10,7 @@ export type IAppPlatform =
   | 'desktop'
   | 'web'
   | 'webEmbed';
+export type IPlatformLegacy = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
 export type IAppChannel =
   | 'chrome'
   | 'firefox'
@@ -81,6 +82,7 @@ export type IPlatformEnv = {
   isNativeAndroidHuawei?: boolean;
 
   appPlatform: IAppPlatform | undefined;
+  symbol: IPlatformLegacy | undefined;
   appChannel: IAppChannel | undefined;
 
   isManifestV3?: boolean;
@@ -160,6 +162,14 @@ const getAppPlatform = (): IAppPlatform | undefined => {
   if (isExtension) return 'extension';
   if (isNativeIOS) return 'ios';
   if (isNativeAndroid) return 'android';
+};
+
+const getPlatformSymbolLegacy = (): IPlatformLegacy | undefined => {
+  if (isWeb) return 'web';
+  if (isWebEmbed) return 'webEmbed';
+  if (isDesktop) return 'desktop';
+  if (isExtension) return 'ext';
+  if (isNative) return 'native';
 };
 
 const getAppChannel = (): IAppChannel | undefined => {
@@ -332,6 +342,7 @@ const platformEnv: IPlatformEnv = {
   isNativeAndroidGooglePlay,
   isNativeAndroidHuawei,
 
+  symbol: getPlatformSymbolLegacy(),
   appPlatform: getAppPlatform(),
   appChannel: getAppChannel(),
 

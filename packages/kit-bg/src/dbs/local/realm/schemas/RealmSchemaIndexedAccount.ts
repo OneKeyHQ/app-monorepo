@@ -20,6 +20,7 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
     primaryKey: 'id',
     properties: {
       id: 'string',
+      idHash: 'string',
       walletId: 'string',
       name: 'string',
       index: 'int',

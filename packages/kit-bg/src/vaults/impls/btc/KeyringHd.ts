@@ -1,3 +1,4 @@
+import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
@@ -24,7 +25,14 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBUtxoAccount[]> {
-    return this.basePrepareAccountsHdBtc(params);
+    const sdkBtc = await import('@onekeyhq/core/src/chains/btc/sdkBtc');
+    sdkBtc.initBitcoinEcc();
+
+    const { addressEncoding } = params.deriveInfo;
+    return this.basePrepareAccountsHdUtxo(params, {
+      addressEncoding,
+      checkIsAccountUsed: checkBtcAddressIsUsed,
+    });
   }
 
   override async signTransaction(

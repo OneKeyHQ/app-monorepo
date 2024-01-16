@@ -1,9 +1,11 @@
 import {
   decodePassword,
   decodeSensitiveText,
+  decrypt,
   encodeSensitiveText,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
+  revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
@@ -12,7 +14,9 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -39,6 +43,33 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveText({ text }));
+  }
+
+  @backgroundMethod()
+  async decryptMnemonicFromDbCredential(
+    password: string,
+    contents: Array<{ id: string; credential: string }>,
+  ) {
+    if (process.env.NODE_ENV !== 'production') {
+      const pwd = await this.encodeSensitiveText({ text: password });
+      const items = contents
+        .map((t) => {
+          const o: { entropy: string } = JSON.parse(t.credential);
+          if (!o.entropy) {
+            return '';
+          }
+          const entropyBuff = decrypt(pwd, o.entropy);
+          const mnemonic = revealEntropyToMnemonic(entropyBuff);
+          return mnemonic;
+        })
+        .filter(Boolean);
+
+      return {
+        items,
+        raw: items.join('\r\n\r\n'),
+      };
+    }
+    return null;
   }
 
   @backgroundMethod()
@@ -277,6 +308,7 @@ export default class ServicePassword extends ServiceBase {
     // TODO check field(settings protection)
     const cachedPassword = await this.getCachedPassword();
     if (cachedPassword) {
+      ensureSensitiveTextEncoded(cachedPassword);
       return Promise.resolve({
         status: EPasswordResStatus.PASS_STATUS,
         password: cachedPassword,
@@ -295,7 +327,36 @@ export default class ServicePassword extends ServiceBase {
           : EPasswordPromptType.PASSWORD_SETUP,
       });
     });
-    return res as Promise<IPasswordRes>;
+    const result = await (res as Promise<IPasswordRes>);
+    ensureSensitiveTextEncoded(result.password);
+    return result;
+  }
+
+  @backgroundMethod()
+  async promptPasswordVerifyByWallet({ walletId }: { walletId: string }) {
+    const isHardware = accountUtils.isHwWallet({ walletId });
+    let password = '';
+    let deviceParams: IDeviceSharedCallParams | undefined;
+    if (!isHardware) {
+      ({ password } = await this.promptPasswordVerify());
+    }
+    if (isHardware) {
+      deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+        });
+    }
+    return {
+      password,
+      isHardware,
+      deviceParams,
+    };
+  }
+
+  @backgroundMethod()
+  async promptPasswordVerifyByAccount({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    return this.promptPasswordVerifyByWallet({ walletId });
   }
 
   async showPasswordPromptDialog(params: {

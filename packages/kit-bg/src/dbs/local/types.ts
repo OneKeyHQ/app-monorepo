@@ -3,6 +3,7 @@ import type {
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import type {
   EDBAccountType,
@@ -21,7 +22,7 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -103,7 +104,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
     // purpose + cointype => index
     [template: string]: number; // hd
   };
-  associatedDevice?: string; // alias to `deviceId`
+  associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   deviceType?: string;
@@ -116,17 +117,13 @@ export type IDBCreateHDWalletParams = {
   backuped: boolean;
   name?: string;
   avatar?: IAvatarInfo;
-  nextAccountIds?: Record<string, number>;
 };
-export type IDBCreateHWWalletParams = {
-  id: string;
-  name: string;
-  avatar?: IDBAvatar;
-  connectId: string;
-  deviceId?: string;
-  deviceType: IDeviceType;
-  deviceUUID: string;
-  features: string;
+export type IDBCreateHWWalletParamsBase = {
+  name?: string;
+  device: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+};
+export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
 };
 export type IDBSetWalletNameAndAvatarParams = {
@@ -137,6 +134,7 @@ export type IDBSetWalletNameAndAvatarParams = {
 export type IDBRemoveWalletParams = {
   walletId: string;
   password: string;
+  isHardware: boolean;
 };
 export type IDBSetAccountNameParams = {
   accountId?: string;
@@ -210,12 +208,14 @@ export type IDBDevicePayload = {
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
-  mac: string;
+  featuresInfo?: IOneKeyDeviceFeatures; // readonly field
+  connectId: string; // alias mac
   name: string;
   uuid: string;
   deviceId: string;
   deviceType: string;
   payloadJson: string;
+  payloadJsonInfo?: any;
   createdAt: number;
   updatedAt: number;
 };
