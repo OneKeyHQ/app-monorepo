@@ -312,7 +312,6 @@ const DemoShouldPopOnClickBackdropViewModal = () => {
     useState(true);
   useLayoutEffect(() => {
     navigation.setOptions({
-      // @ts-expect-error
       shouldPopOnClickBackdrop,
     });
   }, [navigation, shouldPopOnClickBackdrop]);
