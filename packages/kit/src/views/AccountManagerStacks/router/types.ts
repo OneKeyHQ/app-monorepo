@@ -1,6 +1,7 @@
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { IWalletAvatarProps } from '../../../components/WalletAvatar';
+import type { IAccountSelectorContextData } from '../../../states/jotai/contexts/accountSelector';
 import type { AvatarImageProps } from 'tamagui';
 
 export enum EAccountManagerStacksRoutes {
@@ -8,7 +9,9 @@ export enum EAccountManagerStacksRoutes {
 }
 
 export type IAccountManagerStacksParamList = {
-  [EAccountManagerStacksRoutes.AccountSelectorStack]: undefined;
+  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorContextData & {
+    num: number;
+  };
 };
 
 export type IAccountProps = {

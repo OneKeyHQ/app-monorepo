@@ -18,10 +18,10 @@ import {
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
 import HeaderView from './HeaderView';
 
@@ -100,6 +100,7 @@ function HomePage() {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
+  const actions = useAccountSelectorActions();
 
   const onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
@@ -134,10 +135,13 @@ function HomePage() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   const navigateAccountManagerStacks = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+    actions.current.showAccountSelector({
+      navigation,
+      activeWallet: undefined,
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
     });
-  }, [navigation]);
+  }, [actions, navigation]);
 
   return useMemo(
     () => (

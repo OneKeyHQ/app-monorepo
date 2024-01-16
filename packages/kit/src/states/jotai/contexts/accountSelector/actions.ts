@@ -30,7 +30,10 @@ import {
   selectedAccountsAtom,
 } from './atoms';
 
-import type { IAccountSelectorActiveAccountInfo } from './atoms';
+import type {
+  IAccountSelectorActiveAccountInfo,
+  IAccountSelectorContextData,
+} from './atoms';
 
 const { serviceAccount } = backgroundApiProxy;
 class AccountSelectorActions extends ContextJotaiActionsBase {
@@ -140,11 +143,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         activeWallet,
         navigation,
         num,
+        sceneName,
+        sceneUrl,
       }: {
         activeWallet: IDBWallet | undefined;
         navigation: ReturnType<typeof useAppNavigation>;
         num: number;
-      },
+      } & IAccountSelectorContextData,
     ) => {
       if (activeWallet?.id) {
         this.updateSelectedAccount.call(set, {
@@ -155,6 +160,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       set(accountSelectorEditModeAtom(), false);
       navigation.pushModal(EModalRoutes.AccountManagerStacks, {
         screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+        params: {
+          num,
+          sceneName,
+          sceneUrl,
+        },
       });
     },
   );

@@ -8,21 +8,25 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
 import type { ITabHomeParamList } from '../router/types';
 
 function HomeHeaderContainer() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+  const actions = useAccountSelectorActions();
 
   const navigateAccountManagerStacks = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.AccountSelectorStack,
+    actions.current.showAccountSelector({
+      navigation,
+      activeWallet: undefined,
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
     });
-  }, [navigation]);
+  }, [actions, navigation]);
   return (
     <XStack
       role="button"
