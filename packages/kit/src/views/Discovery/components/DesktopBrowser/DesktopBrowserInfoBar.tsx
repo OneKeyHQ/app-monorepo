@@ -15,6 +15,7 @@ function DesktopBrowserInfoBar({
   onBookmarkPress,
   isPinned,
   onPinnedPress,
+  onSearch,
 }: IWebTab & {
   goBack: () => void;
   goForward: () => void;
@@ -24,6 +25,7 @@ function DesktopBrowserInfoBar({
   onBookmarkPress: (bookmark: boolean) => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
+  onSearch: () => void;
 }) {
   return (
     <HeaderLeftToolBar
@@ -39,6 +41,7 @@ function DesktopBrowserInfoBar({
       onBookmarkPress={onBookmarkPress}
       isPinned={isPinned}
       onPinnedPress={onPinnedPress}
+      onSearch={onSearch}
     />
   );
 }

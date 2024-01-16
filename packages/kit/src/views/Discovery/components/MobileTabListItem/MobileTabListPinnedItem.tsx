@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
@@ -18,7 +16,7 @@ function MobileTabListPinnedItem({
   onLongPress: (id: string) => void;
 } & IWebTab) {
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
+  const isActive = activeTabId === id;
   return (
     <Stack
       flex={1}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -26,7 +26,7 @@ function DesktopCustomTabBarItem({
 }) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const isActive = activeTabId === id;
   const handleActionListOpenChange = useCallback((isOpen: boolean) => {
     dispatchOverlayEvent(isOpen);
   }, []);

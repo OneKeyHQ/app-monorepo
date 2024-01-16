@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { Freeze } from 'react-freeze';
 
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -15,7 +13,7 @@ function DesktopBrowserContent({
   activeTabId: string | null;
 }) {
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const isActive = activeTabId === id;
   const { addBrowserHistory } = useBrowserHistoryAction().current;
   return (
     <Freeze key={id} freeze={!isActive}>

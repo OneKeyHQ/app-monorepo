@@ -225,7 +225,7 @@ function MobileTabListModal() {
     navigation.pop();
     setTimeout(() => {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: EDiscoveryModalRoutes.FakeSearchModal,
+        screen: EDiscoveryModalRoutes.SearchModal,
       });
     }, 0);
   }, [disabledAddedNewTab, navigation, intl]);

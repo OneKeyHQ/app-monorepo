@@ -91,6 +91,9 @@ function HeaderLeftToolBar({
         size="small"
         leftIconName="LockSolid"
         value={url}
+        onPress={() => {
+          onSearch?.();
+        }}
         addOns={[
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
