@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EAccountManagerStacksRoutes } from '../../views/AccountManagerStacks/router/types';
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabDeveloperRoutes } from '../../views/Developer/type';
 import { ETabHomeRoutes } from '../../views/Home/router';
@@ -75,11 +76,15 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     // Page: /main/tab-Swap/TabSwap
     // Don't worry, the URL here is virtual, actually /swap.
     // it will automatically find the real route according to the route stacks.
+
+    // Swap Pages
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
       {
         showUrl: true,
         showParams: true,
       },
+
+    // Discovery Pages
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
       {
         showUrl: true,
@@ -90,6 +95,8 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+
+    // Me Pages
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
       showUrl: true,
       showParams: true,
@@ -99,6 +106,15 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+
+    // AccountSelector Pages
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.AccountManagerStacks}${EAccountManagerStacksRoutes.AccountSelectorStack}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+
+    // Onboarding Pages
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ActivateDevice}`]:
       {
         showUrl: true,
