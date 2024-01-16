@@ -4829,7 +4829,6 @@ __metadata:
     eslint-plugin-react: "npm:^7.31.11"
     eslint-plugin-react-hooks: "npm:^4.6.0"
     eslint-plugin-spellcheck: "npm:^0.0.20"
-    expo-sharing: "npm:11.7.0"
     fake-indexeddb: "npm:^5.0.0"
     html-webpack-plugin: "npm:^5.5.3"
     ip: "npm:^1.1.8"
@@ -15627,15 +15626,6 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: e4ca390699ed524547644de607f2ee5b4b02732bf10db04de9aeb229bc7261f497e0f02b2c283506e86d14ccbc09b4e4c57ee85262fd06cfeb28edfe61b02164
-  languageName: node
-  linkType: hard
-
-"expo-sharing@npm:11.7.0":
-  version: 11.7.0
-  resolution: "expo-sharing@npm:11.7.0"
-  peerDependencies:
-    expo: "*"
-  checksum: be8782e63843a34afa11838e4f8f5d6bb675a35e333ab100984d5c0bf296b0334fd7ee523c175fdfb0a0d22d34cfac9bdba4c134e8555ba961d8523422855576
   languageName: node
   linkType: hard
 
