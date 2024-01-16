@@ -18,12 +18,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
+  useBrowserAction,
   useBrowserBookmarkAction,
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -42,8 +42,7 @@ function SearchModal() {
   const [searchValue, setSearchValue] = useState('');
   const { getBookmarkData } = useBrowserBookmarkAction().current;
   const { getHistoryData } = useBrowserHistoryAction().current;
-
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow, tabId });
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const { result: bookmarkData } = usePromiseResult(async () => {
     const bookmarks = await getBookmarkData();
@@ -116,6 +115,9 @@ function SearchModal() {
           },
           onSearchButtonPress: () => {
             handleOpenWebSite({
+              navigation,
+              useCurrentWindow,
+              tabId,
               webSite: {
                 url: searchValue,
                 title: searchValue,
@@ -146,6 +148,9 @@ function SearchModal() {
                   onPress={() => {
                     if (item.dappId === SEARCH_ITEM_ID) {
                       handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
                         webSite: {
                           url: searchValue,
                           title: searchValue,
@@ -153,6 +158,9 @@ function SearchModal() {
                       });
                     } else {
                       handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
                         dApp: item,
                       });
                     }
@@ -198,6 +206,9 @@ function SearchModal() {
                     p="$4"
                     onPress={() => {
                       handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
                         webSite: {
                           url: item.url,
                           title: item.title,
@@ -270,6 +281,9 @@ function SearchModal() {
                     testID={`search-modal-${item.title.toLowerCase()}`}
                     onPress={() => {
                       handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
                         webSite: {
                           url: item.url,
                           title: item.title,

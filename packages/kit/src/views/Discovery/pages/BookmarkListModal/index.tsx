@@ -19,19 +19,23 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  useBrowserAction,
+  useBrowserBookmarkAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
-import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
 
 function BookmarkListModal() {
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const [firstLoad, setFirstLoad] = useState<boolean>(true);
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
@@ -190,6 +194,7 @@ function BookmarkListModal() {
                       testID={`search-modal-${item.url.toLowerCase()}`}
                       onPress={() => {
                         handleOpenWebSite({
+                          navigation,
                           webSite: {
                             url: item.url,
                             title: item.title,

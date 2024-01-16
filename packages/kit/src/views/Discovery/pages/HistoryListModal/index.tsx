@@ -16,11 +16,14 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  useBrowserAction,
+  useBrowserHistoryAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { formatHistoryRecordDate } from '@onekeyhq/shared/src/utils/formatDateUtils';
 
-import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -44,10 +47,11 @@ function groupDataByDate(data: IBrowserHistory[]) {
 
 function HistoryListModal() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const [page] = useState(1);
 
@@ -135,6 +139,7 @@ function HistoryListModal() {
                   testID={`search-modal-${item.url.toLowerCase()}`}
                   onPress={() => {
                     handleOpenWebSite({
+                      navigation,
                       webSite: {
                         url: item.url,
                         title: item.title,

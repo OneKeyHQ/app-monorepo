@@ -3,6 +3,8 @@ import { useRef } from 'react';
 import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -19,6 +21,7 @@ import {
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -483,6 +486,40 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
+  handleOpenWebSite = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        useCurrentWindow,
+        tabId,
+        navigation,
+        webSite,
+        dApp,
+      }: {
+        navigation: ReturnType<typeof useAppNavigation>;
+        useCurrentWindow?: boolean;
+        tabId?: string;
+        webSite?: IMatchDAppItemType['webSite'];
+        dApp?: IMatchDAppItemType['dApp'];
+      },
+    ) => {
+      const isNewWindow = !useCurrentWindow;
+      this.setDisplayHomePage.call(set, false);
+      void this.openMatchDApp.call(set, {
+        webSite,
+        dApp,
+        isNewWindow,
+        tabId,
+      });
+      if (platformEnv.isDesktop) {
+        navigation.switchTab(ETabRoutes.MultiTabBrowser);
+      } else {
+        navigation.pop();
+      }
+    },
+  );
+
   onNavigation = contextAtomMethod(
     (
       get,
@@ -620,11 +657,13 @@ export function useBrowserAction() {
   const actions = createActions();
   const gotoSite = actions.gotoSite.use();
   const openMatchDApp = actions.openMatchDApp.use();
+  const handleOpenWebSite = actions.handleOpenWebSite.use();
   const onNavigation = actions.onNavigation.use();
 
   return useRef({
     gotoSite,
     openMatchDApp,
+    handleOpenWebSite,
     onNavigation,
   });
 }

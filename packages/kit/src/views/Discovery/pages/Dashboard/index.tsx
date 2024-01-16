@@ -26,6 +26,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
+  useBrowserAction,
   useBrowserBookmarkAction,
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -36,7 +37,6 @@ import type {
   IDiscoveryBanner,
 } from '@onekeyhq/shared/types/discovery';
 
-import { useOpenWebsite } from '../../hooks/useOpenWebsite';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -51,6 +51,7 @@ const RecommendListContainer = ({
 }: {
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => {
+  const navigation = useAppNavigation();
   const { result } = usePromiseResult(async () => {
     const data =
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
@@ -62,7 +63,7 @@ const RecommendListContainer = ({
     [result?.categories],
   );
 
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   return (
     <SectionList
@@ -84,7 +85,10 @@ const RecommendListContainer = ({
           }}
           title={item.name}
           onPress={() => {
-            handleOpenWebSite({ dApp: item });
+            handleOpenWebSite({
+              navigation,
+              dApp: item,
+            });
           }}
         >
           {item.tags?.map((tag: IDAppTag) => (
@@ -132,6 +136,8 @@ const DiscoveryListContainer = ({
 }: {
   onContentSizeChange: ((w: number, h: number) => void) | undefined;
 }) => {
+  const navigation = useAppNavigation();
+  const { handleOpenWebSite } = useBrowserAction().current;
   const [activeId, setActiveId] = useState('');
   const [dAppListDataSource, setDAppListDataSource] = useState<IDApp[]>([]);
   const { result } = usePromiseResult(async () => {
@@ -157,7 +163,6 @@ const DiscoveryListContainer = ({
   }, [dAppListResult?.data]);
 
   const headerDataSource = useMemo(() => result ?? [], [result]);
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
   return (
     <ListView
       data={dAppListDataSource}
@@ -181,7 +186,7 @@ const DiscoveryListContainer = ({
           }}
           title={item.name}
           onPress={() => {
-            handleOpenWebSite({ dApp: item });
+            handleOpenWebSite({ navigation, dApp: item });
           }}
         />
       )}
@@ -305,7 +310,6 @@ function DashboardHeader({
 
 function Dashboard() {
   const navigation = useAppNavigation();
-  const { handleOpenWebSite } = useOpenWebsite({ useCurrentWindow: false });
   const { result } = usePromiseResult(async () => {
     const data =
       await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
@@ -313,6 +317,7 @@ function Dashboard() {
   }, []);
   const { getBookmarkData } = useBrowserBookmarkAction().current;
   const { getHistoryData } = useBrowserHistoryAction().current;
+  const { handleOpenWebSite } = useBrowserAction().current;
   const { result: bookmarkData, run: refreshBrowserBookmark } =
     usePromiseResult(async () => {
       const bookmarks = await getBookmarkData();
@@ -388,7 +393,13 @@ function Dashboard() {
               historyData={historyData}
               handleHeaderMorePress={handleHeaderMorePress}
               handleSearchBarPress={handleSearchBarPress}
-              handleOpenWebsite={handleOpenWebSite}
+              handleOpenWebsite={({ dApp, webSite }) =>
+                handleOpenWebSite({
+                  navigation,
+                  dApp,
+                  webSite,
+                })
+              }
             />
           }
           nestedScrollEnabled
