@@ -1,13 +1,17 @@
 import { useCallback } from 'react';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { type IAccountProps } from '../../router/types';
 
 import { WalletDetails } from './WalletDetails';
 import { WalletList } from './WalletList';
+
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+  IAccountProps,
+} from '../../router/types';
 
 export function AccountSelectorStack({ num }: { num: number }) {
   const handleAccountPress = useCallback((accountId: IAccountProps['id']) => {
@@ -25,17 +29,21 @@ export function AccountSelectorStack({ num }: { num: number }) {
   );
 }
 
-export default function AccountSelectorStackPage() {
+export default function AccountSelectorStackPage({
+  route,
+}: IPageScreenProps<
+  IAccountManagerStacksParamList,
+  EAccountManagerStacksRoutes.AccountSelectorStack
+>) {
+  const { num, sceneName, sceneUrl } = route.params;
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read sceneName from router or jotai
+        sceneName,
+        sceneUrl,
       }}
     >
-      <AccountSelectorStack
-        // TODO read num from router or jotai
-        num={0}
-      />
+      <AccountSelectorStack num={num} />
     </AccountSelectorProviderMirror>
   );
 }
