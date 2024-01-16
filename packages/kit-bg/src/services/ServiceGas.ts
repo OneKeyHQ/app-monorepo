@@ -40,7 +40,7 @@ class ServiceGas extends ServiceBase {
       },
       gas: gasFee.gas,
       gasEIP1559: gasFee.gasEIP1559,
-      feeUTXO: gasFee.gasUTXO,
+      feeUTXO: gasFee.feeUTXO,
       prediction: gasFee.prediction,
     };
   }

@@ -37,7 +37,8 @@ function SendCustomFeeContainer() {
 
   const form = useForm({
     defaultValues: {
-      gasLimit: customFee.common.limit,
+      gasLimit:
+        customFee.gas?.gasLimit ?? customFee.gasEIP1559?.gasLimit ?? '0',
       // gas legacy
       gasPrice: customFee.gas?.gasPrice ?? '0',
       // gas eip1559
@@ -52,18 +53,18 @@ function SendCustomFeeContainer() {
 
   const customFeeInfo = useMemo(
     () => ({
-      common: {
-        ...customFee.common,
-        limit: watchAllFields.gasLimit,
-        limitForDisplay: watchAllFields.gasLimit,
-      },
+      common: customFee.common,
       gas: {
         gasPrice: watchAllFields.gasPrice,
+        gasLimit: watchAllFields.gasLimit,
+        gasLimitForDisplay: watchAllFields.gasLimit,
       },
       gasEIP1559: {
         baseFeePerGas: customFee.gasEIP1559?.baseFeePerGas ?? '0',
         maxPriorityFeePerGas: watchAllFields.priorityFee,
         maxFeePerGas: watchAllFields.maxFee,
+        gasLimit: watchAllFields.gasLimit,
+        gasLimitForDisplay: watchAllFields.gasLimit,
       },
       feeUTXO: {
         feeRate: watchAllFields.feeRate,

@@ -62,8 +62,6 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
       feeInfo: {
         common: {
-          limit: '0x5208', // 21000
-          limitForDisplay: '0x5208', // 21000
           nativeDecimals: 18,
           nativeSymbol: 'ETH',
           feeDecimals: 9,
@@ -72,6 +70,7 @@ class ServiceSend extends ServiceBase {
         },
         gas: {
           gasPrice: '0x2a', // 42
+          gasLimit: '0x5208', // 21000
         },
       },
     });

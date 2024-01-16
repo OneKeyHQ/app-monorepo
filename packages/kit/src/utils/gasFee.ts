@@ -26,12 +26,12 @@ export function calculateTotalFeeRange(
   feeInfo: IFeeInfoUnit,
   displayDecimals = 8,
 ) {
-  const { common, gas, gasEIP1559 } = feeInfo;
-  const limit = common?.limitUsed || common?.limit;
-  const limitForDisplay = common?.limitForDisplay ?? limit;
+  const { gas, gasEIP1559 } = feeInfo;
   if (feeInfo.gasEIP1559) {
     // MIN: (baseFeePerGas + maxPriorityFeePerGas) * limit
     const gasInfo = gasEIP1559 as IGasEIP1559;
+    const limit = gasInfo.gasLimit;
+    const limitForDisplay = gasInfo.gasLimitForDisplay ?? limit;
     const min = new BigNumber(limit)
       .times(
         new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
@@ -73,6 +73,8 @@ export function calculateTotalFeeRange(
   }
 
   const gasInfo = gas as IGasLegacy;
+  const limit = gasInfo.gasLimit;
+  const limitForDisplay = gasInfo.gasLimitForDisplay ?? limit;
   const max = new BigNumber(limit).times(gasInfo.gasPrice).toFixed();
 
   const maxForDisplay = new BigNumber(limitForDisplay)

@@ -9,11 +9,15 @@ export type IGasEIP1559 = {
   baseFeePerGas: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
+  gasLimit: string;
+  gasLimitForDisplay: string;
   gasPrice?: string;
 };
 
 export type IGasLegacy = {
   gasPrice: string;
+  gasLimit: string;
+  gasLimitForDisplay?: string;
 };
 
 export type IFeeUTXO = {
@@ -29,9 +33,6 @@ export type IEstimateGasParams = {
 export type IFeeInfoUnit = {
   common: {
     baseFeeValue?: string;
-    limitUsed?: string;
-    limit: string;
-    limitForDisplay: string;
     feeDecimals: number;
     feeSymbol: string;
     nativeDecimals: number;
@@ -54,7 +55,7 @@ export type IEstimateGasResp = {
   baseFeeValue?: string;
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
-  gasUTXO?: IFeeUTXO[];
+  feeUTXO?: IFeeUTXO[];
   limit: string;
   limitForDisplay: string;
   nativeTokenPrice: {

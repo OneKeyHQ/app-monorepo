@@ -160,9 +160,9 @@ export default class Vault extends VaultBase {
       ...encodedTx,
       ...gasInfo,
     };
-    if (!isNil(feeInfo?.common?.limit)) {
-      tx.gas = feeInfo?.common?.limit;
-      tx.gasLimit = feeInfo?.common?.limit;
+    if (!isNil(gasInfo?.gasLimit)) {
+      tx.gas = gasInfo.gasLimit;
+      tx.gasLimit = gasInfo.gasLimit;
     }
     return Promise.resolve(tx);
   }
