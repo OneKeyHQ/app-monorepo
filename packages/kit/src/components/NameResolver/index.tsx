@@ -14,7 +14,7 @@ import type { ISelectSection } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { checkIsDomain } from '../../utils/helper';
+import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 
 type IProps = {
   networkId: string;
