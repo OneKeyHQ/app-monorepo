@@ -1,4 +1,9 @@
 module.exports = [
+  'changelog',
+  'Eip',
+  'subtype',
+  'Eip1559',
+  'Boardloader',
   'impls',
   'txids',
   'ord',

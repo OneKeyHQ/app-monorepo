@@ -113,7 +113,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
 
-    const result = this.getAddressFromXpub({
+    const result = await this.getAddressFromXpub({
       network,
       xpub,
       relativePaths: ['0/0'],
@@ -210,7 +210,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return payment;
   }
 
-  public getAddressFromXpub({
+  public async getAddressFromXpub({
     network,
     xpub,
     relativePaths,
@@ -220,7 +220,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     xpub: string;
     relativePaths: Array<string>;
     addressEncoding?: EAddressEncodings;
-  }): Record<string, string> {
+  }): Promise<Record<string, string>> {
     // Only used to generate addresses locally.
     const decodedXpub = bs58check.decode(xpub);
     const versionBytes = parseInt(
@@ -774,7 +774,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
+    const { [firstAddressRelPath]: address } = await this.getAddressFromXpub({
       network,
       xpub,
       relativePaths: [firstAddressRelPath],
@@ -844,7 +844,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     ];
 
     const addresses = await Promise.all(
-      pubkeyInfos.map((info, index) => {
+      pubkeyInfos.map(async (info, index) => {
         const { path, parentFingerPrint, extendedKey } = info;
 
         const node = root.derivePath(`${path}/0/0`);
@@ -866,7 +866,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
         const firstAddressRelPath = '0/0';
         const relativePaths = [firstAddressRelPath];
-        const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
+        const { [firstAddressRelPath]: address } = await this.getAddressFromXpub({
           network,
           xpub,
           relativePaths,
