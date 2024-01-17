@@ -10,23 +10,20 @@ import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
 import { Divider } from '../../content';
 import { Icon, Image, SizableText, Stack } from '../../primitives';
+import { AccountAvatar } from '../AccountAvatar';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
 import type {
   IIconProps,
+  IImageFallbackProps,
   IImageProps,
   ISizableTextProps,
+  IStackProps,
 } from '../../primitives';
-import type {
-  AvatarFallbackProps,
-  AvatarImageProps,
-  AvatarProps,
-  StackProps,
-} from 'tamagui';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
-  containerProps?: StackProps;
+  containerProps?: IStackProps;
 }
 
 /* Image Corner Icon */
@@ -77,41 +74,19 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 export type IListItemAvatarProps = {
-  /** A string representing the remote URL of the image. */
-  src?: AvatarImageProps['src'];
-  /** A local file resource, such as `require('./test.jpg')` */
-  source?: IImageProps['source'];
-  fallbackProps?: AvatarFallbackProps;
+  blockieHash?: string;
+  fallbackProps?: IImageFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
   cornerImageProps?: IListItemAvatarCornerImageProps;
   children?: React.ReactNode;
-} & AvatarProps;
+} & IImageProps;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const {
-    src,
-    source,
-    fallbackProps,
-    children,
-    circular,
-    cornerIconProps,
-    cornerImageProps,
-    ...rest
-  } = props;
+  const { children, cornerIconProps, cornerImageProps, ...restProps } = props;
 
   return (
     <Stack>
-      <Image
-        size="$10"
-        style={{
-          borderCurve: 'continuous',
-        }}
-        {...(circular ? { circular: true } : { borderRadius: '$2' })}
-        {...(rest as any)}
-      >
-        <Image.Source src={src} source={source} />
-        <Image.Fallback {...fallbackProps} />
-      </Image>
+      <AccountAvatar {...restProps} />
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
       {children}
@@ -120,7 +95,7 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
 };
 
 /* Text */
-interface IListItemTextProps extends StackProps {
+interface IListItemTextProps extends IStackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
@@ -187,7 +162,7 @@ const ListItemIconButton = (props: IIconButtonProps) => (
 );
 
 // CheckMark
-const ListItemCheckMark = (props: StackProps) => (
+const ListItemCheckMark = (props: IStackProps) => (
   <Stack
     key="checkMarkIndicator"
     animation="quick"

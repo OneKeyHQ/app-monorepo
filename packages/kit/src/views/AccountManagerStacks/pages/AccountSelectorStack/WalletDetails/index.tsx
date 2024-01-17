@@ -23,7 +23,6 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import makeBlockieImageUriList from '@onekeyhq/kit/src/utils/makeBlockieImageUriList';
 import { AccountRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountRename';
 import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import type {
@@ -110,20 +109,9 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
       }
-      return serviceAccount
-        .getAccountsOfWallet({
-          walletId: selectedAccount?.focusedWallet,
-        })
-        .then(async (value) => {
-          const accountList = value?.accounts ?? [];
-          const uriList = await makeBlockieImageUriList(
-            accountList.map((item) => item.idHash || item.id),
-          );
-          accountList.forEach(
-            (item, index) => (item.avatar = uriList?.[index]),
-          );
-          return value;
-        });
+      return serviceAccount.getAccountsOfWallet({
+        walletId: selectedAccount?.focusedWallet,
+      });
     }, [selectedAccount?.focusedWallet, serviceAccount]);
   const accounts =
     accountsResult?.accounts ?? (emptyArray as unknown as IDBIndexedAccount[]);
@@ -285,9 +273,8 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              src: item.avatar,
+              blockieHash: item.idHash || item.id,
               fallbackProps: {
-                delayMs: 150,
                 children: <Skeleton w="$10" h="$10" />,
               },
               // cornerImageProps: item.networkImageSrc

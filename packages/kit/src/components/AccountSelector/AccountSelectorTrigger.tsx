@@ -10,6 +10,7 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -21,7 +22,6 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import makeBlockieImageUriList from '../../utils/makeBlockieImageUriList';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -35,14 +35,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const { result: accountAvatar } = usePromiseResult(
-    () =>
-      makeBlockieImageUriList([
-        indexedAccount?.idHash ?? account?.address ?? '--',
-      ]).then((uriList) => uriList?.[0]),
-    [indexedAccount, account],
-    { checkIsFocused: false },
-  );
+  const avatarHash = indexedAccount?.idHash ?? account?.address ?? '--';
 
   return (
     <XStack
@@ -67,12 +60,14 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Image size="$6" borderRadius="$1">
-        <Image.Source src={accountAvatar} />
-        <Image.Fallback>
-          <Skeleton w="$6" h="$6" />
-        </Image.Fallback>
-      </Image>
+      <AccountAvatar
+        size="$6"
+        borderRadius="$1"
+        blockieHash={avatarHash}
+        fallbackProps={{
+          children: <Skeleton w="$6" h="$6" />,
+        }}
+      />
 
       <SizableText
         flex={1}
