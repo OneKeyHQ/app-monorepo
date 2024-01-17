@@ -173,12 +173,9 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
     };
-    const client = await this.getEthersClient();
     const chainIdHex = await this.getNetworkChainId({ hex: true });
     const chainIdNum = new BigNumber(chainIdHex).toNumber();
-    const nonce = await client.getTransactionCount(tx.from);
 
-    tx.nonce = numberUtils.numberToHex(nonce);
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
