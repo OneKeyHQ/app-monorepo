@@ -1,22 +1,60 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '../../AccountManagerStacks/router/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
+import {
+  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountHome,
+  AccountSelectorTrigger,
+} from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
+
+import type { ITabHomeParamList } from '../router';
+
+function HomeAccountSelectorInfoDemo() {
+  return (
+    <YStack mx="$2" my="$4">
+      <AccountSelectorTrigger num={0} />
+      <AccountSelectorActiveAccount num={0} />
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPinOnDevice();
+        }}
+      >
+        硬件输入 PIN
+      </Button>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
+        }}
+      >
+        硬件输入 Passphrase
+      </Button>
+    </YStack>
+  );
+}
 
 function HomeHeaderContainer() {
   const intl = useIntl();
@@ -45,6 +83,17 @@ function HomeHeaderContainer() {
     [intl, overview?.netWorth, settings.currencyInfo.symbol],
   );
 
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+  const actions = useAccountSelectorActions();
+
+  const navigateAccountManagerStacks = useCallback(() => {
+    actions.current.showAccountSelector({
+      navigation,
+      activeWallet: undefined,
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+    });
+  }, [actions, navigation]);
   return (
     <Stack
       p="$5"
@@ -73,6 +122,7 @@ function HomeHeaderContainer() {
         </Stack>
       </Stack>
       <WalletActionsContainer />
+      <HomeAccountSelectorInfoDemo />
     </Stack>
   );
 }

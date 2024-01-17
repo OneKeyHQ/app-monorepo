@@ -9,13 +9,16 @@ import {
   TextArea,
   useForm,
 } from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { NetworkSelectorTrigger } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
-import { ETokenPages } from '../../Token/router/type';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
@@ -64,6 +67,32 @@ function WalletActionsContainer() {
       renderContent: (
         <Stack>
           <Form form={form}>
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: 'https://www.bing.com',
+              }}
+              enabledNum={[1]}
+            >
+              <NetworkSelectorTrigger key={1} num={1} />
+            </AccountSelectorProviderMirror>
+
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: 'https://www.bing.com',
+              }}
+              enabledNum={[0]}
+            >
+              <NetworkSelectorTrigger key={0} num={0} />
+            </AccountSelectorProviderMirror>
+
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+              }}
+              enabledNum={[1]}
+            />
             <Form.Field label="Amount" name="amount" description="$0.00">
               <Input
                 placeholder="Enter amount"
@@ -92,8 +121,8 @@ function WalletActionsContainer() {
       ),
       onConfirm: async ({ close }) => {
         await close();
-        navigation.pushModal(EModalRoutes.TokenModal, {
-          screen: ETokenPages.Receive,
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.LightingInvoice,
         });
       },
     });

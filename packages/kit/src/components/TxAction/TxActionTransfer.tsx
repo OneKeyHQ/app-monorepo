@@ -10,7 +10,7 @@ import type {
 
 import { getFormattedNumber } from '../../utils/format';
 
-import { TxActionCommonT0, TxActionCommonT1 } from './TxActionCommon';
+import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
@@ -123,7 +123,7 @@ function buildTransferChangeInfo({
   };
 }
 
-function TxActionTransferT0(props: ITxActionProps) {
+function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout } = props;
   const intl = useIntl();
   const {
@@ -177,7 +177,7 @@ function TxActionTransferT0(props: ITxActionProps) {
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
       changeSymbol: '-',
-      transfers: receives,
+      transfers: sends,
       intl,
     });
     const receiveChangeInfo = buildTransferChangeInfo({
@@ -189,13 +189,13 @@ function TxActionTransferT0(props: ITxActionProps) {
     changeDescription = sendChangeInfo.change;
     description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = [
-      receiveNFTIcon || receiveTokenIcon,
       sendNFTIcon || sendTokenIcon,
+      receiveNFTIcon || receiveTokenIcon,
     ].filter(Boolean);
   }
 
   return (
-    <TxActionCommonT0
+    <TxActionCommonListView
       title={title}
       avatar={avatar}
       description={description}
@@ -206,8 +206,8 @@ function TxActionTransferT0(props: ITxActionProps) {
   );
 }
 
-function TxActionTransferT1(props: ITxActionProps) {
+function TxActionTransferDetailView(props: ITxActionProps) {
   return null;
 }
 
-export { TxActionTransferT0, TxActionTransferT1 };
+export { TxActionTransferListView, TxActionTransferDetailView };

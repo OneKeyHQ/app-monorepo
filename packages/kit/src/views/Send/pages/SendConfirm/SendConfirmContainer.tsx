@@ -4,10 +4,9 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page, ScrollView, Stack, YStack } from '@onekeyhq/components';
+import { Page, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useSendConfirmActions,
   withSendConfirmProvider,
@@ -30,22 +29,14 @@ function SendConfirmContainer() {
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-  const { accountId, networkId, unsignedTxs, transfersInfo } = route.params;
+  const { accountId, networkId, unsignedTxs } = route.params;
 
   const { updateUnsignedTxs } = useSendConfirmActions().current;
 
   const handleConfirm = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendProgress,
-      params: {
-        accountId,
-        networkId,
-        unsignedTxs,
-        transfersInfo,
-      },
-    });
-  }, [accountId, navigation, networkId, transfersInfo, unsignedTxs]);
+    navigation.push(EModalSendRoutes.SendProgress);
+  }, [navigation]);
 
   useEffect(
     () => updateUnsignedTxs(unsignedTxs),

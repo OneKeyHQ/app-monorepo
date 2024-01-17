@@ -12,7 +12,7 @@ import {
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
 } from '../../states/jotai/contexts/token-list';
-import { ETokenPages } from '../../views/Token/router/type';
+import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
   tableLayout?: boolean;
@@ -49,8 +49,8 @@ function TokenListFooter(props: IProps) {
 
   const handleLowValueTokensPress = useCallback(() => {
     if (!account || !network || smallBalanceTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.TokenList,
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Low-value Assets',
         helpText:
@@ -60,7 +60,7 @@ function TokenListFooter(props: IProps) {
         tokenList: {
           tokens: smallBalanceTokens,
           keys: smallBalanceTokenKeys,
-          tokenMap: smallBalanceTokenListMap,
+          map: smallBalanceTokenListMap,
         },
       },
     });

@@ -16,7 +16,7 @@ import {
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
 } from '../../states/jotai/contexts/token-list';
-import { ETokenPages } from '../../views/Token/router/type';
+import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
   tableLayout?: boolean;
@@ -37,8 +37,8 @@ function TokenListHeader({ tableLayout }: IProps) {
 
   const handleHiddenPress = useCallback(() => {
     if (!account || !network || riskyTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.TokenList,
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Blocked Assets',
         accountId: account.id,
@@ -46,7 +46,7 @@ function TokenListHeader({ tableLayout }: IProps) {
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
-          tokenMap: riskyTokenListMap,
+          map: riskyTokenListMap,
         },
       },
     });

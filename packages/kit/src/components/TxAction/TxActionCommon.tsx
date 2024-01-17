@@ -194,7 +194,7 @@ function TxActionCommonChangeDescription({
   );
 }
 
-function TxActionCommonT1(props: {
+function TxActionCommonDetailView(props: {
   title?: React.ReactNode;
   icon?: React.ReactNode;
   content?: React.ReactNode;
@@ -238,7 +238,7 @@ function TxActionCommonT1(props: {
   );
 }
 
-function TxActionCommonT0({
+function TxActionCommonListView({
   avatar,
   title,
   description,
@@ -305,4 +305,4 @@ function TxActionCommonT0({
   );
 }
 
-export { TxActionCommonT0, TxActionCommonT1 };
+export { TxActionCommonListView, TxActionCommonDetailView };

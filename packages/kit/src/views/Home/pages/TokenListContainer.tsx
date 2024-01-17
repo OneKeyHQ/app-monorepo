@@ -2,9 +2,8 @@ import { memo, useCallback } from 'react';
 
 import { useMedia } from 'tamagui';
 
-import type { IToken } from '@onekeyhq/shared/types/token';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -15,7 +14,7 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/token-list';
-import { ETokenPages } from '../../Token/router/type';
+import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
 
 type IProps = {
@@ -94,8 +93,8 @@ function TokenListContainer(props: IProps) {
   const handleOnPressToken = useCallback(
     (token: IToken) => {
       if (!account || !network) return;
-      navigation.pushModal(EModalRoutes.TokenModal, {
-        screen: ETokenPages.TokenDetails,
+      navigation.pushModal(EModalRoutes.MainModal, {
+        screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,
           networkId: network.id,

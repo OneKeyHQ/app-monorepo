@@ -1,5 +1,6 @@
 import { Stack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
+import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 type IProps = {
@@ -9,16 +10,15 @@ type IProps = {
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout } = props;
+  const { historyTx, tableLayout, onPress } = props;
   const { decodedTx } = historyTx;
 
   return (
-    <Stack>
+    <Stack onPress={() => onPress?.(historyTx)}>
       <TxActionsListView
-        historyTx={historyTx}
         decodedTx={decodedTx}
         tableLayout={tableLayout}
-        componentType="T0"
+        componentType={ETxActionComponentType.ListView}
       />
     </Stack>
   );

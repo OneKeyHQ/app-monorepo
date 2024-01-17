@@ -34,10 +34,11 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { getFormattedNumber } from '../../../utils/format';
+import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
-import { ETokenPages } from '../router/type';
+import { EModalAssetDetailRoutes } from '../router/types';
 
-import type { ITokenParamList } from '../router/type';
+import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
@@ -47,7 +48,12 @@ export function TokenDetails() {
   const media = useMedia();
 
   const route =
-    useRoute<RouteProp<ITokenParamList, ETokenPages.TokenDetails>>();
+    useRoute<
+      RouteProp<
+        IModalAssetDetailsParamList,
+        EModalAssetDetailRoutes.TokenDetails
+      >
+    >();
 
   const [settings] = useSettingsPersistAtom();
 
@@ -92,8 +98,8 @@ export function TokenDetails() {
     if (!account || !network) return;
     const r = backgroundApiProxy.serviceHistory.fetchAccountHistory({
       accountId: account.id,
-      networkId,
       accountAddress: account.address,
+      networkId,
       tokenAddress,
     });
     return r;
@@ -108,11 +114,13 @@ export function TokenDetails() {
   );
 
   const handleReceivePress = useCallback(() => {
-    navigation.push(ETokenPages.Receive);
+    navigation.pushFullModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.LightingInvoice,
+    });
   }, [navigation]);
 
   const handleHistoryItemPress = useCallback(() => {
-    navigation.push(ETokenPages.History);
+    navigation.push(EModalAssetDetailRoutes.HistoryDetails);
   }, [navigation]);
 
   const handleSendPress = useCallback(() => {
@@ -333,7 +341,7 @@ export function TokenDetails() {
         <Divider mb="$2.5" />
         <TxHistoryListView
           data={tokenHistory ?? []}
-          onItemPress={handleHistoryItemPress}
+          onPressHistory={handleHistoryItemPress}
         />
       </Page.Body>
     </Page>

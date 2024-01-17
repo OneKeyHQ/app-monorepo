@@ -12,19 +12,25 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/token-list';
-import { ETokenPages } from '../router/type';
+import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 
-import type { ITokenParamList } from '../router/type';
+import type {
+  EModalAssetListRoutes,
+  IModalAssetListParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenList() {
   const navigation = useAppNavigation();
 
-  const route = useRoute<RouteProp<ITokenParamList, ETokenPages.TokenList>>();
+  const route =
+    useRoute<
+      RouteProp<IModalAssetListParamList, EModalAssetListRoutes.TokenList>
+    >();
 
   const { accountId, networkId, tokenList, title, helpText, onPressToken } =
     route.params;
-  const { tokens, tokenMap, keys } = tokenList;
+  const { tokens, map: tokenMap, keys } = tokenList;
 
   const { refreshTokenList, refreshTokenListMap } =
     useTokenListActions().current;
@@ -47,7 +53,7 @@ function TokenList() {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      navigation.push(ETokenPages.TokenDetails, {
+      navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId,
         networkId,
         tokenAddress: token.address,

@@ -1,9 +1,5 @@
 import { Image, SizableText, Stack } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-
-import { ETokenPages } from '../../../Token/router/type';
 
 type IProps = {
   nft: IAccountNFT;

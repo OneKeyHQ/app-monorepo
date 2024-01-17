@@ -2,7 +2,10 @@ import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { TxActionCommonT0, TxActionCommonT1 } from './TxActionCommon';
+import {
+  TxActionCommonDetailView,
+  TxActionCommonListView,
+} from './TxActionCommon';
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 
@@ -24,7 +27,7 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
   };
 }
 
-function TxActionFunctionCallT0(props: ITxActionProps) {
+function TxActionFunctionCallListView(props: ITxActionProps) {
   const intl = useIntl();
   const { target, functionName } = getTxActionFunctionCallInfo(props);
 
@@ -39,11 +42,15 @@ function TxActionFunctionCallT0(props: ITxActionProps) {
   };
 
   return (
-    <TxActionCommonT0 title={title} avatar={avatar} description={description} />
+    <TxActionCommonListView
+      title={title}
+      avatar={avatar}
+      description={description}
+    />
   );
 }
 
-function TxActionFunctionCallT1(props: ITxActionProps) {
+function TxActionFunctionCallDetailView(props: ITxActionProps) {
   const intl = useIntl();
   const { target, functionName } = getTxActionFunctionCallInfo(props);
 
@@ -52,7 +59,7 @@ function TxActionFunctionCallT1(props: ITxActionProps) {
   const description = `To: ${target}`;
 
   return (
-    <TxActionCommonT1
+    <TxActionCommonDetailView
       title={title}
       content={content}
       description={description}
@@ -60,4 +67,4 @@ function TxActionFunctionCallT1(props: ITxActionProps) {
   );
 }
 
-export { TxActionFunctionCallT0, TxActionFunctionCallT1 };
+export { TxActionFunctionCallListView, TxActionFunctionCallDetailView };

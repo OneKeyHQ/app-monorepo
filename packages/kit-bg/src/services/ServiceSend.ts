@@ -1,6 +1,5 @@
 import { random } from 'lodash';
 
-import { encodePassword } from '@onekeyhq/core/src/secret';
 import {
   backgroundClass,
   backgroundMethod,
@@ -20,7 +19,7 @@ import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
-  ISignTransactionParams,
+  ISignTransactionParamsBase,
   ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
@@ -72,10 +71,14 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountId,
       unsignedTx,
-      password: encodePassword({ password: '11111111' }),
     });
 
-    const txid = await this.broadcastTransaction({
+    // const txid = await this.broadcastTransaction({
+    //   networkId,
+    //   signedTx: signedTxWithoutBroadcast,
+    // });
+    const txid = await this.broadcastTransactionLegacy({
+      accountId,
       networkId,
       signedTx: signedTxWithoutBroadcast,
     });
@@ -182,16 +185,30 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async signTransaction(
-    params: ISendTxBaseParams & ISignTransactionParams,
+  public async broadcastTransactionLegacy(
+    params: IBroadcastTransactionParams & { accountId: string },
   ) {
-    const { networkId, accountId, unsignedTx, password } = params;
+    const { networkId, accountId } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.broadcastTransaction(params);
+  }
+
+  @backgroundMethod()
+  public async signTransaction(
+    params: ISendTxBaseParams & ISignTransactionParamsBase,
+  ) {
+    const { networkId, accountId, unsignedTx } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+      });
     const signedTx = await vault.signTransaction({
       unsignedTx,
       password,
+      deviceParams,
     });
-    return { ...signedTx, encodedTx: unsignedTx.encodedTx };
+    return signedTx;
   }
 }
 
