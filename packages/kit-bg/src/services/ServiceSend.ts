@@ -119,41 +119,24 @@ class ServiceSend extends ServiceBase {
       nonce: 1,
       actions: [
         {
-          type: EDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer: {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
             from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
             to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            amount: '0.0001',
-            amountValue: '1',
-            tokenInfo: {
-              name: 'Ethereum',
-              symbol: 'ETH',
-              decimals: 18,
-              logoURI:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-              address: '',
-              isNative: true,
-              riskLevel: 0,
-            },
-          },
-        },
-        {
-          type: EDecodedTxActionType.TOKEN_TRANSFER,
-          tokenTransfer: {
-            from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            amount: '1',
-            amountValue: '1000000',
-            tokenInfo: {
-              name: 'Matic',
-              symbol: 'MATIC',
-              decimals: 6,
-              logoURI:
-                'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
-              address: '',
-              isNative: false,
-              riskLevel: 0,
-            },
+            label: 'Send',
+            sends: [
+              {
+                from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+                to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+                token: '',
+                label: '',
+                amount: '1',
+                symbol: 'ETH',
+                image:
+                  'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+              },
+            ],
+            receives: [],
           },
         },
       ],

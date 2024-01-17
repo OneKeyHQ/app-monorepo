@@ -1,24 +1,24 @@
 import { Stack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
+import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 type IProps = {
   historyTx: IAccountHistoryTx;
-  accountAddress: string;
   onPress?: (historyTx: IAccountHistoryTx) => void;
+  tableLayout?: boolean;
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, accountAddress } = props;
+  const { historyTx, tableLayout, onPress } = props;
   const { decodedTx } = historyTx;
 
   return (
-    <Stack>
+    <Stack onPress={() => onPress?.(historyTx)}>
       <TxActionsListView
-        historyTx={historyTx}
         decodedTx={decodedTx}
-        accountAddress={accountAddress}
-        componentType="T0"
+        tableLayout={tableLayout}
+        componentType={ETxActionComponentType.ListView}
       />
     </Stack>
   );
