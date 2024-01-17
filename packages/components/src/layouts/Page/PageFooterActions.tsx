@@ -1,3 +1,7 @@
+import { useCallback } from 'react';
+
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+
 import { getTokenValue } from '../../hooks';
 import { Button, Stack, XStack } from '../../primitives';
 
@@ -6,7 +10,7 @@ import type { IButtonProps, IStackProps } from '../../primitives';
 type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: () => void | Promise<boolean | void>;
+  onConfirm?: (params: { close: () => void }) => void;
   onCancel?: () => void;
   onConfirmText?: string;
   onCancelText?: string;
@@ -22,6 +26,15 @@ export function FooterActions({
   confirmButtonProps,
   cancelButtonProps,
 }: IFooterActionsProps) {
+  const { pop } = useAppNavigation();
+  const handleCancel = useCallback(() => {
+    onCancel?.();
+    pop();
+  }, [onCancel, pop]);
+
+  const handleConfirm = useCallback(() => {
+    onConfirm?.({ close: pop });
+  }, [onConfirm, pop]);
   return (
     <Stack
       p="$5"
@@ -38,7 +51,7 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
-            onPress={onCancel}
+            onPress={handleCancel}
             {...cancelButtonProps}
           >
             {onCancelText || 'Cancel'}
@@ -53,7 +66,7 @@ export function FooterActions({
               } as IButtonProps
             }
             variant="primary"
-            onPress={onConfirm}
+            onPress={handleConfirm}
             {...confirmButtonProps}
           >
             {onConfirmText || 'Confirm'}
