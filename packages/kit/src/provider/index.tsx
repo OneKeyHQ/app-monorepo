@@ -11,6 +11,8 @@ import { ThemeProvider } from './ThemeProvider';
 
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
+import { AccountSelectorProvidersAutoMount } from '../components/AccountSelector';
+
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
   // @ts-ignore
@@ -27,6 +29,7 @@ const flexStyle = { flex: 1 };
 export function KitProvider() {
   return (
     <ThemeProvider>
+      <AccountSelectorProvidersAutoMount />
       <SplashProvider>
         <GestureHandlerRootView style={flexStyle}>
           <Container />

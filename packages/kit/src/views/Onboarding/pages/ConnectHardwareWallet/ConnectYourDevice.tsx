@@ -528,6 +528,7 @@ export function ConnectYourDevicePage() {
 export function ConnectYourDevice() {
   return (
     <AccountSelectorProviderMirror
+      enabledNum={[0]}
       config={{
         sceneName: EAccountSelectorSceneName.home, // TODO read from router
       }}

@@ -8,12 +8,22 @@ import type { IJotaiContextStore } from '../../states/jotai/utils/createJotaiCon
 class AccountSelectorStore {
   storeCache = new Map<string, IJotaiContextStore>();
 
-  createStore({ config }: { config: IAccountSelectorContextData }) {
+  createStore({
+    config,
+  }: {
+    config: IAccountSelectorContextData;
+  }): IJotaiContextStore {
     const sceneId = accountUtils.buildAccountSelectorSceneId(config);
-    this.storeCache.set(sceneId, createStore());
+    const store = createStore();
+    this.storeCache.set(sceneId, store);
+    return store;
   }
 
-  getStore({ config }: { config: IAccountSelectorContextData }) {
+  getStore({
+    config,
+  }: {
+    config: IAccountSelectorContextData;
+  }): IJotaiContextStore | undefined {
     const sceneId = accountUtils.buildAccountSelectorSceneId(config);
     return this.storeCache.get(sceneId);
   }
@@ -21,17 +31,23 @@ class AccountSelectorStore {
   removeStore({ config }: { config: IAccountSelectorContextData }) {
     const sceneId = accountUtils.buildAccountSelectorSceneId(config);
     this.storeCache.delete(sceneId);
+    console.log('AccountSelectorStore removeStore', sceneId);
   }
 
-  getOrCreateStore({ config }: { config: IAccountSelectorContextData }) {
+  getOrCreateStore({
+    config,
+  }: {
+    config: IAccountSelectorContextData;
+  }): IJotaiContextStore {
     let store = this.getStore({ config });
     if (!store) {
-      this.createStore({ config });
+      store = this.createStore({ config });
     }
-    store = this.getStore({ config });
     return store;
   }
 }
 
 const accountSelectorStore = new AccountSelectorStore();
+// @ts-ignore
+global.$$accountSelectorStore = accountSelectorStore;
 export { accountSelectorStore };
