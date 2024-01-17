@@ -1,9 +1,7 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Page, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -23,7 +21,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { checkAndCreateFolder } from '../../utils/screenshot';
-import Dashboard from '../Dashboard';
+import { DashboardContent } from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
@@ -31,7 +29,6 @@ import { withBrowserProvider } from './WithBrowserProvider';
 import type { IDiscoveryModalParamList } from '../../router/Routes';
 
 function MobileBrowser() {
-  const navigationCore = useNavigation();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
@@ -60,12 +57,8 @@ function MobileBrowser() {
   }, [tabs, navigation, setDisplayHomePage]);
 
   useEffect(() => {
-    navigationCore.setOptions({
-      headerShown: false,
-      animation: 'none',
-    });
     void checkAndCreateFolder();
-  }, [navigationCore]);
+  }, []);
 
   const content = useMemo(
     () =>
@@ -74,16 +67,16 @@ function MobileBrowser() {
       )),
     [tabs, handleScroll],
   );
-  const { top } = useSafeAreaInsets();
 
   return (
     <Page>
+      <Page.Header title="Explorer Header" />
       <Page.Body>
-        <Stack flex={1} zIndex={3} pt={top}>
+        <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
           {displayHomePage ? (
             <Stack flex={1}>
-              <Dashboard />
+              <DashboardContent />
             </Stack>
           ) : (
             <MobileBrowserInfoBar
