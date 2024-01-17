@@ -14,7 +14,6 @@ import { LOCALES } from '../../locale';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
-import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../../locale';
@@ -60,16 +59,14 @@ export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
     >
       <FontProvider>
         <Context.Provider value={providerValue}>
-          <ScreenSizeProvider>
-            <SidebarStateProvider>
-              <SafeAreaProvider>
-                <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
-                  {children}
-                  <Toaster />
-                </MemoizedTamaguiProvider>
-              </SafeAreaProvider>
-            </SidebarStateProvider>
-          </ScreenSizeProvider>
+          <SidebarStateProvider>
+            <SafeAreaProvider>
+              <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
+                {children}
+                <Toaster />
+              </MemoizedTamaguiProvider>
+            </SafeAreaProvider>
+          </SidebarStateProvider>
         </Context.Provider>
       </FontProvider>
     </AppIntlProvider>

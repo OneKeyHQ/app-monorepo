@@ -26,13 +26,15 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   AccountSelectorActiveAccount,
   AccountSelectorActiveAccountHome,
-  AccountSelectorProvider,
   AccountSelectorProviderMirror,
   AccountSelectorTrigger,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
-import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
+import {
+  NetworkSelectorTrigger,
+  NetworkSelectorTriggerHome,
+} from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EChainSelectorPages } from '../../ChainSelector/router/type';
@@ -221,6 +223,32 @@ function HomePage() {
                 renderContent: (
                   <Stack>
                     <Form form={form}>
+                      <AccountSelectorProviderMirror
+                        config={{
+                          sceneName: EAccountSelectorSceneName.discover,
+                          sceneUrl: 'https://www.bing.com',
+                        }}
+                        enabledNum={[1]}
+                      >
+                        <NetworkSelectorTrigger key={1} num={1} />
+                      </AccountSelectorProviderMirror>
+
+                      <AccountSelectorProviderMirror
+                        config={{
+                          sceneName: EAccountSelectorSceneName.discover,
+                          sceneUrl: 'https://www.bing.com',
+                        }}
+                        enabledNum={[0]}
+                      >
+                        <NetworkSelectorTrigger key={0} num={0} />
+                      </AccountSelectorProviderMirror>
+
+                      <AccountSelectorProviderMirror
+                        config={{
+                          sceneName: EAccountSelectorSceneName.home,
+                        }}
+                        enabledNum={[1]}
+                      />
                       <Form.Field
                         label="Amount"
                         name="amount"
@@ -237,6 +265,7 @@ function HomePage() {
                           ]}
                         />
                       </Form.Field>
+
                       <Form.Field
                         label="Description"
                         description="Enter a brief description for the payment. This helps the recipient identify and record the transaction."
@@ -278,6 +307,7 @@ function HomePage() {
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror
+        enabledNum={[0]}
         config={{
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
@@ -348,7 +378,7 @@ function HomePage() {
 
 function HomePageContainer() {
   return (
-    <AccountSelectorProvider
+    <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
@@ -356,7 +386,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage />
-    </AccountSelectorProvider>
+    </AccountSelectorProviderMirror>
   );
 }
 
