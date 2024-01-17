@@ -7,7 +7,7 @@ import { Button, Stack, XStack } from '../../primitives';
 
 import type { IButtonProps, IStackProps } from '../../primitives';
 
-type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
+type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
   onConfirm?: (params: { close: () => void }) => void;
