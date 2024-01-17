@@ -48,6 +48,7 @@ class AccountSelectorStore {
 }
 
 const accountSelectorStore = new AccountSelectorStore();
-// @ts-ignore
-global.$$accountSelectorStore = accountSelectorStore;
+if (process.env.NODE_ENV !== 'production') {
+  global.$$accountSelectorStore = accountSelectorStore;
+}
 export { accountSelectorStore };

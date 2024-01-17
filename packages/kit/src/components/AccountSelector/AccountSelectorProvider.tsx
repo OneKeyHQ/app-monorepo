@@ -35,7 +35,7 @@ function AccountSelectorProviderCmp({
     [sceneName, sceneUrl],
   );
   const enabledNum = enabledNumStr.split(',');
-  const sceneId = accountUtils.buildAccountSelectorSceneId(config);
+  // const sceneId = accountUtils.buildAccountSelectorSceneId(config);
   const store = accountSelectorStore.getOrCreateStore({ config });
   useEffect(() => {
     console.log('AccountSelectorProvider mount');
@@ -63,16 +63,17 @@ function AccountSelectorProvidersAutoMountCmp() {
       'AccountSelectorProvidersAutoMount mapEntries:',
       mapEntries,
       getAccountSelectorTrackerMap(),
+      global.$$accountSelectorStore,
     );
   }
   return (
     <>
       {mapEntries.map(([key, value]) => {
         const { sceneName, sceneUrl, enabledNum, count } = value;
-        const config = {
-          sceneName,
-          sceneUrl,
-        };
+        // const config = {
+        //   sceneName,
+        //   sceneUrl,
+        // };
         if (count <= 0) {
           return null;
         }
