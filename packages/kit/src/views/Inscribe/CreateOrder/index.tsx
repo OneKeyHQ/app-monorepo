@@ -108,7 +108,6 @@ const CreateOrder: FC = () => {
   const { id } = sourceInfo ?? ({} as IDappSourceInfo);
   const dappApprove = useDappApproveAction({
     id,
-    closeOnError: true,
   });
 
   const { isBRC20Content } = useBRC20Content({
