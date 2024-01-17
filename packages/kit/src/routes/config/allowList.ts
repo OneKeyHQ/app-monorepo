@@ -90,11 +90,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
 
     // Me Pages
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Me}${ETabMeRoutes.TabMe}`]: {
@@ -107,90 +102,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       {
         showUrl: true,
         showParams: true,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingAppLockModal}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingCurrencyModal}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
-
-    // AccountSelector Pages
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.AccountManagerStacks}${EAccountManagerStacksRoutes.AccountSelectorStack}`]:
-      {
-        showUrl: true,
-        showParams: true,
-      },
-
-    // Onboarding Pages
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ActivateDevice}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.BeforeShowRecoveryPhrase}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ConnectWallet}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ConnectYourDevice}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.FinalizeWalletSetup}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.GetStarted}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportAddress}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportPrivateKey}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportRecoveryPhrase}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.ImportWalletOptions}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.OneKeyHardwareWallet}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.RecoveryPhrase}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.OnboardingModal}${EOnboardingPages.VerifyRecoverPhrase}`]:
-      {
-        showUrl: true,
-        showParams: false,
       },
   } as Record<string, IAllowSettingItem>;
 
