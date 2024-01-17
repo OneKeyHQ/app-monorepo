@@ -1,74 +1,66 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-export enum EGasType {
+export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',
 }
 
 export type IGasEIP1559 = {
-  confidence: 0;
   baseFeePerGas: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
-  gasPrice: string;
+  gasLimit: string;
+  gasLimitForDisplay: string;
+  gasPrice?: string;
 };
 
 export type IGasLegacy = {
   gasPrice: string;
   gasLimit: string;
+  gasLimitForDisplay?: string;
 };
 
-export type IGasUTXO = {
+export type IFeeUTXO = {
   feeRate?: string;
   feeValue?: string;
 };
 
-export type ICustomGasLegacy = {
-  gasPrice: string;
-};
-
-export type ICustomGasEIP1559 = {
-  maxFeePerGas: string;
-  maxPriorityFeePerGas: string;
-};
-
-export type ICustomGasUTXO = {
-  feeRate: string;
-};
-
-export type ICustomGas = ICustomGasLegacy | ICustomGasEIP1559 | ICustomGasUTXO;
-
 export type IEstimateGasParams = {
   networkId: string;
-  encodedTx: IEncodedTx;
+  encodedTx?: IEncodedTx;
 };
 
 export type IFeeInfoUnit = {
-  isEIP1559?: boolean;
-  isBtcForkChain?: boolean;
-  common?: {
+  common: {
     baseFeeValue?: string;
-    limit?: string;
-    limitForDisplay?: string;
-    limitUsed?: string;
     feeDecimals: number;
     feeSymbol: string;
     nativeDecimals: number;
     nativeSymbol: string;
+    nativeTokenPrice: number;
   };
   gas?: IGasLegacy;
   gasEIP1559?: IGasEIP1559;
-  gasUTXO?: IGasUTXO;
+  feeUTXO?: IFeeUTXO;
 };
+
+export type IGasEIP1559Prediction = IGasEIP1559 & { confidence: number };
 
 export type IEstimateGasResp = {
   isEIP1559: true;
-  feeDecimals: 0;
+  feeDecimals: number;
   feeSymbol: string;
-  nativeDecimals: 0;
+  nativeDecimals: number;
   nativeSymbol: string;
-  fees: IGasEIP1559[] | string[];
   baseFeeValue?: string;
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+  feeUTXO?: IFeeUTXO[];
   limit: string;
   limitForDisplay: string;
+  nativeTokenPrice: {
+    price: number;
+    price24h: number;
+  };
+  prediction?: IGasEIP1559Prediction[];
 };
