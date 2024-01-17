@@ -32,7 +32,9 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     name: T;
   }) {
     if (isNil(ids) && isNil(recordPairs)) {
-      throw new Error('dbUpdateRecord ERROR: id and recordPair both not found');
+      throw new Error(
+        'dbUpdateRecord ERROR: ids and recordPairs both not found',
+      );
     }
     let pairs: ILocalDBRecordPair<T>[] = [];
     if (!isNil(ids)) {

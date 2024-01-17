@@ -115,7 +115,7 @@ function DesktopCustomTabBar() {
         onPress={(e) => {
           e.stopPropagation();
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.FakeSearchModal,
+            screen: EDiscoveryModalRoutes.SearchModal,
           });
         }}
       />
