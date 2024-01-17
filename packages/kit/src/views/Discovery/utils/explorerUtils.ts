@@ -1,5 +1,6 @@
 import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import type { IBrowserType } from '../types';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';

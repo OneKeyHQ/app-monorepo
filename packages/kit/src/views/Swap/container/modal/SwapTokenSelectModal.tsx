@@ -169,6 +169,7 @@ export default function SwapTokenSelectModal() {
       config={{
         sceneName: EAccountSelectorSceneName.swap,
       }}
+      enabledNum={[0, 1]}
     >
       <SwapTokenSelectPageWithProvider />
     </AccountSelectorProviderMirror>

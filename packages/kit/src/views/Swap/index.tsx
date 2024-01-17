@@ -1,11 +1,11 @@
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProvider } from '../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 
 import SwapPageContainer from './container/SwapPageContainer';
 
 const Swap = () => (
-  <AccountSelectorProvider
+  <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.swap,
       sceneUrl: '',
@@ -13,7 +13,7 @@ const Swap = () => (
     enabledNum={[0, 1]}
   >
     <SwapPageContainer />
-  </AccountSelectorProvider>
+  </AccountSelectorProviderMirror>
 );
 
 export default Swap;

@@ -21,9 +21,9 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
   public features!: string;
 
   /**
-   * ble mac address
+   * ble connectId address (mac)
    */
-  public mac!: string;
+  public connectId!: string;
 
   /**
    * device uuid
@@ -61,7 +61,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
     properties: {
       id: 'string',
       name: 'string',
-      mac: 'string',
+      connectId: 'string',
       uuid: 'string',
       deviceId: 'string',
       deviceType: 'string',
@@ -77,7 +77,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
     return {
       id: this.id,
       name: this.name,
-      mac: this.mac,
+      connectId: this.connectId,
       uuid: this.uuid,
       deviceId: this.deviceId,
       deviceType: this.deviceType,

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
 import type { ICoreApiNetworkInfo } from '@onekeyhq/core/src/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
-import { mockGetNetwork, mockGetWalletIdFromAccountId } from '../../mock';
+import { mockGetNetwork } from '../../mock';
 import { getVaultSettings, getVaultSettingsNetworkInfo } from '../settings';
 
 import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
@@ -18,7 +19,7 @@ export class VaultContext {
     this.walletId =
       options.walletId ||
       (this.accountId
-        ? mockGetWalletIdFromAccountId({ accountId: this.accountId })
+        ? accountUtils.getWalletIdFromAccountId({ accountId: this.accountId })
         : '');
     if (!this.walletId) {
       throw new Error('can not get correct walletId');

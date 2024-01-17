@@ -1,10 +1,12 @@
 import type {
   EAddressEncodings,
+  ICoreApiGetAddressItem,
   ICurveName,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import type {
   IAccountHistoryTx,
@@ -46,6 +48,7 @@ export interface IAccountDeriveInfo {
 
   template: string; // template with INDEX_PLACEHOLDER
   coinType: string;
+  coinName?: string;
   addressEncoding?: EAddressEncodings;
 
   labelKey?: MessageDescriptor['id'];
@@ -127,23 +130,28 @@ export type IPrepareImportedAccountsParams = {
   name: string;
   template?: string;
 };
-export type IPrepareHdAccountsParams = {
-  password: string;
+export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
-  // purpose?: number; // TODO for what?
   names?: Array<string>; // custom names
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
 };
-export type IPrepareHardwareAccountsParams = {
-  // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
-  indexes: Array<number>;
-  purpose?: number;
-  names?: Array<string>;
-  coinType: string;
-  template: string;
-  skipCheckAccountExist?: boolean;
-  confirmOnDevice?: boolean;
+export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
+  password: string;
+};
+export type IPrepareHdAccountsOptions = {
+  addressEncoding?: EAddressEncodings;
+  checkIsAccountUsed?: (query: {
+    xpub: string;
+    xpubSegwit?: string;
+    address: string;
+  }) => Promise<{ isUsed: boolean }>;
+  buildAddressesInfo: (payload: {
+    usedIndexes: number[];
+  }) => Promise<ICoreApiGetAddressItem[]>;
+};
+export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
+  deviceParams: IDeviceSharedCallParams;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -202,10 +210,16 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   signedTx: ISignedTxPro;
 }
-export interface ISignTransactionParams {
+
+export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
-  password: string;
 }
+
+export type ISignAndSendTransactionParams = ISignTransactionParams;
+export type ISignTransactionParams = ISignTransactionParamsBase & {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
 
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];

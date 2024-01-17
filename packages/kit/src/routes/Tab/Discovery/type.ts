@@ -1,5 +1,5 @@
 export enum ETabDiscoveryRoutes {
-  TabDiscovery = 'TabDiscovery',
+  TabDiscovery = 'Discovery',
 }
 
 export type ITabDiscoveryParamList = {

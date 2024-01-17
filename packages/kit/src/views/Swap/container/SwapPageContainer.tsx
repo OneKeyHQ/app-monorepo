@@ -17,6 +17,7 @@ const SwapPageContainer = () => {
       <XStack>
         <AccountSelectorProviderMirror
           config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
+          enabledNum={[1]}
         >
           <AccountSelectorTriggerSwap num={1} />
         </AccountSelectorProviderMirror>
@@ -29,6 +30,7 @@ const SwapPageContainer = () => {
     () => (
       <AccountSelectorProviderMirror
         config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
+        enabledNum={[0]}
       >
         <AccountSelectorTriggerSwap num={0} />
       </AccountSelectorProviderMirror>
