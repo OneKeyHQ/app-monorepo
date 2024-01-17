@@ -209,9 +209,6 @@ function DashboardHeader({
   const histories = useMemo(() => historyData ?? [], [historyData]);
   return (
     <Stack p="$4">
-      <SizableText size="$headingXl" py="$2">
-        探索DApp
-      </SizableText>
       <Stack
         pb="$2"
         $md={{
@@ -371,6 +368,7 @@ function Dashboard() {
   );
   return (
     <Page>
+      <Page.Header title="123" />
       <Page.Body>
         <YStack p="$2" alignItems="center" justifyContent="center" />
         <Tab
