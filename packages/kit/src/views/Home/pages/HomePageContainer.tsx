@@ -323,7 +323,6 @@ function HomePage() {
         <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
         <Page.Body>
           <Tab
-            // @ts-expect-error
             data={tabs}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={0}
