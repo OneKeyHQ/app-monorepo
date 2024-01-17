@@ -94,8 +94,6 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
     activeAccount: { wallet, indexedAccount, account },
     activeAccountName,
   } = useActiveAccount({ num });
-  console.log('wallet-', wallet);
-  console.log('num--', num, '--activeAccountName--:', activeAccountName);
   const actions = useAccountSelectorActions();
   const { result: accountAvatar } = usePromiseResult(
     () =>

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -7,18 +7,19 @@ import { Button, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapResultQuoteCurrentSelectAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import SwapFromAmountPercentage from '../components/SwapFromAmountPercentage';
 import SwapTokenAmountInput from '../components/SwapTokenAmountInput';
-import SwapTokenBalance from '../components/SwapTokenBalance';
 import SwapTokenCurrencyValue from '../components/SwapTokenCurrencyValue';
 import SwapTokenSelectTrigger from '../components/SwapTokenSelectTrigger';
-import { swapFromAmountPercentageItems } from '../config/SwapProvider.constants';
 import { useSwapQuote } from '../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../hooks/useSwapTokens';
+
+import SwapAccountContainer from './SwapAccountContainer';
+
+import type { ISwapFromAmountPercentageItem } from '../types';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: 'from' | 'to') => void;
@@ -30,9 +31,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { quoteFetch, quoteFetching } = useSwapQuote();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
   const { alternationToken } = useSwapActions().current;
-  const [swapQuoteCurrentSelect] = useSwapResultQuoteCurrentSelectAtom();
+  const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
 
   useEffect(() => {
     void quoteFetch(Number(fromInputAmount));
@@ -45,7 +45,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       fromInputAmount ?? 0,
     ).multipliedBy(fromTokenPriceBN);
     const toTokenFiatValueBN = new BigNumber(
-      quoteResult?.toAmount ?? '0',
+      swapQuoteCurrentSelect?.toAmount ?? '0',
     ).multipliedBy(toTokenPriceBN);
     return {
       fromTokenFiatValue: fromTokenFiatValueBN.isNaN()
@@ -58,9 +58,16 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   }, [
     fromInputAmount,
     fromToken?.price,
-    quoteResult?.toAmount,
+    swapQuoteCurrentSelect?.toAmount,
     toToken?.price,
   ]);
+
+  const onSelectAmountPercentage = useCallback(
+    (item: ISwapFromAmountPercentageItem) => {
+      console.log('item-', item);
+    },
+    [],
+  );
 
   return (
     <YStack>
@@ -90,22 +97,11 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
             }}
           />
         </XStack>
-        {/* todo account logic */}
-        <XStack justifyContent="space-between">
-          <SwapTokenBalance
-            balance={
-              fromToken?.balanceParsed ? Number(fromToken.balanceParsed) : 0.0
-            }
-            symbol={fromToken?.symbol ?? ''}
-          />
-          <SwapFromAmountPercentage
-            selectItems={swapFromAmountPercentageItems}
-            onSelectItem={(item) => {
-              // todo
-              console.log('onSelectItem', item);
-            }}
-          />
-        </XStack>
+        <SwapAccountContainer
+          num={0}
+          token={fromToken}
+          onSelectAmountPercentage={onSelectAmountPercentage}
+        />
       </YStack>
       <XStack justifyContent="center">
         <Button borderRadius="$4" onPress={alternationToken}>
@@ -140,15 +136,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
             }}
           />
         </XStack>
-        {/* todo account logic */}
-        <XStack justifyContent="flex-start">
-          <SwapTokenBalance
-            balance={
-              toToken?.balanceParsed ? Number(toToken.balanceParsed) : 0.0
-            }
-            symbol={toToken?.symbol ?? ''}
-          />
-        </XStack>
+
+        <SwapAccountContainer num={1} token={toToken} isReceiver />
       </YStack>
     </YStack>
   );

@@ -10,6 +10,12 @@ export enum ESwapProviders {
   SOCKET_BRIDGE = 'swap_socket_bridge',
 }
 
+export enum ESwapReceiveAddressType {
+  USER_ACCOUNT = 'user_account',
+  INPUT = 'input',
+  ADDRESS_BOOK = 'address_book',
+}
+
 // token & network
 export interface ISwapNetwork {
   networkId: string;

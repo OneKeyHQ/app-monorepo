@@ -1,21 +1,20 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { XStack } from 'tamagui';
-
 import {
   Alert,
   Button,
   SizableText,
   Spinner,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 
 import {
   useSwapFromTokenAmountAtom,
-  useSwapResultQuoteCurrentSelectAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
-  useSwapStepStateAtom,
 } from '../../../states/jotai/contexts/swap';
+import { useSwapStepState } from '../hooks/useSwapStepState';
 import { ESwapStepStateType } from '../types';
 
 interface ISwapActionsStateProps {
@@ -29,11 +28,10 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
 }: ISwapActionsStateProps) => {
-  const [swapStepState] = useSwapStepStateAtom();
+  const swapStepState = useSwapStepState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
-  const [selectCurrentProvider] = useSwapResultQuoteCurrentSelectAtom();
-
+  const [selectCurrentProvider] = useSwapQuoteCurrentSelectAtom();
   const isApproveStepStatus = useMemo(
     () =>
       swapStepState.type === ESwapStepStateType.APPROVE &&
@@ -48,18 +46,18 @@ const SwapActionsState = ({
     ) {
       return (
         <YStack>
-          {swapStepState.wrongMsg && (
+          {swapStepState.wrongMsg ? (
             <Alert
               description={swapStepState.wrongMsg}
               icon="PlaceholderOutline"
             />
-          )}
-          {swapStepState.rateWarning && (
+          ) : null}
+          {swapStepState.rateWarning ? (
             <Alert
               description={swapStepState.rateWarning}
               icon="PlaceholderOutline"
             />
-          )}
+          ) : null}
         </YStack>
       );
     }

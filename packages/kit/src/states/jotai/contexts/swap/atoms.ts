@@ -1,8 +1,8 @@
 import BigNumber from 'bignumber.js';
 
 import {
+  ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
-  ESwapStepStateType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import type {
@@ -10,7 +10,6 @@ import type {
   IFetchQuoteResult,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
-  ISwapStepState,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/kit/src/views/Swap/types';
@@ -74,7 +73,7 @@ export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
 
 export const {
   atom: swapQuoteCurrentSelectAtom,
-  use: useSwapResultQuoteCurrentSelectAtom,
+  use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {
   const list = get(swapQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
@@ -88,7 +87,7 @@ export const {
 
 export const {
   atom: swapQuoteTokenMarketingRateWarningAtom,
-  use: useSwapQuoteRateMarketingRateWarningAtom,
+  use: useSwapQuoteTokenMarketingRateWarningAtom,
 } = contextAtomComputed((get) => {
   const fromToken = get(swapSelectFromTokenAtom());
   const toToken = get(swapSelectToTokenAtom());
@@ -130,73 +129,21 @@ export const {
 export const { atom: swapBuildTxResultAtom, use: useSwapBuildTxResultAtom } =
   contextAtom<IFetchBuildTxResponse | undefined>(undefined);
 
-// swap action state
-export const { atom: swapStepStateAtom, use: useSwapStepStateAtom } =
-  contextAtomComputed((get) => {
-    const quoteFetching = get(swapQuoteFetchingAtom());
-    const quoteCurrentSelect = get(swapQuoteCurrentSelectAtom());
-    const buildTxFetching = get(swapBuildTxFetchingAtom());
-    const fromTokenAmount = get(swapFromTokenAmountAtom());
-    const fromToken = get(swapSelectFromTokenAtom());
-    const toToken = get(swapSelectToTokenAtom());
-    const rateWarning = get(swapQuoteTokenMarketingRateWarningAtom());
-    const isCrossChain = fromToken?.networkId !== toToken?.networkId;
-    const stepState: ISwapStepState = {
-      type: ESwapStepStateType.PRE,
-      isLoading: quoteFetching,
-      disabled: true,
-      isCrossChain,
-      rateWarning,
-    };
-    if (quoteFetching) {
-      stepState.type = ESwapStepStateType.QUOTE;
-      stepState.isLoading = true;
-      return stepState;
-    }
-    if (!quoteCurrentSelect) {
-      return stepState;
-    }
-
-    // check min max amount
-    const fromTokenAmountBN = new BigNumber(fromTokenAmount);
-    if (quoteCurrentSelect.limit?.min) {
-      const minAmountBN = new BigNumber(quoteCurrentSelect.limit.min);
-      if (fromTokenAmountBN.lt(minAmountBN)) {
-        stepState.type = ESwapStepStateType.QUOTE;
-        stepState.isLoading = false;
-        stepState.disabled = true;
-        stepState.wrongMsg = `Minimum amount is ${minAmountBN.toFixed()}`;
-        return stepState;
-      }
-    }
-    if (quoteCurrentSelect.limit?.max) {
-      const maxAmountBN = new BigNumber(quoteCurrentSelect.limit.max);
-      if (fromTokenAmountBN.gt(maxAmountBN)) {
-        stepState.type = ESwapStepStateType.QUOTE;
-        stepState.isLoading = false;
-        stepState.disabled = true;
-        stepState.wrongMsg = `Maximum amount is ${maxAmountBN.toFixed()}`;
-        return stepState;
-      }
-    }
-
-    // Todo check account connect & balance
-    if (quoteCurrentSelect.allowanceResult) {
-      stepState.type = ESwapStepStateType.APPROVE;
-      stepState.isLoading = false; // Todo check approve transaction state
-      stepState.disabled = false;
-      return stepState;
-    }
-    stepState.type = ESwapStepStateType.BUILD_TX;
-    stepState.isLoading = buildTxFetching;
-    stepState.isWrapped = !!quoteCurrentSelect.isWrapped;
-    stepState.disabled = buildTxFetching;
-    return stepState;
-  });
+// swap receiver address
 
 export const {
-  atom: swapReceiverAddressAtom,
-  use: useSwapReceiverAddressAtom,
+  atom: swapReceiverAddressTypeAtom,
+  use: useSwapReceiverAddressTypeAtom,
+} = contextAtom<ESwapReceiveAddressType>(ESwapReceiveAddressType.USER_ACCOUNT);
+
+export const {
+  atom: swapReceiverAddressInputValueAtom,
+  use: useSwapReceiverAddressInputValueAtom,
+} = contextAtom<string>('');
+
+export const {
+  atom: swapReceiverAddressBookValueAtom,
+  use: useSwapReceiverAddressBookValueAtom,
 } = contextAtom<string>('');
 
 // swap tx history

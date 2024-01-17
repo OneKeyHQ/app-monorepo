@@ -2,11 +2,11 @@ import { useState } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import { mockAddress, mockNetworkId } from '../utils/utils';
 
 import type { ISwapToken } from '../types';
 
@@ -48,6 +48,9 @@ export function useSwapTokenList(
   keywords?: string,
 ) {
   const [currentTokens, setCurrentTokens] = useState<ISwapToken[]>([]);
+  const { activeAccount } = useActiveAccount({
+    num: selectTokenModalType === 'from' ? 0 : 1,
+  });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const { isLoading } = usePromiseResult(
     async () => {
@@ -56,13 +59,19 @@ export function useSwapTokenList(
         type: selectTokenModalType,
         fromToken,
         keywords,
-        accountAddress: mockAddress,
-        accountNetworkId: mockNetworkId,
-        // accountXpub: mockAddress,
+        accountAddress: activeAccount.account?.address,
+        accountNetworkId: activeAccount.network?.id,
+        accountXpub: activeAccount.account?.pub,
       });
       setCurrentTokens(result);
     },
-    [currentNetworkId, fromToken, keywords, selectTokenModalType],
+    [
+      activeAccount,
+      currentNetworkId,
+      fromToken,
+      keywords,
+      selectTokenModalType,
+    ],
     { watchLoading: true, debounced: 500 },
   );
 

@@ -13,6 +13,7 @@ import useFormatDate from '../../../hooks/useFormatDate';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ETabRoutes } from '../../../routes/Tab/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapBuildTxResultAtom,
@@ -25,7 +26,8 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { getTimeStamp } from '../../../utils/helper';
 import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
-import { mockAddress } from '../utils/utils';
+
+import { useSwapReceiverAddress } from './useSwapReceiverAddress';
 
 import type { ISwapTxHistory } from '../types';
 import type ViewShot from 'react-native-view-shot';
@@ -121,10 +123,16 @@ export function useSwapTxHistoryActions() {
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  // const [receiverAddress] = useSwapReceiverAddressAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const receiverAddress = useSwapReceiverAddress();
   const generateSwapHistoryItem = useCallback(
     async ({ txId, netWorkFee }: { txId: string; netWorkFee: string }) => {
-      if (swapBuildTxResult && fromToken && toToken) {
+      if (
+        swapBuildTxResult &&
+        fromToken &&
+        toToken &&
+        activeAccount.account?.address
+      ) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           baseInfo: {
@@ -142,8 +150,8 @@ export function useSwapTxHistoryActions() {
           txInfo: {
             txId,
             netWorkFee,
-            sender: mockAddress,
-            receiver: mockAddress,
+            sender: activeAccount.account?.address,
+            receiver: receiverAddress ?? '',
           },
           date: {
             created: getTimeStamp(),
@@ -159,9 +167,11 @@ export function useSwapTxHistoryActions() {
       }
     },
     [
+      activeAccount.account?.address,
       addSwapHistoryItem,
       fromToken,
       fromTokenAmount,
+      receiverAddress,
       swapBuildTxResult,
       swapNetworks,
       toToken,

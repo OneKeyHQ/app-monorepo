@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapQuoteFetchingAtom,
   useSwapQuoteListAtom,
@@ -8,7 +9,6 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
-import { mockAddress } from '../utils/utils';
 
 export function useSwapQuote() {
   const [quoteFetching, setQuoteFetching] = useSwapQuoteFetchingAtom();
@@ -16,6 +16,7 @@ export function useSwapQuote() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setQuoteList] = useSwapQuoteListAtom();
   const [swapSlippage] = useSwapSlippagePercentageAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const quoteFetch = useCallback(
     async (fromAmount: number) => {
       if (
@@ -30,7 +31,7 @@ export function useSwapQuote() {
             fromToken,
             toToken,
             fromTokenAmount: fromAmount.toString(),
-            userAddress: mockAddress,
+            userAddress: activeAccount.account?.address,
             slippagePercentage: swapSlippage.value,
           });
           setQuoteList(res);
@@ -47,7 +48,14 @@ export function useSwapQuote() {
         setQuoteList([]);
       }
     },
-    [fromToken, setQuoteFetching, setQuoteList, swapSlippage.value, toToken],
+    [
+      activeAccount.account?.address,
+      fromToken,
+      setQuoteFetching,
+      setQuoteList,
+      swapSlippage.value,
+      toToken,
+    ],
   );
   return {
     quoteFetching,

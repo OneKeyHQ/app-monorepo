@@ -1,25 +1,29 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapBuildTxResultAtom,
   useSwapFromTokenAmountAtom,
-  useSwapResultQuoteCurrentSelectAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
-import { mockAddress } from '../utils/utils';
+
+import { useSwapReceiverAddress } from './useSwapReceiverAddress';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [slippagePercentage] = useSwapSlippagePercentageAtom();
-  const [selectQuote] = useSwapResultQuoteCurrentSelectAtom();
+  const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapBuildTxResult] = useSwapBuildTxResultAtom();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const receiverAddress = useSwapReceiverAddress();
   const wrappedTx = useCallback(async () => {
     // todo wrapped tx
   }, []);
@@ -32,7 +36,9 @@ export function useSwapBuildTx() {
       toToken &&
       fromTokenAmount &&
       slippagePercentage &&
-      selectQuote
+      selectQuote &&
+      activeAccount.account?.address &&
+      receiverAddress
     ) {
       setSwapBuildTxFetching(true);
       const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
@@ -41,8 +47,8 @@ export function useSwapBuildTx() {
         toTokenAmount: selectQuote.toAmount,
         fromTokenAmount,
         slippagePercentage: slippagePercentage.value,
-        receivingAddress: mockAddress,
-        userAddress: mockAddress,
+        receivingAddress: receiverAddress,
+        userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
       setSwapBuildTxResult(res);
@@ -50,8 +56,10 @@ export function useSwapBuildTx() {
       return res;
     }
   }, [
+    activeAccount.account?.address,
     fromToken,
     fromTokenAmount,
+    receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,
     setSwapBuildTxResult,

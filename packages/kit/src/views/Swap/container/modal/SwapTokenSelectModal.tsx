@@ -11,8 +11,10 @@ import {
   Spinner,
   YStack,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapNetworksAtom,
@@ -20,6 +22,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
@@ -31,7 +34,7 @@ import type { IModalSwapParamList } from '../../router/Routers';
 import type { ISwapNetwork, ISwapToken } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 
-const SwapTokenSelectModal = () => {
+const SwapTokenSelectPage = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -48,6 +51,7 @@ const SwapTokenSelectModal = () => {
   const [toToken] = useSwapSelectToTokenAtom();
   const [onlySupportSingleNetWork] = useSwapOnlySupportSingleChainAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { updateSelectedAccount } = useAccountSelectorActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(() =>
@@ -69,14 +73,22 @@ const SwapTokenSelectModal = () => {
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
-      navigation.popStack();
       if (type === 'from') {
         void selectFromToken(item);
+        updateSelectedAccount({
+          num: 0,
+          builder: (v) => ({ ...v, networkId: item.networkId }),
+        });
       } else {
         void selectToToken(item);
+        updateSelectedAccount({
+          num: 1,
+          builder: (v) => ({ ...v, networkId: item.networkId }),
+        });
       }
+      navigation.popStack();
     },
-    [navigation, selectFromToken, selectToToken, type],
+    [navigation, selectFromToken, selectToToken, type, updateSelectedAccount],
   );
 
   const renderItem = useCallback(
@@ -148,4 +160,17 @@ const SwapTokenSelectModal = () => {
   );
 };
 
-export default memo(withSwapProvider(SwapTokenSelectModal));
+const SwapTokenSelectPageWithProvider = memo(
+  withSwapProvider(SwapTokenSelectPage),
+);
+export default function SwapTokenSelectModal() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+    >
+      <SwapTokenSelectPageWithProvider />
+    </AccountSelectorProviderMirror>
+  );
+}

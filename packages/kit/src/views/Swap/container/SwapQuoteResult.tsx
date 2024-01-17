@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react';
 import { YStack } from '@onekeyhq/components';
 
 import {
-  useSwapResultQuoteCurrentSelectAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -23,7 +23,7 @@ const SwapQuoteResult = ({
 }: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [quoteResult] = useSwapResultQuoteCurrentSelectAtom();
+  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const { quoteFetching } = useSwapQuote();
 
   const protocolFee = useMemo<string | undefined>(
