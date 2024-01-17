@@ -98,7 +98,11 @@ export function useActiveAccount({ num }: { num: number }): {
   const accountInfo = accounts[num];
   const activeAccount = accountInfo || defaultActiveAccountInfo;
   let activeAccountName = activeAccount.account?.name || '';
-  if (accountUtils.isHdWallet({ walletId: activeAccount.wallet?.id || '' })) {
+  const walletId = activeAccount.wallet?.id || '';
+  if (
+    accountUtils.isHdWallet({ walletId }) ||
+    accountUtils.isHwWallet({ walletId })
+  ) {
     activeAccountName = activeAccount.indexedAccount?.name || '';
   }
   return {

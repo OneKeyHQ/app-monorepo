@@ -48,6 +48,6 @@ export type IOnboardingParamList = {
 
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
-    mnemonic: string;
+    mnemonic?: string;
   };
 };

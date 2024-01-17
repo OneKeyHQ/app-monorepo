@@ -26,9 +26,12 @@ const COINTYPE_CFX = '503';
 
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
+export const COINNAME_BTC = 'BTC'
 
 const IMPL_TBTC = 'tbtc';
 const COINTYPE_TBTC = '1';
+export const COINNAME_TBTC = 'TEST'
+
 
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
