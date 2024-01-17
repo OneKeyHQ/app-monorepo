@@ -215,6 +215,7 @@ export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
 }
 
+export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;

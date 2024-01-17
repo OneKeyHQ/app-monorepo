@@ -2,15 +2,14 @@ import { useRef } from 'react';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { EGasType, ICustomGas } from '@onekeyhq/shared/types/gas';
+import type { EFeeType, IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   contextAtomMethod,
-  customGasAtom,
-  selectedPresetGasIndexAtom,
-  sendGasTypeAtom,
+  customFeeAtom,
+  sendSelectedFeeAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -21,19 +20,15 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
     },
   );
 
-  updateSendGasType = contextAtomMethod((get, set, sendGasType: EGasType) => {
-    set(sendGasTypeAtom(), sendGasType);
-  });
-
-  updateCustomGas = contextAtomMethod((get, set, customGas: ICustomGas) => {
-    set(customGasAtom(), customGas);
-  });
-
-  updateSelectedPresetGasIndex = contextAtomMethod(
-    (get, set, index: number) => {
-      set(selectedPresetGasIndexAtom(), index);
+  updateSendSelectedFee = contextAtomMethod(
+    (get, set, sendSelectedFee: { feeType: EFeeType; presetIndex: number }) => {
+      set(sendSelectedFeeAtom(), sendSelectedFee);
     },
   );
+
+  updateCustomFee = contextAtomMethod((get, set, customFee: IFeeInfoUnit) => {
+    set(customFeeAtom(), customFee);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -44,15 +39,12 @@ const createActions = memoFn(() => {
 export function useSendConfirmActions() {
   const actions = createActions();
   const updateUnsignedTxs = actions.updateUnsignedTxs.use();
-  const updateSendGasType = actions.updateSendGasType.use();
-  const updateCustomGas = actions.updateCustomGas.use();
-  const updateSelectedPresetGasIndex =
-    actions.updateSelectedPresetGasIndex.use();
+  const updateSendSelectedFee = actions.updateSendSelectedFee.use();
+  const updateCustomFee = actions.updateCustomFee.use();
 
   return useRef({
     updateUnsignedTxs,
-    updateSendGasType,
-    updateCustomGas,
-    updateSelectedPresetGasIndex,
+    updateSendSelectedFee,
+    updateCustomFee,
   });
 }

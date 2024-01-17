@@ -19,7 +19,7 @@ import { SingerInfo } from '../../components/SingerInfo';
 import { EModalSendRoutes } from '../../router';
 
 import { TxActionsContainer } from './TxActionsContainer';
-import { TxGasFeeContainer } from './TxGasFeeContainer';
+import { TxFeeContainer } from './TxFeeContainer';
 
 import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -68,7 +68,7 @@ function SendConfirmContainer() {
       </Page.Body>
       <Page.Footer>
         <Stack padding="$5">
-          <TxGasFeeContainer
+          <TxFeeContainer
             accountId={accountId}
             networkId={networkId}
             unsignedTxs={unsignedTxs}

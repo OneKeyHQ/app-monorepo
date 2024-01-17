@@ -1,5 +1,6 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 export enum EModalSendRoutes {
   SendAssetInput = 'SendAssetInput',
@@ -8,6 +9,7 @@ export enum EModalSendRoutes {
   SendConfirm = 'SendConfirm',
   SendProgress = 'SendProgress',
   SendFeedback = 'SendFeedback',
+  SendCustomFee = 'SendCustomFee',
 }
 
 export type IModalSendParamList = {
@@ -37,5 +39,11 @@ export type IModalSendParamList = {
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
     transfersInfo: ITransferInfo[];
+  };
+  [EModalSendRoutes.SendCustomFee]: {
+    networkId: string;
+    accountId: string;
+    customFee: IFeeInfoUnit;
+    onApply: (feeInfo: IFeeInfoUnit) => void;
   };
 };
