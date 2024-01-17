@@ -1,15 +1,23 @@
-import { InteractionManager } from 'react-native';
-
 import CreateAvatarListWorker from './createAvatarList.worker.js';
 
+// @ts-expect-error
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+const worker = new CreateAvatarListWorker() as Worker;
+
+const events = new Map<string, (data: string) => void>();
+
+worker.onmessage = (event: MessageEvent<{ id: string; data: string }>) => {
+  const { id, data } = event.data;
+  const callback = events.get(id);
+  if (callback) {
+    callback(data);
+    events.delete(id);
+  }
+};
+
 export default function makeBlockieImageUri(id: string) {
-  // @ts-expect-error
-  const worker = new CreateAvatarListWorker() as Worker;
   return new Promise<string>((resolve) => {
-    worker.onmessage = (event) => {
-      void InteractionManager.runAfterInteractions(() => resolve(event.data));
-      worker.terminate();
-    };
+    events.set(id, resolve);
     worker.postMessage(id);
   });
 }
