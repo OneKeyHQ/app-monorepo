@@ -69,8 +69,8 @@ module.exports = ({ platform, basePath, configName }) => ({
     path: path.join(basePath, 'web-build'),
     assetModuleFilename: 'static/media/[name].[hash][ext]',
     uniqueName: 'web',
-    filename: '[name].bundle.js',
-    chunkFilename: 'static/js/[name].chunk.js',
+    filename: '[name].[chunkhash:10].bundle.js',
+    chunkFilename: 'static/js/[name].[chunkhash:10].chunk.js',
   },
   plugins: [
     new HtmlWebpackPlugin({
