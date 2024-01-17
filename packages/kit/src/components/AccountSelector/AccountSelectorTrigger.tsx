@@ -106,7 +106,10 @@ export function AccountSelectorTrigger({
       title,
       estimatedContentHeight: 490,
       renderContent: (
-        <AccountSelectorProviderMirror config={checkIsDefined(config)}>
+        <AccountSelectorProviderMirror
+          enabledNum={[num]}
+          config={checkIsDefined(config)}
+        >
           <ScrollView h="$100">
             <AccountSelectorDialog num={num} />
           </ScrollView>

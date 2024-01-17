@@ -5,7 +5,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorActiveAccount,
-  AccountSelectorProvider,
+  AccountSelectorProviderMirror,
   AccountSelectorTrigger,
 } from '../../components/AccountSelector';
 
@@ -16,7 +16,7 @@ const Swap = () => {
     <Page>
       <Page.Body space="$4">
         <SizableText>Swap</SizableText>
-        <AccountSelectorProvider
+        <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.swap,
             sceneUrl: '',
@@ -28,7 +28,7 @@ const Swap = () => {
 
           <AccountSelectorTrigger num={1} />
           <AccountSelectorActiveAccount num={1} />
-        </AccountSelectorProvider>
+        </AccountSelectorProviderMirror>
       </Page.Body>
     </Page>
   );

@@ -6,7 +6,6 @@ import { Button, Input, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorActiveAccount,
-  AccountSelectorProvider,
   AccountSelectorProviderMirror,
   AccountSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -89,6 +88,7 @@ function Demo() {
       </Button>
 
       <AccountSelectorProviderMirror
+        enabledNum={[0, 1]}
         config={{
           sceneName: EAccountSelectorSceneName.swap,
           sceneUrl: '',
@@ -113,7 +113,7 @@ const AccountModelGallery = () => (
       {
         title: 'Account Model',
         element: (
-          <AccountSelectorProvider
+          <AccountSelectorProviderMirror
             config={{
               sceneName: EAccountSelectorSceneName.home,
               sceneUrl: '',
@@ -123,7 +123,7 @@ const AccountModelGallery = () => (
             <Stack space="$1">
               <Demo />
             </Stack>
-          </AccountSelectorProvider>
+          </AccountSelectorProviderMirror>
         ),
       },
     ]}

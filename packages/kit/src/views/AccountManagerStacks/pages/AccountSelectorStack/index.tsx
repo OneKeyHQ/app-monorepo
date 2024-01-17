@@ -42,6 +42,7 @@ export default function AccountSelectorStackPage({
         sceneName,
         sceneUrl,
       }}
+      enabledNum={[num]}
     >
       <AccountSelectorStack num={num} />
     </AccountSelectorProviderMirror>

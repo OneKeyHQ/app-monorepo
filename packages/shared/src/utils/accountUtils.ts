@@ -80,6 +80,9 @@ function buildAccountSelectorSceneId({
       throw new Error('buildSceneId ERROR: sceneUrl is required');
     }
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
+    if (origin !== sceneUrl) {
+      throw new Error('sceneUrl should be origin not full url');
+    }
     return `${sceneName}--${origin}`;
   }
   return sceneName;

@@ -130,8 +130,6 @@ export class IndexedDBAgent extends LocalDbAgentBase {
         },
       };
 
-      console.log('indexedDB _buildTransaction');
-
       this.txPair = {
         dbTx,
         tx,

@@ -7,4 +7,5 @@ export enum EAtomNames {
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   passwordAtom = 'passwordAtom',
   passwordPersistAtom = 'passwordPersistAtom',
+  accountSelectorMapAtom = 'accountSelectorMapAtom',
 }

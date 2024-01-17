@@ -3,8 +3,8 @@ import { useCallback, useState } from 'react';
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export function WalletRemoveDialog({
@@ -60,7 +60,7 @@ export function showWalletRemoveDialog({
     title,
     description,
     renderContent: config ? (
-      <AccountSelectorProviderMirror config={config}>
+      <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
         <WalletRemoveDialog wallet={wallet} defaultValue={defaultChecked} />
       </AccountSelectorProviderMirror>
     ) : null,
