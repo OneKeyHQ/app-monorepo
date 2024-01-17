@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { useMedia } from 'tamagui';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsVerticalLayout, useThemeValue } from '../../../hooks';
+import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
   makeFullScreenOptions,
@@ -44,7 +46,7 @@ export function RootStackNavigator<
   );
 
   const bgColor = useThemeValue('bg');
-  const isVerticalLayout = useIsVerticalLayout();
+  const isVerticalLayout = useMedia().md;
   const presetScreenOptions = clearStackNavigatorOptions({
     bgColor,
   });
