@@ -19,6 +19,7 @@ import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
+  ISignAndSendTransactionParams,
   ISignTransactionParamsBase,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -59,9 +60,16 @@ class ServiceSend extends ServiceBase {
     unsignedTx = await vault.updateUnsignedTx({
       unsignedTx,
       feeInfo: {
+        common: {
+          nativeDecimals: 18,
+          nativeSymbol: 'ETH',
+          feeDecimals: 9,
+          feeSymbol: 'Gwei',
+          nativeTokenPrice: 2000,
+        },
         gas: {
-          gasLimit: '0x5208', // 21000
           gasPrice: '0x2a', // 42
+          gasLimit: '0x5208', // 21000
         },
       },
     });
@@ -209,6 +217,19 @@ class ServiceSend extends ServiceBase {
       deviceParams,
     });
     return signedTx;
+  }
+
+  @backgroundMethod()
+  public async signAndSendTransaction(
+    params: ISendTxBaseParams & ISignAndSendTransactionParams,
+  ) {
+    const { networkId, accountId, unsignedTx } = params;
+    const signedTx = await this.signTransaction({
+      networkId,
+      accountId,
+      unsignedTx,
+    });
+    return this.broadcastTransaction({ networkId, signedTx });
   }
 }
 

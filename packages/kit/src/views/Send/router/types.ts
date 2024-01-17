@@ -2,6 +2,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts
 import {
   SendAddressInputWithProvider,
   SendConfirmWithProvider,
+  SendCustomFee,
   SendDataInput,
   SendProgress,
 } from '@onekeyhq/kit/src/views/Send';
@@ -27,5 +28,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendProgress,
     component: SendProgress,
+  },
+  {
+    name: EModalSendRoutes.SendCustomFee,
+    component: SendCustomFee,
   },
 ];
