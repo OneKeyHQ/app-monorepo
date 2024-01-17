@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
+import { CustomHeaderTitle } from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
@@ -68,9 +69,11 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
+  const headerTitle = useCallback(() => <CustomHeaderTitle />, []);
+
   return (
     <Page>
-      <Page.Header title="Explorer Header" />
+      <Page.Header headerTitle={headerTitle} />
       <Page.Body>
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
