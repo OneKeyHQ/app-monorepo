@@ -11,7 +11,7 @@ type IActionButtonProps = Omit<IButtonProps, 'onPress' | 'children'>;
 
 export type IFooterActionsProps = {
   onConfirm?: (params: { close: () => void }) => void;
-  onCancel?: () => void;
+  onCancel?: () => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
@@ -27,8 +27,8 @@ export function FooterActions({
   cancelButtonProps,
 }: IFooterActionsProps) {
   const { pop } = useAppNavigation();
-  const handleCancel = useCallback(() => {
-    onCancel?.();
+  const handleCancel = useCallback(async () => {
+    await onCancel?.();
     pop();
   }, [onCancel, pop]);
 
