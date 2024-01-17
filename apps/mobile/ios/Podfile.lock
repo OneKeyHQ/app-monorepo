@@ -448,6 +448,8 @@ PODS:
   - React-jsinspector (0.72.5)
   - React-logger (0.72.5):
     - glog
+  - react-native-ble-manager (10.1.5):
+    - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
   - react-native-lite-card (1.0.0):
@@ -737,6 +739,7 @@ DEPENDENCIES:
   - React-jsiexecutor (from `../../../node_modules/react-native/ReactCommon/jsiexecutor`)
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
+  - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
@@ -903,6 +906,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/jsinspector"
   React-logger:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
+  react-native-ble-manager:
+    :path: "../../../node_modules/react-native-ble-manager"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-lite-card:
@@ -1058,6 +1063,7 @@ SPEC CHECKSUMS:
   React-jsiexecutor: ff70a72027dea5cc7d71cfcc6fad7f599f63987a
   React-jsinspector: aef73cbd43b70675f572214d10fa438c89bf11ba
   React-logger: 2e4aee3e11b3ec4fa6cfd8004610bbb3b8d6cca4
+  react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: f3cfb10aac251f2cdcd9287c64537170d5c31404
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
@@ -1112,4 +1118,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 84d3c28759161f7369902a67a0b27298bf0f43fd
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.14.2

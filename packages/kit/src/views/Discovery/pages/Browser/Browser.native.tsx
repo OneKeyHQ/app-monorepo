@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
@@ -29,6 +29,7 @@ import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
 import type { IDiscoveryModalParamList } from '../../router/Routes';
+import { SizableText } from '@onekeyhq/components/src';
 
 function MobileBrowser() {
   const navigationCore = useNavigation();
@@ -60,10 +61,6 @@ function MobileBrowser() {
   }, [tabs, navigation, setDisplayHomePage]);
 
   useEffect(() => {
-    navigationCore.setOptions({
-      headerShown: false,
-      animation: 'none',
-    });
     void checkAndCreateFolder();
   }, [navigationCore]);
 
@@ -78,6 +75,7 @@ function MobileBrowser() {
 
   return (
     <Page>
+      <Page.Header title="123" />
       <Page.Body>
         <Stack flex={1} zIndex={3} pt={top}>
           <HandleRebuildBrowserData />
