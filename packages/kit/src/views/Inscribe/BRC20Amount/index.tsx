@@ -17,9 +17,11 @@ import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/i
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { createBRC20TransferText } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useBRC20TokenBalance } from '../../../hooks';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
 import Steps from '../Components/Steps';
 import { OrderButton } from '../OrderList';
@@ -43,9 +45,14 @@ function BRC20Amount() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, token } = route?.params || {};
+  const { networkId, accountId, token, sourceInfo } = route?.params || {};
   const { serviceInscribe } = backgroundApiProxy;
   const { account } = useAccount({ networkId, accountId });
+  const { id } = sourceInfo ?? ({} as IDappSourceInfo);
+  const dappApprove = useDappApproveAction({
+    id,
+    closeOnError: true,
+  });
 
   const tokenBalance = useBRC20TokenBalance({
     networkId,
@@ -95,6 +102,7 @@ function BRC20Amount() {
         size: 0,
         orderId: uuidLib.v4() as string,
         receiveAddress,
+        sourceInfo,
       };
 
     const amount = getValues('amount');
@@ -128,6 +136,7 @@ function BRC20Amount() {
     navigation,
     networkId,
     serviceInscribe,
+    sourceInfo,
     token?.symbol,
   ]);
   return (
@@ -150,6 +159,7 @@ function BRC20Amount() {
         flex: 1,
         padding: '16px',
       }}
+      onModalClose={dappApprove.reject}
     >
       <Steps numberOfSteps={2} currentStep={1} />
 
