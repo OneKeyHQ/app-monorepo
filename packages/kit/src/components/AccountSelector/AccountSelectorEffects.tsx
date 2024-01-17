@@ -25,14 +25,15 @@ export function AccountSelectorEffects({
     { num },
   );
   const [isReady] = useAccountSelectorStorageReadyAtom();
-  const { sceneName } = useAccountSelectorSceneInfo();
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   useEffect(() => {
     void actions.current.initFromStorage({
       sceneName,
+      sceneUrl,
       num,
     });
-  }, [actions, num, sceneName]);
+  }, [actions, num, sceneName, sceneUrl]);
 
   const reloadActiveAccountInfo = useCallback(() => {
     void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
@@ -41,6 +42,7 @@ export function AccountSelectorEffects({
       void actions.current.saveToStorage({
         selectedAccount,
         sceneName,
+        sceneUrl,
         num,
       });
     } else {
@@ -48,7 +50,14 @@ export function AccountSelectorEffects({
         'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
       );
     }
-  }, [actions, isSelectedAccountDefaultValue, num, sceneName, selectedAccount]);
+  }, [
+    actions,
+    isSelectedAccountDefaultValue,
+    num,
+    sceneName,
+    sceneUrl,
+    selectedAccount,
+  ]);
 
   useEffect(() => {
     reloadActiveAccountInfo();
