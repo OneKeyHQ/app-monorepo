@@ -131,7 +131,7 @@ const TabViewGallery = () => (
     description=""
     suggestions={[
       '悬浮用 Tab, 它继承自 ScrollView, 请记得 onContentSizeChange 和 stickyHeaderIndices, 关掉 data 里面每个 page 的 scrollEnabled 和 disableScrollViewPanResponder',
-      '不需要悬浮用 Tab.Page, 它继承自 Fragment, 请记得不要把 Tab.Page 放到 ScrollView 里面',
+      '不需要悬浮用 Tab.Page, 它继承自 Fragment, 尽量不要把 Tab.Page 放到 ScrollView 里面',
     ]}
     boundaryConditions={[]}
     elements={[

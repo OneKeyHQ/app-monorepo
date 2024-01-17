@@ -11,11 +11,11 @@ import { Header } from './Header';
 import type { IHeaderProps } from './Header';
 import type { GetProps } from 'tamagui';
 
-type IPageType = ComponentType;
+type IContentType = ComponentType;
 
-export interface ITabProps
+export interface IPageContainerProps
   extends Omit<GetProps<typeof PageContentView>, 'renderItem'> {
-  data: { title: string; page: IPageType }[];
+  data: { title: string; page: IContentType }[];
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
   ListFooterComponent?: ReactElement;
@@ -30,7 +30,7 @@ const PageComponent = (
     ListFooterComponent,
     headerProps,
     ...props
-  }: ITabProps,
+  }: IPageContainerProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _: any,
@@ -52,7 +52,7 @@ const PageComponent = (
       item,
     }: {
       item: {
-        page: IPageType;
+        page: IContentType;
       };
     }) => <item.page />,
     [],
