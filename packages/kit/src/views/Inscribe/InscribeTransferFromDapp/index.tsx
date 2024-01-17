@@ -40,6 +40,7 @@ function InscribeTransferFromDapp() {
       amount,
       token: {
         name: ticker,
+        symbol: ticker,
         tokenIdOnNetwork: `brc-20--${ticker ?? ''}`,
       },
       sourceInfo,

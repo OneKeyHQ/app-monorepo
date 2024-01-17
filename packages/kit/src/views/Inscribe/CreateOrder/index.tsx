@@ -188,7 +188,6 @@ const CreateOrder: FC = () => {
             commitSignedTx,
             networkId,
           });
-          closeModal();
           if (result.errors.length > 0) {
             ToastManager.show(
               {
@@ -198,7 +197,6 @@ const CreateOrder: FC = () => {
             );
             dappApprove?.reject();
           } else if (result.txids.length > 0) {
-            dappApprove?.resolve();
             const params: SendFeedbackReceiptParams = {
               networkId,
               accountId,
@@ -214,7 +212,10 @@ const CreateOrder: FC = () => {
               },
             });
           }
+          dappApprove?.resolve();
+          closeModal();
         } catch (error: any) {
+          dappApprove?.reject();
           debugLogger.common.error('submitOrder error = ', error);
           setsSubmitOrderLoading(false);
           isSendConfirm.current = false;
@@ -227,7 +228,6 @@ const CreateOrder: FC = () => {
               { type: 'error' },
             );
           }
-          dappApprove?.reject();
         }
       };
 

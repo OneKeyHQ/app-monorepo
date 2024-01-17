@@ -45,13 +45,18 @@ function BRC20Amount() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, token, sourceInfo } = route?.params || {};
+  const {
+    networkId,
+    accountId,
+    token,
+    sourceInfo,
+    amount: defaultAmount,
+  } = route?.params || {};
   const { serviceInscribe } = backgroundApiProxy;
   const { account } = useAccount({ networkId, accountId });
   const { id } = sourceInfo ?? ({} as IDappSourceInfo);
   const dappApprove = useDappApproveAction({
     id,
-    closeOnError: true,
   });
 
   const tokenBalance = useBRC20TokenBalance({
@@ -63,6 +68,9 @@ function BRC20Amount() {
   const { control, formState, getValues } = useForm<BRC20AmountValues>({
     mode: 'onChange',
     reValidateMode: 'onChange',
+    defaultValues: {
+      amount: defaultAmount ?? '',
+    },
   });
 
   const isDisabled = useMemo(
