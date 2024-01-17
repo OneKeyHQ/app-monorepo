@@ -22,13 +22,12 @@ type IProps = {
 
 function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
   const { token, onPress, tableLayout, ...rest } = props;
-  const tokenInfo = token.info;
 
   return (
     <ListItem
-      key={tokenInfo.name}
+      key={token.name}
       avatarProps={{
-        src: tokenInfo.logoURI,
+        src: token.logoURI,
         circular: true,
         fallbackProps: {
           bg: '$bgStrong',
@@ -36,7 +35,7 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
           alignItems: 'center',
           children: <Icon name="ImageMountainSolid" />,
         },
-        ...(tokenInfo.isNative && {
+        ...(token.isNative && {
           cornerIconProps: {
             name: 'GasSolid',
             size: '$3.5',
@@ -74,9 +73,9 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
           <TokenSymbolView
             size="$bodyLgMedium"
             numberOfLines={1}
-            symbol={tokenInfo.symbol}
+            symbol={token.symbol}
           />
-          {tokenInfo.isNative && (
+          {token.isNative && (
             <SizableText size="$bodyLgMedium" color="$textSuccess" pl="$2">
               3.77% APR
             </SizableText>

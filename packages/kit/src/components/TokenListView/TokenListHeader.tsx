@@ -1,4 +1,4 @@
-import { useIntl } from 'react-intl';
+import { useCallback } from 'react';
 
 import {
   Button,
@@ -11,25 +11,53 @@ import {
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../routes/Modal/type';
-import { ETokenPages } from '../../views/Token/router/type';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import {
+  useRiskyTokenListAtom,
+  useRiskyTokenListMapAtom,
+} from '../../states/jotai/contexts/token-list';
+import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
   tableLayout?: boolean;
 };
 
 function TokenListHeader({ tableLayout }: IProps) {
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const media = useMedia();
 
-  const handleHiddenPress = () => {
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.TokenList,
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
+  const [riskyTokenList] = useRiskyTokenListAtom();
+  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+
+  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
+
+  const handleHiddenPress = useCallback(() => {
+    if (!account || !network || riskyTokens.length === 0) return;
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Blocked Assets',
+        accountId: account.id,
+        networkId: network.id,
+        tokenList: {
+          tokens: riskyTokens,
+          keys: riskyTokenKeys,
+          map: riskyTokenListMap,
+        },
       },
     });
-  };
+  }, [
+    account,
+    navigation,
+    network,
+    riskyTokenKeys,
+    riskyTokenListMap,
+    riskyTokens,
+  ]);
 
   return (
     <Stack p="$5" pb="$3">
@@ -48,7 +76,7 @@ function TokenListHeader({ tableLayout }: IProps) {
           })}
           onPress={handleHiddenPress}
         >
-          3 Blocked
+          {`${riskyTokens.length} Blocked`}
         </Button>
       </XStack>
       {tableLayout && (

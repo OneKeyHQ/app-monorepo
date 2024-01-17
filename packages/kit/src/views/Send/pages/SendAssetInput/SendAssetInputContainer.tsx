@@ -8,7 +8,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useTokenListActions,
   withTokenListProvider,
@@ -25,40 +24,40 @@ function SendAssetInputContainer() {
     useTokenListActions().current;
 
   const route =
-    useRoute<
-      RouteProp<IModalSendParamList, EModalSendRoutes.SendAmountInput>
-    >();
+    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendAssetInput>>();
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { networkId, accountId, transfersInfo } = route.params;
+  const { networkId, accountId } = route.params;
 
   const promise = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccountOfWallet({
+      accountId,
+      indexedAccountId: '',
+      networkId,
+      deriveType: 'default',
+    });
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
       networkId,
-      accountAddress: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+      accountAddress: account.address,
+      mergeTokens: true,
     });
-    refreshTokenList({ keys: r.keys, tokens: r.data });
-    refreshTokenListMap(r.map);
-  }, [networkId, refreshTokenList, refreshTokenListMap]);
+
+    refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+    refreshTokenListMap(r.tokens.map);
+  }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
 
   const handleTokenOnPress = useCallback(
     (token: IAccountToken) => {
-      const updatedTransfersInfo = transfersInfo.map((transferInfo) => ({
-        ...transferInfo,
-        token: token.info.address,
-      }));
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendAddressInput,
-        params: {
-          networkId,
-          accountId,
-          transfersInfo: updatedTransfersInfo,
-        },
+      navigation.push(EModalSendRoutes.SendDataInput, {
+        networkId,
+        accountId,
+        isNFT: false,
+        token,
       });
     },
-    [accountId, navigation, networkId, transfersInfo],
+    [accountId, navigation, networkId],
   );
 
   return (
@@ -66,7 +65,7 @@ function SendAssetInputContainer() {
       <Page.Body>
         <TokenListView
           isLoading={promise.isLoading}
-          onPress={handleTokenOnPress}
+          onPressToken={handleTokenOnPress}
         />
       </Page.Body>
     </Page>

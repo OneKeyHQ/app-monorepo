@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -40,4 +41,8 @@ export class SimpleDbProxy
   accountSelector = this._createProxyService(
     'accountSelector',
   ) as SimpleDbEntityAccountSelector;
+
+  localTokens = this._createProxyService(
+    'localTokens',
+  ) as SimpleDbEntityLocalTokens;
 }

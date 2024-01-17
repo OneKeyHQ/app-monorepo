@@ -1,5 +1,8 @@
 import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
 
+const DOMAIN_REGEXP =
+  /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
+
 function getHostNameFromUrl({ url }: { url: string }): string {
   try {
     const urlInfo = new URL(url);
@@ -64,6 +67,8 @@ export function checkOneKeyCardGoogleOauthUrl({
     'https://accounts.google.com',
   ].includes(origin);
 }
+
+export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
 export default {
   getOriginFromUrl,

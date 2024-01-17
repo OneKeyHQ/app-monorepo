@@ -7,20 +7,30 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
-import { contextAtomMethod, tokenListAtom, tokenListMapAtom } from './atoms';
+import {
+  contextAtomMethod,
+  riskyTokenListAtom,
+  riskyTokenListMapAtom,
+  smallBalanceTokenListAtom,
+  smallBalanceTokenListMapAtom,
+  tokenListAtom,
+  tokenListMapAtom,
+} from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
   refreshTokenList = contextAtomMethod(
     (
       get,
       set,
-      tokenList: {
+      payload: {
         tokens: IAccountToken[];
         keys: string;
       },
     ) => {
-      if (!isEqual(get(tokenListAtom()), tokenList.keys)) {
-        set(tokenListAtom(), tokenList);
+      const { keys, tokens } = payload;
+
+      if (!isEqual(get(tokenListAtom()).keys, keys)) {
+        set(tokenListAtom(), { tokens, keys });
       }
     },
   );
@@ -29,11 +39,69 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     (
       get,
       set,
-      tokenListMap: {
+      payload: {
         [key: string]: ITokenFiat;
       },
     ) => {
-      set(tokenListMapAtom(), tokenListMap);
+      set(tokenListMapAtom(), payload);
+    },
+  );
+
+  refreshRiskyTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        riskyTokens: IAccountToken[];
+        keys: string;
+      },
+    ) => {
+      const { keys, riskyTokens } = payload;
+
+      if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
+        set(riskyTokenListAtom(), { riskyTokens, keys });
+      }
+    },
+  );
+
+  refreshRiskyTokenListMap = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        [key: string]: ITokenFiat;
+      },
+    ) => {
+      set(riskyTokenListMapAtom(), payload);
+    },
+  );
+
+  refreshSmallBalanceTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        smallBalanceTokens: IAccountToken[];
+        keys: string;
+      },
+    ) => {
+      const { keys, smallBalanceTokens } = payload;
+
+      if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
+        set(smallBalanceTokenListAtom(), { smallBalanceTokens, keys });
+      }
+    },
+  );
+
+  refreshSmallBalanceTokenListMap = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        [key: string]: ITokenFiat;
+      },
+    ) => {
+      set(smallBalanceTokenListMapAtom(), payload);
     },
   );
 }
@@ -47,9 +115,19 @@ export function useTokenListActions() {
   const actions = createActions();
   const refreshTokenList = actions.refreshTokenList.use();
   const refreshTokenListMap = actions.refreshTokenListMap.use();
+  const refreshRiskyTokenList = actions.refreshRiskyTokenList.use();
+  const refreshRiskyTokenListMap = actions.refreshRiskyTokenListMap.use();
+  const refreshSmallBalanceTokenList =
+    actions.refreshSmallBalanceTokenList.use();
+  const refreshSmallBalanceTokenListMap =
+    actions.refreshSmallBalanceTokenListMap.use();
 
   return useRef({
     refreshTokenList,
     refreshTokenListMap,
+    refreshRiskyTokenList,
+    refreshRiskyTokenListMap,
+    refreshSmallBalanceTokenList,
+    refreshSmallBalanceTokenListMap,
   });
 }

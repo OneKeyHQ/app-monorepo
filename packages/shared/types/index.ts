@@ -90,3 +90,13 @@ export enum EHomeTab {
   HISTORY = 'history',
   TOOLS = 'tools',
 }
+
+export enum EAssetType {
+  Token = 'Token',
+  NFT = 'NFT',
+}
+
+export enum ETxActionComponentType {
+  ListView = 'ListView',
+  DetailView = 'DetailView',
+}

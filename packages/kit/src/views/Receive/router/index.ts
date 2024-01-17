@@ -2,20 +2,20 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
 import { LightingInvoice, QrCode } from '../pages';
 
-import { EReceivePages } from './type';
+import { EModalReceiveRoutes } from './type';
 
-import type { IReceiveParamList } from './type';
+import type { IModalReceiveParamList } from './type';
 
-export const ReceiveRouter: IModalFlowNavigatorConfig<
-  EReceivePages,
-  IReceiveParamList
+export const ModalReceiveStack: IModalFlowNavigatorConfig<
+  EModalReceiveRoutes,
+  IModalReceiveParamList
 >[] = [
   {
-    name: EReceivePages.QrCode,
+    name: EModalReceiveRoutes.QrCode,
     component: QrCode,
   },
   {
-    name: EReceivePages.LightingInvoice,
+    name: EModalReceiveRoutes.LightingInvoice,
     component: LightingInvoice,
   },
 ];

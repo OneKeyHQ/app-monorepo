@@ -1,74 +1,67 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useMedia } from 'tamagui';
-
+import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
+import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { convertHistoryToSectionGroups } from '../../../utils/history';
-import { ETokenPages } from '../../Token/router/type';
-import { TxHistoryListView } from '../components/TxHistoryListView';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
-
-import { mockData } from './mockData';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-const accountAddress = '0x76f3f64cb3cD19debEE51436dF630a342B736C24';
-
 function TxHistoryListContainer(props: IProps) {
-  const media = useMedia();
   const { onContentSizeChange } = props;
-  const formatDate = useFormatDate();
-  const navigation = useAppNavigation();
 
-  const handleHistoryItemPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.TokenModal, {
-      screen: ETokenPages.History,
-    });
-  }, [navigation]);
+  const media = useMedia();
+  const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
+  const handleHistoryItemPress = useCallback(
+    (history: IAccountHistoryTx) => {
+      if (!account || !network) return;
+      navigation.pushModal(EModalRoutes.MainModal, {
+        screen: EModalAssetDetailRoutes.HistoryDetails,
+        params: {
+          networkId: network.id,
+          historyTx: history,
+        },
+      });
+    },
+    [account, navigation, network],
+  );
 
   const history = usePromiseResult(
     async () => {
+      if (!account || !network) return;
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId: "hd-1--m/44'/60'/0'/0/0",
-        networkId: 'evm--1',
-        accountAddress,
+        accountId: account.id,
+        networkId: network.id,
+        accountAddress: account.address,
       });
       return r;
     },
-    [],
+    [account, network],
     {
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
 
-  const historySections = useMemo(
-    () =>
-      convertHistoryToSectionGroups({
-        items: history.result,
-        formatDate: (date: number) =>
-          formatDate.formatDate(new Date(date), {
-            hideTheYear: true,
-            hideTimeForever: true,
-          }),
-      }),
-    [history.result, formatDate],
-  );
-
   return (
     <TxHistoryListView
-      data={mockData as any}
-      onItemPress={handleHistoryItemPress}
+      data={history.result ?? []}
+      onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}
-      accountAddress={accountAddress}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,

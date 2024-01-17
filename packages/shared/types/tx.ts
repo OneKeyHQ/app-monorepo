@@ -1,8 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-import type { IAccountNFT } from './nft';
-import type { IToken } from './token';
-
 export enum EDecodedTxDirection {
   IN = 'IN', // received
   OUT = 'OUT', // sent
@@ -13,16 +10,13 @@ export enum EDecodedTxDirection {
 export type IReplacedTxType = 'speedUp' | 'cancel';
 
 export enum EDecodedTxActionType {
-  // Native currency transfer
-  NATIVE_TRANSFER = 'NATIVE_TRANSFER',
+  ASSET_TRANSFER = 'ASSET_TRANSFER',
 
   // Token
-  TOKEN_TRANSFER = 'TOKEN_TRANSFER',
   TOKEN_APPROVE = 'TOKEN_APPROVE',
   TOKEN_ACTIVATE = 'TOKEN_ACTIVATE',
 
   // NFT
-  NFT_TRANSFER = 'NFT_TRANSFER',
   NFT_MINT = 'NFT_MINT',
   NFT_SALE = 'NFT_SALE',
   NFT_BURN = 'NFT_BURN',
@@ -101,6 +95,17 @@ export type IDecodedTxActionBase = {
   nativeAmountValue?: string;
 };
 
+export type IDecodedTxTransferInfo = {
+  from: string;
+  to: string;
+  token: string;
+  amount: string;
+  image: string;
+  symbol: string;
+  isNFT?: boolean;
+  label?: string;
+};
+
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
   target: string; // contractAddress
   functionName: string; // approve
@@ -109,29 +114,22 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
   args: any[];
 };
 
-export type IDecodedTxActionNativeTransfer = IDecodedTxActionBase & {
-  tokenInfo: IToken & { price?: number };
+export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   from: string;
   to: string;
-  amount: string;
-  amountValue: string;
-  isInscribeTransfer?: boolean;
+  label: string;
+  sends: IDecodedTxTransferInfo[];
+  receives: IDecodedTxTransferInfo[];
 };
-export type IDecodedTxActionTokenTransfer = IDecodedTxActionBase & {
-  tokenInfo: IToken & { price?: number };
-  from: string;
-  to: string;
-  amount: string;
-  amountValue: string;
-};
+
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
-  tokenInfo: IToken;
   owner: string;
   spender: string;
   amount: string;
-  amountValue: string;
-  isMax: boolean;
+  label: string;
+  tokenIcon: string;
 };
+
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   tokenAddress: string;
   logoURI: string;
@@ -141,24 +139,14 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   networkId: string;
 };
 
-export type IDecodedTxActionNFTTransfer = IDecodedTxActionBase & {
-  nftInfo: IAccountNFT;
-  from: string;
-  to: string;
-  amount: string;
-};
-
 export type IDecodedTxAction = {
   type: EDecodedTxActionType;
   direction?: EDecodedTxDirection;
   hidden?: boolean;
-  nativeTransfer?: IDecodedTxActionNativeTransfer;
-  tokenTransfer?: IDecodedTxActionTokenTransfer;
+
+  assetTransfer?: IDecodedTxActionAssetTransfer;
   tokenApprove?: IDecodedTxActionTokenApprove;
   tokenActivate?: IDecodedTxActionTokenActivate;
-
-  // nft
-  nftTransfer?: IDecodedTxActionNFTTransfer;
 
   functionCall?: IDecodedTxActionFunctionCall;
 };

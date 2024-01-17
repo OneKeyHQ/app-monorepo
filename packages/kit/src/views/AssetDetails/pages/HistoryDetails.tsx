@@ -82,7 +82,7 @@ const histories: {
   ],
 ];
 
-export function History() {
+function HistoryDetails() {
   const status = 'pending';
 
   const headerTitle = useCallback(
@@ -179,3 +179,5 @@ export function History() {
     </Page>
   );
 }
+
+export { HistoryDetails };

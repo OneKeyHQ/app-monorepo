@@ -21,7 +21,7 @@ export type IAccountNFT = {
     image: string;
     itemUrl: string;
     name: string;
-    attributes: ITraits[];
+    attributes?: ITraits[];
   };
 };
 
@@ -35,4 +35,15 @@ export type IFetchAccountNFTsParams = {
 export type IFetchAccountNFTsResp = {
   data: IAccountNFT[];
   next: string;
+};
+
+export type IFetchNFTDetailsParams = {
+  networkId: string;
+  accountAddress: string;
+  collectionAddress: string;
+  itemId: string;
+};
+
+export type IFetchNFTDetailsResp = {
+  data: IAccountNFT;
 };
