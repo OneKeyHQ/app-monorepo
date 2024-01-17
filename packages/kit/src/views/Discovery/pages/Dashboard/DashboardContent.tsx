@@ -1,12 +1,23 @@
-import { useMemo } from 'react';
+import { useState } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components';
+import {
+  IconButton,
+  Image,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+
+import { Banner } from './Banner';
 
 export function DashboardContent() {
-  const content = useMemo(() => 'Hello World', []);
   return (
     <Stack>
-      <SizableText>{content}</SizableText>
+      {/* Banner */}
+      <Banner />
+      {/* bookmarks and histories */}
     </Stack>
   );
 }
