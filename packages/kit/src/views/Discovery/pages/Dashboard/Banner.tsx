@@ -171,6 +171,8 @@ export function Banner() {
     [media.gtMd],
   );
 
+  const keyExtractor = useCallback(({ title }: { title: string }) => title, []);
+
   return (
     <Swiper
       autoplay
@@ -178,6 +180,7 @@ export function Banner() {
       autoplayLoopKeepAnimation
       autoplayDelayMs={2000}
       estimatedItemSize="$52"
+      keyExtractor={keyExtractor}
       index={0}
       data={bannerData}
       renderItem={renderItem}
