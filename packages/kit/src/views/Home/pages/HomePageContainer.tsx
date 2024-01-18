@@ -75,7 +75,6 @@ function HomePage() {
         <Page.Header headerTitle={headerTitle} />
         <Page.Body>
           <Tab
-            // @ts-expect-error
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
             initialScrollIndex={0}
