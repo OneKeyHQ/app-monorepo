@@ -50,67 +50,6 @@ export function Banner() {
       autoplayLoop
       index={1}
       data={bannerData}
-      renderPagination={({ currentIndex, goToNextIndex, gotToPrevIndex }) => (
-        <>
-          {media.gtMd && (
-            <>
-              {currentIndex !== 0 && (
-                <IconButton
-                  position="absolute"
-                  left="$5"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  icon="ChevronLeftOutline"
-                  variant="tertiary"
-                  iconProps={{
-                    color:
-                      bannerData[currentIndex].theme === 'light'
-                        ? '$iconSubduedLight'
-                        : '$iconSubduedDark',
-                  }}
-                  onPress={gotToPrevIndex}
-                />
-              )}
-
-              {currentIndex !== bannerData.length - 1 && (
-                <IconButton
-                  icon="ChevronRightOutline"
-                  variant="tertiary"
-                  position="absolute"
-                  right="$5"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  iconProps={{
-                    color:
-                      bannerData[currentIndex].theme === 'light'
-                        ? '$iconSubduedLight'
-                        : '$iconSubduedDark',
-                  }}
-                  onPress={goToNextIndex}
-                  disabled={currentIndex === bannerData.length - 1}
-                />
-              )}
-            </>
-          )}
-          {bannerData.length > 1 && (
-            <XStack space="$1" position="absolute" right="$10" bottom="$10">
-              {bannerData.map((_, index) => (
-                <Stack
-                  key={index}
-                  w="$3"
-                  $gtMd={{
-                    w: '$4',
-                  }}
-                  h="$1"
-                  borderRadius="$full"
-                  bg="$whiteA12"
-                  opacity={currentIndex === index ? 1 : 0.5}
-                />
-              ))}
-            </XStack>
-          )}
-        </>
-      )}
       renderItem={({ item }: any) => {
         const { imgUrl, title, theme, onPress } = item;
         return (
@@ -177,6 +116,67 @@ export function Banner() {
           </Stack>
         );
       }}
+      renderPagination={({ currentIndex, goToNextIndex, gotToPrevIndex }) => (
+        <>
+          {media.gtMd && (
+            <>
+              {currentIndex !== 0 && (
+                <IconButton
+                  position="absolute"
+                  left="$5"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  icon="ChevronLeftOutline"
+                  variant="tertiary"
+                  iconProps={{
+                    color:
+                      bannerData[currentIndex].theme === 'light'
+                        ? '$iconSubduedLight'
+                        : '$iconSubduedDark',
+                  }}
+                  onPress={gotToPrevIndex}
+                />
+              )}
+
+              {currentIndex !== bannerData.length - 1 && (
+                <IconButton
+                  icon="ChevronRightOutline"
+                  variant="tertiary"
+                  position="absolute"
+                  right="$5"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  iconProps={{
+                    color:
+                      bannerData[currentIndex].theme === 'light'
+                        ? '$iconSubduedLight'
+                        : '$iconSubduedDark',
+                  }}
+                  onPress={goToNextIndex}
+                  disabled={currentIndex === bannerData.length - 1}
+                />
+              )}
+            </>
+          )}
+          {bannerData.length > 1 && (
+            <XStack space="$1" position="absolute" right="$10" bottom="$10">
+              {bannerData.map((_, index) => (
+                <Stack
+                  key={index}
+                  w="$3"
+                  $gtMd={{
+                    w: '$4',
+                  }}
+                  h="$1"
+                  borderRadius="$full"
+                  bg="$whiteA12"
+                  opacity={currentIndex === index ? 1 : 0.5}
+                />
+              ))}
+            </XStack>
+          )}
+        </>
+      )}
     />
   );
 }
