@@ -39,13 +39,10 @@ const bannerData = [
 
 export function Banner() {
   const media = useMedia();
-  const { width } = useWindowDimensions();
-  const containerWidth = width;
   return (
     <Swiper
       autoplay
       autoplayLoopKeepAnimation
-      style={{ width: containerWidth }}
       autoplayDelay={4}
       autoplayLoop
       index={1}
@@ -57,7 +54,6 @@ export function Banner() {
             p="$5"
             tag="section"
             position="relative"
-            width={width}
             onPress={onPress}
             userSelect="none"
           >
@@ -107,7 +103,7 @@ export function Banner() {
               {currentIndex !== 0 && (
                 <IconButton
                   position="absolute"
-                  left="$5"
+                  left="$10"
                   top="50%"
                   transform="translateY(-50%)"
                   icon="ChevronLeftOutline"
@@ -127,7 +123,7 @@ export function Banner() {
                   icon="ChevronRightOutline"
                   variant="tertiary"
                   position="absolute"
-                  right="$5"
+                  right="$10"
                   top="50%"
                   transform="translateY(-50%)"
                   iconProps={{

@@ -11,10 +11,11 @@ import {
 import { Platform, useWindowDimensions } from 'react-native';
 import { YStack } from 'tamagui';
 
+import { Stack } from '../../primitives';
 import { ListView } from '../ListView';
 
 import type { ISwiperFlatListProps, ISwiperFlatListRefProps } from './type';
-import type { FlatListProps } from 'react-native';
+import type { FlatListProps, LayoutChangeEvent } from 'react-native';
 
 const MILLISECONDS = 1000;
 const FIRST_INDEX = 0;
@@ -69,13 +70,16 @@ function BaseSwiperFlatList(
   let _data: unknown[] = [];
   let _renderItem: FlatListProps<any>['renderItem'];
 
-  if (children) {
-    // github.com/gusgard/react-native-swiper-flatlist/issues/40
-    _data = Array.isArray(children) ? children : [children];
-    _renderItem = ({ item }) => item;
-  } else if (data) {
+  const [containerWidth, setContainerWidth] = useState(0);
+  const handleRenderItem = useCallback(
+    (...params: any[]) => (
+      <Stack width={containerWidth}>{renderItem?.(...params)}</Stack>
+    ),
+    [containerWidth, renderItem],
+  );
+  if (data) {
     _data = data;
-    _renderItem = renderItem;
+    _renderItem = handleRenderItem;
   } else {
     console.error('Invalid props, `data` or `children` is required');
   }
@@ -308,6 +312,11 @@ function BaseSwiperFlatList(
     (flatListProps as any).dataSet = { 'paging-enabled-fix': true };
   }
 
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    console.log(e.nativeEvent.layout, 'e.nativeEvent.layout');
+    setContainerWidth(e.nativeEvent.layout.width);
+  }, []);
+
   // NOTE: quick fix for the new version of metro bundler
   // we should remove this console.warn in the next version (3.2.4)
   //   if (useReactNativeGestureHandler) {
@@ -320,8 +329,8 @@ function BaseSwiperFlatList(
   //   }
 
   return (
-    <YStack position="relative">
-      <ListView {...flatListProps} />
+    <YStack position="relative" width="100%" onLayout={handleLayout}>
+      <ListView {...flatListProps} width={containerWidth} />
       {renderPagination?.({
         goToNextIndex,
         gotToPrevIndex,
