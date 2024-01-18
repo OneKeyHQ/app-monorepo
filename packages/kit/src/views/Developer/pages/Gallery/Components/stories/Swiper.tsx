@@ -35,10 +35,10 @@ const SliderGallery = () => (
         element: () => (
           <Swiper
             autoplay
-            style={{ width: 300 }}
-            autoplayDelay={2}
+            estimatedItemSize={384}
+            autoplayDelayMs={2000}
             autoplayLoop
-            index={1}
+            index={0}
             data={bannerData}
             renderItem={({ item }) => (
               <YStack

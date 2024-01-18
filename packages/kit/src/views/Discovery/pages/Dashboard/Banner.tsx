@@ -42,12 +42,13 @@ export function Banner() {
   return (
     <Swiper
       autoplay
-      autoplayLoopKeepAnimation
-      autoplayDelay={4}
       autoplayLoop
-      index={1}
+      autoplayLoopKeepAnimation
+      autoplayDelayMs={2000}
+      estimatedItemSize={384}
+      index={0}
       data={bannerData}
-      renderItem={({ item }: any) => {
+      renderItem={({ item }) => {
         const { imgUrl, title, theme, onPress } = item;
         return (
           <Stack
