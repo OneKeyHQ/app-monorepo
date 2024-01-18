@@ -163,8 +163,8 @@ function BaseSwiperFlatList(
   }, [_scrollToIndex, currentIndexes.index]);
 
   const gotToPrevIndex = useCallback(() => {
-    _scrollToIndex({ index: currentIndexes.prevIndex, animated: true });
-  }, [_scrollToIndex, currentIndexes.prevIndex]);
+    _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
+  }, [_scrollToIndex, currentIndexes.index]);
 
   useImperativeHandle(ref, () => ({
     scrollToIndex: (item: any) => {
