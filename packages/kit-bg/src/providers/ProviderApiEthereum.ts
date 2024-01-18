@@ -44,6 +44,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     return Promise.resolve();
   }
 
+  @providerApiMethod()
+  eth_requestAccounts(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiEthereum.eth_requestAccounts', request);
+    return Promise.resolve(['0x0000000']);
+  }
+
   // Provider API
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {

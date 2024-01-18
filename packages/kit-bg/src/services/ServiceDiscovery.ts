@@ -1,6 +1,6 @@
 import { isNumber } from 'lodash';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IBrowserBookmark,
   IBrowserHistory,
@@ -21,6 +21,8 @@ import type {
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
+
+import type ProviderApiBase from '../providers/ProviderApiBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -168,6 +170,18 @@ class ServiceDiscovery extends ServiceBase {
     );
 
     return bookmarks;
+  }
+
+  @backgroundMethod()
+  async notifyTest() {
+    await wait(600);
+    Object.values(this.backgroundApi.providers).forEach(
+      (provider: ProviderApiBase) => {
+        provider.notifyDappAccountsChanged({
+          send: this.backgroundApi.sendForProvider(provider.providerName),
+        });
+      },
+    );
   }
 }
 

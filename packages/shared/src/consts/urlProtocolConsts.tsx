@@ -1,5 +1,5 @@
 export const PROTOCOLS_SUPPORTED_TO_OPEN = [
-  // 'http:' as const,
+  'http:' as const,
   'https:' as const,
   // 'file:' as const,
 

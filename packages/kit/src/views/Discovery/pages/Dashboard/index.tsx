@@ -7,6 +7,7 @@ import { isNil } from 'lodash';
 
 import {
   Badge,
+  Button,
   IconButton,
   Image,
   ListItem,
@@ -212,6 +213,13 @@ function DashboardHeader({
       <SizableText size="$headingXl" py="$2">
         探索DApp
       </SizableText>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceDiscovery.notifyTest();
+        }}
+      >
+        NotifyTest
+      </Button>
       <Stack
         pb="$2"
         $md={{

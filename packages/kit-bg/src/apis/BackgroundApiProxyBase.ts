@@ -99,6 +99,7 @@ export class BackgroundApiProxyBase
   }
 
   connectBridge(bridge: JsBridgeBase) {
+    console.log('====Bridge: ', bridge);
     this.backgroundApi?.connectBridge(bridge);
   }
 
