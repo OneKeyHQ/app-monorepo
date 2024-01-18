@@ -14,6 +14,7 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { Banner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
+import { SuggestedAndExploreSection } from './SuggestedAndExploreSection';
 
 function DashboardContent() {
   const navigation = useAppNavigation();
@@ -70,6 +71,7 @@ function DashboardContent() {
           handleOpenWebSite({ webSite, navigation })
         }
       />
+      <SuggestedAndExploreSection />
     </Stack>
   );
 }
