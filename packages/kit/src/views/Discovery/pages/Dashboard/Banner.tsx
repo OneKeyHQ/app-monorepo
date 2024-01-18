@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
+import { useWindowDimensions } from 'react-native';
+
 import {
   IconButton,
   Image,
   SizableText,
   Stack,
+  Swiper,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 
@@ -34,115 +38,144 @@ const bannerData = [
 ];
 
 export function Banner() {
-  const [bannerIndex, setBannerIndex] = useState(0);
   const media = useMedia();
-
-  const { imgUrl, title, theme, onPress } = bannerData[bannerIndex];
-
+  const { width } = useWindowDimensions();
+  const containerWidth = width;
   return (
-    <Stack p="$5" tag="section">
-      <XStack
-        height="$52"
-        $gtMd={{
-          height: '$72',
-        }}
-        $gtLg={{
-          height: '$96',
-        }}
-        p="$5"
-        alignItems="center"
-      >
-        <Stack
-          position="absolute"
-          left={0}
-          right={0}
-          bottom={0}
-          top={0}
-          onPress={onPress}
-          userSelect="none"
-        >
-          <Image width="100%" height="100%" borderRadius="$3" bg="$bgStrong">
-            <Image.Source
-              source={{
-                uri: imgUrl,
-              }}
-            />
-          </Image>
-          <Stack
-            position="absolute"
-            bottom={0}
-            right={0}
-            left={0}
-            px="$5"
-            py="$4"
-            $gtMd={{
-              px: '$8',
-              py: '$6',
-            }}
-          >
-            <SizableText
-              color={theme === 'light' ? '$neutral12Light' : '$neutral12Dark'}
-              size="$headingLg"
-              $gtMd={{
-                size: '$heading2xl',
-              }}
-              maxWidth="$96"
-            >
-              {title}
-            </SizableText>
-          </Stack>
-        </Stack>
-        {media.gtMd && (
-          <>
-            {bannerIndex !== 0 && (
-              <IconButton
-                icon="ChevronLeftOutline"
-                variant="tertiary"
-                iconProps={{
-                  color:
-                    theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={() => setBannerIndex((previous) => previous - 1)}
-              />
-            )}
+    <Swiper
+      autoplay
+      autoplayLoopKeepAnimation
+      style={{ width: containerWidth }}
+      autoplayDelay={4}
+      autoplayLoop
+      index={1}
+      data={bannerData}
+      renderPagination={({ currentIndex, goToNextIndex, gotToPrevIndex }) => (
+        <>
+          {media.gtMd && (
+            <>
+              {currentIndex !== 0 && (
+                <IconButton
+                  position="absolute"
+                  left="$5"
+                  top="80%"
+                  icon="ChevronLeftOutline"
+                  variant="tertiary"
+                  iconProps={{
+                    color:
+                      bannerData[currentIndex].theme === 'light'
+                        ? '$iconSubduedLight'
+                        : '$iconSubduedDark',
+                  }}
+                  onPress={gotToPrevIndex}
+                />
+              )}
 
-            {bannerIndex !== bannerData.length - 1 && (
-              <IconButton
-                icon="ChevronRightOutline"
-                variant="tertiary"
-                ml="auto"
-                iconProps={{
-                  color:
-                    theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={() => setBannerIndex((previous) => previous + 1)}
-                disabled={bannerIndex === bannerData.length - 1}
-              />
-            )}
-          </>
-        )}
-        {bannerData.length > 1 && (
-          <XStack space="$1" position="absolute" right="$5" bottom="$5">
-            {bannerData.map((_, index) => (
+              {currentIndex !== bannerData.length - 1 && (
+                <IconButton
+                  icon="ChevronRightOutline"
+                  variant="tertiary"
+                  position="absolute"
+                  right="$5"
+                  top="80%"
+                  ml="auto"
+                  iconProps={{
+                    color:
+                      bannerData[currentIndex].theme === 'light'
+                        ? '$iconSubduedLight'
+                        : '$iconSubduedDark',
+                  }}
+                  onPress={goToNextIndex}
+                  disabled={currentIndex === bannerData.length - 1}
+                />
+              )}
+            </>
+          )}
+          {bannerData.length > 1 && (
+            <XStack space="$1" position="absolute" right="$10" bottom="$10">
+              {bannerData.map((_, index) => (
+                <Stack
+                  key={index}
+                  w="$3"
+                  $gtMd={{
+                    w: '$4',
+                  }}
+                  h="$1"
+                  borderRadius="$full"
+                  bg="$whiteA12"
+                  opacity={currentIndex === index ? 1 : 0.5}
+                />
+              ))}
+            </XStack>
+          )}
+        </>
+      )}
+      renderItem={({ item }: any) => {
+        const { imgUrl, title, theme, onPress } = item;
+        return (
+          <Stack p="$5" tag="section" width={width}>
+            <XStack
+              height="$52"
+              $gtMd={{
+                height: '$72',
+              }}
+              $gtLg={{
+                height: '$96',
+              }}
+              p="$5"
+              alignItems="center"
+            >
               <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$whiteA12"
-                opacity={bannerIndex === index ? 1 : 0.5}
-              />
-            ))}
-          </XStack>
-        )}
-      </XStack>
-    </Stack>
+                position="absolute"
+                left={0}
+                right={0}
+                bottom={0}
+                top={0}
+                onPress={onPress}
+                userSelect="none"
+              >
+                <Image
+                  width="100%"
+                  height="100%"
+                  borderRadius="$3"
+                  bg="$bgStrong"
+                >
+                  <Image.Source
+                    source={{
+                      uri: imgUrl,
+                    }}
+                  />
+                </Image>
+                <Stack
+                  position="absolute"
+                  bottom={0}
+                  right={0}
+                  left={0}
+                  px="$5"
+                  py="$4"
+                  $gtMd={{
+                    px: '$8',
+                    py: '$6',
+                  }}
+                >
+                  <SizableText
+                    color={
+                      theme === 'light' ? '$neutral12Light' : '$neutral12Dark'
+                    }
+                    size="$headingLg"
+                    $gtMd={{
+                      size: '$heading2xl',
+                    }}
+                    maxWidth="$96"
+                  >
+                    {title}
+                  </SizableText>
+                </Stack>
+              </Stack>
+            </XStack>
+          </Stack>
+        );
+      }}
+    />
   );
 }

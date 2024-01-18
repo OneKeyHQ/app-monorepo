@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { Platform, useWindowDimensions } from 'react-native';
+import { YStack } from 'tamagui';
 
 import { ListView } from '../ListView';
 
@@ -39,6 +40,7 @@ function BaseSwiperFlatList(
     useReactNativeGestureHandler = false,
     // Pagination
     showPagination = false,
+    renderPagination,
     // PaginationComponent = Pagination,
     // paginationActiveColor,
     // paginationDefaultColor,
@@ -151,6 +153,14 @@ function BaseSwiperFlatList(
       prevIndex: currentIndexes.prevIndex,
     });
   }, [_onChangeIndex, currentIndexes.index, currentIndexes.prevIndex]);
+
+  const goToNextIndex = useCallback(() => {
+    _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
+  }, [_scrollToIndex, currentIndexes.index]);
+
+  const gotToPrevIndex = useCallback(() => {
+    _scrollToIndex({ index: currentIndexes.prevIndex, animated: true });
+  }, [_scrollToIndex, currentIndexes.prevIndex]);
 
   useImperativeHandle(ref, () => ({
     scrollToIndex: (item: any) => {
@@ -310,8 +320,13 @@ function BaseSwiperFlatList(
   //   }
 
   return (
-    <>
+    <YStack position="relative">
       <ListView {...flatListProps} />
+      {renderPagination?.({
+        goToNextIndex,
+        gotToPrevIndex,
+        currentIndex: currentIndexes.index,
+      })}
       {/* {showPagination ? (
         <PaginationComponent
           size={size}
@@ -330,7 +345,7 @@ function BaseSwiperFlatList(
           e2eID={e2eID}
         />
       ) : null} */}
-    </>
+    </YStack>
   );
 }
 

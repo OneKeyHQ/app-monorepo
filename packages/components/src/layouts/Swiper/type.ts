@@ -1,3 +1,5 @@
+import type { ComponentType, ReactElement } from 'react';
+
 import type { FlatListProps, ViewabilityConfig } from 'react-native';
 
 type IScrollToIndex = { index: number; animated?: boolean }; // DUPLICATED
@@ -10,11 +12,9 @@ export type ISwiperFlatListRefProps = {
 };
 
 export type ISwiperFlatListProps<T> = Partial<FlatListProps<T>> & {
-
   children?: React.ReactNode | React.ReactNode[];
 
   data?: T[];
-
 
   /**
    * Index to start
@@ -24,18 +24,17 @@ export type ISwiperFlatListProps<T> = Partial<FlatListProps<T>> & {
   index?: number;
 
   /**
-   * Render all the items before display it
-   * Defaults to 'false'
-   *
-   */
-  renderAll?: boolean;
-
-  /**
    * Takes an item from data and renders it into the list
    * not required if children is used
    *
    */
   renderItem?: FlatListProps<T>['renderItem'];
+
+  renderPagination?: (params: {
+    currentIndex: number;
+    goToNextIndex: () => void;
+    gotToPrevIndex: () => void;
+  }) => ReactElement | ComponentType;
 
   /**
    * Executed every time the index change, the index change when the user reaches 60% of the next screen
