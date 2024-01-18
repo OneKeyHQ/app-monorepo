@@ -6,7 +6,9 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Divider,
   Empty,
+  Icon,
   IconButton,
   ListItem,
   Page,
@@ -15,6 +17,7 @@ import {
   Skeleton,
   Stack,
   Toast,
+  XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -47,6 +50,7 @@ function groupDataByDate(data: IBrowserHistory[]) {
 }
 
 function HistoryListModal() {
+  const [isEditing, setIsEditing] = useState(false);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { removeBrowserHistory, removeAllBrowserHistory } =
@@ -70,11 +74,6 @@ function HistoryListModal() {
     },
   );
 
-  const displayEmptyView = useMemo(() => {
-    if (isNil(dataSource)) return false;
-    return dataSource.length === 0;
-  }, [dataSource]);
-
   const handleDeleteAll = useCallback(async () => {
     await removeAllBrowserHistory();
     setTimeout(() => {
@@ -82,85 +81,104 @@ function HistoryListModal() {
     }, 200);
   }, [run, removeAllBrowserHistory]);
 
-  return (
-    <Page>
-      <Page.Header title={intl.formatMessage({ id: 'transaction__history' })} />
-      <Page.Body>
-        <Stack flex={1}>
-          <Stack px="$4" flexDirection="row" justifyContent="flex-end">
-            <Button
-              w="auto"
-              size="small"
+  const headerRight = useCallback(
+    () => (
+      <XStack>
+        {isEditing && (
+          <>
+            <IconButton
+              variant="tertiary"
+              icon="BroomOutline"
+              title="Clear All"
               onPress={() => {
                 Dialog.show({
-                  title: 'Delete All ?',
+                  title: 'Clear All History?',
+                  description:
+                    'Are you sure you want to delete all your browsing history? This action cannot be undone.',
                   onConfirm: () => handleDeleteAll(),
+                  confirmButtonProps: {
+                    variant: 'secondary',
+                  },
+                  onConfirmText: 'Clear All',
                 });
               }}
-            >
-              Delete All
-            </Button>
-          </Stack>
-          {displayEmptyView ? (
-            <Stack flex={1} alignItems="center" justifyContent="center">
-              <Empty
-                icon="CloudOffOutline"
-                title="No Historys yes."
-                description="To add a History, tap more in your browser."
-              />
-            </Stack>
-          ) : (
-            <SectionList
-              height="100%"
-              estimatedItemSize="$10"
-              sections={isNil(dataSource) ? [] : dataSource}
-              renderSectionHeader={({ section: { title } }) => (
-                <Stack bg="$bg" p="$3">
-                  <SizableText size="$headingXs">{title}</SizableText>
-                </Stack>
-              )}
-              renderItem={({ item }: { item: IBrowserHistory }) => (
-                <ListItem
-                  key={item.id}
-                  avatarProps={{
-                    src: item.logo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
+            />
+            <Divider vertical mx="$3" />
+          </>
+        )}
+        <Button
+          variant="tertiary"
+          size="medium"
+          onPress={() => setIsEditing((prev) => !prev)}
+        >
+          {isEditing ? 'Done' : 'Edit'}
+        </Button>
+      </XStack>
+    ),
+    [handleDeleteAll, isEditing],
+  );
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({ id: 'transaction__history' })}
+        headerRight={headerRight}
+      />
+      <Page.Body>
+        <SectionList
+          height="100%"
+          estimatedItemSize="$10"
+          sections={isNil(dataSource) ? [] : dataSource}
+          renderSectionHeader={({ section: { title } }) => (
+            <SectionList.SectionHeader title={title} />
+          )}
+          renderItem={({ item }: { item: IBrowserHistory }) => (
+            <ListItem
+              key={item.id}
+              avatarProps={{
+                src: item.logo,
+                fallbackProps: {
+                  children: <Skeleton w="$10" h="$10" />,
+                },
+              }}
+              title={item.title}
+              titleProps={{
+                numberOfLines: 1,
+              }}
+              subtitle={item.url}
+              subtitleProps={{
+                numberOfLines: 1,
+              }}
+              testID={`search-modal-${item.url.toLowerCase()}`}
+              {...(!isEditing && {
+                onPress: () => {
+                  handleOpenWebSite({
+                    navigation,
+                    webSite: {
+                      url: item.url,
+                      title: item.title,
                     },
-                  }}
-                  title={item.title}
-                  subtitle={item.url}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  testID={`search-modal-${item.url.toLowerCase()}`}
+                  });
+                },
+              })}
+            >
+              {isEditing && (
+                <ListItem.IconButton
+                  icon="DeleteOutline"
                   onPress={() => {
-                    handleOpenWebSite({
-                      navigation,
-                      webSite: {
-                        url: item.url,
-                        title: item.title,
-                      },
+                    void removeBrowserHistory(item.id);
+                    setTimeout(() => {
+                      void run();
+                    }, 200);
+                    Toast.success({
+                      title: 'Remove Success',
                     });
                   }}
-                >
-                  <IconButton
-                    icon="ArchiveOutline"
-                    onPress={() => {
-                      void removeBrowserHistory(item.id);
-                      setTimeout(() => {
-                        void run();
-                      }, 200);
-                      Toast.success({
-                        title: 'Remove Success',
-                      });
-                    }}
-                  />
-                </ListItem>
+                />
               )}
-            />
+            </ListItem>
           )}
-        </Stack>
+        />
       </Page.Body>
     </Page>
   );

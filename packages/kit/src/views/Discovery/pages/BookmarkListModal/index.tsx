@@ -4,20 +4,15 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Button,
   Dialog,
-  Empty,
-  IconButton,
   Input,
   ListItem,
   Page,
   Skeleton,
-  SortableCell,
   SortableListView,
-  Stack,
-  SwipeableCell,
   Toast,
+  XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -54,16 +49,10 @@ function BookmarkListModal() {
     },
   );
 
-  const displayEmptyView = useMemo(() => {
-    if (isNil(result)) return false;
-    return result.length === 0;
-  }, [result]);
-
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
       Dialog.confirm({
-        title: item.title,
-        description: item.title,
+        title: 'Rename',
         renderContent: (
           <Dialog.Form
             formProps={{
@@ -111,7 +100,7 @@ function BookmarkListModal() {
     [buildBookmarkData],
   );
 
-  const CELL_HEIGHT = 44;
+  const CELL_HEIGHT = 60;
 
   const headerRight = useCallback(
     () => (
@@ -133,105 +122,96 @@ function BookmarkListModal() {
       <Page.Body>
         <SortableListView
           data={dataSource}
-          keyExtractor={(item) => item.url}
+          keyExtractor={(item) => `${item.url}`}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
             offset: index * CELL_HEIGHT,
             index,
           })}
           onDragEnd={(ret) => onSortBookmarks(ret.data)}
-          renderItem={({ item, getIndex, drag, isActive }) => (
-            <SwipeableCell
-              swipeEnabled={!isEditing}
-              rightItemList={[
-                {
-                  width: 200,
-                  title: 'DELETE',
-                  backgroundColor: '$bgCriticalStrong',
-                  onPress: ({ close }) => {
-                    close?.();
-                    void deleteCell(getIndex);
-                  },
-                },
-              ]}
-            >
-              <SortableCell
-                h={CELL_HEIGHT}
-                isEditing={isEditing}
-                alignItems="center"
-                justifyContent="center"
-                drag={drag}
-                isActive={isActive}
-                onDeletePress={() => {
-                  void deleteCell(getIndex);
-                }}
-              >
-                <ListItem
-                  width="100%"
-                  avatarProps={{
-                    src: item.logo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
+          renderItem={({ item, getIndex, drag }) => (
+            <ListItem
+              h={CELL_HEIGHT}
+              testID={`search-modal-${item.url.toLowerCase()}`}
+              {...(!isEditing && {
+                onPress: () =>
+                  handleOpenWebSite({
+                    navigation,
+                    webSite: {
+                      url: item.url,
+                      title: item.title,
                     },
+                  }),
+              })}
+            >
+              {isEditing && (
+                <ListItem.IconButton
+                  title="Remove"
+                  key="remove"
+                  animation="quick"
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0,
                   }}
-                  title={item.title}
-                  subtitle={item.url}
-                  subtitleProps={{
-                    numberOfLines: 1,
+                  icon="MinusCircleSolid"
+                  iconProps={{
+                    color: '$iconCritical',
                   }}
-                  testID={`search-modal-${item.url.toLowerCase()}`}
                   onPress={() => {
-                    handleOpenWebSite({
-                      navigation,
-                      webSite: {
-                        url: item.url,
-                        title: item.title,
-                      },
+                    void deleteCell(getIndex);
+                    void removeBrowserBookmark(item.url);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: 'msg__bookmark_removed',
+                      }),
                     });
+                    void run();
                   }}
-                >
-                  <ActionList
-                    title="Action List"
-                    placement="right-start"
-                    renderTrigger={
-                      <IconButton
-                        size="small"
-                        icon="DotHorOutline"
-                        variant="tertiary"
-                        focusStyle={undefined}
-                        p="$0.5"
-                        m={-3}
-                        testID="browser-bar-options"
-                      />
-                    }
-                    items={[
-                      {
-                        label: 'Rename',
-                        icon: 'StarSolid',
-                        onPress: () => {
-                          onRename(item);
-                        },
-                        testID: `action-list-item-rename`,
-                      },
-                      {
-                        label: 'Remove Bookmark',
-                        icon: 'ThumbtackSolid',
-                        onPress: () => {
-                          void removeBrowserBookmark(item.url);
-                          Toast.success({
-                            title: intl.formatMessage({
-                              id: 'msg__bookmark_removed',
-                            }),
-                          });
-                          void run();
-                        },
-                        testID: `action-list-item-rename`,
-                      },
-                    ]}
+                  testID="action-list-item-rename"
+                />
+              )}
+              <ListItem.Avatar
+                src={item.logo}
+                fallbackProps={{
+                  children: <Skeleton w="$10" h="$10" />,
+                }}
+              />
+              <ListItem.Text
+                primary={item.title}
+                primaryTextProps={{
+                  numberOfLines: 1,
+                }}
+                secondary={item.url}
+                flex={1}
+              />
+              {isEditing && (
+                <XStack space="$6">
+                  <ListItem.IconButton
+                    title="Rename"
+                    key="rename"
+                    animation="quick"
+                    enterStyle={{
+                      opacity: 0,
+                      scale: 0,
+                    }}
+                    icon="PencilOutline"
+                    onPress={() => onRename(item)}
+                    testID="action-list-item-rename"
                   />
-                </ListItem>
-              </SortableCell>
-            </SwipeableCell>
+                  <ListItem.IconButton
+                    key="darg"
+                    animation="quick"
+                    enterStyle={{
+                      opacity: 0,
+                      scale: 0,
+                    }}
+                    cursor="move"
+                    icon="DragOutline"
+                    onPressIn={drag}
+                  />
+                </XStack>
+              )}
+            </ListItem>
           )}
         />
       </Page.Body>

@@ -95,8 +95,10 @@ function Items({
           </Image>
           <SizableText
             size="$bodyLgMedium"
+            px="$2"
             $gtMd={{
               size: '$bodyMdMedium',
+              px: '$0',
             }}
             textAlign="center"
             numberOfLines={1}
@@ -140,7 +142,7 @@ export function BookmarksAndHistoriesSection({
           selected={isHistoriesView}
           onPress={() => setIsHistoriesView(true)}
         >
-          Histories
+          History
         </DashboardSectionHeader.Heading>
         {dataSource.length > 0 && (
           <DashboardSectionHeader.Button
