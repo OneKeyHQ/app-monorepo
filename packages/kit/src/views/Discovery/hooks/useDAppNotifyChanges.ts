@@ -29,6 +29,19 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     setIsFocusedInDiscoveryTab(isFocus);
   });
 
+  // reconnect jsBridge
+  useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return;
+    }
+    const jsBridge = webviewRef?.jsBridge;
+    if (!jsBridge) {
+      return;
+    }
+    backgroundApiProxy.connectBridge(jsBridge);
+  }, [webviewRef, isFocusedInDiscoveryTab]);
+
+  // sent accountChanged notification
   useEffect(() => {
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       console.log('not native or not desktop');
