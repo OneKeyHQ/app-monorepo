@@ -1,9 +1,23 @@
 import { useCallback } from 'react';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  Dialog,
+  Form,
+  type IPageNavigationProp,
+  Input,
+  Stack,
+  TextArea,
+  useForm,
+} from '@onekeyhq/components';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { NetworkSelectorTrigger } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
@@ -13,52 +27,115 @@ function WalletActionsContainer() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const handleOnSend = useCallback(() => {
-    // navigation.pushModal(EModalRoutes.SendModal, {
-    //   screen: EModalSendRoutes.SendAssetInput,
-    //   params: {
-    //     networkId: 'evm--1',
-    //     accountId: "hd-1--m/44'/60'/0'/0/0",
-    //     transfersInfo: [
-    //       {
-    //         from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-    //         to: '',
-    //         amount: '0',
-    //         token: '',
-    //       },
-    //     ],
-    //   },
-    // });
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendConfirm,
-      params: {
-        networkId: 'evm--1',
-        accountId: "hd-1--m/44'/60'/0'/0/0",
-        transfersInfo: [
-          {
-            from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-            to: '0xA9b4d559A98ff47C83B74522b7986146538cD4dF',
-            amount: '0.01',
-            token: '',
-          },
-        ],
-        unsignedTxs: [
-          {
-            encodedTx: {
-              from: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
-              to: '0xA9b4d559A98ff47C83B74522b7986146538cD4dF',
-              value: '0x1',
-              data: '0x',
-            },
-          },
-        ],
+  const form = useForm();
+
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+
+  const handleOnSend = useCallback(async () => {
+    if (!account || !network) return;
+    // TODO: Check if it is a single token network by settings
+    const isSingleTokenNetwork = false;
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
+      network.id,
+    );
+    if (isSingleTokenNetwork && nativeToken) {
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendDataInput,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+          isNFT: false,
+          token: nativeToken,
+        },
+      });
+    } else {
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendAssetInput,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+        },
+      });
+    }
+  }, [account, navigation, network]);
+
+  const handleOnReceive = useCallback(() => {
+    Dialog.confirm({
+      title: 'Lighting Invoice',
+      renderContent: (
+        <Stack>
+          <Form form={form}>
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: 'https://www.bing.com',
+              }}
+              enabledNum={[1]}
+            >
+              <NetworkSelectorTrigger key={1} num={1} />
+            </AccountSelectorProviderMirror>
+
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: 'https://www.bing.com',
+              }}
+              enabledNum={[0]}
+            >
+              <NetworkSelectorTrigger key={0} num={0} />
+            </AccountSelectorProviderMirror>
+
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+              }}
+              enabledNum={[1]}
+            />
+            <Form.Field label="Amount" name="amount" description="$0.00">
+              <Input
+                placeholder="Enter amount"
+                size="large"
+                keyboardType="number-pad"
+                addOns={[
+                  {
+                    label: 'sats',
+                  },
+                ]}
+              />
+            </Form.Field>
+            <Form.Field
+              label="Description"
+              description="Enter a brief description for the payment. This helps the recipient identify and record the transaction."
+              name="description"
+              optional
+            >
+              <TextArea
+                size="large"
+                placeholder="e.g., Coffee purchase, Invoice #12345"
+              />
+            </Form.Field>
+          </Form>
+        </Stack>
+      ),
+      onConfirm: async ({ close }) => {
+        await close();
+        navigation.pushModal(EModalRoutes.ReceiveModal, {
+          screen: EModalReceiveRoutes.LightingInvoice,
+        });
       },
     });
-  }, [navigation]);
+  }, [form, navigation]);
+  const handleOnSwap = useCallback(() => {}, []);
 
-  const handleOnReceive = useCallback(() => {}, []);
-
-  return <WalletActions onSend={handleOnSend} onReceive={handleOnReceive} />;
+  return (
+    <WalletActions
+      onSend={handleOnSend}
+      onReceive={handleOnReceive}
+      onSwap={handleOnSwap}
+    />
+  );
 }
 
 export { WalletActionsContainer };

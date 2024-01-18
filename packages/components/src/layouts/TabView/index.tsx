@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 
 import { PageContentView, PageManager } from 'react-native-tab-page-view';
 import { withStaticProperties } from 'tamagui';
@@ -10,16 +10,15 @@ import { Stack } from '../../primitives';
 import { ScrollView } from '../ScrollView';
 
 import { Header } from './Header';
+import { Page } from './Page';
 
 import type { IHeaderProps } from './Header';
 import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
 import type { LayoutChangeEvent } from 'react-native';
 
-type IPageType = ({
-  onContentSizeChange,
-}: {
+type IPageType = ComponentType<{
   onContentSizeChange: (width: number, height: number) => void;
-}) => ReactElement | null;
+}>;
 
 export interface ITabProps extends IScrollViewProps {
   data: { title: string; page: IPageType }[];
@@ -194,6 +193,7 @@ const TabComponent = (
 
 export const Tab = withStaticProperties(forwardRef(TabComponent), {
   Header,
+  Page,
   Manager: PageManager,
   Content: PageContentView,
 });

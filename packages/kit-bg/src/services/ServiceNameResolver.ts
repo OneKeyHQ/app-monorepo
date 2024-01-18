@@ -30,31 +30,24 @@ class ServiceNameResolver extends ServiceBase {
       },
     });
     const resolved = resp.data.data;
-    const { showSymbol, name: resolvedNames } = resolved;
-
-    /** only filter address type from dot bit */
-    const addressNames = resolvedNames.filter(
-      (item) => item.type === 'address',
-    );
+    const { showSymbol, names: resolvedNames } = resolved;
 
     const groupedNames = map(
-      groupBy(addressNames, 'subtype'),
+      groupBy(resolvedNames, 'subtype'),
       (items, symbol) => ({
         title: symbol?.toUpperCase?.(),
-        options: map(items, (item) => ({
-          value: `${item.key}-${item.value}`,
+        data: map(items, (item) => ({
+          value: item.value,
           label: accountUtils.shortenAddress({
             address: item.value,
           }),
-          badge: item.label,
         })),
       }),
     );
 
     return {
-      success: true,
       names: groupedNames,
-      length: addressNames.length,
+      length: resolvedNames.length,
       showSymbol,
     };
   }
