@@ -9,6 +9,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
+import { EModalRoutes } from '../../../../routes/Modal/type';
+import { EDiscoveryModalRoutes } from '../../router/Routes';
+
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
 const data = [
@@ -126,6 +130,13 @@ function Items(props: IXStackProps) {
 
 export function BookmarksAndHistoriesSection() {
   const [isHistoriesView, setIsHistoriesView] = useState(false);
+  const navigation = useAppNavigation();
+
+  const handleSeeAllButtonPressed = () => {
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.BookmarkListModal,
+    });
+  };
 
   return (
     <Stack px="$5">
@@ -142,7 +153,9 @@ export function BookmarksAndHistoriesSection() {
         >
           Histories
         </DashboardSectionHeader.Heading>
-        <DashboardSectionHeader.Button>See All</DashboardSectionHeader.Button>
+        <DashboardSectionHeader.Button onPress={handleSeeAllButtonPressed}>
+          See All
+        </DashboardSectionHeader.Button>
       </DashboardSectionHeader>
       <Items />
     </Stack>

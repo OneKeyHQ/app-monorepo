@@ -15,9 +15,8 @@ export function CustomHeaderTitle() {
   return (
     <XStack
       role="button"
-      // w="100%"
       $md={{
-        width: screenWidth * 0.9,
+        width: screenWidth - 40,
         position: 'absolute',
       }}
       minWidth="$64"
