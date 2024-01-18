@@ -58,7 +58,8 @@ export function Banner() {
                 <IconButton
                   position="absolute"
                   left="$5"
-                  top="80%"
+                  top="50%"
+                  transform="translateY(-50%)"
                   icon="ChevronLeftOutline"
                   variant="tertiary"
                   iconProps={{
@@ -77,8 +78,8 @@ export function Banner() {
                   variant="tertiary"
                   position="absolute"
                   right="$5"
-                  top="80%"
-                  ml="auto"
+                  top="50%"
+                  transform="translateY(-50%)"
                   iconProps={{
                     color:
                       bannerData[currentIndex].theme === 'light'
