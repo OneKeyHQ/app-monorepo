@@ -12,6 +12,7 @@ import type {
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { getVaultSettings } from '../vaults/settings';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
@@ -44,8 +45,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async getIsNetworkNFTEnabled({ networkId }: { networkId: string }) {
-    const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const settings = await vault.getVaultSettings();
+    const settings = await getVaultSettings({ networkId });
     return settings.NFTEnabled;
   }
 }
