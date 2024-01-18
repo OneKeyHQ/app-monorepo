@@ -69,7 +69,15 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const headerTitle = useCallback(() => <CustomHeaderTitle />, []);
+  const handleSearchBarPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.SearchModal,
+    });
+  }, [navigation]);
+  const headerTitle = useCallback(
+    () => <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />,
+    [handleSearchBarPress],
+  );
 
   return (
     <Page>
