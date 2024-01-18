@@ -1,3 +1,5 @@
+import { useWindowDimensions } from 'react-native';
+
 import {
   Icon,
   Shortcut,
@@ -9,10 +11,15 @@ import {
 export function CustomHeaderTitle() {
   const media = useMedia();
 
+  const screenWidth = useWindowDimensions().width;
   return (
     <XStack
       role="button"
       // w="100%"
+      $md={{
+        width: screenWidth * 0.9,
+        position: 'absolute',
+      }}
       minWidth="$64"
       px="$2"
       py="$1.5"
