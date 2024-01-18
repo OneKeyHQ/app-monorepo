@@ -53,8 +53,16 @@ export function Banner() {
       renderItem={({ item }: any) => {
         const { imgUrl, title, theme, onPress } = item;
         return (
-          <Stack p="$5" tag="section" width={width}>
-            <XStack
+          <Stack
+            p="$5"
+            tag="section"
+            position="relative"
+            width={width}
+            onPress={onPress}
+            userSelect="none"
+          >
+            <Image
+              width="100%"
               height="$52"
               $gtMd={{
                 height: '$72',
@@ -62,57 +70,33 @@ export function Banner() {
               $gtLg={{
                 height: '$96',
               }}
-              p="$5"
-              alignItems="center"
+              borderRadius="$3"
+              bg="$bgStrong"
+              src={imgUrl}
+            />
+            <Stack
+              position="absolute"
+              bottom={0}
+              right={0}
+              left={0}
+              px="$10"
+              py="$8"
+              $gtMd={{
+                px: '$14',
+                py: '$10',
+              }}
             >
-              <Stack
-                position="absolute"
-                left={0}
-                right={0}
-                bottom={0}
-                top={0}
-                onPress={onPress}
-                userSelect="none"
+              <SizableText
+                color={theme === 'light' ? '$neutral12Light' : '$neutral12Dark'}
+                size="$headingLg"
+                $gtMd={{
+                  size: '$heading2xl',
+                }}
+                maxWidth="$96"
               >
-                <Image
-                  width="100%"
-                  height="100%"
-                  borderRadius="$3"
-                  bg="$bgStrong"
-                >
-                  <Image.Source
-                    source={{
-                      uri: imgUrl,
-                    }}
-                  />
-                </Image>
-                <Stack
-                  position="absolute"
-                  bottom={0}
-                  right={0}
-                  left={0}
-                  px="$5"
-                  py="$4"
-                  $gtMd={{
-                    px: '$8',
-                    py: '$6',
-                  }}
-                >
-                  <SizableText
-                    color={
-                      theme === 'light' ? '$neutral12Light' : '$neutral12Dark'
-                    }
-                    size="$headingLg"
-                    $gtMd={{
-                      size: '$heading2xl',
-                    }}
-                    maxWidth="$96"
-                  >
-                    {title}
-                  </SizableText>
-                </Stack>
-              </Stack>
-            </XStack>
+                {title}
+              </SizableText>
+            </Stack>
           </Stack>
         );
       }}
