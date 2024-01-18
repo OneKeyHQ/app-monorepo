@@ -32,6 +32,7 @@ export function getOnChainHistoryTxAssetInfo({
   let image = '';
   let name = '';
   let symbol = '';
+  let address = '';
   let isNFT = false;
   if (tokenAddress === '') {
     asset = tokens.native;
@@ -44,16 +45,19 @@ export function getOnChainHistoryTxAssetInfo({
     name = nft.metadata.name;
     symbol = nft.metadata.name;
     image = nft.metadata.image;
+    address = nft.collectionAddress;
     isNFT = true;
   } else if (asset && !isNil((asset as IOnChainHistoryTxToken).info?.address)) {
     const token = (asset as IOnChainHistoryTxToken).info;
     name = token.name;
     symbol = token.symbol;
     image = token.logoURI;
+    address = token.address;
     isNFT = false;
   }
   return {
     name,
+    address,
     symbol,
     image,
     isNFT,

@@ -28,6 +28,29 @@ export type IOnChainHistoryTxLabel = {
   riskLevel: number;
 };
 
+export type IOnChainHistoryTxUTXOInput = {
+  txid: string;
+  vout: number;
+  sequence: number;
+  n: number;
+  addresses: string[];
+  isAddress: boolean;
+  value: string;
+  hex: string;
+};
+
+export type IOnChainHistoryTxUTXOOutput = {
+  value: string;
+  n: number;
+  spent: boolean;
+  spentTxId: string;
+  spentIndex: number;
+  spentHeight: number;
+  hex: string;
+  addresses: string[];
+  isAddress: boolean;
+};
+
 export type IOnChainHistoryTx = {
   tx: string;
   riskLevel: number;
@@ -45,6 +68,8 @@ export type IOnChainHistoryTx = {
   params: string[];
   value: string;
   label: IOnChainHistoryTxLabel;
+  inputs?: IOnChainHistoryTxUTXOInput[];
+  outputs?: IOnChainHistoryTxUTXOOutput[];
 };
 
 export type IAccountHistoryTx = {
@@ -94,9 +119,10 @@ export type IFetchAccountHistoryResp = {
 export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
+  accountAddress: string;
 };
 
 export type IFetchHistoryTxDetailsResp = {
   data: IOnChainHistoryTx;
-  tokens: { info: IToken }[];
+  tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
 };

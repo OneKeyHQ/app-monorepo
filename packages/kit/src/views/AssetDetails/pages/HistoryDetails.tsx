@@ -17,6 +17,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
+import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -40,7 +41,7 @@ function HistoryDetails() {
       >
     >();
 
-  const { networkId, historyTx } = route.params;
+  const { networkId, accountAddress, historyTx } = route.params;
 
   const navigation = useAppNavigation();
 
@@ -58,9 +59,10 @@ function HistoryDetails() {
     () =>
       backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         networkId,
+        accountAddress,
         txid: historyTx.decodedTx.txid,
       }),
-    [historyTx.decodedTx.txid, networkId],
+    [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
 
@@ -69,37 +71,18 @@ function HistoryDetails() {
     [network?.id],
   ).result;
 
-  const { data: txDetails } = resp.result ?? {};
+  const { data: txDetails, tokens = {} } = resp.result ?? {};
 
   const relatedAssetInfo = useMemo(() => {
     if (!txDetails) return undefined;
-    const asset = txDetails.sends[0]?.info || txDetails.receives[0]?.info;
+    const tokenAddress =
+      txDetails.sends[0]?.token || txDetails.receives[0]?.token;
 
-    let assetInfo = {
-      address: '',
-      logoURI: '',
-      symbol: '',
-    };
-
-    if ((asset as IAccountNFT)?.itemId) {
-      const nft = asset as IAccountNFT;
-      assetInfo = {
-        address: nft.collectionAddress,
-        logoURI: nft.metadata.image,
-        symbol: nft.collectionSymbol,
-      };
-    }
-    if ((asset as IToken)?.name) {
-      const token = asset as IToken;
-      assetInfo = {
-        address: token.address,
-        logoURI: token.logoURI,
-        symbol: token.symbol,
-      };
-    }
-
-    return assetInfo;
-  }, [txDetails]);
+    return getOnChainHistoryTxAssetInfo({
+      tokenAddress,
+      tokens,
+    });
+  }, [tokens, txDetails]);
 
   const details = useMemo(() => {
     if (!txDetails) return [];
@@ -122,7 +105,7 @@ function HistoryDetails() {
         {
           key: 'content__asset',
           value: relatedAssetInfo?.symbol,
-          imgUrl: relatedAssetInfo?.logoURI,
+          imgUrl: relatedAssetInfo?.image,
         },
         {
           key: 'content__contract_address',
@@ -166,22 +149,23 @@ function HistoryDetails() {
     network?.logoURI,
     network?.name,
     relatedAssetInfo?.address,
-    relatedAssetInfo?.logoURI,
+    relatedAssetInfo?.image,
     relatedAssetInfo?.symbol,
     txDetails,
   ]);
 
   const handleOnViewUTXOsPress = useCallback(() => {
     if (!txDetails) return;
-    const { sends, receives } = txDetails;
+    const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
+
     navigation.push(EModalAssetDetailRoutes.UTXODetails, {
-      inputs: receives.map((receive) => ({
-        address: receive.from,
-        value: receive.amount,
+      inputs: onChainInputs?.map((input) => ({
+        address: input.addresses[0],
+        value: input.value,
       })),
-      outputs: sends.map((send) => ({
-        address: send.to,
-        value: send.amount,
+      outputs: onChainOutputs?.map((output) => ({
+        address: output.addresses[0],
+        value: output.value,
       })),
     });
   }, [navigation, txDetails]);
@@ -193,7 +177,7 @@ function HistoryDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: relatedAssetInfo?.logoURI,
+            uri: relatedAssetInfo?.image,
           }}
         />
         <Heading pl="$2" size="$headingLg">
@@ -201,7 +185,7 @@ function HistoryDetails() {
         </Heading>
       </XStack>
     ),
-    [relatedAssetInfo?.logoURI, txDetails?.label.label],
+    [relatedAssetInfo?.image, txDetails?.label.label],
   );
 
   const renderHistoryDetails = useCallback(() => {

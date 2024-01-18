@@ -32,6 +32,7 @@ function TxHistoryListContainer(props: IProps) {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
           networkId: network.id,
+          accountAddress: account.address,
           historyTx: history,
         },
       });
