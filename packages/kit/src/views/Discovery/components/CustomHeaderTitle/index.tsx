@@ -8,7 +8,11 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
-export function CustomHeaderTitle() {
+export function CustomHeaderTitle({
+  handleSearchBarPress,
+}: {
+  handleSearchBarPress: () => void;
+}) {
   const media = useMedia();
 
   const screenWidth = useWindowDimensions().width;
@@ -39,9 +43,7 @@ export function CustomHeaderTitle() {
         pressStyle={{
           bg: '$bgActive',
         }}
-        onPress={() => {
-          console.log('onPress');
-        }}
+        onPress={handleSearchBarPress}
         style={{
           borderCurve: 'continuous',
         }}
