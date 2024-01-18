@@ -2,6 +2,7 @@ import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSe
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
@@ -20,4 +21,6 @@ export class SimpleDb {
   swapHistory = new SimpleDbEntitySwapHistory();
 
   swapSlippage = new SimpleDbEntitySwapSlippage();
+
+  localTokens = new SimpleDbEntityLocalTokens();
 }

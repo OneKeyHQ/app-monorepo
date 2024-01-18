@@ -1,3 +1,4 @@
+import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -5,14 +6,17 @@ import { getTxActionMeta } from '../../utils/getTxActionMeta';
 import { getDisplayedActions } from '../../utils/txAction';
 
 type IProps = {
-  historyTx?: IAccountHistoryTx;
   decodedTx: IDecodedTx;
-  accountAddress: string;
-  componentType?: 'T0' | 'T1';
+  componentType?: ETxActionComponentType;
+  tableLayout?: boolean;
 };
 
 function TxActionsListView(props: IProps) {
-  const { decodedTx, accountAddress, componentType = 'T0' } = props;
+  const {
+    decodedTx,
+    componentType = ETxActionComponentType.ListView,
+    tableLayout,
+  } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
 
@@ -24,7 +28,7 @@ function TxActionsListView(props: IProps) {
 
   const TxActionComponent = components[componentType];
 
-  return <TxActionComponent action={action} accountAddress={accountAddress} />;
+  return <TxActionComponent action={action} tableLayout={tableLayout} />;
 }
 
 export { TxActionsListView };
