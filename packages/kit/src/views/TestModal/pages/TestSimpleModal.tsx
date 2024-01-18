@@ -107,14 +107,22 @@ export function TestSimpleModal() {
       ) : null}
       {showFooter ? (
         <Page.Footer
-          onConfirm={() => alert('confirmed')}
+          onConfirm={({ close }) => {
+            alert('confirmed');
+            close();
+          }}
           onConfirmText="YES"
           confirmButtonProps={{
             w: '$40',
           }}
-          onCancel={() => {
-            alert('cancel');
-          }}
+          onCancel={() =>
+            new Promise((resolve) => {
+              alert('cancel');
+              setTimeout(() => {
+                resolve();
+              }, 1500);
+            })
+          }
           onCancelText="NO"
         >
           {showCustomFooter ? (
