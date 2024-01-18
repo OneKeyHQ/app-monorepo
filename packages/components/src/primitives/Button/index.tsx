@@ -6,6 +6,7 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
+import { useSharedPress } from '../../hooks';
 import { Icon } from '../Icon';
 import { SizableText } from '../SizeableText';
 import { Spinner } from '../Spinner';
@@ -22,6 +23,12 @@ export interface IButtonProps extends ThemeableStackProps {
   loading?: boolean;
   children?: React.ReactNode;
   color?: ColorTokens;
+  /**
+   * stop propagation from button.
+   *
+   * @default true
+   */
+  stopPropagation?: boolean;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -196,6 +203,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     color: ColorTokens;
   };
 
+  const { onPress, onLongPress } = useSharedPress(rest);
+
   return (
     <ButtonFrame
       ref={ref}
@@ -222,6 +231,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
         ...props.pressStyle,
       }}
       {...rest}
+      onPress={onPress}
+      onLongPress={onLongPress}
     >
       {icon && !loading && (
         <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />

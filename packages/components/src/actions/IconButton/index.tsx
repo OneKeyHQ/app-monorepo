@@ -1,3 +1,4 @@
+import { useSharedPress } from '../../hooks';
 import {
   ButtonFrame,
   Icon,
@@ -56,6 +57,8 @@ export const IconButton = (props: IIconButtonProps) => {
     variant,
   });
 
+  const { onPress, onLongPress } = useSharedPress(rest);
+
   const renderIconButton = () => (
     <ButtonFrame
       p={p}
@@ -72,6 +75,8 @@ export const IconButton = (props: IIconButtonProps) => {
       })}
       {...sharedFrameStyles}
       {...rest}
+      onPress={onPress}
+      onLongPress={onLongPress}
     >
       {loading ? (
         <Stack
