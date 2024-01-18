@@ -1,5 +1,12 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { Image, SizableText, Swiper, YStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Stack,
+  Swiper,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -35,21 +42,34 @@ const SliderGallery = () => (
         element: () => (
           <Swiper
             autoplay
-            style={{ width: 300 }}
-            autoplayDelay={2}
+            estimatedItemSize={384}
+            autoplayDelayMs={2000}
             autoplayLoop
-            index={1}
+            index={0}
+            height="$64"
             data={bannerData}
             renderItem={({ item }) => (
-              <YStack
-                onPress={item.onPress}
-                alignItems="center"
-                flex={1}
-                width={300}
-              >
-                <Image size="$20" src={item.imgUrl} />
+              <YStack onPress={item.onPress} alignItems="center">
+                <Image width="100%" height="$52" src={item.imgUrl} />
                 <SizableText>{item.title}</SizableText>
               </YStack>
+            )}
+            renderPagination={({ currentIndex }) => (
+              <XStack space="$1" position="absolute" right="$5" bottom="$24">
+                {bannerData.map((_, index) => (
+                  <Stack
+                    key={index}
+                    w="$3"
+                    $gtMd={{
+                      w: '$4',
+                    }}
+                    h="$1"
+                    borderRadius="$full"
+                    bg="$whiteA12"
+                    opacity={currentIndex === index ? 1 : 0.5}
+                  />
+                ))}
+              </XStack>
             )}
           />
         ),
