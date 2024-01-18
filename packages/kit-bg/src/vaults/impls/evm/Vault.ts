@@ -155,12 +155,14 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
+
     const tx = {
       ...encodedTx,
       ...gasInfo,
     };
-    if (!isNil(feeInfo?.gas?.gasLimit)) {
-      tx.gas = feeInfo?.gas?.gasLimit;
+    if (!isNil(gasInfo?.gasLimit)) {
+      tx.gas = gasInfo.gasLimit;
+      tx.gasLimit = gasInfo.gasLimit;
     }
     return Promise.resolve(tx);
   }
@@ -171,12 +173,9 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
     };
-    const client = await this.getEthersClient();
     const chainIdHex = await this.getNetworkChainId({ hex: true });
     const chainIdNum = new BigNumber(chainIdHex).toNumber();
-    const nonce = await client.getTransactionCount(tx.from);
 
-    tx.nonce = numberUtils.numberToHex(nonce);
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,

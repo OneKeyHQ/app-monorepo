@@ -20,6 +20,7 @@ import { getTokens } from '@onekeyhq/components/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
@@ -188,7 +189,6 @@ function HomePage() {
         />
         <Page.Body alignItems="center">
           <Tab
-            // @ts-expect-error
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
@@ -218,4 +218,18 @@ function HomePage() {
   );
 }
 
-export default HomePage;
+function HomePageContainer() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HomePage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default HomePageContainer;
