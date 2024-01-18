@@ -1,8 +1,8 @@
-import { Suspense, useEffect, useState } from 'react';
+import { memo } from 'react';
 
 import { Image } from '../../primitives';
 
-import makeBlockieImageUri from './makeBlockieImageUriList';
+import { useBlockieImageUri } from './makeBlockieImageUriList';
 
 import type { IImageFallbackProps, IImageProps } from '../../primitives';
 import type { ImageStyle } from 'react-native';
@@ -13,18 +13,11 @@ export interface IAccountAvatarProps extends IImageProps {
 }
 
 function HashImageSource({ blockieHash }: { blockieHash: string }) {
-  const [uri, setUri] = useState('');
-  useEffect(() => {
-    makeBlockieImageUri(blockieHash)
-      .then((imageUri: string) => {
-        setUri(imageUri);
-      })
-      .catch((error) => {
-        console.error(error);
-      });
-  }, [blockieHash]);
+  const { uri } = useBlockieImageUri(blockieHash);
   return uri ? <Image.Source src={uri} /> : null;
 }
+
+const MemoHashImageSource = memo(HashImageSource);
 
 export function AccountAvatar({
   src,
@@ -46,7 +39,7 @@ export function AccountAvatar({
       {...restProps}
     >
       {blockieHash ? (
-        <HashImageSource blockieHash={blockieHash} />
+        <MemoHashImageSource blockieHash={blockieHash} />
       ) : (
         <Image.Source src={src} source={source} />
       )}
