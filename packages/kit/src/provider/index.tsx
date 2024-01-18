@@ -1,8 +1,9 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { LastActivityTracker } from '../components/LastActivityTracker';
+import { AccountSelectorProvidersAutoMount } from '../components/AccountSelector';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import '../utils/axiosInterceptor';
 
@@ -16,11 +17,17 @@ if (platformEnv.isRuntimeBrowser) {
   window._frameTimestamp = null;
 }
 
+const LastActivityTracker = LazyLoad(
+  () => import('../components/LastActivityTracker'),
+  3000,
+);
+
 const flexStyle = { flex: 1 };
 
 export function KitProvider() {
   return (
     <ThemeProvider>
+      <AccountSelectorProvidersAutoMount />
       <SplashProvider>
         <GestureHandlerRootView style={flexStyle}>
           <Container />

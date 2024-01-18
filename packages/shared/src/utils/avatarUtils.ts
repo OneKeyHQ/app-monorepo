@@ -1,3 +1,5 @@
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
 export const HdWalletAvatarImages = {
   bear: require('../assets/wallet/avatar/Bear.png'),
   cat: require('../assets/wallet/avatar/Cat.png'),
@@ -20,8 +22,9 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
-export const HwWalletAvatarImages = {
+export const HwWalletAvatarImages: Record<IDeviceType | 'classic1s', any> = {
   classic: require('../assets/wallet/avatar/Classic.png'),
+  classic1s: require('../assets/wallet/avatar/Classic.png'),
   mini: require('../assets/wallet/avatar/Mini.png'),
   touch: require('../assets/wallet/avatar/Touch.png'),
   pro: require('../assets/wallet/avatar/Pro.png'),

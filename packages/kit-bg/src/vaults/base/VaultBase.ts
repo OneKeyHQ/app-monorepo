@@ -288,10 +288,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
-    const { unsignedTx, password } = params;
-    if (!password) {
-      throw new Error('signAndSendTransaction ERROR: password is required');
-    }
+    const { unsignedTx } = params;
     const signedTx = await this.keyring.signTransaction(params);
     return {
       ...signedTx,

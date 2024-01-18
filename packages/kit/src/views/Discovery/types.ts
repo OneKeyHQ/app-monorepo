@@ -1,23 +1,19 @@
+import type { IDApp } from '@onekeyhq/shared/types/discovery';
+
 export type IBrowserType = 'StandardBrowser' | 'MultiTabBrowser';
 
-export interface IDAppItemType {
-  _id: string;
-  name: string;
-  url: string;
-  logoURL: string;
-  subtitle: string;
-  networkIds: string[];
-  _subtitle?: string;
-}
-
 export interface IBrowserHistory {
+  id: string;
   title: string;
   url: string;
+  createdAt: number;
+  logo?: string;
 }
 
 export interface IBrowserBookmark {
   title: string;
   url: string;
+  logo?: string;
 }
 
 export interface IGotoSiteFnParams {
@@ -32,9 +28,9 @@ export interface IGotoSiteFnParams {
 }
 
 export interface IMatchDAppItemType {
-  id: string;
-  dapp?: IDAppItemType;
-  webSite?: IBrowserHistory;
+  tabId?: string;
+  dApp?: IDApp;
+  webSite?: IBrowserBookmark | IBrowserHistory;
   clicks?: number;
   timestamp?: number;
   isNewWindow?: boolean;

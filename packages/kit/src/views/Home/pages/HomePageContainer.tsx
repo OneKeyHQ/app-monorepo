@@ -8,7 +8,6 @@ import { getTokens } from '@onekeyhq/components/src/hooks';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  AccountSelectorProvider,
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
@@ -58,6 +57,7 @@ function HomePage() {
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror
+        enabledNum={[0]}
         config={{
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
@@ -100,7 +100,7 @@ function HomePage() {
 
 function HomePageContainer() {
   return (
-    <AccountSelectorProvider
+    <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
@@ -108,7 +108,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage />
-    </AccountSelectorProvider>
+    </AccountSelectorProviderMirror>
   );
 }
 

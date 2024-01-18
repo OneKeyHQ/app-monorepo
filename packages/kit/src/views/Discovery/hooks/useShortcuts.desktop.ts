@@ -77,7 +77,7 @@ export const useShortcuts = () => {
       if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
         if (data === EBrowserShortcutEvents.NewTab) {
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
-            screen: EDiscoveryModalRoutes.FakeSearchModal,
+            screen: EDiscoveryModalRoutes.SearchModal,
           });
         }
       }

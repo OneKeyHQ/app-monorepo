@@ -9,10 +9,9 @@ import type {
   IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
 
-import { getVaultSettings } from '../vaults/settings';
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
-import { vaultFactory } from '../vaults/factory';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {

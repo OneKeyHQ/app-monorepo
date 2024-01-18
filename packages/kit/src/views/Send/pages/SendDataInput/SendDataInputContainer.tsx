@@ -27,9 +27,9 @@ import type { INameResolverState } from '@onekeyhq/kit/src/components/NameResolv
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
-import { checkIsDomain } from '@onekeyhq/kit/src/utils/helper';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';

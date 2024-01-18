@@ -33,9 +33,13 @@ function FinalizeWalletSetupPage({
 
   useEffect(() => {
     void (async () => {
-      await actions.current.createHDWallet({
-        mnemonic,
-      });
+      if (mnemonic) {
+        await actions.current.createHDWallet({
+          mnemonic,
+        });
+      } else {
+        // createHWWallet is called before this page loaded
+      }
       setShowStep(true);
     })();
   }, [actions, mnemonic]);
@@ -52,7 +56,7 @@ function FinalizeWalletSetupPage({
         clearInterval(interval);
         return prevStep;
       });
-    }, 3000);
+    }, 1000);
 
     if (currentStep === steps.length - 1) {
       setTimeout(() => {
@@ -127,6 +131,7 @@ export function FinalizeWalletSetup({
 >) {
   return (
     <AccountSelectorProviderMirror
+      enabledNum={[0]}
       config={{
         sceneName: EAccountSelectorSceneName.home, // TODO read from router
       }}

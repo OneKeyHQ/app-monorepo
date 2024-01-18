@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -61,6 +62,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
           activeWallet: wallet,
           num,
           navigation,
+          sceneName: EAccountSelectorSceneName.home,
         })
       }
       maxWidth="$40"
@@ -104,7 +106,10 @@ export function AccountSelectorTrigger({
       title,
       estimatedContentHeight: 490,
       renderContent: (
-        <AccountSelectorProviderMirror config={checkIsDefined(config)}>
+        <AccountSelectorProviderMirror
+          enabledNum={[num]}
+          config={checkIsDefined(config)}
+        >
           <ScrollView h="$100">
             <AccountSelectorDialog num={num} />
           </ScrollView>
