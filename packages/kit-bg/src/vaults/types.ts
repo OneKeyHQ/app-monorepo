@@ -8,11 +8,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import type {
-  IAccountHistoryTx,
-  IOnChainHistoryTx,
-  IOnChainHistoryTxAsset,
-} from '@onekeyhq/shared/types/history';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -95,6 +91,7 @@ export type IVaultSettings = {
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
   isUtxo: boolean;
+  NFTEnabled: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
@@ -215,6 +212,7 @@ export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
 }
 
+export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
@@ -228,7 +226,5 @@ export interface ISignMessageParams {
 export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
-  tokens: Record<string, IOnChainHistoryTxAsset>;
-  onChainHistoryTxs: IOnChainHistoryTx[];
-  localHistoryTxs: IAccountHistoryTx[];
+  onChainHistoryTx: IOnChainHistoryTx;
 }

@@ -25,6 +25,7 @@ declare global {
   var $jotaiBgSync: JotaiBgSync;
 
   var $$navigationShortcuts: any;
+  var $$accountSelectorStore: any;
   var $$simpleDb: any;
   var $$localDb: LocalDbBase;
   var $$appEventBus: any;

@@ -6,7 +6,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorActiveAccount,
-  AccountSelectorProvider,
+  AccountSelectorProviderMirror,
   AccountSelectorTrigger,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -54,7 +54,7 @@ export default function HomePageHeaderView() {
   return useMemo(
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
-        <AccountSelectorProvider
+        <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.home,
             sceneUrl: '',
@@ -63,7 +63,7 @@ export default function HomePageHeaderView() {
         >
           <AccountSelectorTrigger num={0} />
           <AccountSelectorActiveAccount num={0} />
-        </AccountSelectorProvider>
+        </AccountSelectorProviderMirror>
         <SizableText>Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
         {headerHighMode && <SizableText py="$10">Very high</SizableText>}
