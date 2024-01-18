@@ -4,7 +4,7 @@ import { Page } from '@onekeyhq/components';
 
 import { CustomHeaderTitle } from '../../components/CustomHeaderTitle';
 
-import { DashboardContent } from './DashboardContent';
+import DashboardContent from './DashboardContent';
 
 function Dashboard() {
   const headerTitle = useCallback(() => <CustomHeaderTitle />, []);

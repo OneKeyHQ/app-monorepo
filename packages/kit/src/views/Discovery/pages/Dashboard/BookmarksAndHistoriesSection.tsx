@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -11,46 +11,20 @@ import {
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
-const data = [
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Long Long Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-  {
-    imgUrl: 'https://placehold.jp/200x200.png',
-    name: 'Name',
-  },
-];
+import type {
+  IBrowserBookmark,
+  IBrowserHistory,
+  IMatchDAppItemType,
+} from '../../types';
 
-function Items(props: IXStackProps) {
+function Items({
+  dataSource,
+  handleOpenWebSite,
+  ...restProps
+}: IXStackProps & {
+  dataSource: IBrowserBookmark[] | IBrowserHistory[];
+  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+}) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
 
@@ -73,9 +47,9 @@ function Items(props: IXStackProps) {
       $gtLg={{
         mx: '$-3',
       }}
-      {...props}
+      {...restProps}
     >
-      {data.slice(0, numberOfItems).map(({ imgUrl, name }, index) => (
+      {dataSource.slice(0, numberOfItems).map(({ logo, title, url }, index) => (
         <Stack
           key={index}
           flexBasis="25%"
@@ -95,6 +69,14 @@ function Items(props: IXStackProps) {
             flexBasis: '25%',
           }}
           userSelect="none"
+          onPress={() =>
+            handleOpenWebSite({
+              webSite: {
+                url,
+                title,
+              },
+            })
+          }
         >
           <Image
             w="$14"
@@ -107,7 +89,7 @@ function Items(props: IXStackProps) {
           >
             <Image.Source
               source={{
-                uri: imgUrl,
+                uri: logo,
               }}
             />
           </Image>
@@ -116,7 +98,7 @@ function Items(props: IXStackProps) {
             textAlign="center"
             numberOfLines={1}
           >
-            {name}
+            {title}
           </SizableText>
         </Stack>
       ))}
@@ -124,8 +106,23 @@ function Items(props: IXStackProps) {
   );
 }
 
-export function BookmarksAndHistoriesSection() {
+export function BookmarksAndHistoriesSection({
+  bookmarksData,
+  historiesData,
+  onPressMore,
+  handleOpenWebSite,
+}: {
+  bookmarksData: IBrowserBookmark[] | undefined;
+  historiesData: IBrowserHistory[] | undefined;
+  onPressMore: (isHistoriesView: boolean) => void;
+  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+}) {
   const [isHistoriesView, setIsHistoriesView] = useState(false);
+
+  const dataSource = useMemo<IBrowserBookmark[] | IBrowserHistory[]>(
+    () => (isHistoriesView ? historiesData ?? [] : bookmarksData ?? []),
+    [historiesData, bookmarksData, isHistoriesView],
+  );
 
   return (
     <Stack px="$5">
@@ -142,9 +139,15 @@ export function BookmarksAndHistoriesSection() {
         >
           Histories
         </DashboardSectionHeader.Heading>
-        <DashboardSectionHeader.Button>See All</DashboardSectionHeader.Button>
+        <DashboardSectionHeader.Button
+          onPress={() => {
+            onPressMore(isHistoriesView);
+          }}
+        >
+          See All
+        </DashboardSectionHeader.Button>
       </DashboardSectionHeader>
-      <Items />
+      <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />
     </Stack>
   );
 }

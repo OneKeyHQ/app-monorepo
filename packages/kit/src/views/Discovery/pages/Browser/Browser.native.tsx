@@ -22,7 +22,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { checkAndCreateFolder } from '../../utils/screenshot';
-import { DashboardContent } from '../Dashboard/DashboardContent';
+import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
