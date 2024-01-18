@@ -7,6 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { mockIsAccountCompatibleWithNetwork } from '../../mock';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
+import type { IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions, IVaultOptions } from '../types';
 
 export class VaultFactory {
@@ -89,7 +90,7 @@ export class VaultFactory {
       walletId,
     }: {
       networkId: string;
-      walletId: string;
+      walletId: IDBWalletId;
     }): Promise<VaultBase> =>
       // This in fact returns a watching vault.
       this.getVaultWithoutCache({

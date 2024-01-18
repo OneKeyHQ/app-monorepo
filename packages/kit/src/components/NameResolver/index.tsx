@@ -11,10 +11,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { ISelectSection } from '@onekeyhq/components';
+import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 
 type IProps = {
   networkId: string;

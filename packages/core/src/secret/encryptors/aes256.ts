@@ -82,6 +82,9 @@ function encodePassword({
 }
 
 function encrypt(password: string, data: Buffer | string): Buffer {
+  if (!password) {
+    throw new IncorrectPassword();
+  }
   const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
@@ -135,6 +138,9 @@ async function encryptAsync({
 }
 
 function decrypt(password: string, data: Buffer | string): Buffer {
+  if (!password) {
+    throw new IncorrectPassword();
+  }
   const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
