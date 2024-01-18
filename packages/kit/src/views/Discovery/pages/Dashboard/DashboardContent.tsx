@@ -68,7 +68,7 @@ function DashboardContent() {
         historiesData={historiesData}
         onPressMore={onPressMore}
         handleOpenWebSite={({ webSite }) =>
-          handleOpenWebSite({ webSite, navigation })
+          handleOpenWebSite({ webSite, navigation, shouldPopNavigation: false })
         }
       />
       <SuggestedAndExploreSection />
