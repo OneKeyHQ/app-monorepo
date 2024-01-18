@@ -10,7 +10,7 @@ import type { IPageProps } from './type';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 export function PageContainer({ children, skipLoading }: IPageProps) {
-  const { scrollEnabled, pageRef, pageOffsetRef } = useContext(PageContext);
+  const { scrollEnabled, pageRef, pageOffsetRef, scrollProps } = useContext(PageContext);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -27,6 +27,7 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
             ref={pageRef}
             scrollEventThrottle={30}
             onScroll={handleScroll as any}
+            {...scrollProps}
           >
             {children}
           </ScrollView>
@@ -36,6 +37,6 @@ export function PageContainer({ children, skipLoading }: IPageProps) {
         <BasicPageFooter />
       </BasicPage>
     ),
-    [skipLoading, scrollEnabled, pageRef, handleScroll, children],
+    [skipLoading, scrollEnabled, pageRef, handleScroll, scrollProps, children],
   );
 }

@@ -2,7 +2,7 @@ import type { MutableRefObject, RefObject } from 'react';
 import { createContext } from 'react';
 
 import type { IPageFooterProps } from './type';
-import type { IScrollViewRef } from '../ScrollView';
+import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
 import type { NativeScrollPoint } from 'react-native';
 
 export interface IPageFooterRef {
@@ -16,6 +16,7 @@ export interface IPageContentOptions {
   pageRef: RefObject<IScrollViewRef>;
   pageOffsetRef: MutableRefObject<NativeScrollPoint>;
   footerRef: React.MutableRefObject<IPageFooterRef>;
+  scrollProps?: Omit<IScrollViewProps, 'children'>;
 }
 
 type IPageContentProps = IPageContentOptions;

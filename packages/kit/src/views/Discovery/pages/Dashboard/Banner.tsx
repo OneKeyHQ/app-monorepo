@@ -171,7 +171,10 @@ export function Banner() {
     [media.gtMd],
   );
 
-  const keyExtractor = useCallback(({ title }: { title: string }) => title, []);
+  const keyExtractor = useCallback(
+    ({ title }: { title: string }, index: number) => `${title}-${index}`,
+    [],
+  );
 
   return (
     <Swiper
