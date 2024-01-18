@@ -18,15 +18,13 @@ const bannerData = [
     onPress: () => console.log('clicked'),
   },
   {
-    imgUrl:
-      'https://asset.onekey-asset.com/portal/803ff853ecdd7808b35fdf6f837ae1af514aad56/static/shop-hero-animation-poster-8e1206b59d2201dfaa8cd72a8134179f.jpg',
+    imgUrl: '',
     title: 'Lorem do minim dolore excepteur veniam Lorem id dolor.',
-    theme: 'light',
+    theme: 'dark',
     onPress: () => console.log('clicked'),
   },
   {
-    imgUrl:
-      'https://asset.onekey-asset.com/portal/803ff853ecdd7808b35fdf6f837ae1af514aad56/static/shop-hero-animation-poster-8e1206b59d2201dfaa8cd72a8134179f.jpg',
+    imgUrl: '',
     title: 'Lorem do minim dolore excepteur veniam Lorem id dolor.',
     theme: 'light',
     onPress: () => console.log('clicked'),
@@ -40,10 +38,13 @@ export function Banner() {
   const { imgUrl, title, theme, onPress } = bannerData[bannerIndex];
 
   return (
-    <Stack p="$5">
+    <Stack p="$5" tag="section">
       <XStack
         height="$52"
         $gtMd={{
+          height: '$72',
+        }}
+        $gtLg={{
           height: '$96',
         }}
         p="$5"
@@ -58,7 +59,7 @@ export function Banner() {
           onPress={onPress}
           userSelect="none"
         >
-          <Image width="100%" height="100%" borderRadius="$3">
+          <Image width="100%" height="100%" borderRadius="$3" bg="$bgStrong">
             <Image.Source
               source={{
                 uri: imgUrl,
@@ -95,6 +96,12 @@ export function Banner() {
               <IconButton
                 icon="ChevronLeftOutline"
                 variant="tertiary"
+                iconProps={{
+                  color:
+                    theme === 'light'
+                      ? '$iconSubduedLight'
+                      : '$iconSubduedDark',
+                }}
                 onPress={() => setBannerIndex((previous) => previous - 1)}
               />
             )}
@@ -104,6 +111,12 @@ export function Banner() {
                 icon="ChevronRightOutline"
                 variant="tertiary"
                 ml="auto"
+                iconProps={{
+                  color:
+                    theme === 'light'
+                      ? '$iconSubduedLight'
+                      : '$iconSubduedDark',
+                }}
                 onPress={() => setBannerIndex((previous) => previous + 1)}
                 disabled={bannerIndex === bannerData.length - 1}
               />
@@ -116,6 +129,9 @@ export function Banner() {
               <Stack
                 key={index}
                 w="$3"
+                $gtMd={{
+                  w: '$4',
+                }}
                 h="$1"
                 borderRadius="$full"
                 bg="$whiteA12"

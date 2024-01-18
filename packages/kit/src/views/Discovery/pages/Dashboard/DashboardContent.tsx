@@ -1,23 +1,13 @@
-import { useState } from 'react';
-
-import type { IIconButtonProps } from '@onekeyhq/components';
-import {
-  IconButton,
-  Image,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 
 import { Banner } from './Banner';
+import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
 
 export function DashboardContent() {
   return (
     <Stack>
-      {/* Banner */}
       <Banner />
-      {/* bookmarks and histories */}
+      <BookmarksAndHistoriesSection />
     </Stack>
   );
 }
