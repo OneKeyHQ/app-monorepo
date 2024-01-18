@@ -11,9 +11,8 @@ import { ModalSendStack } from '../../views/Send/router/types';
 import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalDiscoveryStack } from './Discovery';
-import { ModalSendStack } from './Send';
-import { ModalSwapStack } from './SwapModalStack';
 import { ModalMainStack } from './Main';
+import { ModalSwapStack } from './SwapModalStack';
 import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
