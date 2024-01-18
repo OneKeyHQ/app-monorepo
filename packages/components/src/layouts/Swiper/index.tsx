@@ -235,9 +235,9 @@ function BaseSwiperFlatList<T>(
     onViewableItemsChanged: _onViewableItemsChanged,
   };
 
-  const { height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   if (props.getItemLayout === undefined) {
-    const itemDimension = height;
+    const itemDimension = width;
     flatListProps.getItemLayout = (__data, ItemIndex: number) => ({
       length: itemDimension,
       offset: itemDimension * ItemIndex,
