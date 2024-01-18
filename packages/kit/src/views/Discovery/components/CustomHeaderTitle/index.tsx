@@ -17,7 +17,6 @@ export function CustomHeaderTitle() {
       role="button"
       $md={{
         width: screenWidth - 40,
-        position: 'absolute',
       }}
       minWidth="$64"
       px="$2"
@@ -30,6 +29,9 @@ export function CustomHeaderTitle() {
       }}
       pressStyle={{
         bg: '$bgActive',
+      }}
+      onPress={() => {
+        console.log('onPress');
       }}
       style={{
         borderCurve: 'continuous',
