@@ -24,7 +24,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
     const client = await this.getClient();
-    const resp = await client.post<IFetchAccountHistoryResp>(
+    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
       '/wallet/v1/account/history/list',
       params,
     );
@@ -34,7 +34,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const onChainHistoryTxs = resp.data.data;
+    const { data: onChainHistoryTxs, tokens } = resp.data.data;
 
     const txGroup: {
       title: string;
@@ -49,6 +49,7 @@ class ServiceHistory extends ServiceBase {
             accountId,
             networkId,
             onChainHistoryTx: tx,
+            tokens,
           }),
         ),
       );
