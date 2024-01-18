@@ -80,7 +80,7 @@ function MobileBrowser() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header headerTitle={headerTitle} />
       <Page.Body>
         <Stack flex={1} zIndex={3}>
