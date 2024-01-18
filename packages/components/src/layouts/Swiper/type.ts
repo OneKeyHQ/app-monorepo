@@ -1,6 +1,7 @@
 import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 
 import type { IListViewProps } from '../ListView';
+import type { ListRenderItem } from 'react-native';
 
 export type IScrollToIndexParams = { index: number; animated?: boolean }; // DUPLICATED
 export type ISwiperRef = {
@@ -11,14 +12,19 @@ export type ISwiperRef = {
   goToFirstIndex: () => void;
 };
 
-export type ISwiperProps<T> = IListViewProps<T> &
+export type IRenderPaginationParams = {
+  currentIndex: number;
+  goToNextIndex: () => void;
+  gotToPrevIndex: () => void;
+};
+export type ISwiperProps<T> = Omit<IListViewProps<T>, 'data' | 'renderItem'> &
   PropsWithChildren<{
     index?: number;
-    renderPagination?: (params: {
-      currentIndex: number;
-      goToNextIndex: () => void;
-      gotToPrevIndex: () => void;
-    }) => ReactElement | ComponentType;
+    data: ArrayLike<T> | null | undefined;
+    renderItem: ListRenderItem<T> | null | undefined;
+    renderPagination?: (
+      params: IRenderPaginationParams,
+    ) => ReactElement | ComponentType;
     onChangeIndex?: (item: { index: number; prevIndex: number }) => void;
     disableGesture?: boolean;
     autoplayDelayMs?: number;

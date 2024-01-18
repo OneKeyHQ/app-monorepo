@@ -251,7 +251,6 @@ function BaseSwiperFlatList<T>(
   }
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    console.log(e.nativeEvent.layout, 'e.nativeEvent.layout');
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
@@ -267,6 +266,8 @@ function BaseSwiperFlatList<T>(
   );
 }
 
-export const Swiper = forwardRef(BaseSwiperFlatList);
+export const Swiper = forwardRef(
+  BaseSwiperFlatList,
+) as typeof BaseSwiperFlatList;
 
 export * from './type';
