@@ -65,6 +65,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
         borderRadius="$1"
         blockieHash={avatarHash}
         fallbackProps={{
+          delayMs: 150,
           children: <Skeleton w="$6" h="$6" />,
         }}
       />

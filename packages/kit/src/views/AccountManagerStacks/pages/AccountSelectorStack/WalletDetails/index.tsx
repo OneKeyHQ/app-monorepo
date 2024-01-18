@@ -274,8 +274,8 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
               blockieHash: item.idHash || item.id,
-              delayMs: 150,
               fallbackProps: {
+                delayMs: 150,
                 children: <Skeleton w="$10" h="$10" />,
               },
               // cornerImageProps: item.networkImageSrc
