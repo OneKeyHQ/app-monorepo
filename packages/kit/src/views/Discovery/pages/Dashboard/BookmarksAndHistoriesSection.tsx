@@ -95,6 +95,9 @@ function Items({
           </Image>
           <SizableText
             size="$bodyLgMedium"
+            $gtMd={{
+              size: '$bodyMdMedium',
+            }}
             textAlign="center"
             numberOfLines={1}
           >
@@ -139,15 +142,32 @@ export function BookmarksAndHistoriesSection({
         >
           Histories
         </DashboardSectionHeader.Heading>
-        <DashboardSectionHeader.Button
-          onPress={() => {
-            onPressMore(isHistoriesView);
+        {dataSource.length > 0 && (
+          <DashboardSectionHeader.Button
+            onPress={() => {
+              onPressMore(isHistoriesView);
+            }}
+          >
+            See All
+          </DashboardSectionHeader.Button>
+        )}
+      </DashboardSectionHeader>
+      {dataSource.length > 0 ? (
+        <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />
+      ) : (
+        <Stack
+          bg="$bgSubdued"
+          py="$6"
+          borderRadius="$3"
+          style={{
+            borderCurve: 'continuous',
           }}
         >
-          See All
-        </DashboardSectionHeader.Button>
-      </DashboardSectionHeader>
-      <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />
+          <SizableText size="$bodyLg" color="$textDisabled" textAlign="center">
+            {isHistoriesView ? 'No History Yet' : 'No Bookmarks Yet'}
+          </SizableText>
+        </Stack>
+      )}
     </Stack>
   );
 }
