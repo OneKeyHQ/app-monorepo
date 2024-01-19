@@ -14,14 +14,17 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
       }}
       onPress={async () => {
-        const name = await showRenameDialog(wallet.name);
-        if (wallet?.id && name) {
-          const { serviceAccount } = backgroundApiProxy;
-          await serviceAccount.setWalletNameAndAvatar({
-            walletId: wallet?.id,
-            name,
-          });
-        }
+        showRenameDialog(wallet.name, {
+          onSubmit: async (name) => {
+            if (wallet?.id && name) {
+              const { serviceAccount } = backgroundApiProxy;
+              await serviceAccount.setWalletNameAndAvatar({
+                walletId: wallet?.id,
+                name,
+              });
+            }
+          },
+        });
       }}
     />
   );

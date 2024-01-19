@@ -20,14 +20,17 @@ export function AccountRenameButton({
           icon: 'PencilOutline',
           label: 'Rename',
           onPress: async () => {
-            const name = await showRenameDialog(account.name);
-            if (account?.id && name) {
-              const { serviceAccount } = backgroundApiProxy;
-              await serviceAccount.setAccountName({
-                indexedAccountId: account?.id,
-                name,
-              });
-            }
+            showRenameDialog(account.name, {
+              onSubmit: async (name) => {
+                if (account?.id && name) {
+                  const { serviceAccount } = backgroundApiProxy;
+                  await serviceAccount.setAccountName({
+                    indexedAccountId: account?.id,
+                    name,
+                  });
+                }
+              },
+            });
           },
         },
       ]}
