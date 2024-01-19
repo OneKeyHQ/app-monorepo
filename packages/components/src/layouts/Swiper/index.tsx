@@ -241,9 +241,16 @@ function BaseSwiperFlatList<T>(
   );
 
   const handleScrollToIndexFailed = useCallback(
-    (info: IListViewProps<T>['onScrollToIndexFailed']) => {
+    (info: {
+      index: number;
+      highestMeasuredFrameIndex: number;
+      averageItemLength: number;
+    }) => {
       setTimeout(() => {
-        _scrollToIndex({ index: info?.index || 0, animated: false });
+        _scrollToIndex({ index: info.index || 0, animated: false });
+        setTimeout(() => {
+          startTimer();
+        }, 0);
       }, 0);
     },
     [_scrollToIndex],
