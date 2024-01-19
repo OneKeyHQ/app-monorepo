@@ -87,7 +87,6 @@ function BaseSwiperFlatList<T>(
     (params: IScrollToIndexParams) => {
       const { index: indexToScroll, animated = true } = params;
       const newParams = { animated, index: indexToScroll };
-      console.log('_scrollToIndex', params);
       const next = {
         index: indexToScroll,
         prevIndex: currentIndexes.index,
@@ -285,12 +284,13 @@ function BaseSwiperFlatList<T>(
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
-  console.log(flatListProps.height);
   return (
     <YStack
       position="relative"
       width="100%"
       height={flatListProps.height}
+      $md={flatListProps.$md}
+      $gtMd={flatListProps.$gtMd}
       onLayout={handleLayout}
     >
       {containerWidth ? (
