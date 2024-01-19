@@ -2,7 +2,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 
-import SwapPageContainer from './container/SwapPageContainer';
+import SwapPageContainer from './pages/SwapPageContainer';
 
 const Swap = () => (
   <AccountSelectorProviderMirror
