@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { Dialog } from '@onekeyhq/components';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
@@ -29,6 +31,15 @@ export function useSwapBuildTx() {
   }, []);
   const approveTx = useCallback(async (allowanceNumber: number) => {
     // todo approve tx
+    Dialog.confirm({
+      onConfirmText: 'Continue',
+      onConfirm: () => {},
+      showCancelButton: true,
+      title: 'Need to Send 2 Transactions to Change Allowance',
+      description:
+        'Some tokens require multiple transactions to modify the allowance. You must first set the allowance to zero before establishing the new desired allowance value.',
+      icon: 'TxStatusWarningCircleIllus',
+    });
   }, []);
   const buildTx = useCallback(async () => {
     if (

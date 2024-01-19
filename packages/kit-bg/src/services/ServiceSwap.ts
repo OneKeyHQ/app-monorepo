@@ -50,7 +50,7 @@ export default class ServiceSwap extends ServiceBase {
     const client = await this.getClient();
     try {
       const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
-        '/exchange/networks',
+        '/swap/v1/networks',
         { params },
       );
       if (data.code === 0 && data.data) {
@@ -111,7 +111,7 @@ export default class ServiceSwap extends ServiceBase {
     };
     this._tokensCancelSource = axios.CancelToken.source();
     const endpoints = await getEndpoints();
-    const fetchUrl = `${endpoints.http}/exchange/tokens`;
+    const fetchUrl = `${endpoints.http}/swap/v1/tokens`;
     // const client = await this.getClient();
     try {
       const { data } = await axios.get<
@@ -183,7 +183,7 @@ export default class ServiceSwap extends ServiceBase {
     };
     this._quoteCancelSource = axios.CancelToken.source();
     const endpoints = await getEndpoints();
-    const fetchUrl = `${endpoints.http}/exchange/quote`;
+    const fetchUrl = `${endpoints.http}/swap/v1/quote`;
     try {
       const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
@@ -249,7 +249,7 @@ export default class ServiceSwap extends ServiceBase {
     const client = await this.getClient();
     try {
       const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-        '/exchange/build-tx',
+        '/swap/v1/build-tx',
         { params },
       );
       if (data.code === 0 && data.data) {
@@ -288,7 +288,7 @@ export default class ServiceSwap extends ServiceBase {
     try {
       const { data } = await client.post<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-      >('/exchange/state-tx', params);
+      >('/swap/v1/state-tx', params);
       if (data?.code === 0 && data?.data) {
         return data.data;
       }

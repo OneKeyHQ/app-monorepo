@@ -78,6 +78,7 @@ export interface IFetchQuoteResult {
 export interface IAllowanceResult {
   allowanceTarget: string;
   amount: string;
+  shouldResetApprove?: boolean;
 }
 
 export interface IFetchQuoteInfo {
