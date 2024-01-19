@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -25,11 +25,17 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountRename';
 import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
+import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
+  IDBAccount,
   IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -56,6 +62,20 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
   const actions = useAccountSelectorActions();
 
   const navigation = useAppNavigation();
+
+  const isOthers = selectedAccount?.focusedWallet === '$$others';
+
+  const handleImportWatchingAccount = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportAddress,
+    });
+  }, [navigation]);
+
+  const handleImportPrivatekeyAccount = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportPrivateKey,
+    });
+  }, [navigation]);
 
   const { result: focusedWalletInfo, run: reloadFocusedWalletInfo } =
     usePromiseResult(
@@ -104,17 +124,21 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
     };
   }, [reloadFocusedWalletInfo]);
 
-  const { result: accountsResult, run: reloadAccounts } =
-    usePromiseResult(async () => {
+  const { result: sectionData, run: reloadAccounts } = usePromiseResult(
+    async () => {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
       }
-      return serviceAccount.getAccountsOfWallet({
-        walletId: selectedAccount?.focusedWallet,
+
+      return serviceAccount.getAccountSelectorAccountsListSectionData({
+        focusedWallet: selectedAccount?.focusedWallet,
       });
-    }, [selectedAccount?.focusedWallet, serviceAccount]);
-  const accounts =
-    accountsResult?.accounts ?? (emptyArray as unknown as IDBIndexedAccount[]);
+    },
+    [selectedAccount?.focusedWallet, serviceAccount],
+    {
+      checkIsFocused: false,
+    },
+  );
 
   useEffect(() => {
     const fn = async () => {
@@ -125,22 +149,6 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
     };
   }, [reloadAccounts]);
-
-  const sectionData = useMemo(
-    () => [
-      {
-        title: '', // focusedWalletInfo?.name ?? '-',
-        isHiddenWalletData: false,
-        data: accounts,
-      },
-      // {
-      //   title: 'Hidden wallet 1', // focusedWalletInfo?.name ?? '-',
-      //   isHiddenWalletData: true,
-      //   data: accounts,
-      // },
-    ],
-    [accounts],
-  );
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -176,7 +184,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
     <Stack flex={1} pb={bottom}>
       <ListItem
         mt="$1.5"
-        title={focusedWalletInfo?.wallet?.name}
+        title={isOthers ? 'Others' : focusedWalletInfo?.wallet?.name}
         titleProps={{
           animation: 'quick',
           opacity: editMode ? 0 : 1,
@@ -202,9 +210,9 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
         //   ),
         // })}
         ListHeaderComponent={
-          <WalletOptions wallet={focusedWalletInfo?.wallet} />
+          isOthers ? null : <WalletOptions wallet={focusedWalletInfo?.wallet} />
         }
-        sections={sectionData}
+        sections={sectionData ?? (emptyArray as any)}
         renderSectionHeader={({ section }: { section: IAccountGroupProps }) => (
           <>
             {/* If better performance is needed,  */
@@ -268,7 +276,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             )}
           </>
         )}
-        renderItem={({ item }: { item: IDBIndexedAccount }) => (
+        renderItem={({ item }: { item: IDBIndexedAccount | IDBAccount }) => (
           <ListItem
             key={item.id}
             avatarProps={{
@@ -291,51 +299,82 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             titleProps={{
               numberOfLines: 1,
             }}
-            // subtitle={item.address}
-            subtitle=""
+            subtitle={
+              (item as IDBAccount)?.address
+                ? accountUtils.shortenAddress({
+                    address: (item as IDBAccount)?.address,
+                  })
+                : undefined
+            }
             {...(onAccountPress &&
               !editMode && {
                 onPress: () => {
-                  if (!focusedWalletInfo) {
-                    return;
+                  if (isOthers) {
+                    actions.current.updateSelectedAccount({
+                      num,
+                      builder: (v) => ({
+                        ...v,
+                        walletId: accountUtils.getWalletIdFromAccountId({
+                          accountId: item.id,
+                        }),
+                        othersWalletAccountId: item.id,
+                        indexedAccountId: undefined,
+                      }),
+                    });
+                  } else if (focusedWalletInfo) {
+                    actions.current.updateSelectedAccount({
+                      num,
+                      builder: (v) => ({
+                        ...v,
+                        walletId: focusedWalletInfo?.wallet?.id,
+                        othersWalletAccountId: undefined,
+                        indexedAccountId: item.id,
+                      }),
+                    });
                   }
-                  actions.current.updateSelectedAccount({
-                    num,
-                    builder: (v) => ({
-                      ...v,
-                      walletId: focusedWalletInfo?.wallet?.id,
-                      accountId: undefined,
-                      indexedAccountId: item.id,
-                    }),
-                  });
                   navigation.popStack();
                 },
-                checkMark: selectedAccount.indexedAccountId === item.id,
+                checkMark: isOthers
+                  ? selectedAccount.othersWalletAccountId === item.id
+                  : selectedAccount.indexedAccountId === item.id,
               })}
           >
             <AnimatePresence>
-              {editMode && <AccountRenameButton indexedAccount={item} />}
+              {editMode && <AccountRenameButton account={item} />}
             </AnimatePresence>
           </ListItem>
         )}
-        renderSectionFooter={() => (
+        renderSectionFooter={({
+          section,
+        }: {
+          section: IAccountSelectorSectionData;
+        }) => (
           <ListItem
             onPress={async () => {
+              if (isOthers) {
+                if (section.walletId === WALLET_TYPE_WATCHING) {
+                  handleImportWatchingAccount();
+                }
+                if (section.walletId === WALLET_TYPE_IMPORTED) {
+                  handleImportPrivatekeyAccount();
+                }
+                return;
+              }
+              console.log(section);
               if (!focusedWalletInfo) {
                 return;
               }
               const c = await serviceAccount.addHDNextIndexedAccount({
-                walletId: focusedWalletInfo?.wallet?.id,
+                walletId: section.walletId,
               });
               console.log('addHDNextIndexedAccount>>>', c);
-              await reloadAccounts();
-
               actions.current.updateSelectedAccount({
                 num,
                 builder: (v) => ({
                   ...v,
-                  indexedAccountId: c.indexedAccountId,
                   walletId: focusedWalletInfo?.wallet?.id,
+                  othersWalletAccountId: undefined,
+                  indexedAccountId: c.indexedAccountId,
                 }),
               });
             }}

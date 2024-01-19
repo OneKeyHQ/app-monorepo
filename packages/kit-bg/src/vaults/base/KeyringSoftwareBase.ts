@@ -1,5 +1,6 @@
 import { isNil } from 'lodash';
 
+import { decryptImportedCredential } from '@onekeyhq/core/src/secret';
 import type {
   ICoreCredentialsInfo,
   ICoreHdCredentialEncryptHex,
@@ -171,18 +172,23 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     params: IPrepareImportedAccountsParams,
     options: {
       coinType: string;
+      impl: string;
       accountType: EDBAccountType;
     },
   ): Promise<Array<IDBSimpleAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, privateKey } = params;
-    const { coinType, accountType } = options;
+    const { name, importedCredential, password } = params;
+    const { privateKey } = decryptImportedCredential({
+      credential: importedCredential,
+      password,
+    });
+    const { coinType, accountType, impl } = options;
 
     const networkInfo = await this.getCoreApiNetworkInfo();
 
-    const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
+    const privateKeyRaw = privateKey;
     const { address, addresses, publicKey } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
@@ -196,6 +202,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         type: accountType,
         path: '',
         coinType,
+        impl,
         pub: publicKey,
         address,
         addresses,
@@ -213,12 +220,18 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, privateKey } = params;
+    const { name, importedCredential, password } = params;
+    const { privateKey } = decryptImportedCredential({
+      credential: importedCredential,
+      password,
+    });
+
     const { coinType, accountType } = options;
 
+    const settings = await this.getVaultSettings();
     const networkInfo = await this.getCoreApiNetworkInfo();
 
-    const privateKeyRaw = bufferUtils.bytesToHex(privateKey);
+    const privateKeyRaw = privateKey;
     const { address, addresses, publicKey, xpub, path, xpubSegwit } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
@@ -236,6 +249,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         type: accountType,
         path,
         coinType,
+        impl: settings.impl,
         xpub,
         xpubSegwit,
         pub: publicKey,
