@@ -1,6 +1,8 @@
 import { memo } from 'react';
 
-import { Image } from '../../primitives';
+import { withStaticProperties } from 'tamagui';
+
+import { Image, Skeleton } from '../../primitives';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -19,7 +21,15 @@ function HashImageSource({ blockieHash }: { blockieHash: string }) {
 
 const MemoHashImageSource = memo(HashImageSource);
 
-export function AccountAvatar({
+function Fallback({ delayMs = 150 }: { delayMs?: number }) {
+  return (
+    <Image.Fallback delayMs={delayMs}>
+      <Skeleton w="$6" h="$6" />
+    </Image.Fallback>
+  );
+}
+
+function BasicAccountAvatar({
   src,
   source,
   blockieHash,
@@ -43,7 +53,11 @@ export function AccountAvatar({
       ) : (
         <Image.Source src={src} source={source} />
       )}
-      <Image.Fallback {...fallbackProps} />
+      {fallbackProps ? <Image.Fallback {...fallbackProps} /> : <Fallback />}
     </Image>
   );
 }
+
+export const AccountAvatar = withStaticProperties(BasicAccountAvatar, {
+  fallback: Fallback,
+});

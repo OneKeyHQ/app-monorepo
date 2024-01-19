@@ -60,15 +60,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <AccountAvatar
-        size="$6"
-        borderRadius="$1"
-        blockieHash={avatarHash}
-        fallbackProps={{
-          delayMs: 150,
-          children: <Skeleton w="$6" h="$6" />,
-        }}
-      />
+      <AccountAvatar size="$6" borderRadius="$1" blockieHash={avatarHash} />
 
       <SizableText
         flex={1}
