@@ -281,7 +281,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              blockieHash: item.idHash,
+              account: item,
               fallbackProps: {
                 delayMs: 150,
                 children: <Skeleton w="$10" h="$10" />,

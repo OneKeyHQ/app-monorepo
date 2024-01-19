@@ -31,11 +31,10 @@ import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, indexedAccount, account },
+    activeAccount: { wallet, account },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const avatarHash = indexedAccount?.idHash ?? account?.address ?? '--';
 
   return (
     <XStack
@@ -60,7 +59,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <AccountAvatar size="$6" borderRadius="$1" blockieHash={avatarHash} />
+      <AccountAvatar size="$6" borderRadius="$1" account={account} />
 
       <SizableText
         flex={1}

@@ -8,6 +8,11 @@ import { isValidElement } from 'react';
 
 import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import { Divider } from '../../content';
 import { Icon, Image, SizableText, Stack } from '../../primitives';
 import { AccountAvatar } from '../AccountAvatar';
@@ -74,7 +79,7 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 export type IListItemAvatarProps = {
-  blockieHash?: string;
+  avatar?: IDBIndexedAccount | IDBAccount;
   fallbackProps?: IImageFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
   cornerImageProps?: IListItemAvatarCornerImageProps;

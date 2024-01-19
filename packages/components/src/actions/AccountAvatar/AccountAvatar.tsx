@@ -2,6 +2,11 @@ import { memo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import { Image, Skeleton } from '../../primitives';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
@@ -10,12 +15,12 @@ import type { IImageFallbackProps, IImageProps } from '../../primitives';
 import type { ImageStyle } from 'react-native';
 
 export interface IAccountAvatarProps extends IImageProps {
-  blockieHash?: string;
+  account?: IDBIndexedAccount | IDBAccount;
   fallbackProps?: IImageFallbackProps;
 }
 
-function HashImageSource({ blockieHash }: { blockieHash: string }) {
-  const { uri } = useBlockieImageUri(blockieHash);
+function HashImageSource({ id }: { id: string }) {
+  const { uri } = useBlockieImageUri(id);
   return uri ? <Image.Source src={uri} /> : null;
 }
 
@@ -32,11 +37,12 @@ function Fallback({ delayMs = 150 }: { delayMs?: number }) {
 function BasicAccountAvatar({
   src,
   source,
-  blockieHash,
+  account,
   fallbackProps,
   circular,
   ...restProps
 }: IAccountAvatarProps) {
+  console.log(account);
   return (
     <Image
       size="$10"
@@ -48,8 +54,10 @@ function BasicAccountAvatar({
       {...(circular ? { circular: true } : { borderRadius: '$2' })}
       {...restProps}
     >
-      {blockieHash ? (
-        <MemoHashImageSource blockieHash={blockieHash} />
+      {account ? (
+        <MemoHashImageSource
+          id={(account as IDBIndexedAccount).idHash || account.id}
+        />
       ) : (
         <Image.Source src={src} source={source} />
       )}
