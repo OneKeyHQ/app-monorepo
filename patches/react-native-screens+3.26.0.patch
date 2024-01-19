@@ -130,7 +130,7 @@ index 74f1804..aebed6e 100644
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 4b24cff..0e1703f 100644
+index 1ed4914..0e1703f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -441,3 +441,45 @@ index e295dcc..aebe6bc 100644
      for (UIView *view in self.subviews) {
        if ([view isKindOfClass:[RNSFullWindowOverlayContainer class]]) {
          [self bringSubviewToFront:view];
+diff --git a/node_modules/react-native-screens/lib/commonjs/index.js b/node_modules/react-native-screens/lib/commonjs/index.js
+index 073887a..4861976 100644
+--- a/node_modules/react-native-screens/lib/commonjs/index.js
++++ b/node_modules/react-native-screens/lib/commonjs/index.js
+@@ -93,6 +93,8 @@ function enableFreeze() {
+ } // noop
+ 
+ class NativeScreen extends _react.default.Component {
++  // Just to help determine whether `View.setNativeProps`` can be called in `react-native-web.createAnimatedComponent`
++  setNativeProps() {}
+   render() {
+     let {
+       active,
+diff --git a/node_modules/react-native-screens/lib/module/index.js b/node_modules/react-native-screens/lib/module/index.js
+index 2799d7c..e9cff6f 100644
+--- a/node_modules/react-native-screens/lib/module/index.js
++++ b/node_modules/react-native-screens/lib/module/index.js
+@@ -20,6 +20,8 @@ export function enableFreeze() {
+ } // noop
+ 
+ export class NativeScreen extends React.Component {
++  // Just to help determine whether `View.setNativeProps`` can be called in `react-native-web.createAnimatedComponent`
++  setNativeProps() {}
+   render() {
+     let {
+       active,
+diff --git a/node_modules/react-native-screens/src/index.tsx b/node_modules/react-native-screens/src/index.tx
+similarity index 96%
+rename from node_modules/react-native-screens/src/index.tsx
+rename to node_modules/react-native-screens/src/index.tx
+index 9e4e264..728a286 100644
+--- a/node_modules/react-native-screens/src/index.tsx
++++ b/node_modules/react-native-screens/src/index.tx
+@@ -34,6 +34,8 @@ export function enableFreeze(shouldEnableReactFreeze = true): void {
+ }
+ 
+ export class NativeScreen extends React.Component<ScreenProps> {
++  // Just to help determine whether `View.setNativeProps`` can be called in `react-native-web.createAnimatedComponent`
++  setNativeProps() {}
+   render(): JSX.Element {
+     let {
+       active,

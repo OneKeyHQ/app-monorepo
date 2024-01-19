@@ -80,6 +80,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.72.5",
+    "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",
     "redux-flipper": "^2.0.2",
     "stream-browserify": "^3.0.0",
