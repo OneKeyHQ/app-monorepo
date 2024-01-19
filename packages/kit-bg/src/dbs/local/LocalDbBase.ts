@@ -10,6 +10,7 @@ import {
   ensureSensitiveTextEncoded,
   sha256,
 } from '@onekeyhq/core/src/secret';
+import type { ICoreImportedCredentialEncryptHex } from '@onekeyhq/core/src/types';
 import {
   OneKeyInternalError,
   PasswordNotSet,
@@ -26,8 +27,10 @@ import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -46,24 +49,28 @@ import {
   type IDBRemoveWalletParams,
   type IDBSetAccountNameParams,
   type IDBSetAccountTemplateParams,
-  type IDBSetNextAccountIdsParams,
   type IDBSetWalletNameAndAvatarParams,
   type IDBStoredPrivateKeyCredential,
   type IDBStoredSeedCredential,
   type IDBWallet,
   type IDBWalletId,
+  type IDBWalletIdSingleton,
   type ILocalDBAgent,
   type ILocalDBGetAllRecordsParams,
   type ILocalDBGetAllRecordsResult,
   type ILocalDBGetRecordByIdParams,
   type ILocalDBGetRecordByIdResult,
+  type ILocalDBGetRecordsCountParams,
+  type ILocalDBGetRecordsCountResult,
   type ILocalDBRecordUpdater,
   type ILocalDBTransaction,
   type ILocalDBTxAddRecordsParams,
+  type ILocalDBTxAddRecordsResult,
   type ILocalDBTxGetAllRecordsParams,
   type ILocalDBTxGetAllRecordsResult,
   type ILocalDBTxGetRecordByIdParams,
   type ILocalDBTxGetRecordByIdResult,
+  type ILocalDBTxGetRecordsCountParams,
   type ILocalDBTxRemoveRecordsParams,
   type ILocalDBTxUpdateRecordsParams,
   type ILocalDBWithTransactionTask,
@@ -78,6 +85,20 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     );
     // const db = await this.readyDb;
     // return db.withTransaction(task);
+  }
+
+  async getRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult> {
+    const db = await this.readyDb;
+    return db.getRecordsCount(params);
+  }
+
+  async txGetRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult> {
+    const db = await this.readyDb;
+    return db.txGetRecordsCount(params);
   }
 
   async getAllRecords<T extends ELocalDBStoreNames>(
@@ -118,7 +139,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
 
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
-  ): Promise<void> {
+  ): Promise<ILocalDBTxAddRecordsResult> {
     const db = await this.readyDb;
     return db.txAddRecords(params);
   }
@@ -424,6 +445,7 @@ ssphrase wallet
       | undefined,
   ): Promise<{ wallets: IDBWallet[] }> {
     const db = await this.readyDb;
+    // get all wallets for account selector
     const { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.Wallet,
     });
@@ -453,10 +475,6 @@ ssphrase wallet
     return wallet;
   }
 
-  getWalletByDeviceId(deviceId: string): Promise<IDBWallet[]> {
-    throw new Error('Method not implemented.');
-  }
-
   async getIndexedAccount({ id }: { id: string }) {
     const db = await this.readyDb;
     return db.getRecordById({
@@ -467,6 +485,7 @@ ssphrase wallet
 
   async getIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
     const db = await this.readyDb;
+    // TODO performance
     const { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.IndexedAccount,
     });
@@ -928,48 +947,114 @@ ssphrase wallet
     return wallet;
   }
 
-  updateWalletNextAccountIds({
-    walletId,
-    nextAccountIds,
-  }: IDBSetNextAccountIdsParams): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
-  }
-
-  confirmWalletCreated(walletId: string): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
-  }
-
-  cleanupPendingWallets(): Promise<void> {
-    throw new Error('Method not implemented.');
+  isSingletonWallet({ walletId }: { walletId: string }) {
+    return (
+      walletId === WALLET_TYPE_WATCHING ||
+      walletId === WALLET_TYPE_EXTERNAL ||
+      walletId === WALLET_TYPE_IMPORTED
+    );
   }
 
   async addAccountsToWallet({
     walletId,
     accounts,
+    importedCredential,
   }: {
     walletId: string;
     accounts: IDBAccount[];
-    // importedCredential?: IDBPrivateKeyCredential | undefined,}
+    importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
   }): Promise<void> {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
-      await db.txAddRecords({
+      // add account record
+      const { added, addedIds } = await db.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Account,
         records: accounts,
         skipIfExists: true,
       });
+
+      // update singleton wallet.accounts & nextAccountId
+      if (added > 0 && this.isSingletonWallet({ walletId })) {
+        await db.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Wallet,
+          ids: [walletId],
+          updater: (w) => {
+            w.nextAccountIds = w.nextAccountIds || {};
+            w.nextAccountIds.global = (w.nextAccountIds.global ?? 1) + added;
+
+            w.accounts = w.accounts || [];
+            w.accounts = [].concat(w.accounts as any, addedIds as any);
+            return w;
+          },
+        });
+      }
+
+      if (walletId === WALLET_TYPE_IMPORTED) {
+        if (addedIds.length !== 1) {
+          throw new Error(
+            'Only one can be imported at a time into a private key account.',
+          );
+        }
+        if (!importedCredential) {
+          throw new Error('importedCredential is missing');
+        }
+        await this.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          records: [
+            {
+              id: addedIds[0],
+              credential: importedCredential,
+            },
+          ],
+        });
+      }
+
       // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });
   }
 
+  async getWalletNextAccountId({
+    walletId,
+    key = 'global',
+  }: {
+    walletId: IDBWalletId;
+    key?: string | 'global';
+  }) {
+    const wallet = await this.getWallet({ walletId });
+    return wallet.nextAccountIds[key] ?? 1;
+  }
+
   // ---------------------------------------------- account
+
+  async getSingletonAccountsOfWallet({
+    walletId,
+  }: {
+    walletId: IDBWalletIdSingleton;
+  }) {
+    const db = await this.readyDb;
+    const wallet = await this.getWallet({ walletId });
+    const { records: accounts } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Account,
+      ids: wallet.accounts, // filter by ids for better performance
+    });
+    return {
+      accounts,
+    };
+  }
+
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
     const db = await this.readyDb;
-    return db.getRecordById({
+    const account = await db.getRecordById({
       name: ELocalDBStoreNames.Account,
       id: accountId,
     });
+    if (!account.impl) {
+      throw new Error('account.impl is missing');
+    }
+    return account;
   }
 
   getAllAccounts(): Promise<IDBAccount[]> {
@@ -1106,6 +1191,7 @@ ssphrase wallet
   // ---------------------------------------------- device
 
   async getAllDevices(): Promise<IDBDevice[]> {
+    // TODO performance
     const { records: devices } = await this.getAllRecords({
       name: ELocalDBStoreNames.Device,
     });

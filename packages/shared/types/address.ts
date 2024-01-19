@@ -1,9 +1,10 @@
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 
+// TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;
-  normalizedAddress?: string;
-  displayAddress?: string;
+  normalizedAddress: string; // lowercase address saved to db in EVM
+  displayAddress: string; // checksum address in EVM
   encoding?: EAddressEncodings;
 };
 
@@ -24,4 +25,7 @@ export type IFetchAddressDetailsResp = {
   nonce?: number;
   isContract?: boolean;
   netWorth?: string;
+};
+export type IXpubValidation = {
+  isValid: boolean;
 };

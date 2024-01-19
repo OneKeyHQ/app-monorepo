@@ -2,6 +2,7 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   COINNAME_TBTC,
   COINTYPE_TBTC,
+  IMPL_TBTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -59,6 +60,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
 const settings: IVaultSettings = {
   ...settingsBtc,
   accountDeriveInfo,
+  impl: IMPL_TBTC,
+  coinTypeDefault: COINTYPE_TBTC,
 };
 
 export default Object.freeze(settings);

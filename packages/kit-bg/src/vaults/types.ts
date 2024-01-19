@@ -1,6 +1,7 @@
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
+  ICoreImportedCredentialEncryptHex,
   ICurveName,
   ISignedTxPro,
   IUnsignedMessage,
@@ -18,11 +19,7 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type {
-  EDBAccountType,
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_WATCHING,
-} from '../dbs/local/consts';
+import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBWalletId } from '../dbs/local/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -86,6 +83,9 @@ export type IVaultSettingsNetworkInfo = {
   curve: ICurveName;
 };
 export type IVaultSettings = {
+  impl: string;
+  coinTypeDefault: string;
+
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
@@ -117,15 +117,19 @@ export type IGetPrivateKeysResult = {
   [path: string]: Buffer;
 };
 export type IPrepareWatchingAccountsParams = {
-  target: string; // address, xpub
+  // target: string; // address, xpub TODO remove
+  address: string;
+  pub?: string;
+  xpub?: string;
   name: string;
-  accountIdPrefix: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
-  template?: string;
+  template?: string; // TODO use deriveInfo, for BTC taproot address importing
 };
 export type IPrepareImportedAccountsParams = {
-  privateKey: Buffer;
+  password: string;
+  importedCredential: ICoreImportedCredentialEncryptHex;
   name: string;
-  template?: string;
+  template?: string; // TODO use deriveInfo
+  deriveInfo?: IAccountDeriveInfo;
 };
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
