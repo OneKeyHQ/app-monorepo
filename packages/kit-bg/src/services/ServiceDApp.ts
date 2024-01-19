@@ -4,6 +4,7 @@ import { debounce } from 'lodash';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
 import {
   backgroundClass,
   backgroundMethod,
@@ -143,6 +144,20 @@ class ServiceDApp extends ServiceBase {
     },
   );
 
+  @backgroundMethod()
+  async openConnectionModal(request: IJsBridgeMessagePayload) {
+    const result = await this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.ConnectionModal,
+      ],
+    });
+
+    return result;
+  }
+
+  @backgroundMethod()
   openSignMessageModal({
     request,
     unsignedMessage,

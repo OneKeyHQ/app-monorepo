@@ -43,8 +43,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiEthereum.eth_requestAccounts', request);
+    const result = await this.backgroundApi.serviceDApp.openConnectionModal(
+      request,
+    );
+    console.log('====>result: ', result);
     return Promise.resolve(['0x0000000']);
   }
 

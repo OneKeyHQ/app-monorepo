@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useImperativeHandle } from 'react';
 
 import {
   Button,
@@ -11,7 +11,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -28,7 +27,13 @@ import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
 
-export function AccountSelectorTriggerHome({ num }: { num: number }) {
+import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+
+export function AccountSelectorTriggerHome({
+  num,
+  sceneName,
+  sceneUrl,
+}: { num: number } & IAccountSelectorContextData) {
   const navigation = useAppNavigation();
   const {
     activeAccount: { wallet, indexedAccount, account },
@@ -62,7 +67,8 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
           activeWallet: wallet,
           num,
           navigation,
-          sceneName: EAccountSelectorSceneName.home,
+          sceneName,
+          sceneUrl,
         })
       }
       maxWidth="$40"
