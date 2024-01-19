@@ -227,6 +227,15 @@ function BaseSwiperFlatList<T>(
     [],
   );
 
+  const handleScrollToIndexFailed = useCallback(
+    (info: IListViewProps<T>['onScrollToIndexFailed']) => {
+      setTimeout(() => {
+        _scrollToIndex({ index: info?.index || 0, animated: false });
+      }, 0);
+    },
+    [_scrollToIndex],
+  );
+
   const flatListProps: IListViewProps<T> = {
     scrollEnabled,
     ref: swiperRef,
@@ -235,8 +244,7 @@ function BaseSwiperFlatList<T>(
     showsVerticalScrollIndicator: false,
     pagingEnabled: true,
     ...props,
-    onScrollToIndexFailed: (info) =>
-      setTimeout(() => _scrollToIndex({ index: info.index, animated: false })),
+    onScrollToIndexFailed: handleScrollToIndexFailed,
     data: _data,
     renderItem: _renderItem,
     initialNumToRender: _initialNumToRender,
@@ -263,6 +271,9 @@ function BaseSwiperFlatList<T>(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (flatListProps as any).dataSet = { 'paging-enabled-fix': true };
   }
+  const handleScrollBeginDrag = useCallback(() => {
+    clearTimer();
+  }, [clearTimer]);
 
   const handleScrollEnd = useCallback(() => {
     setTimeout(() => {
@@ -274,19 +285,30 @@ function BaseSwiperFlatList<T>(
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
+  console.log(flatListProps.height);
   return (
-    <YStack position="relative" width="100%" onLayout={handleLayout}>
-      <ListView
-        {...flatListProps}
-        width={containerWidth}
-        onScrollAnimationEnd={handleScrollEnd}
-        onScrollEndDrag={handleScrollEnd}
-      />
-      {renderPagination?.({
-        goToNextIndex,
-        gotToPrevIndex,
-        currentIndex: currentIndexes.index,
-      })}
+    <YStack
+      position="relative"
+      width="100%"
+      height={flatListProps.height}
+      onLayout={handleLayout}
+    >
+      {containerWidth ? (
+        <>
+          <ListView
+            {...flatListProps}
+            width={containerWidth}
+            onScrollAnimationEnd={handleScrollEnd}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollEndDrag={handleScrollEnd}
+          />
+          {renderPagination?.({
+            goToNextIndex,
+            gotToPrevIndex,
+            currentIndex: currentIndexes.index,
+          })}
+        </>
+      ) : null}
     </YStack>
   );
 }
