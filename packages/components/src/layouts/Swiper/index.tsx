@@ -1,13 +1,5 @@
 import type { ForwardedRef } from 'react';
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, useCallback, useImperativeHandle } from 'react';
 
 import { YStack } from 'tamagui';
 
@@ -21,9 +13,8 @@ import {
   useSharedStyle,
 } from './hooks';
 
-import type { IScrollToIndexParams, ISwiperProps, ISwiperRef } from './type';
-import type { IListViewProps, IListViewRef } from '../ListView';
-import type { FlatListProps, ListRenderItemInfo } from 'react-native';
+import type { ISwiperProps, ISwiperRef } from './type';
+import type { ListRenderItemInfo } from 'react-native';
 
 function BaseSwiperFlatList<T>(
   {

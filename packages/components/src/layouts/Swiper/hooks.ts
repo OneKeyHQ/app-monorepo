@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { InteractionManager, type LayoutChangeEvent } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IScrollToIndexParams, ISwiperProps } from './type';
 import type { IListViewRef } from '../ListView';
@@ -105,19 +106,19 @@ export const useScrollEvent = ({
     [currentIndexes.index, currentIndexes.prevIndex],
   );
 
-  const goToNextIndex = useCallback(() => {
+  const goToNextIndex = useDebouncedCallback(() => {
     clearTimer();
     void InteractionManager.runAfterInteractions(() => {
       scrollToIndex({ index: currentIndexes.index + 1, animated: true });
     });
-  }, [scrollToIndex, clearTimer, currentIndexes.index]);
+  }, 100);
 
-  const gotToPrevIndex = useCallback(() => {
+  const gotToPrevIndex = useDebouncedCallback(() => {
     clearTimer();
     void InteractionManager.runAfterInteractions(() => {
       scrollToIndex({ index: currentIndexes.index - 1, animated: true });
     });
-  }, [scrollToIndex, clearTimer, currentIndexes.index]);
+  }, 100);
 
   const startTimer = useCallback(() => {
     clearTimer();
