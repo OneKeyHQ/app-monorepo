@@ -19,6 +19,8 @@ import { YStack } from 'tamagui';
 import { Stack } from '../../primitives';
 import { ListView } from '../ListView';
 
+import { useSharedContainerWidth, useSharedStyle } from './hooks';
+
 import type { IScrollToIndexParams, ISwiperProps, ISwiperRef } from './type';
 import type { IListViewProps, IListViewRef } from '../ListView';
 import type {
@@ -47,23 +49,16 @@ function BaseSwiperFlatList<T>(
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
 ) {
+  const sharedStyle = useSharedStyle(props as any);
+  const { containerWidth, onContainerLayout } = useSharedContainerWidth();
   const _data = data || [];
-
-  const [containerWidth, setContainerWidth] = useState(0);
   const _renderItem = useCallback(
     (info: ListRenderItemInfo<T>) => (
-      <Stack
-        width={containerWidth}
-        height={props.height}
-        $md={props.$md}
-        $gtMd={props.$gtMd}
-        $lg={props.$lg}
-        $gtLg={props.$gtLg}
-      >
+      <Stack width={containerWidth} {...sharedStyle}>
         {renderItem?.(info)}
       </Stack>
     ),
-    [containerWidth, renderItem],
+    [containerWidth, renderItem, sharedStyle],
   );
   const size = _data.length;
   // Items to render in the initial batch.
@@ -300,20 +295,12 @@ function BaseSwiperFlatList<T>(
     }, 0);
   }, [startTimer]);
 
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    setContainerWidth(e.nativeEvent.layout.width);
-  }, []);
-
   return (
     <YStack
       position="relative"
       width="100%"
-      height={flatListProps.height}
-      $md={flatListProps.$md}
-      $gtMd={flatListProps.$gtMd}
-      $lg={flatListProps.$lg}
-      $gtLg={flatListProps.$gtLg}
-      onLayout={handleLayout}
+      onLayout={onContainerLayout}
+      {...sharedStyle}
     >
       {containerWidth ? (
         <>
