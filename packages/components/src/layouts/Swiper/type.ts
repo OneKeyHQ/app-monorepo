@@ -17,9 +17,13 @@ export type IRenderPaginationParams = {
   goToNextIndex: () => void;
   gotToPrevIndex: () => void;
 };
-export type ISwiperProps<T> = Omit<IListViewProps<T>, 'data' | 'renderItem'> &
+export type ISwiperProps<T> = Omit<
+  IListViewProps<T>,
+  'data' | 'renderItem' | 'estimatedItemSize' | 'height'
+> &
   PropsWithChildren<{
     index?: number;
+    height: IListViewProps<T>['height'];
     data: ArrayLike<T> | null | undefined;
     renderItem: ListRenderItem<T> | null | undefined;
     renderPagination?: (

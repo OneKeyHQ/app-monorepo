@@ -42,7 +42,6 @@ const SliderGallery = () => (
         element: () => (
           <Swiper
             autoplay
-            estimatedItemSize={384}
             autoplayDelayMs={2000}
             autoplayLoop
             index={0}

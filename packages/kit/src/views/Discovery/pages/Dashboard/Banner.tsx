@@ -175,7 +175,6 @@ export function Banner() {
       $gtLg={{
         height: 404,
       }}
-      estimatedItemSize="$52"
       keyExtractor={keyExtractor}
       index={0}
       data={bannerData}

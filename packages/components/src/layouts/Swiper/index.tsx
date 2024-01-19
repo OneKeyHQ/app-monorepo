@@ -268,6 +268,7 @@ function BaseSwiperFlatList<T>(
     initialNumToRender: _initialNumToRender,
     initialScrollIndex: index, // used with onScrollToIndexFailed
     onViewableItemsChanged: _onViewableItemsChanged,
+    estimatedItemSize: props.height,
     viewabilityConfig: {
       // https://facebook.github.io/react-native/docs/flatlist#minimumviewtime
       minimumViewTime: 200,
