@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo } from 'react';
 
-import { uniq } from 'lodash';
+import { isNil, uniq } from 'lodash';
 
 import type {
   IAccountSelectorMap,
@@ -159,6 +159,11 @@ export function AccountSelectorProviderMirror({
   config: IAccountSelectorContextData;
   enabledNum: number[];
 }) {
+  if (isNil(enabledNum)) {
+    throw new Error(
+      'AccountSelectorProviderMirror ERROR: enabledNum is required',
+    );
+  }
   const store = accountSelectorStore.getOrCreateStore({ config });
   return (
     <>

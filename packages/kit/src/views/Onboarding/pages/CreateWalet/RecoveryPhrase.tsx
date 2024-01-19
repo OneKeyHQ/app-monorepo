@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import * as Clipboard from 'expo-clipboard';
 
@@ -63,8 +63,19 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
   const { servicePassword } = backgroundApiProxy;
-  const mnemonic = useMemo(() => generateMnemonic(), []);
-  const phrases = useMemo(() => mnemonic.split(' '), [mnemonic]);
+
+  useEffect(() => {
+    console.log('RecoveryPhrase useEffect');
+  }, []);
+
+  const mnemonic = useMemo(() => {
+    console.log('RecoveryPhrase generateMnemonic');
+    return generateMnemonic();
+  }, []);
+  const phrases = useMemo(
+    () => mnemonic.split(' ').filter(Boolean),
+    [mnemonic],
+  );
 
   const handleConfirmPress = useCallback(async () => {
     navigation.push(EOnboardingPages.VerifyRecoverPhrase, {

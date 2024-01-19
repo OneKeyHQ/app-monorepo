@@ -18,6 +18,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
+import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import {
   settingsLastActivityAtom,
@@ -335,9 +336,10 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async promptPasswordVerifyByWallet({ walletId }: { walletId: string }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
+    const isHdWallet = accountUtils.isHdWallet({ walletId });
     let password = '';
     let deviceParams: IDeviceSharedCallParams | undefined;
-    if (!isHardware) {
+    if (isHdWallet || walletId === WALLET_TYPE_IMPORTED) {
       ({ password } = await this.promptPasswordVerify());
     }
     if (isHardware) {

@@ -100,6 +100,7 @@ export abstract class KeyringBase extends VaultContext {
         type: accountType,
         path,
         coinType, // TODO save deriveType to account
+        impl: settings.impl,
         pub: publicKey,
         address,
         addresses,
@@ -128,6 +129,7 @@ export abstract class KeyringBase extends VaultContext {
     if (!coinType) {
       throw new Error('coinType is not defined');
     }
+    const settings = await this.getVaultSettings();
     const { checkIsAccountUsed, buildAddressesInfo } = options;
 
     const ignoreFirst = indexes[0] !== 0;
@@ -162,6 +164,7 @@ export abstract class KeyringBase extends VaultContext {
           type: EDBAccountType.UTXO,
           path,
           coinType,
+          impl: settings.impl,
           pub: publicKey,
           xpub,
           xpubSegwit,

@@ -13,6 +13,9 @@ import type {
 } from './types';
 
 export async function getVaultSettings({ networkId }: { networkId: string }) {
+  if (!networkId) {
+    throw new Error('networkId is not defined');
+  }
   const impl = networkUtils.getNetworkImpl({ networkId });
   const settingsLoader: Record<
     string,

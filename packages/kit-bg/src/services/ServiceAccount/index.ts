@@ -2,12 +2,14 @@ import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveText,
   decryptRevealableSeed,
+  encryptImportedCredential,
   ensureSensitiveTextEncoded,
   mnemonicFromEntropy,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import makeBlockieImageUriList from '@onekeyhq/kit/src/utils/makeBlockieImageUriList';
 import {
   backgroundClass,
   backgroundMethod,
@@ -25,8 +27,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
+import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
 import {
@@ -45,10 +52,16 @@ import type {
   IDBSetWalletNameAndAvatarParams,
 } from '../../dbs/local/types';
 import type {
+  IAccountSelectorSectionData as IAccountSelectorAccountsListSectionData,
+  IAccountSelectorFocusedWallet,
+} from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
+  IPrepareImportedAccountsParams,
+  IPrepareWatchingAccountsParams,
 } from '../../vaults/types';
 
 @backgroundClass()
@@ -250,17 +263,117 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
     });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return {
+      networkId,
+      walletId,
       accounts,
       indexes,
       deriveType,
-      walletId,
-      networkId,
     };
   }
 
   @backgroundMethod()
-  async getAccountsOfWallet({
+  async addImportedAccount({
+    input,
+    networkId,
+  }: {
+    input: string;
+    networkId: string;
+  }) {
+    const walletId = WALLET_TYPE_IMPORTED;
+
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+      });
+
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+    const { privateKey } = await vault.getPrivateKeyFromImported({ input });
+    ensureSensitiveTextEncoded(privateKey);
+    const nextAccountId = await localDb.getWalletNextAccountId({
+      walletId,
+    });
+    const privateKeyDecoded = decodeSensitiveText({ encodedText: privateKey });
+    const credentialEncrypt = encryptImportedCredential({
+      credential: {
+        privateKey: privateKeyDecoded,
+      },
+      password,
+    });
+    const params: IPrepareImportedAccountsParams = {
+      password,
+      name: `Account #${nextAccountId}`, // TODO i18n
+      importedCredential: credentialEncrypt,
+    };
+    const accounts = await vault.keyring.prepareAccounts(params);
+    await localDb.addAccountsToWallet({
+      walletId,
+      accounts,
+      importedCredential: credentialEncrypt,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    return {
+      networkId,
+      walletId,
+      accounts,
+    };
+  }
+
+  @backgroundMethod()
+  async addWatchingAccount({
+    input,
+    networkId,
+  }: {
+    input: string;
+    networkId: string;
+  }) {
+    const walletId = WALLET_TYPE_WATCHING;
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+    let address = '';
+    let xpub = '';
+    const addressValidationResult = await vault.validateAddress(input);
+    if (addressValidationResult.isValid) {
+      address = addressValidationResult.normalizedAddress;
+    } else {
+      const xpubValidationResult = await vault.validateXpub(input);
+      if (xpubValidationResult.isValid) {
+        xpub = input;
+      }
+    }
+    if (!address && !xpub) {
+      throw new Error('input not valid');
+    }
+    const nextAccountId = await localDb.getWalletNextAccountId({
+      walletId,
+    });
+    const params: IPrepareWatchingAccountsParams = {
+      address,
+      xpub,
+      name: `Account #${nextAccountId}`, // TODO i18n
+    };
+    const accounts = await vault.keyring.prepareAccounts(params);
+    await localDb.addAccountsToWallet({
+      walletId,
+      accounts,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    return {
+      networkId,
+      walletId,
+      accounts,
+    };
+  }
+
+  // TODO remove
+  @backgroundMethod()
+  async getAccountsOfWalletLegacy({
     walletId,
   }: {
     walletId: string;
@@ -278,6 +391,141 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAccountSelectorAccountsListSectionData({
+    focusedWallet,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+  }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
+    if (!focusedWallet) {
+      return [];
+    }
+    if (focusedWallet === '$$others') {
+      const { accounts: accountsWatching } =
+        await localDb.getSingletonAccountsOfWallet({
+          walletId: WALLET_TYPE_WATCHING,
+        });
+      const { accounts: accountsImported } =
+        await localDb.getSingletonAccountsOfWallet({
+          walletId: WALLET_TYPE_IMPORTED,
+        });
+      // const { accounts } = await localDb.getSingletonAccountsOfWallet({
+      //   walletId: WALLET_TYPE_WATCHING,
+      // });
+      /*
+       const uriList = await makeBlockieImageUriList(
+            accountList.map((item) => item.idHash || item.id),
+          );
+          accountList.forEach(
+            (item, index) => (item.avatar = uriList?.[index]),
+          );
+          */
+      const uriList = await makeBlockieImageUriList(
+        accountsWatching.map((item) => item.address || item.id),
+      );
+      accountsWatching.forEach(
+        // TODO move to other place
+        (item, index) => (item.avatar = uriList?.[index]),
+      );
+
+      const uriListImported = await makeBlockieImageUriList(
+        accountsImported.map((item) => item.address || item.id),
+      );
+      accountsImported.forEach(
+        // TODO move to other place
+        (item, index) => (item.avatar = uriListImported?.[index]),
+      );
+      return [
+        {
+          title: 'Watching account',
+          data: accountsWatching,
+          walletId: WALLET_TYPE_WATCHING,
+        },
+        {
+          title: 'Imported account',
+          data: accountsImported,
+          walletId: WALLET_TYPE_IMPORTED,
+        },
+      ];
+    }
+    const walletId = focusedWallet;
+    const { accounts } = await this.getAccountsOfWalletLegacy({
+      walletId,
+    });
+    const uriList = await makeBlockieImageUriList(
+      accounts.map((item) => item.idHash || item.id),
+    );
+    accounts.forEach(
+      // TODO move to other place
+      (item, index) => (item.avatar = uriList?.[index]),
+    );
+    return [
+      {
+        title: '',
+        data: accounts,
+        walletId,
+      },
+    ];
+  }
+
+  @backgroundMethod()
+  async getAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId?: string;
+  }) {
+    const account: IDBAccount = await localDb.getAccount({
+      accountId,
+    });
+    if (networkId && account.impl) {
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      if (impl !== account.impl) {
+        throw new Error('account impl not matched to network');
+      }
+    }
+    return account;
+  }
+
+  @backgroundMethod()
+  async getAccountsByIndexedAccount({
+    networkId,
+    deriveType,
+    indexedAccountIds,
+  }: {
+    deriveType: IAccountDeriveTypes;
+    networkId: string;
+    indexedAccountIds: string[];
+  }) {
+    const settings = await getVaultSettings({ networkId });
+    const deriveInfo = await getVaultSettingsAccountDeriveInfo({
+      networkId,
+      deriveType,
+    });
+    const { idSuffix, template } = deriveInfo;
+
+    const accounts = await Promise.all(
+      indexedAccountIds.map(async (indexedAccountId) => {
+        const { index, walletId } = accountUtils.parseIndexedAccountId({
+          indexedAccountId,
+        });
+
+        const realAccountId = accountUtils.buildHDAccountId({
+          walletId,
+          index,
+          template, // from networkId
+          idSuffix,
+          isUtxo: settings.isUtxo,
+        });
+        return this.getAccount({ accountId: realAccountId, networkId });
+      }),
+    );
+    return {
+      accounts,
+    };
+  }
+
+  @backgroundMethod()
   async getAccountOfWallet({
     accountId,
     indexedAccountId,
@@ -290,27 +538,18 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
   }): Promise<IDBAccount> {
     if (accountId) {
-      return localDb.getAccount({ accountId });
+      return this.getAccount({
+        accountId,
+        networkId,
+      });
     }
     if (indexedAccountId) {
-      const settings = await getVaultSettings({ networkId });
-      const deriveInfo = await this.getDeriveInfo({
+      const { accounts } = await this.getAccountsByIndexedAccount({
         networkId,
         deriveType,
+        indexedAccountIds: [indexedAccountId],
       });
-      const indexedAccount = await this.getIndexedAccount({
-        id: indexedAccountId,
-      });
-      const { index, walletId } = indexedAccount;
-      const { idSuffix, template } = deriveInfo;
-      const realAccountId = accountUtils.buildHDAccountId({
-        walletId,
-        index,
-        template,
-        idSuffix,
-        isUtxo: settings.isUtxo,
-      });
-      return localDb.getAccount({ accountId: realAccountId });
+      return accounts[0];
     }
     throw new OneKeyInternalError({
       message: 'accountId or indexedAccountId missing',
@@ -332,7 +571,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
-    return localDb.addHDNextIndexedAccount({ walletId });
+    const result = await localDb.addHDNextIndexedAccount({ walletId });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    return result;
   }
 
   @backgroundMethod()

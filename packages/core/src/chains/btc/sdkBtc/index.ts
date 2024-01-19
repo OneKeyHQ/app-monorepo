@@ -219,6 +219,8 @@ export function validateBtcAddress({
       }
     : {
         isValid: false,
+        normalizedAddress: '',
+        displayAddress: '',
       };
 }
 

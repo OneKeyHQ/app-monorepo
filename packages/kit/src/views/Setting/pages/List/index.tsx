@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Page, ScrollView, Stack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -11,6 +13,11 @@ import { SecuritySection } from './SecuritySection';
 
 export default function SettingListModal() {
   const [settings] = useSettingsPersistAtom();
+
+  const content = useMemo(() => {
+    console.log('SettingListModal useMemo');
+    return 'hello world';
+  }, []);
 
   return (
     <Page>

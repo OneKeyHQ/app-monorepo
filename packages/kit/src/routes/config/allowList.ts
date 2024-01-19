@@ -1,10 +1,8 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EAccountManagerStacksRoutes } from '../../views/AccountManagerStacks/router/types';
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabDeveloperRoutes } from '../../views/Developer/type';
 import { ETabHomeRoutes } from '../../views/Home/router';
-import { EOnboardingPages } from '../../views/Onboarding/router/type';
 import { EModalSettingRoutes } from '../../views/Setting/router/types';
 import { ETestModalPages } from '../../views/TestModal/router/type';
 import { ERootRoutes } from '../enum';

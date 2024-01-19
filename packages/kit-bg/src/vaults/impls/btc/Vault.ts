@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IXpubValidation } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -105,7 +106,12 @@ export default class VaultBtc extends VaultBase {
     return getBtcForkNetwork(await this.getNetworkImpl());
   }
 
-  async validateAddress(address: string) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override async validateXpub(_xpub: string): Promise<IXpubValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override async validateAddress(address: string) {
     return validateBtcAddress({
       address,
       network: await this.getBtcForkNetwork(),
@@ -341,5 +347,12 @@ export default class VaultBtc extends VaultBase {
     };
 
     return { btcExtraInfo, account };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override getPrivateKeyFromImported(params: {
+    input: string;
+  }): Promise<{ privateKey: string }> {
+    throw new NotImplemented();
   }
 }

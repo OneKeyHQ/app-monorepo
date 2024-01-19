@@ -43,9 +43,13 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountId,
     });
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const transferInfo: ITransferInfo = {
-      from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
+      from: account.address,
+      to: account.address,
       amount: `0.00000${random(1, 20)}`,
       token: '',
     };
@@ -73,6 +77,9 @@ class ServiceSend extends ServiceBase {
         },
       },
     });
+
+    // @ts-ignore
+    unsignedTx.encodedTx.nonce = '0x817'; // Nonce: 2071
 
     // PageSendConfirm -> password auth -> send tx
     const signedTxWithoutBroadcast = await this.signTransaction({
