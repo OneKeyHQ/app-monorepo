@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react';
 
-import { Platform, useWindowDimensions } from 'react-native';
+import {
+  InteractionManager,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { YStack } from 'tamagui';
 
 import { Stack } from '../../primitives';
@@ -111,7 +115,9 @@ function BaseSwiperFlatList<T>(
       // When execute "scrollToIndex", we ignore the method "onMomentumScrollEnd"
       // because it not working on Android
       // https://github.com/facebook/react-native/issues/21718
-      swiperRef?.current?.scrollToIndex(newParams);
+      void InteractionManager.runAfterInteractions(() => {
+        swiperRef?.current?.scrollToIndex(newParams);
+      });
     },
     [currentIndexes.index, currentIndexes.prevIndex],
   );
@@ -130,16 +136,16 @@ function BaseSwiperFlatList<T>(
 
   const goToNextIndex = useCallback(() => {
     clearTimer();
-    setTimeout(() => {
+    void InteractionManager.runAfterInteractions(() => {
       _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
-    }, 20);
+    });
   }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   const gotToPrevIndex = useCallback(() => {
     clearTimer();
-    setTimeout(() => {
+    void InteractionManager.runAfterInteractions(() => {
       _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
-    }, 20);
+    });
   }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   useImperativeHandle(ref, () => ({
