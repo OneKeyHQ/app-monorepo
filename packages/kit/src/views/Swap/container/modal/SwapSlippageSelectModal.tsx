@@ -9,9 +9,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useSwapSlippagePercentageAtom } from '../../../../states/jotai/contexts/swap';
 import SwapSlippageSegmentGroup from '../../components/SwapSlippageSegmentGroup';
 import {
   ESwapSlippageSegmentKey,

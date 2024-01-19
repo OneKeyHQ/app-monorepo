@@ -13,13 +13,13 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteListAtom,
   useSwapSelectToTokenAtom,
-} from '../../../../states/jotai/contexts/swap';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/Routers';

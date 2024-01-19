@@ -1,8 +1,8 @@
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapBuildTxResultAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { useSwapBuildTxResultAtom } from '../../../../states/jotai/contexts/swap';
 import { useSwapTxHistoryActions } from '../../hooks/useSwapTxHistory';
 import { withSwapProvider } from '../WithSwapProvider';
 
