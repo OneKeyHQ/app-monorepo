@@ -44,7 +44,6 @@ const SliderGallery = () => (
             autoplay
             autoplayDelayMs={2000}
             autoplayLoop
-            index={0}
             height="$64"
             data={bannerData}
             renderItem={({ item }) => (
