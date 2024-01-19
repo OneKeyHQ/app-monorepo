@@ -9,7 +9,11 @@ import {
   useState,
 } from 'react';
 
-import { Platform, useWindowDimensions } from 'react-native';
+import {
+  InteractionManager,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { YStack } from 'tamagui';
 
 import { Stack } from '../../primitives';
@@ -24,6 +28,7 @@ import type {
 } from 'react-native';
 
 const FIRST_INDEX = 0;
+const ITEM_VISIBLE_PERCENT_THRESHOLD = 60;
 
 function BaseSwiperFlatList<T>(
   {
@@ -37,7 +42,6 @@ function BaseSwiperFlatList<T>(
     autoplayLoop = false,
     autoplayLoopKeepAnimation = false,
     onChangeIndex,
-    onViewableItemsChanged,
     disableGesture = false,
     ...props
   }: ISwiperProps<T>,
@@ -60,6 +64,7 @@ function BaseSwiperFlatList<T>(
     prevIndex: index,
   });
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const swiperRef = useRef<IListViewRef<T> | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(!disableGesture);
 
@@ -86,7 +91,6 @@ function BaseSwiperFlatList<T>(
     (params: IScrollToIndexParams) => {
       const { index: indexToScroll, animated = true } = params;
       const newParams = { animated, index: indexToScroll };
-
       const next = {
         index: indexToScroll,
         prevIndex: currentIndexes.index,
@@ -111,7 +115,9 @@ function BaseSwiperFlatList<T>(
       // When execute "scrollToIndex", we ignore the method "onMomentumScrollEnd"
       // because it not working on Android
       // https://github.com/facebook/react-native/issues/21718
-      swiperRef?.current?.scrollToIndex(newParams);
+      void InteractionManager.runAfterInteractions(() => {
+        swiperRef?.current?.scrollToIndex(newParams);
+      });
     },
     [currentIndexes.index, currentIndexes.prevIndex],
   );
@@ -124,13 +130,23 @@ function BaseSwiperFlatList<T>(
     });
   }, [_onChangeIndex, currentIndexes.index, currentIndexes.prevIndex]);
 
+  const clearTimer = useCallback(() => {
+    clearTimeout(timeoutRef.current);
+  }, []);
+
   const goToNextIndex = useCallback(() => {
-    _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
-  }, [_scrollToIndex, currentIndexes.index]);
+    clearTimer();
+    void InteractionManager.runAfterInteractions(() => {
+      _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
+    });
+  }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   const gotToPrevIndex = useCallback(() => {
-    _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
-  }, [_scrollToIndex, currentIndexes.index]);
+    clearTimer();
+    void InteractionManager.runAfterInteractions(() => {
+      _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
+    });
+  }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   useImperativeHandle(ref, () => ({
     scrollToIndex: (item: any) => {
@@ -152,12 +168,12 @@ function BaseSwiperFlatList<T>(
     },
   }));
 
-  useEffect(() => {
+  const startTimer = useCallback(() => {
+    clearTimer();
     const isLastIndexEnd = currentIndexes.index === _data.length - 1;
     const shouldContinuousWithAutoplay = autoplay && !isLastIndexEnd;
-    let autoplayTimer: ReturnType<typeof setTimeout>;
     if (shouldContinuousWithAutoplay || autoplayLoop) {
-      autoplayTimer = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         if (_data.length < 1) {
           // avoid nextIndex being set to NaN
           return;
@@ -181,17 +197,20 @@ function BaseSwiperFlatList<T>(
         _scrollToIndex({ index: nextIndex, animated: animate });
       }, autoplayDelayMs);
     }
-    // https://upmostly.com/tutorials/settimeout-in-react-components-using-hooks
-    return () => clearTimeout(autoplayTimer);
   }, [
-    autoplay,
-    currentIndexes.index,
     _data.length,
-    autoplayLoop,
-    autoplayDelayMs,
-    autoplayLoopKeepAnimation,
     _scrollToIndex,
+    autoplay,
+    autoplayDelayMs,
+    autoplayLoop,
+    autoplayLoopKeepAnimation,
+    clearTimer,
+    currentIndexes.index,
   ]);
+
+  useEffect(() => {
+    startTimer();
+  });
 
   const _onViewableItemsChanged = useMemo<
     FlatListProps<unknown>['onViewableItemsChanged']
@@ -213,9 +232,17 @@ function BaseSwiperFlatList<T>(
           }));
         }
       }
-      onViewableItemsChanged?.(params);
     },
-    [onViewableItemsChanged],
+    [],
+  );
+
+  const handleScrollToIndexFailed = useCallback(
+    (info: IListViewProps<T>['onScrollToIndexFailed']) => {
+      setTimeout(() => {
+        _scrollToIndex({ index: info?.index || 0, animated: false });
+      }, 0);
+    },
+    [_scrollToIndex],
   );
 
   const flatListProps: IListViewProps<T> = {
@@ -226,13 +253,17 @@ function BaseSwiperFlatList<T>(
     showsVerticalScrollIndicator: false,
     pagingEnabled: true,
     ...props,
-    onScrollToIndexFailed: (info) =>
-      setTimeout(() => _scrollToIndex({ index: info.index, animated: false })),
+    onScrollToIndexFailed: handleScrollToIndexFailed,
     data: _data,
     renderItem: _renderItem,
     initialNumToRender: _initialNumToRender,
     initialScrollIndex: index, // used with onScrollToIndexFailed
     onViewableItemsChanged: _onViewableItemsChanged,
+    viewabilityConfig: {
+      // https://facebook.github.io/react-native/docs/flatlist#minimumviewtime
+      minimumViewTime: 200,
+      itemVisiblePercentThreshold: ITEM_VISIBLE_PERCENT_THRESHOLD,
+    },
   };
 
   const { width } = useWindowDimensions();
@@ -249,19 +280,45 @@ function BaseSwiperFlatList<T>(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     (flatListProps as any).dataSet = { 'paging-enabled-fix': true };
   }
+  const handleScrollBeginDrag = useCallback(() => {
+    clearTimer();
+  }, [clearTimer]);
+
+  const handleScrollEnd = useCallback(() => {
+    setTimeout(() => {
+      startTimer();
+    }, 0);
+  }, [startTimer]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
   return (
-    <YStack position="relative" width="100%" onLayout={handleLayout}>
-      <ListView {...flatListProps} width={containerWidth} />
-      {renderPagination?.({
-        goToNextIndex,
-        gotToPrevIndex,
-        currentIndex: currentIndexes.index,
-      })}
+    <YStack
+      position="relative"
+      width="100%"
+      height={flatListProps.height}
+      $md={flatListProps.$md}
+      $gtMd={flatListProps.$gtMd}
+      onLayout={handleLayout}
+    >
+      {containerWidth ? (
+        <>
+          <ListView
+            {...flatListProps}
+            width={containerWidth}
+            onScrollAnimationEnd={handleScrollEnd}
+            onScrollBeginDrag={handleScrollBeginDrag}
+            onScrollEndDrag={handleScrollEnd}
+          />
+          {renderPagination?.({
+            goToNextIndex,
+            gotToPrevIndex,
+            currentIndex: currentIndexes.index,
+          })}
+        </>
+      ) : null}
     </YStack>
   );
 }

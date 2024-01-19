@@ -103,7 +103,7 @@ function SearchModal() {
   return (
     <Page skipLoading safeAreaEnabled>
       <Page.Header
-        headerTitle="Search Modal"
+        headerTitle="Search"
         headerSearchBarOptions={{
           autoFocus: true,
           placeholder: 'Search',

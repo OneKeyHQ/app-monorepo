@@ -1,6 +1,4 @@
-import { useCallback, useState } from 'react';
-
-import { useWindowDimensions } from 'react-native';
+import { useCallback } from 'react';
 
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
@@ -10,7 +8,6 @@ import {
   Stack,
   Swiper,
   XStack,
-  YStack,
   useMedia,
 } from '@onekeyhq/components';
 
@@ -182,7 +179,11 @@ export function Banner() {
       autoplayLoop
       autoplayLoopKeepAnimation
       autoplayDelayMs={2000}
-      estimatedItemSize="$52"
+      height="$64"
+      $gtMd={{
+        height: 424,
+      }}
+      estimatedItemSize="$64"
       keyExtractor={keyExtractor}
       index={0}
       data={bannerData}
