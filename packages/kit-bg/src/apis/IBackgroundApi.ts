@@ -60,9 +60,6 @@ export interface IBackgroundApiBridge {
   connectWebEmbedBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
-  // **** WalletConnect
-  walletConnect: ProviderApiWalletConnect;
-
   // **** dapp provider api
   providers: Record<IInjectedProviderNames, ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
@@ -91,4 +88,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
   serviceHardware: ServiceHardware;
+
+  // **** WalletConnect
+  walletConnect: ProviderApiWalletConnect;
 }

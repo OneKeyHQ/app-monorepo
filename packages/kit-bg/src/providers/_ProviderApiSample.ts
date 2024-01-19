@@ -26,7 +26,7 @@ class _ProviderApiSample extends ProviderApiBase {
       };
       return result;
     };
-    info.send(data);
+    info.send(data, info.targetOrigin);
   }
 
   public override notifyDappChainChanged(): void {

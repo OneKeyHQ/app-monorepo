@@ -179,6 +179,7 @@ class ServiceDiscovery extends ServiceBase {
       (provider: ProviderApiBase) => {
         provider.notifyDappAccountsChanged({
           send: this.backgroundApi.sendForProvider(provider.providerName),
+          targetOrigin: new URL('http://127.0.0.1:5500/2023/eth.html').origin,
         });
       },
     );

@@ -290,6 +290,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   sendMessagesToInjectedBridge = async (
     scope: IInjectedProviderNamesStrings,
     data: unknown,
+    targetOrigin: string,
   ) => {
     if (!this.bridge && !this.webEmbedBridge) {
       if (!platformEnv.isWeb) {
@@ -303,7 +304,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       // send to all dapp sites content-script
 
       // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
-      this.bridgeExtBg?.requestToAllCS(scope, data);
+      this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
       if (this.bridge) {
         if (isFunction(data)) {

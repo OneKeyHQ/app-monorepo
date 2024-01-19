@@ -14,7 +14,8 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 export type IProviderBaseBackgroundNotifyInfo = {
-  send: (data: any) => void;
+  send: (data: any, targetOrigin: string) => void;
+  targetOrigin: string;
 };
 
 @backgroundClass()
