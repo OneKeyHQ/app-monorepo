@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -8,15 +8,21 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
-import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { Banner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
 import { SuggestedAndExploreSection } from './SuggestedAndExploreSection';
 
-function DashboardContent() {
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+
+function DashboardContent({
+  onScroll,
+}: {
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const { result: bookmarksData, run: refreshBrowserBookmark } =
@@ -60,20 +66,37 @@ function DashboardContent() {
     [navigation],
   );
 
-  return (
-    <Stack>
-      <Banner />
-      <BookmarksAndHistoriesSection
-        bookmarksData={bookmarksData}
-        historiesData={historiesData}
-        onPressMore={onPressMore}
-        handleOpenWebSite={({ webSite }) =>
-          handleOpenWebSite({ webSite, navigation, shouldPopNavigation: false })
-        }
-      />
-      <SuggestedAndExploreSection />
-    </Stack>
+  const content = useMemo(
+    () => (
+      <>
+        <Banner />
+        <BookmarksAndHistoriesSection
+          bookmarksData={bookmarksData}
+          historiesData={historiesData}
+          onPressMore={onPressMore}
+          handleOpenWebSite={({ webSite }) =>
+            handleOpenWebSite({
+              webSite,
+              navigation,
+              shouldPopNavigation: false,
+            })
+          }
+        />
+        <SuggestedAndExploreSection />
+      </>
+    ),
+    [bookmarksData, historiesData, onPressMore, handleOpenWebSite, navigation],
   );
+
+  if (platformEnv.isNative) {
+    return (
+      <ScrollView onScroll={onScroll as any} scrollEventThrottle={16}>
+        {content}
+      </ScrollView>
+    );
+  }
+
+  return <Stack>{content}</Stack>;
 }
 
-export default withBrowserProvider(DashboardContent);
+export default DashboardContent;

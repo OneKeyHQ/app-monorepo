@@ -10,20 +10,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
-import { EDiscoveryModalRoutes } from '../../router/Routes';
-
-export function CustomHeaderTitle() {
+export function CustomHeaderTitle({
+  handleSearchBarPress,
+}: {
+  handleSearchBarPress: () => void;
+}) {
   const media = useMedia();
-  const navigation = useAppNavigation();
   const screenWidth = useWindowDimensions().width;
-
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
 
   return (
     <XStack

@@ -32,7 +32,7 @@ import type { IDiscoveryModalParamList } from '../../router/Routes';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { tab } = useWebTabDataById(activeTabId ?? '');
+  // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { handleScroll, toolbarAnimatedStyle } =
@@ -80,30 +80,29 @@ function MobileBrowser() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header headerTitle={headerTitle} />
       <Page.Body>
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
           {displayHomePage ? (
             <Stack flex={1}>
-              <DashboardContent />
+              <DashboardContent onScroll={handleScroll} />
             </Stack>
-          ) : (
-            <MobileBrowserInfoBar
-              id={activeTabId ?? ''}
-              url={tab?.url ?? ''}
-              onSearch={() => {
-                navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  screen: EDiscoveryModalRoutes.SearchModal,
-                  params: {
-                    useCurrentWindow: true,
-                    tabId: tab?.id,
-                  },
-                });
-              }}
-            />
-          )}
+          ) : // <MobileBrowserInfoBar
+          //   id={activeTabId ?? ''}
+          //   url={tab?.url ?? ''}
+          //   onSearch={() => {
+          //     navigation.pushModal(EModalRoutes.DiscoveryModal, {
+          //       screen: EDiscoveryModalRoutes.SearchModal,
+          //       params: {
+          //         useCurrentWindow: true,
+          //         tabId: tab?.id,
+          //       },
+          //     });
+          //   }}
+          // />
+          null}
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
