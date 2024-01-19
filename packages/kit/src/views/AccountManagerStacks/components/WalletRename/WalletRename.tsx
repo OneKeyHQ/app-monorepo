@@ -4,6 +4,7 @@ import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
+  const { serviceAccount } = backgroundApiProxy;
   return (
     <IconButton
       title="Rename"
@@ -15,9 +16,12 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
       }}
       onPress={async () => {
         showRenameDialog(wallet.name, {
+          onCheckRepeat: async (name) => {
+            const { wallets } = await serviceAccount.getWallets();
+            return !!wallets.find((w) => w.name === name);
+          },
           onSubmit: async (name) => {
             if (wallet?.id && name) {
-              const { serviceAccount } = backgroundApiProxy;
               await serviceAccount.setWalletNameAndAvatar({
                 walletId: wallet?.id,
                 name,

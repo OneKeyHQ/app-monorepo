@@ -26,6 +26,7 @@ export type IAccountGroupProps = {
   title?: string;
   isHiddenWalletData?: boolean;
   emptyText?: string;
+  walletId: string;
   data: IDBIndexedAccount[];
 };
 

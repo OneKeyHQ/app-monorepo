@@ -180,6 +180,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
     return console.log('clicked');
   };
 
+  console.log('sectionData---', sectionData)
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
@@ -276,7 +277,13 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             )}
           </>
         )}
-        renderItem={({ item }: { item: IDBIndexedAccount | IDBAccount }) => (
+        renderItem={({
+          item,
+          section,
+        }: {
+          item: IDBIndexedAccount | IDBAccount;
+          section: IAccountGroupProps;
+        }) => (
           <ListItem
             key={item.id}
             avatarProps={{
@@ -340,7 +347,12 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
               })}
           >
             <AnimatePresence>
-              {editMode && <AccountRenameButton account={item} />}
+              {editMode && (
+                <AccountRenameButton
+                  account={item}
+                  accounts={section.data}
+                />
+              )}
             </AnimatePresence>
           </ListItem>
         )}
