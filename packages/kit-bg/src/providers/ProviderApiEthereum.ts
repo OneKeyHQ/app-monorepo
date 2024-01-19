@@ -25,10 +25,8 @@ class ProviderApiEthereum extends ProviderApiBase {
   ): void {
     const data = () => {
       const result = {
-        method: 'wallet_events_accountChanged',
-        params: {
-          accounts: { address: 'Lightning Address' },
-        },
+        method: 'metamask_accountsChanged',
+        params: [`0x0000000${Date.now()}`],
       };
       return result;
     };

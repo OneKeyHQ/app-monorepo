@@ -1,14 +1,16 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Button, Page } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 
 import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
+import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 
 import DesktopBrowserContent from './DesktopBrowserContent';
@@ -20,6 +22,12 @@ function DesktopBrowserHeaderRight() {
     <HeaderButtonGroup>
       <HeaderIconButton icon="PlaceholderOutline" />
       <HeaderIconButton icon="PlaceholderOutline" />
+      <HeaderIconButton
+        icon="PlaceholderOutline"
+        onPress={() => {
+          void backgroundApiProxy.serviceDiscovery.notifyTest();
+        }}
+      />
     </HeaderButtonGroup>
   );
 }
@@ -38,6 +46,8 @@ function DesktopBrowser() {
       firstRender.current = false;
     }
   }, [tabs, navigation]);
+
+  useDAppNotifyChanges({ tabId: activeTabId });
 
   const headerRightCall = useCallback(() => <DesktopBrowserHeaderRight />, []);
 
