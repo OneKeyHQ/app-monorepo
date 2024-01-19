@@ -16,6 +16,7 @@ import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
 import {
   DappConnectionModalRoutes,
   HomeRoutes,
+  InscribeModalRoutes,
   MainRoutes,
   ManageNetworkModalRoutes,
   ManageTokenModalRoutes,
@@ -166,6 +167,12 @@ export const normalRouteWhiteList: WhiteListItemList = [
     screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.BulkSender}`,
     path: linkingPathMap.bulkSender,
     exact: true,
+  },
+  /**
+   * Inscribe transfer
+   */
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Inscribe}/${InscribeModalRoutes.InscribeTransferFromDapp}`,
   },
   /**
    * WebLN
