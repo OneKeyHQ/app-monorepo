@@ -13,7 +13,7 @@ export type IAccountSelectorMapValue = {
   count: number;
 };
 export type IAccountSelectorMap = {
-  // key = sceneId+num
+  // key = sceneId
   [key: string]: IAccountSelectorMapValue;
 };
 export const {

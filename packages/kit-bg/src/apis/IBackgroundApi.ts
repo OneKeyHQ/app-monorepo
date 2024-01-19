@@ -18,6 +18,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNFT from '../services/ServiceNFT';
+import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
@@ -91,4 +92,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceAddress: ServiceAddress;
   serviceHardware: ServiceHardware;
+  serviceOnboarding: ServiceOnboarding;
 }
