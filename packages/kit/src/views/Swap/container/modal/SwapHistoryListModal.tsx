@@ -16,7 +16,7 @@ import {
   useSwapTxHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
-import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import SwapTxHistoryListCell from '../../component/SwapTxHistoryListCell';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
