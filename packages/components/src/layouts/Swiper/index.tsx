@@ -60,6 +60,7 @@ function BaseSwiperFlatList<T>(
     prevIndex: index,
   });
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const swiperRef = useRef<IListViewRef<T> | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(!disableGesture);
 
@@ -152,12 +153,16 @@ function BaseSwiperFlatList<T>(
     },
   }));
 
-  useEffect(() => {
+  const clearTimer = useCallback(() => {
+    clearTimeout(timeoutRef.current);
+  }, []);
+
+  const startTimer = useCallback(() => {
+    clearTimer();
     const isLastIndexEnd = currentIndexes.index === _data.length - 1;
     const shouldContinuousWithAutoplay = autoplay && !isLastIndexEnd;
-    let autoplayTimer: ReturnType<typeof setTimeout>;
     if (shouldContinuousWithAutoplay || autoplayLoop) {
-      autoplayTimer = setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         if (_data.length < 1) {
           // avoid nextIndex being set to NaN
           return;
@@ -181,17 +186,20 @@ function BaseSwiperFlatList<T>(
         _scrollToIndex({ index: nextIndex, animated: animate });
       }, autoplayDelayMs);
     }
-    // https://upmostly.com/tutorials/settimeout-in-react-components-using-hooks
-    return () => clearTimeout(autoplayTimer);
   }, [
-    autoplay,
-    currentIndexes.index,
     _data.length,
-    autoplayLoop,
-    autoplayDelayMs,
-    autoplayLoopKeepAnimation,
     _scrollToIndex,
+    autoplay,
+    autoplayDelayMs,
+    autoplayLoop,
+    autoplayLoopKeepAnimation,
+    clearTimer,
+    currentIndexes.index,
   ]);
+
+  useEffect(() => {
+    startTimer();
+  });
 
   const _onViewableItemsChanged = useMemo<
     FlatListProps<unknown>['onViewableItemsChanged']
@@ -254,13 +262,24 @@ function BaseSwiperFlatList<T>(
     (flatListProps as any).dataSet = { 'paging-enabled-fix': true };
   }
 
+  const handleScrollEnd = useCallback(() => {
+    setTimeout(() => {
+      startTimer();
+    }, 0);
+  }, [startTimer]);
+
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
   return (
     <YStack position="relative" width="100%" onLayout={handleLayout}>
-      <ListView {...flatListProps} width={containerWidth} />
+      <ListView
+        {...flatListProps}
+        width={containerWidth}
+        onScrollAnimationEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEnd}
+      />
       {renderPagination?.({
         goToNextIndex,
         gotToPrevIndex,
