@@ -6,11 +6,10 @@ import {
   WALLET_TYPE_HW,
 } from '@onekeyhq/kit-bg/src/dbs/local/consts';
 
+import { EAccountSelectorSceneName } from '../../types';
 import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
 
 import uriUtils from './uriUtils';
-
-import type { EAccountSelectorSceneName } from '../../types';
 
 function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
@@ -75,7 +74,7 @@ function buildAccountSelectorSceneId({
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
 }): string {
-  if (sceneName === 'discover') {
+  if (sceneName === EAccountSelectorSceneName.discover) {
     if (!sceneUrl) {
       throw new Error('buildSceneId ERROR: sceneUrl is required');
     }
@@ -96,6 +95,20 @@ function buildIndexedAccountId({
   index: number;
 }) {
   return `${walletId}--${index}`;
+}
+
+function parseIndexedAccountId({
+  indexedAccountId,
+}: {
+  indexedAccountId: string;
+}) {
+  const arr = indexedAccountId.split(SEPERATOR);
+  const index = Number(arr[arr.length - 1]);
+  const walletIdArr = arr.slice(0, -1);
+  return {
+    walletId: walletIdArr.join(''),
+    index,
+  };
 }
 
 function buildHdWalletId({ nextHD }: { nextHD: number }) {
@@ -122,6 +135,7 @@ export default {
   isHwWallet,
   buildHDAccountId,
   buildIndexedAccountId,
+  parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
   buildAccountSelectorSceneId,

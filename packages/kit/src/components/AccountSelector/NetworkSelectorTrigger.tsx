@@ -115,3 +115,20 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
     </XStack>
   );
 }
+
+export function ControlledNetworkSelectorTrigger({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (networkId: string) => void;
+}) {
+  return (
+    <Select
+      items={getNetworksItems()}
+      value={value}
+      onChange={onChange}
+      title="网络"
+    />
+  );
+}

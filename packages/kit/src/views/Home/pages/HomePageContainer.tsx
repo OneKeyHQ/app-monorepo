@@ -11,6 +11,7 @@ import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
+import { OnboardingOnMount } from '../../Onboarding/components';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -97,6 +98,7 @@ function HomePage() {
 }
 
 function HomePageContainer() {
+  console.log('HomePageContainer render');
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -106,6 +108,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage />
+      <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );
 }
