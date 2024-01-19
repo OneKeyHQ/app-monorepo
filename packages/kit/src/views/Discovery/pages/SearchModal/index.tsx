@@ -134,12 +134,10 @@ function SearchModal() {
       />
       <Page.Body pt="$2" pb="$5">
         {displaySearchList && (
-          <ListView
-            estimatedItemSize="$10"
-            data={searchList}
-            keyExtractor={(item) => item.dappId}
-            renderItem={({ item }) => (
+          <Stack pb="$5">
+            {searchList.map((item, index) => (
               <ListItem
+                key={index}
                 avatarProps={{
                   src: item.logo || item.originLogo,
                   fallbackProps: {
@@ -171,8 +169,8 @@ function SearchModal() {
                   }
                 }}
               />
-            )}
-          />
+            ))}
+          </Stack>
         )}
 
         {displayBookmarkList && (

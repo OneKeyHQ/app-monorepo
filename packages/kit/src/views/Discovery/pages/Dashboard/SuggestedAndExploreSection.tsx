@@ -57,18 +57,20 @@ const SuggestedData: IDapps = [
     title: 'Trendy',
     data: [
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Long Long Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1683712871498.0.9361315179110976.0.png',
+        name: 'Helio Protocol',
         description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla. Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+          'The number one USD over-collateralized destablecoin(decentralized stablecoin)',
         badge: {
           children: '🔥 Hot',
           type: 'critical',
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1675751433742.0.4873654755473611.0.jpg',
+        name: 'mempool',
         description:
           'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
         badge: {
@@ -77,52 +79,131 @@ const SuggestedData: IDapps = [
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1700636160725.0.863693819342112.0.jpeg',
+        name: 'Celestia',
         description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+          'The first modular blockchain network that securely scales with the number of users.',
         badge: {
           children: '🎈 Airdrop',
           type: 'info',
         },
       },
-      ...generateRepeatedData(10),
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1666332676266.0.22271539238874105.0.png',
+        name: 'icy.tools',
+        description:
+          'Use powerful analytics tools to track NFTs across marketplaces and make informed trading decisions.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1691577126061.0.05505372693504218.0.png',
+        name: 'OneKey Card',
+        description:
+          'The all-in-one solution for using your cryptocurrency on popular payment platforms',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703836878440.0.7900255460408465.0.jpg',
+        name: 'Ethscriptions',
+        description:
+          'Ethscriptions are a new way of creating and sharing digital artifacts on Ethereum using transaction calldata.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703574531390.0.24617411982774207.0.jpg',
+        name: 'Manta Network',
+        description: 'Manta Pacific, the Modular L2.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703574865436.0.15537360694813152.0.jpg',
+        name: 'ZKFair',
+        description: 'Powered by Polygon CDK & Celestia DA & Lumoz.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/u_b_08eccde0-eb0a-11ec-8629-f114182c14b1.png.png.png.png.png',
+        name: 'BakerySwap',
+        description:
+          "BakerySwap is a decentralized automated market-making (AMM) protocol on Binance Smart Chain(BSC) and the 1st NFT trading platform on BSC - 'Bakery NFT Supermarket'.  BakerySwap is the next iteration of Uniswap.",
+      },
     ],
   },
   {
     title: 'Lightning Network',
     data: [
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Long Long Name',
-        description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1705488041902.0.21322678800104078.0.jpg',
+        name: 'NoScription',
+        description: 'The first NRC-20 asset on Nostr and Lightning Network.',
         badge: {
           children: '🔥 Hot',
           type: 'critical',
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701837671609.0.37123841997791684.0.jpeg',
+        name: 'LightningAssets',
         description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+          'LightningAssets on Nostr. Efficiently send, receive, and trade Taproot Assets and Bitcoin',
         badge: {
           children: '⭐ New',
           type: 'success',
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701243431057.0.07168402929921691.0.jpeg',
+        name: 'Nostr Assets',
         description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+          'LightningFi on Nostr - Send, Receive & Trade Taproot Assets & Bitcoin',
         badge: {
           children: '🎈 Airdrop',
           type: 'info',
         },
       },
-      ...generateRepeatedData(10),
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244506465.0.23841841332788727.0.jpeg',
+        name: 'Amboss',
+        description: 'Data Analytics for the Lightning Network',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245225045.0.04514860054866232.0.jpeg',
+        name: 'LNCal.com',
+        description:
+          'LNCal is your public calendar where anyone can book your time and pay you in Bitcoin with no KYC ',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245384861.0.689339214038253.0.png',
+        name: 'sats4likes',
+        description: 'Earn Sats for accomplishing tasks',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245073411.0.3222099428342253.0.jpeg',
+        name: 'Lightsats',
+        description:
+          'Gift sats without losing them.✨ Building a pre-coiner onramp via bitcoin tips/gifts.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244919519.0.6382074329606169.0.jpeg',
+        name: 'Geyser',
+        description: 'Open fundraising for creators.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244767389.0.2535798458920622.0.png',
+        name: 'Stacker News',
+        description: "It's like Hacker News but we pay you Bitcoin",
+      },
     ],
   },
 ];
@@ -131,18 +212,90 @@ const ExploreData: IDapps = [
   {
     data: [
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Long Long Name',
-        description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla. Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1705488041902.0.21322678800104078.0.jpg',
+        name: 'NoScription',
+        description: 'The first NRC-20 asset on Nostr and Lightning Network.',
         badge: {
           children: '🔥 Hot',
           type: 'critical',
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701837671609.0.37123841997791684.0.jpeg',
+        name: 'LightningAssets',
+        description:
+          'LightningAssets on Nostr. Efficiently send, receive, and trade Taproot Assets and Bitcoin',
+        badge: {
+          children: '⭐ New',
+          type: 'success',
+        },
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701243431057.0.07168402929921691.0.jpeg',
+        name: 'Nostr Assets',
+        description:
+          'LightningFi on Nostr - Send, Receive & Trade Taproot Assets & Bitcoin',
+        badge: {
+          children: '🎈 Airdrop',
+          type: 'info',
+        },
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244506465.0.23841841332788727.0.jpeg',
+        name: 'Amboss',
+        description: 'Data Analytics for the Lightning Network',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245225045.0.04514860054866232.0.jpeg',
+        name: 'LNCal.com',
+        description:
+          'LNCal is your public calendar where anyone can book your time and pay you in Bitcoin with no KYC ',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245384861.0.689339214038253.0.png',
+        name: 'sats4likes',
+        description: 'Earn Sats for accomplishing tasks',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701245073411.0.3222099428342253.0.jpeg',
+        name: 'Lightsats',
+        description:
+          'Gift sats without losing them.✨ Building a pre-coiner onramp via bitcoin tips/gifts.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244919519.0.6382074329606169.0.jpeg',
+        name: 'Geyser',
+        description: 'Open fundraising for creators.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1701244767389.0.2535798458920622.0.png',
+        name: 'Stacker News',
+        description: "It's like Hacker News but we pay you Bitcoin",
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1683712871498.0.9361315179110976.0.png',
+        name: 'Helio Protocol',
+        description:
+          'The number one USD over-collateralized destablecoin(decentralized stablecoin)',
+        badge: {
+          children: '🔥 Hot',
+          type: 'critical',
+        },
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1675751433742.0.4873654755473611.0.jpg',
+        name: 'mempool',
         description:
           'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
         badge: {
@@ -151,16 +304,56 @@ const ExploreData: IDapps = [
         },
       },
       {
-        imgUrl: 'https://placehold.jp/200x200.png',
-        name: 'Name',
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1700636160725.0.863693819342112.0.jpeg',
+        name: 'Celestia',
         description:
-          'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
+          'The first modular blockchain network that securely scales with the number of users.',
         badge: {
           children: '🎈 Airdrop',
           type: 'info',
         },
       },
-      ...generateRepeatedData(20),
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1666332676266.0.22271539238874105.0.png',
+        name: 'icy.tools',
+        description:
+          'Use powerful analytics tools to track NFTs across marketplaces and make informed trading decisions.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1691577126061.0.05505372693504218.0.png',
+        name: 'OneKey Card',
+        description:
+          'The all-in-one solution for using your cryptocurrency on popular payment platforms',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703836878440.0.7900255460408465.0.jpg',
+        name: 'Ethscriptions',
+        description:
+          'Ethscriptions are a new way of creating and sharing digital artifacts on Ethereum using transaction calldata.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703574531390.0.24617411982774207.0.jpg',
+        name: 'Manta Network',
+        description: 'Manta Pacific, the Modular L2.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/upload_1703574865436.0.15537360694813152.0.jpg',
+        name: 'ZKFair',
+        description: 'Powered by Polygon CDK & Celestia DA & Lumoz.',
+      },
+      {
+        imgUrl:
+          'https://nft.onekey-asset.com/admin/u_b_08eccde0-eb0a-11ec-8629-f114182c14b1.png.png.png.png.png',
+        name: 'BakerySwap',
+        description:
+          "BakerySwap is a decentralized automated market-making (AMM) protocol on Binance Smart Chain(BSC) and the 1st NFT trading platform on BSC - 'Bakery NFT Supermarket'.  BakerySwap is the next iteration of Uniswap.",
+      },
     ],
   },
 ];
