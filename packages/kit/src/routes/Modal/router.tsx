@@ -5,16 +5,22 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
+import { ModalSendStack } from '../../views/Send/router/types';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { TokenRouter } from '../../views/Token/router';
 import { WalletConnectRouter } from '../../views/WalletConnect/router';
 
 import { ModalDiscoveryStack } from './Discovery';
-import { ModalSendStack } from './Send';
+import { ModalMainStack } from './Main';
 import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
+  {
+    name: EModalRoutes.MainModal,
+    children: ModalMainStack,
+  },
   {
     name: EModalRoutes.DiscoveryModal,
     children: ModalDiscoveryStack,
@@ -46,6 +52,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.TokenModal,
     children: TokenRouter,
+  },
+  {
+    name: EModalRoutes.ReceiveModal,
+    children: ModalReceiveStack,
   },
   {
     name: EModalRoutes.ScanQrCodeModal,

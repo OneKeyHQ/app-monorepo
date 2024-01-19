@@ -9,6 +9,7 @@ import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
+import type ServiceAddress from '../services/ServiceAddress';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDApp from '../services/ServiceDApp';
@@ -19,6 +20,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNFT from '../services/ServiceNFT';
+import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
@@ -70,6 +72,9 @@ export interface IBackgroundApiBridge {
 export interface IBackgroundApi extends IBackgroundApiBridge {
   simpleDb: SimpleDb;
 
+  // **** WalletConnect
+  walletConnect: ProviderApiWalletConnect;
+
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
@@ -89,6 +94,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDApp: ServiceDApp;
   serviceHardware: ServiceHardware;
 
-  // **** WalletConnect
-  walletConnect: ProviderApiWalletConnect;
+  serviceAddress: ServiceAddress;
+  serviceOnboarding: ServiceOnboarding;
 }

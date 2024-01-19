@@ -11,7 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProvider } from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -109,14 +109,14 @@ const TabMe = () => {
 
 function TabMeContainer() {
   return (
-    <AccountSelectorProvider
+    <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
       }}
       enabledNum={[0]}
     >
       <TabMe />
-    </AccountSelectorProvider>
+    </AccountSelectorProviderMirror>
   );
 }
 

@@ -4,11 +4,14 @@ import { isEmpty, isNil } from 'lodash';
 
 import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { encodeSensitiveText } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IXpubValidation } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -89,6 +92,12 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  override async validateXpub(): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false, // EVM not support xpub
+    });
+  }
+
   override async validateAddress(address: string) {
     let isValid = false;
     let checksumAddress = '';
@@ -99,12 +108,14 @@ export default class Vault extends VaultBase {
     } catch {
       return Promise.resolve({
         isValid: false,
+        normalizedAddress: '',
+        displayAddress: '',
       });
     }
 
     return Promise.resolve({
-      normalizedAddress: checksumAddress.toLowerCase() || undefined,
-      displayAddress: checksumAddress || undefined,
+      normalizedAddress: checksumAddress.toLowerCase() || '',
+      displayAddress: checksumAddress || '',
       isValid,
     });
   }
@@ -155,12 +166,14 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
+
     const tx = {
       ...encodedTx,
       ...gasInfo,
     };
-    if (!isNil(feeInfo?.gas?.gasLimit)) {
-      tx.gas = feeInfo?.gas?.gasLimit;
+    if (!isNil(gasInfo?.gasLimit)) {
+      tx.gas = gasInfo.gasLimit;
+      tx.gasLimit = gasInfo.gasLimit;
     }
     return Promise.resolve(tx);
   }
@@ -171,12 +184,9 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
     };
-    const client = await this.getEthersClient();
     const chainIdHex = await this.getNetworkChainId({ hex: true });
     const chainIdNum = new BigNumber(chainIdHex).toNumber();
-    const nonce = await client.getTransactionCount(tx.from);
 
-    tx.nonce = numberUtils.numberToHex(nonce);
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
@@ -201,6 +211,18 @@ export default class Vault extends VaultBase {
       encodedTx: signedTx.encodedTx,
       txid: signedTx.txid,
       rawTx: signedTx.rawTx,
+    };
+  }
+
+  override async getPrivateKeyFromImported({
+    input,
+  }: {
+    input: string;
+  }): Promise<{ privateKey: string }> {
+    let privateKey = hexUtils.stripHexPrefix(input);
+    privateKey = encodeSensitiveText({ text: privateKey });
+    return {
+      privateKey,
     };
   }
 }

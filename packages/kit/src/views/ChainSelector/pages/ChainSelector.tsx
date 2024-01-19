@@ -130,8 +130,9 @@ function ChainSelector({ num }: { num: number }) {
 export default function ChainSelectorPage() {
   return (
     <AccountSelectorProviderMirror
+      enabledNum={[0]}
       config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read sceneName from router or jotai
+        sceneName: EAccountSelectorSceneName.home,
       }}
     >
       <ChainSelector num={0} />

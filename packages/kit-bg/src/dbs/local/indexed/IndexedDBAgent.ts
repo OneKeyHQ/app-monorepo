@@ -7,20 +7,25 @@ import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 import {
   type IIndexedDBSchemaMap,
+  type ILocalDBAgent,
   type ILocalDBGetAllRecordsParams,
   type ILocalDBGetAllRecordsResult,
   type ILocalDBGetRecordByIdParams,
   type ILocalDBGetRecordByIdResult,
+  type ILocalDBGetRecordsCountParams,
+  type ILocalDBGetRecordsCountResult,
   type ILocalDBRecord,
   type ILocalDBRecordPair,
   type ILocalDBRecordUpdater,
   type ILocalDBTransaction,
   type ILocalDBTransactionStores,
   type ILocalDBTxAddRecordsParams,
+  type ILocalDBTxAddRecordsResult,
   type ILocalDBTxGetAllRecordsParams,
   type ILocalDBTxGetAllRecordsResult,
   type ILocalDBTxGetRecordByIdParams,
   type ILocalDBTxGetRecordByIdResult,
+  type ILocalDBTxGetRecordsCountParams,
   type ILocalDBTxRemoveRecordsParams,
   type ILocalDBTxUpdateRecordsParams,
   type ILocalDBWithTransactionOptions,
@@ -29,7 +34,7 @@ import {
 
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
-export class IndexedDBAgent extends LocalDbAgentBase {
+export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(indexed: IDBPDatabase<IIndexedDBSchemaMap>) {
     super();
     this.indexed = indexed;
@@ -130,8 +135,6 @@ export class IndexedDBAgent extends LocalDbAgentBase {
         },
       };
 
-      console.log('indexedDB _buildTransaction');
-
       this.txPair = {
         dbTx,
         tx,
@@ -190,6 +193,17 @@ export class IndexedDBAgent extends LocalDbAgentBase {
     }
   }
 
+  override async getRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult> {
+    return this.withTransaction(async (tx) =>
+      this.txGetRecordsCount({
+        ...params,
+        tx,
+      }),
+    );
+  }
+
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
@@ -214,15 +228,36 @@ export class IndexedDBAgent extends LocalDbAgentBase {
     });
   }
 
+  override async txGetRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult> {
+    const { tx: paramsTx, name } = params;
+    const fn = async (tx: ILocalDBTransaction) => {
+      const store = this._getObjectStoreFromTx(tx, name);
+      const count = await store.count();
+      return {
+        count,
+      };
+    };
+    return fn(paramsTx);
+  }
+
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { tx: paramsTx, name } = params;
+    const { tx: paramsTx, name, ids } = params;
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx(tx, name);
       // TODO add query support
       // query?: StoreKey<DBTypes, StoreName> | IDBKeyRange | null, count?: number
-      const results = await store.getAll();
+      let results: unknown[] = [];
+
+      if (ids) {
+        results = await Promise.all(ids.map((id) => store.get(id)));
+      } else {
+        results = await store.getAll();
+      }
+
       const recordPairs: ILocalDBRecordPair<T>[] = [];
       const records: ILocalDBRecord<T>[] = [];
 
@@ -277,9 +312,14 @@ export class IndexedDBAgent extends LocalDbAgentBase {
 
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
-  ): Promise<void> {
+  ): Promise<ILocalDBTxAddRecordsResult> {
     const { name, tx, records, skipIfExists } = params;
     const store = this._getObjectStoreFromTx(tx, name);
+    const result: ILocalDBTxAddRecordsResult = {
+      added: 0,
+      skipped: 0,
+      addedIds: [],
+    };
     for (const record of records) {
       let shouldAdd = true;
       if (skipIfExists) {
@@ -290,8 +330,13 @@ export class IndexedDBAgent extends LocalDbAgentBase {
       }
       if (shouldAdd) {
         await store.add(record as any);
+        result.added += 1;
+        result.addedIds.push(record.id);
+      } else {
+        result.skipped += 1;
       }
     }
+    return result;
   }
 
   async txRemoveRecords<T extends ELocalDBStoreNames>(

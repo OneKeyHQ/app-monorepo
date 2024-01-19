@@ -2,9 +2,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  type IFetchAccountHistoryParams,
-  type IFetchAccountHistoryResp,
+import type {
+  IAccountHistoryTx,
+  IFetchAccountHistoryParams,
+  IFetchAccountHistoryResp,
 } from '@onekeyhq/shared/types/history';
 
 import { vaultFactory } from '../vaults/factory';
@@ -21,7 +22,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
     const client = await this.getClient();
-    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+    const resp = await client.post<IFetchAccountHistoryResp>(
       '/wallet/v1/account/history/list',
       params,
     );
@@ -31,16 +32,31 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const onChainHistoryTxs = resp.data.data.data;
+    const onChainHistoryTxs = resp.data.data;
 
-    // TODO: move this to refreshHistory and return onChainHistoryTxs directly
-    return vault.buildOnChainHistoryTxs({
-      accountId,
-      networkId,
-      onChainHistoryTxs,
-      tokens: resp.data.data.tokens,
-      localHistoryTxs: [],
-    });
+    const txGroup: {
+      title: string;
+      data: IAccountHistoryTx[];
+    }[] = [];
+
+    for (let i = 0; i < onChainHistoryTxs.length; i += 1) {
+      const { date, items } = onChainHistoryTxs[i];
+      const txs = await Promise.all(
+        items.map((tx) =>
+          vault.buildOnChainHistoryTx({
+            accountId,
+            networkId,
+            onChainHistoryTx: tx,
+          }),
+        ),
+      );
+      txGroup.push({
+        title: date,
+        data: txs.filter(Boolean) as IAccountHistoryTx[],
+      });
+    }
+
+    return txGroup;
   }
 }
 

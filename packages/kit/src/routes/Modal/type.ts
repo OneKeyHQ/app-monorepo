@@ -1,7 +1,10 @@
 import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
+import type { IModalAssetDetailsParamList } from '../../views/AssetDetails/router/types';
+import type { IModalAssetListParamList } from '../../views/AssetList/router/types';
 import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
+import type { IModalReceiveParamList } from '../../views/Receive/router/type';
 import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
 import type { IModalSendParamList } from '../../views/Send/router';
 import type { IModalSettingParamList } from '../../views/Setting/router/types';
@@ -10,6 +13,7 @@ import type { ITokenParamList } from '../../views/Token/router/type';
 import type { IWalletConnectPagesParam } from '../../views/WalletConnect/router';
 
 export enum EModalRoutes {
+  MainModal = 'MainModal',
   DiscoveryModal = 'DiscoveryModal',
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
@@ -19,10 +23,13 @@ export enum EModalRoutes {
   SendModal = 'SendModal',
   WalletConnectModal = 'WalletConnectModal',
   TokenModal = 'TokenModal',
+  ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
 }
 
 export type IModalParamList = {
+  [EModalRoutes.MainModal]: IModalAssetListParamList &
+    IModalAssetDetailsParamList;
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.SettingModal]: IModalSettingParamList;
@@ -32,5 +39,6 @@ export type IModalParamList = {
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.WalletConnectModal]: IWalletConnectPagesParam;
   [EModalRoutes.TokenModal]: ITokenParamList;
+  [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
 };

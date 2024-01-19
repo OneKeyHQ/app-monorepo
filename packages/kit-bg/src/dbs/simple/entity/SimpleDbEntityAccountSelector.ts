@@ -6,7 +6,11 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 import type { IAccountDeriveTypes } from '../../../vaults/types';
-import type { IDBWalletId } from '../../local/types';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWalletId,
+} from '../../local/types';
 
 export type IAccountSelectorFocusedWallet =
   | IDBWalletId
@@ -20,7 +24,12 @@ export interface IAccountSelectorSelectedAccount {
   deriveType: IAccountDeriveTypes; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
-
+export interface IAccountSelectorSectionData {
+  title: string;
+  isHiddenWalletData?: boolean;
+  data: IDBIndexedAccount[] | IDBAccount[];
+  walletId: IDBWalletId;
+}
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
     [sceneId: string]: {
