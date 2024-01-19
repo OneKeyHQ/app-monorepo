@@ -176,7 +176,6 @@ export function Banner() {
         height: 404,
       }}
       keyExtractor={keyExtractor}
-      index={0}
       data={bannerData}
       renderItem={renderItem}
       renderPagination={renderPagination}
