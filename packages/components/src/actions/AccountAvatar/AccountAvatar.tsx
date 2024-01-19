@@ -52,7 +52,6 @@ function BasicAccountAvatar({
   circular,
   ...restProps
 }: IAccountAvatarProps) {
-  console.log(account);
   return (
     <Image
       size="$10"
