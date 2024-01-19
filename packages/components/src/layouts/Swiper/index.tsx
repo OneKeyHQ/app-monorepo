@@ -130,12 +130,16 @@ function BaseSwiperFlatList<T>(
 
   const goToNextIndex = useCallback(() => {
     clearTimer();
-    _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
+    setTimeout(() => {
+      _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
+    }, 20);
   }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   const gotToPrevIndex = useCallback(() => {
     clearTimer();
-    _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
+    setTimeout(() => {
+      _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
+    }, 20);
   }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   useImperativeHandle(ref, () => ({
