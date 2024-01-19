@@ -58,6 +58,7 @@ type IListItemAvatarCornerImageProps = Omit<
 
 const ListItemAvatarCornerImage = ({
   src,
+  fallback,
   fallbackProps,
   ...rest
 }: IListItemAvatarCornerImageProps) => (
@@ -79,7 +80,8 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 export type IListItemAvatarProps = {
-  avatar?: IDBIndexedAccount | IDBAccount;
+  account?: IDBIndexedAccount | IDBAccount;
+  fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
   cornerImageProps?: IListItemAvatarCornerImageProps;

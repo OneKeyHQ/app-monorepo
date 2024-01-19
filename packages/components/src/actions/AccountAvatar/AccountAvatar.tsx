@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
@@ -11,11 +12,16 @@ import { Image, Skeleton } from '../../primitives';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
-import type { IImageFallbackProps, IImageProps } from '../../primitives';
+import type {
+  IImageFallbackProps,
+  IImageProps,
+  ISkeletonProps,
+} from '../../primitives';
 import type { ImageStyle } from 'react-native';
 
 export interface IAccountAvatarProps extends IImageProps {
   account?: IDBIndexedAccount | IDBAccount;
+  fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
 }
 
@@ -26,10 +32,13 @@ function HashImageSource({ id }: { id: string }) {
 
 const MemoHashImageSource = memo(HashImageSource);
 
-function Fallback({ delayMs = 150 }: { delayMs?: number }) {
+function Fallback({
+  delayMs = 150,
+  ...props
+}: { delayMs?: number } & ISkeletonProps) {
   return (
     <Image.Fallback delayMs={delayMs}>
-      <Skeleton w="$6" h="$6" />
+      <Skeleton {...props} />
     </Image.Fallback>
   );
 }
@@ -38,6 +47,7 @@ function BasicAccountAvatar({
   src,
   source,
   account,
+  fallback,
   fallbackProps,
   circular,
   ...restProps
@@ -61,11 +71,12 @@ function BasicAccountAvatar({
       ) : (
         <Image.Source src={src} source={source} />
       )}
-      {fallbackProps ? <Image.Fallback {...fallbackProps} /> : <Fallback />}
+      {fallback ||
+        (fallbackProps ? <Image.Fallback {...fallbackProps} /> : <Fallback />)}
     </Image>
   );
 }
 
 export const AccountAvatar = withStaticProperties(BasicAccountAvatar, {
-  fallback: Fallback,
+  Fallback,
 });
