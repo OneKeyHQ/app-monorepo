@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -78,6 +77,7 @@ function BookmarkListModal() {
     [modifyBrowserBookmark, run],
   );
 
+  const removeBookmarkFlagRef = useRef(false);
   const [isEditing, setIsEditing] = useState(false);
   const deleteCell = useCallback(
     async (getIndex: () => number | undefined) => {
@@ -86,12 +86,21 @@ function BookmarkListModal() {
         return;
       }
       await removeBrowserBookmark(dataSource[index].url);
-      setTimeout(() => {
-        void run();
+      removeBookmarkFlagRef.current = true;
+      setTimeout(async () => {
+        await run();
       }, 200);
     },
     [removeBrowserBookmark, run, dataSource],
   );
+  // Auto goBack when no bookmark
+  useEffect(() => {
+    if (removeBookmarkFlagRef.current && result?.length === 0) {
+      navigation.pop();
+      removeBookmarkFlagRef.current = false;
+    }
+  }, [result?.length, navigation]);
+
   const onSortBookmarks = useCallback(
     (data: IBrowserBookmark[]) => {
       buildBookmarkData(data);

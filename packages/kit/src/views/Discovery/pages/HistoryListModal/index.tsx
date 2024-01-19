@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -7,15 +7,11 @@ import {
   Button,
   Dialog,
   Divider,
-  Empty,
-  Icon,
   IconButton,
   ListItem,
   Page,
   SectionList,
-  SizableText,
   Skeleton,
-  Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
@@ -74,12 +70,21 @@ function HistoryListModal() {
     },
   );
 
+  const removeHistoryFlagRef = useRef(false);
   const handleDeleteAll = useCallback(async () => {
     await removeAllBrowserHistory();
+    removeHistoryFlagRef.current = true;
     setTimeout(() => {
       void run();
     }, 200);
   }, [run, removeAllBrowserHistory]);
+
+  useEffect(() => {
+    if (removeHistoryFlagRef.current && dataSource?.length === 0) {
+      navigation.pop();
+      removeHistoryFlagRef.current = false;
+    }
+  }, [navigation, dataSource?.length]);
 
   const headerRight = useCallback(
     () => (
@@ -168,6 +173,7 @@ function HistoryListModal() {
                   icon="DeleteOutline"
                   onPress={() => {
                     void removeBrowserHistory(item.id);
+                    removeHistoryFlagRef.current = true;
                     setTimeout(() => {
                       void run();
                     }, 200);
