@@ -125,13 +125,19 @@ function BaseSwiperFlatList<T>(
     });
   }, [_onChangeIndex, currentIndexes.index, currentIndexes.prevIndex]);
 
+  const clearTimer = useCallback(() => {
+    clearTimeout(timeoutRef.current);
+  }, []);
+
   const goToNextIndex = useCallback(() => {
+    clearTimer();
     _scrollToIndex({ index: currentIndexes.index + 1, animated: true });
-  }, [_scrollToIndex, currentIndexes.index]);
+  }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   const gotToPrevIndex = useCallback(() => {
+    clearTimer();
     _scrollToIndex({ index: currentIndexes.index - 1, animated: true });
-  }, [_scrollToIndex, currentIndexes.index]);
+  }, [_scrollToIndex, clearTimer, currentIndexes.index]);
 
   useImperativeHandle(ref, () => ({
     scrollToIndex: (item: any) => {
@@ -152,10 +158,6 @@ function BaseSwiperFlatList<T>(
       setScrollEnabled(!disableGesture);
     },
   }));
-
-  const clearTimer = useCallback(() => {
-    clearTimeout(timeoutRef.current);
-  }, []);
 
   const startTimer = useCallback(() => {
     clearTimer();
