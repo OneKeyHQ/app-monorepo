@@ -2,6 +2,7 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
+  IMPL_BTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -58,12 +59,16 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
 };
 
 const settings: IVaultSettings = {
+  impl: IMPL_BTC,
+  coinTypeDefault: COINTYPE_BTC,
   accountType: EDBAccountType.UTXO,
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
+
+  NFTEnabled: false,
 
   isUtxo: true,
 

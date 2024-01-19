@@ -131,8 +131,9 @@ export function FinalizeWalletSetup({
 >) {
   return (
     <AccountSelectorProviderMirror
+      enabledNum={[0]}
       config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read from router
+        sceneName: EAccountSelectorSceneName.home,
       }}
     >
       <FinalizeWalletSetupPage route={route} navigation={navigation} />

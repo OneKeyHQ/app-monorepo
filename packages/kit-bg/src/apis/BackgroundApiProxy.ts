@@ -6,6 +6,7 @@ import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceAccount from '../services/ServiceAccount';
+import type ServiceAddress from '../services/ServiceAddress';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -15,6 +16,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNFT from '../services/ServiceNFT';
+import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
@@ -64,6 +66,12 @@ class BackgroundApiProxy
   ) as ServiceNameResolver;
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
+  serviceAddress = this._createProxyService('serviceAddress') as ServiceAddress;
+
+  serviceOnboarding = this._createProxyService(
+    'serviceOnboarding',
+  ) as ServiceOnboarding;
 
   // serviceCronJob = this._createProxyService('serviceCronJob') as ServiceCronJob;
 

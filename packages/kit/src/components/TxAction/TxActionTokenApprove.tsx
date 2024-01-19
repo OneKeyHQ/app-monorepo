@@ -1,71 +1,74 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, ListItem } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { TxActionCommonT1 } from './TxActionCommon';
+import {
+  TxActionCommonDetailView,
+  TxActionCommonListView,
+} from './TxActionCommon';
 
-import type { ITxActionProps } from './types';
+import type { ITxActionCommonProps, ITxActionProps } from './types';
 
 function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const { action } = props;
   const { tokenApprove } = action;
-  const approveIcon = tokenApprove?.tokenInfo.logoURI ?? '';
+  const approveIcon = tokenApprove?.tokenIcon ?? '';
+  const approveLabel = tokenApprove?.label ?? '';
   const approveAmount = tokenApprove?.amount ?? '';
-  const approveSymbol = tokenApprove?.tokenInfo.symbol ?? '';
   const approveSpender = tokenApprove?.spender ?? '';
 
   return {
     approveIcon,
     approveAmount,
-    approveSymbol,
+    approveLabel,
     approveSpender,
   };
 }
 
-function TxActionTokenApproveT0(props: ITxActionProps) {
+function TxActionTokenApproveListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { approveIcon, approveSpender, approveAmount, approveSymbol } =
+  const { tableLayout } = props;
+  const { approveIcon, approveSpender, approveLabel } =
     getTxActionTokenApproveInfo(props);
 
-  const title = intl.formatMessage(
-    { id: 'form__approve_str' },
-    { 0: `${approveAmount} ${approveSymbol}` },
-  );
-  const subTitle = `to: ${accountUtils.shortenAddress({
-    address: approveSpender,
-  })}`;
+  const title = approveLabel;
+  const avatar: ITxActionCommonProps['avatar'] = {
+    circular: true,
+    src: approveIcon,
+    fallbackIcon: 'ImageMountainSolid',
+  };
+  const description = {
+    prefix: intl.formatMessage({
+      id: 'content__to',
+    }),
+    children: accountUtils.shortenAddress({
+      address: approveSpender,
+    }),
+  };
 
   return (
-    <ListItem
+    <TxActionCommonListView
       title={title}
-      subtitle={subTitle}
-      avatarProps={{
-        src: approveIcon,
-        fallbackProps: {
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
-        },
-      }}
+      avatar={avatar}
+      description={description}
+      tableLayout={tableLayout}
     />
   );
 }
 
-function TxActionTokenApproveT1(props: ITxActionProps) {
+function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { approveIcon, approveSpender, approveAmount, approveSymbol } =
+  const { approveIcon, approveSpender, approveLabel } =
     getTxActionTokenApproveInfo(props);
 
   const title = intl.formatMessage({ id: 'form__approved' });
-  const content = `${approveAmount} ${approveSymbol}`;
+  const content = approveLabel;
   const description = `to: ${accountUtils.shortenAddress({
     address: approveSpender,
   })}`;
 
   return (
-    <TxActionCommonT1
+    <TxActionCommonDetailView
       title={title}
       icon={approveIcon}
       content={content}
@@ -74,4 +77,4 @@ function TxActionTokenApproveT1(props: ITxActionProps) {
   );
 }
 
-export { TxActionTokenApproveT0, TxActionTokenApproveT1 };
+export { TxActionTokenApproveListView, TxActionTokenApproveDetailView };
