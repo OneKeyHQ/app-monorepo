@@ -206,7 +206,13 @@ export function SuggestedAndExploreSection() {
   }, [navigation]);
 
   return (
-    <Stack p="$5" tag="section">
+    <Stack
+      p="$5"
+      $platform-native={{
+        pb: '$16',
+      }}
+      tag="section"
+    >
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading
           selected={!isExploreView}

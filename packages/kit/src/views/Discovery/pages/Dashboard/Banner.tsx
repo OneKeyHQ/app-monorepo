@@ -167,7 +167,7 @@ export function Banner() {
       autoplay
       autoplayLoop
       autoplayLoopKeepAnimation
-      autoplayDelayMs={2000}
+      autoplayDelayMs={3000}
       height={228}
       $gtMd={{
         height: 308,

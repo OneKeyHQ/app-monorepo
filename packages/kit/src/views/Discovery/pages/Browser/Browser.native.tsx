@@ -70,7 +70,7 @@ function MobileBrowser() {
   );
 
   const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.SearchModal,
     });
   }, [navigation]);
