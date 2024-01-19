@@ -53,23 +53,12 @@ export function Banner() {
         <Stack
           p="$5"
           tag="section"
+          flex={1}
           position="relative"
           onPress={onPress}
           userSelect="none"
         >
-          <Image
-            width="100%"
-            height="$52"
-            $gtMd={{
-              height: '$72',
-            }}
-            $gtLg={{
-              height: '$96',
-            }}
-            borderRadius="$3"
-            bg="$bgStrong"
-            src={imgUrl}
-          />
+          <Image flex={1} borderRadius="$3" bg="$bgStrong" src={imgUrl} />
           <Stack
             position="absolute"
             bottom={0}
@@ -179,11 +168,14 @@ export function Banner() {
       autoplayLoop
       autoplayLoopKeepAnimation
       autoplayDelayMs={2000}
-      height="$64"
+      height={228}
       $gtMd={{
-        height: 424,
+        height: 308,
       }}
-      estimatedItemSize="$64"
+      $gtLg={{
+        height: 404,
+      }}
+      estimatedItemSize="$52"
       keyExtractor={keyExtractor}
       index={0}
       data={bannerData}

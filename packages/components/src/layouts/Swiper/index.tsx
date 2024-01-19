@@ -52,7 +52,16 @@ function BaseSwiperFlatList<T>(
   const [containerWidth, setContainerWidth] = useState(0);
   const _renderItem = useCallback(
     (info: ListRenderItemInfo<T>) => (
-      <Stack width={containerWidth}>{renderItem?.(info)}</Stack>
+      <Stack
+        width={containerWidth}
+        height={props.height}
+        $md={props.$md}
+        $gtMd={props.$gtMd}
+        $lg={props.$lg}
+        $gtLg={props.$gtLg}
+      >
+        {renderItem?.(info)}
+      </Stack>
     ),
     [containerWidth, renderItem],
   );
@@ -301,6 +310,8 @@ function BaseSwiperFlatList<T>(
       height={flatListProps.height}
       $md={flatListProps.$md}
       $gtMd={flatListProps.$gtMd}
+      $lg={flatListProps.$lg}
+      $gtLg={flatListProps.$gtLg}
       onLayout={handleLayout}
     >
       {containerWidth ? (
