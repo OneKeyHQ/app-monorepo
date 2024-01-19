@@ -39,7 +39,7 @@ export function AccountSelectorDialog({ num }: { num: number }) {
       if (!selectedAccount?.focusedWallet) {
         return Promise.resolve(undefined);
       }
-      return serviceAccount.getAccountsOfWallet({
+      return serviceAccount.getAccountsOfWalletLegacy({
         walletId: selectedAccount?.focusedWallet,
       });
     }, [selectedAccount?.focusedWallet]);
