@@ -24,6 +24,7 @@ import type {
 } from 'react-native';
 
 const FIRST_INDEX = 0;
+const ITEM_VISIBLE_PERCENT_THRESHOLD = 60;
 
 function BaseSwiperFlatList<T>(
   {
@@ -37,7 +38,6 @@ function BaseSwiperFlatList<T>(
     autoplayLoop = false,
     autoplayLoopKeepAnimation = false,
     onChangeIndex,
-    onViewableItemsChanged,
     disableGesture = false,
     ...props
   }: ISwiperProps<T>,
@@ -86,7 +86,7 @@ function BaseSwiperFlatList<T>(
     (params: IScrollToIndexParams) => {
       const { index: indexToScroll, animated = true } = params;
       const newParams = { animated, index: indexToScroll };
-
+      console.log('_scrollToIndex', params);
       const next = {
         index: indexToScroll,
         prevIndex: currentIndexes.index,
@@ -213,9 +213,8 @@ function BaseSwiperFlatList<T>(
           }));
         }
       }
-      onViewableItemsChanged?.(params);
     },
-    [onViewableItemsChanged],
+    [],
   );
 
   const flatListProps: IListViewProps<T> = {
@@ -233,6 +232,11 @@ function BaseSwiperFlatList<T>(
     initialNumToRender: _initialNumToRender,
     initialScrollIndex: index, // used with onScrollToIndexFailed
     onViewableItemsChanged: _onViewableItemsChanged,
+    viewabilityConfig: {
+      // https://facebook.github.io/react-native/docs/flatlist#minimumviewtime
+      minimumViewTime: 200,
+      itemVisiblePercentThreshold: ITEM_VISIBLE_PERCENT_THRESHOLD,
+    },
   };
 
   const { width } = useWindowDimensions();

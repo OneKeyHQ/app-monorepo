@@ -1,6 +1,4 @@
-import { useCallback, useState } from 'react';
-
-import { useWindowDimensions } from 'react-native';
+import { useCallback } from 'react';
 
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
@@ -10,7 +8,6 @@ import {
   Stack,
   Swiper,
   XStack,
-  YStack,
   useMedia,
 } from '@onekeyhq/components';
 
