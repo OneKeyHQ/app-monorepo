@@ -108,7 +108,7 @@ const TabViewScrollPageDemo = () => {
       },
       {
         title: '禁止选中标签2',
-        page: SecondRoute,
+        page: FourthRoute,
       },
       {
         title: '不吸顶标签3',
@@ -129,7 +129,7 @@ const TabViewScrollPageDemo = () => {
       shouldSelectedPageIndex={(pageIndex) => {
         const result = pageIndex !== 1;
         if (!result) {
-          Toast.error({ message: '未登录' });
+          Toast.error({ title: '未登录' });
         }
         return result;
       }}
