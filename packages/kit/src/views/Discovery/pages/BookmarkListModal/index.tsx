@@ -191,6 +191,9 @@ function BookmarkListModal() {
                   numberOfLines: 1,
                 }}
                 secondary={item.url}
+                secondaryTextProps={{
+                  numberOfLines: 1,
+                }}
                 flex={1}
               />
               {isEditing && (

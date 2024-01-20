@@ -46,7 +46,8 @@ export function CustomHeaderTitle({
       </SizableText>
       {media.gtMd && (
         <Shortcut>
-          <Shortcut.Key>/</Shortcut.Key>
+          <Shortcut.Key>⌘</Shortcut.Key>
+          <Shortcut.Key>T</Shortcut.Key>
         </Shortcut>
       )}
     </XStack>
