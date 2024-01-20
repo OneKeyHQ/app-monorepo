@@ -3,7 +3,7 @@ import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provi
 export type IConnectionProviderNames =
   | IInjectedProviderNamesStrings
   | 'walletconnect';
-interface IConnectionAccountInfo {
+export interface IConnectionAccountInfo {
   type: IInjectedProviderNamesStrings;
   walletId: string;
   indexedAccountId: string;

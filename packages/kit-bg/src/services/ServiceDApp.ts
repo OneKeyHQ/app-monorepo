@@ -306,7 +306,7 @@ class ServiceDApp extends ServiceBase {
 
   // notification
   @backgroundMethod()
-  async notifyAccountsChanged(targetOrigin: string): void {
+  async notifyAccountsChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
         provider.notifyDappAccountsChanged({
