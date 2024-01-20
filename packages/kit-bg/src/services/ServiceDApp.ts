@@ -15,12 +15,17 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import type { IConnectionItem } from '@onekeyhq/shared/types/dappConnection';
+import type {
+  IConnectionItem,
+  IConnectionProviderNames,
+} from '@onekeyhq/shared/types/dappConnection';
 
+import { mockGetNetwork } from '../mock';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type { SessionTypes } from '@walletconnect/types';
 
@@ -238,6 +243,52 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async saveConnectionSession(data: IConnectionItem) {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection(data);
+  }
+
+  @backgroundMethod()
+  async getConnectedAccount(origin: string, scope: IConnectionProviderNames) {
+    const accountInfo =
+      await this.backgroundApi.simpleDb.dappConnection.findAccountInfoByOriginAndScope(
+        origin,
+        scope,
+      );
+    if (!accountInfo) {
+      return null;
+    }
+    const { accountId, networkId } = accountInfo;
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    return account;
+  }
+
+  @backgroundMethod()
+  async getConnectedNetwork(origin: string, scope: IConnectionProviderNames) {
+    const accountInfo =
+      await this.backgroundApi.simpleDb.dappConnection.findAccountInfoByOriginAndScope(
+        origin,
+        scope,
+      );
+    if (!accountInfo) {
+      return null;
+    }
+    const { networkId } = accountInfo;
+    const network = await mockGetNetwork({ networkId });
+    return network;
+  }
+
+  // notification
+  @backgroundMethod()
+  notifyAccountsChanged(targetOrigin: string): void {
+    Object.values(this.backgroundApi.providers).forEach(
+      (provider: ProviderApiBase) => {
+        provider.notifyDappAccountsChanged({
+          send: this.backgroundApi.sendForProvider(provider.providerName),
+          targetOrigin,
+        });
+      },
+    );
   }
 }
 

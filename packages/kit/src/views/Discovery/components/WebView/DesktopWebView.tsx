@@ -298,7 +298,6 @@ const DesktopWebView = forwardRef(
           }
           if (origin) {
             // - receive
-            console.log('=====>>>:::jsBridgeHost.receive(): ', data, origin);
             jsBridgeHost.receive(data, { origin });
           } else {
             // TODO log error if url is empty

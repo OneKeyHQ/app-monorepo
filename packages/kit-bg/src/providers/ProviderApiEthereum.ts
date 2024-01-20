@@ -1,3 +1,4 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import * as ethUtils from 'ethereumjs-util';
 
@@ -23,10 +24,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'metamask_accountsChanged',
-        params: [`0x0000000${Date.now()}`],
+        params: await this.eth_accounts({ origin, scope: this.providerName }),
       };
       return result;
     };
@@ -39,17 +40,82 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+    console.log(`${this.providerName} RpcCall=====>>>> : BgApi:`, request);
     return Promise.resolve();
   }
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiEthereum.eth_requestAccounts', request);
-    const result = await this.backgroundApi.serviceDApp.openConnectionModal(
-      request,
+    await this.backgroundApi.serviceDApp.openConnectionModal(request);
+    return this.eth_accounts(request);
+  }
+
+  @providerApiMethod()
+  async eth_coinbase(request: IJsBridgeMessagePayload): Promise<string | null> {
+    const accounts = await this.eth_accounts(request);
+    return accounts?.[0] || null;
+  }
+
+  @providerApiMethod()
+  async eth_accounts(request: IJsBridgeMessagePayload): Promise<string[]> {
+    if (!request.origin) {
+      throw new Error('origin is required');
+    }
+    const account = await this.backgroundApi.serviceDApp.getConnectedAccount(
+      request.origin ?? '',
+      request.scope ?? this.providerName,
     );
-    console.log('====>result: ', result);
-    return Promise.resolve(['0x0000000']);
+    if (!account) {
+      return Promise.resolve([]);
+    }
+    console.log('====>Call eth_accounts: ', account);
+    return Promise.resolve([account.address]);
+  }
+
+  @providerApiMethod()
+  async eth_chainId(request: IJsBridgeMessagePayload) {
+    console.log('=====>eth_chainId: ', request);
+    if (!request.origin) {
+      throw new Error('origin is required');
+    }
+    const network = await this.backgroundApi.serviceDApp.getConnectedNetwork(
+      request.origin,
+      request.scope ?? this.providerName,
+    );
+    if (network?.chainId) {
+      return `0x${Number(network.chainId).toString(16)}`;
+    }
+    throw new Error('chainId not found');
+  }
+
+  @providerApiMethod()
+  async net_version(request: IJsBridgeMessagePayload) {
+    console.log('=====>net_version: ', request);
+  }
+
+  @providerApiMethod()
+  eth_signTransaction() {
+    throw web3Errors.provider.unsupportedMethod();
+  }
+
+  @providerApiMethod()
+  eth_subscribe() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  eth_unsubscribe() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    return this._showSignMessageModal(request, {
+      type: EMessageTypesEth.ETH_SIGN,
+      message: messages[1],
+      payload: messages,
+    });
   }
 
   // Provider API

@@ -1,6 +1,8 @@
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 
-type IConnectionProviderNames = IInjectedProviderNamesStrings | 'walletconnect';
+export type IConnectionProviderNames =
+  | IInjectedProviderNamesStrings
+  | 'walletconnect';
 interface IConnectionAccountInfo {
   type: IInjectedProviderNamesStrings;
   walletId: string;

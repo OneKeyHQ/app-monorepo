@@ -16,7 +16,9 @@ import type { IElectronWebView } from '../components/WebView/types';
 
 const notifyChanges = throttle((url: string, fromScene?: string) => {
   console.log('webview notify changed events: ', url, fromScene);
-  void backgroundApiProxy.serviceDiscovery.notifyTest();
+  void backgroundApiProxy.serviceDApp.notifyAccountsChanged(
+    new URL(url).origin,
+  );
 });
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
