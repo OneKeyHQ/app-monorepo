@@ -19,7 +19,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   async upsertConnection(newConnection: IConnectionItem) {
     await this.setRawData(({ rawData }) => {
       // Directly create new data if rawData is not initialized
-      if (!rawData || !Array.isArray(rawData)) {
+      if (!rawData || !Array.isArray(rawData.data)) {
         return {
           data: [newConnection],
         };
@@ -69,5 +69,48 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
     const accountInfo = connectionItem.connectionMap[scope];
     return accountInfo || null;
+  }
+
+  @backgroundMethod()
+  async updateNetworkId(
+    origin: string,
+    scope: IConnectionProviderNames,
+    newNetworkId: string,
+  ) {
+    const accountInfo = await this.findAccountInfoByOriginAndScope(
+      origin,
+      scope,
+    );
+    if (!accountInfo) {
+      return;
+    }
+    await this.setRawData(({ rawData }) => {
+      if (!rawData || !Array.isArray(rawData.data)) {
+        return {
+          data: [],
+        };
+      }
+
+      const updatedData = rawData.data.map((connectionItem) => {
+        if (
+          connectionItem.origin === origin &&
+          connectionItem.connectionMap[scope]
+        ) {
+          return {
+            ...connectionItem,
+            connectionMap: {
+              ...connectionItem.connectionMap,
+              [scope]: {
+                ...connectionItem.connectionMap[scope],
+                networkId: newNetworkId,
+              },
+            },
+          };
+        }
+        return connectionItem;
+      });
+
+      return { data: updatedData };
+    });
   }
 }

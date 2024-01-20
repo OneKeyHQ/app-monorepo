@@ -9,6 +9,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -20,7 +21,6 @@ import type {
   IConnectionProviderNames,
 } from '@onekeyhq/shared/types/dappConnection';
 
-import { mockGetNetwork } from '../mock';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -245,8 +245,10 @@ class ServiceDApp extends ServiceBase {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection(data);
   }
 
-  @backgroundMethod()
-  async getConnectedAccount(origin: string, scope: IConnectionProviderNames) {
+  async getConnectedAccountInfo(
+    origin: string,
+    scope: IConnectionProviderNames,
+  ) {
     const accountInfo =
       await this.backgroundApi.simpleDb.dappConnection.findAccountInfoByOriginAndScope(
         origin,
@@ -255,6 +257,13 @@ class ServiceDApp extends ServiceBase {
     if (!accountInfo) {
       return null;
     }
+    return accountInfo;
+  }
+
+  @backgroundMethod()
+  async getConnectedAccount(origin: string, scope: IConnectionProviderNames) {
+    const accountInfo = await this.getConnectedAccountInfo(origin, scope);
+    if (!accountInfo) return null;
     const { accountId, networkId } = accountInfo;
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
@@ -265,22 +274,39 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async getConnectedNetwork(origin: string, scope: IConnectionProviderNames) {
-    const accountInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountInfoByOriginAndScope(
-        origin,
-        scope,
-      );
-    if (!accountInfo) {
-      return null;
-    }
+    const accountInfo = await this.getConnectedAccountInfo(origin, scope);
+    if (!accountInfo) return null;
     const { networkId } = accountInfo;
-    const network = await mockGetNetwork({ networkId });
-    return network;
+    const network = serverPresetNetworks.find((i) => i.id === networkId);
+    return Promise.resolve(network);
+  }
+
+  @backgroundMethod()
+  async switchConnectedNetwork(
+    origin: string,
+    scope: IConnectionProviderNames,
+    newNetworkId: string,
+  ) {
+    const networks = await this.backgroundApi.serviceDApp.fetchNetworks();
+    const included = networks.some((network) => network.id === newNetworkId);
+    if (!included) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
+      origin,
+      scope,
+      newNetworkId,
+    );
+  }
+
+  @backgroundMethod()
+  async fetchNetworks() {
+    return Promise.resolve(serverPresetNetworks);
   }
 
   // notification
   @backgroundMethod()
-  notifyAccountsChanged(targetOrigin: string): void {
+  async notifyAccountsChanged(targetOrigin: string): void {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
         provider.notifyDappAccountsChanged({
@@ -289,6 +315,7 @@ class ServiceDApp extends ServiceBase {
         });
       },
     );
+    return Promise.resolve();
   }
 }
 

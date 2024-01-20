@@ -1,12 +1,14 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import * as ethUtils from 'ethereumjs-util';
+import stringify from 'fast-json-stable-stringify';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -16,6 +18,11 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+
+export type ISwitchEthereumChainParameter = {
+  chainId: string;
+  networkId?: string;
+};
 
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
@@ -47,6 +54,10 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiEthereum.eth_requestAccounts', request);
+    const accounts = await this.eth_accounts(request);
+    if (accounts && accounts.length) {
+      return accounts;
+    }
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
     return this.eth_accounts(request);
   }
@@ -160,6 +171,51 @@ class ProviderApiEthereum extends ProviderApiBase {
     console.log('=====>>>>signmessage result: ', result);
     return result;
   }
+
+  @providerApiMethod()
+  async wallet_switchEthereumChain(
+    request: IJsBridgeMessagePayload,
+    params: ISwitchEthereumChainParameter,
+  ) {
+    return this.switchEthereumChainMemo(request, params);
+  }
+
+  switchEthereumChain = async (
+    request: IJsBridgeMessagePayload,
+    params: ISwitchEthereumChainParameter,
+  ) => {
+    if (!request.origin) {
+      throw new Error('origin is required');
+    }
+    const networks = await this.backgroundApi.serviceDApp.fetchNetworks();
+    const networkId = `evm--${parseInt(params.chainId)}`;
+    const included = networks.some((network) => network.id === networkId);
+    if (!included) {
+      // https://uniswap-v3.scroll.io/#/swap required Error response
+      throw web3Errors.provider.custom({
+        code: 4902, // error code should be 4902 here
+        message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+      });
+    }
+    await this.backgroundApi.serviceDApp.switchConnectedNetwork(
+      request.origin,
+      request.scope ?? this.providerName,
+      networkId,
+    );
+    return null;
+  };
+
+  switchEthereumChainMemo = memoizee(this.switchEthereumChain.bind(this), {
+    max: 1,
+    maxAge: 800,
+    normalizer([request, params]: [
+      IJsBridgeMessagePayload,
+      ISwitchEthereumChainParameter,
+    ]): string {
+      const p = request?.data ?? [params];
+      return stringify(p);
+    },
+  });
 }
 
 export default ProviderApiEthereum;

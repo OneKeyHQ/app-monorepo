@@ -226,10 +226,7 @@ const DesktopWebView = forwardRef(
           }
         },
       };
-      console.log('====> jsBridge: ', jsBridgeHost);
       jsBridgeHost.webviewWrapper = wrapper;
-      jsBridgeHost.webviewRef = webviewRef;
-      console.log('jsBridgeHost.webviewRef: ', webviewRef);
       return wrapper;
     });
 
