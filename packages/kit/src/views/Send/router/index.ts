@@ -29,7 +29,6 @@ export type IModalSendParamList = {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
-    transfersInfo: ITransferInfo[];
   };
   [EModalSendRoutes.SendProgress]: {
     networkId: string;

@@ -32,6 +32,14 @@ function NFTListContainer(props: IProps) {
         networkId: network.id,
         accountAddress: account.address,
       });
+
+      if (r.data && r.data.length) {
+        void backgroundApiProxy.serviceNFT.updateLocalNFTs({
+          networkId: network.id,
+          nfts: r.data,
+        });
+      }
+
       return r.data;
     },
     [account, isNFTEnabled, network],

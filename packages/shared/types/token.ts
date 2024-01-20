@@ -3,9 +3,9 @@ export type IToken = {
   symbol: string;
   address: string;
   decimals: number;
-  logoURI: string;
-  isNative: boolean;
-  riskLevel: number;
+  logoURI?: string;
+  isNative?: boolean;
+  riskLevel?: number;
 };
 
 export type ITokenFiat = {
@@ -43,10 +43,10 @@ export type IFetchAccountTokensResp = {
 
 export type IFetchTokenDetailParams = {
   networkId: string;
-  accountAddress: string;
-  xpub?: string;
   address: string;
-  isNative: boolean;
+  accountAddress?: string;
+  xpub?: string;
+  isNative?: boolean;
 };
 
 export type IFetchTokenDetailResp = IAccountToken;

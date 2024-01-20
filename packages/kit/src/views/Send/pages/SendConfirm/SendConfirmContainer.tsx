@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -7,10 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  useSendConfirmActions,
-  withSendConfirmProvider,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+import { withSendConfirmProvider } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 
 import { InteractInfo } from '../../components/InteractInfo';
 import { SendActions } from '../../components/SendActions';
@@ -31,17 +28,10 @@ function SendConfirmContainer() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId, unsignedTxs } = route.params;
 
-  const { updateUnsignedTxs } = useSendConfirmActions().current;
-
   const handleConfirm = useCallback(async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EModalSendRoutes.SendProgress);
   }, [navigation]);
-
-  useEffect(
-    () => updateUnsignedTxs(unsignedTxs),
-    [unsignedTxs, updateUnsignedTxs],
-  );
 
   return (
     <Page scrollEnabled>
@@ -52,7 +42,11 @@ function SendConfirmContainer() {
         <YStack space="$5">
           <InteractInfo />
           <SingerInfo />
-          <TxActionsContainer />
+          <TxActionsContainer
+            accountId={accountId}
+            networkId={networkId}
+            unsignedTxs={unsignedTxs}
+          />
         </YStack>
       </Page.Body>
       <Page.Footer>

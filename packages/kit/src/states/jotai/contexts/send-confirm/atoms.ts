@@ -1,4 +1,3 @@
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { EFeeType } from '@onekeyhq/shared/types/gas';
 
@@ -15,10 +14,6 @@ export {
   withSendConfirmProvider,
   contextAtomMethod,
 };
-
-export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
-  IUnsignedTxPro[]
->([]);
 
 export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
   contextAtom<{

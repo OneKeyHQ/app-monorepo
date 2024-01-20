@@ -37,6 +37,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildTxHelperParams,
   IBuildUnsignedTxParams,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
@@ -100,12 +101,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     this.keyring = await config.keyringCreator(this);
   }
 
-  abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
+  abstract buildEncodedTx(
+    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+  ): Promise<IEncodedTx>;
 
-  abstract buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx>;
+  abstract buildDecodedTx(
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+  ): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
-    params: IBuildUnsignedTxParams,
+    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
   ): Promise<IUnsignedTxPro>;
 
   abstract updateUnsignedTx(
@@ -255,7 +260,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       isNFT = true;
     } else if (!isNil((transfer.info as IToken)?.address)) {
       const info = transfer.info as IToken;
-      image = info.logoURI;
+      image = info.logoURI ?? '';
       symbol = info.symbol;
     }
 
@@ -282,6 +287,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         spender: approve.to,
         tokenIcon: transfer.image,
         amount: new BigNumber(approve.amount).abs().toFixed(),
+        // TODO: isMax from server
+        isMax: false,
       },
     };
   }

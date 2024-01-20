@@ -69,7 +69,6 @@ function TokenListContainer(props: IProps) {
 
       if (allTokens && allTokens.length) {
         void backgroundApiProxy.serviceToken.updateLocalTokens({
-          networkId: network.id,
           tokens: allTokens,
         });
       }

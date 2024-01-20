@@ -37,6 +37,12 @@ export function NFTDetails() {
         collectionAddress,
         itemId,
       });
+
+      void backgroundApiProxy.serviceNFT.updateLocalNFTs({
+        networkId,
+        nfts: [r],
+      });
+
       return r;
     },
     [accountAddress, collectionAddress, itemId, networkId],

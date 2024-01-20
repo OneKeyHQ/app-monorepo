@@ -9,6 +9,8 @@ import type {
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type {
   IAccountDeriveInfoMapBtc,
@@ -90,8 +92,10 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+
   isUtxo: boolean;
   NFTEnabled: boolean;
+  nonceRequired: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
@@ -183,16 +187,43 @@ export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
-  token: string; // tokenIdOnNetwork
+
+  tokenInfo?: {
+    tokenIdOnNetwork: string;
+  };
+
+  nftInfo?: {
+    nftId: string;
+    nftType: ENFTType;
+    nftAddress: string;
+  };
 };
 
 // Send ------------
+export interface IBuildTxHelperParams {
+  getToken: ({
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    networkId: string;
+    tokenIdOnNetwork: string;
+  }) => Promise<IToken | undefined>;
+  getNFT: ({
+    networkId,
+    nftId,
+    collectionAddress,
+  }: {
+    networkId: string;
+    collectionAddress: string;
+    nftId: string;
+  }) => Promise<IAccountNFT | undefined>;
+}
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   // swapInfo
 }
 export interface IBuildDecodedTxParams {
-  unsignedTx: IUnsignedTxPro[];
+  unsignedTx: IUnsignedTxPro;
 }
 export interface IBuildUnsignedTxParams {
   transfersInfo: ITransferInfo[];
@@ -200,8 +231,9 @@ export interface IBuildUnsignedTxParams {
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
-  // tokenApproveInfo
-  // nonceInfo
+  nonceInfo?: { nonce: number };
+  tokenApproveInfo?: { allowance: string };
+  maxSendInfo?: { amount: string };
 }
 export interface IBroadcastTransactionParams {
   networkId: string;

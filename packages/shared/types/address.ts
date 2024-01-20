@@ -13,6 +13,9 @@ export type IFetchAddressDetailsParams = {
   xpub?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
+  withNonce?: boolean;
+  withBalance?: boolean;
+  withValidate?: boolean;
 };
 
 export type IFetchAddressDetailsResp = {

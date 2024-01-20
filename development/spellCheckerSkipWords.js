@@ -349,6 +349,8 @@ module.exports = [
   'Tryopen',
   'Icahost',
   'Erc20',
+  'Erc721',
+  'Erc1155',
   'Ibc',
   'txhash',
   'codespace',

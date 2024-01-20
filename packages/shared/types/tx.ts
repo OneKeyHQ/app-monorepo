@@ -95,6 +95,8 @@ export type IDecodedTxActionBase = {
   nativeAmountValue?: string;
 };
 
+export type IDecodedTxActionUnknown = IDecodedTxActionBase;
+
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
@@ -117,17 +119,18 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   from: string;
   to: string;
-  label: string;
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
+  label?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   owner: string;
   spender: string;
   amount: string;
-  label: string;
   tokenIcon: string;
+  isMax: boolean;
+  label?: string;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
@@ -149,4 +152,6 @@ export type IDecodedTxAction = {
   tokenActivate?: IDecodedTxActionTokenActivate;
 
   functionCall?: IDecodedTxActionFunctionCall;
+
+  unknownAction?: IDecodedTxActionUnknown;
 };

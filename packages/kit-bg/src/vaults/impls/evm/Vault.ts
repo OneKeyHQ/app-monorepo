@@ -1,31 +1,72 @@
+import { defaultAbiCoder } from '@ethersproject/abi';
 import { getAddress } from '@ethersproject/address';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
-import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
+import {
+  EthersJsonRpcProvider,
+  ethers,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  buildTxActionDirection,
+  mergeAssetTransferActions,
+} from '@onekeyhq/kit/src/utils/txAction';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import numberUtils, {
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionAssetTransfer,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
+import { EVMTxDecoder } from './decoder';
+import {
+  EErc1155MethodSelectors,
+  EErc20MethodSelectors,
+  EErc721MethodSelectors,
+} from './decoder/abi';
+import {
+  EBaseEVMDecodedTxProtocol,
+  EBaseEVMDecodedTxType,
+} from './decoder/types';
+import {
+  InfiniteAmountText,
+  formatValue,
+  parseToNativeTx,
+} from './decoder/utils';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
+import type { IBaseEVMDecodedTx } from './decoder/types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildTxHelperParams,
+  IBuildUnsignedTxParams,
   ITransferInfo,
+  IUpdateUnsignedTxParams,
   IVaultSettings,
 } from '../../types';
 
@@ -33,60 +74,129 @@ import type {
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
-  override async buildEncodedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IEncodedTxEvm> {
-    const { transfersInfo } = options;
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+  ): Promise<IEncodedTxEvm> {
+    const { transfersInfo } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
-      return this._buildEncodedTxFromTransfer(transfersInfo);
+      return this._buildEncodedTxFromTransfer(params);
     }
     throw new OneKeyInternalError();
   }
 
   override async buildDecodedTx(
-    params: IBuildDecodedTxParams,
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
   ): Promise<IDecodedTx> {
-    noopObject(params);
-    // TODO evm decode tx impl
-    return Promise.resolve({
-      txid: '',
-      owner: '',
-      signer: '',
-      nonce: 0,
-      actions: [],
-      networkId: '',
-      accountId: '',
-      status: EDecodedTxStatus.Pending,
-      extraInfo: null,
+    const { unsignedTx, getToken, getNFT } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
+    const accountAddress = await this.getAccountAddress();
+
+    const nativeTx = await parseToNativeTx({
+      encodedTx,
     });
+
+    const decoder = new EVMTxDecoder();
+
+    const baseDecodedTx = decoder.parseTx({ rawTx: nativeTx });
+
+    let action: IDecodedTxAction | undefined = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {},
+    };
+
+    let extraNativeTransferAction: IDecodedTxAction | undefined;
+    if (encodedTx.value) {
+      const valueBn = new BigNumber(encodedTx.value);
+      if (!valueBn.isNaN() && valueBn.gt(0)) {
+        extraNativeTransferAction =
+          await this._buildTxTransferNativeTokenAction({
+            encodedTx,
+            getNFT,
+            getToken,
+          });
+      }
+    }
+
+    if (baseDecodedTx.txType === EBaseEVMDecodedTxType.NATIVE_TRANSFER) {
+      action = await this._buildTxTransferNativeTokenAction({
+        encodedTx,
+        getNFT,
+        getToken,
+      });
+      extraNativeTransferAction = undefined;
+    }
+
+    if (baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC20) {
+      action = await this._buildTxTokenAction({
+        encodedTx,
+        baseDecodedTx,
+        getToken,
+        getNFT,
+      });
+    }
+
+    if (
+      baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC721 ||
+      EBaseEVMDecodedTxProtocol.ERC1155
+    ) {
+      action = await this._buildTxTransferNFTAction({
+        encodedTx,
+        baseDecodedTx,
+        getToken,
+        getNFT,
+      });
+    }
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: accountAddress,
+      signer: encodedTx.from ?? accountAddress,
+      nonce: Number(encodedTx.nonce) ?? 0,
+      actions: mergeAssetTransferActions(
+        [action, extraNativeTransferAction].filter(
+          Boolean,
+        ) as IDecodedTxAction[],
+      ),
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      extraInfo: null,
+    };
+    return decodedTx;
   }
 
-  override async buildUnsignedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IUnsignedTxPro> {
-    const { transfersInfo } = options;
-    const encodedTx = await this.buildEncodedTx({ transfersInfo });
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx(encodedTx);
     }
     throw new OneKeyInternalError();
   }
 
-  override async updateUnsignedTx(options: {
-    unsignedTx: IUnsignedTxPro;
-    feeInfo?: IFeeInfoUnit | undefined;
-  }): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo } = options;
+  override async updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const { unsignedTx, feeInfo, nonceInfo } = params;
+    let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
+
     if (feeInfo) {
-      const encodedTxNew = await this._attachFeeInfoToEncodedTx({
-        encodedTx: unsignedTx.encodedTx as IEncodedTxEvm,
+      encodedTxNew = await this._attachFeeInfoToEncodedTx({
+        encodedTx: encodedTxNew,
         feeInfo,
       });
-      unsignedTx.encodedTx = encodedTxNew;
-      return unsignedTx;
     }
 
-    throw new OneKeyInternalError();
+    if (nonceInfo) {
+      encodedTxNew = await this._attachNonceInfoToEncodedTx({
+        encodedTx: encodedTxNew,
+        nonceInfo,
+      });
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+    return unsignedTx;
   }
 
   override async validateAddress(address: string) {
@@ -118,24 +228,123 @@ export default class Vault extends VaultBase {
   };
 
   async _buildEncodedTxFromTransfer(
-    transfersInfo: ITransferInfo[],
+    params: IBuildEncodedTxParams & IBuildTxHelperParams,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
-    if (transfersInfo.length === 1) {
+    const { transfersInfo, getToken } = params;
+    if (transfersInfo?.length === 1) {
       const transferInfo = transfersInfo[0];
-      return {
-        from: transferInfo.from,
-        to: transferInfo.to,
-        value: numberUtils.numberToHex(
-          chainValueUtils.convertAmountToChainValue({
-            network,
-            value: transferInfo.amount,
-          }),
-        ),
-        data: '0x',
-      };
+      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+
+      if (!transferInfo.to) {
+        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      }
+
+      if (!tokenInfo && !nftInfo) {
+        throw new Error(
+          'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
+        );
+      }
+
+      if (nftInfo) {
+        const { nftAddress, nftId, nftType } = nftInfo;
+        const data = await this._buildEncodedDataFromTransferNFT({
+          from,
+          to,
+          id: nftId,
+          amount,
+          type: nftType,
+        });
+
+        return {
+          from,
+          to: nftAddress,
+          value: '0x0',
+          data,
+        };
+      }
+
+      if (tokenInfo) {
+        const token = await getToken({
+          networkId: this.networkId,
+          tokenIdOnNetwork: tokenInfo.tokenIdOnNetwork,
+        });
+
+        if (!token) {
+          throw new Error(
+            `buildEncodedTx ERROR: token not found ${tokenInfo.tokenIdOnNetwork}`,
+          );
+        }
+
+        // native token transfer
+        if (token.isNative || token.address === '') {
+          return {
+            from,
+            to,
+            value: numberUtils.numberToHex(
+              chainValueUtils.convertAmountToChainValue({
+                network,
+                value: amount,
+              }),
+            ),
+            data: '0x',
+          };
+        }
+
+        // token transfer
+        const data = await this._buildEncodedDataFromTransferToken({
+          to,
+          amount,
+          decimals: token.decimals,
+        });
+        return {
+          from,
+          to: token.address,
+          value: '0x0',
+          data,
+        };
+      }
     }
-    return this._buildEncodedTxFromBatchTransfer(transfersInfo);
+    return this._buildEncodedTxFromBatchTransfer(
+      transfersInfo as ITransferInfo[],
+    );
+  }
+
+  async _buildEncodedDataFromTransferNFT(params: {
+    type: ENFTType;
+    from: string;
+    to: string;
+    id: string;
+    amount: string;
+  }) {
+    const { type, from, to, id, amount } = params;
+    if (type === ENFTType.ERC721) {
+      return `${EErc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
+        .encode(['address', 'address', 'uint256'], [from, to, id])
+        .slice(2)}`;
+    }
+    return `${EErc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
+      .encode(
+        ['address', 'address', 'uint256', 'uint256', 'bytes'],
+        [from, to, id, amount, '0x00'],
+      )
+      .slice(2)}`;
+  }
+
+  async _buildEncodedDataFromTransferToken(params: {
+    to: string;
+    amount: string;
+    decimals: number;
+  }) {
+    const { to, amount, decimals } = params;
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(amountBN.shiftedBy(decimals));
+
+    const data = `${EErc20MethodSelectors.tokenTransfer}${defaultAbiCoder
+      .encode(['address', 'uint256'], [to, amountHex])
+      .slice(2)}`;
+
+    return data;
   }
 
   async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
@@ -167,6 +376,19 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
+  async _attachNonceInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    nonceInfo: { nonce: number };
+  }): Promise<IEncodedTxEvm> {
+    const { encodedTx, nonceInfo } = params;
+    const tx = {
+      ...encodedTx,
+      nonce: String(nonceInfo.nonce),
+    };
+
+    return Promise.resolve(tx);
+  }
+
   async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
   ): Promise<IUnsignedTxPro> {
@@ -179,6 +401,214 @@ export default class Vault extends VaultBase {
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
+    });
+  }
+
+  async _buildTxTokenAction(
+    params: {
+      encodedTx: IEncodedTxEvm;
+      baseDecodedTx: IBaseEVMDecodedTx;
+    } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, baseDecodedTx, getToken } = params;
+    const { txType } = baseDecodedTx;
+
+    const token = await getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: encodedTx.to,
+    });
+
+    if (!token) return;
+
+    if (txType === EBaseEVMDecodedTxType.TOKEN_TRANSFER) {
+      return this._buildTxTransferTokenAction({
+        encodedTx,
+        baseDecodedTx,
+        token,
+      });
+    }
+
+    if (txType === EBaseEVMDecodedTxType.TOKEN_APPROVE) {
+      return this._buildTxApproveTokenAction({
+        encodedTx,
+        baseDecodedTx,
+        token,
+      });
+    }
+  }
+
+  async _buildTxTransferTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+    baseDecodedTx: IBaseEVMDecodedTx;
+    token: IToken;
+  }) {
+    const { encodedTx, baseDecodedTx, token } = params;
+    const { txDesc } = baseDecodedTx;
+
+    let from = encodedTx.from.toLowerCase();
+    let recipient = encodedTx.to;
+    let value = ethers.BigNumber.from(0);
+
+    // Function:  transfer(address _to, uint256 _value)
+    if (txDesc?.name === 'transfer') {
+      from = encodedTx.from.toLowerCase();
+      recipient = (txDesc.args[0] as string).toLowerCase();
+      value = txDesc.args[1] as ethers.BigNumber;
+    }
+
+    // Function:  transferFrom(address from, address to, uint256 value)
+    if (txDesc?.name === 'transferFrom') {
+      from = (txDesc?.args[0] as string).toLowerCase();
+      recipient = (txDesc?.args[1] as string).toLowerCase();
+      value = txDesc?.args[2] as ethers.BigNumber;
+    }
+
+    const amount = new BigNumber(value.toString())
+      .shiftedBy(-token.decimals)
+      .toFixed();
+
+    const transfer: IDecodedTxTransferInfo = {
+      from,
+      to: recipient,
+      token: token.address,
+      image: token.logoURI ?? '',
+      symbol: token.symbol,
+      amount,
+      isNFT: false,
+    };
+    return this._buildTxTransferAssetAction({
+      from: encodedTx.from,
+      to: encodedTx.to,
+      transfers: [transfer],
+    });
+  }
+
+  async _buildTxApproveTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+    baseDecodedTx: IBaseEVMDecodedTx;
+    token: IToken;
+  }): Promise<IDecodedTxAction> {
+    const { encodedTx, baseDecodedTx, token } = params;
+    const { txDesc } = baseDecodedTx;
+    const spender = (txDesc?.args[0] as string).toLowerCase();
+    const value = txDesc?.args[1] as ethers.BigNumber;
+    const amount = formatValue(value, token.decimals);
+    const accountAddress = await this.getAccountAddress();
+
+    const action: IDecodedTxAction = {
+      type: EDecodedTxActionType.TOKEN_APPROVE,
+      tokenApprove: {
+        owner: encodedTx.from ?? accountAddress,
+        spender,
+        amount,
+        tokenIcon: token.logoURI ?? '',
+        isMax: amount === InfiniteAmountText,
+      },
+    };
+
+    return action;
+  }
+
+  async _buildTxTransferNativeTokenAction(
+    params: { encodedTx: IEncodedTxEvm } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, getToken } = params;
+    const nativeToken = await getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
+
+    if (!nativeToken) return;
+
+    const transfer: IDecodedTxTransferInfo = {
+      from: encodedTx.from,
+      to: encodedTx.to,
+      token: nativeToken.address,
+      image: nativeToken.logoURI ?? '',
+      symbol: nativeToken.symbol,
+      amount: new BigNumber(encodedTx.value)
+        .shiftedBy(-nativeToken.decimals)
+        .toFixed(),
+      isNFT: false,
+    };
+
+    return this._buildTxTransferAssetAction({
+      from: encodedTx.from,
+      to: encodedTx.to,
+      transfers: [transfer],
+    });
+  }
+
+  async _buildTxTransferAssetAction(params: {
+    from: string;
+    to: string;
+    transfers: IDecodedTxTransferInfo[];
+  }): Promise<IDecodedTxAction> {
+    const { from, to, transfers } = params;
+    const accountAddress = await this.getAccountAddress();
+
+    const assetTransfer: IDecodedTxActionAssetTransfer = {
+      from,
+      to,
+      sends: [],
+      receives: [],
+    };
+
+    transfers.forEach((transfer) => {
+      if (
+        buildTxActionDirection({
+          from: transfer.from,
+          to: transfer.to,
+          accountAddress,
+        }) === EDecodedTxDirection.OUT
+      ) {
+        assetTransfer.sends.push(transfer);
+      } else {
+        assetTransfer.receives.push(transfer);
+      }
+    });
+
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer,
+    };
+  }
+
+  async _buildTxTransferNFTAction(
+    params: {
+      encodedTx: IEncodedTxEvm;
+      baseDecodedTx: IBaseEVMDecodedTx;
+    } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, baseDecodedTx, getNFT } = params;
+
+    const { txDesc } = baseDecodedTx;
+
+    const [from, to, nftId, amount] =
+      txDesc?.args.map((arg) => String(arg)) || [];
+
+    const nft = await getNFT({
+      networkId: this.networkId,
+      collectionAddress: encodedTx.to,
+      nftId,
+    });
+
+    if (!nft) return;
+
+    const transfer: IDecodedTxTransferInfo = {
+      from,
+      to,
+      token: nftId,
+      amount,
+      image: nft.metadata.image,
+      symbol: nft.metadata.name,
+      isNFT: true,
+    };
+
+    return this._buildTxTransferAssetAction({
+      from: encodedTx.from,
+      to: encodedTx.to,
+      transfers: [transfer],
     });
   }
 

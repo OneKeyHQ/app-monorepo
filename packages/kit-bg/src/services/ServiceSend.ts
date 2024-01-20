@@ -1,4 +1,4 @@
-import { random } from 'lodash';
+import { isNil, random, set } from 'lodash';
 
 import {
   backgroundClass,
@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -47,13 +48,17 @@ class ServiceSend extends ServiceBase {
       from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
       to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
       amount: `0.00000${random(1, 20)}`,
-      token: '',
+      tokenInfo: {
+        tokenIdOnNetwork: '',
+      },
     };
 
     // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> unsignedTx
     // PageSendConfirm
     let unsignedTx = await vault.buildUnsignedTx({
       transfersInfo: [transferInfo],
+      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
     });
 
     // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
@@ -157,7 +162,11 @@ class ServiceSend extends ServiceBase {
   ): Promise<IDecodedTx> {
     const { networkId, accountId, unsignedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.buildDecodedTx({ unsignedTx });
+    return vault.buildDecodedTx({
+      unsignedTx,
+      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
+    });
   }
 
   @backgroundMethod()
@@ -166,16 +175,20 @@ class ServiceSend extends ServiceBase {
   ) {
     const { networkId, accountId, transfersInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.buildUnsignedTx({ transfersInfo });
+    return vault.buildUnsignedTx({
+      transfersInfo,
+      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
+    });
   }
 
   @backgroundMethod()
   public async updateUnsignedTx(
     params: ISendTxBaseParams & IUpdateUnsignedTxParams,
   ) {
-    const { networkId, accountId, unsignedTx, feeInfo } = params;
+    const { networkId, accountId, unsignedTx, ...rest } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.updateUnsignedTx({ unsignedTx, feeInfo });
+    return vault.updateUnsignedTx({ unsignedTx, ...rest });
   }
 
   @backgroundMethod()
@@ -230,6 +243,36 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
     });
     return this.broadcastTransaction({ networkId, signedTx });
+  }
+
+  @backgroundMethod()
+  public async getIsNonceRequired({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.nonceRequired;
+  }
+
+  @backgroundMethod()
+  public async getNextNonce({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+  }) {
+    const { nonce } =
+      await this.backgroundApi.serviceAddress.fetchAddressDetails({
+        networkId,
+        accountAddress,
+        withNonce: true,
+      });
+
+    if (isNil(nonce)) {
+      throw new Error('Get on-chain nonce failed.');
+    }
+
+    // TODO: fix nonce with local pending txs
+
+    return nonce;
   }
 }
 
