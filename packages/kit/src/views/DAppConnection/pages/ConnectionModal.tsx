@@ -98,6 +98,10 @@ function ConnectionModal() {
 
   const onApproval = useCallback(
     async ({ close }: { close: () => void }) => {
+      if (!$sourceInfo?.scope) {
+        Toast.error({ title: 'no injected scope' });
+        return;
+      }
       if (!selectedAccountRef.current || !selectedAccountRef.current.account) {
         Toast.error({ title: 'no account' });
         return;
@@ -105,20 +109,21 @@ function ConnectionModal() {
       const { wallet, account, network, indexedAccount } =
         selectedAccountRef.current;
       const connectionInfo = {
+        type: $sourceInfo?.scope,
         walletId: wallet?.id ?? '',
         networkId: network?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
         accountId: account.id,
       };
       const result: IConnectionItem = {
-        title: $sourceInfo?.hostname ?? '',
         origin: $sourceInfo?.origin ?? '',
         imageURL: await serviceDiscovery.getWebsiteIcon(
           $sourceInfo?.origin ?? '',
           128,
         ),
-        connection: [connectionInfo],
-        enabledFor: [],
+        connectionMap: {
+          [$sourceInfo?.scope]: connectionInfo,
+        },
       };
       await serviceDApp.saveConnectionSession(result);
       await dappApprove.resolve({
@@ -128,8 +133,8 @@ function ConnectionModal() {
     },
     [
       dappApprove,
-      $sourceInfo?.hostname,
       $sourceInfo?.origin,
+      $sourceInfo?.scope,
       serviceDApp,
       serviceDiscovery,
     ],

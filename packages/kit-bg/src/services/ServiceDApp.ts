@@ -237,18 +237,7 @@ class ServiceDApp extends ServiceBase {
   // connection allowance
   @backgroundMethod()
   async saveConnectionSession(data: IConnectionItem) {
-    await this.backgroundApi.simpleDb.dappConnection.setRawData(
-      ({ rawData }) => {
-        if (Array.isArray(rawData?.data)) {
-          return {
-            data: [...rawData.data, data],
-          };
-        }
-        return {
-          data: [data],
-        };
-      },
-    );
+    await this.backgroundApi.simpleDb.dappConnection.upsertConnection(data);
   }
 }
 

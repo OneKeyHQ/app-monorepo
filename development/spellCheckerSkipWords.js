@@ -608,4 +608,5 @@ module.exports = [
   'ufixedM',
   'ufixed',
   'sym', // WalletConnect uri params
+  'upsert',
 ];
