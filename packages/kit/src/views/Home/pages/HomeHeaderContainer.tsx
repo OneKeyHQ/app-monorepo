@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -86,7 +87,10 @@ function HomeHeaderContainer() {
     >
       <Stack>
         <XStack mb="$1" alignItems="center" space="$1">
-          <NetworkSelectorTriggerHome num={0} />
+          <NetworkSelectorTriggerHome
+            num={0}
+            sceneName={EAccountSelectorSceneName.home}
+          />
           <AccountSelectorActiveAccountHome num={0} />
           <DeriveTypeSelectorTrigger miniMode num={0} />
         </XStack>

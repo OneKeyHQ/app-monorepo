@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
 import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -10,6 +11,11 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+
+import type {
+  EChainSelectorPages,
+  IChainSelectorParamList,
+} from '../router/type';
 
 function getHeaderRightComponent(
   isEditMode: boolean,
@@ -127,12 +133,19 @@ function ChainSelector({ num }: { num: number }) {
   );
 }
 
-export default function ChainSelectorPage() {
+export default function ChainSelectorPage({
+  route,
+}: IPageScreenProps<
+  IChainSelectorParamList,
+  EChainSelectorPages.ChainSelector
+>) {
+  const { sceneName, sceneUrl } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName,
+        sceneUrl,
       }}
     >
       <ChainSelector num={0} />

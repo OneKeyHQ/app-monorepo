@@ -14,6 +14,8 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { EChainSelectorPages } from '../../views/ChainSelector/router/type';
 
+import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+
 const getNetworksItems = memoFn(() =>
   // TODO ETC network
   mockPresetNetworksList.map((item) => ({
@@ -54,7 +56,11 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
   );
 }
 
-export function NetworkSelectorTriggerHome({ num }: { num: number }) {
+export function NetworkSelectorTriggerHome({
+  num,
+  sceneName,
+  sceneUrl,
+}: { num: number } & IAccountSelectorContextData) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
@@ -65,8 +71,13 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
     // TODO pass num to router
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
       screen: EChainSelectorPages.ChainSelector,
+      params: {
+        num,
+        sceneName,
+        sceneUrl,
+      },
     });
-  }, [navigation]);
+  }, [navigation, sceneName, sceneUrl, num]);
 
   return (
     <XStack
