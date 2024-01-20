@@ -15,6 +15,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IConnectionItem } from '@onekeyhq/shared/types/dappConnection';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -231,6 +232,23 @@ class ServiceDApp extends ServiceBase {
     });
 
     return signedMessage;
+  }
+
+  // connection allowance
+  @backgroundMethod()
+  async saveConnectionSession(data: IConnectionItem) {
+    await this.backgroundApi.simpleDb.dappConnection.setRawData(
+      ({ rawData }) => {
+        if (Array.isArray(rawData?.data)) {
+          return {
+            data: [...rawData.data, data],
+          };
+        }
+        return {
+          data: [data],
+        };
+      },
+    );
   }
 }
 
