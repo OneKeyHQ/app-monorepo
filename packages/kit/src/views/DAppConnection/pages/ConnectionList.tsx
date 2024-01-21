@@ -18,14 +18,14 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
 
 function ConnectionList() {
+  const { simpleDb, serviceDApp } = backgroundApiProxy;
   const { result } = usePromiseResult(async () => {
-    const rawData =
-      await backgroundApiProxy.simpleDb.dappConnection.getRawData();
+    const rawData = await simpleDb.dappConnection.getRawData();
     return rawData?.data ?? [];
-  }, []);
+  }, [simpleDb]);
 
   const handleAccountInfoChanged = useCallback(
-    ({
+    async ({
       item,
       selectedAccount,
       scope,
@@ -48,11 +48,19 @@ function ConnectionList() {
           },
         },
       };
-      void backgroundApiProxy.serviceDApp.saveConnectionSession(
-        newConnectionItem,
-      );
+      await serviceDApp.saveConnectionSession(newConnectionItem);
+      if (
+        item.connectionMap[scope]?.accountId !== selectedAccount.account?.id
+      ) {
+        void serviceDApp.notifyDAppAccountsChanged(item.origin);
+      }
+      if (
+        item.connectionMap[scope]?.networkId !== selectedAccount.network?.id
+      ) {
+        void serviceDApp.notifyDAppChainChanged(item.origin);
+      }
     },
-    [],
+    [serviceDApp],
   );
 
   return (

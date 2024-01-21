@@ -16,10 +16,10 @@ import type { IElectronWebView } from '../components/WebView/types';
 
 const notifyChanges = throttle((url: string, fromScene?: string) => {
   console.log('webview notify changed events: ', url, fromScene);
-  void backgroundApiProxy.serviceDApp.notifyAccountsChanged(
-    new URL(url).origin,
-  );
-});
+  const targetOrigin = new URL(url).origin;
+  void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
+  void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
+}, 800);
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   const isMountedRef = useIsMounted();

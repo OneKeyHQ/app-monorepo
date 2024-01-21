@@ -47,6 +47,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
             })
           : [...data, newConnection]; // Add a new connection item if one with the same origin does not exist
 
+      console.log('simpledb upsertConnection: ', newData);
       return { data: newData };
     });
   }
@@ -110,6 +111,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         return connectionItem;
       });
 
+      console.log('simpledb updateNetworkId: ', updatedData);
       return { data: updatedData };
     });
   }

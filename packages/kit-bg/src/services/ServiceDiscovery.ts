@@ -177,9 +177,9 @@ class ServiceDiscovery extends ServiceBase {
     await wait(600);
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
-        provider.notifyDappAccountsChanged({
+        provider.notifyDappChainChanged({
           send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin: new URL('http://127.0.0.1:5500/2023/eth.html').origin,
+          targetOrigin: new URL('https://app.uniswap.org').origin,
         });
       },
     );

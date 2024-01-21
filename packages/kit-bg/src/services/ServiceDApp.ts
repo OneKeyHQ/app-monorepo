@@ -306,10 +306,23 @@ class ServiceDApp extends ServiceBase {
 
   // notification
   @backgroundMethod()
-  async notifyAccountsChanged(targetOrigin: string) {
+  async notifyDAppAccountsChanged(targetOrigin: string) {
     Object.values(this.backgroundApi.providers).forEach(
       (provider: ProviderApiBase) => {
         provider.notifyDappAccountsChanged({
+          send: this.backgroundApi.sendForProvider(provider.providerName),
+          targetOrigin,
+        });
+      },
+    );
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async notifyDAppChainChanged(targetOrigin: string) {
+    Object.values(this.backgroundApi.providers).forEach(
+      (provider: ProviderApiBase) => {
+        provider.notifyDappChainChanged({
           send: this.backgroundApi.sendForProvider(provider.providerName),
           targetOrigin,
         });

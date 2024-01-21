@@ -41,8 +41,25 @@ class ProviderApiEthereum extends ProviderApiBase {
     info.send(data, info.targetOrigin);
   }
 
-  public override notifyDappChainChanged(): void {
-    throw new Error('Method not implemented.');
+  public override notifyDappChainChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+  ): void {
+    const data = async ({ origin }: { origin: string }) => {
+      const result = {
+        method: 'metamask_chainChanged',
+        params: {
+          chainId: await this.eth_chainId({ origin, scope: this.providerName }),
+          networkVersion: await this.net_version({
+            origin,
+            scope: this.providerName,
+          }),
+        },
+      };
+
+      return result;
+    };
+
+    info.send(data, info.targetOrigin);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -86,7 +103,6 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
-    console.log('=====>eth_chainId: ', request);
     if (!request.origin) {
       throw new Error('origin is required');
     }
@@ -95,6 +111,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       request.scope ?? this.providerName,
     );
     if (network?.chainId) {
+      console.log('=====>eth_chainId: ', network.chainId);
       return `0x${Number(network.chainId).toString(16)}`;
     }
     throw new Error('chainId not found');
@@ -102,7 +119,17 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async net_version(request: IJsBridgeMessagePayload) {
-    console.log('=====>net_version: ', request);
+    if (!request.origin) {
+      throw new Error('origin is required');
+    }
+    const network = await this.backgroundApi.serviceDApp.getConnectedNetwork(
+      request.origin,
+      request.scope ?? this.providerName,
+    );
+    if (network?.chainId) {
+      return network.chainId;
+    }
+    throw new Error('chainId not found');
   }
 
   @providerApiMethod()
