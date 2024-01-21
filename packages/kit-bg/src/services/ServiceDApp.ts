@@ -277,7 +277,10 @@ class ServiceDApp extends ServiceBase {
       accountId,
       networkId,
     });
-    return account;
+    return {
+      account,
+      accountInfo,
+    };
   }
 
   @backgroundMethod()

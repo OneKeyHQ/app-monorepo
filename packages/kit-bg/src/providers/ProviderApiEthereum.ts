@@ -3,7 +3,6 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import * as ethUtils from 'ethereumjs-util';
 import stringify from 'fast-json-stable-stringify';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -90,15 +89,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const account = await this.backgroundApi.serviceDApp.getConnectedAccount(
-      request.origin ?? '',
-      request.scope ?? this.providerName,
-    );
-    if (!account) {
+    const accountInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccount(
+        request.origin ?? '',
+        request.scope ?? this.providerName,
+      );
+    if (!accountInfo) {
       return Promise.resolve([]);
     }
-    console.log('====>Call eth_accounts: ', account);
-    return Promise.resolve([account.address]);
+    console.log('====>Call eth_accounts: ', accountInfo);
+    return Promise.resolve([accountInfo.account.address]);
   }
 
   @providerApiMethod()
@@ -149,10 +149,13 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    return this._showSignMessageModal(request, {
-      type: EMessageTypesEth.ETH_SIGN,
-      message: messages[1],
-      payload: messages,
+    return this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesEth.ETH_SIGN,
+        message: messages[1],
+        payload: messages,
+      },
     });
   }
 
@@ -164,10 +167,13 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     message = this.autoFixPersonalSignMessage({ message });
 
-    return this._showSignMessageModal(request, {
-      type: EMessageTypesEth.PERSONAL_SIGN,
-      message,
-      payload: [message, address],
+    return this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesEth.PERSONAL_SIGN,
+        message,
+        payload: [message, address],
+      },
     });
   }
 
@@ -185,18 +191,6 @@ class ProviderApiEthereum extends ProviderApiBase {
       }
     }
     return messageFixed;
-  }
-
-  async _showSignMessageModal(
-    request: IJsBridgeMessagePayload,
-    unsignedMessage: IUnsignedMessage,
-  ) {
-    const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
-      request,
-      unsignedMessage,
-    });
-    console.log('=====>>>>signmessage result: ', result);
-    return result;
   }
 
   @providerApiMethod()

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
-import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -56,7 +56,7 @@ function SignMessageModal() {
 function SignMessageModalProvider() {
   const { $sourceInfo } = useDappQuery();
   return (
-    <AccountSelectorProvider
+    <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.discover,
         sceneUrl: $sourceInfo?.origin,
@@ -64,7 +64,7 @@ function SignMessageModalProvider() {
       enabledNum={[0]}
     >
       <SignMessageModal />
-    </AccountSelectorProvider>
+    </AccountSelectorProviderMirror>
   );
 }
 
