@@ -53,6 +53,36 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
+  async deleteConnection(origin: string, scope: IConnectionProviderNames) {
+    await this.setRawData(({ rawData }) => {
+      if (!rawData || !Array.isArray(rawData.data)) {
+        return {
+          data: [],
+        };
+      }
+
+      const updatedData = rawData.data.reduce((accumulator, item) => {
+        if (item.origin === origin) {
+          // Copy the connectionMap and delete the specified key
+          const { [scope]: _, ...restConnectionMap } = item.connectionMap;
+          // If restConnectionMap is not empty, keep the updated item
+          if (Object.keys(restConnectionMap).length > 0) {
+            accumulator.push({ ...item, connectionMap: restConnectionMap });
+          }
+          // If restConnectionMap is empty, do not include the item in the new array (effectively deleting the item)
+        } else {
+          // If the origin does not match, keep the original item
+          accumulator.push(item);
+        }
+        return accumulator;
+      }, [] as IConnectionItem[]);
+
+      console.log('simpledb deleteConnection: ', updatedData);
+      return { data: updatedData };
+    });
+  }
+
+  @backgroundMethod()
   async findAccountInfoByOriginAndScope(
     origin: string,
     scope: IConnectionProviderNames,

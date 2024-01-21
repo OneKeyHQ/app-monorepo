@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { throttle } from 'lodash';
 
-import { ListItem, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  ListItem,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
@@ -54,6 +60,7 @@ function ConnectionAccountListenerEffects({
 function ConnectionListItem({
   item,
   handleAccountInfoChanged,
+  handleDisconnect,
 }: {
   item: IConnectionItem;
   handleAccountInfoChanged: ({
@@ -63,6 +70,13 @@ function ConnectionListItem({
   }: {
     item: IConnectionItem;
     selectedAccount: IAccountSelectorActiveAccountInfo;
+    scope: IConnectionProviderNames;
+  }) => void;
+  handleDisconnect: ({
+    origin,
+    scope,
+  }: {
+    origin: string;
     scope: IConnectionProviderNames;
   }) => void;
 }) {
@@ -152,6 +166,13 @@ function ConnectionListItem({
                 />
               </AccountSelectorProviderMirror>
             </YStack>
+            <IconButton
+              icon="CrossedSmallOutline"
+              color="$iconActive"
+              onPress={() =>
+                handleDisconnect({ origin: item.origin, scope: info.type })
+              }
+            />
           </XStack>
         ))}
       </YStack>

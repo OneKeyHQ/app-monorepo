@@ -245,6 +245,14 @@ class ServiceDApp extends ServiceBase {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection(data);
   }
 
+  @backgroundMethod()
+  async disconnectAccount(origin: string, scope: IConnectionProviderNames) {
+    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
+      origin,
+      scope,
+    );
+  }
+
   async getConnectedAccountInfo(
     origin: string,
     scope: IConnectionProviderNames,

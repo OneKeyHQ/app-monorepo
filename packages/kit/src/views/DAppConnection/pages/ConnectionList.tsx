@@ -1,12 +1,6 @@
 import { useCallback } from 'react';
 
-import {
-  Button,
-  ListItem,
-  ListView,
-  Page,
-  SizableText,
-} from '@onekeyhq/components';
+import { ListView, Page } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IConnectionItem,
@@ -19,7 +13,7 @@ import ConnectionListItem from '../components/ConnectionList/ConnectionListItem'
 
 function ConnectionList() {
   const { simpleDb, serviceDApp } = backgroundApiProxy;
-  const { result } = usePromiseResult(async () => {
+  const { result, run } = usePromiseResult(async () => {
     const rawData = await simpleDb.dappConnection.getRawData();
     return rawData?.data ?? [];
   }, [simpleDb]);
@@ -63,6 +57,20 @@ function ConnectionList() {
     [serviceDApp],
   );
 
+  const handleDisconnect = useCallback(
+    async ({
+      origin,
+      scope,
+    }: {
+      origin: string;
+      scope: IConnectionProviderNames;
+    }) => {
+      await serviceDApp.disconnectAccount(origin, scope);
+      void run();
+    },
+    [serviceDApp, run],
+  );
+
   return (
     <Page>
       <Page.Header title="Connection List" />
@@ -76,6 +84,7 @@ function ConnectionList() {
             <ConnectionListItem
               item={item}
               handleAccountInfoChanged={handleAccountInfoChanged}
+              handleDisconnect={handleDisconnect}
             />
           )}
         />
