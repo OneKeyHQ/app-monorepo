@@ -110,6 +110,8 @@ class ServiceToken extends ServiceBase {
         tokens: [tokenToUpdate],
       });
     }
+
+    return token;
   }
 
   @backgroundMethod()

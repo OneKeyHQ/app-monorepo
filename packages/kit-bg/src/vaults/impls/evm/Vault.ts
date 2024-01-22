@@ -90,7 +90,6 @@ export default class Vault extends VaultBase {
     const { unsignedTx, getToken, getNFT } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
-
     const nativeTx = await parseToNativeTx({
       encodedTx,
     });
@@ -137,7 +136,7 @@ export default class Vault extends VaultBase {
 
     if (
       baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC721 ||
-      EBaseEVMDecodedTxProtocol.ERC1155
+      baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC1155
     ) {
       action = await this._buildTxTransferNFTAction({
         encodedTx,
@@ -146,6 +145,7 @@ export default class Vault extends VaultBase {
         getNFT,
       });
     }
+
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: accountAddress,
@@ -364,16 +364,33 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
+    const { feeDecimals } = feeInfo.common;
 
-    const tx = {
-      ...encodedTx,
-      ...gasInfo,
-    };
+    const encodedTxWithFee = { ...encodedTx };
+
     if (!isNil(gasInfo?.gasLimit)) {
-      tx.gas = gasInfo.gasLimit;
-      tx.gasLimit = gasInfo.gasLimit;
+      encodedTxWithFee.gas = gasInfo.gasLimit;
+      encodedTxWithFee.gasLimit = gasInfo.gasLimit;
     }
-    return Promise.resolve(tx);
+
+    if (feeInfo.gasEIP1559) {
+      encodedTxWithFee.maxFeePerGas = toBigIntHex(
+        new BigNumber(feeInfo.gasEIP1559.maxFeePerGas ?? 0).shiftedBy(
+          feeDecimals,
+        ),
+      );
+      encodedTxWithFee.maxPriorityFeePerGas = toBigIntHex(
+        new BigNumber(feeInfo.gasEIP1559.maxPriorityFeePerGas ?? 0).shiftedBy(
+          feeDecimals,
+        ),
+      );
+      delete encodedTxWithFee.gasPrice;
+    } else if (feeInfo.gas) {
+      encodedTxWithFee.gasPrice = toBigIntHex(
+        new BigNumber(feeInfo.gas.gasPrice).shiftedBy(feeDecimals),
+      );
+    }
+    return Promise.resolve(encodedTxWithFee);
   }
 
   async _attachNonceInfoToEncodedTx(params: {
@@ -476,11 +493,14 @@ export default class Vault extends VaultBase {
       amount,
       isNFT: false,
     };
-    return this._buildTxTransferAssetAction({
+
+    const action = await this._buildTxTransferAssetAction({
       from: encodedTx.from,
       to: encodedTx.to,
       transfers: [transfer],
     });
+
+    return action;
   }
 
   async _buildTxApproveTokenAction(params: {
@@ -532,11 +552,13 @@ export default class Vault extends VaultBase {
       isNFT: false,
     };
 
-    return this._buildTxTransferAssetAction({
+    const action = await this._buildTxTransferAssetAction({
       from: encodedTx.from,
       to: encodedTx.to,
       transfers: [transfer],
     });
+
+    return action;
   }
 
   async _buildTxTransferAssetAction(params: {
@@ -600,8 +622,8 @@ export default class Vault extends VaultBase {
       to,
       token: nftId,
       amount,
-      image: nft.metadata.image,
-      symbol: nft.metadata.name,
+      image: nft.metadata?.image ?? '',
+      symbol: nft.metadata?.name ?? '',
       isNFT: true,
     };
 

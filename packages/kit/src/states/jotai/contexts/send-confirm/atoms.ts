@@ -24,5 +24,11 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
     presetIndex: 1,
   });
 
-export const { atom: customFeeAtom, use: useCustomFeeAtom } =
-  contextAtom<IFeeInfoUnit | null>(null);
+export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
+  IFeeInfoUnit | undefined
+>(undefined);
+
+export const {
+  atom: sendSelectedFeeInfoAtom,
+  use: useSendSelectedFeeInfoAtom,
+} = contextAtom<IFeeInfoUnit | undefined>(undefined);

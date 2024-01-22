@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -26,13 +29,39 @@ function SendProgressContainer() {
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-  const { unsignedTxs } = route.params;
+  const { networkId, accountId, unsignedTxs, onSuccess } = route.params;
 
-  useEffect(() => {
-    setTimeout(() => {
-      setCurrentProgress(1);
-    }, 2000);
-  }, []);
+  usePromiseResult(async () => {
+    const signedTxs: ISignedTxPro[] = [];
+    try {
+      for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+        const unsignedTx = unsignedTxs[i];
+        const signedTx = await backgroundApiProxy.serviceSend.signTransaction({
+          networkId,
+          accountId,
+          unsignedTx,
+        });
+
+        const txid = await backgroundApiProxy.serviceSend.broadcastTransaction({
+          networkId,
+          signedTx,
+        });
+
+        signedTxs.push({
+          ...signedTx,
+          txid,
+        });
+
+        setCurrentProgress(i + 1);
+        // TODO: save local history
+      }
+
+      onSuccess?.(signedTxs);
+    } catch (e) {
+      navigation.pop();
+      throw e;
+    }
+  }, [accountId, navigation, networkId, onSuccess, unsignedTxs]);
 
   const isSendSuccess = currentProgress === unsignedTxs.length;
 

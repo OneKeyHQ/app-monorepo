@@ -15,7 +15,7 @@ export type IAccountNFT = {
   collectionSymbol: string;
   collectionType: ENFTType;
   itemId: string;
-  metadata: {
+  metadata?: {
     description: string;
     externalUrl: string;
     image: string;

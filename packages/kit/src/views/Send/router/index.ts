@@ -1,5 +1,4 @@
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -29,12 +28,14 @@ export type IModalSendParamList = {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
+    onSuccess?: (txs: ISignedTxPro[]) => void;
+    onFail?: (error: Error) => void;
   };
   [EModalSendRoutes.SendProgress]: {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
-    transfersInfo: ITransferInfo[];
+    onSuccess?: (txs: ISignedTxPro[]) => void;
   };
   [EModalSendRoutes.SendCustomFee]: {
     networkId: string;

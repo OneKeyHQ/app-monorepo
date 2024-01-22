@@ -38,7 +38,7 @@ function TxFeeContainer(props: IProps) {
   const intl = useIntl();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
-  const { updateSendSelectedFee, updateCustomFee } =
+  const { updateSendSelectedFee, updateCustomFee, updateSendSelectedFeeInfo } =
     useSendConfirmActions().current;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -157,6 +157,12 @@ function TxFeeContainer(props: IProps) {
       gasSelectorValue: String(sendSelectedFee.presetIndex),
     };
   }, [gasSelectorItems, sendSelectedFee]);
+
+  usePromiseResult(async () => {
+    if (selectedGas?.feeInfo) {
+      updateSendSelectedFeeInfo(selectedGas.feeInfo);
+    }
+  }, [selectedGas?.feeInfo, updateSendSelectedFeeInfo]);
 
   const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {

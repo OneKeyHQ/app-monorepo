@@ -5,7 +5,12 @@ import type { EFeeType, IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
-import { contextAtomMethod, customFeeAtom, sendSelectedFeeAtom } from './atoms';
+import {
+  contextAtomMethod,
+  customFeeAtom,
+  sendSelectedFeeAtom,
+  sendSelectedFeeInfoAtom,
+} from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   updateSendSelectedFee = contextAtomMethod(
@@ -17,6 +22,12 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   updateCustomFee = contextAtomMethod((get, set, customFee: IFeeInfoUnit) => {
     set(customFeeAtom(), customFee);
   });
+
+  updateSendSelectedFeeInfo = contextAtomMethod(
+    (get, set, feeInfo: IFeeInfoUnit) => {
+      set(sendSelectedFeeInfoAtom(), feeInfo);
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -28,9 +39,11 @@ export function useSendConfirmActions() {
   const actions = createActions();
   const updateSendSelectedFee = actions.updateSendSelectedFee.use();
   const updateCustomFee = actions.updateCustomFee.use();
+  const updateSendSelectedFeeInfo = actions.updateSendSelectedFeeInfo.use();
 
   return useRef({
     updateSendSelectedFee,
     updateCustomFee,
+    updateSendSelectedFeeInfo,
   });
 }

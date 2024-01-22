@@ -57,8 +57,12 @@ class ServiceSend extends ServiceBase {
     // PageSendConfirm
     let unsignedTx = await vault.buildUnsignedTx({
       transfersInfo: [transferInfo],
-      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
+      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
+        this.backgroundApi.serviceToken,
+      ),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
+        this.backgroundApi.serviceNFT,
+      ),
     });
 
     // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
@@ -164,8 +168,12 @@ class ServiceSend extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildDecodedTx({
       unsignedTx,
-      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
+      getToken: this.backgroundApi.serviceToken.getToken.bind(
+        this.backgroundApi.serviceToken,
+      ),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
+        this.backgroundApi.serviceNFT,
+      ),
     });
   }
 
@@ -177,8 +185,12 @@ class ServiceSend extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       transfersInfo,
-      getToken: this.backgroundApi.serviceToken.getToken.bind(this),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(this),
+      getToken: this.backgroundApi.serviceToken.getToken.bind(
+        this.backgroundApi.serviceToken,
+      ),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
+        this.backgroundApi.serviceNFT,
+      ),
     });
   }
 
@@ -197,7 +209,7 @@ class ServiceSend extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
-    }>('/wallet/v1/onchain/send-transaction', {
+    }>('/wallet/v1/account/send-transaction', {
       networkId,
       tx: signedTx.rawTx,
     });

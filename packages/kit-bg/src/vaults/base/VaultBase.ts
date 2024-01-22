@@ -255,8 +255,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let isNFT = false;
     if (!isNil((transfer.info as IAccountNFT)?.itemId)) {
       const info = transfer.info as IAccountNFT;
-      image = info.metadata.image;
-      symbol = info.metadata.name;
+      image = info.metadata?.image ?? '';
+      symbol = info.metadata?.name ?? '';
       isNFT = true;
     } else if (!isNil((transfer.info as IToken)?.address)) {
       const info = transfer.info as IToken;

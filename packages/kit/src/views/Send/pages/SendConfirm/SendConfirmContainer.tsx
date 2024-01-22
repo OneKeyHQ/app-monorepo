@@ -7,11 +7,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page, Stack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { withSendConfirmProvider } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+import {
+  useSendSelectedFeeInfoAtom,
+  withSendConfirmProvider,
+} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 
-import { InteractInfo } from '../../components/InteractInfo';
 import { SendActions } from '../../components/SendActions';
-import { SingerInfo } from '../../components/SingerInfo';
 import { EModalSendRoutes } from '../../router';
 
 import { TxActionsContainer } from './TxActionsContainer';
@@ -28,10 +29,30 @@ function SendConfirmContainer() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId, unsignedTxs } = route.params;
 
+  const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
+
   const handleConfirm = useCallback(async () => {
+    const newUnsignedTxs = [];
+    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = unsignedTxs[i];
+      const newUnsignedTx =
+        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx,
+          feeInfo: sendSelectedFeeInfo,
+        });
+
+      newUnsignedTxs.push(newUnsignedTx);
+    }
+
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.push(EModalSendRoutes.SendProgress);
-  }, [navigation]);
+    navigation.push(EModalSendRoutes.SendProgress, {
+      networkId,
+      accountId,
+      unsignedTxs: newUnsignedTxs,
+    });
+  }, [accountId, navigation, networkId, sendSelectedFeeInfo, unsignedTxs]);
 
   return (
     <Page scrollEnabled>
@@ -39,9 +60,7 @@ function SendConfirmContainer() {
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
       <Page.Body>
-        <YStack space="$5">
-          <InteractInfo />
-          <SingerInfo />
+        <YStack space="$5" px="$5">
           <TxActionsContainer
             accountId={accountId}
             networkId={networkId}

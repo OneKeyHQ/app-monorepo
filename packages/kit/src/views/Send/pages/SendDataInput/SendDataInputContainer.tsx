@@ -30,6 +30,7 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
@@ -187,58 +188,69 @@ function SendDataInputContainer() {
     void form.trigger('amount');
   }, [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
   const handleOnConfirm = useCallback(async () => {
-    setIsSubmitting(true);
-    const account = await getAccount();
+    try {
+      setIsSubmitting(true);
 
-    const transfersInfo: ITransferInfo[] = [
-      {
-        from: account.address,
-        to: isValidName ? resolvedAddress : toAddress,
-        amount,
-        nftInfo:
-          isNFT && nftDetails
-            ? {
-                nftId: nftDetails.itemId,
-                nftAddress: nftDetails.collectionAddress,
-                nftType: nftDetails.collectionType,
-              }
-            : undefined,
-        tokenInfo:
-          !isNFT && tokenDetails
-            ? {
-                tokenIdOnNetwork: tokenDetails.info.address,
-              }
-            : undefined,
-      },
-    ];
-    let unsignedTx = await serviceSend.buildUnsignedTx({
-      networkId,
-      accountId,
-      transfersInfo,
-    });
+      const account = await getAccount();
 
-    const isNonceRequired = await serviceSend.getIsNonceRequired({ networkId });
-
-    if (isNonceRequired) {
-      const nonce = await serviceSend.getNextNonce({
-        networkId,
-        accountAddress: account.address,
-      });
-      unsignedTx = await serviceSend.updateUnsignedTx({
+      const transfersInfo: ITransferInfo[] = [
+        {
+          from: account.address,
+          to: isValidName ? resolvedAddress : toAddress,
+          amount,
+          nftInfo:
+            isNFT && nftDetails
+              ? {
+                  nftId: nftDetails.itemId,
+                  nftAddress: nftDetails.collectionAddress,
+                  nftType: nftDetails.collectionType,
+                }
+              : undefined,
+          tokenInfo:
+            !isNFT && tokenDetails
+              ? {
+                  tokenIdOnNetwork: tokenDetails.info.address,
+                }
+              : undefined,
+        },
+      ];
+      let unsignedTx = await serviceSend.buildUnsignedTx({
         networkId,
         accountId,
-        unsignedTx,
-        nonceInfo: { nonce },
+        transfersInfo,
+      });
+
+      const isNonceRequired = await serviceSend.getIsNonceRequired({
+        networkId,
+      });
+
+      if (isNonceRequired) {
+        const nonce = await serviceSend.getNextNonce({
+          networkId,
+          accountAddress: account.address,
+        });
+        unsignedTx = await serviceSend.updateUnsignedTx({
+          networkId,
+          accountId,
+          unsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
+      setIsSubmitting(false);
+
+      navigation.push(EModalSendRoutes.SendConfirm, {
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+
+      throw new OneKeyError({
+        info: e.message ?? e,
+        autoToast: true,
       });
     }
-
-    setIsSubmitting(false);
-
-    navigation.push(EModalSendRoutes.SendConfirm, {
-      accountId,
-      networkId,
-      unsignedTxs: [unsignedTx],
-    });
   }, [
     accountId,
     amount,
@@ -435,7 +447,7 @@ function SendDataInputContainer() {
           >
             <ListItem
               avatarProps={{
-                src: isNFT ? nft?.metadata.image : token?.logoURI,
+                src: isNFT ? nft?.metadata?.image : token?.logoURI,
               }}
               mx="$0"
               borderWidth={1}

@@ -85,7 +85,7 @@ export function NFTDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={nft.metadata.name} headerRight={headerRight} />
+      <Page.Header title={nft.metadata?.name} headerRight={headerRight} />
       <Page.Body>
         <Stack
           $gtMd={{

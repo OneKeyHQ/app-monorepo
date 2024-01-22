@@ -37,9 +37,9 @@ function WalletActionsContainer() {
     if (!account || !network) return;
     // TODO: Check if it is a single token network by settings
     const isSingleTokenNetwork = false;
-    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
-      network.id,
-    );
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+      networkId: network.id,
+    });
     if (isSingleTokenNetwork && nativeToken) {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
