@@ -5,11 +5,11 @@ export const showRenameDialog = (
   name: string,
   {
     onSubmit,
-    onCheckRepeat,
+    maxLength = 24,
     ...dialogProps
   }: IDialogShowProps & {
+    maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
-    onCheckRepeat?: (name: string) => Promise<boolean>;
   },
 ) =>
   Dialog.show({
@@ -20,34 +20,29 @@ export const showRenameDialog = (
           name="name"
           rules={{
             required: { value: true, message: 'Name is required.' },
-            validate: async (value) => {
-              if (onCheckRepeat && (await onCheckRepeat(value))) {
-                return 'The name already exists.';
-              }
-            },
           }}
         >
           <Input
             size="large"
             $gtMd={{ size: 'medium' }}
+            maxLength={maxLength}
             autoFocus
-            onChangeText={(v: string) => (v.length > 24 ? v.slice(0, 24) : v)}
           />
         </Dialog.FormField>
       </Dialog.Form>
     ),
-    onConfirm: async ({ getForm, close }) => {
+    onConfirm: async ({ getForm }) => {
       const form = getForm();
-      await close();
       try {
         await onSubmit(form?.getValues().name);
         Toast.success({
           title: 'Change Saved',
         });
-      } catch (error) {
+      } catch (error: unknown) {
         Toast.error({
-          title: 'Change Failed',
+          title: `Change Failed: ${(error as Error).message}`,
         });
+        throw error;
       }
     },
     ...dialogProps,
