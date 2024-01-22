@@ -6,6 +6,7 @@ import {
   Divider,
   Empty,
   ListView,
+  SectionList,
   SizableText,
   Stack,
 } from '@onekeyhq/components';
@@ -82,15 +83,7 @@ function TxHistoryListView(props: IProps) {
         currentDate.current = txDate;
         return (
           <>
-            <Stack h="$9" px="$5" bg="$bgApp">
-              <SizableText
-                numberOfLines={1}
-                size="$headingSm"
-                color="$textSubdued"
-              >
-                {txDate}
-              </SizableText>
-            </Stack>
+            <SectionList.SectionHeader title={txDate} />
             <TxHistoryListItem
               historyTx={tx}
               tableLayout={tableLayout}
@@ -101,11 +94,14 @@ function TxHistoryListView(props: IProps) {
       }
 
       return (
-        <TxHistoryListItem
-          historyTx={tx}
-          tableLayout={tableLayout}
-          onPress={onPressHistory}
-        />
+        <>
+          <TxHistoryListItem
+            historyTx={tx}
+            tableLayout={tableLayout}
+            onPress={onPressHistory}
+          />
+          <Divider />
+        </>
       );
     },
     [formatDate, onPressHistory, tableLayout],
