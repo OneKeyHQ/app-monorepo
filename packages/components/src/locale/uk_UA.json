@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Цей метод має загрозу безпеці, апаратне забезпечення наразі не підтримується.",
   "msg__hardware_open_blind_sign_error": "Невідомий формат підпису, перейдіть у розділ «Безпека» > «Сліпий підпис» і ввімкніть Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "Будь ласка, вимкніть Passphrase на своєму пристрої, щоб використовувати стандартний гаманець",
+  "msg__hardware_params_bytes_overload": "Розмір даних перевищує обмеження апаратного забезпечення. Оновіть мікропрограму та повторіть спробу або зверніться до служби підтримки клієнтів.",
   "msg__hardware_polling_connect_timeout_error": "Час очікування підключення. Будь ласка, перевірте статус OneKey Bridge і перезавантажте апаратне забезпечення.",
   "msg__hardware_software_cannot_be_upgrade": "Клієнт не може оновити апаратне забезпечення. Вам потрібно оновити до https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Підключено",

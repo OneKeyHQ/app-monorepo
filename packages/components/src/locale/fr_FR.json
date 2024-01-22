@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Cette méthode présente un risque de sécurité, le matériel n'est pas pris en charge actuellement.",
   "msg__hardware_open_blind_sign_error": "Format de signature inconnu, allez dans Sécurité > Signature à l'aveugle et activez Advanced-SOL-Sign.",
   "msg__hardware_opened_passphrase": "Veuillez désactiver la phrase secrète sur votre appareil pour utiliser le portefeuille standard",
+  "msg__hardware_params_bytes_overload": "La taille des données dépasse la limite matérielle. Veuillez mettre à jour le micrologiciel et réessayer ou contacter le service client.",
   "msg__hardware_polling_connect_timeout_error": "Délai de connection dépassé. Veuillez vérifier l'état de OneKey Bridge et redémarrer le matériel.",
   "msg__hardware_software_cannot_be_upgrade": "Le client ne peut pas mettre à jour le matériel. Vous devez mettre à jour vers https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Connecté",

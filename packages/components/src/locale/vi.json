@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Phương pháp này có rủi ro bảo mật, phần cứng hiện không được hỗ trợ.",
   "msg__hardware_open_blind_sign_error": "Định dạng chữ ký không xác định, đi tới Bảo mật > Chữ ký mù và bật Dấu hiệu nâng cao-SOL",
   "msg__hardware_opened_passphrase": "Vui lòng tắt Cụm mật khẩu trên thiết bị của bạn để sử dụng Ví tiêu chuẩn",
+  "msg__hardware_params_bytes_overload": "Kích thước dữ liệu vượt quá giới hạn phần cứng. Vui lòng cập nhật chương trình cơ sở và thử lại hoặc liên hệ với bộ phận dịch vụ khách hàng.",
   "msg__hardware_polling_connect_timeout_error": "Hết thời gian kết nối. Vui lòng kiểm tra trạng thái OneKey Bridge và khởi động lại phần cứng.",
   "msg__hardware_software_cannot_be_upgrade": "Máy khách không thể cập nhật phần cứng. Bạn cần cập nhật lên https://firmware.onekey.so.",
   "msg__hardware_status_connected": "kết nối",

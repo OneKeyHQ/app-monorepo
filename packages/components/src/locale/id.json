@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Metode ini memiliki risiko keamanan, perangkat keras tidak mendukung saat ini.",
   "msg__hardware_open_blind_sign_error": "Format tanda tangan tidak dikenal, buka Keamanan > Penandatangan Buta dan aktifkan Penandatanganan Lanjutan-SOL",
   "msg__hardware_opened_passphrase": "Harap matikan Frasa Sandi di perangkat Anda untuk menggunakan Standard Wallet",
+  "msg__hardware_params_bytes_overload": "Ukuran data melebihi batas perangkat keras. Harap perbarui firmware dan coba lagi atau hubungi layanan pelanggan.",
   "msg__hardware_polling_connect_timeout_error": "Waktu koneksi habis. Silakan periksa status OneKey Bridge dan mulai ulang perangkat keras.",
   "msg__hardware_software_cannot_be_upgrade": "Klien tidak dapat memperbarui perangkat keras. Anda perlu memperbarui ke https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Terhubung",
