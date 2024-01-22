@@ -31,10 +31,12 @@ export const showRenameDialog = (
         </Dialog.FormField>
       </Dialog.Form>
     ),
-    onConfirm: async ({ getForm }) => {
+    onConfirm: async ({ getForm, close }) => {
       const form = getForm();
       try {
         await onSubmit(form?.getValues().name);
+        // fix toast dropped frames
+        await close();
         Toast.success({
           title: 'Change Saved',
         });
