@@ -9,7 +9,6 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
-import makeBlockieImageUriList from '@onekeyhq/kit/src/utils/makeBlockieImageUriList';
 import {
   backgroundClass,
   backgroundMethod,
@@ -408,32 +407,6 @@ class ServiceAccount extends ServiceBase {
         await localDb.getSingletonAccountsOfWallet({
           walletId: WALLET_TYPE_IMPORTED,
         });
-      // const { accounts } = await localDb.getSingletonAccountsOfWallet({
-      //   walletId: WALLET_TYPE_WATCHING,
-      // });
-      /*
-       const uriList = await makeBlockieImageUriList(
-            accountList.map((item) => item.idHash || item.id),
-          );
-          accountList.forEach(
-            (item, index) => (item.avatar = uriList?.[index]),
-          );
-          */
-      const uriList = await makeBlockieImageUriList(
-        accountsWatching.map((item) => item.address || item.id),
-      );
-      accountsWatching.forEach(
-        // TODO move to other place
-        (item, index) => (item.avatar = uriList?.[index]),
-      );
-
-      const uriListImported = await makeBlockieImageUriList(
-        accountsImported.map((item) => item.address || item.id),
-      );
-      accountsImported.forEach(
-        // TODO move to other place
-        (item, index) => (item.avatar = uriListImported?.[index]),
-      );
       return [
         {
           title: 'Watching account',
@@ -451,13 +424,6 @@ class ServiceAccount extends ServiceBase {
     const { accounts } = await this.getAccountsOfWalletLegacy({
       walletId,
     });
-    const uriList = await makeBlockieImageUriList(
-      accounts.map((item) => item.idHash || item.id),
-    );
-    accounts.forEach(
-      // TODO move to other place
-      (item, index) => (item.avatar = uriList?.[index]),
-    );
     return [
       {
         title: '',

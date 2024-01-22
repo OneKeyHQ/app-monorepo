@@ -13,6 +13,7 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -281,11 +282,8 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              src: item.avatar,
-              fallbackProps: {
-                delayMs: 150,
-                children: <Skeleton w="$10" h="$10" />,
-              },
+              account: item,
+              fallback: <AccountAvatar.Fallback w="$10" h="$10" />,
               // cornerImageProps: item.networkImageSrc
               //   ? {
               //       src: item.networkImageSrc,
