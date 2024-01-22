@@ -1,4 +1,4 @@
-import { isNil, random, set } from 'lodash';
+import { isNil, random } from 'lodash';
 
 import {
   backgroundClass,
@@ -175,7 +175,7 @@ class ServiceSend extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildDecodedTx({
       unsignedTx,
-      getToken: this.backgroundApi.serviceToken.getToken.bind(
+      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
         this.backgroundApi.serviceToken,
       ),
       getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
@@ -192,7 +192,7 @@ class ServiceSend extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       transfersInfo,
-      getToken: this.backgroundApi.serviceToken.getToken.bind(
+      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
         this.backgroundApi.serviceToken,
       ),
       getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
