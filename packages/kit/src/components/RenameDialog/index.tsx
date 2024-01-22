@@ -42,7 +42,7 @@ export const showRenameDialog = (
         });
       } catch (error: unknown) {
         Toast.error({
-          title: `Change Failed: ${(error as Error).message}`,
+          title: `Change Failed via ${(error as Error).message}`,
         });
         throw error;
       }
