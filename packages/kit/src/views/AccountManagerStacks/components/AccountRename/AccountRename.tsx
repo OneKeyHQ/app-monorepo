@@ -7,33 +7,43 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export function AccountRenameButton({
+  indexedAccount,
   account,
 }: {
-  account: IDBIndexedAccount | IDBAccount;
+  indexedAccount?: IDBIndexedAccount;
+  account?: IDBAccount;
 }) {
   const { serviceAccount } = backgroundApiProxy;
-  return (
-    <ActionList
-      title={account.name}
-      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-      items={[
-        {
-          icon: 'PencilOutline',
-          label: 'Rename',
-          onPress: async () => {
-            showRenameDialog(account.name, {
-              onSubmit: async (name) => {
-                if (account?.id && name) {
-                  await serviceAccount.setAccountName({
-                    indexedAccountId: account?.id,
-                    name,
-                  });
-                }
-              },
-            });
+  const name = indexedAccount?.name || account?.name;
+  if (name) {
+    return (
+      <ActionList
+        title={name}
+        renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
+        items={[
+          {
+            icon: 'PencilOutline',
+            label: 'Rename',
+            onPress: async () => {
+              showRenameDialog(name, {
+                onSubmit: async (newName) => {
+                  if (indexedAccount?.id && newName) {
+                    await serviceAccount.setAccountName({
+                      indexedAccountId: indexedAccount?.id,
+                      name,
+                    });
+                  } else if (account?.id && newName) {
+                    await serviceAccount.setAccountName({
+                      accountId: account.id,
+                      name,
+                    });
+                  }
+                },
+              });
+            },
           },
-        },
-      ]}
-    />
-  );
+        ]}
+      />
+    );
+  }
 }

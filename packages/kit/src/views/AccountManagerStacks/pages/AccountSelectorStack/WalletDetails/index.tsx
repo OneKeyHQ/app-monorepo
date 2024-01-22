@@ -279,7 +279,6 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
         )}
         renderItem={({
           item,
-          section,
         }: {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountGroupProps;
@@ -347,7 +346,14 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
               })}
           >
             <AnimatePresence>
-              {editMode && <AccountRenameButton account={item} />}
+              {editMode && (
+                <AccountRenameButton
+                  account={isOthers ? (item as IDBAccount) : undefined}
+                  indexedAccount={
+                    isOthers ? undefined : (item as IDBIndexedAccount)
+                  }
+                />
+              )}
             </AnimatePresence>
           </ListItem>
         )}
