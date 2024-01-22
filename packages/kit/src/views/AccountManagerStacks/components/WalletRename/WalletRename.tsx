@@ -16,10 +16,6 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
       }}
       onPress={async () => {
         showRenameDialog(wallet.name, {
-          onCheckRepeat: async (name) => {
-            const { wallets } = await serviceAccount.getWallets();
-            return !!wallets.find((w) => w.name === name);
-          },
           onSubmit: async (name) => {
             if (wallet?.id && name) {
               await serviceAccount.setWalletNameAndAvatar({

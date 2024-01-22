@@ -8,10 +8,8 @@ import type {
 
 export function AccountRenameButton({
   account,
-  accounts,
 }: {
   account: IDBIndexedAccount | IDBAccount;
-  accounts: (IDBIndexedAccount | IDBAccount)[];
 }) {
   const { serviceAccount } = backgroundApiProxy;
   return (
@@ -24,8 +22,6 @@ export function AccountRenameButton({
           label: 'Rename',
           onPress: async () => {
             showRenameDialog(account.name, {
-              onCheckRepeat: async (name) =>
-                !!accounts.find((a) => a.name === name),
               onSubmit: async (name) => {
                 if (account?.id && name) {
                   await serviceAccount.setAccountName({
