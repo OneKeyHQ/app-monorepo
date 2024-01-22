@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { isNil, isPlainObject } from 'lodash';
 
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
@@ -105,13 +105,22 @@ export async function jotaiInit() {
         storageKey,
         undefined,
       );
+      // save initValue to storage if storageValue is undefined
       if (isNil(storageValue)) {
         await onekeyJotaiStorage.setItem(storageKey, initValue);
         storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
       }
       const currentValue = await jotaiDefaultStore.get(atomObj);
       if (currentValue !== storageValue) {
-        await jotaiDefaultStore.set(atomObj, storageValue);
+        await jotaiDefaultStore.set(
+          atomObj,
+          isPlainObject(storageValue) && isPlainObject(initValue)
+            ? {
+                ...initValue,
+                ...storageValue,
+              }
+            : storageValue,
+        );
       }
     }),
   );

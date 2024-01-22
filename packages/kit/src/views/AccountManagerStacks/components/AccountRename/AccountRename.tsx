@@ -8,16 +8,19 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 function AccountRenameDialog({
-  indexedAccount,
+  account,
 }: {
-  indexedAccount: IDBIndexedAccount;
+  account: IDBIndexedAccount | IDBAccount;
 }) {
   const { serviceAccount } = backgroundApiProxy;
   const media = useMedia();
-  const [name, setName] = useState(indexedAccount?.name || '');
+  const [name, setName] = useState(account?.name || '');
   return (
     <>
       <Input
@@ -31,9 +34,9 @@ function AccountRenameDialog({
           disabled: !name,
         }}
         onConfirm={async () => {
-          if (indexedAccount?.id && name) {
+          if (account?.id && name) {
             await serviceAccount.setAccountName({
-              indexedAccountId: indexedAccount?.id,
+              indexedAccountId: account?.id,
               name,
             });
           }
@@ -44,13 +47,13 @@ function AccountRenameDialog({
 }
 
 export function AccountRenameButton({
-  indexedAccount,
+  account,
 }: {
-  indexedAccount: IDBIndexedAccount;
+  account: IDBIndexedAccount | IDBAccount;
 }) {
   return (
     <ActionList
-      title={indexedAccount.name}
+      title={account.name}
       renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
       items={[
         {
@@ -59,9 +62,7 @@ export function AccountRenameButton({
           onPress: () => {
             Dialog.show({
               title: 'Rename',
-              renderContent: (
-                <AccountRenameDialog indexedAccount={indexedAccount} />
-              ),
+              renderContent: <AccountRenameDialog account={account} />,
             });
           },
         },

@@ -16,14 +16,19 @@ import {
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import type { IAddressValidation } from '@onekeyhq/shared/types/address';
-import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
+import type {
+  IAddressValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
   IOnChainHistoryTxAsset,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -80,6 +85,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   // async addressFromBase(account: DBAccount): Promise<string> {
   // async addressToBase(address: string): Promise<string> {
   // async getDisplayAddress(address: string): Promise<string> {
+
+  abstract validateAddress(address: string): Promise<IAddressValidation>;
+
+  abstract validateXpub(xpub: string): Promise<IXpubValidation>;
+
+  abstract getPrivateKeyFromImported(params: {
+    input: string;
+  }): Promise<{ privateKey: string }>;
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -114,8 +127,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro>;
-
-  abstract validateAddress(address: string): Promise<IAddressValidation>;
 
   async validateSendAmount() {
     return Promise.resolve(true);

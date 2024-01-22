@@ -1,19 +1,34 @@
 import { Form, Input, Page, useForm } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ChainSelectorTrigger, Tutorials } from '../../components';
+import { Tutorials } from '../../components';
 
-export function ImportAddress() {
-  const form = useForm();
+function ImportAddress() {
+  const form = useForm({
+    values: {
+      networkId: 'evm--1',
+      input: '',
+    },
+  });
+  const navigation = useAppNavigation();
+
+  const actions = useAccountSelectorActions();
 
   return (
     <Page>
       <Page.Header title="Import Address" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Chain" name="Chain">
-            <ChainSelectorTrigger />
+          <Form.Field label="Chain" name="networkId">
+            <ControlledNetworkSelectorTrigger />
           </Form.Field>
-          <Form.Field label="Address" name="privateKey">
+          <Form.Field label="Address" name="input">
             <Input
               placeholder="Address or domain name"
               size="large"
@@ -36,9 +51,44 @@ export function ImportAddress() {
           ]}
         />
       </Page.Body>
-      <Page.Footer onConfirm={() => console.log('confirm')} />
+      <Page.Footer
+        onConfirm={async () => {
+          const values = form.getValues();
+          const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
+            input: values.input,
+            networkId: values.networkId,
+          });
+          console.log(r, values);
+
+          actions.current.updateSelectedAccount({
+            num: 0,
+            builder: (v) => ({
+              ...v,
+              networkId: values.networkId,
+              focusedWallet: '$$others',
+              walletId: WALLET_TYPE_WATCHING,
+              othersWalletAccountId: r.accounts[0].id,
+              indexedAccountId: undefined,
+            }),
+          });
+          navigation.popStack();
+        }}
+      />
     </Page>
   );
 }
 
-export default ImportAddress;
+function ImportAddressPage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <ImportAddress />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default ImportAddressPage;
