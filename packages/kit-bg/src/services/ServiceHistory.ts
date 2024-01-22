@@ -36,30 +36,18 @@ class ServiceHistory extends ServiceBase {
 
     const { data: onChainHistoryTxs, tokens } = resp.data.data;
 
-    const txGroup: {
-      title: string;
-      data: IAccountHistoryTx[];
-    }[] = [];
+    const txs = await Promise.all(
+      onChainHistoryTxs.map((tx) =>
+        vault.buildOnChainHistoryTx({
+          accountId,
+          networkId,
+          onChainHistoryTx: tx,
+          tokens,
+        }),
+      ),
+    );
 
-    for (let i = 0; i < onChainHistoryTxs.length; i += 1) {
-      const { date, items } = onChainHistoryTxs[i];
-      const txs = await Promise.all(
-        items.map((tx) =>
-          vault.buildOnChainHistoryTx({
-            accountId,
-            networkId,
-            onChainHistoryTx: tx,
-            tokens,
-          }),
-        ),
-      );
-      txGroup.push({
-        title: date,
-        data: txs.filter(Boolean) as IAccountHistoryTx[],
-      });
-    }
-
-    return txGroup;
+    return txs.filter(Boolean) as IAccountHistoryTx[];
   }
 
   @backgroundMethod()
