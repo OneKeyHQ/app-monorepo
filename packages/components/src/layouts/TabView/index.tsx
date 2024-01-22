@@ -1,7 +1,10 @@
 import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
 import type { ComponentType, ReactElement } from 'react';
 
-import { PageContentView, PageManager } from 'react-native-tab-page-view';
+import {
+  PageContentView,
+  PageManager,
+} from '@onekeyfe/react-native-tab-page-view';
 import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,6 +28,8 @@ export interface ITabProps extends IScrollViewProps {
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
+  onSelectedPageIndex?: (pageIndex: number) => void;
+  shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
 
 const TabComponent = (
@@ -33,6 +38,8 @@ const TabComponent = (
     initialScrollIndex,
     ListHeaderComponent,
     headerProps,
+    onSelectedPageIndex,
+    shouldSelectedPageIndex,
     ...props
   }: ITabProps,
   // fix missing forwardRef warnings.
@@ -86,6 +93,7 @@ const TabComponent = (
         if (index >= stickyConfig.data.length) {
           return;
         }
+        onSelectedPageIndex?.(index);
         reloadContentHeight(index);
         const { contentOffsetY } = stickyConfig.data[index];
         const lastContentOffsetY =
@@ -116,7 +124,7 @@ const TabComponent = (
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stickyConfig, data, initialScrollIndex],
+    [stickyConfig, data, initialScrollIndex, onSelectedPageIndex],
   );
   const pageManager = useMemo(
     () => new PageManager(pageManagerProps),
@@ -158,13 +166,16 @@ const TabComponent = (
           event as any
         ).nativeEvent.contentOffset.y;
       }}
+      stickyHeaderIndices={[1]}
+      nestedScrollEnabled
       {...props}
     >
-      {ListHeaderComponent}
+      <>{ListHeaderComponent}</>
       <Header
         ref={pageManager.headerView}
         {...pageManagerProps}
         {...headerProps}
+        shouldSelectedPageIndex={shouldSelectedPageIndex}
         onLayout={(event) => {
           stickyConfig.headerViewHeight = event.nativeEvent.layout.height;
         }}

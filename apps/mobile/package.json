@@ -15,7 +15,7 @@
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
     "native-bundle:analyze": "react-native-bundle-visualizer",
-    "eas-build-pre-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/react-native-lite-card/keys/keys.secret",
+    "eas-build-pre-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret",
     "_folderslint": "yarn folderslint"
   },
   "devDependencies": {
@@ -29,6 +29,7 @@
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
     "@onekeyfe/react-native-lite-card": "1.0.0",
+    "@onekeyfe/react-native-tab-page-view": "1.0.0",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
@@ -70,7 +71,6 @@
     "react-native-share": "^9.4.1",
     "react-native-spotlight-tour": "^3.0.1",
     "react-native-svg": "^13.9.0",
-    "react-native-tab-page-view": "https://github.com/OneKeyHQ/react-native-tab-page-view#5b43680594ac431d1b3984f34e0790962075eaed",
     "react-native-tcp-socket": "^6.0.6",
     "react-native-view-shot": "3.1.2",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115",
