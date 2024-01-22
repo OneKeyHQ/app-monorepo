@@ -1,6 +1,7 @@
 import {
   COINTYPE_ETC,
   COINTYPE_ETH,
+  IMPL_EVM,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -51,6 +52,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
 };
 
 const settings: IVaultSettings = {
+  impl: IMPL_EVM,
+  coinTypeDefault: COINTYPE_ETH,
   accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: true,

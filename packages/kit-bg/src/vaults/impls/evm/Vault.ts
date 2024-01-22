@@ -8,6 +8,7 @@ import {
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { encodeSensitiveText } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   buildTxActionDirection,
@@ -15,9 +16,11 @@ import {
 } from '@onekeyhq/kit/src/utils/txAction';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IXpubValidation } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -199,6 +202,12 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
+  override async validateXpub(): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false, // EVM not support xpub
+    });
+  }
+
   override async validateAddress(address: string) {
     let isValid = false;
     let checksumAddress = '';
@@ -209,12 +218,14 @@ export default class Vault extends VaultBase {
     } catch {
       return Promise.resolve({
         isValid: false,
+        normalizedAddress: '',
+        displayAddress: '',
       });
     }
 
     return Promise.resolve({
-      normalizedAddress: checksumAddress.toLowerCase() || undefined,
-      displayAddress: checksumAddress || undefined,
+      normalizedAddress: checksumAddress.toLowerCase() || '',
+      displayAddress: checksumAddress || '',
       isValid,
     });
   }
@@ -652,6 +663,18 @@ export default class Vault extends VaultBase {
       encodedTx: signedTx.encodedTx,
       txid: signedTx.txid,
       rawTx: signedTx.rawTx,
+    };
+  }
+
+  override async getPrivateKeyFromImported({
+    input,
+  }: {
+    input: string;
+  }): Promise<{ privateKey: string }> {
+    let privateKey = hexUtils.stripHexPrefix(input);
+    privateKey = encodeSensitiveText({ text: privateKey });
+    return {
+      privateKey,
     };
   }
 }
