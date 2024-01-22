@@ -5,6 +5,7 @@ import { YStack } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
+import { EModalSendRoutes } from '../../Send/router';
 import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../router/Routers';
 
@@ -47,10 +48,16 @@ const SwapMainLoad = () => {
   }, [wrappedTx]);
 
   const onBuildTx = useCallback(async () => {
-    const res = await buildTx();
-    if (res) {
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapBuildTxDemo,
+    const { encodedTx, transferInfo, networkId, accountId } = await buildTx();
+    if (encodedTx && transferInfo) {
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendConfirm,
+        params: {
+          accountId: networkId,
+          networkId: accountId,
+          unsignedTxs: [{ encodedTx }],
+          transfersInfo: [transferInfo],
+        },
       });
     }
   }, [buildTx, navigation]);

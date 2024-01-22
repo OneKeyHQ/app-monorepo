@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -49,7 +51,8 @@ export function useSwapBuildTx() {
       slippagePercentage &&
       selectQuote &&
       activeAccount.account?.address &&
-      receiverAddress
+      receiverAddress &&
+      activeAccount.network?.id
     ) {
       setSwapBuildTxFetching(true);
       const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
@@ -62,12 +65,61 @@ export function useSwapBuildTx() {
         userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
+      let encodedTx: IEncodedTx = {
+        from: activeAccount.account?.address,
+        to: '',
+        value: '0',
+      };
+      let transferInfo: ITransferInfo = {
+        from: activeAccount.account?.address,
+        token: fromToken.contractAddress,
+        to: '',
+        amount: fromTokenAmount,
+      };
+      if (res?.swftOrder) {
+        // swft orider
+        transferInfo = {
+          ...transferInfo,
+          to: res.swftOrder.platformAddr,
+          amount: res.swftOrder.depositCoinAmt,
+        };
+        const buildEncodedTx =
+          await backgroundApiProxy.serviceSend.buildUnsignedTx({
+            transfersInfo: [transferInfo],
+            networkId: activeAccount.network?.id,
+            accountId: activeAccount.account?.id,
+          });
+        encodedTx = buildEncodedTx.encodedTx;
+      }
+      if (res?.tx) {
+        transferInfo = {
+          ...transferInfo,
+          to: res.tx.to,
+          amount: fromTokenAmount,
+        };
+      }
+      const buildEncodedTx =
+        await backgroundApiProxy.serviceSend.buildUnsignedTx({
+          transfersInfo: [transferInfo],
+          networkId: activeAccount.network?.id,
+          accountId: activeAccount.account?.id,
+        });
+      encodedTx = buildEncodedTx.encodedTx;
+
       setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);
-      return res;
+      return {
+        encodedTx,
+        transferInfo,
+        networkId: activeAccount.network?.id,
+        accountId: activeAccount.account?.id,
+      };
     }
+    return {};
   }, [
     activeAccount.account?.address,
+    activeAccount.account?.id,
+    activeAccount.network?.id,
     fromToken,
     fromTokenAmount,
     receiverAddress,

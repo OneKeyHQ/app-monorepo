@@ -223,13 +223,10 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  // passwordSet check is only done the app open
   @backgroundMethod()
-  async isPasswordSet(): Promise<boolean> {
+  async checkPasswordSet(): Promise<boolean> {
     const checkPasswordSet = await localDb.isPasswordSet();
-    if (checkPasswordSet) {
-      await this.setPasswordSetStatus(checkPasswordSet);
-    }
+    await this.setPasswordSetStatus(checkPasswordSet);
     return checkPasswordSet;
   }
 
@@ -315,7 +312,7 @@ export default class ServicePassword extends ServiceBase {
         password: cachedPassword,
       });
     }
-    const { isPasswordSet } = await passwordPersistAtom.get();
+    const isPasswordSet = await this.checkPasswordSet();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,

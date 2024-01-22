@@ -103,7 +103,12 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
     [indexedAccount, account],
     { checkIsFocused: false },
   );
-
+  console.log(
+    'AccountSelectorTriggerSwap render',
+    wallet,
+    indexedAccount,
+    account,
+  );
   return (
     <XStack
       role="button"

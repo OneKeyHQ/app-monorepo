@@ -69,7 +69,7 @@ const SwapAccountContainer = ({
     setReceiverAddressInputValue,
   ]);
 
-  if (!token || !activeAccount.account) {
+  if (!token || !activeAccount) {
     return null;
   }
   return (
