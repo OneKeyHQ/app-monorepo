@@ -1358,6 +1358,49 @@ const serverPresetNetworks = [
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
   {
+    'balance2FeeDecimals': 18,
+    'chainId': 'manta',
+    'code': 'dot-manta',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 77,
+        'addressRegex': '^df[a-cW-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--manta',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/manta/manta.png',
+    'name': 'Manta Atlantic',
+    'rpcURLs': [
+      {
+        'url': 'wss://ws.manta.systems',
+      },
+    ],
+    'shortcode': 'manta',
+    'shortname': 'MANTA',
+    'symbol': 'MANTA',
+    'feeMeta': {
+      'code': 'manta',
+      'decimals': 18,
+      'symbol': 'MANTA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://manta.subscan.io/account/{address}',
+        'block': 'https://manta.subscan.io/block/{block}',
+        'name': 'https://manta.subscan.io/',
+        'transaction': 'https://manta.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-01-20T00:30:24.951Z',
+    'updatedAt': '2024-01-20T00:30:24.951Z',
+  },
+  {
     'balance2FeeDecimals': 10,
     'chainId': 'joystream',
     'code': 'dot-joystream',
