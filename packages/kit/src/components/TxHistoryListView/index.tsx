@@ -1,16 +1,10 @@
-import { useCallback, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Divider,
-  Empty,
-  ListView,
-  SectionList,
-  SizableText,
-  Stack,
-} from '@onekeyhq/components';
+import { Divider, Empty, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { convertToHistorySectionGroups } from '@onekeyhq/shared/src/utils/historyUtils';
 import type {
   IAccountHistoryTx,
   IHistoryListSectionGroup,
@@ -65,60 +59,40 @@ function TxHistoryListView(props: IProps) {
   const { data, showHeader, onPressHistory, tableLayout, onContentSizeChange } =
     props;
 
-  const currentDate = useRef('');
-
   const { formatDate } = useFormatDate();
 
-  const renderHistoryListItem = useCallback(
-    (tx: IAccountHistoryTx) => {
-      const txDate = formatDate(
-        new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
-        {
-          hideTheYear: true,
-          hideTimeForever: true,
-        },
-      );
-
-      if (txDate !== currentDate.current) {
-        currentDate.current = txDate;
-        return (
-          <>
-            <SectionList.SectionHeader title={txDate} />
-            <TxHistoryListItem
-              historyTx={tx}
-              tableLayout={tableLayout}
-              onPress={onPressHistory}
-            />
-          </>
-        );
-      }
-
-      return (
-        <>
-          <TxHistoryListItem
-            historyTx={tx}
-            tableLayout={tableLayout}
-            onPress={onPressHistory}
-          />
-          <Divider />
-        </>
-      );
-    },
-    [formatDate, onPressHistory, tableLayout],
+  const sections = useMemo(
+    () =>
+      convertToHistorySectionGroups({
+        items: data,
+        formatDate: (date: number) =>
+          formatDate(new Date(date), {
+            hideTheYear: true,
+            hideTimeForever: true,
+          }),
+      }),
+    [data, formatDate],
   );
 
   return (
-    <ListView
+    <SectionList
       h="100%"
-      data={data}
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
+      sections={sections}
+      renderSectionHeader={({ section: { title } }) => (
+        <SectionList.SectionHeader title={title} />
+      )}
       ListEmptyComponent={TxHistoryListEmpty}
-      estimatedItemSize={60}
+      estimatedItemSize={48}
+      renderItem={({ item }: { item: IAccountHistoryTx }) => (
+        <TxHistoryListItem
+          historyTx={item}
+          onPress={onPressHistory}
+          tableLayout={tableLayout}
+        />
+      )}
       ListFooterComponent={ListFooterComponent}
-      renderItem={({ item }: { item: IAccountHistoryTx }) =>
-        renderHistoryListItem(item)
-      }
       {...(showHeader && {
         ListHeaderComponent: TxHistoryListHeader,
       })}
