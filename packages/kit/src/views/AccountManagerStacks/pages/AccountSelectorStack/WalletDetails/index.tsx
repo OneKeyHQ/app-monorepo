@@ -180,7 +180,6 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
     return console.log('clicked');
   };
 
-  console.log('sectionData---', sectionData);
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
