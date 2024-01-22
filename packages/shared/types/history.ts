@@ -109,10 +109,7 @@ export type IOnChainHistoryTxAsset =
 export type IOnChainHistoryTxNFT = IAccountNFT;
 
 export type IFetchAccountHistoryResp = {
-  data: {
-    date: string;
-    items: IOnChainHistoryTx[];
-  }[];
+  data: IOnChainHistoryTx[];
   tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
 };
 
