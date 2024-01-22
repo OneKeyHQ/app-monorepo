@@ -180,7 +180,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
     return console.log('clicked');
   };
 
-  console.log('sectionData---', sectionData)
+  console.log('sectionData---', sectionData);
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
@@ -347,11 +347,7 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
               })}
           >
             <AnimatePresence>
-              {editMode && (
-                <AccountRenameButton
-                  account={item}
-                />
-              )}
+              {editMode && <AccountRenameButton account={item} />}
             </AnimatePresence>
           </ListItem>
         )}
