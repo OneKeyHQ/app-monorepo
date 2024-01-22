@@ -21,7 +21,7 @@ export interface IAccountSelectorSelectedAccount {
   indexedAccountId: string | undefined;
   othersWalletAccountId: string | undefined; // for others wallet only
   networkId: string | undefined;
-  deriveType: IAccountDeriveTypes; // TODO move to jotai global
+  deriveType: IAccountDeriveTypes | undefined; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
 export interface IAccountSelectorSectionData {
@@ -86,11 +86,9 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   async getSelectedAccount({
     sceneName,
     sceneUrl,
-    num,
   }: {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
-    num: number;
   }) {
     const sceneId = accountUtils.buildAccountSelectorSceneId({
       sceneName,
@@ -105,6 +103,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     //   deriveType: 'default',
     //   focusedWallet: undefined,
     // };
-    return data?.selectorInfo[sceneId]?.selector?.[num] || undefined;
+    const result = data?.selectorInfo[sceneId]?.selector || undefined;
+    return result;
   }
 }

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Button,
   SizableText,
@@ -6,6 +8,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
@@ -14,13 +17,17 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
-export function AccountSelectorActiveAccount({ num }: { num: number }) {
+import { AccountSelectorSyncButton } from './AccountSelectorSyncButton';
+
+export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
   const { serviceAccount } = backgroundApiProxy;
   const {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     activeAccount: { wallet, network, account, indexedAccount },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+
+  const [showFullAddress, setShowFullAddress] = useState(false);
 
   const { selectedAccount } = useSelectedAccount({ num });
 
@@ -34,10 +41,12 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
       </SizableText>
       {account?.address ? (
         <>
-          <SizableText>
-            {accountUtils.shortenAddress({
-              address: account?.address || '',
-            })}
+          <SizableText onPress={() => setShowFullAddress((v) => !v)}>
+            {showFullAddress
+              ? account.address || ''
+              : accountUtils.shortenAddress({
+                  address: account?.address || '',
+                })}
           </SizableText>
           <SizableText>{account?.id}</SizableText>
           <SizableText>{account?.path}</SizableText>
@@ -62,6 +71,12 @@ export function AccountSelectorActiveAccount({ num }: { num: number }) {
           暂无账户，点击创建
         </Button>
       )}
+      <AccountSelectorSyncButton
+        sceneName={EAccountSelectorSceneName.home}
+        sceneNum={0}
+        num={num}
+      />
+      <XStack h="$4" />
     </>
   );
 }

@@ -12,7 +12,6 @@ import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { CreateHdWalletForm } from '../../../components/AccountSelector/CreateHdWalletForm';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EOnboardingPages } from '../../../views/Onboarding/router/type';
@@ -80,7 +79,6 @@ const TabMe = () => {
               {intl.formatMessage({ id: 'action__expand' })}
             </Button>
           ) : null}
-          <CreateHdWalletForm />
           <Button
             onPress={() => {
               void backgroundApiProxy.servicePassword.clearCachedPassword();

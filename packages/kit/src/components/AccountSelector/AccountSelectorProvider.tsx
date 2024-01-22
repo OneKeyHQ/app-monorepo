@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo } from 'react';
 
-import { isNil, uniq } from 'lodash';
+import { uniq } from 'lodash';
 
 import type {
   IAccountSelectorMap,
@@ -17,6 +17,8 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorJotaiProvider } from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorEffects } from './AccountSelectorEffects';
+import { AccountSelectorStorageInit } from './AccountSelectorStorageInit';
+import { AccountSelectorStorageReady } from './AccountSelectorStorageReady';
 import { accountSelectorStore } from './accountSelectorStore';
 
 import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
@@ -46,6 +48,7 @@ function AccountSelectorProviderCmp({
   }, [config]);
   return (
     <AccountSelectorJotaiProvider store={store} config={config}>
+      <AccountSelectorStorageInit />
       {enabledNum.map((num) => (
         <AccountSelectorEffects key={num} num={Number(num)} />
       ))}
@@ -159,7 +162,7 @@ export function AccountSelectorProviderMirror({
   config: IAccountSelectorContextData;
   enabledNum: number[];
 }) {
-  if (isNil(enabledNum)) {
+  if (!enabledNum || enabledNum.length <= 0) {
     throw new Error(
       'AccountSelectorProviderMirror ERROR: enabledNum is required',
     );
@@ -169,7 +172,7 @@ export function AccountSelectorProviderMirror({
     <>
       <AccountSelectorMapTracker config={config} enabledNum={enabledNum} />
       <AccountSelectorJotaiProvider store={store} config={config}>
-        {children}
+        <AccountSelectorStorageReady>{children}</AccountSelectorStorageReady>
       </AccountSelectorJotaiProvider>
     </>
   );
