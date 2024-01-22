@@ -350,7 +350,6 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
               {editMode && (
                 <AccountRenameButton
                   account={item}
-                  accounts={section.data}
                 />
               )}
             </AnimatePresence>
