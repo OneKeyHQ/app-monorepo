@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Divider, Empty, SectionList, Stack } from '@onekeyhq/components';
+import {
+  Divider,
+  Empty,
+  ListView,
+  SectionList,
+  Stack,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { convertToHistorySectionGroups } from '@onekeyhq/shared/src/utils/historyUtils';
-import type {
-  IAccountHistoryTx,
-  IHistoryListSectionGroup,
-} from '@onekeyhq/shared/types/history';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import useFormatDate from '../../hooks/useFormatDate';
 
@@ -39,65 +41,84 @@ function TxHistoryListEmpty() {
   );
 }
 
-const ItemSeparatorComponent = ({
-  leadingItem,
-}: {
-  leadingItem: { section: IHistoryListSectionGroup; index: number };
-}) => {
-  const { section, index } = leadingItem;
-
-  if (!section || index === section.data.length - 1) {
-    return null;
-  }
-
-  return <Divider mx="$5" />;
-};
-
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
   const { data, showHeader, onPressHistory, tableLayout, onContentSizeChange } =
     props;
 
+  const currentDate = useRef('');
   const { formatDate } = useFormatDate();
 
-  const sections = useMemo(
-    () =>
-      convertToHistorySectionGroups({
-        items: data,
-        formatDate: (date: number) =>
-          formatDate(new Date(date), {
+  const renderListItem = useCallback(
+    (tx: IAccountHistoryTx, index: number) => {
+      let nextDate = '';
+      const nextTx = data[index + 1];
+      const date = formatDate(
+        new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
+        {
+          hideTheYear: true,
+          hideTimeForever: true,
+        },
+      );
+      if (nextTx) {
+        nextDate = formatDate(
+          new Date(
+            nextTx.decodedTx.updatedAt ?? nextTx.decodedTx.createdAt ?? 0,
+          ),
+          {
             hideTheYear: true,
             hideTimeForever: true,
-          }),
-      }),
-    [data, formatDate],
+          },
+        );
+      }
+
+      if (date !== currentDate.current) {
+        currentDate.current = date;
+        return (
+          <>
+            <SectionList.SectionHeader title={date} />
+            <TxHistoryListItem
+              historyTx={tx}
+              onPress={onPressHistory}
+              tableLayout={tableLayout}
+            />
+            {nextDate === date && tableLayout && <Divider mx="$5" />}
+          </>
+        );
+      }
+      return (
+        <>
+          <TxHistoryListItem
+            historyTx={tx}
+            onPress={onPressHistory}
+            tableLayout={tableLayout}
+          />
+          {nextDate === date && tableLayout && <Divider mx="$5" />}
+        </>
+      );
+    },
+    [data, formatDate, onPressHistory, tableLayout],
   );
 
   return (
-    <SectionList
+    <ListView
       h="100%"
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
-      sections={sections}
-      renderSectionHeader={({ section: { title } }) => (
-        <SectionList.SectionHeader title={title} />
-      )}
+      data={data}
       ListEmptyComponent={TxHistoryListEmpty}
       estimatedItemSize={48}
-      renderItem={({ item }: { item: IAccountHistoryTx }) => (
-        <TxHistoryListItem
-          historyTx={item}
-          onPress={onPressHistory}
-          tableLayout={tableLayout}
-        />
-      )}
+      renderItem={({
+        item,
+        index,
+      }: {
+        item: IAccountHistoryTx;
+        index: number;
+      }) => renderListItem(item, index)}
       ListFooterComponent={ListFooterComponent}
       {...(showHeader && {
         ListHeaderComponent: TxHistoryListHeader,
-      })}
-      {...(tableLayout && {
-        ItemSeparatorComponent,
       })}
     />
   );
