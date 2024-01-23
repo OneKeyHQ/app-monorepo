@@ -307,18 +307,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl?: string;
       },
     ) => {
-      const selectedAccountInDB =
-        await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
-          sceneName,
-          sceneUrl,
-        });
+      const selectedAccountsMapInDB =
+        await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap(
+          {
+            sceneName,
+            sceneUrl,
+          },
+        );
 
       const selectedAccount = get(selectedAccountsAtom());
       if (
-        selectedAccountInDB &&
-        !isEqual(selectedAccountInDB, selectedAccount)
+        selectedAccountsMapInDB &&
+        !isEqual(selectedAccountsMapInDB, selectedAccount)
       ) {
-        set(selectedAccountsAtom(), () => selectedAccountInDB);
+        set(selectedAccountsAtom(), () => selectedAccountsMapInDB);
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },
@@ -353,12 +355,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   syncFromScene = contextAtomMethod(
     async (get, set, { from, num }: IAccountSelectorSyncFromSceneParams) => {
       const { sceneName, sceneUrl, sceneNum } = from;
-      const selectAccounts =
+
+      const selectedAccount =
         await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
           sceneName,
           sceneUrl,
+          num: sceneNum,
         });
-      const selectedAccount = selectAccounts?.[sceneNum];
 
       this.updateSelectedAccount.call(set, {
         num,

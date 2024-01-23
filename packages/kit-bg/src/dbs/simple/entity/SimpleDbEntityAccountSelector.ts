@@ -24,6 +24,9 @@ export interface IAccountSelectorSelectedAccount {
   deriveType: IAccountDeriveTypes | undefined; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
+export interface IAccountSelectorSelectedAccountsMap {
+  [num: number]: IAccountSelectorSelectedAccount;
+}
 export interface IAccountSelectorSectionData {
   title: string;
   isHiddenWalletData?: boolean;
@@ -33,9 +36,7 @@ export interface IAccountSelectorSectionData {
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
     [sceneId: string]: {
-      selector: {
-        [num: number]: IAccountSelectorSelectedAccount;
-      };
+      selector: IAccountSelectorSelectedAccountsMap;
     };
   };
 }
@@ -83,13 +84,13 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }
 
   @backgroundMethod()
-  async getSelectedAccount({
+  async getSelectedAccountsMap({
     sceneName,
     sceneUrl,
   }: {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
-  }) {
+  }): Promise<IAccountSelectorSelectedAccountsMap | undefined> {
     const sceneId = accountUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,
@@ -105,5 +106,22 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     // };
     const result = data?.selectorInfo[sceneId]?.selector || undefined;
     return result;
+  }
+
+  @backgroundMethod()
+  async getSelectedAccount({
+    sceneName,
+    sceneUrl,
+    num,
+  }: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }): Promise<IAccountSelectorSelectedAccount | undefined> {
+    const selectedAccountsMap = await this.getSelectedAccountsMap({
+      sceneName,
+      sceneUrl,
+    });
+    return selectedAccountsMap?.[num];
   }
 }
