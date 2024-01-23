@@ -4,10 +4,8 @@ import {
   Button,
   Dialog,
   Icon,
-  Image,
   ScrollView,
   SizableText,
-  Skeleton,
   XStack,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
@@ -15,7 +13,6 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
@@ -78,24 +75,11 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
 export function AccountSelectorTriggerSwap({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, indexedAccount, account },
+    activeAccount: { wallet, account },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const { result: accountAvatar } = usePromiseResult(
-    () =>
-      makeBlockieImageUriList([
-        indexedAccount?.idHash ?? account?.address ?? '--',
-      ]).then((uriList) => uriList?.[0]),
-    [indexedAccount, account],
-    { checkIsFocused: false },
-  );
-  console.log(
-    'AccountSelectorTriggerSwap render',
-    wallet,
-    indexedAccount,
-    account,
-  );
+
   return (
     <XStack
       role="button"
@@ -119,12 +103,7 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <Image size="$6" borderRadius="$1">
-        <Image.Source src={accountAvatar} />
-        <Image.Fallback>
-          <Skeleton w="$6" h="$6" />
-        </Image.Fallback>
-      </Image>
+      <AccountAvatar size="$6" borderRadius="$1" account={account} />
 
       <SizableText
         flex={1}
