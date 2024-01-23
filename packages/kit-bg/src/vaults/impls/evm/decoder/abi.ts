@@ -19,6 +19,20 @@ export enum EWrapperTokenMethodSelectors {
   deposit = '0xd0e30db0',
 }
 
+export enum EErc20TxDescriptionName {
+  Transfer = 'transfer',
+  TransferFrom = 'transferFrom',
+  Approve = 'approve',
+}
+
+export enum EErc721TxDescriptionName {
+  SafeTransferFrom = 'safeTransferFrom',
+}
+
+export enum EErc1155TxDescriptionName {
+  SafeTransferFrom = 'safeTransferFrom',
+}
+
 const ERC20 = [
   'function name() public view returns (string)',
   'function symbol() public view returns (string)',

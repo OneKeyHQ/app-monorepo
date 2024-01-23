@@ -41,15 +41,15 @@ import { VaultBase } from '../../base/VaultBase';
 import { EVMTxDecoder } from './decoder';
 import {
   EErc1155MethodSelectors,
+  EErc1155TxDescriptionName,
   EErc20MethodSelectors,
+  EErc20TxDescriptionName,
   EErc721MethodSelectors,
+  EErc721TxDescriptionName,
 } from './decoder/abi';
 import {
-  EBaseEVMDecodedTxProtocol,
-  EBaseEVMDecodedTxType,
-} from './decoder/types';
-import {
   InfiniteAmountText,
+  checkIsEvmNativeTransfer,
   formatValue,
   parseToNativeTx,
 } from './decoder/utils';
@@ -59,7 +59,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-import type { IBaseEVMDecodedTx } from './decoder/types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -92,14 +91,11 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx, getToken, getNFT } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
-    const accountAddress = await this.getAccountAddress();
     const nativeTx = await parseToNativeTx({
       encodedTx,
     });
 
     const decoder = new EVMTxDecoder();
-
-    const baseDecodedTx = decoder.parseTx({ rawTx: nativeTx });
 
     let action: IDecodedTxAction | undefined = {
       type: EDecodedTxActionType.UNKNOWN,
@@ -119,7 +115,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    if (baseDecodedTx.txType === EBaseEVMDecodedTxType.NATIVE_TRANSFER) {
+    if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
       action = await this._buildTxTransferNativeTokenAction({
         encodedTx,
         getNFT,
@@ -128,44 +124,42 @@ export default class Vault extends VaultBase {
       extraNativeTransferAction = undefined;
     }
 
-    if (baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC20) {
+    const erc20TxDesc = decoder.parseERC20(nativeTx);
+
+    if (erc20TxDesc) {
       action = await this._buildTxTokenAction({
         encodedTx,
-        baseDecodedTx,
-        getToken,
+        txDesc: erc20TxDesc,
         getNFT,
+        getToken,
       });
     }
 
-    if (
-      baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC721 ||
-      baseDecodedTx.protocol === EBaseEVMDecodedTxProtocol.ERC1155
-    ) {
+    const erc721TxDesc = decoder.parseERC721(nativeTx);
+    if (erc721TxDesc) {
       action = await this._buildTxTransferNFTAction({
         encodedTx,
-        baseDecodedTx,
+        txDesc: erc721TxDesc,
         getToken,
         getNFT,
       });
     }
 
-    const decodedTx: IDecodedTx = {
-      txid: '',
-      owner: accountAddress,
-      signer: encodedTx.from ?? accountAddress,
-      nonce: Number(encodedTx.nonce) ?? 0,
-      actions: mergeAssetTransferActions(
-        [action, extraNativeTransferAction].filter(
-          Boolean,
-        ) as IDecodedTxAction[],
-      ),
-      status: EDecodedTxStatus.Pending,
-      networkId: this.networkId,
-      accountId: this.accountId,
+    const erc1155TxDesc = decoder.parseERC1155(nativeTx);
+    if (erc1155TxDesc) {
+      action = await this._buildTxTransferNFTAction({
+        encodedTx,
+        txDesc: erc1155TxDesc,
+        getToken,
+        getNFT,
+      });
+    }
+
+    return this._buildDecodedTx({
       encodedTx,
-      extraInfo: null,
-    };
-    return decodedTx;
+      action,
+      extraNativeTransferAction,
+    });
   }
 
   override async buildUnsignedTx(
@@ -237,6 +231,33 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
+
+  async _buildDecodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    action: IDecodedTxAction | undefined;
+    extraNativeTransferAction: IDecodedTxAction | undefined;
+  }): Promise<IDecodedTx> {
+    const { encodedTx, action, extraNativeTransferAction } = params;
+    const accountAddress = await this.getAccountAddress();
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: accountAddress,
+      signer: encodedTx.from ?? accountAddress,
+      nonce: Number(encodedTx.nonce) ?? 0,
+      actions: mergeAssetTransferActions(
+        [action, extraNativeTransferAction].filter(
+          Boolean,
+        ) as IDecodedTxAction[],
+      ),
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      extraInfo: null,
+    };
+    return decodedTx;
+  }
 
   async _buildEncodedTxFromTransfer(
     params: IBuildEncodedTxParams,
@@ -430,11 +451,10 @@ export default class Vault extends VaultBase {
   async _buildTxTokenAction(
     params: {
       encodedTx: IEncodedTxEvm;
-      baseDecodedTx: IBaseEVMDecodedTx;
+      txDesc: ethers.utils.TransactionDescription;
     } & IBuildTxHelperParams,
   ) {
-    const { encodedTx, baseDecodedTx, getToken } = params;
-    const { txType } = baseDecodedTx;
+    const { encodedTx, txDesc, getToken } = params;
 
     const token = await getToken({
       networkId: this.networkId,
@@ -443,18 +463,21 @@ export default class Vault extends VaultBase {
 
     if (!token) return;
 
-    if (txType === EBaseEVMDecodedTxType.TOKEN_TRANSFER) {
+    if (
+      txDesc.name === EErc20TxDescriptionName.TransferFrom ||
+      txDesc.name === EErc20TxDescriptionName.Transfer
+    ) {
       return this._buildTxTransferTokenAction({
         encodedTx,
-        baseDecodedTx,
+        txDesc,
         token,
       });
     }
 
-    if (txType === EBaseEVMDecodedTxType.TOKEN_APPROVE) {
+    if (txDesc.name === EErc20TxDescriptionName.Approve) {
       return this._buildTxApproveTokenAction({
         encodedTx,
-        baseDecodedTx,
+        txDesc,
         token,
       });
     }
@@ -462,25 +485,24 @@ export default class Vault extends VaultBase {
 
   async _buildTxTransferTokenAction(params: {
     encodedTx: IEncodedTxEvm;
-    baseDecodedTx: IBaseEVMDecodedTx;
+    txDesc: ethers.utils.TransactionDescription;
     token: IToken;
   }) {
-    const { encodedTx, baseDecodedTx, token } = params;
-    const { txDesc } = baseDecodedTx;
+    const { encodedTx, token, txDesc } = params;
 
     let from = encodedTx.from.toLowerCase();
     let recipient = encodedTx.to;
     let value = ethers.BigNumber.from(0);
 
     // Function:  transfer(address _to, uint256 _value)
-    if (txDesc?.name === 'transfer') {
+    if (txDesc?.name === EErc20TxDescriptionName.Transfer) {
       from = encodedTx.from.toLowerCase();
       recipient = (txDesc.args[0] as string).toLowerCase();
       value = txDesc.args[1] as ethers.BigNumber;
     }
 
     // Function:  transferFrom(address from, address to, uint256 value)
-    if (txDesc?.name === 'transferFrom') {
+    if (txDesc?.name === EErc20TxDescriptionName.TransferFrom) {
       from = (txDesc?.args[0] as string).toLowerCase();
       recipient = (txDesc?.args[1] as string).toLowerCase();
       value = txDesc?.args[2] as ethers.BigNumber;
@@ -511,11 +533,10 @@ export default class Vault extends VaultBase {
 
   async _buildTxApproveTokenAction(params: {
     encodedTx: IEncodedTxEvm;
-    baseDecodedTx: IBaseEVMDecodedTx;
+    txDesc: ethers.utils.TransactionDescription;
     token: IToken;
   }): Promise<IDecodedTxAction> {
-    const { encodedTx, baseDecodedTx, token } = params;
-    const { txDesc } = baseDecodedTx;
+    const { encodedTx, txDesc, token } = params;
     const spender = (txDesc?.args[0] as string).toLowerCase();
     const value = txDesc?.args[1] as ethers.BigNumber;
     const amount = formatValue(value, token.decimals);
@@ -605,12 +626,16 @@ export default class Vault extends VaultBase {
   async _buildTxTransferNFTAction(
     params: {
       encodedTx: IEncodedTxEvm;
-      baseDecodedTx: IBaseEVMDecodedTx;
+      txDesc: ethers.utils.TransactionDescription;
     } & IBuildTxHelperParams,
   ) {
-    const { encodedTx, baseDecodedTx, getNFT } = params;
+    const { encodedTx, txDesc, getNFT } = params;
 
-    const { txDesc } = baseDecodedTx;
+    if (
+      txDesc.name !== EErc721TxDescriptionName.SafeTransferFrom &&
+      txDesc.name !== EErc1155TxDescriptionName.SafeTransferFrom
+    )
+      return;
 
     const [from, to, nftId, amount] =
       txDesc?.args.map((arg) => String(arg)) || [];
