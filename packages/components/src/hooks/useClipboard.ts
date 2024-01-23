@@ -3,9 +3,11 @@ import { useCallback } from 'react';
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components/src/actions/Toast';
-import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { Toast } from '../actions/Toast';
+
+import type { ILocaleIds } from '../locale';
 
 const getClipboard = async () => {
   if (!platformEnv.canGetClipboard) {

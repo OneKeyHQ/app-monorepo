@@ -57,6 +57,7 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
 const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
+    // TODO: after QrCode final release, update callback result
     const address = await start();
     onChange?.(address);
   }, [onChange, start]);
