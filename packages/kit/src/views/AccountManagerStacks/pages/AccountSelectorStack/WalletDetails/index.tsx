@@ -9,7 +9,6 @@ import {
   IconButton,
   ListItem,
   SectionList,
-  Skeleton,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';

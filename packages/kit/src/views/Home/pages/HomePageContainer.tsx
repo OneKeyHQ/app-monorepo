@@ -5,6 +5,7 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { mockPresetNetworksBtcList } from '@onekeyhq/kit-bg/src/mock';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
