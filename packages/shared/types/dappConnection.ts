@@ -4,17 +4,36 @@ export type IConnectionProviderNames =
   | IInjectedProviderNamesStrings
   | 'walletconnect';
 export interface IConnectionAccountInfo {
-  type: IInjectedProviderNamesStrings;
+  networkImpl: string;
   walletId: string;
   indexedAccountId: string;
   networkId: string;
   accountId: string;
+  address: string;
 }
-type IInjectedProviderConnectionMap = {
-  [K in IConnectionProviderNames]?: IConnectionAccountInfo;
-};
 export interface IConnectionItem {
   origin: string;
   imageURL: string;
-  connectionMap: IInjectedProviderConnectionMap;
+  // accountSelectorNumber -> accountInfo
+  connectionMap: {
+    [accountSelectorNumber in number]: IConnectionAccountInfo;
+  };
+  // networkImpl -> connectionMap keys
+  networkImplMap: {
+    [networkImpl in string]: number[];
+  };
+  // address -> connectionMap keys
+  addressMap: {
+    [address in string]: number[];
+  };
+}
+
+export type IStorageType = 'injectedProvider' | 'walletConnect';
+
+export interface IGetDAppAccountInfoParams {
+  origin: string;
+  scope: IConnectionProviderNames;
+  options?: {
+    networkImpl?: string;
+  };
 }

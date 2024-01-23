@@ -1,13 +1,65 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type {
+  IConnectionAccountInfo,
   IConnectionItem,
   IConnectionProviderNames,
+  IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface IDappConnectionData {
-  data: IConnectionItem[];
+  data: {
+    injectedProvider: Record<string, IConnectionItem>;
+    walletConnect: Record<string, IConnectionItem>;
+  };
+}
+
+function generateAccountSelectorNumber(
+  connectionMap: IConnectionItem['connectionMap'],
+  storageType: IStorageType,
+): number {
+  let accountSelectorNumber = storageType === 'injectedProvider' ? 0 : 1000;
+  // Use a while loop to ensure finding an unused `accountSelectorNumber`
+  while (
+    Object.prototype.hasOwnProperty.call(
+      connectionMap,
+      accountSelectorNumber.toString(),
+    )
+  ) {
+    accountSelectorNumber += 1;
+  }
+  return accountSelectorNumber;
+}
+
+function generateMaps(connectionMap: Record<number, IConnectionAccountInfo>): {
+  networkImplMap: Record<string, number[]>;
+  addressMap: Record<string, number[]>;
+} {
+  const networkImplMap: Record<string, number[]> = {};
+  const addressMap: Record<string, number[]> = {};
+
+  // Iterate over the connectionMap to populate both networkImplMap and addressMap
+  Object.entries(connectionMap).forEach(
+    ([accountSelectorNumber, accountInfo]) => {
+      const { networkImpl, address } = accountInfo;
+
+      // Update networkImplMap
+      if (!networkImplMap[networkImpl]) {
+        networkImplMap[networkImpl] = [];
+      }
+      networkImplMap[networkImpl].push(Number(accountSelectorNumber));
+
+      // Update addressMap
+      if (!addressMap[address]) {
+        addressMap[address] = [];
+      }
+      addressMap[address].push(Number(accountSelectorNumber));
+    },
+  );
+
+  return { networkImplMap, addressMap };
 }
 
 export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnectionData> {
@@ -16,133 +68,282 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   override enableCache = false;
 
   @backgroundMethod()
-  async upsertConnection(newConnection: IConnectionItem) {
-    await this.setRawData(({ rawData }) => {
-      // Directly create new data if rawData is not initialized
-      if (!rawData || !Array.isArray(rawData.data)) {
-        return {
-          data: [newConnection],
-        };
-      }
-      const data = [...rawData.data];
-      // Find the index of the connection item with the same origin
-      const existingIndex = data.findIndex(
-        (item) => item.origin === newConnection.origin,
-      );
-      // Create a new data array based on whether an existing item is found
-      const newData =
-        existingIndex !== -1
-          ? data.map((item, index) => {
-              // Update the connection item if it has the same origin
-              if (index === existingIndex) {
-                return {
-                  ...item,
-                  connectionMap: {
-                    ...item.connectionMap,
-                    ...newConnection.connectionMap,
-                  },
-                };
-              }
-              return item;
-            })
-          : [...data, newConnection]; // Add a new connection item if one with the same origin does not exist
+  async upsertConnection({
+    origin,
+    accountInfos,
+    imageURL,
+    replaceExistAccount = true,
+    storageType,
+  }: {
+    origin: string;
+    accountInfos: IConnectionAccountInfo[];
+    imageURL?: string;
+    replaceExistAccount?: boolean;
+    storageType?: IStorageType;
+  }) {
+    if (!storageType) {
+      throw new Error('storageType is required');
+    }
 
-      console.log('simpledb upsertConnection: ', newData);
-      return { data: newData };
-    });
-  }
-
-  @backgroundMethod()
-  async deleteConnection(origin: string, scope: IConnectionProviderNames) {
     await this.setRawData(({ rawData }) => {
-      if (!rawData || !Array.isArray(rawData.data)) {
-        return {
-          data: [],
-        };
+      let data: IDappConnectionData['data'] = {
+        injectedProvider: {},
+        walletConnect: {},
+      };
+
+      if (rawData?.data && typeof rawData.data === 'object') {
+        data = { ...rawData.data };
+        // Ensure that both `injectedProvider` and `walletConnect` keys exist.
+        data.injectedProvider = data.injectedProvider || {};
+        data.walletConnect = data.walletConnect || {};
       }
 
-      const updatedData = rawData.data.reduce((accumulator, item) => {
-        if (item.origin === origin) {
-          // Copy the connectionMap and delete the specified key
-          const { [scope]: _, ...restConnectionMap } = item.connectionMap;
-          // If restConnectionMap is not empty, keep the updated item
-          if (Object.keys(restConnectionMap).length > 0) {
-            accumulator.push({ ...item, connectionMap: restConnectionMap });
-          }
-          // If restConnectionMap is empty, do not include the item in the new array (effectively deleting the item)
+      const storage = data[storageType];
+      // Find or create the `IConnectionItem` corresponding to `origin`.
+      let connectionItem = storage[origin];
+      if (!connectionItem) {
+        connectionItem = {
+          origin,
+          imageURL: imageURL || '',
+          connectionMap: {},
+          networkImplMap: {},
+          addressMap: {},
+        };
+      } else {
+        // If one already exists, create a new copy to maintain immutability.
+        connectionItem = {
+          ...connectionItem,
+          imageURL: imageURL || connectionItem.imageURL,
+          connectionMap: { ...connectionItem.connectionMap },
+          networkImplMap: { ...connectionItem.networkImplMap },
+          addressMap: { ...connectionItem.addressMap },
+        };
+      }
+
+      accountInfos.forEach((accountInfo) => {
+        const { networkImpl } = accountInfo;
+
+        // Find or create the accountSelectorNumber
+        const foundEntry = Object.entries(connectionItem.connectionMap).find(
+          ([, value]) => value.networkImpl === networkImpl,
+        );
+        let accountSelectorNumber = foundEntry
+          ? Number(foundEntry[0])
+          : undefined;
+
+        if (accountSelectorNumber === undefined || replaceExistAccount) {
+          // Create a new `accountSelectorNumber` if it does not exist or if replacement of an existing network is required.
+          accountSelectorNumber = generateAccountSelectorNumber(
+            connectionItem.connectionMap,
+            storageType,
+          );
+          connectionItem.connectionMap[accountSelectorNumber] = accountInfo;
         } else {
-          // If the origin does not match, keep the original item
-          accumulator.push(item);
+          // 如果存在，则更新 accountInfo
+          connectionItem.connectionMap[accountSelectorNumber] = {
+            ...accountInfo,
+          };
         }
-        return accumulator;
-      }, [] as IConnectionItem[]);
+      });
+      // Rebuild networkImplMap and addressMap
+      const { networkImplMap, addressMap } = generateMaps(
+        connectionItem.connectionMap,
+      );
+      connectionItem.networkImplMap = networkImplMap;
+      connectionItem.addressMap = addressMap;
+      // 更新 storage 对象
+      storage[origin] = connectionItem;
 
-      console.log('simpledb deleteConnection: ', updatedData);
-      return { data: updatedData };
+      const newData = { ...data, [storageType]: storage };
+      console.log('simpledb upsertConnection: ', data);
+      return {
+        data: newData,
+      };
     });
   }
 
   @backgroundMethod()
-  async findAccountInfoByOriginAndScope(
+  async getAccountSelectorNum(
     origin: string,
-    scope: IConnectionProviderNames,
-  ) {
-    const data = await this.getRawData();
-    if (!data || !Array.isArray(data.data)) {
-      return null;
+    networkImpl: string,
+    storageType: IStorageType,
+  ): Promise<number> {
+    const rawData = await this.getRawData();
+    if (!rawData?.data || typeof rawData.data !== 'object') {
+      return 0;
     }
 
-    // Find the connection item that matches the given origin
-    const connectionItem = data.data.find((item) => item.origin === origin);
+    const storageData = rawData.data[storageType];
+    if (!storageData || typeof storageData !== 'object') {
+      return 0;
+    }
+
+    const connectionItem = storageData[origin];
     if (!connectionItem) {
-      return null;
+      return 0;
     }
 
-    const accountInfo = connectionItem.connectionMap[scope];
-    return accountInfo || null;
+    const accountNumbers = connectionItem.networkImplMap[networkImpl];
+    if (accountNumbers && accountNumbers.length > 0) {
+      return Math.max(...accountNumbers) + 1;
+    }
+    return generateAccountSelectorNumber(
+      connectionItem.connectionMap,
+      storageType,
+    );
+  }
+
+  @backgroundMethod()
+  async deleteConnection(
+    origin: string,
+    storageType: IStorageType,
+    num: number,
+  ) {
+    await this.setRawData(({ rawData }) => {
+      let data: IDappConnectionData['data'] = {
+        injectedProvider: {},
+        walletConnect: {},
+      };
+
+      if (rawData?.data && typeof rawData.data === 'object') {
+        data = { ...rawData.data };
+        // Ensure that both `injectedProvider` and `walletConnect` keys exist.
+        data.injectedProvider = data.injectedProvider || {};
+        data.walletConnect = data.walletConnect || {};
+      }
+
+      if (storageType === 'walletConnect') {
+        return {
+          data: {
+            ...data,
+            walletConnect: {},
+          },
+        };
+      }
+
+      const storage = data[storageType];
+      // Find the connection item for the given origin
+      const connectionItem = storage[origin];
+      if (connectionItem) {
+        // Delete the connection information for the given num (accountSelectorNumber)
+        const accountInfo = connectionItem.connectionMap[num];
+        if (accountInfo) {
+          // Delete the connection info from connectionMap
+          delete connectionItem.connectionMap[num];
+
+          // Rebuild networkImplMap and addressMap
+          const { networkImplMap, addressMap } = generateMaps(
+            connectionItem.connectionMap,
+          );
+          connectionItem.networkImplMap = networkImplMap;
+          connectionItem.addressMap = addressMap;
+        }
+
+        // If connectionMap is empty after deletion, remove the connection item
+        if (Object.keys(connectionItem.connectionMap).length === 0) {
+          delete storage[origin];
+        } else {
+          // Otherwise, update the storage with the modified connectionItem
+          storage[origin] = connectionItem;
+        }
+      }
+
+      // Return the updated rawData
+      return {
+        data: {
+          ...data,
+          [storageType]: storage,
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async findAccountInfosByOriginAndScope(
+    origin: string,
+    storageType: IStorageType,
+    networkImpl: string,
+  ) {
+    const rawData = await this.getRawData();
+
+    if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+      return null;
+    }
+    const connectionItem = rawData.data[storageType]?.[origin];
+    if (!connectionItem) {
+      return [];
+    }
+
+    const accountSelectorNumbers =
+      connectionItem.networkImplMap[networkImpl] || [];
+
+    const accountInfos = accountSelectorNumbers
+      .map((num) => connectionItem.connectionMap[num])
+      .filter(Boolean);
+    return accountInfos;
   }
 
   @backgroundMethod()
   async updateNetworkId(
     origin: string,
-    scope: IConnectionProviderNames,
+    networkImpl: string,
     newNetworkId: string,
+    storageType: IStorageType,
   ) {
-    const accountInfo = await this.findAccountInfoByOriginAndScope(
-      origin,
-      scope,
-    );
-    if (!accountInfo) {
-      return;
-    }
     await this.setRawData(({ rawData }) => {
-      if (!rawData || !Array.isArray(rawData.data)) {
-        return {
-          data: [],
-        };
+      // Check if rawData.data is a valid object and use it if it is
+      if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+        // If rawData is invalid or rawData.data is missing, return rawData unchanged
+        return rawData as IDappConnectionData;
       }
 
-      const updatedData = rawData.data.map((connectionItem) => {
-        if (
-          connectionItem.origin === origin &&
-          connectionItem.connectionMap[scope]
-        ) {
-          return {
-            ...connectionItem,
-            connectionMap: {
-              ...connectionItem.connectionMap,
-              [scope]: {
-                ...connectionItem.connectionMap[scope],
-                networkId: newNetworkId,
-              },
-            },
+      // Ensure that the specific storage type exists
+      const storage = rawData.data[storageType] ?? {};
+
+      // Find the connection item for the given origin
+      const connectionItem = storage[origin];
+      if (!connectionItem) {
+        // If no connection item is found for the origin, return rawData unchanged
+        return rawData;
+      }
+
+      // Find all accountSelectorNumbers for the given networkImpl
+      const accountSelectorNumbers = connectionItem.networkImplMap[networkImpl];
+      if (!accountSelectorNumbers || accountSelectorNumbers.length === 0) {
+        // If no accountSelectorNumbers are found for the networkImpl, return rawData unchanged
+        return rawData;
+      }
+
+      // Update networkId for all matching connectionMap items
+      const updatedConnectionMap = { ...connectionItem.connectionMap };
+      accountSelectorNumbers.forEach((num) => {
+        const accountInfo = updatedConnectionMap[num];
+        if (accountInfo) {
+          // Create a new updated accountInfo object
+          updatedConnectionMap[num] = {
+            ...accountInfo,
+            networkId: newNetworkId,
           };
         }
-        return connectionItem;
       });
 
-      console.log('simpledb updateNetworkId: ', updatedData);
-      return { data: updatedData };
+      // Now we can update the connectionItem with the updatedConnectionMap
+      const updatedConnectionItem = {
+        ...connectionItem,
+        connectionMap: updatedConnectionMap,
+      };
+
+      // Return the updated rawData with the updated connection item
+      return {
+        ...rawData,
+        data: {
+          ...rawData.data,
+          [storageType]: {
+            ...storage,
+            [origin]: updatedConnectionItem,
+          },
+        },
+      };
     });
   }
 }

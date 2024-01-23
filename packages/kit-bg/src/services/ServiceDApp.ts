@@ -9,16 +9,18 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
 import type {
-  IConnectionItem,
-  IConnectionProviderNames,
+  IConnectionAccountInfo,
+  IGetDAppAccountInfoParams,
+  IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { vaultFactory } from '../vaults/factory';
@@ -50,6 +52,28 @@ function buildModalRouteParams({
   });
   paramsLast.params = routeParams;
   return modalParams;
+}
+
+function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
+  const { scope, options = {} } = params;
+
+  const isWalletConnect = scope === 'walletconnect';
+  const storageType: IStorageType = isWalletConnect
+    ? 'walletConnect'
+    : 'injectedProvider';
+  let networkImpl: string | undefined = '';
+  if (isWalletConnect) {
+    networkImpl = options.networkImpl;
+  } else {
+    networkImpl = getNetworkImplFromDappScope(scope);
+  }
+  if (!networkImpl) {
+    throw new Error('networkImpl not found');
+  }
+  return {
+    storageType,
+    networkImpl,
+  };
 }
 
 @backgroundClass()
@@ -241,72 +265,119 @@ class ServiceDApp extends ServiceBase {
 
   // connection allowance
   @backgroundMethod()
-  async saveConnectionSession(data: IConnectionItem) {
-    await this.backgroundApi.simpleDb.dappConnection.upsertConnection(data);
-  }
-
-  @backgroundMethod()
-  async disconnectAccount(origin: string, scope: IConnectionProviderNames) {
-    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
+  async getAccountSelectorNum({ origin, scope }: IGetDAppAccountInfoParams) {
+    const { storageType, networkImpl } = getQueryDAppAccountParams({
       origin,
       scope,
+    });
+    return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
+      origin,
+      networkImpl,
+      storageType,
     );
   }
 
-  async getConnectedAccountInfo(
-    origin: string,
-    scope: IConnectionProviderNames,
-  ) {
-    const accountInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountInfoByOriginAndScope(
+  @backgroundMethod()
+  async saveConnectionSession({
+    origin,
+    accountInfos,
+  }: {
+    origin: string;
+    accountInfos: IConnectionAccountInfo[];
+  }) {
+    await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
+      origin,
+      accountInfos,
+    });
+  }
+
+  @backgroundMethod()
+  async disconnectAccount({
+    origin,
+    scope,
+    num,
+  }: IGetDAppAccountInfoParams & { num: number }) {
+    const { storageType } = getQueryDAppAccountParams({
+      origin,
+      scope,
+    });
+    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
+      origin,
+      storageType,
+      num,
+    );
+  }
+
+  async getConnectedAccountsInfo({ origin, scope }: IGetDAppAccountInfoParams) {
+    const { storageType, networkImpl } = getQueryDAppAccountParams({
+      origin,
+      scope,
+    });
+    const accountsInfo =
+      await this.backgroundApi.simpleDb.dappConnection.findAccountInfosByOriginAndScope(
         origin,
-        scope,
+        storageType,
+        networkImpl,
       );
-    if (!accountInfo) {
+    if (!accountsInfo) {
       return null;
     }
-    return accountInfo;
+    return accountsInfo;
   }
 
   @backgroundMethod()
-  async getConnectedAccount(origin: string, scope: IConnectionProviderNames) {
-    const accountInfo = await this.getConnectedAccountInfo(origin, scope);
-    if (!accountInfo) return null;
-    const { accountId, networkId } = accountInfo;
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
+  async getConnectedAccounts({ origin, scope }: IGetDAppAccountInfoParams) {
+    const accountsInfo = await this.getConnectedAccountsInfo({ origin, scope });
+    if (!accountsInfo) return null;
+    const result = accountsInfo.map(async (accountInfo) => {
+      const { accountId, networkId } = accountInfo;
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      return {
+        account,
+        accountInfo,
+      };
     });
-    return {
-      account,
-      accountInfo,
-    };
+    return Promise.all(result);
   }
 
   @backgroundMethod()
-  async getConnectedNetwork(origin: string, scope: IConnectionProviderNames) {
-    const accountInfo = await this.getConnectedAccountInfo(origin, scope);
-    if (!accountInfo) return null;
-    const { networkId } = accountInfo;
-    const network = serverPresetNetworks.find((i) => i.id === networkId);
-    return Promise.resolve(network);
+  async getConnectedNetworks({ origin, scope }: IGetDAppAccountInfoParams) {
+    const accountsInfo = await this.getConnectedAccountsInfo({ origin, scope });
+    if (!accountsInfo) return null;
+    const networks = accountsInfo
+      .map((accountInfo) =>
+        serverPresetNetworks.find((i) => i.id === accountInfo.networkId),
+      )
+      .filter(Boolean);
+
+    return Promise.resolve(networks as IServerNetwork[]);
   }
 
   @backgroundMethod()
-  async switchConnectedNetwork(
-    origin: string,
-    scope: IConnectionProviderNames,
-    newNetworkId: string,
-  ) {
+  async switchConnectedNetwork({
+    origin,
+    scope,
+    newNetworkId,
+  }: IGetDAppAccountInfoParams & {
+    newNetworkId: string;
+  }) {
     const networks = await this.backgroundApi.serviceDApp.fetchNetworks();
     const included = networks.some((network) => network.id === newNetworkId);
     if (!included) {
       return;
     }
-    await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
+    const { storageType, networkImpl } = getQueryDAppAccountParams({
       origin,
       scope,
+    });
+    await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
+      origin,
+      networkImpl,
       newNetworkId,
+      storageType,
     );
   }
 
