@@ -24,9 +24,11 @@ function CheckboxGroupDemo() {
   return (
     <Checkbox.Group
       label="All"
-      listStyle={{
-        maxHeight: 200,
-      }}
+      listStyle={
+        {
+          // height: 200,
+        }
+      }
       options={[
         { label: 'Apple' },
         { label: 'Banana' },

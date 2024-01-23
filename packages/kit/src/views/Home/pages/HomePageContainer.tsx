@@ -79,7 +79,6 @@ function HomePage() {
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
             initialScrollIndex={0}
-            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}

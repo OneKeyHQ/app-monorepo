@@ -115,16 +115,15 @@ export default class ServicePassword extends ServiceBase {
 
   async deleteBiologyAuthPassword(): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
-    if (!isSupport) {
-      throw new Error('biology is not support');
+    if (isSupport) {
+      await biologyAuthUtils.deletePassword();
     }
-    await biologyAuthUtils.deletePassword();
   }
 
   async getBiologyAuthPassword(): Promise<string> {
-    const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
+    const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
-      throw new Error('BiologyAuth not support');
+      throw new Error('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
