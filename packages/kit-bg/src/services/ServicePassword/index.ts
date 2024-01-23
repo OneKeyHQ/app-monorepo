@@ -115,16 +115,15 @@ export default class ServicePassword extends ServiceBase {
 
   async deleteBiologyAuthPassword(): Promise<void> {
     const { isSupport } = await passwordBiologyAuthInfoAtom.get();
-    if (!isSupport) {
-      throw new Error('biology is not support');
+    if (isSupport) {
+      await biologyAuthUtils.deletePassword();
     }
-    await biologyAuthUtils.deletePassword();
   }
 
   async getBiologyAuthPassword(): Promise<string> {
-    const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
+    const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
-      throw new Error('BiologyAuth not support');
+      throw new Error('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
@@ -225,11 +224,9 @@ export default class ServicePassword extends ServiceBase {
 
   // passwordSet check is only done the app open
   @backgroundMethod()
-  async isPasswordSet(): Promise<boolean> {
+  async checkPasswordSet(): Promise<boolean> {
     const checkPasswordSet = await localDb.isPasswordSet();
-    if (checkPasswordSet) {
-      await this.setPasswordSetStatus(checkPasswordSet);
-    }
+    await this.setPasswordSetStatus(checkPasswordSet);
     return checkPasswordSet;
   }
 
@@ -315,7 +312,7 @@ export default class ServicePassword extends ServiceBase {
         password: cachedPassword,
       });
     }
-    const { isPasswordSet } = await passwordPersistAtom.get();
+    const isPasswordSet = await this.checkPasswordSet();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
