@@ -7,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import * as Clipboard from 'expo-clipboard';
 import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
@@ -20,6 +19,7 @@ import {
   TextArea,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -39,10 +39,11 @@ type IAddressPluginProps = {
 };
 
 const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+  const { getClipboard } = useClipboard();
   const onPress = useCallback(async () => {
-    const text = await Clipboard.getStringAsync();
+    const text = await getClipboard();
     onChange?.(text);
-  }, [onChange]);
+  }, [onChange, getClipboard]);
   return (
     <IconButton
       variant="tertiary"

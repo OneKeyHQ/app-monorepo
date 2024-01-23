@@ -27,8 +27,7 @@ class ServiceNameResolver extends ServiceBase {
           networkId,
         },
       });
-      const resolved = resp.data.data;
-      return resolved;
+      return resp.data.data;
     } catch {
       return undefined;
     }

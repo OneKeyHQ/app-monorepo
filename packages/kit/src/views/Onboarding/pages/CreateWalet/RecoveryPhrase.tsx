@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import * as Clipboard from 'expo-clipboard';
-
 import {
   Button,
   Input,
@@ -9,6 +7,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
@@ -62,6 +61,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
+  const { copyText } = useClipboard();
   const { servicePassword } = backgroundApiProxy;
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export function RecoveryPhrase() {
               size="small"
               variant="tertiary"
               onPress={async () => {
-                await Clipboard.setStringAsync(mnemonic);
+                copyText(mnemonic);
               }}
             >
               Copy All(Only in Dev)
