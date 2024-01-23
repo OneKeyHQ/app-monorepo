@@ -14,11 +14,6 @@ import { SecuritySection } from './SecuritySection';
 export default function SettingListModal() {
   const [settings] = useSettingsPersistAtom();
 
-  const content = useMemo(() => {
-    console.log('SettingListModal useMemo');
-    return 'hello world';
-  }, []);
-
   return (
     <Page>
       <ScrollView>

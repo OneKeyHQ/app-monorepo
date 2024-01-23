@@ -4,10 +4,8 @@ import {
   Button,
   Dialog,
   Icon,
-  Image,
   ScrollView,
   SizableText,
-  Skeleton,
   XStack,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
@@ -15,7 +13,6 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
