@@ -4720,6 +4720,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-tab-page-view@npm:1.0.0":
+  version: 1.0.0
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: f2f2a6a6a886a5e0e5040ab67b70ca1f0191679e50860b4e4c15303a3ca91ef196e4412fcd714e925cb6537599750626454524fe5ffe8e0cb60157876766448a
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -5023,6 +5033,7 @@ __metadata:
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-lite-card": "npm:1.0.0"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.0.0"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -5066,7 +5077,6 @@ __metadata:
     react-native-share: "npm:^9.4.1"
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
-    react-native-tab-page-view: "https://github.com/OneKeyHQ/react-native-tab-page-view#5b43680594ac431d1b3984f34e0790962075eaed"
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
@@ -24171,16 +24181,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 4a1cf9d1afad66ddfc98895eb691ca14c40ac8be16a629fc39db8550c20523e171f3deb232932e2e53b865821a2a8f831101d44b90a71f07feaaf16413721f46
-  languageName: node
-  linkType: hard
-
-"react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view#5b43680594ac431d1b3984f34e0790962075eaed":
-  version: 0.1.0
-  resolution: "react-native-tab-page-view@https://github.com/OneKeyHQ/react-native-tab-page-view.git#commit=5b43680594ac431d1b3984f34e0790962075eaed"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 60f62192ce5e90d55491c0f52d397096d6e3cb9d1eaa4a377daf84172479870b1001e7c6643bdac5b5012c754b3e5b3139e934f5c0b81abd45804bf766eb06ed
   languageName: node
   linkType: hard
 
