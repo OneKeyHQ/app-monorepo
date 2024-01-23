@@ -201,6 +201,13 @@ export type ITransferInfo = {
   };
 };
 
+export type IApproveInfo = {
+  owner: string;
+  spender: string;
+  amount: string;
+  tokenInfo?: IToken;
+};
+
 // Send ------------
 export interface IBuildTxHelperParams {
   getToken: ({
@@ -222,13 +229,14 @@ export interface IBuildTxHelperParams {
 }
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
-  // swapInfo
+  approveInfo?: IApproveInfo;
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
 }
 export interface IBuildUnsignedTxParams {
-  transfersInfo: ITransferInfo[];
+  transfersInfo?: ITransferInfo[];
+  approveInfo?: IApproveInfo;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;

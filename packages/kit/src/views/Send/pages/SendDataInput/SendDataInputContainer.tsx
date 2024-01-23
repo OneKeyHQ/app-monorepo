@@ -209,7 +209,7 @@ function SendDataInputContainer() {
           tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
         },
       ];
-      let unsignedTx = await serviceSend.buildUnsignedTx({
+      let unsignedTx = await serviceSend.buildUnsignedTxFromTransfer({
         networkId,
         accountId,
         transfersInfo,

@@ -62,6 +62,7 @@ import settings from './settings';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IApproveInfo,
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -79,9 +80,13 @@ export default class Vault extends VaultBase {
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
-    const { transfersInfo } = params;
+    const { transfersInfo, approveInfo } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(params);
+    }
+
+    if (approveInfo) {
+      return this._buildEncodeTxFromApprove(params);
     }
     throw new OneKeyInternalError();
   }
@@ -263,8 +268,8 @@ export default class Vault extends VaultBase {
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
-    const { transfersInfo } = params;
-    if (transfersInfo?.length === 1) {
+    const transfersInfo = params.transfersInfo as ITransferInfo[];
+    if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
       const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
 
@@ -332,9 +337,37 @@ export default class Vault extends VaultBase {
         };
       }
     }
-    return this._buildEncodedTxFromBatchTransfer(
-      transfersInfo as ITransferInfo[],
+    return this._buildEncodedTxFromBatchTransfer(transfersInfo);
+  }
+
+  async _buildEncodeTxFromApprove(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxEvm> {
+    const { approveInfo } = params;
+
+    const { owner, spender, amount, tokenInfo } = approveInfo as IApproveInfo;
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(
+      amountBN.isNaN()
+        ? new BigNumber(2).pow(256).minus(1)
+        : amountBN.shiftedBy(tokenInfo.decimals),
     );
+    const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+      .encode(['address', 'uint256'], [spender, amountHex])
+      .slice(2)}`;
+    return {
+      from: owner,
+      to: tokenInfo.address,
+      value: '0x0',
+      data,
+    };
   }
 
   async _buildEncodedDataFromTransferNFT(params: {
