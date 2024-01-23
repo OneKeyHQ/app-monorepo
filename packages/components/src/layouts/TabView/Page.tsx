@@ -2,7 +2,10 @@ import { forwardRef, useCallback, useMemo } from 'react';
 import type { ComponentType, ReactElement } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { PageContentView, PageManager } from 'react-native-tab-page-view';
+import {
+  PageContentView,
+  PageManager,
+} from '@onekeyfe/react-native-tab-page-view';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,6 +23,8 @@ export interface IPageContainerProps
   ListHeaderComponent?: ReactElement;
   ListFooterComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
+  onSelectedPageIndex?: (pageIndex: number) => void;
+  shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
 
 const PageComponent = (
@@ -29,6 +34,8 @@ const PageComponent = (
     ListHeaderComponent,
     ListFooterComponent,
     headerProps,
+    onSelectedPageIndex,
+    shouldSelectedPageIndex,
     ...props
   }: IPageContainerProps,
   // fix missing forwardRef warnings.
@@ -39,8 +46,9 @@ const PageComponent = (
     () => ({
       data,
       initialScrollIndex,
+      onSelectedPageIndex,
     }),
-    [data, initialScrollIndex],
+    [data, initialScrollIndex, onSelectedPageIndex],
   );
   const pageManager = useMemo(
     () => new PageManager(pageManagerProps),
@@ -64,6 +72,7 @@ const PageComponent = (
         ref={pageManager.headerView}
         {...pageManagerProps}
         {...headerProps}
+        shouldSelectedPageIndex={shouldSelectedPageIndex}
         onSelectedPageIndex={(pageIndex: number) => {
           pageManager?.contentView?.current?.scrollPageIndex(pageIndex);
         }}
@@ -75,7 +84,7 @@ const PageComponent = (
         renderItem={renderContentItem}
         {...props}
       />
-      {ListHeaderComponent}
+      {ListFooterComponent}
     </>
   );
 };

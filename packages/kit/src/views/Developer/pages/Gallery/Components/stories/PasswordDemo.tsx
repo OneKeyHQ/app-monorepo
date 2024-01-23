@@ -44,7 +44,7 @@ const PasswordDemoGallery = () => {
               <Button
                 onPress={async () => {
                   const checkPasswordSet =
-                    await backgroundApiProxy.servicePassword.isPasswordSet();
+                    await backgroundApiProxy.servicePassword.checkPasswordSet();
                   if (checkPasswordSet) {
                     await handlePasswordVerify();
                   } else {
