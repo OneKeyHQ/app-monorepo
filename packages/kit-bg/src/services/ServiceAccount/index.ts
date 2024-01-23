@@ -700,7 +700,10 @@ class ServiceAccount extends ServiceBase {
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount;
-  }): Promise<IAccountSelectorActiveAccountInfo> {
+  }): Promise<{
+    selectedAccount: IAccountSelectorSelectedAccount;
+    activeAccount: IAccountSelectorActiveAccountInfo;
+  }> {
     const {
       othersWalletAccountId,
       indexedAccountId,
@@ -758,7 +761,18 @@ class ServiceAccount extends ServiceBase {
       deriveType,
       ready: true,
     };
-    return activeAccount;
+    const isOthersWallet = !activeAccount.indexedAccount;
+    const selectedAccountFixed: IAccountSelectorSelectedAccount = {
+      othersWalletAccountId: isOthersWallet
+        ? activeAccount?.account?.id
+        : undefined,
+      indexedAccountId: activeAccount.indexedAccount?.id,
+      deriveType: activeAccount.deriveType,
+      networkId: activeAccount.network?.id,
+      walletId: activeAccount.wallet?.id,
+      focusedWallet: isOthersWallet ? '$$others' : activeAccount.wallet?.id,
+    };
+    return { activeAccount, selectedAccount: selectedAccountFixed };
   }
 }
 

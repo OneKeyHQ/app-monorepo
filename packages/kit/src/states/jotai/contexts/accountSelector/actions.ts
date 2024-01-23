@@ -79,7 +79,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> => {
       const { num, selectedAccount } = payload;
-      const activeAccount: IAccountSelectorActiveAccountInfo =
+      const { activeAccount } =
         await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
           selectedAccount,
         });
