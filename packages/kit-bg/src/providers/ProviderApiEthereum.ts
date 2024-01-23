@@ -89,16 +89,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const accountInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccount(
-        request.origin ?? '',
-        request.scope ?? this.providerName,
-      );
-    if (!accountInfo) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    console.log('====>Call eth_accounts: ', accountInfo);
-    return Promise.resolve([accountInfo.account.address]);
+    console.log('====>Call eth_accounts: ', accountsInfo);
+    return Promise.resolve(accountsInfo.map((i) => i.account.address));
   }
 
   @providerApiMethod()
@@ -106,13 +106,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const network = await this.backgroundApi.serviceDApp.getConnectedNetwork(
-      request.origin,
-      request.scope ?? this.providerName,
-    );
-    if (network?.chainId) {
-      console.log('=====>eth_chainId: ', network.chainId);
-      return `0x${Number(network.chainId).toString(16)}`;
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
+      origin: request.origin ?? '',
+      scope: request.scope ?? this.providerName,
+    });
+    if (Array.isArray(networks) && networks.length) {
+      const network = networks[0];
+      if (network.chainId) {
+        console.log('=====>eth_chainId: ', network.chainId);
+        return `0x${Number(network.chainId).toString(16)}`;
+      }
     }
     throw new Error('chainId not found');
   }
@@ -122,12 +125,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const network = await this.backgroundApi.serviceDApp.getConnectedNetwork(
-      request.origin,
-      request.scope ?? this.providerName,
-    );
-    if (network?.chainId) {
-      return network.chainId;
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
+      origin: request.origin ?? '',
+      scope: request.scope ?? this.providerName,
+    });
+    if (Array.isArray(networks) && networks.length) {
+      const network = networks[0];
+      if (network.chainId) {
+        return network.chainId;
+      }
     }
     throw new Error('chainId not found');
   }
@@ -218,11 +224,11 @@ class ProviderApiEthereum extends ProviderApiBase {
         message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
       });
     }
-    await this.backgroundApi.serviceDApp.switchConnectedNetwork(
-      request.origin,
-      request.scope ?? this.providerName,
-      networkId,
-    );
+    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+      origin: request.origin,
+      scope: request.scope ?? this.providerName,
+      newNetworkId: networkId,
+    });
     return null;
   };
 

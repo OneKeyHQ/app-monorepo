@@ -86,17 +86,15 @@ class ProviderApiBtc extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const accountInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccount(
-        request.origin ?? '',
-        request.scope ?? this.providerName,
-      );
-    if (!accountInfo?.account) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    if (accountInfo?.account?.address) {
-      return Promise.resolve([accountInfo.account.address]);
-    }
+    return Promise.resolve(accountsInfo.map((i) => i.account.address));
   }
 
   @providerApiMethod()
@@ -104,15 +102,15 @@ class ProviderApiBtc extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const accountInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccount(
-        request.origin ?? '',
-        request.scope ?? this.providerName,
-      );
-    if (!accountInfo?.account) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(accountInfo.account.pub);
+    return Promise.resolve(accountsInfo.map((i) => i.account.pub));
   }
 
   @providerApiMethod()
@@ -120,13 +118,12 @@ class ProviderApiBtc extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const network = await this.backgroundApi.serviceDApp.getConnectedNetwork(
-      request.origin,
-      request.scope ?? this.providerName,
-    );
-    if (network?.id) {
-      console.log('=====>btc getNetwork: ', network.id);
-      return getNetworkName(network);
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
+      origin: request.origin ?? '',
+      scope: request.scope ?? this.providerName,
+    });
+    if (Array.isArray(networks) && networks.length) {
+      return getNetworkName(networks[0]);
     }
     return '';
   }
@@ -154,11 +151,11 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Unrecognized network ${networkName}.`,
       });
     }
-    await this.backgroundApi.serviceDApp.switchConnectedNetwork(
-      request.origin,
-      request.scope ?? this.providerName,
-      networkId,
-    );
+    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+      origin: request.origin,
+      scope: request.scope ?? this.providerName,
+      newNetworkId: networkId,
+    });
   }
 
   @providerApiMethod()
@@ -167,18 +164,22 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     const { message, type } = params;
-    const accountInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccount(
-        request.origin ?? '',
-        request.scope ?? this.providerName,
-      );
-    if (!accountInfo) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && accountsInfo.length < 1)
+    ) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: `Can not get current account`,
       });
     }
 
+    const accountInfo = accountsInfo[0];
     const {
       accountInfo: { walletId },
     } = accountInfo;
