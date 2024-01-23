@@ -10,7 +10,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 
-export type IProps = {
+export type ITxDetailsProps = {
   details: {
     key: ILocaleIds;
     value?: string;
@@ -22,7 +22,7 @@ export type IProps = {
   onViewUTXOsPress?: () => void;
 };
 
-function TxDetails(props: IProps) {
+function TxDetails(props: ITxDetailsProps) {
   const { details, isUTXO, onViewUTXOsPress } = props;
   const intl = useIntl();
   return (

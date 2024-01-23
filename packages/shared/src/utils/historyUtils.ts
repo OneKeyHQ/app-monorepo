@@ -34,7 +34,7 @@ export function getOnChainHistoryTxAssetInfo({
   let symbol = '';
   let address = '';
   let isNFT = false;
-  if (tokenAddress === '') {
+  if (!tokenAddress) {
     asset = tokens.native;
   } else {
     asset = tokens[tokenAddress];

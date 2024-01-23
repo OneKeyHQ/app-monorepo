@@ -10,9 +10,8 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-
-import useFormatDate from '../../hooks/useFormatDate';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
@@ -48,7 +47,6 @@ function TxHistoryListView(props: IProps) {
     props;
 
   const currentDate = useRef('');
-  const { formatDate } = useFormatDate();
 
   const renderListItem = useCallback(
     (tx: IAccountHistoryTx, index: number) => {
@@ -84,6 +82,7 @@ function TxHistoryListView(props: IProps) {
               tableLayout={tableLayout}
             />
             {nextDate === date && tableLayout && <Divider mx="$5" />}
+            {nextDate !== date && <Stack mb="$5" />}
           </>
         );
       }
@@ -95,10 +94,11 @@ function TxHistoryListView(props: IProps) {
             tableLayout={tableLayout}
           />
           {nextDate === date && tableLayout && <Divider mx="$5" />}
+          {nextDate !== date && <Stack mb="$5" />}
         </>
       );
     },
-    [data, formatDate, onPressHistory, tableLayout],
+    [data, onPressHistory, tableLayout],
   );
 
   return (

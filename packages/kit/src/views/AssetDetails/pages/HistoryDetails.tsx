@@ -18,8 +18,6 @@ import {
 } from '@onekeyhq/components';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,7 +26,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalAssetDetailRoutes } from '../router/types';
 
-import type { IProps as ITxDetailsProps } from '../../../components/TxDetails';
+import type { ITxDetailsProps } from '../../../components/TxDetails';
 import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -45,33 +43,29 @@ function HistoryDetails() {
 
   const navigation = useAppNavigation();
 
-  const network = usePromiseResult(
-    () => mockGetNetwork({ networkId }),
-    [networkId],
-  ).result;
-
-  const isUTXO = usePromiseResult(
-    () => backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
-    [networkId],
-  ).result;
-
   const resp = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
-        networkId,
-        accountAddress,
-        txid: historyTx.decodedTx.txid,
-      }),
+      Promise.all([
+        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
+        backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+          networkId,
+          accountAddress,
+          txid: historyTx.decodedTx.txid,
+        }),
+      ]),
     [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
+
+  const [network, isUTXO, txDetailsResp] = resp.result ?? [];
+
+  const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
 
   const nativeToken = usePromiseResult(
     () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
     [network?.id],
   ).result;
-
-  const { data: txDetails, tokens = {} } = resp.result ?? {};
 
   const relatedAssetInfo = useMemo(() => {
     if (!txDetails) return undefined;
