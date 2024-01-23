@@ -8,14 +8,27 @@ import { UnspentOutput } from './types';
 import type { RestAPIClient } from './clientRestApi';
 import type { UTXOResponse, UnspentOutputInfo } from './types';
 
-function sortUXTO(utxos: UnspentOutputInfo[]) {
-  return utxos.sort(
-    (a: UnspentOutputInfo, b: UnspentOutputInfo): number =>
+function sortUXTO(
+  utxos: UnspentOutputInfo[],
+  prioritys?: { satoshis: boolean },
+) {
+  return utxos.sort((a: UnspentOutputInfo, b: UnspentOutputInfo): number => {
+    if (prioritys?.satoshis) {
+      return (
+        b.satoshis - a.satoshis ||
+        a.blockDaaScore - b.blockDaaScore ||
+        a.txid.localeCompare(b.txid) ||
+        a.vout - b.vout
+      );
+    }
+
+    return (
       a.blockDaaScore - b.blockDaaScore ||
       b.satoshis - a.satoshis ||
       a.txid.localeCompare(b.txid) ||
-      a.vout - b.vout,
-  );
+      a.vout - b.vout
+    );
+  });
 }
 
 function formatUtxo(entries: UTXOResponse[]): UnspentOutputInfo[] {
@@ -61,12 +74,13 @@ export async function queryConfirmUTXOs(
 export function selectUTXOs(
   confirmUtxos: UnspentOutputInfo[],
   txAmount: number,
+  prioritys?: { satoshis: boolean },
 ): {
   utxoIds: string[];
   utxos: UnspentOutputInfo[];
   mass: number;
 } {
-  const sortedUtxos = sortUXTO(confirmUtxos);
+  const sortedUtxos = sortUXTO(confirmUtxos, prioritys);
 
   const selectedUtxos: UnspentOutputInfo[] = [];
   const utxoIds: string[] = [];

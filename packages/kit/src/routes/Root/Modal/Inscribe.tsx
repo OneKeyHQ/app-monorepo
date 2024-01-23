@@ -4,10 +4,12 @@ import type {
   IInscriptionContent,
   IInscriptionHistory,
 } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { BRC20Amount } from '../../../views/Inscribe/BRC20Amount';
 import CreateContent from '../../../views/Inscribe/CreateContent';
 import CreateOrder from '../../../views/Inscribe/CreateOrder';
+import { InscribeTransferFromDapp } from '../../../views/Inscribe/InscribeTransferFromDapp';
 import OrderDetail from '../../../views/Inscribe/OrderDetail';
 import OrderList from '../../../views/Inscribe/OrderList';
 import ReceiveAddress from '../../../views/Inscribe/ReceiveAddress';
@@ -18,6 +20,9 @@ import createStackNavigator from './createStackNavigator';
 import type { InscribeFile } from '../../../views/Inscribe/Components/InscribeUploader/type';
 
 export type InscribeModalRoutesParams = {
+  [InscribeModalRoutes.InscribeTransferFromDapp]: {
+    sourceInfo?: IDappSourceInfo;
+  };
   [InscribeModalRoutes.InscribeModal]: {
     networkId: string;
     accountId: string;
@@ -26,6 +31,8 @@ export type InscribeModalRoutesParams = {
     networkId: string;
     accountId: string;
     token?: Token;
+    amount?: string;
+    sourceInfo?: IDappSourceInfo;
   };
   [InscribeModalRoutes.OrderList]: undefined;
   [InscribeModalRoutes.OrderDetail]: {
@@ -47,6 +54,7 @@ export type InscribeModalRoutesParams = {
     orderId: string;
     size: number;
     file?: InscribeFile;
+    sourceInfo?: IDappSourceInfo;
   };
 };
 
@@ -54,6 +62,10 @@ const InscribeModalNavigator =
   createStackNavigator<InscribeModalRoutesParams>();
 
 const modalRoutes = [
+  {
+    name: InscribeModalRoutes.InscribeTransferFromDapp,
+    component: InscribeTransferFromDapp,
+  },
   {
     name: InscribeModalRoutes.InscribeModal,
     component: CreateContent,

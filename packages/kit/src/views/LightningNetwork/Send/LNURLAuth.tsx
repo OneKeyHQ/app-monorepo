@@ -206,6 +206,7 @@ const LNURLAuth = () => {
         await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
           password,
           walletId,
+          networkId: networkId ?? '',
           lnurlDetail: lnurlDetails,
         });
         ToastManager.show({
@@ -253,6 +254,7 @@ const LNURLAuth = () => {
     [
       lnurlDetails,
       walletId,
+      networkId,
       closeModal,
       messages.successText,
       intl,
@@ -281,13 +283,15 @@ const LNURLAuth = () => {
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
+      onModalClose={isSendFlow ? undefined : dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         if (isSendFlow) {
           if (navigation?.canGoBack?.()) {
             navigation.goBack();
           }
         } else {
           dappApprove.reject();
+          close();
         }
       }}
       height="auto"

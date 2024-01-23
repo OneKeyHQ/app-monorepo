@@ -13,6 +13,7 @@ import type {
   PresetNetwork,
 } from '@onekeyhq/engine/src/types/network';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import {
@@ -254,6 +255,9 @@ export const useActionForAllNetworks = ({
     for (const [nid, accounts] of Object.entries(map ?? {})) {
       const n = enabledNetworks.find((i) => i.id === nid);
       if (n) {
+        if (isLightningNetworkByNetworkId(nid)) {
+          return false;
+        }
         for (const a of accounts) {
           if (!filter || filter({ network: n, account: a })) {
             return true;

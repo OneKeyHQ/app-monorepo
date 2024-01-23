@@ -1,5 +1,6 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { HardwareError } from '@onekeyfe/hd-shared';
+import BigNumber from 'bignumber.js';
 
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
@@ -14,7 +15,10 @@ import { stripHexPrefix } from '../../utils/hexUtils';
 
 import { pubkeyToBaseAddress } from './sdk/address';
 import { generateSignBytes, serializeSignedTx } from './sdk/txBuilder';
+import { TransactionWrapper } from './sdk/wrapper';
+import { getADR36SignDoc, getDataForADR36 } from './utils';
 
+import type { CommonMessage } from '../../../types/message';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -224,5 +228,38 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     throw convertDeviceError(response.payload);
+  }
+
+  override async signMessage(messages: CommonMessage[]): Promise<string[]> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+
+    return Promise.all(
+      messages.map(async (commonMessage) => {
+        const { data, signer } = JSON.parse(commonMessage.message);
+
+        const [messageData] = getDataForADR36(data);
+        const unSignDoc = getADR36SignDoc(signer, messageData);
+        const encodedTx = TransactionWrapper.fromAminoSignDoc(
+          unSignDoc,
+          undefined,
+        );
+
+        const { rawTx } = await this.signTransaction({
+          inputs: [
+            {
+              address: dbAccount.address,
+              value: new BigNumber(0),
+              publicKey: dbAccount.pub,
+            },
+          ],
+          outputs: [],
+          payload: {
+            encodedTx,
+          },
+        });
+
+        return rawTx;
+      }),
+    );
   }
 }

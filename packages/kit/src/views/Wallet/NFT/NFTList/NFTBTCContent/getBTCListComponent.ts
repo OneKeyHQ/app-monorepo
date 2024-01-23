@@ -1,7 +1,7 @@
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import InscriptionHTML from './InscriptionHTML';
 import InscriptionImage from './InscriptionImage';
 import InscriptionLogo from './InscriptionLogo';
 import InscriptionSVG from './InscriptionSVG';
@@ -36,15 +36,23 @@ function ComponentWithContentType({
   sizeType: SizeType;
   networkId?: string;
 }): (props: InscriptionContentProps) => JSX.Element | null {
+  console.log('contentType', contentType);
+
   if (
     contentType.startsWith(InscriptionContentType.ImagePNG) ||
     contentType.startsWith(InscriptionContentType.ImageJEPG) ||
-    contentType.startsWith(InscriptionContentType.ImageWEBP)
+    contentType.startsWith(InscriptionContentType.ImageWEBP) ||
+    contentType.startsWith(InscriptionContentType.ImageGIF)
   ) {
     return InscriptionImage;
   }
+
+  if (contentType.startsWith(InscriptionContentType.HTML)) {
+    return InscriptionHTML;
+  }
+
   if (contentType.startsWith(InscriptionContentType.ImageSVG)) {
-    return !platformEnv.isNative ? InscriptionSVG : InscriptionUnknow;
+    return InscriptionSVG;
   }
   if (sizeType === 'history') {
     return InscriptionLogo;

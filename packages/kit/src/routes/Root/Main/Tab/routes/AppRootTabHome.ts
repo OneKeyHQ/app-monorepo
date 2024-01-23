@@ -3,7 +3,6 @@ import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
 import BulkSender from '../../../../../views/BulkSender';
 import FullTokenList from '../../../../../views/FullTokenList/FullTokenList';
-import NFTMarketCollectionScreen from '../../../../../views/NFTMarket/CollectionDetail';
 import PNLDetailScreen from '../../../../../views/NFTMarket/PNL/PNLDetail';
 import OverviewDefiListScreen from '../../../../../views/Overview';
 import RevokePage from '../../../../../views/Revoke';
@@ -48,10 +47,6 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.RevokeRedirect2,
       component: RevokeRedirectPage,
-    },
-    {
-      name: HomeRoutes.NFTMarketCollectionScreen,
-      component: NFTMarketCollectionScreen,
     },
     {
       name: HomeRoutes.NFTPNLScreen,

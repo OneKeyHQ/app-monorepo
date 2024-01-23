@@ -80,6 +80,9 @@ const COINTYPE_LIGHTNING = '81297820149147';
 const IMPL_LIGHTNING_TESTNET = 'tlightning';
 const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
 
+const IMPL_NOSTR = 'nostr';
+const COINTYPE_NOSTR = '1237';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -173,6 +176,15 @@ function getSupportedImpls() {
   return SUPPORTED_IMPLS;
 }
 
+/**
+ * Protocols like Nostr are not a chain,
+ * but for the purpose of account derivation,
+ * we still treat them as a chain.
+ */
+function getSupportedFakeNetworks() {
+  return new Set([IMPL_NOSTR]);
+}
+
 export {
   COINTYPE_ADA,
   COINTYPE_ALGO,
@@ -200,6 +212,7 @@ export {
   COINTYPE_TRON,
   COINTYPE_XMR,
   COINTYPE_XRP,
+  COINTYPE_NOSTR,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -225,9 +238,11 @@ export {
   IMPL_TRON,
   IMPL_XMR,
   IMPL_XRP,
+  IMPL_NOSTR,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
+  getSupportedFakeNetworks,
 };
 
 // switch network default rpc to onekey rpc node

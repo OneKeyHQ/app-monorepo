@@ -4,8 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Center } from '@onekeyhq/components';
 import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import LNHardwareWalletAuth from '@onekeyhq/kit/src/views/LightningNetwork/components/LNHardwareWalletAuth';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -29,6 +31,18 @@ function WalletTabsWithAuthCmp({
     () => isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
+  const isHwWallet = isHardwareWallet({ walletId: wallet.id });
+  if (isLightningNetwork && isHwWallet) {
+    return (
+      <LNHardwareWalletAuth
+        walletId={wallet.id}
+        networkId={networkId}
+        accountId={accountId}
+      >
+        {children}
+      </LNHardwareWalletAuth>
+    );
+  }
   return (
     <Center w="full" h="full">
       <Protected
@@ -55,6 +69,7 @@ function WalletTabsWithAuthCmp({
         {(password) => (
           <>
             <RefreshLightningNetworkToken
+              walletId={wallet.id}
               accountId={accountId}
               password={password}
               networkId={network.id}

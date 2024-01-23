@@ -40,5 +40,6 @@ export type { ClearCacheModalRoutesParams } from './ClearCache';
 export type { GasPanelRoutesParams } from './GasPanel';
 export type { InscribeModalRoutesParams } from './Inscribe';
 export type { WeblnRoutesParams } from './Webln';
+export type { NostrRoutesParams } from './Nostr';
 export type { MonitorRouteParams } from './Monitor';
 export type { InscriptionControlRoutesParams } from './InscriptionControl';

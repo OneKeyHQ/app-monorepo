@@ -1,3 +1,5 @@
+import { isArray } from 'lodash';
+
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { CurveName } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
@@ -17,6 +19,7 @@ import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
@@ -101,8 +104,22 @@ export class KeyringHd extends KeyringHdBase {
       dbAccount.address,
     ]);
     const signer = signers[dbAccount.address];
+    const { encodedTx } = unsignedTx.payload as {
+      encodedTx: IEncodedTxAlgo | IEncodedTxGroupAlgo;
+    };
 
-    return signTransaction(unsignedTx, signer);
+    if (isArray(encodedTx)) {
+      const signedTxs = await Promise.all(
+        encodedTx.map((tx) => signTransaction(tx, signer)),
+      );
+
+      return {
+        txid: signedTxs.map((tx) => tx.txid).join(','),
+        rawTx: signedTxs.map((tx) => tx.rawTx).join(','),
+      };
+    }
+
+    return signTransaction(encodedTx, signer);
   }
 
   override signMessage(messages: any[], options: ISignCredentialOptions): any {

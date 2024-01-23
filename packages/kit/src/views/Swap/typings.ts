@@ -120,6 +120,8 @@ export enum QuoterType {
   jupiter = 'jupiter',
   onekey = 'onekey',
   deezy = 'Deezy',
+  thorswap = 'Thorswap',
+  thorswapStream = 'ThorswapStream',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
@@ -237,6 +239,12 @@ export interface TransactionAttachment {
   swftcReceiveCoinAmt?: string;
   swftcReceiveCoinCode?: string;
   socketUsedBridgeNames?: string[];
+
+  thorswapQuoteId?: string;
+}
+
+export interface ThorswapOrderReceipt {
+  quoteId: string;
 }
 
 export type BuildTransactionParams = FetchQuoteParams & {
@@ -377,7 +385,11 @@ export type SwftcTransactionState =
   | 'wait_receive_confirm'
   | 'receive_complete';
 
-export type SwftcTradeState = 'wait_deposits' | 'complete' | 'exchange';
+export type SwftcTradeState =
+  | 'wait_deposits'
+  | 'complete'
+  | 'exchange'
+  | 'refund_complete';
 
 export interface SwftcTransactionReceipt {
   orderId: string;

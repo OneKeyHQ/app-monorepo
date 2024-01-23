@@ -4,7 +4,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getBtcProvider } from './account';
 
-import type { Engine } from '../../../..';
+import type { ILightningHDSignatureParams } from '../types';
 
 export const LightningScenario = 'onekey-lightning-network';
 
@@ -35,7 +35,6 @@ type PaymentBolt11MsgType = {
 };
 
 export type UnionMsgType = RegisterMsgType | AuthMsgType | PaymentBolt11MsgType;
-
 export const signature = async ({
   msgPayload,
   engine,
@@ -43,14 +42,7 @@ export const signature = async ({
   password,
   entropy,
   isTestnet,
-}: {
-  msgPayload: UnionMsgType;
-  engine: Engine;
-  path: string;
-  password: string;
-  entropy: Buffer;
-  isTestnet: boolean;
-}) => {
+}: ILightningHDSignatureParams) => {
   const provider = await getBtcProvider(engine, isTestnet);
   const result = provider.signMessage({
     password,

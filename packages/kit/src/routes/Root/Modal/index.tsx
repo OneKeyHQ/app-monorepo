@@ -96,6 +96,8 @@ const InscribeModal = createLazyComponent(() => import('./Inscribe'));
 
 const WeblnModal = createLazyComponent(() => import('./Webln'));
 
+const NostrModal = createLazyComponent(() => import('./Nostr'));
+
 const MonitorModal = createLazyComponent(() => import('./Monitor'));
 
 const InscriptionControlModal = createLazyComponent(
@@ -258,6 +260,7 @@ const modalStackScreenList = [
   { name: ModalRoutes.GasPanel, component: GasPanelModal },
   { name: ModalRoutes.Inscribe, component: InscribeModal },
   { name: ModalRoutes.Webln, component: WeblnModal },
+  { name: ModalRoutes.Nostr, component: NostrModal },
   { name: ModalRoutes.InscriptionControl, component: InscriptionControlModal },
 ];
 

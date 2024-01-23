@@ -83,6 +83,7 @@ export const WALLET_CONNECT_CLIENT_META = {
 
 export const WALLET_CONNECT_WALLET_NAMES = {
   'MetaMask': 'MetaMask',
+  'OKX Wallet': 'OKX Wallet',
   'Trust Wallet': 'Trust Wallet',
   'Rainbow': 'Rainbow',
   'imToken': 'imToken',

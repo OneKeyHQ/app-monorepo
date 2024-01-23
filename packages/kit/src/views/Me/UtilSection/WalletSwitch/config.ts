@@ -50,7 +50,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
   'APTOS-Petra': {
     logo: AptosPetraLogo,
     title: 'Petra',
-    propertyKeys: ['aptos'],
+    propertyKeys: ['aptos', 'petra'],
     enable: true,
   },
   'APTOS-Martian': {
@@ -69,6 +69,12 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     logo: SuiWalletLogo,
     title: 'Sui Wallet',
     propertyKeys: ['suiWallet'],
+    enable: true,
+  },
+  'SOLANA-onekey': {
+    logo: OnekeyLogo,
+    title: 'OneKey(Solana)',
+    propertyKeys: ['onekey-solana'],
     enable: true,
   },
   'SOLANA-Phantom': {

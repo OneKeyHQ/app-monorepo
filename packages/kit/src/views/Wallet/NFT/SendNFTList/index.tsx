@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FC } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -7,6 +8,8 @@ import {
   Box,
   Button,
   FlatList,
+  HStack,
+  IconButton,
   Spinner,
   Text,
   useSafeAreaInsets,
@@ -15,8 +18,7 @@ import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import type { Collection } from '@onekeyhq/engine/src/types/nft';
-import { freezedEmptyArray } from '@onekeyhq/shared/src/consts/sharedConsts';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -34,65 +36,22 @@ import {
   SendModalRoutes,
 } from '../../../../routes/routesEnum';
 
-import SelectNFTCard from './SelectNFTCard';
-import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';
+import SelectNFTCard, { getKeyExtrator } from './SelectNFTCard';
+import {
+  atomSelectedSendNFTList,
+  atomSendNFTList,
+  useAtomSendNFTList,
+  withProviderSendNFTList,
+} from './sendNFTListContext';
 
 import type { SendRoutesParams } from '../../../../routes';
 import type { ModalScreenProps } from '../../../../routes/types';
 import type { PreSendParams } from '../../../Send/types';
-import type { SelectAsset } from './SendNFTContent';
+import type { LayoutChangeEvent } from 'react-native';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
-function List({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
-  networkId: string;
-}) {
-  const content = useSendNFTContent();
-  const { listData } = content?.context ?? { listData: [] };
-  const [pageWidth, setPageWidth] = useState<number>(0);
-  const { cardWidth, numColumns } = useGridListLayout({
-    maxCardWidth: 112,
-    numColumns: 3,
-    margin: 8,
-    pageWidth,
-  });
-
-  const renderItem = useCallback<
-    NonNullable<FlatListProps<SelectAsset>['renderItem']>
-  >(
-    ({ item }) => (
-      <SelectNFTCard
-        accountId={accountId}
-        networkId={networkId}
-        cardWidth={cardWidth}
-        key={item.tokenId ?? item.tokenAddress}
-        marginRight="8px"
-        asset={item}
-      />
-    ),
-    [accountId, cardWidth, networkId],
-  );
-
-  return (
-    <FlatList
-      onLayout={(e) => {
-        if (pageWidth !== e.nativeEvent.layout.width) {
-          setPageWidth(e.nativeEvent.layout.width);
-        }
-      }}
-      key={numColumns}
-      numColumns={numColumns}
-      data={listData}
-      renderItem={renderItem}
-      showsVerticalScrollIndicator={false}
-      py="24px"
-    />
-  );
-}
+const pageSize = 20;
 
 function SendButton({
   accountId,
@@ -101,13 +60,13 @@ function SendButton({
   accountId: string;
   networkId: string;
 }) {
-  const content = useSendNFTContent();
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const listData = content?.context.listData ?? [];
-  const multiSelect = content?.context.multiSelect;
+  const [listData] = useAtomSendNFTList(atomSelectedSendNFTList);
+  const [{ multi: multiSelect }] = useAtomSendNFTList(atomSendNFTList);
+
   if (listData.length === 0) {
     return null;
   }
@@ -164,28 +123,23 @@ function SendButton({
   );
 }
 
-function SendNFTList({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
+const SendButtonMemo = memo(SendButton);
+
+export type ISendNFTListData = {
   networkId: string;
-}) {
-  const intl = useIntl();
-  const { activeNetworkId } = useAppSelector((s) => s.general);
-  const { network, accountAddress } = useActiveSideAccount({
+  accountId: string;
+};
+
+export function HandleRebuildSendNFTListData(options: ISendNFTListData) {
+  const { accountId, networkId } = options;
+  const { network } = useActiveSideAccount({
     networkId,
     accountId,
   });
-  const multiSelect = Boolean(
-    network &&
-      (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
-  );
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
-
   const refresherTs = useAppSelector((s) => s.refresher.refreshAccountNFTTs);
-
-  const nftIsLoading = useNFTIsLoading({
+  const { activeNetworkId } = useAppSelector((s) => s.general);
+  const { accountAddress } = useActiveSideAccount({
     networkId,
     accountId,
   });
@@ -204,6 +158,10 @@ function SendNFTList({
     }
   }, [accountId, isNFTSupport, networkId, network]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const { result } = usePromiseResult(() => {
     if (refresherTs) {
       // pass
@@ -213,42 +171,49 @@ function SendNFTList({
       accountId,
     });
   }, [accountId, networkId, refresherTs]);
-
-  const data = useMemo(
-    () =>
-      (result?.nfts?.map((n) => n.data)?.flat() ??
-        freezedEmptyArray) as Collection[],
-    [result],
-  );
-
-  const collectibles = useMemo(() => {
-    if (isAllNetworks(activeNetworkId)) {
-      return data.filter(
-        (t) => t.networkId === networkId && t.accountAddress === accountAddress,
-      );
-    }
-    return data;
-  }, [accountAddress, activeNetworkId, data, networkId]);
+  const [, setNftList] = useAtomSendNFTList(atomSendNFTList);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    (() => {
+      const data =
+        result?.nfts
+          ?.map((n) => n.data)
+          .flat()
+          ?.filter((t) => {
+            if (isAllNetworks(activeNetworkId)) {
+              return (
+                t.networkId === networkId && t.accountAddress === accountAddress
+              );
+            }
+            return true;
+          })
+          ?.map((c) => (c as Collection).assets)
+          .flat() ?? [];
 
-  const allAssets = useMemo(
-    () =>
-      collectibles
-        .map((collection) => collection.assets)
-        .flat()
-        .map((item) => ({ ...item, selected: false, selectAmount: '0' })),
-    [collectibles],
-  );
+      setNftList({
+        data,
+        multi:
+          !!batchTransferContractAddress[networkId] ||
+          networkId.startsWith(IMPL_SOL),
+      });
+    })();
+  }, [result, setNftList, networkId, accountAddress, activeNetworkId]);
 
-  return allAssets.length > 0 ? (
-    <SendNFTContentProvider listData={allAssets} multiSelect={multiSelect}>
-      <List accountId={accountId} networkId={networkId} />
-      <SendButton accountId={accountId} networkId={networkId} />
-    </SendNFTContentProvider>
-  ) : (
+  return null;
+}
+
+interface ISendNFTListProps {
+  networkId: string;
+  accountId: string;
+}
+
+const ListEmpty: FC<ISendNFTListProps> = ({ networkId, accountId }) => {
+  const intl = useIntl();
+  const nftIsLoading = useNFTIsLoading({
+    networkId,
+    accountId,
+  });
+  return (
     <Box flex={1} justifyContent="center" alignItems="center">
       {nftIsLoading ? (
         <Spinner size="lg" />
@@ -264,6 +229,87 @@ function SendNFTList({
       )}
     </Box>
   );
-}
+};
+const ListEmptyMemo = memo(ListEmpty);
 
-export default SendNFTList;
+function SendNFTList({ accountId, networkId }: ISendNFTListProps) {
+  const intl = useIntl();
+  const [page, setPage] = useState(1);
+  const [{ data, multi }] = useAtomSendNFTList(atomSendNFTList);
+  const [pageWidth, setPageWidth] = useState<number>(0);
+  const { cardWidth, numColumns } = useGridListLayout({
+    maxCardWidth: 112,
+    numColumns: 3,
+    margin: 8,
+    pageWidth,
+  });
+
+  const renderItem = useCallback<
+    NonNullable<FlatListProps<NFTAsset>['renderItem']>
+  >(
+    ({ item }) => (
+      <SelectNFTCard
+        accountId={accountId}
+        networkId={networkId}
+        cardWidth={cardWidth}
+        key={item.tokenId ?? item.tokenAddress}
+        multiSelect={multi}
+        asset={item}
+      />
+    ),
+    [accountId, cardWidth, networkId, multi],
+  );
+
+  const pageData = useMemo(() => data.slice(0, page * pageSize), [data, page]);
+
+  const handleLoadMore = useCallback(() => {
+    setPage((prev) => prev + 1);
+  }, []);
+
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      if (pageWidth !== e.nativeEvent.layout.width) {
+        setPageWidth(e.nativeEvent.layout.width);
+      }
+    },
+    [pageWidth],
+  );
+
+  const footer = useMemo(
+    () =>
+      page * pageSize < data.length ? (
+        <HStack justifyContent="center" mb="8">
+          <IconButton name="ChevronDownMini" onPress={handleLoadMore}>
+            {intl.formatMessage({ id: 'action__load_more' })}
+          </IconButton>
+        </HStack>
+      ) : null,
+    [intl, page, data.length, handleLoadMore],
+  );
+
+  return (
+    <Box onLayout={onLayout} flex="1">
+      <HandleRebuildSendNFTListData
+        networkId={networkId}
+        accountId={accountId}
+      />
+      {pageWidth > 0 ? (
+        <FlatList
+          key={numColumns}
+          numColumns={numColumns}
+          data={pageData}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          py="24px"
+          keyExtractor={getKeyExtrator}
+          ListFooterComponent={footer}
+          ListEmptyComponent={
+            <ListEmptyMemo networkId={networkId} accountId={accountId} />
+          }
+        />
+      ) : null}
+      <SendButtonMemo accountId={accountId} networkId={networkId} />
+    </Box>
+  );
+}
+export default withProviderSendNFTList(SendNFTList);

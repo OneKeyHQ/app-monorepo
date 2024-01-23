@@ -403,6 +403,16 @@ export class MaxSendAmountError extends OneKeyError {
   }
 }
 
+export class NotEnoughBalanceIncludeTenSatsError extends OneKeyError {
+  override key =
+    'msg__insufficient_balance_make_sure_at_least_10_sats_reserved_for_potential_fee_fluctuations';
+}
+
+export class NotEnoughBalanceIncludeOnePercentError extends OneKeyError {
+  override key =
+    'msg__insufficient_balance_make_sure_at_least_1_percent_ofinvoice_amount_reserved_for_potential_fee_fluctuations';
+}
+
 export class TaprootAddressError extends OneKeyError {
   override key =
     'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address';
@@ -431,6 +441,19 @@ export class MinimumTransferBalanceRequiredError extends OneKeyError {
     super('', {
       amount,
       symbol,
+    });
+  }
+}
+
+export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyError {
+  override key =
+    'msg__sending_str_requires_an_account_balance_of_at_least_str_str';
+
+  constructor(name: string, amount: string, symbol: string) {
+    super('', {
+      '0': name,
+      '1': amount,
+      '2': symbol,
     });
   }
 }

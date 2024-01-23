@@ -17,7 +17,10 @@ import type {
   IAddAccountDerivationParams,
   ISetAccountTemplateParams,
 } from '../types/accountDerivation';
-import type { PrivateKeyCredential } from '../types/credential';
+import type {
+  PrivateKeyCredential,
+  PrivateKeyCredentialWithId,
+} from '../types/credential';
 import type { Device, DevicePayload } from '../types/device';
 import type {
   HistoryEntry,
@@ -168,6 +171,9 @@ interface DBAPI {
     walletId: string,
     password: string,
   ): Promise<ExportedCredential>;
+  createPrivateKeyCredential(
+    credential: PrivateKeyCredentialWithId,
+  ): Promise<ExportedPrivateKeyCredential>;
   confirmHDWalletBackuped(walletId: string): Promise<Wallet>;
   confirmWalletCreated(walletId: string): Promise<Wallet>;
   cleanupPendingWallets(): Promise<void>;

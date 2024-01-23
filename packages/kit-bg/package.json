@@ -12,6 +12,7 @@
     "@types/url-parse": "^1.4.8",
     "@unstoppabledomains/resolution": "^8.3.3",
     "dotbit": "^0.4.1",
+    "expiry-map": "^2.0.0",
     "react-native-uuid": "^2.0.1",
     "socket.io-client": "^4.5.2"
   },

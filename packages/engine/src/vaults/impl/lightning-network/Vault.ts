@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { isHdWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
@@ -37,6 +38,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { LNURLDetails } from './types/lnurl';
 import { PaymentStatusEnum } from './types/payments';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -63,6 +65,7 @@ import type {
   IInvoiceDecodedResponse,
   InvoiceStatusEnum,
 } from './types/invoice';
+import type { LNURLAuthServiceResponse } from './types/lnurl';
 import type { AxiosError } from 'axios';
 
 export default class Vault extends VaultBase {
@@ -105,26 +108,33 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async exchangeToken(password: string) {
+  async exchangeToken(password: string, account?: DBVariantAccount) {
     try {
-      if (!password) {
-        throw new Error('No Password');
-      }
-      const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
-      const address = dbAccount.addresses.normalizedAddress;
-      const hashPubKey = bytesToHex(sha256(dbAccount.pub));
+      const usedAccount =
+        account || ((await this.getDbAccount()) as DBVariantAccount);
+      const address = usedAccount.addresses.normalizedAddress;
+      const hashPubKey = bytesToHex(sha256(usedAccount.pub));
       const network = await this.getNetwork();
-      const { entropy } = (await this.engine.dbApi.getCredential(
-        this.walletId,
-        password ?? '',
-      )) as ExportedSeedCredential;
+      let entropy: Buffer | null = null;
+      if (isHdWallet({ walletId: this.walletId })) {
+        if (!password) {
+          throw new Error('No Password');
+        }
+        entropy = (
+          (await this.engine.dbApi.getCredential(
+            this.walletId,
+            password ?? '',
+          )) as ExportedSeedCredential
+        ).entropy;
+      }
       const client = await this.getClient();
       const signTemplate = await client.fetchSignTemplate(address, 'auth');
       if (signTemplate.type !== 'auth') {
         throw new Error('Invalid auth sign template');
       }
       const timestamp = Date.now();
-      const sign = await signature({
+      const keyring = this.keyring as KeyringHd;
+      const sign = await keyring.signature({
         msgPayload: {
           ...signTemplate,
           pubkey: hashPubKey,
@@ -132,18 +142,24 @@ export default class Vault extends VaultBase {
           timestamp,
         },
         engine: this.engine,
-        path: dbAccount.addresses.realPath,
+        path: usedAccount.addresses.realPath,
         password: password ?? '',
-        entropy,
+        entropy: entropy as Buffer,
         isTestnet: network.isTestnet,
       });
-      return await client.refreshAccessToken({
+      const res = await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,
         timestamp,
         randomSeed: signTemplate.randomSeed,
       });
+      await simpleDb.utxoAccounts.updateLndToken(
+        usedAccount.addresses.normalizedAddress,
+        res.access_token,
+        res.refresh_token,
+      );
+      return res;
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);
       throw e;
@@ -639,6 +655,7 @@ export default class Vault extends VaultBase {
   }> {
     const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
+    const network = await this.getNetwork();
     let finalAmount = amount;
     if (this.isZeroAmountInvoice(invoice)) {
       if (new BigNumber(encodedTx.amount).isLessThan(1)) {
@@ -646,7 +663,7 @@ export default class Vault extends VaultBase {
           success: false,
           key: 'msg__the_invoice_amount_cannot_be_0',
           params: {
-            0: 'stas',
+            0: network.symbol,
           },
         });
       }
@@ -654,14 +671,20 @@ export default class Vault extends VaultBase {
     }
 
     const balanceAddress = await this.getCurrentBalanceAddress();
-    const balance = await this.getBalances([{ address: balanceAddress }]);
-    const balanceBN = new BigNumber(balance[0] || '0');
-    if (balanceBN.isLessThan(new BigNumber(finalAmount).plus(fee))) {
+    const client = await this.getClient();
+    try {
+      await client.checkBalanceBeforePayInvoice({
+        address: balanceAddress,
+        invoice: payreq,
+        amount: finalAmount,
+      });
+    } catch (e: any) {
+      const { key } = e || {};
       return Promise.resolve({
         success: false,
-        key: 'form__amount_invalid',
+        key: key ?? 'form__amount_invalid',
         params: {
-          0: 'stas',
+          0: network.symbol,
         },
       });
     }
@@ -671,7 +694,6 @@ export default class Vault extends VaultBase {
     );
     if (paymentHash?.data) {
       try {
-        const client = await this.getClient();
         const existInvoice = await client.specialInvoice(
           balanceAddress,
           paymentHash.data as string,
@@ -721,5 +743,18 @@ export default class Vault extends VaultBase {
   async batchGetLnurl(addresses: string[]) {
     const client = await this.getClient();
     return client.batchGetLnurl(addresses);
+  }
+
+  async getLnurlAuthUrl({
+    lnurlDetail,
+    password,
+  }: {
+    lnurlDetail: LNURLAuthServiceResponse;
+    password: string;
+  }) {
+    return (this.keyring as KeyringHd).lnurlAuth({
+      lnurlDetail,
+      password,
+    });
   }
 }

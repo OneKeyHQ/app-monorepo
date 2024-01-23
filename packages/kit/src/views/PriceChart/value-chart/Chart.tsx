@@ -1,5 +1,3 @@
-import { useCallback, useState } from 'react';
-
 import {
   ChartDot,
   ChartPath,
@@ -18,10 +16,12 @@ import type { OnHoverFunction } from '../chartService';
 
 export default function ChartWrapper({
   isFetching,
+  width,
   height,
   lineColor,
   onHover,
 }: {
+  width: number;
   isFetching: boolean;
   height: number;
   lineColor: string;
@@ -30,8 +30,6 @@ export default function ChartWrapper({
   const { isActive, originalX, originalY } = useChartData();
 
   const throttledOnHover = throttle(onHover, 25);
-
-  const [width, setWidth] = useState(0);
 
   useAnimatedReaction(
     () => [isActive.value, originalX.value, originalY.value],
@@ -50,19 +48,8 @@ export default function ChartWrapper({
     },
   );
 
-  const onLayout = useCallback(
-    ({
-      nativeEvent: {
-        layout: { width: newWidth },
-      },
-    }) => {
-      setWidth(newWidth);
-    },
-    [setWidth],
-  );
-
   return (
-    <Box position="relative" onLayout={onLayout}>
+    <Box position="relative">
       <ExtremeLabels color={lineColor} width={width} />
       <ChartPath
         fill="none"

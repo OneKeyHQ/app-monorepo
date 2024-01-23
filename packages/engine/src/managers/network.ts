@@ -2,7 +2,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import qs from 'qs';
 
-import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeNetwork';
 import {
   IMPL_EVM,
   IMPL_STC,

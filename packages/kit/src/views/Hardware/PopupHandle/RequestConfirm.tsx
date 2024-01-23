@@ -15,6 +15,7 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getConfirmAnimation = (type: IDeviceType) => {
   switch (type) {
+    case 'classic1s':
     case 'classic':
       return ConfirmOnClassic;
     case 'mini':

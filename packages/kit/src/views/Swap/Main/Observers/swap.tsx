@@ -80,6 +80,7 @@ const NetworkStatusObserver = () => {
 const PriceObserver = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
 
   useEffect(() => {
     if (inputToken) {
@@ -87,9 +88,10 @@ const PriceObserver = () => {
         networkId: inputToken.networkId,
         accountId: '',
         tokenIds: [inputToken.tokenIdOnNetwork],
+        vsCurrency,
       });
     }
-  }, [inputToken]);
+  }, [inputToken, vsCurrency]);
 
   useEffect(() => {
     if (outputToken) {
@@ -97,9 +99,10 @@ const PriceObserver = () => {
         networkId: outputToken.networkId,
         accountId: '',
         tokenIds: [outputToken.tokenIdOnNetwork],
+        vsCurrency,
       });
     }
-  }, [outputToken]);
+  }, [outputToken, vsCurrency]);
 
   return null;
 };

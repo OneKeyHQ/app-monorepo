@@ -69,4 +69,4 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git commit -am "build ${{ needs.get-commit-id.outputs.upstream_id }} in $CURRENT_TIME"
-          git push --set-upstream origin buildhistory
+          git push -f --set-upstream origin buildhistory

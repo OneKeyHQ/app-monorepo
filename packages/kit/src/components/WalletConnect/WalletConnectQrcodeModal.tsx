@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import LogoWalletConnect from '../../../assets/onboarding/logo_walletconnect.png';
 import { wait } from '../../utils/helper';
+import { openUrlExternal } from '../../utils/openUrl';
 import { useConnectExternalWallet } from '../../views/ExternalAccount/useConnectExternalWallet';
 
 import { useMobileRegistryOfWalletServices } from './useMobileRegistryOfWalletServices';
@@ -239,9 +240,14 @@ export function ConnectWalletListView({
           logo={imgUri}
           logoSource={logoSource}
           isLoading={loadingId === item.id}
-          onPress={() =>
-            doConnect({ walletService: item, itemLoadingId: item.id })
-          }
+          onPress={() => {
+            if (item.name === 'OKX Wallet') {
+              // OKX Wallet not support walletconnect v1
+              openUrlExternal('https://www.okx.com/web3');
+            } else {
+              doConnect({ walletService: item, itemLoadingId: item.id });
+            }
+          }}
         />
       );
     });

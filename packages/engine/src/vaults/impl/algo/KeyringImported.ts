@@ -1,3 +1,5 @@
+import { isArray } from 'lodash';
+
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -15,6 +17,7 @@ import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from './types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
@@ -71,7 +74,22 @@ export class KeyringImported extends KeyringImportedBase {
     ]);
     const signer = signers[dbAccount.address];
 
-    return signTransaction(unsignedTx, signer);
+    const { encodedTx } = unsignedTx.payload as {
+      encodedTx: IEncodedTxAlgo | IEncodedTxGroupAlgo;
+    };
+
+    if (isArray(encodedTx)) {
+      const signedTxs = await Promise.all(
+        encodedTx.map((tx) => signTransaction(tx, signer)),
+      );
+
+      return {
+        txid: signedTxs.map((tx) => tx.txid).join(','),
+        rawTx: signedTxs.map((tx) => tx.rawTx).join(','),
+      };
+    }
+
+    return signTransaction(encodedTx, signer);
   }
 
   override signMessage(messages: any[], options: ISignCredentialOptions): any {

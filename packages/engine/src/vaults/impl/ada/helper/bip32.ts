@@ -7,6 +7,8 @@ import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 
+import { decrypt } from '../../../../secret/encryptors/aes256';
+
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
 import type { BIP32Path } from '../types';
@@ -73,6 +75,24 @@ export async function generateExportedCredential(
     ]),
   ) as string;
   return xprv;
+}
+
+export async function generateExportedCredentialForImportedAccount(
+  password: string,
+  encodedPrivateKey: Buffer,
+) {
+  const privateKey = decrypt(password, encodedPrivateKey);
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  const { rootKey, index } = encodePrivateKey(privateKey);
+  const xprv = bech32.encode(
+    'xprv',
+    Buffer.concat([
+      rootKey.slice(0, 64),
+      rootKey.slice(96, 128),
+      Buffer.from(index, 'utf8'),
+    ]),
+  ) as string;
+  return Promise.resolve(xprv);
 }
 
 /*

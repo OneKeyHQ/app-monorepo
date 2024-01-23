@@ -17,7 +17,11 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
 
-import { openUrlByWebview, openUrlExternal } from '../../../utils/openUrl';
+import {
+  openUrl,
+  openUrlByWebview,
+  openUrlExternal,
+} from '../../../utils/openUrl';
 
 import AppRateSectionItem from './AppRateSectionItem';
 import AutoUpdateSectionItem from './AutoUpdateSectionItem';
@@ -124,7 +128,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrlByWebview(
+            openUrl(
               userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
@@ -155,7 +159,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrlByWebview(
+            openUrl(
               privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
@@ -186,7 +190,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openUrlByWebview(
+            openUrl(
               'https://www.onekey.so',
               intl.formatMessage({
                 id: 'form__website',

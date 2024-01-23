@@ -210,6 +210,7 @@ export const coinSelect = ({
   const finalOutputs = outputsForCoinSelect.map((o) => ({
     address: o.address,
     value: o.isMax ? undefined : o.value,
+    script: o.script,
   }));
 
   let unspentSelectFn = max ? coinSelectSplit : coinSelectAuto;
@@ -283,7 +284,7 @@ export function coinSelectForOrdinal(
   let ordUtxoCount = 0;
   let isPrevUtxoOrd = true;
 
-  result.inputs?.forEach((item, index, array) => {
+  result.inputs?.forEach((item, index) => {
     const isOrd = Boolean(item.forceSelect);
     if (isOrd) {
       if (!isPrevUtxoOrd) {
@@ -301,12 +302,6 @@ export function coinSelectForOrdinal(
       ordUtxoCount += 1;
       isPrevUtxoOrd = true;
     } else {
-      if (index !== array.length - 1) {
-        throw new Error(
-          'coinSelectForOrdinal ERROR: Change utxo should be last',
-        );
-      }
-
       isPrevUtxoOrd = false;
     }
   });

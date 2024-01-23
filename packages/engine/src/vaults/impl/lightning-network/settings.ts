@@ -13,7 +13,7 @@ const settings: IVaultSettings = Object.freeze({
   txCanBeReplaced: false,
 
   importedAccountEnabled: false,
-  hardwareAccountEnabled: false,
+  hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   watchingAccountEnabled: false,
 
@@ -32,7 +32,7 @@ const settings: IVaultSettings = Object.freeze({
   hiddenNFTTab: true,
   hiddenToolTab: true,
   hiddenAddress: true,
-  hiddenAccountInfoMoreOption: true,
+  hiddenAccountInfoMoreOption: false,
   customAccountInfoSwapOption: true,
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,

@@ -73,12 +73,10 @@ export default class ServiceToken extends ServiceBase {
 
   @bindThis()
   registerEvents() {
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
       this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+    appEventBus.on(AppEventBusNames.AccountChanged, () => {
       this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
 
@@ -191,8 +189,8 @@ export default class ServiceToken extends ServiceBase {
         this.backgroundApi;
 
       const accountTokensInRedux = appSelector(
-        (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
-      );
+        (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+      ).filter((t) => !t.autoDetected);
 
       let accountTokens = await engine.getTokens(
         networkId,
@@ -800,9 +798,9 @@ export default class ServiceToken extends ServiceBase {
         e,
       );
     }
-    const accountTokensInRedux =
-      appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[accountId] ??
-      [];
+    const accountTokensInRedux = appSelector(
+      (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
+    ).filter((t) => !t.autoDetected);
     const tokens = [...accountTokensInRedux, ...autodetectedTokens];
     if (includeTop50TokensQuery || serverApiFetchFailed) {
       const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);

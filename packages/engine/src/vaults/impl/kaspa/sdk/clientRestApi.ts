@@ -2,6 +2,7 @@ import Axios from 'axios';
 import { get } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { submitTransactionFromString } from './transaction';
 
@@ -108,7 +109,18 @@ export class RestAPIClient {
           'Content-Type': 'application/json',
         },
       })
-      .then((resp) => resp.data.transactionId)
+      .then((resp) => {
+        try {
+          debugLogger.sendTx.debug(
+            'sendRawTransaction kaspa:',
+            resp.data?.transactionId ?? 'transactionId:undefined',
+            resp.data?.error ?? 'error:undefined',
+          );
+        } catch (e) {
+          // ignore
+        }
+        return resp.data.transactionId;
+      })
       .catch((error: AxiosError) => {
         const message: string = get(error, 'response.data.error', '');
 
@@ -120,6 +132,17 @@ export class RestAPIClient {
           throw new OneKeyInternalError(
             message,
             'msg__broadcast_dot_tx_Insufficient_fee',
+          );
+        }
+
+        if (
+          message
+            .toLowerCase()
+            .indexOf('is larger than max allowed size of 100000') !== -1
+        ) {
+          throw new OneKeyInternalError(
+            message,
+            'msg__broadcast_kaspa_tx_max_allowed_size',
           );
         }
 

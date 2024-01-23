@@ -18,7 +18,6 @@ type Props = {
     transferBalance: string;
   };
   isWatching: boolean;
-  isTaproot: boolean;
 };
 
 function TokenDetailHeader(props: Props) {

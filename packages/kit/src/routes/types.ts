@@ -88,6 +88,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.GasPanel]: NavigatorScreenParams<SubModalRoutesParams.GasPanelRoutesParams>;
   [ModalRoutes.Inscribe]: NavigatorScreenParams<SubModalRoutesParams.InscribeModalRoutesParams>;
   [ModalRoutes.Webln]: NavigatorScreenParams<SubModalRoutesParams.WeblnRoutesParams>;
+  [ModalRoutes.Nostr]: NavigatorScreenParams<SubModalRoutesParams.NostrRoutesParams>;
   [ModalRoutes.Monitor]: NavigatorScreenParams<SubModalRoutesParams.MonitorRouteParams>;
   [ModalRoutes.InscriptionControl]: NavigatorScreenParams<SubModalRoutesParams.InscriptionControlRoutesParams>;
 };
@@ -162,14 +163,6 @@ export type HomeRoutesParams = {
     marketTokenId: string;
   };
   [HomeRoutes.Revoke]: undefined;
-  [HomeRoutes.NFTMarketStatsList]: { network: Network; selectedIndex?: number };
-  [HomeRoutes.NFTMarketLiveMintingList]: { network: Network };
-  [HomeRoutes.NFTMarketCollectionScreen]: {
-    networkId: string;
-    contractAddress: string;
-    collection?: Collection;
-    title?: string;
-  };
   [HomeRoutes.RevokeRedirect]: undefined;
   [HomeRoutes.RevokeRedirect2]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;

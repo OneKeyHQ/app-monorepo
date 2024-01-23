@@ -1,4 +1,5 @@
 import { sha256 } from '@noble/hashes/sha256';
+import BigNumber from 'bignumber.js';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
@@ -14,7 +15,10 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { pubkeyToBaseAddress } from './sdk/address';
 import { serializeSignedTx, serializeTxForSignature } from './sdk/txBuilder';
+import { TransactionWrapper } from './sdk/wrapper';
+import { getADR36SignDoc, getDataForADR36 } from './utils';
 
+import type { CommonMessage } from '../../../types/message';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
@@ -147,5 +151,44 @@ export class KeyringHd extends KeyringHdBase {
       txid: '',
       rawTx: Buffer.from(rawTx).toString('base64'),
     };
+  }
+
+  override async signMessage(
+    messages: CommonMessage[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+
+    return Promise.all(
+      messages.map(async (commonMessage) => {
+        const { data, signer } = JSON.parse(commonMessage.message);
+
+        const [messageData] = getDataForADR36(data);
+        const unSignDoc = getADR36SignDoc(signer, messageData);
+        const encodedTx = TransactionWrapper.fromAminoSignDoc(
+          unSignDoc,
+          undefined,
+        );
+
+        const { rawTx } = await this.signTransaction(
+          {
+            inputs: [
+              {
+                address: dbAccount.address,
+                value: new BigNumber(0),
+                publicKey: dbAccount.pub,
+              },
+            ],
+            outputs: [],
+            payload: {
+              encodedTx,
+            },
+          },
+          options,
+        );
+
+        return rawTx;
+      }),
+    );
   }
 }

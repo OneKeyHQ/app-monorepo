@@ -28,13 +28,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useNavigation, useNetwork, useWallet } from '../../../hooks';
 import { useAllNetworksSelectNetworkAccount } from '../../../hooks/useAllNetwoks';
 import {
-  FiatPayModalRoutes,
   MainRoutes,
   ModalRoutes,
   ReceiveTokenModalRoutes,
   RootRoutes,
   TabRoutes,
 } from '../../../routes/routesEnum';
+import { openUrlExternal } from '../../../utils/openUrl';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
 import { TokenDetailContext } from '../context';
@@ -188,21 +188,6 @@ export const ButtonsSection: FC = () => {
     [navigation],
   );
 
-  const goToWebView = useCallback(
-    (signedUrl: string) => {
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.FiatPay,
-        params: {
-          screen: FiatPayModalRoutes.MoonpayWebViewModal,
-          params: {
-            url: signedUrl,
-          },
-        },
-      });
-    },
-    [navigation],
-  );
-
   const onBuy = useCallback(
     async ({ token, account, network }: ISingleChainInfo) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
@@ -211,9 +196,9 @@ export const ButtonsSection: FC = () => {
         tokenAddress: token?.address,
         networkId: network?.id,
       });
-      goToWebView(signedUrl);
+      openUrlExternal(signedUrl);
     },
-    [goToWebView],
+    [],
   );
 
   const onSell = useCallback(
@@ -224,9 +209,9 @@ export const ButtonsSection: FC = () => {
         tokenAddress: token?.address,
         networkId: network?.id,
       });
-      goToWebView(signedUrl);
+      openUrlExternal(signedUrl);
     },
-    [goToWebView],
+    [],
   );
 
   const handlePress = useCallback(

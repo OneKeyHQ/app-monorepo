@@ -1,5 +1,7 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
+// eslint-disable-next-line import/order
 import { Engine } from '@onekeyhq/engine';
 
 import BackgroundApiBase from './BackgroundApiBase';
@@ -463,6 +465,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceBRC20', { value });
+    return value;
+  }
+
+  get serviceNostr() {
+    const ServiceNostr =
+      require('./services/ServiceNostr') as typeof import('./services/ServiceNostr');
+    const value = new ServiceNostr.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNostr', { value });
     return value;
   }
 }

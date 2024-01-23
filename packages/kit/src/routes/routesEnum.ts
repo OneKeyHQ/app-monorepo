@@ -51,9 +51,6 @@ export enum HomeRoutes {
   BulkSender = 'BulkSender',
 
   // **** NFT Tab
-  NFTMarketStatsList = 'NFTMarketStatsList',
-  NFTMarketLiveMintingList = 'NFTMarketLiveMintingList',
-  NFTMarketCollectionScreen = 'NFTMarketCollectionScreen',
   NFTPNLScreen = 'NFTPNLScreen',
 
   // ****  Me Tab
@@ -201,6 +198,7 @@ export enum ModalRoutes {
   GasPanel = 'GasPanel',
   Inscribe = 'Inscribe',
   Webln = 'Webln',
+  Nostr = 'Nostr',
   InscriptionControl = 'InscriptionControl',
 }
 
@@ -297,7 +295,6 @@ export enum CollectiblesModalRoutes {
 
 export enum FiatPayModalRoutes {
   SupportTokenListModal = 'SupportTokenList',
-  MoonpayWebViewModal = 'MoonpayWebViewModal',
 }
 
 export enum BackupWalletModalRoutes {
@@ -394,6 +391,7 @@ export enum InscribeModalRoutes {
   CreateOrder = 'CreateOrder',
   OrderList = 'OrderList',
   OrderDetail = 'OrderDetail',
+  InscribeTransferFromDapp = 'InscribeTransferFromDapp',
 }
 
 export enum WeblnModalRoutes {
@@ -401,6 +399,14 @@ export enum WeblnModalRoutes {
   VerifyMessage = 'VerifyMessage',
   WeblnAuthentication = 'WeblnAuthentication',
 }
+
+export enum NostrModalRoutes {
+  GetPublicKey = 'GetPublicKey',
+  SignEvent = 'SignEvent',
+  NostrAuthentication = 'NostrAuthentication',
+  ExportPubkey = 'ExportPubkey',
+}
+
 export enum InscriptionControlModalRoutes {
   InscriptionControlModal = 'InscriptionControlModal',
 }

@@ -24,6 +24,7 @@ import {
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
+  OneKeyError,
   PendingQueueTooLong,
 } from '../errors';
 import { getAccountNameInfoByImpl } from '../managers/impl';
@@ -721,12 +722,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getNextNonce(networkId: string, dbAccount: DBAccount): Promise<number> {
     // TODO move to Vault.getOnChainNextNonce
-    const onChainNonce =
-      (
-        await this.engine.providerManager.getAddresses(networkId, [
-          dbAccount.address,
-        ])
-      )[0]?.nonce ?? 0;
+    const resp = await this.engine.providerManager.getAddresses(networkId, [
+      dbAccount.address,
+    ]);
+
+    const onChainNextNonce = resp[0]?.nonce;
+
+    if (isNil(onChainNextNonce)) {
+      throw new OneKeyError('Get on-chain nonce failed.');
+    }
 
     // TODO: Although 100 history items should be enough to cover all the
     // pending transactions, we need to find a more reliable way.
@@ -746,13 +750,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
-      onChainNonce,
+      onChainNextNonce,
     );
     if (Number.isNaN(nextNonce)) {
-      nextNonce = onChainNonce;
+      nextNonce = onChainNextNonce;
     }
-    if (nextNonce > onChainNonce) {
-      for (let i = onChainNonce; i < nextNonce; i += 1) {
+    if (nextNonce > onChainNextNonce) {
+      for (let i = onChainNextNonce; i < nextNonce; i += 1) {
         if (!pendingNonceList.includes(i)) {
           nextNonce = i;
           break;
@@ -760,11 +764,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       }
     }
 
-    if (nextNonce < onChainNonce) {
-      nextNonce = onChainNonce;
+    if (nextNonce < onChainNextNonce) {
+      nextNonce = onChainNextNonce;
     }
 
-    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+    if (
+      nextNonce - onChainNextNonce >=
+      HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH
+    ) {
       throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
     }
 

@@ -193,13 +193,10 @@ const WeblnSendPayment = () => {
         doSubmit();
       }}
       secondaryActionTranslationId="action__cancel"
-      onSecondaryActionPress={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-      }}
-      onModalClose={() => {
+      onModalClose={dappApprove.reject}
+      onSecondaryActionPress={({ close }) => {
         dappApprove.reject();
+        close();
       }}
       height="auto"
       scrollViewProps={{

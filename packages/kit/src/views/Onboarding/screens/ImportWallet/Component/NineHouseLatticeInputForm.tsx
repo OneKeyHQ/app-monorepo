@@ -46,6 +46,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
     trigger,
     register,
     getValues,
+    reset,
   } = useForm({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -163,6 +164,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
           onPress={() => {
             onClear();
             setFocus(`${inputIndexArray?.[0] ?? 1}`);
+            reset();
           }}
         >
           <Icon color="icon-subdued" size={16} name="XCircleMini" />

@@ -2,7 +2,6 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import CalculatorModal from '../../../views/NFTMarket/Modals/Calculator';
 import MarketPlaceList from '../../../views/NFTMarket/Modals/Calculator/MarketPlaceList';
-import NFTAttributesModal from '../../../views/NFTMarket/Modals/NFTAttributesModal';
 import NFTSearchModal from '../../../views/NFTMarket/Modals/NFTSearchModal';
 import ShareNFTPNLModal from '../../../views/NFTMarket/Modals/Share';
 import { NFTMarketRoutes } from '../../../views/NFTMarket/Modals/type';
@@ -14,10 +13,6 @@ import type { NFTMarketRoutesParams } from '../../../views/NFTMarket/Modals/type
 const NFTMarketNavigator = createStackNavigator<NFTMarketRoutesParams>();
 
 const modalRoutes = [
-  {
-    name: NFTMarketRoutes.FilterModal,
-    component: NFTAttributesModal,
-  },
   {
     name: NFTMarketRoutes.SearchModal,
     component: NFTSearchModal,

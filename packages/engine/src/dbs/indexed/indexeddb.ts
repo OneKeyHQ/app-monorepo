@@ -64,7 +64,10 @@ import type {
   IAddAccountDerivationParams,
   ISetAccountTemplateParams,
 } from '../../types/accountDerivation';
-import type { PrivateKeyCredential } from '../../types/credential';
+import type {
+  PrivateKeyCredential,
+  PrivateKeyCredentialWithId,
+} from '../../types/credential';
 import type { DBDevice, Device, DevicePayload } from '../../types/device';
 import type {
   HistoryEntry,
@@ -81,6 +84,7 @@ import type {
   CreateHWWalletParams,
   DBAPI,
   ExportedCredential,
+  ExportedPrivateKeyCredential,
   OneKeyContext,
   SetWalletNameAndAvatarParams,
   StoredPrivateKeyCredential,
@@ -327,7 +331,7 @@ class IndexedDBApi implements DBAPI {
                 const credentialItem: { id: string; credential: string } =
                   cursor.value as { id: string; credential: string };
 
-                if (credentialItem.id.startsWith('imported')) {
+                if (walletIsImported(credentialItem.id)) {
                   const privateKeyCredentialJSON: StoredPrivateKeyCredential =
                     JSON.parse(credentialItem.credential);
                   credentialItem.credential = JSON.stringify({
@@ -1406,6 +1410,57 @@ class IndexedDBApi implements DBAPI {
                   seed: Buffer.from(seedCredentialJSON.seed, 'hex'),
                 });
               }
+            };
+          };
+        }),
+    );
+  }
+
+  createPrivateKeyCredential(
+    credential: PrivateKeyCredentialWithId,
+  ): Promise<ExportedPrivateKeyCredential> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          if (!credential) {
+            reject(new OneKeyInternalError('Credential required.'));
+            return;
+          }
+          const transaction = db.transaction(
+            [CONTEXT_STORE_NAME, CREDENTIAL_STORE_NAME],
+            'readwrite',
+          );
+          const getMainContextRequest = transaction
+            .objectStore(CONTEXT_STORE_NAME)
+            .get(MAIN_CONTEXT);
+          getMainContextRequest.onsuccess = (_cevent) => {
+            const context: OneKeyContext =
+              getMainContextRequest.result as OneKeyContext;
+            if (!checkPassword(context, credential.password)) {
+              reject(new WrongPassword());
+              return;
+            }
+            const getCredentialRequest = transaction
+              .objectStore(CREDENTIAL_STORE_NAME)
+              .get(credential.id);
+            getCredentialRequest.onsuccess = (_creevent) => {
+              if (getCredentialRequest.result) {
+                reject(
+                  new OneKeyInternalError(
+                    `${credential.id} credential has alerday exists.`,
+                  ),
+                );
+                return;
+              }
+              transaction.objectStore(CREDENTIAL_STORE_NAME).put({
+                id: credential.id,
+                credential: JSON.stringify({
+                  privateKey: credential.privateKey.toString('hex'),
+                }),
+              });
+              return resolve({
+                privateKey: credential.privateKey,
+              });
             };
           };
         }),

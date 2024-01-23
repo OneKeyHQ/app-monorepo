@@ -488,7 +488,22 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: InscribeTransferParams,
   ) {
-    return Promise.resolve(params);
+    const { ticker, amount } = params;
+
+    const amountBN = new BigNumber(amount ?? 0);
+
+    if (amountBN.isNaN() || amountBN.isNegative()) {
+      throw web3Errors.rpc.invalidParams('Invalid amount.');
+    }
+
+    if (!ticker) {
+      throw web3Errors.rpc.invalidParams('Invalid ticker.');
+    }
+
+    return this.backgroundApi.serviceDapp.openInscribeTransferModal(request, {
+      ticker,
+      amount,
+    });
   }
 
   private async _signPsbt(

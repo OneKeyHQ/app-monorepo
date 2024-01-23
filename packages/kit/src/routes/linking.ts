@@ -10,15 +10,18 @@ import {
 } from '../components/WalletConnect/walletConnectConsts';
 import { getExtensionIndexHtml } from '../utils/extUtils.getHtml';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
+import { ScanQrcodeRoutes } from '../views/ScanQrcode/types';
 
 import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
 import {
   DappConnectionModalRoutes,
   HomeRoutes,
+  InscribeModalRoutes,
   MainRoutes,
   ManageNetworkModalRoutes,
   ManageTokenModalRoutes,
   ModalRoutes,
+  NostrModalRoutes,
   RootRoutes,
   SendModalRoutes,
   SubmitRequestModalRoutes,
@@ -166,6 +169,12 @@ export const normalRouteWhiteList: WhiteListItemList = [
     exact: true,
   },
   /**
+   * Inscribe transfer
+   */
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Inscribe}/${InscribeModalRoutes.InscribeTransferFromDapp}`,
+  },
+  /**
    * WebLN
    */
   {
@@ -185,6 +194,18 @@ export const normalRouteWhiteList: WhiteListItemList = [
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.LNURLWithdraw}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ScanQrcode}/${ScanQrcodeRoutes.RequestPermission}`,
+  },
+  /**
+   * Nostr
+   */
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Nostr}/${NostrModalRoutes.GetPublicKey}`,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Nostr}/${NostrModalRoutes.SignEvent}`,
   },
   /**
    * refresh page will flash the last item of normalRouteWhiteList
@@ -314,7 +335,12 @@ const buildLinking = (): LinkingOptions<any> => {
       }
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
-        return `${extHtmlFileUrl}/#${newPath}`;
+        /*
+        check chrome.webRequest.onBeforeRequest
+         /ui-expand-tab.html/#/   not working for Windows Chrome
+         /ui-expand-tab.html#/    works fine
+        */
+        return `${extHtmlFileUrl}#${newPath}`;
       }
       return newPath;
     },

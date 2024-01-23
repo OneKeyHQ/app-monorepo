@@ -32,4 +32,5 @@ export type ListItemComponentType<T> = ComponentProps<typeof Box> &
 
 export type InscriptionContentProps = {
   asset: NFTBTCAssetModel;
+  showOrigin?: boolean;
 } & ComponentProps<typeof Box>;

@@ -230,11 +230,11 @@ export default function ConnectedSites() {
               onPress={() => {
                 openDeleteDialog(item.site.origin, async () => {
                   try {
-                    await backgroundApiProxy.serviceDapp.cancellConnectedSite(
+                    await backgroundApiProxy.serviceDapp.cancelConnectedSite(
                       item,
                     );
                   } catch (error) {
-                    console.error('cancellConnectedSite ERROR: ', error);
+                    console.error('cancelConnectedSite ERROR: ', error);
                     throw error;
                   }
                 });

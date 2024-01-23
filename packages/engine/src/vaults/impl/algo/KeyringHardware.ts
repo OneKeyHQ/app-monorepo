@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import { isArray } from 'lodash';
+
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_ALGO as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -18,18 +20,16 @@ import type {
   IPrepareHardwareAccountsParams,
 } from '../../types';
 import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
-import type { IEncodedTxAlgo } from './types';
+import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from './types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
 export class KeyringHardware extends KeyringHardwareBase {
-  async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+  private async _signTransaction(encodedTx: IEncodedTxAlgo): Promise<SignedTx> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    const { encodedTx } = unsignedTx.payload as { encodedTx: IEncodedTxAlgo };
-
     const transaction = sdk.Transaction.from_obj_for_encoding(
       sdk.decodeObj(
         Buffer.from(encodedTx, 'base64'),
@@ -61,6 +61,27 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     throw convertDeviceError(response.payload);
+  }
+
+  async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+    const { encodedTx } = unsignedTx.payload as {
+      encodedTx: IEncodedTxAlgo | IEncodedTxGroupAlgo;
+    };
+
+    if (isArray(encodedTx)) {
+      const signedTxs = [];
+      for (let i = 0; i < encodedTx.length; i += 1) {
+        const tx = encodedTx[i];
+        const signedTx = await this._signTransaction(tx);
+        signedTxs.push(signedTx);
+      }
+      return {
+        txid: signedTxs.map((tx) => tx.txid).join(','),
+        rawTx: signedTxs.map((tx) => tx.rawTx).join(','),
+      };
+    }
+
+    return this._signTransaction(encodedTx);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

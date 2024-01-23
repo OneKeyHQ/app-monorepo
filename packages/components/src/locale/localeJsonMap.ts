@@ -20,6 +20,7 @@ export const LOCALES = {
   'uk-UA': () => import('./uk_UA.json'),
   'vi': () => import('./vi.json'),
   'id': () => import('./id.json'),
+  'pt-BR': () => import('./pt_BR.json'),
 };
 
 export { enUS };

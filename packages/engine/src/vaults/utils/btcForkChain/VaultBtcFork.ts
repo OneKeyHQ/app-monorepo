@@ -869,7 +869,25 @@ export default class VaultBtcFork extends VaultBase {
         txid: txId,
         value: value.toString(),
       })),
-      outputs: outputs.map(({ value, address }) => {
+      outputs: outputs.map(({ value, address, script }) => {
+        const valueText = value?.toString();
+
+        // OP_RETURN output
+        if (
+          valueText &&
+          new BigNumber(valueText).eq(0) &&
+          !address &&
+          script === transferInfo.opReturn
+        ) {
+          return {
+            address: '',
+            value: valueText,
+            payload: {
+              opReturn: transferInfo.opReturn,
+            },
+          };
+        }
+
         // If there is no address, it should be set to the change address.
         const addressOrChangeAddress = address || dbAccount.address;
         if (!addressOrChangeAddress) {
@@ -877,7 +895,6 @@ export default class VaultBtcFork extends VaultBase {
             'buildEncodedTxFromBatchTransfer ERROR: Invalid change address',
           );
         }
-        const valueText = value?.toString();
         if (!valueText || new BigNumber(valueText).lte(0)) {
           throw new Error(
             'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
@@ -1934,12 +1951,25 @@ export default class VaultBtcFork extends VaultBase {
               value,
             },
       ];
+
+      if (
+        transferInfo.opReturn &&
+        typeof transferInfo.opReturn === 'string' &&
+        transferInfo.opReturn.length
+      ) {
+        outputsForCoinSelect.push({
+          address: '',
+          value: 0,
+          script: transferInfo.opReturn,
+        });
+      }
     }
 
     const algorithm: ICoinSelectAlgorithm | undefined = !isBatchTransfer
       ? transferInfos[0].coinSelectAlgorithm
       : undefined;
-    if (!isBatchTransfer && outputsForCoinSelect.length > 1) {
+    // transfer output + maybe opReturn output
+    if (!isBatchTransfer && outputsForCoinSelect.length > 2) {
       throw new Error('single transfer should only have one output');
     }
     const { inputs, outputs, fee } = isNftTransfer

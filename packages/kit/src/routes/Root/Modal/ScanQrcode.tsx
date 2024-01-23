@@ -1,6 +1,7 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import PreviewSend from '../../../views/ScanQrcode/PreviewSend';
+import RequestCameraPermissionExt from '../../../views/ScanQrcode/RequestCameraPermissionExt';
 import ScanQrcode from '../../../views/ScanQrcode/ScanQrcode';
 import ScanQrcodeResult from '../../../views/ScanQrcode/ScanQrcodeResult';
 import { ScanQrcodeRoutes } from '../../../views/ScanQrcode/types';
@@ -21,6 +22,10 @@ const modalRoutes = [
   {
     name: ScanQrcodeRoutes.PreviewSend,
     component: PreviewSend,
+  },
+  {
+    name: ScanQrcodeRoutes.RequestPermission,
+    component: RequestCameraPermissionExt,
   },
 ];
 

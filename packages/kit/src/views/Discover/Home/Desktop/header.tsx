@@ -11,8 +11,10 @@ import {
   Input,
   Pressable,
   Typography,
+  useTheme,
 } from '@onekeyhq/components';
 import PNG from '@onekeyhq/kit/assets/discover/header_bg.png';
+import PNGLight from '@onekeyhq/kit/assets/discover/header_bg_light.png';
 
 import { gotoSite, openMatchDApp } from '../../Explorer/Controller/gotoSite';
 import SearchView from '../../Explorer/Search/SearchView';
@@ -143,6 +145,7 @@ const SearchInput: FC = () => {
 
 export const Header = () => {
   const intl = useIntl();
+  const { isLight } = useTheme();
   return (
     <Box pb="8" px="4">
       <Box
@@ -152,9 +155,13 @@ export const Header = () => {
         overflow="hidden"
         position="relative"
       >
-        <Image source={PNG} w="full" h="full" />
+        <Image source={isLight ? PNGLight : PNG} w="full" h="full" />
         <Center position="absolute" w="full" h="full">
-          <Typography.PageHeading color="#fff" fontSize={36} lineHeight={50}>
+          <Typography.PageHeading
+            color="text-default"
+            fontSize={36}
+            lineHeight={50}
+          >
             {intl.formatMessage({ id: 'title__discover_dapps' })}
           </Typography.PageHeading>
           <Box w="4/5" mt="6">

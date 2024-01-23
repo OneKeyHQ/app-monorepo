@@ -34,6 +34,7 @@ import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { useSwapSubmit } from '../../Swap/hooks/useSwapSubmit';
 import { div, formatAmountExact, multiply } from '../../Swap/utils';
+import { getMaticContractAdderess } from '../address';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useLidoMaticOverview } from '../hooks';
 import { getStMaticToMaticQuote } from '../quote';
@@ -151,7 +152,10 @@ export default function LidoMaticUnstake() {
     params: { networkId, accountId },
   } = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const mainPrice = useSimpleTokenPriceValue({ networkId });
+  const mainPrice = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: getMaticContractAdderess(networkId),
+  });
   const lidoOverview = useLidoMaticOverview(networkId, accountId);
   const balance = lidoOverview?.balance ?? '0';
   const tokenSymbol = 'stMatic';

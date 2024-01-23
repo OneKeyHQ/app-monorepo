@@ -1,4 +1,4 @@
-import { FAKE_ALL_NETWORK } from './fakeAllNetwork';
+import { FAKE_ALL_NETWORK, FAKE_NOSTR_NETWORK } from './fakeNetwork';
 
 import type { IServerNetwork } from '../../types';
 
@@ -294,7 +294,7 @@ const serverPresetNetworks = [
     'code': 'btc',
     'decimals': 8,
     'extensions': {
-      'position': 2,
+      'position': 1,
       'providerOptions': {
         'hardwareCoinName': 'btc',
       },
@@ -832,6 +832,70 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'celestia',
+    'code': 'celestia',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'celestia',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.1',
+          'low': '0.01',
+          'min': '0.002',
+          'normal': '0.02',
+        },
+        'mainCoinDenom': 'utia',
+      },
+    },
+    'id': 'cosmos--celestia',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/celestia/celestia.png',
+    'name': 'Celestia',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd-celestia.keplr.app/',
+      },
+      {
+        'url': 'https://public-celestia-lcd.numia.xyz',
+      },
+      {
+        'url': 'https://celestia-rest.publicnode.com',
+      },
+      {
+        'url': 'https://api.celestia.nodestake.top',
+      },
+    ],
+    'shortcode': 'celestia',
+    'shortname': 'Celestia',
+    'symbol': 'Tia',
+    'feeMeta': {
+      'code': 'tia',
+      'decimals': 6,
+      'symbol': 'Tia',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'celestia',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/celestia/account/{address}',
+        'block': 'https://www.mintscan.io/celestia/blocks/{block}',
+        'name': 'https://www.mintscan.io/celestia/',
+        'transaction': 'https://www.mintscan.io/celestia/txs/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-12-05T00:00:24.951Z',
+    'updatedAt': '2023-12-05T00:00:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': 'phoenix-1',
     'code': 'terra',
     'decimals': 6,
@@ -1294,6 +1358,97 @@ const serverPresetNetworks = [
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
   {
+    'balance2FeeDecimals': 18,
+    'chainId': 'manta',
+    'code': 'dot-manta',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 77,
+        'addressRegex': '^df[a-cW-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--manta',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/manta/manta.png',
+    'name': 'Manta Atlantic',
+    'rpcURLs': [
+      {
+        'url': 'wss://ws.manta.systems',
+      },
+    ],
+    'shortcode': 'manta',
+    'shortname': 'MANTA',
+    'symbol': 'MANTA',
+    'feeMeta': {
+      'code': 'manta',
+      'decimals': 18,
+      'symbol': 'MANTA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://manta.subscan.io/account/{address}',
+        'block': 'https://manta.subscan.io/block/{block}',
+        'name': 'https://manta.subscan.io/',
+        'transaction': 'https://manta.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-01-20T00:30:24.951Z',
+    'updatedAt': '2024-01-20T00:30:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 10,
+    'chainId': 'joystream',
+    'code': 'dot-joystream',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 126,
+        'addressRegex': '^j4[R-X][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--joystream',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/joystream/joystream.png',
+    'name': 'Joystream',
+    'rpcURLs': [
+      {
+        'url': 'wss://rpc.joystream.org',
+      },
+    ],
+    'shortcode': 'joy',
+    'shortname': 'JOY',
+    'symbol': 'JOY',
+    'feeMeta': {
+      'code': 'joy',
+      'decimals': 10,
+      'symbol': 'JOY',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'joystream',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://joystream.subscan.io/account/{address}',
+        'block': 'https://joystream.subscan.io/block/{block}',
+        'name': 'https://joystream.subscan.io/',
+        'transaction': 'https://joystream.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
     'balance2FeeDecimals': 9,
     'chainId': '1',
     'code': 'eth',
@@ -1305,7 +1460,7 @@ const serverPresetNetworks = [
         '0x4fabb145d64652a948d72533023f6e7a623c7c53',
         '0x6b175474e89094c44da98b954eedeac495271d0f',
       ],
-      'position': 1,
+      'position': 3,
       'providerOptions': {
         'EIP1559Enabled': true,
         'preferMetamask': true,
@@ -2377,7 +2532,7 @@ const serverPresetNetworks = [
         '0xe9e7cea3dedca5984780bafc599bd69add087d56',
         '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3',
       ],
-      'position': 3,
+      'position': 4,
     },
     'id': 'evm--56',
     'impl': 'evm',
@@ -4141,6 +4296,7 @@ const serverPresetNetworks = [
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
+serverPresetNetworks.push(FAKE_NOSTR_NETWORK);
 
 export { serverPresetNetworks };
 

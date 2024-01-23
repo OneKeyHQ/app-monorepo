@@ -6,11 +6,9 @@
   "private": true,
   "author": "OneKey <hi@onekey.so>",
   "scripts": {
-    "postinstall": "yarn keytar",
-    "keytar": "bash development/build_keytar.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "dev": "yarn keytar && npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
+    "dev": "npx concurrently \"yarn build:main\" \"yarn dev:renderer\" \"cross-env LAUNCH_ELECTRON=true node scripts/dev.js\"",
     "dev:main": "electron --inspect=5858 dist/app.js",
     "dev:renderer": "TRANSFORM_REGENERATOR_DISABLED=true BROWSER=none WEB_PORT=3001 expo start --web",
     "clean": "rimraf ./build-electron && rimraf ./build && rimraf ./dist && rimraf node_modules && rimraf .expo && rimraf __generated__",
@@ -21,9 +19,9 @@
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
     "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
-    "build": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never\"",
+    "build": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never\"",
     "build:mac": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mac --publish never\"",
-    "build:mas": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mas --publish never\"",
+    "build:mas": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mas --publish never\"",
     "build:winms": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:winms --publish never\"",
     "publish:all": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish always\"",
     "publish:winms": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:winms --publish always\""
@@ -39,7 +37,6 @@
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
     "expo": "49.0.6",
-    "keytar": "^7.9.0",
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {

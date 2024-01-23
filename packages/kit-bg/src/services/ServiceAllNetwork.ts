@@ -33,12 +33,13 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeNetwork';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_EVM,
   IMPL_SOL,
   INDEX_PLACEHOLDER,
+  isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
@@ -91,11 +92,12 @@ export default class ServiceAllNetwork extends ServiceBase {
         OnekeyNetwork.bch,
         OnekeyNetwork.doge,
         OnekeyNetwork.ada,
+        OnekeyNetwork.nexa,
       ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
-
-    const replaceStr = isValidUtxoAccount
-      ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
-      : INDEX_PLACEHOLDER;
+    const replaceStr =
+      isValidUtxoAccount || isLightningNetwork(account.coinType)
+        ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
+        : INDEX_PLACEHOLDER;
 
     const walletId = getWalletIdFromAccountId(account.id);
 

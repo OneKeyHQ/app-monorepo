@@ -23,7 +23,7 @@ function TxDetailAddTokenBox(props: Props) {
   const [accountTokens, setAccountTokens] = useState<Token[]>([]);
   const [isAddingTokens, setIsAddingTokens] = useState(false);
 
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId, network } = useActiveWalletAccount();
 
   const handleAddToken = useCallback(async () => {
     if (isAddingTokens) return;
@@ -97,7 +97,7 @@ function TxDetailAddTokenBox(props: Props) {
 
   if (!tokensNotInList || tokensNotInList.length === 0) return null;
 
-  if (isAllNetworks(networkId)) {
+  if (isAllNetworks(networkId) || !network?.settings?.tokenEnabled) {
     return null;
   }
 

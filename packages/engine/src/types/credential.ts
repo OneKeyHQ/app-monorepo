@@ -23,6 +23,8 @@ export type PrivateKeyCredential = {
   password: string;
 };
 
+export type PrivateKeyCredentialWithId = PrivateKeyCredential & { id: string };
+
 export type WatchingCredential = {
   type: CredentialType.WATCHING;
 };

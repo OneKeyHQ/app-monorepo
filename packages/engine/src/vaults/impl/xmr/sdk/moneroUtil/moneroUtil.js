@@ -818,3 +818,5 @@ else if (typeof define === 'function' && define['amd'])
     return instantiate;
   });
 else if (typeof exports === 'object') exports['instantiate'] = instantiate;
+
+export default instantiate;

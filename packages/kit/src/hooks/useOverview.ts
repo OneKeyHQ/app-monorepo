@@ -478,16 +478,17 @@ export const useTokenPositionInfo = ({
               }),
           };
         }
+
         return item;
       }),
     };
   }, [
     result,
+    networkId,
+    isLoading,
+    defaultInfo,
     intl,
     onPressStaking,
     onPresDefiProtocol,
-    networkId,
-    defaultInfo,
-    isLoading,
   ]);
 };

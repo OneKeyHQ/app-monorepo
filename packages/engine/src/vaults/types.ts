@@ -21,7 +21,11 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 import type { IEncodedTxADA } from './impl/ada/types';
-import type { IDecodedTxExtraAlgo, IEncodedTxAlgo } from './impl/algo/types';
+import type {
+  IDecodedTxExtraAlgo,
+  IEncodedTxAlgo,
+  IEncodedTxGroupAlgo,
+} from './impl/algo/types';
 import type { IEncodedTxAptos } from './impl/apt/types';
 import type {
   IDecodedTxExtraBtc,
@@ -44,6 +48,7 @@ import type {
   INativeTxNear,
 } from './impl/near/types';
 import type { IEncodedTxNexa } from './impl/nexa/types';
+import type { IEncodedTxNostr } from './impl/nostr/helper/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
@@ -87,6 +92,7 @@ export type IVaultSettings = {
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
   enabledInDevModeOnly?: boolean;
+  showPendingTxsWarning?: boolean;
 
   minTransferAmount?: string;
   allowZeroFee?: boolean;
@@ -197,6 +203,7 @@ export type ITransferInfo = {
   txInterval?: string;
   ignoreInscriptions?: boolean;
   useCustomAddressesBalance?: boolean;
+  opReturn?: string;
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -260,6 +267,7 @@ export type IEncodedTx =
   | IEncodedTxAptos
   | IEncodedTxCfx
   | IEncodedTxAlgo
+  | IEncodedTxGroupAlgo
   | IEncodedTxXrp
   | IEncodedTxCosmos
   | IEncodedTxADA
@@ -269,7 +277,8 @@ export type IEncodedTx =
   | IEncodedTxXmr
   | IEncodedTxKaspa
   | IEncodedTxNexa
-  | IEncodedTxLightning;
+  | IEncodedTxLightning
+  | IEncodedTxNostr;
 
 export type INativeTx =
   | INativeTxEvm

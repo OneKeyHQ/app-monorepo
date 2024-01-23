@@ -397,13 +397,14 @@ export const MarketSlicer = createSlice({
                     : (marketTokens[id1]?.priceChangePercentage24H ?? 0) -
                         (marketTokens[id2]?.priceChangePercentage24H ?? 0);
                 }
-                case EMarketCellData.Token24hVolume: {
+                /* case EMarketCellData.Token24hVolume: {
                   return payload.direction === 'down'
                     ? (marketTokens[id2]?.totalVolume ?? 0) -
                         (marketTokens[id1]?.totalVolume ?? 0)
                     : (marketTokens[id1]?.totalVolume ?? 0) -
                         (marketTokens[id2]?.totalVolume ?? 0);
-                }
+                } */
+                // 隐藏24h volume
                 case EMarketCellData.CollectionStarOrSerialNumber:
                 case EMarketCellData.TokenMarketCap: {
                   return payload.direction === 'down'

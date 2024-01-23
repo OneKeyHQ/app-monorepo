@@ -16,6 +16,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { LazyRenderCurrentHomeTab } from '../../components/LazyRenderCurrentHomeTab';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
+import { useAppLock } from '../../hooks/useAppLock';
 import { useHomeTabName } from '../../hooks/useHomeTabName';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
@@ -61,7 +62,7 @@ const WalletTabs: FC = () => {
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const timer = useRef<ReturnType<typeof setTimeout>>();
-
+  const { showUnlockView } = useAppLock();
   // LazyRenderCurrentHomeTab
   const tokensTab = useMemo(
     () => (
@@ -263,6 +264,9 @@ const WalletTabs: FC = () => {
   );
 
   if (network?.settings.validationRequired) {
+    if (showUnlockView) {
+      return null;
+    }
     return (
       <WalletTabsWithAuth
         wallet={wallet}

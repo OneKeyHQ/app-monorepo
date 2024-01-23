@@ -5,7 +5,11 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { getFiatEndpoint } from '../../../../endpoint';
-import { BadAuthError } from '../../../../errors';
+import {
+  BadAuthError,
+  NotEnoughBalanceIncludeOnePercentError,
+  NotEnoughBalanceIncludeTenSatsError,
+} from '../../../../errors';
 
 import type {
   IAuthResponse,
@@ -225,7 +229,10 @@ class ClientLightning {
           },
         },
       )
-      .then((i) => i.data);
+      .then((i) => i.data)
+      .catch((e) => {
+        this.detectCheckBalanceError(e);
+      });
   }
 
   async checkBolt11({ address, nonce }: { address: string; nonce: number }) {
@@ -237,6 +244,46 @@ class ClientLightning {
         },
       })
       .then((i) => i.data);
+  }
+
+  async checkBalanceBeforePayInvoice({
+    address,
+    invoice,
+    amount,
+  }: {
+    address: string;
+    invoice: string;
+    amount: string;
+  }) {
+    return this.request
+      .post<{ result: string }>(
+        '/payments/checkBalanceBeforePayInvoice',
+        { invoice, amount, testnet: this.testnet },
+        {
+          headers: {
+            Authorization: await this.getAuthorization(address),
+          },
+        },
+      )
+      .then((i) => i.data)
+      .catch((e) => {
+        this.detectCheckBalanceError(e);
+      });
+  }
+
+  detectCheckBalanceError(e: any) {
+    if (axios.isAxiosError(e)) {
+      const error = e as AxiosError<{ message: string }>;
+      const errorMessage = error.response?.data?.message;
+      if (errorMessage?.includes('not_enough_balance_include_ten_sats')) {
+        throw new NotEnoughBalanceIncludeTenSatsError();
+      } else if (
+        errorMessage?.includes('not_enough_balance_include_one_percent')
+      ) {
+        throw new NotEnoughBalanceIncludeOnePercentError();
+      }
+    }
+    throw e;
   }
 
   async fetchHistory(address: string): Promise<IHistoryItem[]> {

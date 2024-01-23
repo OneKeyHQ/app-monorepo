@@ -369,7 +369,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
               </ListItem.Column>
             );
           }
-          case EMarketCellData.Token24hVolume: {
+          /* case EMarketCellData.Token24hVolume: {
             return marketTokenItem &&
               marketTokenItem.totalVolume !== undefined ? (
               <ListItem.Column
@@ -396,7 +396,8 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 </Box>
               </ListItem.Column>
             );
-          }
+          } */
+          // 隐藏24hVolume
           case EMarketCellData.TokenMarketCap: {
             return marketTokenItem &&
               marketTokenItem.marketCap !== undefined ? (

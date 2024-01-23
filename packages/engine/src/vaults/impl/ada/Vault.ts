@@ -7,12 +7,12 @@ import { isUndefined } from 'lodash';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  COINTYPE_ADA,
-  IMPL_ADA,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+  isHdWallet,
+  isImportedWallet,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -22,10 +22,7 @@ import {
   OneKeyInternalError,
   PreviousAccountIsEmpty,
 } from '../../../errors';
-import {
-  getDefaultPurpose,
-  getLastAccountId,
-} from '../../../managers/derivation';
+import { getLastAccountId } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import {
@@ -39,6 +36,7 @@ import { validBootstrapAddress, validShelleyAddress } from './helper/addresses';
 import {
   decodePrivateKeyByXprv,
   generateExportedCredential,
+  generateExportedCredentialForImportedAccount,
 } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import ClientAda from './helper/ClientAda';
@@ -52,6 +50,7 @@ import settings from './settings';
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBUTXOAccount } from '../../../types/account';
 import type { Token } from '../../../types/token';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
   IDecodedTx,
@@ -224,13 +223,24 @@ export default class Vault extends VaultBase {
   }
 
   override async getExportedCredential(password: string): Promise<string> {
-    const { entropy } = (await this.engine.dbApi.getCredential(
-      this.walletId,
-      password,
-    )) as ExportedSeedCredential;
-
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    return generateExportedCredential(password, entropy, dbAccount.path);
+    if (isHdWallet({ walletId: this.walletId })) {
+      const { entropy } = (await this.engine.dbApi.getCredential(
+        this.walletId,
+        password,
+      )) as ExportedSeedCredential;
+      const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+      return generateExportedCredential(password, entropy, dbAccount.path);
+    }
+    if (isImportedWallet({ walletId: this.walletId })) {
+      const account = await this.getDbAccount();
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const privateKeys = await keyring.getPrivateKeys(password);
+      return generateExportedCredentialForImportedAccount(
+        password,
+        privateKeys[account.path],
+      );
+    }
+    throw new Error('Not implemented');
   }
 
   override attachFeeInfoToEncodedTx(params: {
@@ -422,23 +432,28 @@ export default class Vault extends VaultBase {
       sdk.ensureSDKReady(),
     ]);
 
-    const amountBN = new BigNumber(amount).shiftedBy(decimals);
-    const output = tokenAddress
-      ? {
-          address: to,
-          amount: undefined,
-          assets: [
-            {
-              quantity: amountBN.toFixed(),
-              unit: tokenAddress,
-            },
-          ],
-        }
-      : {
-          address: to,
-          amount: amountBN.toFixed(),
-          assets: [],
-        };
+    const amountBN = new BigNumber(amount);
+
+    let output;
+    if (tokenAddress) {
+      output = {
+        address: to,
+        amount: undefined,
+        assets: [
+          {
+            quantity: amountBN.shiftedBy(token.decimals).toFixed(),
+            unit: tokenAddress,
+          },
+        ],
+      };
+    } else {
+      output = {
+        address: to,
+        amount: amountBN.shiftedBy(decimals).toFixed(),
+        assets: [],
+      };
+    }
+
     const CardanoApi = await sdk.getCardanoApi();
     let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
     try {

@@ -10,7 +10,7 @@ import {
 
 import { chunk, debounce } from 'lodash';
 
-import { Box, Stack, useIsVerticalLayout } from '@onekeyhq/components';
+import { Box, Stack, VStack, useIsVerticalLayout } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -71,7 +71,6 @@ export const DappItemPlainLayout: FC = ({ children }) => {
       minW={`${Min}px`}
       maxW={`${Max}px`}
       width={width ? `${width}px` : undefined}
-      mb={width ? '4' : undefined}
     >
       {children}
     </Box>
@@ -131,13 +130,13 @@ const DappItemPlainContainerDynamicLayout: FC<
     }
     const data = chunk(Children.toArray(children), state.num);
     return (
-      <Box>
+      <Stack direction="column" space="4">
         {data.map((o, index) => (
           <Stack key={index} direction="row" space={space} w="full">
             {o}
           </Stack>
         ))}
-      </Box>
+      </Stack>
     );
   }, [state, space, children]);
   return (

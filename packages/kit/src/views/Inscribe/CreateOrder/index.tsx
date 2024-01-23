@@ -33,6 +33,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -41,6 +42,7 @@ import {
 } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useBRC20Content } from '../../../hooks/useBRC20Content';
+import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import { useSingleToken } from '../../../hooks/useTokens';
 import {
   ModalRoutes,
@@ -87,8 +89,15 @@ const CreateOrder: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, receiveAddress, contents, size, file } =
-    route?.params || {};
+  const {
+    networkId,
+    accountId,
+    receiveAddress,
+    contents,
+    size,
+    file,
+    sourceInfo,
+  } = route?.params || {};
   const { serviceInscribe } = backgroundApiProxy;
   const { account, network } = useActiveSideAccount({ accountId, networkId });
   const [sat, setSat] = useState<number>(
@@ -96,6 +105,10 @@ const CreateOrder: FC = () => {
   );
   const isVerticalLayout = useIsVerticalLayout();
   const isSendConfirm = useRef<boolean>(false);
+  const { id } = sourceInfo ?? ({} as IDappSourceInfo);
+  const dappApprove = useDappApproveAction({
+    id,
+  });
 
   const { isBRC20Content } = useBRC20Content({
     content: bufferUtils.hexToText(contents[0].hex),
@@ -174,7 +187,6 @@ const CreateOrder: FC = () => {
             commitSignedTx,
             networkId,
           });
-          closeModal();
           if (result.errors.length > 0) {
             ToastManager.show(
               {
@@ -182,6 +194,7 @@ const CreateOrder: FC = () => {
               },
               { type: 'error' },
             );
+            dappApprove?.reject();
           } else if (result.txids.length > 0) {
             const params: SendFeedbackReceiptParams = {
               networkId,
@@ -198,7 +211,10 @@ const CreateOrder: FC = () => {
               },
             });
           }
+          dappApprove?.resolve();
+          closeModal();
         } catch (error: any) {
+          dappApprove?.reject();
           debugLogger.common.error('submitOrder error = ', error);
           setsSubmitOrderLoading(false);
           isSendConfirm.current = false;
@@ -242,6 +258,7 @@ const CreateOrder: FC = () => {
               },
               onFail: () => {
                 setsSubmitOrderLoading(false);
+                dappApprove?.reject();
               },
             },
           },
@@ -268,6 +285,7 @@ const CreateOrder: FC = () => {
     account,
     accountId,
     closeModal,
+    dappApprove,
     intl,
     navigation,
     network,

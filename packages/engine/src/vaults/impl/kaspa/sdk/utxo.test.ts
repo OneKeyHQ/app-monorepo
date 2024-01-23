@@ -24,6 +24,19 @@ describe('Kaspa UTXO Tests', () => {
 
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
   });
+
+  it.skip('kaspa selector UTXO satoshis priority', async () => {
+    const confirmUTXOs = await queryConfirmUTXOs(
+      client,
+      'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',
+    );
+
+    const selectedUTXOs = selectUTXOs(confirmUTXOs, 100000, {
+      satoshis: true,
+    });
+
+    process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
+  });
 });
 
 export {};

@@ -22,6 +22,7 @@ function buildEnabledWallets({
 }) {
   let enabledWallets = [
     WALLET_CONNECT_WALLET_NAMES.MetaMask,
+    WALLET_CONNECT_WALLET_NAMES['OKX Wallet'],
     WALLET_CONNECT_WALLET_NAMES['Trust Wallet'],
     WALLET_CONNECT_WALLET_NAMES.Rainbow,
     WALLET_CONNECT_WALLET_NAMES.imToken,

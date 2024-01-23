@@ -10,10 +10,12 @@ import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,
+  IDappInscribeTransferParams,
   IDappSignAndSendParams,
 } from '@onekeyhq/kit/src/hooks/useDappParams';
 import {
   DappConnectionModalRoutes,
+  InscribeModalRoutes,
   ManageNetworkModalRoutes,
   ManageTokenModalRoutes,
   ModalRoutes,
@@ -214,7 +216,7 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
+  async cancelConnectedSite(payload: DappSiteConnection): Promise<void> {
     // check walletConnect
     if (
       this.backgroundApi.walletConnect.connector &&
@@ -348,6 +350,21 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  openInscribeTransferModal(
+    request: IJsBridgeMessagePayload,
+    params: IDappInscribeTransferParams,
+  ) {
+    return this.openModal({
+      request,
+      screens: [
+        ModalRoutes.Inscribe,
+        InscribeModalRoutes.InscribeTransferFromDapp,
+      ],
+      params,
+      isAuthorizedRequired: true,
+    });
+  }
+
   openSwitchRpcModal(request: IJsBridgeMessagePayload, params: any) {
     return this.openModal({
       request,
@@ -431,6 +448,10 @@ class ServiceDapp extends ServiceBase {
       shouldShowNotMatchedNetworkModal = false;
     }
 
+    if (isNotMatchedNetwork && request.scope === 'nostr') {
+      isNotMatchedNetwork = false;
+    }
+
     return new Promise((resolve, reject) => {
       const id = this.backgroundApi.servicePromise.createCallback({
         resolve,
@@ -497,7 +518,7 @@ class ServiceDapp extends ServiceBase {
           reject(error);
         }
       } else {
-        this._openModalByRouteParams({
+        this._openModalByRouteParamsDebounced({
           routeNames,
           routeParams,
           modalParams,

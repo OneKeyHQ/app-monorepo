@@ -87,7 +87,10 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     if (sourceInfo) {
       let nativeBalanceTransferBN = new BigNumber(0);
       for (const action of (decodedTx as IDecodedTx)?.actions ?? []) {
-        if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+        if (
+          action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+          action.direction === IDecodedTxDirection.OUT
+        ) {
           nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
             action.nativeTransfer?.amount ?? 0,
           );
@@ -257,8 +260,15 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       setPendingTxCount(count);
     };
 
-    getPendingTxCount();
-  }, [accountId, advancedSettings?.currentNonce, networkId]);
+    if (network?.settings.showPendingTxsWarning) {
+      getPendingTxCount();
+    }
+  }, [
+    accountId,
+    advancedSettings?.currentNonce,
+    network?.settings.showPendingTxsWarning,
+    networkId,
+  ]);
 
   useEffect(() => {
     const checkPendingTxWithSameNonce = async () => {

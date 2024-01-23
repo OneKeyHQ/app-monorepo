@@ -88,26 +88,42 @@ export interface ContractsInfo {
 }
 
 export interface AssetInfo {
-  chain: string;
-  denom: string;
-  type: Type;
+  denom_units: DenomUnit[];
+  type_asset?: string;
+  base: string;
+  name: string;
+  display: string;
+  symbol: string;
+  logo_URIs: LogoUrIs;
+  coingecko_id?: string;
+  traces?: Trace[];
+}
+
+export interface Trace {
+  type: string;
+  counterparty: Counterparty;
+  chain: Chain;
+}
+
+export interface Chain {
+  channel_id: string;
+  path: string;
+}
+
+export interface Counterparty {
+  chain_name: string;
   base_denom: string;
-  base_type: Type;
-  dp_denom: string;
-  origin_chain: string;
-  decimal: number;
-  description?: string;
-  image: string;
-  coinGeckoId: string;
-  path?: string;
-  channel?: string;
-  port?: string;
-  counter_party?: {
-    channel: string;
-    port: string;
-    denom: string;
-  };
-  contract?: string;
+  channel_id: string;
+}
+
+export interface DenomUnit {
+  denom: string;
+  exponent: number;
+}
+
+export interface LogoUrIs {
+  png: string;
+  svg: string;
 }
 
 export enum Type {

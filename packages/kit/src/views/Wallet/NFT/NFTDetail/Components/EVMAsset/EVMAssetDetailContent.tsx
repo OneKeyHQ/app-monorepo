@@ -10,9 +10,7 @@ import {
   Button,
   CustomSkeleton,
   HStack,
-  Icon,
   IconButton,
-  Pressable,
   ScrollView,
   Skeleton,
   Text,
@@ -38,7 +36,6 @@ import { useNetwork, useWallet } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import CollectionLogo from '../../../../../NFTMarket/CollectionLogo';
-import { useCollectionDetail } from '../../../../../NFTMarket/Home/hook';
 import { SendModalRoutes } from '../../../../../Send/enums';
 import { showAmountInputDialog } from '../../../AmountInputDialog';
 import { DetailItem } from '../DetailItem';
@@ -74,7 +71,6 @@ function EVMAssetDetailContent({
 
   const { wallet } = useWallet({ walletId });
   const modalClose = useModalClose();
-  const goToCollectionDetail = useCollectionDetail();
   const isVertical = useIsVerticalLayout();
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled = useMemo(() => {
@@ -296,75 +292,50 @@ function EVMAssetDetailContent({
 
       {/* Collection */}
       {isEVM && !!network && (
-        <Pressable
-          onPress={() => {
-            goToCollectionDetail({
-              networkId: network.id,
-              contractAddress: collection?.contractAddress as string,
-              collection,
-              title: collection?.name,
-            });
-          }}
+        <HStack
+          px="16px"
+          py="12px"
+          rounded="12px"
+          space="12px"
+          borderWidth={StyleSheet.hairlineWidth}
+          alignItems="center"
+          borderColor="border-default"
+          bgColor="action-secondary-default"
         >
-          {({ isHovered, isPressed }) => (
-            <HStack
-              px="16px"
-              py="12px"
-              rounded="12px"
-              space="12px"
-              borderWidth={StyleSheet.hairlineWidth}
-              alignItems="center"
-              borderColor="border-default"
-              bgColor={
-                // eslint-disable-next-line no-nested-ternary
-                isPressed
-                  ? 'action-secondary-pressed'
-                  : isHovered
-                  ? 'action-secondary-hovered'
-                  : 'action-secondary-default'
-              }
-            >
-              {collection ? (
-                <CollectionLogo
-                  src={collection.logoUrl}
-                  width="40px"
-                  height="40px"
-                />
-              ) : (
-                <CustomSkeleton
-                  width="40px"
-                  height="40px"
-                  borderRadius="12px"
-                />
-              )}
-              <Box flex={1}>
-                <Text typography="Body1Strong">
-                  {asset.collection.contractName}
-                </Text>
-                <Box mt="4px">
-                  {collection ? (
-                    <Text typography="Body2" color="text-subdued">
-                      {`${
-                        collection?.itemsTotal ?? '-'
-                      } Items • ${intl.formatMessage({
-                        id: 'content__floor',
-                      })} ${
-                        collection.floorPrice
-                          ? `${collection.floorPrice} ${
-                              collection.priceSymbol as string
-                            }`
-                          : '-'
-                      }`}
-                    </Text>
-                  ) : (
-                    <Skeleton shape="Body2" />
-                  )}
-                </Box>
-              </Box>
-              <Icon name="ChevronRightMini" color="icon-subdued" />
-            </HStack>
+          {collection ? (
+            <CollectionLogo
+              src={collection.logoUrl}
+              width="40px"
+              height="40px"
+            />
+          ) : (
+            <CustomSkeleton width="40px" height="40px" borderRadius="12px" />
           )}
-        </Pressable>
+          <Box flex={1}>
+            <Text typography="Body1Strong">
+              {asset.collection.contractName}
+            </Text>
+            <Box mt="4px">
+              {collection ? (
+                <Text typography="Body2" color="text-subdued">
+                  {`${
+                    collection?.itemsTotal ?? '-'
+                  } Items • ${intl.formatMessage({
+                    id: 'content__floor',
+                  })} ${
+                    collection.floorPrice
+                      ? `${collection.floorPrice} ${
+                          collection.priceSymbol as string
+                        }`
+                      : '-'
+                  }`}
+                </Text>
+              ) : (
+                <Skeleton shape="Body2" />
+              )}
+            </Box>
+          </Box>
+        </HStack>
       )}
 
       {isOwner && (

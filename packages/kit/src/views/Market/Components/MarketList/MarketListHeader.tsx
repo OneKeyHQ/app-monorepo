@@ -46,7 +46,8 @@ const MarketListHeader: FC<MarketListHeaderProps> = ({ headTags }) => {
             tag.id === EMarketCellData.TokenInfo ||
             tag.id === EMarketCellData.TokenPrice ||
             tag.id === EMarketCellData.Token24hChange ||
-            tag.id === EMarketCellData.Token24hVolume ||
+            /* tag.id === EMarketCellData.Token24hVolume || */
+            // 隐藏24hVolume
             tag.id === EMarketCellData.TokenMarketCap ||
             tag.id === EMarketCellData.TokenSparklineChart
           ) {

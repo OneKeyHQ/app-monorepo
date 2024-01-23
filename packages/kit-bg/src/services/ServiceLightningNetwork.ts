@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { mnemonicToSeedSync } from 'bip39';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
 import type { Account } from '@onekeyhq/engine/src/types/account';
@@ -30,6 +29,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -68,15 +68,7 @@ export default class ServiceLightningNetwork extends ServiceBase {
         networkId,
         accountId,
       });
-      const res = await (vault as VaultLightning).exchangeToken(password);
-      const address = await (
-        vault as VaultLightning
-      ).getCurrentBalanceAddress();
-      await simpleDb.utxoAccounts.updateLndToken(
-        address,
-        res.access_token,
-        res.refresh_token,
-      );
+      await (vault as VaultLightning).exchangeToken(password);
       this.previousRequestTokenAccountId = accountId;
       this.previousRequestTokenTimestamp = Date.now();
     } finally {
@@ -337,59 +329,23 @@ export default class ServiceLightningNetwork extends ServiceBase {
   async lnurlAuth({
     password,
     walletId,
+    networkId,
     lnurlDetail,
   }: {
     walletId: string;
     password: string;
+    networkId: string;
     lnurlDetail: LNURLDetails;
   }) {
     if (lnurlDetail.tag !== 'login') {
       throw new Error('lnurl-auth: invalid tag');
     }
-    const { entropy } = (await this.backgroundApi.engine.dbApi.getCredential(
+    const vault = (await this.backgroundApi.engine.getWalletOnlyVault(
+      networkId,
       walletId,
-      password,
-    )) as ExportedSeedCredential;
-    const mnemonic = mnemonicFromEntropy(entropy, password);
-    const seed = mnemonicToSeedSync(mnemonic);
-    const root = getBitcoinBip32().fromSeed(seed);
-    // See https://github.com/lnurl/luds/blob/luds/05.md
-    const hashingKey = root.derivePath(`m/138'/0`);
-    const hashingPrivateKey = hashingKey.privateKey;
+    )) as VaultLightning;
 
-    if (!hashingPrivateKey) {
-      throw new Error('lnurl-auth: invalid hashing key');
-    }
-
-    const url = new URL(lnurlDetail.url);
-
-    const pathSuffix = getPathSuffix(url.host, bytesToHex(hashingPrivateKey));
-
-    let linkingKey = root.derivePath(`m/138'`);
-    for (const index of pathSuffix) {
-      linkingKey = linkingKey.derive(index);
-    }
-
-    if (!linkingKey.privateKey) {
-      throw new Error('lnurl-auth: invalid linking private key');
-    }
-
-    const linkingKeyPriv = bytesToHex(linkingKey.privateKey);
-
-    if (!linkingKeyPriv) {
-      throw new Error('Invalid linkingKey');
-    }
-
-    const signer = new HashKeySigner(linkingKeyPriv);
-
-    const k1 = hexToBytes(lnurlDetail.k1);
-    const signedMessage = signer.sign(k1);
-    const signedMessageDERHex = signedMessage.toDER('hex');
-
-    const loginURL = url;
-    loginURL.searchParams.set('sig', signedMessageDERHex);
-    loginURL.searchParams.set('key', signer.pkHex);
-    loginURL.searchParams.set('t', Date.now().toString());
+    const loginURL = await vault.getLnurlAuthUrl({ lnurlDetail, password });
 
     try {
       const response = await axios.get<{

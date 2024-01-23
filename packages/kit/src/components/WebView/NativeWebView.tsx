@@ -7,9 +7,9 @@ import {
 } from 'react';
 
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
-import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { useTheme } from '@onekeyhq/components';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { openUrlExternal } from '../../utils/openUrl';
@@ -23,12 +23,6 @@ import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
 export type NativeWebViewProps = WebViewProps & InpageProviderWebViewProps;
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'transparent',
-    flex: 1,
-  },
-});
 const NativeWebView = forwardRef(
   (
     {
@@ -43,6 +37,7 @@ const NativeWebView = forwardRef(
     }: NativeWebViewProps,
     ref,
   ) => {
+    const { themeVariant } = useTheme();
     const webviewRef = useRef<WebView>();
 
     const jsBridge = useMemo(
@@ -118,7 +113,10 @@ const NativeWebView = forwardRef(
 
     return (
       <WebView
-        style={styles.container}
+        style={{
+          flex: 1,
+          backgroundColor: themeVariant === 'light' ? undefined : 'transparent',
+        }}
         originWhitelist={['*']}
         allowFileAccess
         allowFileAccessFromFileURLs

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { Box } from '@onekeyhq/components';
@@ -17,6 +17,7 @@ export const Desktop = () => {
   const onScroll = useCallback(() => {
     discoverUIEventBus.emit('scroll');
   }, []);
+  const containerStyle = useMemo(() => ({ flex: 1 }), []);
   return (
     <Box
       flex="1"
@@ -33,6 +34,7 @@ export const Desktop = () => {
           headerView={<Header />}
           ref={ref}
           onScroll={onScroll}
+          containerStyle={containerStyle}
         >
           {tabConfig.map((tab) => (
             <Tabs.Tab key={tab.name} name={tab.name} label={tab.label}>

@@ -36,6 +36,30 @@ type PriceQueryParams = {
 
 @backgroundClass()
 export default class ServicePrice extends ServiceBase {
+  @bindThis()
+  registerEvents() {
+    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+      const { appSelector } = this.backgroundApi;
+      const { activeAccountId: accountId, activeNetworkId: networkId } =
+        appSelector((s) => s.general);
+      if (!networkId || !accountId) {
+        return;
+      }
+      const accountTokens = appSelector(
+        (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
+      );
+      const currentVsCurrency = appSelector(
+        (s) => s.settings.selectedFiatMoneySymbol,
+      );
+      this.fetchSimpleTokenPrice({
+        networkId,
+        accountId,
+        tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
+        vsCurrency: currentVsCurrency,
+      });
+    });
+  }
+
   @backgroundMethod()
   async fetchSimpleTokenPrice({
     networkId,

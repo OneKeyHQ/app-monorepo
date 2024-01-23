@@ -24,7 +24,9 @@ function nextWebpack(
         config.resolve = config.resolve || {};
         config.resolve.fallback = {
           ...config.resolve.fallback,
-          'crypto': require.resolve('crypto-browserify'),
+          'crypto': require.resolve(
+            '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
+          ),
           'stream': require.resolve('stream-browserify'),
           'path': false,
           'https': false,

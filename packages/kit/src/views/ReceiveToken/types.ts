@@ -17,6 +17,7 @@ export type ReceiveTokenRoutesParams = {
     account?: Account | null;
     customPath?: string;
     template?: string;
+    receiveInscription?: boolean;
   };
   [ReceiveTokenModalRoutes.CreateInvoice]: {
     networkId?: string;

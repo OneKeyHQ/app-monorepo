@@ -203,7 +203,7 @@ function createMainWindow() {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: true,
+      webSecurity: !isDev,
       nativeWindowOpen: true,
       allowRunningInsecureContent: isDev,
       // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
@@ -334,6 +334,24 @@ function createMainWindow() {
         error: e.message,
       });
     }
+  });
+
+  ipcMain.on(
+    'app/secureSetItemAsync',
+    (event, { key, value }: { key: string; value: string }) => {
+      store.setSecureItem(key, value);
+      event.returnValue = '';
+    },
+  );
+
+  ipcMain.on('app/secureGetItemAsync', (event, { key }: { key: string }) => {
+    const value = store.getSecureItem(key);
+    event.returnValue = value;
+  });
+
+  ipcMain.on('app/secureDelItemAsync', (event, { key }: { key: string }) => {
+    store.clearSecureItem(key);
+    event.returnValue = '';
   });
 
   ipcMain.on('app/reloadBridgeProcess', (event) => {

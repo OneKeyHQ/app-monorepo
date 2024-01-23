@@ -1,7 +1,7 @@
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { CosmwasmQuery } from './CosmwasmQuery';
-import { MintScanQuery } from './MintScanQuery';
+import { OneKeyQuery } from './OneKeyQuery';
 import { SecretwasmQuery } from './SecretwasmQuery';
 
 import type { AxiosInstance } from 'axios';
@@ -56,7 +56,7 @@ queryRegistry.register(OnekeyNetwork.juno, cosmwasmQuery);
 queryRegistry.register(OnekeyNetwork.osmosis, cosmwasmQuery);
 queryRegistry.register(OnekeyNetwork.secretnetwork, new SecretwasmQuery());
 
-const mintScanQuery = new MintScanQuery();
-queryRegistry.register(OnekeyNetwork.cosmoshub, mintScanQuery);
-queryRegistry.register(OnekeyNetwork.akash, mintScanQuery);
-queryRegistry.register(OnekeyNetwork.fetch, mintScanQuery);
+const oneKeyQuery = new OneKeyQuery();
+queryRegistry.register(OnekeyNetwork.cosmoshub, oneKeyQuery);
+queryRegistry.register(OnekeyNetwork.akash, oneKeyQuery);
+queryRegistry.register(OnekeyNetwork.fetch, oneKeyQuery);

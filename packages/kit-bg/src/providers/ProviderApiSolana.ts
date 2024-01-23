@@ -5,7 +5,7 @@ import bs58 from 'bs58';
 import isArray from 'lodash/isArray';
 import isString from 'lodash/isString';
 
-import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
+import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {
   backgroundClass,
@@ -35,7 +35,7 @@ type SolanaSendOptions = {
 class ProviderApiSolana extends ProviderApiBase {
   public providerName = IInjectedProviderNames.solana;
 
-  private getConnectedAcccountPublicKey(
+  private getConnectedAccountPublicKey(
     request: IJsBridgeMessagePayload,
   ): Promise<string> {
     const [account] = this.backgroundApi.serviceDapp.getActiveConnectedAccounts(
@@ -55,7 +55,7 @@ class ProviderApiSolana extends ProviderApiBase {
         params: {
           accounts: [
             {
-              publicKey: await this.getConnectedAcccountPublicKey({ origin }),
+              publicKey: await this.getConnectedAccountPublicKey({ origin }),
             },
           ].filter((item) => !!item.publicKey),
         },
@@ -168,7 +168,7 @@ class ProviderApiSolana extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const publicKey = await this.getConnectedAcccountPublicKey(request);
+    const publicKey = await this.getConnectedAccountPublicKey(request);
     const txid = (await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,
       {
@@ -198,12 +198,11 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     debugLogger.providerApi.info('solana signMessage', request, params);
-    const publicKey = await this.getConnectedAcccountPublicKey(request);
+    const publicKey = await this.getConnectedAccountPublicKey(request);
     const signature =
       await this.backgroundApi.serviceDapp?.openSignAndSendModal(request, {
         unsignedMessage: {
-          // Use ETH_SIGN to sign plain message
-          type: ETHMessageTypes.ETH_SIGN,
+          type: CommonMessageTypes.SIGN_MESSAGE,
           // TODO: different display needed?
           message: bs58.decode(message).toString(),
         },
@@ -221,10 +220,10 @@ class ProviderApiSolana extends ProviderApiBase {
     //    onlyIfTrusted: false    show connection Modal
     const { onlyIfTrusted = false } = params || {};
 
-    let publicKey = await this.getConnectedAcccountPublicKey(request);
+    let publicKey = await this.getConnectedAccountPublicKey(request);
     if (!publicKey && !onlyIfTrusted) {
       await this.backgroundApi.serviceDapp.openConnectionModal(request);
-      publicKey = await this.getConnectedAcccountPublicKey(request);
+      publicKey = await this.getConnectedAccountPublicKey(request);
     }
 
     if (!publicKey) {

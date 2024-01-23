@@ -20,6 +20,11 @@ export type IDappSignAndSendParams = {
   lnurlDetails?: LNURLDetails;
 };
 
+export type IDappInscribeTransferParams = {
+  ticker?: string;
+  amount?: string;
+};
+
 export type IDappConnectionParams = {
   networkId?: string;
   accountIdentify?: string;
@@ -31,7 +36,8 @@ function useDappParams() {
   const query = (route.params as { query: string })?.query ?? '';
   let queryInfo: {
     sourceInfo?: IDappSourceInfo;
-  } & IDappSignAndSendParams = {};
+  } & IDappSignAndSendParams &
+    IDappInscribeTransferParams = {};
 
   try {
     if (query) {

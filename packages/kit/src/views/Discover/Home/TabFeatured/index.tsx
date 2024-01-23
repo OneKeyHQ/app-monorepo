@@ -6,6 +6,7 @@ import {
   Box,
   Icon,
   Pressable,
+  Stack,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -111,7 +112,7 @@ const HorizontalContent: FC<ContentProps> = ({ data }) => {
     return null;
   }
   return (
-    <Box pb="4">
+    <Box>
       <Box px="4">
         <ContentHeader title={data.label} id={data.id} />
       </Box>
@@ -214,7 +215,7 @@ const SectionFeaturedContent = () => {
   return (
     <Box w="full" pb="2">
       <BannerContent />
-      <Box>
+      <Stack direction="column" space="2">
         {groupDapps.map((item, index) =>
           index % 2 === 0 ? (
             <VerticalContent key={item.label} data={item} />
@@ -222,7 +223,7 @@ const SectionFeaturedContent = () => {
             <HorizontalContent key={item.label} data={item} />
           ),
         )}
-      </Box>
+      </Stack>
       <TagContent />
     </Box>
   );

@@ -442,6 +442,7 @@ function AddExistingWalletView(
   const {
     onChange: onNameServiceStatusChange,
     disableSubmitBtn,
+    isSearching,
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
@@ -569,7 +570,22 @@ function AddExistingWalletView(
   useEffect(() => {
     const text = getValues('text');
     if (nameServiceAddress || address || text) trigger('text');
-  }, [getValues, nameServiceAddress, address, selectedNetwork.id, trigger]);
+  }, [
+    getValues,
+    nameServiceAddress,
+    address,
+    selectedNetwork.id,
+    trigger,
+    isSearching,
+  ]);
+
+  useEffect(() => {
+    if (isSearching) {
+      setTimeout(() => {
+        trigger('text');
+      }, 100);
+    }
+  }, [isSearching, trigger]);
 
   return (
     <Box
@@ -606,6 +622,11 @@ function AddExistingWalletView(
                 if (!text) {
                   return true;
                 }
+
+                if (isSearching) {
+                  return true;
+                }
+
                 if (
                   (
                     await backgroundApiProxy.validator.validateCreateInput({

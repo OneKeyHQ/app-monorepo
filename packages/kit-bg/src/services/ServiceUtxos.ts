@@ -18,6 +18,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
@@ -184,7 +185,10 @@ export default class ServiceUtxos extends ServiceBase {
 
       const utxos: ICoinControlListItem[] = btcUtxos
         .filter((utxo) =>
-          new BigNumber(utxo?.confirmations ?? 0).isGreaterThan(0),
+          // only filter unconfirmed utxos for btc network
+          isBTCNetwork(networkId)
+            ? new BigNumber(utxo?.confirmations ?? 0).isGreaterThan(0)
+            : true,
         )
         .map((utxo) => {
           const archivedUtxo = archivedUtxos.find(
