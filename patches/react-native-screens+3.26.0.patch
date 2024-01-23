@@ -195,7 +195,7 @@ index 1ed4914..0e1703f 100644
 +  [screenViews enumerateObjectsUsingBlock:^(RNSScreenView *obj, NSUInteger idx, BOOL *stop) {
 +    obj.activityState = (idx == index) ? RNSActivityStateOnTop : RNSActivityStateInactive;
 +  }];
-+  containerView.shouldBreakJSUpdateCount += 1;
++  containerView.shouldBreakJSUpdateBySelectedIndex = @(index);
 +  UIViewController *controller = screenViews[index].controller;
 +  [navigationController setViewControllers:@[controller] animated:NO];
 +
@@ -260,7 +260,7 @@ index defd0d5..f6521f5 100644
  
  @interface RNSScreenNavigationContainerView : RNSScreenContainerView
  
-+@property (nonatomic, assign) NSInteger shouldBreakJSUpdateCount;
++@property (nonatomic, strong) NSNumber *shouldBreakJSUpdateBySelectedIndex;
 +
  @end
  
@@ -269,15 +269,22 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.
 index f10671e..20e0d45 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenNavigationContainer.mm
-@@ -29,7 +29,11 @@ - (void)updateContainer
+@@ -29,7 +29,18 @@ - (void)updateContainer
      if (screen.activityState == RNSActivityStateOnTop) {
        // there should never be more than one screen with `RNSActivityStateOnTop`
        // since this component should be used for `tabs` and `drawer` navigators
 -      [(RNSContainerNavigationController *)self.controller setViewControllers:@[ screen.controller ] animated:NO];
-+      if (self.shouldBreakJSUpdateCount > 0) {
-+        self.shouldBreakJSUpdateCount = 0;
-+      } else {
++
++      Boolean sameIndex = [self.shouldBreakJSUpdateBySelectedIndex intValue] == [self.reactSubviews indexOfObject:screen];
++
++      // When clicking tabBarItem.tapGesture rapidly on native, we need to skip some updates sent by JS.
++      if (self.shouldBreakJSUpdateBySelectedIndex == nil || sameIndex) {
 +        [(RNSContainerNavigationController *)self.controller setViewControllers:@[ screen.controller ] animated:NO];
++      }
++
++      // We waited for updates from Native and JS to be in sync, resetting the saved native index.
++      if (self.shouldBreakJSUpdateBySelectedIndex != nil && sameIndex) {
++        self.shouldBreakJSUpdateBySelectedIndex = nil;
 +      }
        [screen notifyFinishTransitioning];
      }
