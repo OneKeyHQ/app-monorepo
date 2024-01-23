@@ -72,8 +72,10 @@ export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
         </Button>
       )}
       <AccountSelectorSyncButton
-        sceneName={EAccountSelectorSceneName.home}
-        sceneNum={0}
+        from={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        }}
         num={num}
       />
       <XStack h="$4" />

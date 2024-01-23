@@ -8,7 +8,7 @@ export function AccountSelectorSyncButton(
   params: IAccountSelectorSyncFromSceneParams,
 ) {
   const actions = useAccountSelectorActions();
-  const { sceneName } = params;
+  const { from } = params;
   return (
     <Button
       size="small"
@@ -16,7 +16,7 @@ export function AccountSelectorSyncButton(
         void actions.current.syncFromScene(params);
       }}
     >
-      Sync from {sceneName}
+      Sync from {from.sceneName}
     </Button>
   );
 }

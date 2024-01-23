@@ -53,9 +53,11 @@ function isOthersWallet({ walletId }: { walletId: string }) {
 }
 
 export type IAccountSelectorSyncFromSceneParams = {
-  sceneName: EAccountSelectorSceneName;
-  sceneUrl?: string;
-  sceneNum: number;
+  from: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    sceneNum: number;
+  };
   num: number;
 };
 class AccountSelectorActions extends ContextJotaiActionsBase {
@@ -349,16 +351,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   syncFromScene = contextAtomMethod(
-    async (
-      get,
-      set,
-      {
-        sceneName,
-        sceneUrl,
-        sceneNum,
-        num,
-      }: IAccountSelectorSyncFromSceneParams,
-    ) => {
+    async (get, set, { from, num }: IAccountSelectorSyncFromSceneParams) => {
+      const { sceneName, sceneUrl, sceneNum } = from;
       const selectAccounts =
         await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
           sceneName,
