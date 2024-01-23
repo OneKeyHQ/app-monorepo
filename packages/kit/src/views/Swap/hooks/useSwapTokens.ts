@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -54,6 +56,12 @@ export function useSwapTokenList(
   const [fromToken] = useSwapSelectFromTokenAtom();
   const { isLoading } = usePromiseResult(
     async () => {
+      let isUtxo;
+      if (activeAccount.network?.id) {
+        isUtxo = await backgroundApiProxy.serviceAccount.getNetworkIsUtxo({
+          networkId: activeAccount.network?.id,
+        });
+      }
       const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: currentNetworkId,
         type: selectTokenModalType,
@@ -61,7 +69,9 @@ export function useSwapTokenList(
         keywords,
         accountAddress: activeAccount.account?.address,
         accountNetworkId: activeAccount.network?.id,
-        accountXpub: activeAccount.account?.pub,
+        accountXpub: isUtxo
+          ? (activeAccount.account as IDBUtxoAccount)?.xpub
+          : undefined,
       });
       setCurrentTokens(result);
     },

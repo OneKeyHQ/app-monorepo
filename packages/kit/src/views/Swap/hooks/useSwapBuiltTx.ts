@@ -77,7 +77,7 @@ export function useSwapBuildTx() {
         amount: fromTokenAmount,
       };
       if (res?.swftOrder) {
-        // swft orider
+        // swft order
         transferInfo = {
           ...transferInfo,
           to: res.swftOrder.platformAddr,
@@ -97,14 +97,8 @@ export function useSwapBuildTx() {
           to: res.tx.to,
           amount: fromTokenAmount,
         };
+        encodedTx = { ...res?.tx, from: activeAccount.account?.address };
       }
-      const buildEncodedTx =
-        await backgroundApiProxy.serviceSend.buildUnsignedTx({
-          transfersInfo: [transferInfo],
-          networkId: activeAccount.network?.id,
-          accountId: activeAccount.account?.id,
-        });
-      encodedTx = buildEncodedTx.encodedTx;
 
       setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);

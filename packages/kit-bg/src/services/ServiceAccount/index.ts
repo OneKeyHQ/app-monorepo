@@ -159,6 +159,12 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNetworkIsUtxo({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.isUtxo;
+  }
+
+  @backgroundMethod()
   async getIndexedAccount({ id }: { id: string }) {
     return localDb.getIndexedAccount({ id });
   }
