@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Page, SizableText, Stack, Toast } from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IConnectionItem } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -18,18 +17,19 @@ import {
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
 function DAppAccountSelector({
+  num,
   origin,
   onSelectedAccount,
 }: {
+  num: number;
   origin: string;
   onSelectedAccount: (activeAccount: IAccountSelectorActiveAccountInfo) => void;
 }) {
   const { serviceAccount } = backgroundApiProxy;
-  const networkId = 'evm--1';
   const { activeAccount } = useActiveAccount({
-    num: 0,
+    num,
   });
-  const { wallet, account, indexedAccount } = activeAccount;
+  const { wallet, account, indexedAccount, network } = activeAccount;
   const actions = useAccountSelectorActions();
 
   useEffect(() => {
@@ -50,7 +50,7 @@ function DAppAccountSelector({
           onPress={async () => {
             const c = await serviceAccount.addHDOrHWAccounts({
               walletId: wallet?.id,
-              networkId,
+              networkId: network?.id,
               indexedAccountId: indexedAccount?.id,
               deriveType: 'default',
             });
@@ -64,18 +64,18 @@ function DAppAccountSelector({
       );
     }
     return null;
-  }, [account, indexedAccount, serviceAccount, wallet, actions]);
+  }, [account, indexedAccount, serviceAccount, wallet, actions, network?.id]);
 
   return (
     <Stack>
       <SizableText>{origin}</SizableText>
       <AccountSelectorTriggerHome
-        num={0}
+        num={num}
         sceneName={EAccountSelectorSceneName.discover}
         sceneUrl={origin}
       />
       <NetworkSelectorTriggerHome
-        num={0}
+        num={num}
         sceneName={EAccountSelectorSceneName.discover}
         sceneUrl={origin}
       />
@@ -85,12 +85,32 @@ function DAppAccountSelector({
 }
 
 function ConnectionModal() {
-  const { serviceDApp, serviceDiscovery } = backgroundApiProxy;
+  const { serviceDApp } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!$sourceInfo?.origin || !$sourceInfo.scope) {
+      return;
+    }
+    serviceDApp
+      .getAccountSelectorNum({
+        origin: $sourceInfo.origin,
+        scope: $sourceInfo.scope ?? '',
+      })
+      .then((num) => {
+        setAccountSelectorNum(num);
+      })
+      .catch((e) => {
+        console.error('getAccountSelectorNum error: ', e);
+      });
+  }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp]);
 
   const selectedAccountRef = useRef<IAccountSelectorActiveAccountInfo | null>(
     null,
@@ -109,57 +129,47 @@ function ConnectionModal() {
       const { wallet, account, network, indexedAccount } =
         selectedAccountRef.current;
       const connectionInfo = {
-        type: $sourceInfo?.scope,
+        networkImpl: network?.impl ?? '',
         walletId: wallet?.id ?? '',
-        networkId: network?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
+        networkId: network?.id ?? '',
         accountId: account.id,
+        address: account.address,
       };
-      const result: IConnectionItem = {
-        origin: $sourceInfo?.origin ?? '',
-        imageURL: await serviceDiscovery.getWebsiteIcon(
-          $sourceInfo?.origin ?? '',
-          128,
-        ),
-        connectionMap: {
-          [$sourceInfo?.scope]: connectionInfo,
-        },
-      };
-      await serviceDApp.saveConnectionSession(result);
+      await serviceDApp.saveConnectionSession({
+        origin: $sourceInfo?.origin,
+        accountInfos: [connectionInfo],
+        storageType: 'injectedProvider',
+      });
       await dappApprove.resolve({
         close,
-        result,
+        result: connectionInfo,
       });
     },
-    [
-      dappApprove,
-      $sourceInfo?.origin,
-      $sourceInfo?.scope,
-      serviceDApp,
-      serviceDiscovery,
-    ],
+    [dappApprove, $sourceInfo?.origin, $sourceInfo?.scope, serviceDApp],
   );
 
   return (
     <Page>
       <Page.Header title="Connection Modal" />
       <Page.Body>
-        {$sourceInfo?.origin ? (
+        {accountSelectorNum === null ? null : (
           <AccountSelectorProviderMirror
             config={{
               sceneName: EAccountSelectorSceneName.discover,
-              sceneUrl: $sourceInfo.origin,
+              sceneUrl: $sourceInfo?.origin,
             }}
-            enabledNum={[0]}
+            enabledNum={[accountSelectorNum]}
           >
             <DAppAccountSelector
-              origin={$sourceInfo.origin}
+              num={accountSelectorNum}
+              origin={$sourceInfo?.origin ?? ''}
               onSelectedAccount={(activeAccount) => {
                 selectedAccountRef.current = activeAccount;
               }}
             />
           </AccountSelectorProviderMirror>
-        ) : null}
+        )}
       </Page.Body>
       <Page.Footer
         onConfirmText="Connect"

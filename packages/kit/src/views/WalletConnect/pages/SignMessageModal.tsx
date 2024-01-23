@@ -2,17 +2,16 @@ import { useCallback } from 'react';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 function SignMessageModal() {
-  const { $sourceInfo, unsignedMessage } = useDappQuery<{
+  const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
   }>();
 
   const dappApprove = useDappApproveAction({
@@ -20,18 +19,16 @@ function SignMessageModal() {
     closeWindowAfterResolved: true,
   });
 
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
   const handleSignMessage = useCallback(async () => {
     const result = await backgroundApiProxy.serviceDApp.signMessage({
       unsignedMessage,
-      networkId: activeAccount.network?.id ?? '',
-      accountId: activeAccount.account?.id ?? '',
+      networkId,
+      accountId,
     });
     void dappApprove.resolve({
       result,
     });
-  }, [activeAccount, unsignedMessage, dappApprove]);
+  }, [unsignedMessage, dappApprove, networkId, accountId]);
 
   return (
     <Page>
@@ -53,19 +50,4 @@ function SignMessageModal() {
   );
 }
 
-function SignMessageModalProvider() {
-  const { $sourceInfo } = useDappQuery();
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: $sourceInfo?.origin,
-      }}
-      enabledNum={[0]}
-    >
-      <SignMessageModal />
-    </AccountSelectorProviderMirror>
-  );
-}
-
-export default SignMessageModalProvider;
+export default SignMessageModal;

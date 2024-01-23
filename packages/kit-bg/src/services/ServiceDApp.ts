@@ -1,5 +1,5 @@
 import { getSdkError } from '@walletconnect/utils';
-import { debounce } from 'lodash';
+import { debounce, get } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
@@ -191,15 +191,21 @@ class ServiceDApp extends ServiceBase {
   openSignMessageModal({
     request,
     unsignedMessage,
+    accountId,
+    networkId,
   }: {
     request: IJsBridgeMessagePayload;
     unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
   }) {
     return this.openModal({
       request,
       screens: [EModalRoutes.WalletConnectModal, 'SignMessageModal'],
       params: {
         unsignedMessage,
+        accountId,
+        networkId,
       },
     });
   }
@@ -281,13 +287,20 @@ class ServiceDApp extends ServiceBase {
   async saveConnectionSession({
     origin,
     accountInfos,
+    storageType,
   }: {
     origin: string;
     accountInfos: IConnectionAccountInfo[];
+    storageType: IStorageType;
   }) {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
       origin,
       accountInfos,
+      imageURL: await this.backgroundApi.serviceDiscovery.getWebsiteIcon(
+        origin,
+        128,
+      ),
+      storageType,
     });
   }
 
@@ -384,6 +397,16 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async fetchNetworks() {
     return Promise.resolve(serverPresetNetworks);
+  }
+
+  @backgroundMethod()
+  async getInjectProviderConnectedList() {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    if (!rawData?.data.injectedProvider) {
+      return [];
+    }
+    return Object.values(rawData.data.injectedProvider);
   }
 
   // notification

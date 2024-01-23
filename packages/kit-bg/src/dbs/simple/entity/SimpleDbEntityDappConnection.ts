@@ -77,14 +77,10 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }: {
     origin: string;
     accountInfos: IConnectionAccountInfo[];
+    storageType: IStorageType;
     imageURL?: string;
     replaceExistAccount?: boolean;
-    storageType?: IStorageType;
   }) {
-    if (!storageType) {
-      throw new Error('storageType is required');
-    }
-
     await this.setRawData(({ rawData }) => {
       let data: IDappConnectionData['data'] = {
         injectedProvider: {},

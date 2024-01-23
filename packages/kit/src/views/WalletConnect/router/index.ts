@@ -20,6 +20,8 @@ export type IWalletConnectPagesParam = {
   [EWalletConnectPages.ConnectionList]: undefined;
   [EWalletConnectPages.SignMessageModal]: {
     unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
   };
 };
 

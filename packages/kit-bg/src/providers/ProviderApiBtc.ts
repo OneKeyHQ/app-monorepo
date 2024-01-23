@@ -107,10 +107,10 @@ class ProviderApiBtc extends ProviderApiBase {
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
       });
-    if (!accountsInfo) {
-      return Promise.resolve([]);
+    if (!accountsInfo || !accountsInfo.length) {
+      return Promise.resolve('');
     }
-    return Promise.resolve(accountsInfo.map((i) => i.account.pub));
+    return Promise.resolve(accountsInfo[0].account.pub);
   }
 
   @providerApiMethod()
@@ -181,7 +181,7 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const accountInfo = accountsInfo[0];
     const {
-      accountInfo: { walletId },
+      accountInfo: { walletId, accountId, networkId },
     } = accountInfo;
     if (walletId.startsWith('hw')) {
       throw web3Errors.provider.custom({
@@ -196,6 +196,8 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
+      accountId,
+      networkId,
       unsignedMessage: {
         type,
         message,
