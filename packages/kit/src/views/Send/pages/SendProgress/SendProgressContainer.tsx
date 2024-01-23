@@ -52,7 +52,7 @@ function SendProgressContainer() {
           txid,
         });
 
-        setCurrentProgress(i + 1);
+        setCurrentProgress(i);
         // TODO: save local history
       }
 

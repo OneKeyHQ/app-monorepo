@@ -130,13 +130,17 @@ export default class Vault extends VaultBase {
     }
 
     const erc20TxDesc = decoder.parseERC20(nativeTx);
-
     if (erc20TxDesc) {
       action = await this._buildTxTokenAction({
         encodedTx,
         txDesc: erc20TxDesc,
         getNFT,
         getToken,
+      });
+      return this._buildDecodedTx({
+        encodedTx,
+        action,
+        extraNativeTransferAction,
       });
     }
 
@@ -148,6 +152,11 @@ export default class Vault extends VaultBase {
         getToken,
         getNFT,
       });
+      return this._buildDecodedTx({
+        encodedTx,
+        action,
+        extraNativeTransferAction,
+      });
     }
 
     const erc1155TxDesc = decoder.parseERC1155(nativeTx);
@@ -157,6 +166,11 @@ export default class Vault extends VaultBase {
         txDesc: erc1155TxDesc,
         getToken,
         getNFT,
+      });
+      return this._buildDecodedTx({
+        encodedTx,
+        action,
+        extraNativeTransferAction,
       });
     }
 
@@ -170,9 +184,9 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx);
+      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxEvm);
     }
     throw new OneKeyInternalError();
   }
@@ -195,6 +209,7 @@ export default class Vault extends VaultBase {
         encodedTx: encodedTxNew,
         nonceInfo,
       });
+      unsignedTx.nonce = nonceInfo.nonce;
     }
 
     unsignedTx.encodedTx = encodedTxNew;
@@ -478,6 +493,7 @@ export default class Vault extends VaultBase {
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
+      nonce: Number(tx.nonce),
     });
   }
 

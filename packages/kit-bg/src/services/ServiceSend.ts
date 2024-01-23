@@ -178,25 +178,15 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async buildUnsignedTxFromTransfer(
-    params: ISendTxBaseParams &
-      Required<Pick<IBuildUnsignedTxParams, 'transfersInfo'>>,
+  public async buildUnsignedTx(
+    params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
-    const { networkId, accountId, transfersInfo } = params;
+    const { networkId, accountId, encodedTx, transfersInfo, approveInfo } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
+      encodedTx,
       transfersInfo,
-    });
-  }
-
-  @backgroundMethod()
-  public async buildUnsignedTxFromApprove(
-    params: ISendTxBaseParams &
-      Required<Pick<IBuildUnsignedTxParams, 'approveInfo'>>,
-  ) {
-    const { networkId, accountId, approveInfo } = params;
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.buildUnsignedTx({
       approveInfo,
     });
   }

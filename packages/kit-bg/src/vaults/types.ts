@@ -3,6 +3,7 @@ import type {
   ICoreApiGetAddressItem,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
+  IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
@@ -235,6 +236,7 @@ export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
 }
 export interface IBuildUnsignedTxParams {
+  encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
 }
