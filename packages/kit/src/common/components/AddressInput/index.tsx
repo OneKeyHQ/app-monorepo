@@ -28,7 +28,11 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useDebounce } from '../../../hooks/useDebounce';
 
-type IAddressPluginsOptions = 'clipboard' | 'scan' | 'contacts';
+type IAddressPluginsOptions = {
+  clipboard?: boolean;
+  scan?: boolean;
+  contacts?: boolean;
+};
 
 type IAddressPluginProps = {
   onChange?: (text: string) => void;
@@ -123,44 +127,6 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   );
 };
 
-async function validateAddress({
-  networkId,
-  address,
-}: {
-  networkId: string;
-  address: string;
-}) {
-  try {
-    await backgroundApiProxy.serviceAddress.fetchAddressDetails({
-      networkId,
-      accountAddress: address,
-      withValidate: true,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function getContactName(params: {
-  networkId: string;
-  address: string;
-}): Promise<string | undefined> {
-  console.log('params', params);
-  // TODO: address book
-  return undefined;
-}
-
-async function isFirstTransfer(params: {
-  networkId: string;
-  accountId: string;
-  to: string;
-}): Promise<boolean> {
-  console.log('params', params);
-  // TODO: API
-  return Promise.resolve(false);
-}
-
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
@@ -175,62 +141,24 @@ type IAddressInputProps = Omit<
   onChange?: (value: IAddressInputValue) => void;
   placeholder?: string;
   name?: string;
-  plugins?: IAddressPluginsOptions[];
+  plugins?: IAddressPluginsOptions;
   enableNameResolve?: boolean; //
   enableAddressBook?: boolean;
   enableFirstTransferCheck?: boolean;
 };
 
-type IAddressQueryResult = {
+export type IAddressQueryResult = {
   input?: string;
   isValid?: boolean;
-  walletName?: string;
+  walletAccountName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   isFirstTransfer?: boolean;
 };
 
-type IAddressQueryOptions = {
-  networkId: string;
-  enableNameResolve?: boolean;
-  enableWalletName?: boolean;
-  enableFirstTransferCheck?: boolean;
-};
-
-const queryAddress = async (
-  input: string,
-  { networkId, enableNameResolve }: IAddressQueryOptions,
-) => {
-  const result: IAddressQueryResult = { input };
-  if (networkId) {
-    result.isValid = await validateAddress({ networkId, address: input });
-    await backgroundApiProxy.serviceValidator.validateAddress({
-      networkId,
-      address: input,
-    });
-    const includeDot = input.split('.').length > 1;
-    if (includeDot && enableNameResolve) {
-      const resolveNames =
-        await backgroundApiProxy.serviceNameResolver.resolveName({
-          name: input,
-          networkId,
-        });
-      if (resolveNames) {
-        result.resolveAddress = resolveNames.names?.[0].value;
-        result.resolveOptions = resolveNames.names.map((o) => o.value);
-
-        if (!result.isValid) {
-          const resolveValidateResult =
-            await backgroundApiProxy.serviceValidator.validateAddress({
-              networkId,
-              address: result.resolveAddress,
-            });
-          result.isValid = resolveValidateResult.isValid;
-        }
-      }
-    }
-  }
-  return result;
+const defaultAddressInputPlugins: IAddressPluginsOptions = {
+  clipboard: true,
+  scan: true,
 };
 
 function AddressInput(props: IAddressInputProps) {
@@ -245,7 +173,7 @@ function AddressInput(props: IAddressInputProps) {
     editable,
     size,
     onBlur,
-    plugins = ['clipboard', 'scan'],
+    plugins = defaultAddressInputPlugins,
     enableNameResolve = true,
     enableAddressBook,
     ...rest
@@ -291,8 +219,9 @@ function AddressInput(props: IAddressInputProps) {
       }
       setLoading(true);
       try {
-        const result = await queryAddress(debounceText, {
+        const result = await backgroundApiProxy.serviceAddress.queryAddress({
           networkId,
+          address: debounceText,
           enableNameResolve,
         });
         if (result.input === textRef.current) {
@@ -369,9 +298,9 @@ function AddressInput(props: IAddressInputProps) {
               </XStack>
             ) : (
               <XStack>
-                {queryResult.walletName ? (
+                {queryResult.walletAccountName ? (
                   <Badge badgeType="success" badgeSize="sm">
-                    {queryResult.walletName}
+                    {queryResult.walletAccountName}
                   </Badge>
                 ) : null}
                 {queryResult.resolveAddress ? (
@@ -390,13 +319,11 @@ function AddressInput(props: IAddressInputProps) {
             )}
           </XStack>
           <XStack space="$2">
-            {plugins.includes('clipboard') ? (
+            {plugins.clipboard ? (
               <ClipboardPlugin onChange={onChangeText} />
             ) : null}
-            {plugins.includes('scan') ? (
-              <ScanPlugin onChange={onChangeText} />
-            ) : null}
-            {plugins.includes('contacts') ? <ContactsPlugin /> : null}
+            {plugins.scan ? <ScanPlugin onChange={onChangeText} /> : null}
+            {plugins.contacts ? <ContactsPlugin /> : null}
           </XStack>
         </XStack>
       </YStack>
