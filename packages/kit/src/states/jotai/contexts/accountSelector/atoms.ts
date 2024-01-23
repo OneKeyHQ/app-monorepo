@@ -77,6 +77,7 @@ export const {
 
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
+  isOthersWallet?: boolean;
   account: IDBAccount | undefined;
   indexedAccount: IDBIndexedAccount | undefined;
   wallet: IDBWallet | undefined;

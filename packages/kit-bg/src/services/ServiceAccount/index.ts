@@ -753,6 +753,7 @@ class ServiceAccount extends ServiceBase {
         console.error(e);
       }
     }
+    const isOthersWallet = Boolean(account && !indexedAccountId);
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       wallet,
@@ -760,8 +761,8 @@ class ServiceAccount extends ServiceBase {
       indexedAccount,
       deriveType,
       ready: true,
+      isOthersWallet,
     };
-    const isOthersWallet = !activeAccount.indexedAccount;
     const selectedAccountFixed: IAccountSelectorSelectedAccount = {
       othersWalletAccountId: isOthersWallet
         ? activeAccount?.account?.id
