@@ -53,7 +53,10 @@ class ServiceSend extends ServiceBase {
       to: account.address,
       amount: `0.00000${random(1, 20)}`,
       tokenInfo: {
-        tokenIdOnNetwork: '',
+        address: '',
+        decimals: 18,
+        name: 'Ethereum',
+        symbol: 'ETH',
       },
     };
 
@@ -61,12 +64,6 @@ class ServiceSend extends ServiceBase {
     // PageSendConfirm
     let unsignedTx = await vault.buildUnsignedTx({
       transfersInfo: [transferInfo],
-      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
-        this.backgroundApi.serviceToken,
-      ),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
-        this.backgroundApi.serviceNFT,
-      ),
     });
 
     // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
@@ -173,14 +170,10 @@ class ServiceSend extends ServiceBase {
   ): Promise<IDecodedTx> {
     const { networkId, accountId, unsignedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+    const buildTxHelper = await this.getBuildTxHelper();
     return vault.buildDecodedTx({
       unsignedTx,
-      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
-        this.backgroundApi.serviceToken,
-      ),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
-        this.backgroundApi.serviceNFT,
-      ),
+      ...buildTxHelper,
     });
   }
 
@@ -192,12 +185,6 @@ class ServiceSend extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       transfersInfo,
-      getToken: this.backgroundApi.serviceToken.ensureTokenInDB.bind(
-        this.backgroundApi.serviceToken,
-      ),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
-        this.backgroundApi.serviceNFT,
-      ),
     });
   }
 
@@ -292,6 +279,18 @@ class ServiceSend extends ServiceBase {
     // TODO: fix nonce with local pending txs
 
     return nonce;
+  }
+
+  @backgroundMethod()
+  public getBuildTxHelper() {
+    return Promise.resolve({
+      getToken: this.backgroundApi.serviceToken.getToken.bind(
+        this.backgroundApi.serviceToken,
+      ),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
+        this.backgroundApi.serviceNFT,
+      ),
+    });
   }
 }
 

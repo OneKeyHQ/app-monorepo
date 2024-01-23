@@ -1,11 +1,10 @@
 import { keyBy } from 'lodash';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
@@ -91,30 +90,6 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async ensureTokenInDB({
-    networkId,
-    tokenIdOnNetwork,
-  }: {
-    networkId: string;
-    tokenIdOnNetwork: string;
-  }) {
-    const token = await this.getToken({ networkId, tokenIdOnNetwork });
-
-    if (token) {
-      const localTokenId = `${networkId}__${tokenIdOnNetwork}`;
-      const tokenToUpdate = {
-        ...token,
-        '$key': localTokenId,
-      };
-      void this.updateLocalTokens({
-        tokens: [tokenToUpdate],
-      });
-    }
-
-    return token;
-  }
-
-  @backgroundMethod()
   public async getNativeToken({ networkId }: { networkId: string }) {
     return this.getToken({ networkId, tokenIdOnNetwork: '' });
   }
@@ -124,52 +99,38 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     tokenIdOnNetwork: string;
   }) {
-    try {
-      return {
-        ...(await this._getTokenMemo(params)),
-      };
-    } catch (error) {
-      return Promise.resolve(undefined);
-    }
-  }
-
-  _getTokenMemo = memoizee(
-    async ({
+    const { networkId, tokenIdOnNetwork } = params;
+    const localTokenId = accountUtils.buildLocalTokenId({
       networkId,
       tokenIdOnNetwork,
-    }: {
-      networkId: string;
-      tokenIdOnNetwork: string;
-    }) => {
-      const tokenMap = (await simpleDb.localTokens.getRawData())?.data;
-      const localTokenId = `${networkId}__${tokenIdOnNetwork}`;
-      if (tokenMap) {
-        const token = tokenMap[localTokenId];
-        if (token) {
-          return token;
-        }
-      }
+    });
+    const localToken = await simpleDb.localTokens.getToken(localTokenId);
+    if (localToken) return localToken;
 
-      try {
-        const tokenDetails = await this.fetchTokenDetails({
-          networkId,
-          address: tokenIdOnNetwork,
-          isNative: tokenIdOnNetwork === '',
-        });
-        return tokenDetails.info;
-      } catch (error) {
-        console.log('fetchTokenDetails ERROR:', error);
-      }
+    try {
+      const tokenDetails = await this.fetchTokenDetails({
+        networkId,
+        address: tokenIdOnNetwork,
+        isNative: tokenIdOnNetwork === '',
+      });
 
-      throw new Error('getToken ERROR: token not found.');
-    },
-    {
-      promise: true,
-      primitive: true,
-      max: 100,
-      maxAge: getTimeDurationMs({ minute: 5 }),
-    },
-  );
+      const tokenInfo = tokenDetails.info;
+
+      const tokenToUpdate = {
+        ...tokenInfo,
+        '$key': localTokenId,
+      };
+      void this.updateLocalTokens({
+        tokens: [tokenToUpdate],
+      });
+
+      return tokenInfo;
+    } catch (error) {
+      console.log('fetchTokenDetails ERROR:', error);
+    }
+
+    throw new Error('getToken ERROR: token not found.');
+  }
 }
 
 export default ServiceToken;

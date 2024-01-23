@@ -38,11 +38,6 @@ export function NFTDetails() {
         itemId,
       });
 
-      void backgroundApiProxy.serviceNFT.updateLocalNFTs({
-        networkId,
-        nfts: [r],
-      });
-
       return r;
     },
     [accountAddress, collectionAddress, itemId, networkId],

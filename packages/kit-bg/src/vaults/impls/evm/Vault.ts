@@ -78,7 +78,7 @@ export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
   override async buildEncodedTx(
-    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+    params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
     const { transfersInfo } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
@@ -169,7 +169,7 @@ export default class Vault extends VaultBase {
   }
 
   override async buildUnsignedTx(
-    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
+    params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
@@ -239,10 +239,10 @@ export default class Vault extends VaultBase {
   };
 
   async _buildEncodedTxFromTransfer(
-    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+    params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
-    const { transfersInfo, getToken } = params;
+    const { transfersInfo } = params;
     if (transfersInfo?.length === 1) {
       const transferInfo = transfersInfo[0];
       const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
@@ -276,19 +276,14 @@ export default class Vault extends VaultBase {
       }
 
       if (tokenInfo) {
-        const token = await getToken({
-          networkId: this.networkId,
-          tokenIdOnNetwork: tokenInfo.tokenIdOnNetwork,
-        });
-
-        if (!token) {
+        if (isNil(tokenInfo.decimals)) {
           throw new Error(
-            `buildEncodedTx ERROR: token not found ${tokenInfo.tokenIdOnNetwork}`,
+            'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals missing',
           );
         }
 
         // native token transfer
-        if (token.isNative || token.address === '') {
+        if (tokenInfo.isNative || tokenInfo.address === '') {
           return {
             from,
             to,
@@ -306,11 +301,11 @@ export default class Vault extends VaultBase {
         const data = await this._buildEncodedDataFromTransferToken({
           to,
           amount,
-          decimals: token.decimals,
+          decimals: tokenInfo.decimals,
         });
         return {
           from,
-          to: token.address,
+          to: tokenInfo.address,
           value: '0x0',
           data,
         };

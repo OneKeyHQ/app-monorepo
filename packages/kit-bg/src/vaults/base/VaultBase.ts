@@ -109,16 +109,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     this.keyring = await config.keyringCreator(this);
   }
 
-  abstract buildEncodedTx(
-    params: IBuildEncodedTxParams & IBuildTxHelperParams,
-  ): Promise<IEncodedTx>;
+  abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
 
   abstract buildDecodedTx(
     params: IBuildDecodedTxParams & IBuildTxHelperParams,
   ): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
-    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
+    params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
 
   abstract updateUnsignedTx(

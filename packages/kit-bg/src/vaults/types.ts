@@ -192,9 +192,7 @@ export type ITransferInfo = {
   to: string;
   amount: string;
 
-  tokenInfo?: {
-    tokenIdOnNetwork: string;
-  };
+  tokenInfo?: IToken;
 
   nftInfo?: {
     nftId: string;

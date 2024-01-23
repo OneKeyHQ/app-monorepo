@@ -206,12 +206,7 @@ function SendDataInputContainer() {
                   nftType: nftDetails.collectionType,
                 }
               : undefined,
-          tokenInfo:
-            !isNFT && tokenDetails
-              ? {
-                  tokenIdOnNetwork: tokenDetails.info.address,
-                }
-              : undefined,
+          tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
         },
       ];
       let unsignedTx = await serviceSend.buildUnsignedTx({
