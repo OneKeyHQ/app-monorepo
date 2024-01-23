@@ -112,6 +112,17 @@ export const {
   return '';
 });
 
+export const {
+  atom: swapProviderSupportReceiveAddressAtom,
+  use: useSwapProviderSupportReceiveAddressAtom,
+} = contextAtomComputed((get) => {
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  if (!quoteResult) {
+    return true;
+  }
+  return !quoteResult.unSupportReceiveAddressDifferent;
+});
+
 // swap build_tx
 export const {
   atom: swapSlippagePercentageAtom,

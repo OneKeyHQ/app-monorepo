@@ -44,7 +44,7 @@ const SwapMainLoad = () => {
   );
 
   const onWrapped = useCallback(async () => {
-    const res = await wrappedTx();
+    await wrappedTx();
   }, [wrappedTx]);
 
   const onBuildTx = useCallback(async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { Button, SizableText } from 'tamagui';
 
@@ -6,8 +6,12 @@ import { Input, XStack, YStack } from '@onekeyhq/components';
 
 import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
+import {
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapReceiverAddressInputValueAtom,
   useSwapReceiverAddressTypeAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -32,12 +36,14 @@ const SwapAccountContainer = ({
   onSelectAmountPercentage,
 }: ISwapAccountContainerProps) => {
   const { activeAccount } = useActiveAccount({ num });
-
+  const { activeAccount: activeAccount0 } = useActiveAccount({ num: 0 });
   const [receiverAddressType, setReceiverAddressType] =
     useSwapReceiverAddressTypeAtom();
 
   const [receiverAddressInputValue, setReceiverAddressInputValue] =
     useSwapReceiverAddressInputValueAtom();
+
+  const { updateSelectedAccount } = useAccountSelectorActions().current;
 
   const onSelectReceiverAddressType = useCallback(
     (type: ESwapReceiveAddressType) => {
@@ -67,6 +73,30 @@ const SwapAccountContainer = ({
     receiverAddressType,
     receiverAddressInputValue,
     setReceiverAddressInputValue,
+  ]);
+  const [isSupportReceiveAddressDifferent] =
+    useSwapProviderSupportReceiveAddressAtom();
+
+  useEffect(() => {
+    if (isReceiver && !isSupportReceiveAddressDifferent) {
+      setReceiverAddressType(ESwapReceiveAddressType.USER_ACCOUNT);
+      updateSelectedAccount({
+        num,
+        builder: (v) => ({
+          ...v,
+          networkId: activeAccount0.network?.id,
+          walletId: activeAccount0.wallet?.id,
+          indexedAccountId: activeAccount0.indexedAccount?.id,
+        }),
+      });
+    }
+  }, [
+    activeAccount0,
+    isReceiver,
+    isSupportReceiveAddressDifferent,
+    num,
+    setReceiverAddressType,
+    updateSelectedAccount,
   ]);
 
   if (!token || !activeAccount) {

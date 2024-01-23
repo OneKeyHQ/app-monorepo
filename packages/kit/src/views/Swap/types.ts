@@ -73,6 +73,7 @@ export interface IFetchQuoteResult {
   isBest?: boolean;
   limit?: IFetchQuoteLimit;
   isWrapped?: boolean;
+  unSupportReceiveAddressDifferent?: boolean;
 }
 
 export interface IAllowanceResult {
