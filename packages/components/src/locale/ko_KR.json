@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "이 방법은 보안 위험이 있으며 하드웨어는 현재 지원하지 않습니다.",
   "msg__hardware_open_blind_sign_error": "알 수 없는 서명 형식, 보안 > 블라인드 서명으로 이동하여 고급-SOL-서명을 활성화합니다.",
   "msg__hardware_opened_passphrase": "표준 지갑을 사용하려면 기기에서 암호를 끄세요.",
+  "msg__hardware_params_bytes_overload": "데이터 크기가 하드웨어 제한을 초과합니다. 펌웨어를 업데이트한 후 다시 시도하시거나 고객센터로 문의해 주세요.",
   "msg__hardware_polling_connect_timeout_error": "접속 시간 초과. OneKey Bridge 상태를 확인하고 하드웨어를 다시 시작하십시오.",
   "msg__hardware_software_cannot_be_upgrade": "클라이언트가 하드웨어를 업데이트할 수 없습니다. https://firmware.onekey.so로 업데이트해야 합니다.",
   "msg__hardware_status_connected": "연결됨",

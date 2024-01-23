@@ -153,6 +153,8 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.IncompleteFileError(payload);
     case HardwareErrorCode.NotInSigningMode:
       return new Error.NotInSigningModeError(payload);
+    case HardwareErrorCode.DataOverload:
+      return new Error.DeviceDataOverload(payload);
     default:
       return new Error.UnknownHardwareError(payload);
   }

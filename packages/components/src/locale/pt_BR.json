@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Esse método tem risco de segurança e o hardware não é compatível no momento.",
   "msg__hardware_open_blind_sign_error": "Formato de assinatura desconhecido, acesse Security > Blind-Signing e ative Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "Desative a passphrase em seu dispositivo para usar a carteira padrão",
+  "msg__hardware_params_bytes_overload": "O tamanho dos dados excede o limite de hardware. Atualize o firmware e tente novamente ou entre em contato com o atendimento ao cliente.",
   "msg__hardware_polling_connect_timeout_error": "Tempo limite de conexão. Verifique o status do OneKey Bridge e reinicie o hardware.",
   "msg__hardware_software_cannot_be_upgrade": "O cliente não pode atualizar o hardware. Você precisa atualizar para https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Conectado",

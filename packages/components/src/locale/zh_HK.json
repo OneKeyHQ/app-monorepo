@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "此方法存在安全隱患，硬件暫不支持。",
   "msg__hardware_open_blind_sign_error": "未知簽名格式，請前往 Security/Blind Signing 啟用 SOL 高級簽名",
   "msg__hardware_opened_passphrase": "請在設備上關閉 Passphrase 以使用標準錢包",
+  "msg__hardware_params_bytes_overload": "資料大小超出硬體限制。請更新韌體後重試或聯絡客服。",
   "msg__hardware_polling_connect_timeout_error": "連接超時。請檢查 OneKey Bridge 狀態並重新啟動硬件。",
   "msg__hardware_software_cannot_be_upgrade": "客戶端無法更新硬件。您需要更新到 https://firmware.onekey.so。",
   "msg__hardware_status_connected": "已連接",
