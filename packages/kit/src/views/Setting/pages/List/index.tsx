@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { Page, ScrollView, Stack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 

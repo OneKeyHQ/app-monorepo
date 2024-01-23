@@ -601,6 +601,6 @@ module.exports = [
   'gt2xl',
   'calc',
   '100vw',
-  'BigNumberish',
+  'Numberish',
   'qrcode',
 ];
