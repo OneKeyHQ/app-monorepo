@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IFetchAddressDetailsParams,
   IFetchAddressDetailsResp,
@@ -75,7 +76,7 @@ class ServiceAddress extends ServiceBase {
         networkId,
         address,
       });
-      const includeDot = address.split('.').length > 1;
+      const includeDot = checkIsDomain(address);
       if (includeDot && enableNameResolve) {
         const resolveNames =
           await this.backgroundApi.serviceNameResolver.resolveName({
@@ -84,7 +85,7 @@ class ServiceAddress extends ServiceBase {
           });
         if (resolveNames) {
           result.resolveAddress = resolveNames.names?.[0].value;
-          result.resolveOptions = resolveNames.names.map((o) => o.value);
+          result.resolveOptions = resolveNames.names?.map((o) => o.value);
 
           if (!result.isValid) {
             const resolveValidateResult =

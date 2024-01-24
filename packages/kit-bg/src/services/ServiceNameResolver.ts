@@ -16,7 +16,10 @@ class ServiceNameResolver extends ServiceBase {
   }
 
   @backgroundMethod()
-  async resolveName({ name, networkId }: IResolveNameParams) {
+  async resolveName({
+    name,
+    networkId,
+  }: IResolveNameParams): Promise<IResolveNameResp | undefined | null> {
     const client = await this.getClient();
     try {
       const resp = await client.get<{

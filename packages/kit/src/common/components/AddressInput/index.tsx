@@ -143,6 +143,7 @@ type IAddressInputProps = Omit<
   onChange?: (value: IAddressInputValue) => void;
   placeholder?: string;
   name?: string;
+  autoError?: boolean;
   plugins?: IAddressPluginsOptions;
   enableNameResolve?: boolean; //
   enableAddressBook?: boolean;
@@ -173,6 +174,7 @@ function AddressInput(props: IAddressInputProps) {
     disabled,
     error,
     editable,
+    autoError = true,
     size,
     onBlur,
     plugins = defaultAddressInputPlugins,
@@ -244,12 +246,12 @@ function AddressInput(props: IAddressInputProps) {
         raw: queryResult.input,
         resolved: queryResult.resolveAddress ?? queryResult.input,
       });
-    } else {
+    } else if (autoError) {
       setError(name, {
         message: intl.formatMessage({ id: 'form__address_invalid' }),
       });
     }
-  }, [queryResult, intl, clearErrors, setError, name, onChange]);
+  }, [queryResult, intl, clearErrors, setError, name, onChange, autoError]);
 
   return (
     <YStack space="$2">
