@@ -120,7 +120,9 @@ export const {
   if (!quoteResult) {
     return true;
   }
-  return !quoteResult.unSupportReceiveAddressDifferent;
+  return (
+    !quoteResult.unSupportReceiveAddressDifferent && !quoteResult.isWrapped
+  );
 });
 
 // swap build_tx
