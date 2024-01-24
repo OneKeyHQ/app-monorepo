@@ -9,6 +9,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   backgroundClass,
   backgroundMethod,
@@ -27,6 +28,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import {
@@ -34,6 +36,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
+import { mockGetNetwork } from '../../mock';
 import { vaultFactory } from '../../vaults/factory';
 import {
   getVaultSettings,
@@ -49,10 +52,12 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBWallet,
 } from '../../dbs/local/types';
 import type {
   IAccountSelectorSectionData as IAccountSelectorAccountsListSectionData,
   IAccountSelectorFocusedWallet,
+  IAccountSelectorSelectedAccount,
 } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
   IAccountDeriveInfo,
@@ -71,11 +76,15 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async validateMnemonic(mnemonic: string): Promise<string> {
-    const mnemonicFixed = mnemonic.trim().replace(/\s+/g, ' ');
-    if (!validateMnemonic(mnemonicFixed)) {
+    ensureSensitiveTextEncoded(mnemonic);
+    const realMnemonic = decodeSensitiveText({
+      encodedText: mnemonic,
+    });
+    const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
+    if (!validateMnemonic(realMnemonicFixed)) {
       throw new InvalidMnemonic();
     }
-    return Promise.resolve(mnemonicFixed);
+    return Promise.resolve(realMnemonicFixed);
   }
 
   @backgroundMethod()
@@ -97,6 +106,18 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWallets() {
     return localDb.getWallets();
+  }
+
+  @backgroundMethod()
+  async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
+    const { accounts: indexedAccounts } = await this.getIndexedAccounts({
+      walletId,
+    });
+    // TODO use getRecordsCount instead
+    if (indexedAccounts.length > 0) {
+      return true;
+    }
+    return false;
   }
 
   @backgroundMethod()
@@ -181,7 +202,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
     // names?: Array<string>;
     // purpose?: number;
     // skipRepeat?: boolean;
@@ -195,6 +216,9 @@ class ServiceAccount extends ServiceBase {
     }
     if (!networkId) {
       throw new Error('networkId is required');
+    }
+    if (!deriveType) {
+      throw new Error('deriveType is required');
     }
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
@@ -376,7 +400,11 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  // TODO remove
+  @backgroundMethod()
+  async getIndexedAccounts({ walletId }: { walletId?: string } = {}) {
+    return localDb.getIndexedAccounts({ walletId });
+  }
+
   @backgroundMethod()
   async getAccountsOfWalletLegacy({
     walletId,
@@ -388,7 +416,7 @@ class ServiceAccount extends ServiceBase {
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isHwWallet({ walletId })
     ) {
-      return localDb.getIndexedAccountsOfWallet({ walletId });
+      return this.getIndexedAccounts({ walletId });
     }
     return {
       accounts: [],
@@ -506,7 +534,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
     networkId: string;
   }): Promise<IDBAccount> {
     if (accountId) {
@@ -516,6 +544,9 @@ class ServiceAccount extends ServiceBase {
       });
     }
     if (indexedAccountId) {
+      if (!deriveType) {
+        throw new Error('deriveType is required');
+      }
       const { accounts } = await this.getAccountsByIndexedAccount({
         networkId,
         deriveType,
@@ -618,17 +649,9 @@ class ServiceAccount extends ServiceBase {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
     ensureSensitiveTextEncoded(password);
+    ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
-    // eslint-disable-next-line no-param-reassign
-    mnemonic = await servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
-    ensureSensitiveTextEncoded(mnemonic);
-
-    let realMnemonic = decodeSensitiveText({
-      encodedText: mnemonic,
-    });
-    realMnemonic = await this.validateMnemonic(realMnemonic);
+    const realMnemonic = await this.validateMnemonic(mnemonic);
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -676,6 +699,87 @@ class ServiceAccount extends ServiceBase {
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async buildActiveAccountInfoFromSelectedAccount({
+    selectedAccount,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }): Promise<{
+    selectedAccount: IAccountSelectorSelectedAccount;
+    activeAccount: IAccountSelectorActiveAccountInfo;
+  }> {
+    const {
+      othersWalletAccountId,
+      indexedAccountId,
+      deriveType,
+      networkId,
+      walletId,
+    } = selectedAccount;
+
+    let account: IDBAccount | undefined;
+    let wallet: IDBWallet | undefined;
+    let network: IServerNetwork | undefined;
+    let indexedAccount: IDBIndexedAccount | undefined;
+
+    if (walletId) {
+      try {
+        wallet = await this.getWallet({ walletId });
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (indexedAccountId) {
+        try {
+          indexedAccount = await this.getIndexedAccount({
+            id: indexedAccountId,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    if (networkId) {
+      try {
+        network = await mockGetNetwork({ networkId });
+      } catch (e) {
+        console.error(e);
+      }
+      try {
+        const r = await this.getAccountOfWallet({
+          indexedAccountId,
+          accountId: othersWalletAccountId,
+          deriveType,
+          networkId,
+        });
+        account = r;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const isOthersWallet = Boolean(account && !indexedAccountId);
+    const activeAccount: IAccountSelectorActiveAccountInfo = {
+      account,
+      wallet,
+      network,
+      indexedAccount,
+      deriveType,
+      ready: true,
+      isOthersWallet,
+    };
+    const selectedAccountFixed: IAccountSelectorSelectedAccount = {
+      othersWalletAccountId: isOthersWallet
+        ? activeAccount?.account?.id
+        : undefined,
+      indexedAccountId: activeAccount.indexedAccount?.id,
+      deriveType: activeAccount.deriveType,
+      networkId: activeAccount.network?.id,
+      walletId: activeAccount.wallet?.id,
+      focusedWallet: isOthersWallet ? '$$others' : activeAccount.wallet?.id,
+    };
+    return { activeAccount, selectedAccount: selectedAccountFixed };
   }
 }
 

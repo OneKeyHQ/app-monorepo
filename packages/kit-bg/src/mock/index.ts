@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 
 export function mockIsAccountCompatibleWithNetwork({
@@ -274,6 +275,13 @@ export const mockPresetNetworks: Record<
 };
 
 export const mockPresetNetworksList = Object.values(mockPresetNetworks);
+export const mockPresetNetworksEvmList = mockPresetNetworksList.filter(
+  (item) => item.impl === IMPL_EVM,
+);
+export const mockPresetNetworksBtcList = [
+  mockPresetNetworks.btc,
+  mockPresetNetworks.tbtc,
+];
 
 export async function mockGetNetwork({ networkId }: { networkId: string }) {
   // TODO use simpleDB save networks
