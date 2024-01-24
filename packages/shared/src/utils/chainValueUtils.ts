@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IServerNetwork } from '../../types';
-import { IToken } from '../../types/token';
+import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
   throw new Error(message);
