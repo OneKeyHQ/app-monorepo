@@ -38,7 +38,7 @@ import type {
 
 import { VaultBase } from '../../base/VaultBase';
 
-import { EVMTxDecoder } from './decoder';
+import { EVMContractDecoder } from './decoder';
 import {
   EErc1155MethodSelectors,
   EErc1155TxDescriptionName,
@@ -100,7 +100,7 @@ export default class Vault extends VaultBase {
       encodedTx,
     });
 
-    const decoder = new EVMTxDecoder();
+    const decoder = new EVMContractDecoder();
 
     let action: IDecodedTxAction | undefined = {
       type: EDecodedTxActionType.UNKNOWN,
@@ -557,9 +557,10 @@ export default class Vault extends VaultBase {
       value = txDesc?.args[2] as ethers.BigNumber;
     }
 
-    const amount = new BigNumber(value.toString())
-      .shiftedBy(-token.decimals)
-      .toFixed();
+    const amount = chainValueUtils.convertTokenChainValueToAmount({
+      value: value.toString(),
+      token,
+    });
 
     const transfer: IDecodedTxTransferInfo = {
       from,

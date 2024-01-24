@@ -65,11 +65,9 @@ function SendDataInputContainer() {
 
   const getAccount = useCallback(
     async () =>
-      serviceAccount.getAccountOfWallet({
+      serviceAccount.getAccount({
         accountId,
-        indexedAccountId: '',
         networkId,
-        deriveType: 'default',
       }),
     [accountId, networkId, serviceAccount],
   );

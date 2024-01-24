@@ -16,6 +16,8 @@ import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
+import type ServiceNFT from './ServiceNFT';
+import type ServiceToken from './ServiceToken';
 import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
@@ -269,7 +271,7 @@ class ServiceSend extends ServiceBase {
     accountAddress: string;
   }) {
     const { nonce } =
-      await this.backgroundApi.serviceAddress.fetchAddressDetails({
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
         withNonce: true,
@@ -285,7 +287,10 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public getBuildTxHelper() {
+  public getBuildTxHelper(): Promise<{
+    getToken: ServiceToken['getToken'];
+    getNFT: ServiceNFT['getNFT'];
+  }> {
     return Promise.resolve({
       getToken: this.backgroundApi.serviceToken.getToken.bind(
         this.backgroundApi.serviceToken,
@@ -293,6 +298,29 @@ class ServiceSend extends ServiceBase {
       getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
         this.backgroundApi.serviceNFT,
       ),
+    });
+  }
+
+  @backgroundMethod()
+  async prepareSendConfirmUnsignedTx(
+    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+  ) {
+    const {
+      networkId,
+      accountId,
+      unsignedTx,
+      encodedTx,
+      approveInfo,
+      transfersInfo,
+    } = params;
+    if (unsignedTx) return unsignedTx;
+
+    return this.buildUnsignedTx({
+      networkId,
+      accountId,
+      encodedTx,
+      approveInfo,
+      transfersInfo,
     });
   }
 }

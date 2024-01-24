@@ -2,9 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
-  IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
@@ -83,8 +81,17 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateLocalTokens({ tokens }: { tokens: IAccountToken[] }) {
-    return simpleDb.localTokens.updateTokens(tokens);
+  public async updateLocalTokens({
+    networkId,
+    tokens,
+  }: {
+    networkId: string;
+    tokens: IToken[];
+  }) {
+    return simpleDb.localTokens.updateTokens({
+      networkId,
+      tokens,
+    });
   }
 
   @backgroundMethod()
@@ -98,11 +105,12 @@ class ServiceToken extends ServiceBase {
     tokenIdOnNetwork: string;
   }) {
     const { networkId, tokenIdOnNetwork } = params;
-    const localTokenId = accountUtils.buildLocalTokenId({
+
+    const localToken = await simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
     });
-    const localToken = await simpleDb.localTokens.getToken(localTokenId);
+
     if (localToken) return localToken;
 
     try {
@@ -114,12 +122,9 @@ class ServiceToken extends ServiceBase {
 
       const tokenInfo = tokenDetails.info;
 
-      const tokenToUpdate = {
-        ...tokenInfo,
-        '$key': localTokenId,
-      };
       void this.updateLocalTokens({
-        tokens: [tokenToUpdate],
+        networkId,
+        tokens: [tokenInfo],
       });
 
       return tokenInfo;
