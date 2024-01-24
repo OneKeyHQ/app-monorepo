@@ -27,15 +27,21 @@ const SwapRateInfoItem = ({
   const handleExchangeRate = useCallback(() => {
     setRateSwitch((prev) => !prev);
   }, []);
-  const rateContent = useMemo(() => {
+
+  const rateIsExit = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
-    if (rateBN.isZero() || !fromToken || !toToken) return '-';
+    return !rateBN.isZero();
+  }, [rate]);
+
+  const rateContent = useMemo(() => {
+    if (!rateIsExit || !fromToken || !toToken) return '-';
+    const rateBN = new BigNumber(rate ?? 0);
     if (rateSwitch) {
       const exchangeRate = new BigNumber(1).div(rateBN);
       return `1 ${toToken.symbol.toUpperCase()} = ${exchangeRate.toFixed()} ${fromToken.symbol.toUpperCase()}`;
     }
     return `1 ${fromToken.symbol.toUpperCase()} = ${rateBN.toFixed()} ${toToken.symbol.toUpperCase()}`;
-  }, [fromToken, rate, rateSwitch, toToken]);
+  }, [fromToken, rate, rateIsExit, rateSwitch, toToken]);
 
   return isLoading ? (
     <Skeleton w="$20" />
@@ -44,11 +50,13 @@ const SwapRateInfoItem = ({
       <SizableText>Rate</SizableText>
       <XStack>
         <SizableText>{rateContent}</SizableText>
-        <IconButton
-          size="small"
-          onPress={handleExchangeRate}
-          icon="SwitchHorOutline"
-        />
+        {rateIsExit ? (
+          <IconButton
+            size="small"
+            onPress={handleExchangeRate}
+            icon="SwitchHorOutline"
+          />
+        ) : null}
       </XStack>
     </XStack>
   );

@@ -106,6 +106,9 @@ export const {
     .dividedBy(quoteRateBN)
     .minus(1)
     .multipliedBy(100);
+  if (quoteRateBN.isZero()) {
+    return 'amount too small to quote rate is zero';
+  }
   if (difference.comparedTo(5) === 1) {
     return `rate difference high ${difference.decimalPlaces(2).toFixed()}%`;
   }
