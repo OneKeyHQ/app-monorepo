@@ -6,6 +6,9 @@ export type IAddressValidation = {
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
   encoding?: EAddressEncodings;
+  // baseAddress
+  // fetchBalanceAddress
+  // address of sub networkId
 };
 
 export type IFetchAddressDetailsParams = {
