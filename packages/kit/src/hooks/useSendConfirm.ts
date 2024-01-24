@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
@@ -17,6 +18,9 @@ import useAppNavigation from './useAppNavigation';
 type IParams = {
   accountId: string;
   networkId: string;
+};
+
+type IBuildUnsignedTxParams = {
   encodedTx?: IEncodedTx;
   unsignedTx?: IUnsignedTxPro;
   transfersInfo?: ITransferInfo[];
@@ -26,71 +30,64 @@ type IParams = {
 };
 
 function useSendConfirm(params: IParams) {
-  const {
-    accountId,
-    networkId,
-    unsignedTx: unsignedTxFromParams,
-    encodedTx,
-    transfersInfo,
-    approveInfo,
-  } = params;
+  const { accountId, networkId } = params;
 
   const navigation = useAppNavigation();
 
-  const buildUnsignedTx = useCallback(async () => {
-    if (unsignedTxFromParams) return unsignedTxFromParams;
+  const buildUnsignedTx = useCallback(
+    async (params: IBuildUnsignedTxParams) => {
+      const { unsignedTx, encodedTx, approveInfo, transfersInfo } = params;
+      if (unsignedTx) return unsignedTx;
 
-    return backgroundApiProxy.serviceSend.buildUnsignedTx({
-      accountId,
-      networkId,
-      encodedTx,
-      approveInfo,
-      transfersInfo,
-    });
-  }, [
-    accountId,
-    approveInfo,
-    encodedTx,
-    networkId,
-    transfersInfo,
-    unsignedTxFromParams,
-  ]);
-
-  const navigationToSendConfirm = useCallback(async () => {
-    let unsignedTx = await buildUnsignedTx();
-
-    const isNonceRequired =
-      await backgroundApiProxy.serviceSend.getIsNonceRequired({
-        networkId,
-      });
-
-    if (isNonceRequired && isNil(unsignedTx.nonce)) {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
+      return backgroundApiProxy.serviceSend.buildUnsignedTx({
         accountId,
         networkId,
+        encodedTx,
+        approveInfo,
+        transfersInfo,
       });
-      const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
-        networkId,
-        accountAddress: account.address,
-      });
+    },
+    [accountId, networkId],
+  );
 
-      unsignedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
-        accountId,
-        networkId,
-        unsignedTx,
-        nonceInfo: { nonce },
-      });
-    }
+  const navigationToSendConfirm = useCallback(
+    async (params: IBuildUnsignedTxParams) => {
+      let unsignedTx = await buildUnsignedTx(params);
 
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendConfirm,
-      params: {
-        accountId,
-        networkId,
-        unsignedTxs: [unsignedTx],
-      },
-    });
-  }, [accountId, buildUnsignedTx, navigation, networkId]);
+      const isNonceRequired =
+        await backgroundApiProxy.serviceSend.getIsNonceRequired({
+          networkId,
+        });
+
+      if (isNonceRequired && isNil(unsignedTx.nonce)) {
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
+        const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
+          networkId,
+          accountAddress: account.address,
+        });
+
+        unsignedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
+
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendConfirm,
+        params: {
+          accountId,
+          networkId,
+          unsignedTxs: [unsignedTx],
+        },
+      });
+    },
+    [accountId, buildUnsignedTx, navigation, networkId],
+  );
 
   return {
     navigationToSendConfirm,
