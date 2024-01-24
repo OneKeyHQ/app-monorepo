@@ -393,8 +393,11 @@ export function PhaseInputArea({
 
   const handlePageFooterConfirm = useCallback(async () => {
     const mnemonic: string = Object.values(form.getValues()).join(' ');
-    await serviceAccount.validateMnemonic(mnemonic);
-    onConfirm(await servicePassword.encodeSensitiveText({ text: mnemonic }));
+    const mnemonicEncoded = await servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    await serviceAccount.validateMnemonic(mnemonicEncoded);
+    onConfirm(mnemonicEncoded);
   }, [form, onConfirm, serviceAccount, servicePassword]);
 
   // useScrollToInputArea(alertRef);

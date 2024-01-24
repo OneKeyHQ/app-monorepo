@@ -13,7 +13,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { NetworkSelectorTrigger } from '../../../components/AccountSelector/NetworkSelectorTrigger';
+import { NetworkSelectorTriggerLegacy } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -74,7 +74,7 @@ function WalletActionsContainer() {
               }}
               enabledNum={[1]}
             >
-              <NetworkSelectorTrigger key={1} num={1} />
+              <NetworkSelectorTriggerLegacy key={1} num={1} />
             </AccountSelectorProviderMirror>
 
             <AccountSelectorProviderMirror
@@ -84,7 +84,7 @@ function WalletActionsContainer() {
               }}
               enabledNum={[0]}
             >
-              <NetworkSelectorTrigger key={0} num={0} />
+              <NetworkSelectorTriggerLegacy key={0} num={0} />
             </AccountSelectorProviderMirror>
 
             <AccountSelectorProviderMirror

@@ -1,8 +1,8 @@
 import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { useProps, useStyle } from '@tamagui/core';
 import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
+import { useProps, useStyle } from '@tamagui/core';
 
 import { useThemeValue } from '../../hooks';
 

@@ -483,17 +483,21 @@ ssphrase wallet
     });
   }
 
-  async getIndexedAccountsOfWallet({ walletId }: { walletId: string }) {
+  async getIndexedAccounts({ walletId }: { walletId?: string } = {}) {
     const db = await this.readyDb;
     // TODO performance
     const { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.IndexedAccount,
     });
     console.log('getIndexedAccountsOfWallet', records);
+    let accounts = records;
+    if (walletId) {
+      accounts = accounts.filter((item) => item.walletId === walletId);
+    }
     return {
-      accounts: records
-        .filter((item) => item.walletId === walletId)
-        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name)),
+      accounts: accounts.sort((a, b) =>
+        natsort({ insensitive: true })(a.name, b.name),
+      ),
     };
   }
 

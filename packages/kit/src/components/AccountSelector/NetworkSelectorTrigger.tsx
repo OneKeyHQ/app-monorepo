@@ -5,14 +5,15 @@ import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
 import {
   useAccountSelectorActions,
+  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { EChainSelectorPages } from '../../views/ChainSelector/router/type';
+
+import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
 
 const getNetworksItems = memoFn(() =>
   // TODO ETC network
@@ -22,10 +23,12 @@ const getNetworksItems = memoFn(() =>
   })),
 );
 
-export function NetworkSelectorTrigger({ num }: { num: number }) {
+export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
+
+  useNetworkAutoSelect({ num });
 
   if (!isReady) {
     return null;
@@ -58,15 +61,32 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
+  const actions = useAccountSelectorActions();
+  const { sceneName, sceneUrl, networks, defaultNetworkId } =
+    useAccountSelectorSceneInfo();
+
+  useNetworkAutoSelect({ num });
 
   const navigation = useAppNavigation();
 
   const handleChainPress = useCallback(() => {
-    // TODO pass num to router
-    navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-      screen: EChainSelectorPages.ChainSelector,
+    actions.current.showChainSelector({
+      navigation,
+      num,
+      sceneName,
+      sceneUrl,
+      networks,
+      defaultNetworkId,
     });
-  }, [navigation]);
+  }, [
+    actions,
+    defaultNetworkId,
+    navigation,
+    networks,
+    num,
+    sceneName,
+    sceneUrl,
+  ]);
 
   return (
     <XStack

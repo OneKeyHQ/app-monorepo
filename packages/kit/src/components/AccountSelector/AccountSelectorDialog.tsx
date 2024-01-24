@@ -12,9 +12,9 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
-import { AccountSelectorActiveAccount } from './AccountSelectorActiveAccount';
+import { AccountSelectorActiveAccountLegacy } from './AccountSelectorActiveAccount';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
-import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
+import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
 const { serviceAccount } = backgroundApiProxy;
 export function AccountSelectorDialog({ num }: { num: number }) {
@@ -134,13 +134,13 @@ export function AccountSelectorDialog({ num }: { num: number }) {
         </Accordion>
       ) : null}
 
-      <NetworkSelectorTrigger num={num} />
+      <NetworkSelectorTriggerLegacy num={num} />
 
       <DeriveTypeSelectorTrigger num={num} />
 
       <SizableText size="$headingXl">当前账户</SizableText>
       {/* <Suspense></Suspense> */}
-      <AccountSelectorActiveAccount num={num} />
+      <AccountSelectorActiveAccountLegacy num={num} />
     </>
   );
 }

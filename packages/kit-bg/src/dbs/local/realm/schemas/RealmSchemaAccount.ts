@@ -51,7 +51,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       path: 'string?',
       coinType: 'string',
       impl: 'string',
-      networks: 'string[]?',
+      networks: 'string?[]',
       pub: 'string?',
       xpub: 'string?',
       xpubSegwit: 'string?',

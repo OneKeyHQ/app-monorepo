@@ -19,7 +19,12 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 export interface IAccountSelectorContextData {
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
+  networks?: IServerNetwork[];
+  defaultNetworkId?: string;
 }
+export type IAccountSelectorRouteParams = IAccountSelectorContextData & {
+  num: number;
+};
 const {
   Provider: AccountSelectorJotaiProvider,
   useContextData: useAccountSelectorContextData,
@@ -27,17 +32,18 @@ const {
   contextAtomMethod,
 } = createJotaiContext<IAccountSelectorContextData>();
 
-export const defaultSelectedAccount: IAccountSelectorSelectedAccount = {
-  walletId: undefined,
-  indexedAccountId: undefined,
-  othersWalletAccountId: undefined,
-  networkId: undefined,
-  deriveType: 'default',
-  focusedWallet: undefined,
-};
+export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
+  () => ({
+    walletId: undefined,
+    indexedAccountId: undefined,
+    othersWalletAccountId: undefined,
+    networkId: undefined,
+    deriveType: 'default',
+    focusedWallet: undefined,
+  });
 export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
   contextAtom<Partial<{ [num: number]: IAccountSelectorSelectedAccount }>>({
-    0: defaultSelectedAccount,
+    0: defaultSelectedAccount(),
   });
 export function useSelectedAccount({ num }: { num: number }): {
   selectedAccount: IAccountSelectorSelectedAccount;
@@ -49,7 +55,7 @@ export function useSelectedAccount({ num }: { num: number }): {
     let selectedAccount = selectedAccounts[num];
     let isSelectedAccountDefaultValue = false;
     if (!selectedAccount) {
-      selectedAccount = defaultSelectedAccount;
+      selectedAccount = defaultSelectedAccount();
       isSelectedAccountDefaultValue = true;
     }
     return {
@@ -70,24 +76,28 @@ export const {
 } = contextAtom<boolean>(false);
 
 export interface IAccountSelectorActiveAccountInfo {
+  ready: boolean;
+  isOthersWallet?: boolean;
   account: IDBAccount | undefined;
   indexedAccount: IDBIndexedAccount | undefined;
   wallet: IDBWallet | undefined;
   network: IServerNetwork | undefined;
-  deriveType: IAccountDeriveTypes; // TODO move to jotai global
+  deriveType: IAccountDeriveTypes | undefined; // TODO move to jotai global
   // deriveInfo
   // indexedAccount
 }
-const defaultActiveAccountInfo: IAccountSelectorActiveAccountInfo = {
-  account: undefined,
-  indexedAccount: undefined,
-  wallet: undefined,
-  network: undefined,
-  deriveType: 'default',
-};
+const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
+  () => ({
+    account: undefined,
+    indexedAccount: undefined,
+    wallet: undefined,
+    network: undefined,
+    deriveType: 'default',
+    ready: false,
+  });
 export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
   contextAtom<Partial<{ [num: number]: IAccountSelectorActiveAccountInfo }>>({
-    0: defaultActiveAccountInfo,
+    0: defaultActiveAccountInfo(),
   });
 
 export function useActiveAccount({ num }: { num: number }): {
@@ -96,7 +106,7 @@ export function useActiveAccount({ num }: { num: number }): {
 } {
   const [accounts] = useActiveAccountsAtom();
   const accountInfo = accounts[num];
-  const activeAccount = accountInfo || defaultActiveAccountInfo;
+  const activeAccount = accountInfo || defaultActiveAccountInfo();
   let activeAccountName = activeAccount.account?.name || '';
   const walletId = activeAccount.wallet?.id || '';
   if (
@@ -106,7 +116,7 @@ export function useActiveAccount({ num }: { num: number }): {
     activeAccountName = activeAccount.indexedAccount?.name || '';
   }
   return {
-    activeAccount: accountInfo || defaultActiveAccountInfo,
+    activeAccount: accountInfo || defaultActiveAccountInfo(),
     activeAccountName,
   };
 }
