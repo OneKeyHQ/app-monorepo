@@ -14,22 +14,26 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccount,
   AccountSelectorActiveAccountHome,
-  AccountSelectorTrigger,
+  AccountSelectorActiveAccountLegacy,
+  AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
 
 function HomeAccountSelectorInfoDemo() {
+  const num = 0;
   return (
     <YStack mx="$2" my="$4">
-      <AccountSelectorTrigger num={0} />
-      <AccountSelectorActiveAccount num={0} />
+      <AccountSelectorTriggerLegacy num={num} />
+      <AccountSelectorActiveAccountLegacy num={num} />
       <Button
         onPress={() => {
           void backgroundApiProxy.serviceHardware.inputPinOnDevice();
@@ -50,12 +54,15 @@ function HomeAccountSelectorInfoDemo() {
 
 function HomeHeaderContainer() {
   const intl = useIntl();
-
+  const num = 0;
   const {
     activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
+  } = useActiveAccount({ num });
+  const { selectedAccount } = useSelectedAccount({ num });
 
   const [settings] = useSettingsPersistAtom();
+
+  console.log('HomeHeaderContainer account=', account, selectedAccount);
 
   const overview = usePromiseResult(async () => {
     if (!account || !network) return;
@@ -86,9 +93,9 @@ function HomeHeaderContainer() {
     >
       <Stack>
         <XStack mb="$1" alignItems="center" space="$1">
-          <NetworkSelectorTriggerHome num={0} />
-          <AccountSelectorActiveAccountHome num={0} />
-          <DeriveTypeSelectorTrigger miniMode num={0} />
+          <NetworkSelectorTriggerHome num={num} />
+          <AccountSelectorActiveAccountHome num={num} />
+          <DeriveTypeSelectorTrigger miniMode num={num} />
         </XStack>
 
         <Stack mt="$1">
