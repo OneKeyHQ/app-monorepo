@@ -28,11 +28,15 @@ export interface IConnectionItem {
   };
 }
 
+export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
+  num: number;
+};
+
 export type IStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
-  scope: IConnectionProviderNames;
+  scope?: IConnectionProviderNames;
   options?: {
     networkImpl?: string;
   };

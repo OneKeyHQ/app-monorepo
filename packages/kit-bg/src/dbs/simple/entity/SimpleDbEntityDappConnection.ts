@@ -1,9 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type {
   IConnectionAccountInfo,
   IConnectionItem,
-  IConnectionProviderNames,
   IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
@@ -70,13 +68,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async upsertConnection({
     origin,
-    accountInfos,
+    accountsInfo,
     imageURL,
     replaceExistAccount = true,
     storageType,
   }: {
     origin: string;
-    accountInfos: IConnectionAccountInfo[];
+    accountsInfo: IConnectionAccountInfo[];
     storageType: IStorageType;
     imageURL?: string;
     replaceExistAccount?: boolean;
@@ -116,7 +114,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         };
       }
 
-      accountInfos.forEach((accountInfo) => {
+      accountsInfo.forEach((accountInfo) => {
         const { networkImpl } = accountInfo;
 
         // Find or create the accountSelectorNumber
@@ -154,6 +152,62 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       console.log('simpledb upsertConnection: ', data);
       return {
         data: newData,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async updateConnectionAccountInfo({
+    origin,
+    accountSelectorNum,
+    updatedAccountInfo,
+    storageType,
+  }: {
+    origin: string;
+    accountSelectorNum: number;
+    updatedAccountInfo: IConnectionAccountInfo;
+    storageType: IStorageType;
+  }) {
+    await this.setRawData(({ rawData }) => {
+      if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+        return {
+          data: {
+            injectedProvider: {},
+            walletConnect: {},
+          },
+        };
+      }
+
+      const storage = rawData.data[storageType];
+      const connectionItem = storage[origin];
+      if (!connectionItem) {
+        return { data: rawData.data };
+      }
+
+      const updatedConnectionMap = {
+        ...connectionItem.connectionMap,
+        [accountSelectorNum]: updatedAccountInfo,
+      };
+
+      const { networkImplMap, addressMap } = generateMaps(updatedConnectionMap);
+
+      const updatedConnectionItem: IConnectionItem = {
+        ...connectionItem,
+        connectionMap: updatedConnectionMap,
+        networkImplMap,
+        addressMap,
+      };
+
+      const updatedStorage = {
+        ...storage,
+        [origin]: updatedConnectionItem,
+      };
+
+      return {
+        data: {
+          ...rawData.data,
+          [storageType]: updatedStorage,
+        },
       };
     });
   }
@@ -255,7 +309,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async findAccountInfosByOriginAndScope(
+  async findAccountsInfoByOriginAndScope(
     origin: string,
     storageType: IStorageType,
     networkImpl: string,
@@ -273,10 +327,10 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     const accountSelectorNumbers =
       connectionItem.networkImplMap[networkImpl] || [];
 
-    const accountInfos = accountSelectorNumbers
+    const accountsInfo = accountSelectorNumbers
       .map((num) => connectionItem.connectionMap[num])
       .filter(Boolean);
-    return accountInfos;
+    return accountsInfo;
   }
 
   @backgroundMethod()

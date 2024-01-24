@@ -9,7 +9,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
@@ -21,20 +20,15 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IConnectionAccountInfo,
   IConnectionItem,
-  IConnectionProviderNames,
 } from '@onekeyhq/shared/types/dappConnection';
 
-type IAccountInfo = IConnectionAccountInfo & { address: string };
 function ConnectionAccountListenerEffects({
   num,
-  scope,
   handleAccountChanged,
 }: {
   num: number;
-  scope: IConnectionProviderNames;
   handleAccountChanged: (
     activeAccount: IAccountSelectorActiveAccountInfo,
-    scope: IConnectionProviderNames,
   ) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num });
@@ -47,12 +41,13 @@ function ConnectionAccountListenerEffects({
       'ConnectionAccountListenerEffects, ActiveAccount Changed: ',
       activeAccount,
     );
-    throttledHandleAccountChanged(activeAccount, scope);
+    // TODO:
+    throttledHandleAccountChanged(activeAccount);
 
     return () => {
       throttledHandleAccountChanged.cancel();
     };
-  }, [activeAccount, throttledHandleAccountChanged, scope]);
+  }, [activeAccount, throttledHandleAccountChanged]);
 
   return null;
 }
@@ -64,66 +59,82 @@ function ConnectionListItem({
 }: {
   item: IConnectionItem;
   handleAccountInfoChanged: ({
-    item,
+    origin,
+    accountSelectorNum,
+    prevAccountInfo,
     selectedAccount,
-    scope,
   }: {
-    item: IConnectionItem;
+    origin: string;
+    accountSelectorNum: number;
+    prevAccountInfo: IConnectionAccountInfo;
     selectedAccount: IAccountSelectorActiveAccountInfo;
-    scope: IConnectionProviderNames;
   }) => void;
   handleDisconnect: ({
     origin,
-    scope,
+    networkImpl,
+    accountSelectorNum,
   }: {
     origin: string;
-    scope: IConnectionProviderNames;
-  }) => void;
+    networkImpl: string;
+    accountSelectorNum: number;
+  }) => Promise<void>;
 }) {
-  const [selectedAccount, setSelectedAccount] =
-    useState<IAccountSelectorActiveAccountInfo | null>(null);
-  const [accountInfos, setAccountInfos] = useState<IAccountInfo[]>([]);
-  useEffect(() => {
-    async function fetchAccountInfos() {
-      const promises = Object.values(item.connectionMap).map(async (value) => {
-        try {
-          const accountDetails =
-            await backgroundApiProxy.serviceAccount.getAccount({
-              accountId: value.accountId,
-              networkId: value.networkId,
-            });
+  // const [selectedAccount, setSelectedAccount] =
+  //   useState<IAccountSelectorActiveAccountInfo | null>(null);
+  // const [accountInfos, setAccountInfos] = useState<IAccountInfo[]>([]);
+  // useEffect(() => {
+  //   async function fetchAccountInfos() {
+  //     const promises = Object.values(item.connectionMap).map(async (value) => {
+  //       try {
+  //         const accountDetails =
+  //           await backgroundApiProxy.serviceAccount.getAccount({
+  //             accountId: value.accountId,
+  //             networkId: value.networkId,
+  //           });
 
-          return {
-            ...value,
-            address: accountDetails.address,
-          };
-        } catch (error) {
-          console.error(error);
-          return null;
-        }
-      });
+  //         return {
+  //           ...value,
+  //           address: accountDetails.address,
+  //         };
+  //       } catch (error) {
+  //         console.error(error);
+  //         return null;
+  //       }
+  //     });
 
-      void Promise.all(promises).then((ret) => {
-        const validAccountInfos = ret.filter((info) => info !== null);
-        setAccountInfos(validAccountInfos as IAccountInfo[]);
-      });
-    }
+  //     void Promise.all(promises).then((ret) => {
+  //       const validAccountInfos = ret.filter((info) => info !== null);
+  //       setAccountInfos(validAccountInfos as IAccountInfo[]);
+  //     });
+  //   }
 
-    void fetchAccountInfos();
-  }, [item.connectionMap]);
+  //   void fetchAccountInfos();
+  // }, [item.connectionMap]);
 
   const handleAccountChanged = useCallback(
-    (
-      activeAccount: IAccountSelectorActiveAccountInfo,
-      scope: IConnectionProviderNames,
-    ) => {
-      setSelectedAccount(activeAccount);
-      if (!activeAccount.account?.address) {
+    ({
+      origin,
+      accountSelectorNum,
+      prevAccountInfo,
+      activeAccount,
+    }: {
+      origin: string;
+      accountSelectorNum: number;
+      prevAccountInfo: IConnectionAccountInfo;
+      activeAccount: IAccountSelectorActiveAccountInfo;
+    }) => {
+      // setSelectedAccount(activeAccount);
+      if (!activeAccount?.account?.address) {
         return;
       }
-      handleAccountInfoChanged({ item, selectedAccount: activeAccount, scope });
+      handleAccountInfoChanged({
+        origin,
+        accountSelectorNum,
+        prevAccountInfo,
+        selectedAccount: activeAccount,
+      });
     },
-    [handleAccountInfoChanged, item],
+    [handleAccountInfoChanged],
   );
 
   return (
@@ -136,10 +147,10 @@ function ConnectionListItem({
         <SizableText key={item.origin}>
           {new URL(item.origin).hostname}
         </SizableText>
-        {accountInfos.map((info) => (
-          <XStack width="100%">
-            <SizableText key={info.type} maxWidth="70%">
-              {selectedAccount?.account?.address ?? '无地址'}
+        {Object.entries(item.connectionMap).map(([num, accountInfo]) => (
+          <XStack width="100%" key={`${num}-${accountInfo.networkImpl}`}>
+            <SizableText maxWidth="70%">
+              {accountInfo.address ?? '无地址'}
             </SizableText>
             <YStack space="$2">
               <AccountSelectorProviderMirror
@@ -147,22 +158,28 @@ function ConnectionListItem({
                   sceneName: EAccountSelectorSceneName.discover,
                   sceneUrl: item.origin,
                 }}
-                enabledNum={[0]}
+                enabledNum={[Number(num)]}
               >
                 <AccountSelectorTriggerHome
                   sceneName={EAccountSelectorSceneName.discover}
                   sceneUrl={item.origin}
-                  num={0}
+                  num={Number(num)}
                 />
                 <NetworkSelectorTriggerHome
                   sceneName={EAccountSelectorSceneName.discover}
                   sceneUrl={item.origin}
-                  num={0}
+                  num={Number(num)}
                 />
                 <ConnectionAccountListenerEffects
-                  num={0}
-                  scope={info.type}
-                  handleAccountChanged={handleAccountChanged}
+                  num={Number(num)}
+                  handleAccountChanged={(activeAccount) =>
+                    handleAccountChanged({
+                      origin: item.origin,
+                      accountSelectorNum: Number(num),
+                      prevAccountInfo: accountInfo,
+                      activeAccount,
+                    })
+                  }
                 />
               </AccountSelectorProviderMirror>
             </YStack>
@@ -170,7 +187,11 @@ function ConnectionListItem({
               icon="CrossedSmallOutline"
               color="$iconActive"
               onPress={() =>
-                handleDisconnect({ origin: item.origin, scope: info.type })
+                handleDisconnect({
+                  origin: item.origin,
+                  networkImpl: accountInfo.networkImpl,
+                  accountSelectorNum: Number(num),
+                })
               }
             />
           </XStack>

@@ -128,7 +128,7 @@ function ConnectionModal() {
       }
       const { wallet, account, network, indexedAccount } =
         selectedAccountRef.current;
-      const connectionInfo = {
+      const accountInfo = {
         networkImpl: network?.impl ?? '',
         walletId: wallet?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
@@ -138,12 +138,12 @@ function ConnectionModal() {
       };
       await serviceDApp.saveConnectionSession({
         origin: $sourceInfo?.origin,
-        accountInfos: [connectionInfo],
+        accountsInfo: [accountInfo],
         storageType: 'injectedProvider',
       });
       await dappApprove.resolve({
         close,
-        result: connectionInfo,
+        result: accountInfo,
       });
     },
     [dappApprove, $sourceInfo?.origin, $sourceInfo?.scope, serviceDApp],
