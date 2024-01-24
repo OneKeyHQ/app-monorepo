@@ -40,11 +40,14 @@ class ProviderApiBtc extends ProviderApiBase {
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: { address: 'Your Account Address' },
+          accounts: await this.getAccounts({
+            origin,
+            scope: this.providerName,
+          }),
         },
       };
       return result;

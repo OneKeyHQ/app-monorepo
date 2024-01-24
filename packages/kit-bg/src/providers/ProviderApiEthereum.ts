@@ -69,7 +69,6 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    console.log('ProviderApiEthereum.eth_requestAccounts', request);
     const accounts = await this.eth_accounts(request);
     if (accounts && accounts.length) {
       return accounts;
@@ -97,7 +96,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    console.log('====>Call eth_accounts: ', accountsInfo);
     return Promise.resolve(accountsInfo.map((i) => i.account.address));
   }
 
@@ -113,7 +111,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (Array.isArray(networks) && networks.length) {
       const network = networks[0];
       if (network.chainId) {
-        console.log('=====>eth_chainId: ', network.chainId);
         return `0x${Number(network.chainId).toString(16)}`;
       }
     }
@@ -154,7 +151,21 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+  async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && !accountsInfo.length)
+    ) {
+      throw web3Errors.provider.unauthorized();
+    }
+    const {
+      accountInfo: { accountId, networkId },
+    } = accountsInfo[0];
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -162,6 +173,8 @@ class ProviderApiEthereum extends ProviderApiBase {
         message: messages[1],
         payload: messages,
       },
+      accountId,
+      networkId,
     });
   }
 
@@ -173,6 +186,21 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     message = this.autoFixPersonalSignMessage({ message });
 
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope ?? this.providerName,
+      });
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && !accountsInfo.length)
+    ) {
+      throw web3Errors.provider.unauthorized();
+    }
+    const {
+      accountInfo: { accountId, networkId },
+    } = accountsInfo[0];
+
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -180,6 +208,8 @@ class ProviderApiEthereum extends ProviderApiBase {
         message,
         payload: [message, address],
       },
+      networkId,
+      accountId,
     });
   }
 

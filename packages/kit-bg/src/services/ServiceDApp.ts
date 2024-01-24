@@ -1,5 +1,5 @@
 import { getSdkError } from '@walletconnect/utils';
-import { debounce, get } from 'lodash';
+import { debounce } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
@@ -62,11 +62,12 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
     ? 'walletConnect'
     : 'injectedProvider';
   let networkImpl: string | undefined = '';
-  if (isWalletConnect) {
+  if (isWalletConnect || options.networkImpl) {
     networkImpl = options.networkImpl;
-  } else {
+  } else if (scope) {
     networkImpl = getNetworkImplFromDappScope(scope);
   }
+
   if (!networkImpl) {
     throw new Error('networkImpl not found');
   }
@@ -286,16 +287,16 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async saveConnectionSession({
     origin,
-    accountInfos,
+    accountsInfo,
     storageType,
   }: {
     origin: string;
-    accountInfos: IConnectionAccountInfo[];
+    accountsInfo: IConnectionAccountInfo[];
     storageType: IStorageType;
   }) {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
       origin,
-      accountInfos,
+      accountsInfo,
       imageURL: await this.backgroundApi.serviceDiscovery.getWebsiteIcon(
         origin,
         128,
@@ -305,14 +306,36 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateConnectionSession({
+    origin,
+    accountSelectorNum,
+    updatedAccountInfo,
+    storageType,
+  }: {
+    origin: string;
+    accountSelectorNum: number;
+    updatedAccountInfo: IConnectionAccountInfo;
+    storageType: IStorageType;
+  }) {
+    await this.backgroundApi.simpleDb.dappConnection.updateConnectionAccountInfo(
+      {
+        origin,
+        accountSelectorNum,
+        updatedAccountInfo,
+        storageType,
+      },
+    );
+  }
+
+  @backgroundMethod()
   async disconnectAccount({
     origin,
-    scope,
+    options,
     num,
   }: IGetDAppAccountInfoParams & { num: number }) {
     const { storageType } = getQueryDAppAccountParams({
       origin,
-      scope,
+      options,
     });
     await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
       origin,
@@ -327,7 +350,7 @@ class ServiceDApp extends ServiceBase {
       scope,
     });
     const accountsInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountInfosByOriginAndScope(
+      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
         origin,
         storageType,
         networkImpl,
