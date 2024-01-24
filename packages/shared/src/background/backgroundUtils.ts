@@ -24,10 +24,12 @@ import {
   IMPL_DOT,
   IMPL_EVM,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
   IMPL_NEAR,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
+  IMPL_TBTC,
   IMPL_TRON,
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
@@ -259,26 +261,26 @@ export async function waitForDataLoaded({
 
 export const MAX_LOG_LENGTH = 1000;
 
-export const scopeNetwork: Record<
+export const scopeNetworks: Record<
   IInjectedProviderNamesStrings,
-  string | undefined
+  string[] | undefined
 > = {
-  'btc': IMPL_BTC,
-  'ethereum': IMPL_EVM,
-  'near': IMPL_NEAR,
-  'conflux': IMPL_CFX,
-  'solana': IMPL_SOL,
-  'sollet': IMPL_SOL,
-  'starcoin': IMPL_STC,
-  'aptos': IMPL_APTOS,
-  'martian': IMPL_APTOS,
-  'tron': IMPL_TRON,
-  'algo': IMPL_ALGO,
-  'sui': IMPL_SUI,
-  'cardano': IMPL_ADA,
-  'cosmos': IMPL_COSMOS,
-  'polkadot': IMPL_DOT,
-  'webln': IMPL_LIGHTNING,
+  'btc': [IMPL_BTC, IMPL_TBTC],
+  'ethereum': [IMPL_EVM],
+  'near': [IMPL_NEAR],
+  'conflux': [IMPL_CFX],
+  'solana': [IMPL_SOL],
+  'sollet': [IMPL_SOL],
+  'starcoin': [IMPL_STC],
+  'aptos': [IMPL_APTOS],
+  'martian': [IMPL_APTOS],
+  'tron': [IMPL_TRON],
+  'algo': [IMPL_ALGO],
+  'sui': [IMPL_SUI],
+  'cardano': [IMPL_ADA],
+  'cosmos': [IMPL_COSMOS],
+  'polkadot': [IMPL_DOT],
+  'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
   // TODO: add nostr
   'nostr': undefined,
   '$hardware_sdk': undefined,
@@ -302,21 +304,11 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.webln,
 ];
 
-export function getNetworkImplFromDappScope(
+export function getNetworkImplsFromDappScope(
   scope: IInjectedProviderNamesStrings,
 ) {
-  return scopeNetwork[scope];
+  return scopeNetworks[scope];
 }
-
-export const isDappScopeMatchNetwork = (
-  scope?: IInjectedProviderNamesStrings,
-  impl?: string,
-) => {
-  if (scope && impl) {
-    return scopeNetwork[scope] === impl;
-  }
-  return true;
-};
 
 export const GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME =
   'globaStatesSyncBroadcast';

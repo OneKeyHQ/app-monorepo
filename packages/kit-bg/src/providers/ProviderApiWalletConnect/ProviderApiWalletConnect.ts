@@ -116,7 +116,14 @@ class ProviderApiWalletConnect {
       console.log('=====>>>>result: ', result);
       await this.web3Wallet?.approveSession({
         id: proposal.id,
-        namespaces: result as any,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        namespaces: (result as any).approvedNamespaces,
+      });
+      await this.backgroundApi.serviceDApp.saveConnectionSession({
+        origin: new URL(proposal.params.proposer.metadata.url).origin,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        accountsInfo: (result as any).accountsInfo,
+        storageType: 'walletConnect',
       });
     } catch {
       await this.web3Wallet?.rejectSession({

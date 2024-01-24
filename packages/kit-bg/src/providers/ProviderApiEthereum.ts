@@ -190,6 +190,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.getConnectedAccounts({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
+        isWalletConnectRequest: request.isWalletConnectRequest,
       });
     if (
       !accountsInfo ||

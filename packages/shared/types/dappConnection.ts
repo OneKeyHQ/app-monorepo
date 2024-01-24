@@ -1,8 +1,5 @@
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 
-export type IConnectionProviderNames =
-  | IInjectedProviderNamesStrings
-  | 'walletconnect';
 export interface IConnectionAccountInfo {
   networkImpl: string;
   walletId: string;
@@ -36,7 +33,8 @@ export type IStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
-  scope?: IConnectionProviderNames;
+  scope?: IInjectedProviderNamesStrings;
+  isWalletConnectRequest?: boolean;
   options?: {
     networkImpl?: string;
   };

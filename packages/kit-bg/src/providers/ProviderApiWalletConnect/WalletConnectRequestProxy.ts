@@ -33,6 +33,7 @@ export abstract class WalletConnectRequestProxy {
       scope: this.providerName,
       origin: this.client.getDAppOrigin(options),
       data,
+      isWalletConnectRequest: true,
     });
     return Promise.resolve(resp.result as T);
   }

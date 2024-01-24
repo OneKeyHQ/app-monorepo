@@ -1,24 +1,38 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
+import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { getChainData } from '@onekeyhq/shared/src/walletConnect/chainsData';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { INamespaceUnion } from '@onekeyhq/shared/src/walletConnect/chainsData';
+import {
+  getChainData,
+  getNetworkImplByNamespace,
+} from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
   EIP155_EVENTS,
   EIP155_SIGNING_METHODS,
 } from '@onekeyhq/shared/src/walletConnect/EIP155Data';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
-function SessionProposalModal() {
+function SessionProposalModal({
+  origin,
+  num,
+}: {
+  origin: string;
+  num: number;
+}) {
   const { $sourceInfo, proposal } = useDappQuery<{
     proposal: Web3WalletTypes.SessionProposal;
   }>();
@@ -97,24 +111,51 @@ function SessionProposalModal() {
     // should update when activeAccount changed
   }, [getAccountAddress, requestedChains, supportedChains, activeAccount]);
 
+  const accountsInfo = useMemo<IConnectionAccountInfo[]>(() => {
+    const connectionAccounts = [];
+    for (const namespace of Object.keys(supportedNamespaces)) {
+      const networkImpl = getNetworkImplByNamespace(
+        namespace as INamespaceUnion,
+      );
+      const accountInfo: IConnectionAccountInfo = {
+        networkImpl,
+        walletId: activeAccount.wallet?.id ?? '',
+        indexedAccountId: activeAccount.indexedAccount?.id ?? '',
+        networkId: activeAccount.network?.id ?? '',
+        accountId: activeAccount.account?.id ?? '',
+        address: activeAccount.account?.address ?? '',
+      };
+      connectionAccounts.push(accountInfo);
+    }
+    return connectionAccounts;
+  }, [activeAccount, supportedNamespaces]);
+
   const onApproval = useCallback(() => {
     const approvedNamespaces = buildApprovedNamespaces({
       proposal: proposal.params,
       supportedNamespaces,
     });
     void dappApprove.resolve({
-      result: approvedNamespaces,
+      result: {
+        approvedNamespaces,
+        accountsInfo,
+      },
     });
     return Promise.resolve(true);
-  }, [proposal?.params, supportedNamespaces, dappApprove]);
+  }, [proposal?.params, supportedNamespaces, dappApprove, accountsInfo]);
 
   return (
     <Page>
       <Page.Header title="Wallet Connect Session Proposal" />
       <AccountSelectorTriggerHome
         sceneName={EAccountSelectorSceneName.discover}
-        sceneUrl={proposal.params.proposer.metadata.url}
-        num={0}
+        sceneUrl={origin}
+        num={num}
+      />
+      <NetworkSelectorTriggerHome
+        sceneName={EAccountSelectorSceneName.discover}
+        sceneUrl={origin}
+        num={num}
       />
       <Page.Body>
         <Stack space="$3">
@@ -155,16 +196,44 @@ function SessionProposalModalProvider() {
     proposal: Web3WalletTypes.SessionProposal;
   }>();
 
+  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
+    null,
+  );
+  const { origin } = new URL(proposal.params.proposer.metadata.url);
+  useEffect(() => {
+    if (!proposal) {
+      return;
+    }
+    backgroundApiProxy.serviceDApp
+      .getAccountSelectorNum({
+        origin,
+        scope: 'walletconnect',
+        options: {
+          networkImpl: IMPL_EVM,
+        },
+      })
+      .then((num) => {
+        setAccountSelectorNum(num);
+      })
+      .catch((e) => {
+        console.error('getAccountSelectorNum error: ', e);
+      });
+  }, [proposal, origin]);
+
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: proposal.params.proposer.metadata.url,
-      }}
-      enabledNum={[0]}
-    >
-      <SessionProposalModal />
-    </AccountSelectorProviderMirror>
+    <>
+      {accountSelectorNum === null ? null : (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: origin,
+          }}
+          enabledNum={[accountSelectorNum]}
+        >
+          <SessionProposalModal origin={origin} num={accountSelectorNum} />
+        </AccountSelectorProviderMirror>
+      )}
+    </>
   );
 }
 

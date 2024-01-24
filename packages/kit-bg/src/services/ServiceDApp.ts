@@ -9,7 +9,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -55,17 +55,16 @@ function buildModalRouteParams({
 }
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
-  const { scope, options = {} } = params;
+  const { scope, isWalletConnectRequest, options = {} } = params;
 
-  const isWalletConnect = scope === 'walletconnect';
-  const storageType: IStorageType = isWalletConnect
+  const storageType: IStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
   let networkImpl: string | undefined = '';
-  if (isWalletConnect || options.networkImpl) {
+  if (options.networkImpl) {
     networkImpl = options.networkImpl;
   } else if (scope) {
-    networkImpl = getNetworkImplFromDappScope(scope);
+    networkImpl = getNetworkImplsFromDappScope(scope)?.[0];
   }
 
   if (!networkImpl) {
@@ -202,7 +201,7 @@ class ServiceDApp extends ServiceBase {
   }) {
     return this.openModal({
       request,
-      screens: [EModalRoutes.WalletConnectModal, 'SignMessageModal'],
+      screens: [EModalRoutes.DAppConnectionModal, 'SignMessageModal'],
       params: {
         unsignedMessage,
         accountId,
@@ -272,11 +271,8 @@ class ServiceDApp extends ServiceBase {
 
   // connection allowance
   @backgroundMethod()
-  async getAccountSelectorNum({ origin, scope }: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams({
-      origin,
-      scope,
-    });
+  async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
+    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
       origin,
       networkImpl,
@@ -344,10 +340,17 @@ class ServiceDApp extends ServiceBase {
     );
   }
 
-  async getConnectedAccountsInfo({ origin, scope }: IGetDAppAccountInfoParams) {
+  async getConnectedAccountsInfo({
+    origin,
+    scope,
+    isWalletConnectRequest,
+    options,
+  }: IGetDAppAccountInfoParams) {
     const { storageType, networkImpl } = getQueryDAppAccountParams({
       origin,
       scope,
+      isWalletConnectRequest,
+      options,
     });
     const accountsInfo =
       await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
@@ -362,8 +365,8 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getConnectedAccounts({ origin, scope }: IGetDAppAccountInfoParams) {
-    const accountsInfo = await this.getConnectedAccountsInfo({ origin, scope });
+  async getConnectedAccounts(params: IGetDAppAccountInfoParams) {
+    const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
     const result = accountsInfo.map(async (accountInfo) => {
       const { accountId, networkId } = accountInfo;
@@ -380,8 +383,8 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getConnectedNetworks({ origin, scope }: IGetDAppAccountInfoParams) {
-    const accountsInfo = await this.getConnectedAccountsInfo({ origin, scope });
+  async getConnectedNetworks(params: IGetDAppAccountInfoParams) {
+    const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
     const networks = accountsInfo
       .map((accountInfo) =>
@@ -394,9 +397,8 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async switchConnectedNetwork({
-    origin,
-    scope,
     newNetworkId,
+    ...params
   }: IGetDAppAccountInfoParams & {
     newNetworkId: string;
   }) {
@@ -405,12 +407,9 @@ class ServiceDApp extends ServiceBase {
     if (!included) {
       return;
     }
-    const { storageType, networkImpl } = getQueryDAppAccountParams({
-      origin,
-      scope,
-    });
+    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
-      origin,
+      params.origin,
       networkImpl,
       newNetworkId,
       storageType,
