@@ -11,18 +11,24 @@ import { AccountSelectorActiveAccountHome } from '../../../components/AccountSel
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
 
 function HomeHeaderContainer() {
   const intl = useIntl();
-
+  const num = 0;
   const {
     activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
+  } = useActiveAccount({ num });
+  const { selectedAccount } = useSelectedAccount({ num });
 
   const [settings] = useSettingsPersistAtom();
+
+  console.log('HomeHeaderContainer account=', account, selectedAccount);
 
   const overview = usePromiseResult(async () => {
     if (!account || !network) return;
@@ -53,9 +59,9 @@ function HomeHeaderContainer() {
     >
       <Stack>
         <XStack mb="$1" alignItems="center" space="$1">
-          <NetworkSelectorTriggerHome num={0} />
-          <AccountSelectorActiveAccountHome num={0} />
-          <DeriveTypeSelectorTrigger miniMode num={0} />
+          <NetworkSelectorTriggerHome num={num} />
+          <AccountSelectorActiveAccountHome num={num} />
+          <DeriveTypeSelectorTrigger miniMode num={num} />
         </XStack>
 
         <Stack mt="$1">

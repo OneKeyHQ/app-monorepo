@@ -12,6 +12,8 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
+import { useAccountAutoSelect } from './hooks/useAccountAutoSelect';
+
 export function AccountSelectorEffects({
   num,
   children,
@@ -27,15 +29,12 @@ export function AccountSelectorEffects({
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
-  useEffect(() => {
-    void actions.current.initFromStorage({
-      sceneName,
-      sceneUrl,
-      num,
-    });
-  }, [actions, num, sceneName, sceneUrl]);
+  useAccountAutoSelect({ num });
 
   const reloadActiveAccountInfo = useCallback(() => {
+    if (!isReady) {
+      return;
+    }
     void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
     // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
@@ -52,6 +51,7 @@ export function AccountSelectorEffects({
     }
   }, [
     actions,
+    isReady,
     isSelectedAccountDefaultValue,
     num,
     sceneName,

@@ -6,9 +6,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
+  AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -21,8 +21,8 @@ import type { ITabDeveloperParamList } from '../type';
 function HomeAccountSelectorInfoDemo() {
   return (
     <YStack mx="$2" my="$4">
-      <AccountSelectorTrigger num={0} />
-      <AccountSelectorActiveAccount num={0} />
+      <AccountSelectorTriggerLegacy num={0} />
+      <AccountSelectorActiveAccountLegacy num={0} />
       <Button
         onPress={() => {
           void backgroundApiProxy.serviceHardware.inputPinOnDevice();
