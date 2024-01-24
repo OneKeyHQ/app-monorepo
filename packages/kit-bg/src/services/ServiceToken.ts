@@ -1,5 +1,3 @@
-import { keyBy } from 'lodash';
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -86,7 +84,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async updateLocalTokens({ tokens }: { tokens: IAccountToken[] }) {
-    return simpleDb.localTokens.updateTokens(keyBy(tokens, '$key'));
+    return simpleDb.localTokens.updateTokens(tokens);
   }
 
   @backgroundMethod()

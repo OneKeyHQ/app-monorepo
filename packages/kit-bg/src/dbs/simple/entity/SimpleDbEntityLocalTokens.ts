@@ -1,7 +1,7 @@
-import { merge } from 'lodash';
+import { keyBy, merge } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
@@ -15,7 +15,8 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
   override enableCache = false;
 
   @backgroundMethod()
-  async updateTokens(tokenMap: Record<string, IToken>) {
+  async updateTokens(tokens: IAccountToken[]) {
+    const tokenMap = keyBy(tokens, '$key');
     await this.setRawData(({ rawData }) => ({
       data: merge({}, rawData?.data, tokenMap),
     }));
