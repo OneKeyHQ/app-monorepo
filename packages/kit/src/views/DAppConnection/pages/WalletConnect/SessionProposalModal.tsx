@@ -3,9 +3,12 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { buildApprovedNamespaces } from '@walletconnect/utils';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
-import { AccountSelectorProvider } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getChainData } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
   EIP155_EVENTS,
@@ -13,10 +16,6 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/EIP155Data';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useDappApproveAction from '../../../hooks/useDappApproveAction';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-
-import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 function SessionProposalModal() {
@@ -157,7 +156,7 @@ function SessionProposalModalProvider() {
   }>();
 
   return (
-    <AccountSelectorProvider
+    <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.discover,
         sceneUrl: proposal.params.proposer.metadata.url,
@@ -165,7 +164,7 @@ function SessionProposalModalProvider() {
       enabledNum={[0]}
     >
       <SessionProposalModal />
-    </AccountSelectorProvider>
+    </AccountSelectorProviderMirror>
   );
 }
 

@@ -10,7 +10,6 @@ import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router/types';
 import { TestModalRouter } from '../../views/TestModal/router';
-import { WalletConnectRouter } from '../../views/WalletConnect/router';
 
 import { ModalDiscoveryStack } from './Discovery';
 import { ModalMainStack } from './Main';
@@ -44,10 +43,6 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
-  },
-  {
-    name: EModalRoutes.WalletConnectModal,
-    children: WalletConnectRouter,
   },
   {
     name: EModalRoutes.ReceiveModal,

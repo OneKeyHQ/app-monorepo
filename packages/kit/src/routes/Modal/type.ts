@@ -10,7 +10,6 @@ import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/ty
 import type { IModalSendParamList } from '../../views/Send/router';
 import type { IModalSettingParamList } from '../../views/Setting/router/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
-import type { IWalletConnectPagesParam } from '../../views/WalletConnect/router';
 
 export enum EModalRoutes {
   MainModal = 'MainModal',
@@ -21,7 +20,6 @@ export enum EModalRoutes {
   OnboardingModal = 'OnboardingModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
-  WalletConnectModal = 'WalletConnectModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   DAppConnectionModal = 'DAppConnectionModal',
@@ -37,7 +35,6 @@ export type IModalParamList = {
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
-  [EModalRoutes.WalletConnectModal]: IWalletConnectPagesParam;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;

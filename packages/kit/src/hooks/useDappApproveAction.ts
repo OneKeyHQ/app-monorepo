@@ -48,7 +48,7 @@ function useDappApproveAction({
       try {
         setRejectError(null);
         const data = result ?? (await getResolveData?.());
-        backgroundApiProxy.servicePromise.resolveCallback({
+        void backgroundApiProxy.servicePromise.resolveCallback({
           id,
           data,
         });

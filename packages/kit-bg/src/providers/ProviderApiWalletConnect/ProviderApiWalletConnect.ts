@@ -105,11 +105,9 @@ class ProviderApiWalletConnect {
     try {
       const result = await this.backgroundApi.serviceDApp.openModal({
         request: {},
-        // screens: ['WalletConnectModal', 'SessionProposalModal'],
         screens: [
-          EModalRoutes.WalletConnectModal,
-          // EWalletConnectPages.SessionProposalModal,
-          'SessionProposalModal',
+          EModalRoutes.DAppConnectionModal,
+          'WalletConnectSessionProposalModal',
         ],
         params: {
           proposal,
