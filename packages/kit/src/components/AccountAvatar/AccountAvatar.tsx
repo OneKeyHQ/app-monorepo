@@ -3,20 +3,19 @@ import { memo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { Image, Skeleton } from '@onekeyhq/components';
+import type {
+  IImageFallbackProps,
+  IImageProps,
+  ISkeletonProps,
+} from '@onekeyhq/components';
 import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import { Image, Skeleton } from '../../primitives';
-
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
-import type {
-  IImageFallbackProps,
-  IImageProps,
-  ISkeletonProps,
-} from '../../primitives';
 import type { ImageStyle } from 'react-native';
 
 export interface IAccountAvatarProps extends IImageProps {

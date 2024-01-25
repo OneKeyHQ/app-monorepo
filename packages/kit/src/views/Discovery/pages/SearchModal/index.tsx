@@ -4,7 +4,6 @@ import { useRoute } from '@react-navigation/core';
 
 import {
   IconButton,
-  ListItem,
   ListView,
   Page,
   ScrollView,
@@ -14,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';

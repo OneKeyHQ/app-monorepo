@@ -8,24 +8,28 @@ import { isValidElement } from 'react';
 
 import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
-import type {
-  IDBAccount,
-  IDBIndexedAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-
-import { Divider } from '../../content';
-import { Icon, Image, SizableText, Stack } from '../../primitives';
-import { AccountAvatar } from '../AccountAvatar';
-import { IconButton } from '../IconButton';
-
-import type { IIconButtonProps } from '..';
+import {
+  Divider,
+  Icon,
+  IconButton,
+  Image,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
 import type {
   IIconProps,
   IImageFallbackProps,
   IImageProps,
   ISizableTextProps,
   IStackProps,
-} from '../../primitives';
+} from '@onekeyhq/components/src/primitives';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+
+import { AccountAvatar } from '../AccountAvatar';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;

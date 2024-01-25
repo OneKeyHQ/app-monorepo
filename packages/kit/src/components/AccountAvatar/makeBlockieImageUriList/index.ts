@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import CreateAvatarListWorker from './createAvatarList.worker.js';
 
-import type { IUseBlockieImageUri } from './type';
+import type { IUseBlockieImageUri } from './type.js';
 
 // @ts-expect-error
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call

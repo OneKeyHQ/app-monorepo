@@ -8,14 +8,12 @@ import {
   DescriptionList,
   Divider,
   Heading,
-  Icon,
   Image,
-  ListItem,
   Page,
-  SizableText,
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 const histories: {
   key: string;

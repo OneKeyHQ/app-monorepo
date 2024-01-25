@@ -1,16 +1,16 @@
 import { isString } from 'lodash';
 
-import type { IListItemProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
   Image,
-  ListItem,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 
 import type { ITxActionCommonProps } from './types';
 

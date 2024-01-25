@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
+import { Button, Page, SortableListView } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';

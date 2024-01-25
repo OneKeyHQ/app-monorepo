@@ -4,13 +4,13 @@ import { useIntl } from 'react-intl';
 
 import {
   IconButton,
-  ListItem,
   Popover,
   SearchBar,
   Stack,
   Switch,
   XStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 function TxHistoryListHeader() {
   const intl = useIntl();

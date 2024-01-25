@@ -1,13 +1,13 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
 import {
-  ListItem,
   Page,
   SearchBar,
   SectionList,
   Spinner,
   Stack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

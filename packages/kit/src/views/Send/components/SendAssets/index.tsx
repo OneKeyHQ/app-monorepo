@@ -1,4 +1,5 @@
-import { Icon, ListItem, Stack } from '@onekeyhq/components';
+import { Icon, Stack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 type IProps = {

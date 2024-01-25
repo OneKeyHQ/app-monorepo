@@ -7,13 +7,12 @@ import {
   Button,
   Icon,
   IconButton,
-  ListItem,
   SectionList,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -46,6 +45,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { WalletOptions } from './WalletOptions';
 
 import type { IAccountGroupProps } from '../../../router/types';
+import { AccountAvatar } from '../../../../../components/AccountAvatar';
 
 export interface IWalletDetailsProps {
   num: number;

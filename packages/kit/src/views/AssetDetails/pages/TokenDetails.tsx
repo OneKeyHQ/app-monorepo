@@ -13,7 +13,6 @@ import {
   HeightTransition,
   Icon,
   Image,
-  ListItem,
   Page,
   SizableText,
   Stack,
@@ -24,6 +23,7 @@ import {
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';

@@ -8,7 +8,6 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -24,6 +23,7 @@ import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
+import { AccountAvatar } from '../AccountAvatar';
 
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
