@@ -1,9 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import {
   Button,
   Dialog,
-  Group,
   Icon,
   ScrollView,
   SizableText,
@@ -26,18 +25,17 @@ import {
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
+import { useAccountSelectorTrigger } from './hooks/useAccountSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
-import type {
-  IAccountSelectorContextData,
-  IAccountSelectorRouteParams,
-} from '../../states/jotai/contexts/accountSelector';
+import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 
 export function AccountSelectorTriggerHome({
   num,
   sceneName,
   sceneUrl,
 }: { num: number } & IAccountSelectorContextData) {
+  // TODO: useAccountSelectorTrigger hooks
   const navigation = useAppNavigation();
   const {
     activeAccount: { wallet, account },
@@ -140,22 +138,19 @@ export function AccountSelectorTriggerLegacy({
   );
 }
 
-export function AccountSelectorTriggerDappConnection({
-  num,
-  sceneName,
-  sceneUrl,
-}: IAccountSelectorRouteParams) {
-  const navigation = useAppNavigation();
+export function AccountSelectorTriggerDappConnection({ num }: { num: number }) {
   const {
-    activeAccount: { wallet, account },
+    activeAccount: { account },
     activeAccountName,
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num });
+
   const addressText = account?.address
     ? accountUtils.shortenAddress({
         address: account?.address || '',
       })
     : 'No Address';
+
   const media = useMedia();
   return (
     <XStack
@@ -186,15 +181,7 @@ export function AccountSelectorTriggerDappConnection({
           left: 8,
         },
       }}
-      onPress={() =>
-        actions.current.showAccountSelector({
-          activeWallet: wallet,
-          num,
-          navigation,
-          sceneName,
-          sceneUrl,
-        })
-      }
+      onPress={showAccountSelector}
     >
       {account?.address ? (
         <AccountAvatar size="$6" borderRadius="$1" account={account} />

@@ -14,6 +14,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 
 import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
+import { useNetworkSelectorTrigger } from './hooks/useNetworkSelectorTrigger';
 
 const getNetworksItems = memoFn(() =>
   // TODO ETC network
@@ -58,6 +59,7 @@ export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
 }
 
 export function NetworkSelectorTriggerHome({ num }: { num: number }) {
+  // TODO: useNetworkSelectorTrigger hooks
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
@@ -156,38 +158,13 @@ export function ControlledNetworkSelectorTrigger({
 export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
   const {
     activeAccount: { network },
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-  const { sceneName, sceneUrl, networks, defaultNetworkId } =
-    useAccountSelectorSceneInfo();
-
-  useNetworkAutoSelect({ num });
-
-  const navigation = useAppNavigation();
-
-  const handleChainPress = useCallback(() => {
-    actions.current.showChainSelector({
-      navigation,
-      num,
-      sceneName,
-      sceneUrl,
-      networks,
-      defaultNetworkId,
-    });
-  }, [
-    actions,
-    defaultNetworkId,
-    navigation,
-    networks,
-    num,
-    sceneName,
-    sceneUrl,
-  ]);
+    showChainSelector,
+  } = useNetworkSelectorTrigger({ num });
 
   return (
     <XStack
       alignItems="center"
-      onPress={handleChainPress}
+      onPress={showChainSelector}
       pl="$3"
       pr="$1.5"
       bg="$bgSubdued"
