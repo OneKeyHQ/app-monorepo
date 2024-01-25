@@ -56,7 +56,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <AccountAvatar size="$6" borderRadius="$1" account={account} />
+      <AccountAvatar size="small" borderRadius="$1" account={account} />
 
       <SizableText
         flex={1}

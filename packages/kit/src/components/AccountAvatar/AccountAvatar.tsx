@@ -18,7 +18,6 @@ import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
 import type { ImageStyle } from 'react-native';
-import type { SizeTokens } from 'tamagui';
 
 const VARIANT_SIZE = {
   'default': '$10',

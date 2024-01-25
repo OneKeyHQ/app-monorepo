@@ -31,6 +31,8 @@ import type {
 
 import { AccountAvatar } from '../AccountAvatar';
 
+import type { IAccountAvatarProps } from '../AccountAvatar';
+
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;
 }
@@ -90,7 +92,8 @@ export type IListItemAvatarProps = {
   cornerIconProps?: IListItemAvatarCornerIconProps;
   cornerImageProps?: IListItemAvatarCornerImageProps;
   children?: React.ReactNode;
-} & IImageProps;
+} & IImageProps &
+  IAccountAvatarProps;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
   const { children, cornerIconProps, cornerImageProps, ...restProps } = props;
