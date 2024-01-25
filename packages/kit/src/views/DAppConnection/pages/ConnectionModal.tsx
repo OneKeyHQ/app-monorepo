@@ -13,6 +13,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import DAppRequestHeader from '../components/DAppRequestHeader';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -74,11 +75,7 @@ function DAppAccountSelector({
         sceneName={EAccountSelectorSceneName.discover}
         sceneUrl={origin}
       />
-      <NetworkSelectorTriggerHome
-        num={num}
-        sceneName={EAccountSelectorSceneName.discover}
-        sceneUrl={origin}
-      />
+      <NetworkSelectorTriggerHome num={num} />
       {createAccountButton}
     </Stack>
   );
@@ -151,24 +148,27 @@ function ConnectionModal() {
 
   return (
     <Page>
-      <Page.Header title="Connection Modal" />
+      <Page.Header headerShown={false} />
       <Page.Body>
         {accountSelectorNum === null ? null : (
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.discover,
-              sceneUrl: $sourceInfo?.origin,
-            }}
-            enabledNum={[accountSelectorNum]}
-          >
-            <DAppAccountSelector
-              num={accountSelectorNum}
-              origin={$sourceInfo?.origin ?? ''}
-              onSelectedAccount={(activeAccount) => {
-                selectedAccountRef.current = activeAccount;
+          <>
+            <DAppRequestHeader />
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.discover,
+                sceneUrl: $sourceInfo?.origin,
               }}
-            />
-          </AccountSelectorProviderMirror>
+              enabledNum={[accountSelectorNum]}
+            >
+              <DAppAccountSelector
+                num={accountSelectorNum}
+                origin={$sourceInfo?.origin ?? ''}
+                onSelectedAccount={(activeAccount) => {
+                  selectedAccountRef.current = activeAccount;
+                }}
+              />
+            </AccountSelectorProviderMirror>
+          </>
         )}
       </Page.Body>
       <Page.Footer
