@@ -4,7 +4,7 @@ import { styled, withStaticProperties } from 'tamagui';
 
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
-import { useThemeValue } from '../../hooks';
+import { useThemeValue } from '../../hooks/useStyle';
 import { View } from '../../optimization';
 
 import ICON_CONFIG from './Icons';

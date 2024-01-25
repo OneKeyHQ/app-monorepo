@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react';
 
-import * as Clipboard from 'expo-clipboard';
 import { compact } from 'lodash';
 import { Dimensions } from 'react-native';
 
@@ -31,6 +30,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useClipboard,
   useForm,
   useFormState,
   useIsKeyboardShown,
@@ -377,6 +377,7 @@ export function PhaseInputArea({
   const form = useForm({
     defaultValues: defaultPhrasesMap,
   });
+  const { getClipboard } = useClipboard();
   const { control } = form;
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
@@ -511,7 +512,7 @@ export function PhaseInputArea({
               size="small"
               variant="tertiary"
               onPress={async () => {
-                const mnemonic = await Clipboard.getStringAsync();
+                const mnemonic = await getClipboard();
                 try {
                   const phrasesArr: string[] = (mnemonic || '').split(' ');
                   form.reset(

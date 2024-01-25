@@ -69,6 +69,7 @@ const getChildProps = (
         : field.onChange;
       return {
         ...field,
+        error,
         onChange: handleChange,
       };
     }

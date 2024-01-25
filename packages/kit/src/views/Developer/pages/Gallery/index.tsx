@@ -307,6 +307,12 @@ const WebviewGallery = LazyLoad(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView'
     ),
 );
+const AddressInputGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'
+    ),
+);
 
 export const galleryScreenList: {
   name: EGalleryRoutes;
@@ -429,5 +435,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentImage,
     component: ImageGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAddressInput,
+    component: AddressInputGallery,
   },
 ];

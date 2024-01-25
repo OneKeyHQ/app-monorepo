@@ -50,4 +50,5 @@ export enum EGalleryRoutes {
   ComponentLinearGradientGallery = 'component-LinearGradient',
   ComponentHardware = 'component-Hardware',
   ComponentImage = 'component-Image',
+  ComponentAddressInput = 'component-AddressInput',
 }

@@ -14,7 +14,7 @@ import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSafeAreaInsets } from '../../hooks';
+import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
