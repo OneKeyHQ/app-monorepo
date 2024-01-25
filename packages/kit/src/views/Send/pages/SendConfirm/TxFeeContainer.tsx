@@ -3,9 +3,10 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { SizableText, Spinner, XStack, YStack } from '@onekeyhq/components';
+import { SizableText } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -19,6 +20,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EFeeType } from '@onekeyhq/shared/types/gas';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
@@ -38,12 +40,13 @@ function TxFeeContainer(props: IProps) {
   const intl = useIntl();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
+  const [settings] = useSettingsPersistAtom();
   const { updateSendSelectedFee, updateCustomFee, updateSendSelectedFeeInfo } =
     useSendConfirmActions().current;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { result: gasFee, isLoading } = usePromiseResult(
+  const { result: gasFee } = usePromiseResult(
     async () => {
       const r = await backgroundApiProxy.serviceGas.estimateGasFee({
         networkId,
@@ -199,34 +202,25 @@ function TxFeeContainer(props: IProps) {
     ],
   );
 
-  if (isLoading)
-    return (
-      <XStack py="$2">
-        <Spinner size="small" />
-      </XStack>
-    );
-
   return (
-    <XStack py="$2" alignItems="center" justifyContent="space-around">
-      <YStack flex={1}>
-        <XStack alignItems="center" space="$1">
-          <SizableText size="$bodyLg">{`${
-            selectedGas?.totalNativeForDisplay ?? ''
-          } ${gasFee?.common.nativeSymbol ?? ''}`}</SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">{`${
-            selectedGas?.totalFiatForDisplay ?? ''
-          }`}</SizableText>
-        </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Fee Estimate
-        </SizableText>
-      </YStack>
-      <GasSelector
-        items={gasSelectorItems}
-        value={gasSelectorValue}
-        onChange={handleSelectedFeeOnChange}
+    <Container.Box>
+      <Container.Item
+        title="Fee Estimate"
+        content={`${selectedGas?.totalNativeForDisplay ?? '0.00'} ${
+          gasFee?.common.nativeSymbol ?? ''
+        }`}
+        subContent={`${settings.currencyInfo.symbol}${
+          selectedGas?.totalFiatForDisplay ?? '0.00'
+        }`}
+        contentAdd={
+          <GasSelector
+            items={gasSelectorItems}
+            value={gasSelectorValue}
+            onChange={handleSelectedFeeOnChange}
+          />
+        }
       />
-    </XStack>
+    </Container.Box>
   );
 }
 export { TxFeeContainer };

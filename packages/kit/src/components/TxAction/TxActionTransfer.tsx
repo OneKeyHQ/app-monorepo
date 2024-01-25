@@ -1,11 +1,12 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty, map, uniq } from 'lodash';
+import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type {
-  IDecodedTxActionAssetTransfer,
-  IDecodedTxTransferInfo,
+import {
+  EDecodedTxDirection,
+  type IDecodedTxActionAssetTransfer,
+  type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { getFormattedNumber } from '../../utils/format';
@@ -17,6 +18,14 @@ import {
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+import { Container } from '../Container';
+import { ContainerBox } from '../Container/ContainerBox';
+import { useCallback } from 'react';
+
+type ITransferBlock = {
+  target: string;
+  transfersInfo: IDecodedTxTransferInfo[];
+};
 
 function getTxActionTransferInfo(props: ITxActionProps) {
   const { action } = props;
@@ -52,6 +61,8 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
+    from,
+    to,
     label: label ?? '',
     transferTarget,
     sendNFTIcon: sendsWithNFT[0]?.image,
@@ -209,23 +220,83 @@ function TxActionTransferListView(props: ITxActionProps) {
   );
 }
 
+function buildTransfersBlock(
+  transferGroup: Record<string, IDecodedTxTransferInfo[]>,
+) {
+  const transfersBlock: ITransferBlock[] = [];
+
+  forOwn(transferGroup, (transfers, target) => {
+    const transfersInfo: IDecodedTxTransferInfo[] = [];
+    const tokenGroup = groupBy(transfers, 'token');
+    forOwn(tokenGroup, (tokens) => {
+      const token = tokens[0];
+      const tokensAmount = tokens.reduce(
+        (acc, item) => acc.plus(item.amount),
+        new BigNumber(0),
+      );
+      transfersInfo.push({
+        ...token,
+        amount: tokensAmount.toFixed(),
+      });
+    });
+    transfersBlock.push({
+      target,
+      transfersInfo,
+    });
+  });
+
+  return transfersBlock;
+}
+
 function TxActionTransferDetailView(props: ITxActionProps) {
-  const {
-    sends,
-    receives,
-    label,
-    sendTokenIcon,
-    sendNFTIcon,
-    receiveNFTIcon,
-    receiveTokenIcon,
-  } = getTxActionTransferInfo(props);
+  const intl = useIntl();
+  const { sends, receives, from } = getTxActionTransferInfo(props);
+
+  const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
+  const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
+
+  const renderTransferBlock = useCallback(
+    (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
+      if (isEmpty(transfersBlock)) return null;
+
+      const ps: React.ReactNode[] = [];
+
+      transfersBlock.forEach((block) => {
+        const { target, transfersInfo } = block;
+        const transfersContent = transfersInfo.map((transfer) => {});
+        ps.push(<Container.Item title={target} key={target} />);
+        ps.push(
+          <Container.Item
+            title={intl.formatMessage({
+              id:
+                direction === EDecodedTxDirection.OUT
+                  ? 'content__to'
+                  : 'content__from',
+            })}
+            content={target}
+          />,
+        );
+      });
+
+      return (
+        <Container.Box>
+          {direction === EDecodedTxDirection.OUT && (
+            <Container.Item
+              title={intl.formatMessage({ id: 'content__from' })}
+              content={from}
+            />
+          )}
+        </Container.Box>
+      );
+    },
+    [from, intl],
+  );
+
   return (
-    <TxActionCommonDetailView
-      title={label}
-      icon={sendTokenIcon ?? sendNFTIcon ?? receiveTokenIcon ?? receiveNFTIcon}
-      content={sends[0]?.amount ?? receives[0]?.amount}
-      description={sends[0]?.to ?? receives[0]?.to}
-    />
+    <>
+      {renderTransferBlock(sendsBlock, EDecodedTxDirection.OUT)}
+      {renderTransferBlock(receivesBlock, EDecodedTxDirection.IN)}
+    </>
   );
 }
 

@@ -27,7 +27,7 @@ function ContainerBox(props: IProps) {
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
         <SizableText
-          py="$2"
+          px="$4"
           size="$headingSm"
           color="$textSubdued"
           {...titleProps}
@@ -40,8 +40,10 @@ function ContainerBox(props: IProps) {
       <Stack
         borderWidth={1}
         borderRadius={12}
-        borderColor="$borderSubdued"
+        borderColor="$border"
+        bg="$bgSubdued"
         overflow="hidden"
+        px="$5"
         {...contentProps}
       >
         {children &&

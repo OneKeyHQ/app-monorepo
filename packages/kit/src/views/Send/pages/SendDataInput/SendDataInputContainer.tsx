@@ -130,8 +130,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
-      to: '',
-      amount: '',
+      to: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
+      amount: '0.1',
       nftAmount: '',
     },
     mode: 'onChange',

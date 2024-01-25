@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useSendSelectedFeeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
-import { getFeeIcon, getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
+import { getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
 type IProps = ComponentProps<typeof XStack>;
 
@@ -14,29 +14,21 @@ function GasSelectorTrigger(props: IProps) {
   const [sendSelectedFee] = useSendSelectedFeeAtom();
 
   return (
-    <XStack alignItems="center" space="$3" {...props}>
-      <XStack alignItems="center" space="$1">
-        <SizableText>
-          {getFeeIcon({
+    <XStack alignItems="center" space="$1" {...props}>
+      <SizableText size="$bodyMdMedium">
+        {intl.formatMessage({
+          id: getFeeLabel({
             feeType: sendSelectedFee.feeType,
             presetIndex: sendSelectedFee.presetIndex,
-          })}
-        </SizableText>
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: getFeeLabel({
-              feeType: sendSelectedFee.feeType,
-              presetIndex: sendSelectedFee.presetIndex,
-            }),
-          })}
-        </SizableText>
-      </XStack>
+          }),
+        })}
+      </SizableText>
       <Icon
         hoverStyle={{
           color: '$iconActive',
         }}
         name="ChevronGrabberVerOutline"
-        size="$6"
+        size="$4"
         color="$iconSubdued"
       />
     </XStack>

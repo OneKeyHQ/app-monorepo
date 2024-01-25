@@ -60,8 +60,13 @@ function SendConfirmContainer() {
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
       <Page.Body>
-        <YStack space="$5" px="$5">
+        <YStack space="$4" px="$5">
           <TxActionsContainer
+            accountId={accountId}
+            networkId={networkId}
+            unsignedTxs={unsignedTxs}
+          />
+          <TxFeeContainer
             accountId={accountId}
             networkId={networkId}
             unsignedTxs={unsignedTxs}
@@ -70,11 +75,6 @@ function SendConfirmContainer() {
       </Page.Body>
       <Page.Footer>
         <Stack padding="$5">
-          <TxFeeContainer
-            accountId={accountId}
-            networkId={networkId}
-            unsignedTxs={unsignedTxs}
-          />
           <SendActions
             onConfirm={handleConfirm}
             onCancel={() => navigation.popStack()}
