@@ -9,10 +9,10 @@ import {
   IconButton,
   ListItem,
   SectionList,
-  Skeleton,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -45,15 +45,14 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletOptions } from './WalletOptions';
 
-import type { IAccountGroupProps, IAccountProps } from '../../../router/types';
+import type { IAccountGroupProps } from '../../../router/types';
 
 export interface IWalletDetailsProps {
   num: number;
-  onAccountPress?: (id: IAccountProps['id']) => void;
   wallet?: IDBWallet;
 }
 
-export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
+export function WalletDetails({ num }: IWalletDetailsProps) {
   const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
@@ -276,16 +275,18 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             )}
           </>
         )}
-        renderItem={({ item }: { item: IDBIndexedAccount | IDBAccount }) => (
+        renderItem={({
+          item,
+        }: {
+          item: IDBIndexedAccount | IDBAccount;
+          section: IAccountGroupProps;
+        }) => (
           <ListItem
             key={item.id}
             avatarProps={{
               // eslint-disable-next-line spellcheck/spell-checker
-              src: item.avatar,
-              fallbackProps: {
-                delayMs: 150,
-                children: <Skeleton w="$10" h="$10" />,
-              },
+              account: item,
+              fallback: <AccountAvatar.Fallback w="$10" h="$10" />,
               // cornerImageProps: item.networkImageSrc
               //   ? {
               //       src: item.networkImageSrc,
@@ -306,41 +307,47 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
                   })
                 : undefined
             }
-            {...(onAccountPress &&
-              !editMode && {
-                onPress: () => {
-                  if (isOthers) {
-                    actions.current.updateSelectedAccount({
-                      num,
-                      builder: (v) => ({
-                        ...v,
-                        walletId: accountUtils.getWalletIdFromAccountId({
-                          accountId: item.id,
-                        }),
-                        othersWalletAccountId: item.id,
-                        indexedAccountId: undefined,
+            {...(!editMode && {
+              onPress: () => {
+                if (isOthers) {
+                  actions.current.updateSelectedAccount({
+                    num,
+                    builder: (v) => ({
+                      ...v,
+                      walletId: accountUtils.getWalletIdFromAccountId({
+                        accountId: item.id,
                       }),
-                    });
-                  } else if (focusedWalletInfo) {
-                    actions.current.updateSelectedAccount({
-                      num,
-                      builder: (v) => ({
-                        ...v,
-                        walletId: focusedWalletInfo?.wallet?.id,
-                        othersWalletAccountId: undefined,
-                        indexedAccountId: item.id,
-                      }),
-                    });
-                  }
-                  navigation.popStack();
-                },
-                checkMark: isOthers
-                  ? selectedAccount.othersWalletAccountId === item.id
-                  : selectedAccount.indexedAccountId === item.id,
-              })}
+                      othersWalletAccountId: item.id,
+                      indexedAccountId: undefined,
+                    }),
+                  });
+                } else if (focusedWalletInfo) {
+                  actions.current.updateSelectedAccount({
+                    num,
+                    builder: (v) => ({
+                      ...v,
+                      walletId: focusedWalletInfo?.wallet?.id,
+                      othersWalletAccountId: undefined,
+                      indexedAccountId: item.id,
+                    }),
+                  });
+                }
+                navigation.popStack();
+              },
+              checkMark: isOthers
+                ? selectedAccount.othersWalletAccountId === item.id
+                : selectedAccount.indexedAccountId === item.id,
+            })}
           >
             <AnimatePresence>
-              {editMode && <AccountRenameButton account={item} />}
+              {editMode && (
+                <AccountRenameButton
+                  account={isOthers ? (item as IDBAccount) : undefined}
+                  indexedAccount={
+                    isOthers ? undefined : (item as IDBIndexedAccount)
+                  }
+                />
+              )}
             </AnimatePresence>
           </ListItem>
         )}

@@ -5,9 +5,9 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
+  AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
@@ -61,8 +61,8 @@ export default function HomePageHeaderView() {
           }}
           enabledNum={[0]}
         >
-          <AccountSelectorTrigger num={0} />
-          <AccountSelectorActiveAccount num={0} />
+          <AccountSelectorTriggerLegacy num={0} />
+          <AccountSelectorActiveAccountLegacy num={0} />
         </AccountSelectorProviderMirror>
         <SizableText>Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>

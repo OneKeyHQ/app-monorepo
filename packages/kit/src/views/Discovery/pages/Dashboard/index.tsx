@@ -400,7 +400,6 @@ function Dashboard() {
               }
             />
           }
-          nestedScrollEnabled
           headerProps={{
             itemContainerStyle: { flex: 1 },
             cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },

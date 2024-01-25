@@ -3,12 +3,12 @@ import { useState } from 'react';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
 import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
+  useAccountSelectorContextData,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
@@ -36,8 +36,8 @@ function ChainSelector({ num }: { num: number }) {
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-
-  const [data, setData] = useState(mockPresetNetworksList);
+  const { config } = useAccountSelectorContextData();
+  const [data, setData] = useState(config?.networks || mockPresetNetworksList);
   const selectedChain = network?.id;
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -139,16 +139,18 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
-  const { sceneName, sceneUrl } = route.params;
+  const { num, sceneName, sceneUrl, networks, defaultNetworkId } = route.params;
   return (
     <AccountSelectorProviderMirror
-      enabledNum={[0]}
+      enabledNum={[num]}
       config={{
         sceneName,
         sceneUrl,
+        networks,
+        defaultNetworkId,
       }}
     >
-      <ChainSelector num={0} />
+      <ChainSelector num={num} />
     </AccountSelectorProviderMirror>
   );
 }

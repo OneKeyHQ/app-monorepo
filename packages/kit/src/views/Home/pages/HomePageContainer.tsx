@@ -5,6 +5,8 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { mockPresetNetworksBtcList } from '@onekeyhq/kit-bg/src/mock';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -79,7 +81,6 @@ function HomePage() {
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
             initialScrollIndex={0}
-            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}
@@ -105,6 +106,8 @@ function HomePageContainer() {
       config={{
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
+        // networks: mockPresetNetworksBtcList, // support available networks
+        // defaultNetworkId: 'tbtc--0', // default selected networkId
       }}
       enabledNum={[0]}
     >
