@@ -29,18 +29,18 @@ const ToastGallery = () => (
       {
         title: 'Default',
         element: (
-          <YStack space="$2" justifyContent="center">
-            <WalletAvatar wallet={wallet} />
-            <WalletAvatar wallet={wallet} status="connected" />
-            <WalletAvatar size="small" wallet={wallet} />
+          <YStack space="$2">
             <WalletAvatar size="$20" wallet={wallet} />
-            <WalletAvatar img="panda" wallet={undefined} />
             <WalletAvatar
               img="panda"
               wallet={undefined}
               icon="MenuCircleHorSolid"
               onIconPress={() => alert('WalletAvatar')}
             />
+            <WalletAvatar img="panda" wallet={undefined} />
+            <WalletAvatar wallet={wallet} />
+            <WalletAvatar wallet={wallet} status="connected" />
+            <WalletAvatar size="small" wallet={wallet} />
           </YStack>
         ),
       },
