@@ -20,13 +20,18 @@ import { useBlockieImageUri } from './makeBlockieImageUriList';
 import type { ImageStyle } from 'react-native';
 
 const VARIANT_SIZE = {
-  'default': '$10',
-  'small': '$6',
-};
-
-const LOGO_VARIANT_SIZE = {
-  'default': '$6',
-  'small': '$3',
+  'default': {
+    containerSize: '$10',
+    logoContainerSize: '$5',
+    logoSize: '$4',
+    relativeMargin: '$6',
+  },
+  'small': {
+    containerSize: '$6',
+    logoContainerSize: '$4',
+    logoSize: '$3',
+    relativeMargin: '$3',
+  },
 };
 
 type IKeyOfVariantSize = keyof typeof VARIANT_SIZE;
@@ -68,17 +73,17 @@ function BasicAccountAvatar({
   chain,
   ...restProps
 }: IAccountAvatarProps) {
-  const contentSize = VARIANT_SIZE[size];
-  const chainLogoSize = LOGO_VARIANT_SIZE[size];
+  const { containerSize, logoContainerSize, logoSize, relativeMargin } =
+    VARIANT_SIZE[size] || VARIANT_SIZE.default;
   return (
     <Stack
-      w={contentSize}
-      h={contentSize}
+      w={containerSize}
+      h={containerSize}
       justifyContent="center"
       alignItems="center"
     >
       <Image
-        size={contentSize}
+        size={containerSize}
         style={
           {
             borderCurve: 'continuous',
@@ -98,23 +103,26 @@ function BasicAccountAvatar({
           (fallbackProps ? (
             <Image.Fallback {...fallbackProps} />
           ) : (
-            <Fallback w={contentSize} h={contentSize} />
+            <Fallback w={containerSize} h={containerSize} />
           ))}
       </Image>
 
       {chain ? (
         <Stack
           position="absolute"
-          height={chainLogoSize}
-          width={chainLogoSize}
-          right="$-1"
-          bottom="$-1"
+          justifyContent="center"
+          alignItems="center"
+          height={logoContainerSize}
+          width={logoContainerSize}
+          top={relativeMargin}
+          left={relativeMargin}
           bg="$bgApp"
           p="$px"
           borderRadius="$full"
           zIndex="$1"
         >
           <Image
+            size={logoSize}
             src={serverPresetNetworks.find((i) => i.code === chain)?.logoURI}
           />
         </Stack>
