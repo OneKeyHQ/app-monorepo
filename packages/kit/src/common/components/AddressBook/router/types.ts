@@ -12,6 +12,7 @@ export type IModalAddressBookParamList = {
   [EModalAddressBookRoutes.AddItemModal]: undefined;
   [EModalAddressBookRoutes.EditItemModal]: IAddressItem;
   [EModalAddressBookRoutes.PickItemModal]: {
+    networkId?: string;
     onPick?: (item: IAddressItem) => void;
   };
 };

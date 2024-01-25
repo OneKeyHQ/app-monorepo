@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   EModalAddressBookRoutes,
@@ -29,6 +30,7 @@ const EditItemPage = () => {
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       await backgroundApiProxy.serviceAddressBook.editAddressBookItem(item);
+      Toast.success({ title: 'Save Successful' });
       navigation.pop();
     },
     [navigation],
@@ -40,8 +42,9 @@ const EditItemPage = () => {
         await backgroundApiProxy.serviceAddressBook.removeAddressBookItem(
           item.id,
         );
+        Toast.success({ title: 'Delete Successful' });
+        navigation.pop();
       }
-      navigation.pop();
     },
     [navigation],
   );

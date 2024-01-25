@@ -23,9 +23,13 @@ import {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EModalAddressBookRoutes } from '@onekeyhq/kit/src/common/components/AddressBook/router/types';
+import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebounce } from '../../../hooks/useDebounce';
 
 type IAddressPluginsOptions = {
@@ -71,11 +75,23 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   );
 };
 
-const ContactsPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+type IContactsPluginProps = IAddressPluginProps & {
+  networkId?: string;
+};
+
+const ContactsPlugin: FC<IContactsPluginProps> = ({ onChange, networkId }) => {
+  const navigation = useAppNavigation();
   const onPress = useCallback(() => {
-    // TODO: navigation to address book
-    onChange?.('');
-  }, [onChange]);
+    navigation.pushModal(EModalRoutes.AddressBookModal, {
+      screen: EModalAddressBookRoutes.PickItemModal,
+      params: {
+        networkId,
+        onPick: (item: IAddressItem) => {
+          onChange?.(item.address);
+        },
+      },
+    });
+  }, [onChange, navigation, networkId]);
   return (
     <IconButton
       onPress={onPress}
@@ -335,7 +351,9 @@ function AddressInput(props: IAddressInputProps) {
               <ClipboardPlugin onChange={onChangeText} />
             ) : null}
             {plugins.scan ? <ScanPlugin onChange={onChangeText} /> : null}
-            {plugins.contacts ? <ContactsPlugin /> : null}
+            {plugins.contacts ? (
+              <ContactsPlugin onChange={onChangeText} networkId={networkId} />
+            ) : null}
           </XStack>
         </XStack>
       </YStack>

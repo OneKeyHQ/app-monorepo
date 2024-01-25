@@ -45,11 +45,10 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async addAddressBookItem(newObj: IAddressItem) {
-    const { isValid } =
-      await this.backgroundApi.serviceValidator.validateAddress({
-        networkId: newObj.networkId,
-        address: newObj.address,
-      });
+    const isValid = await this.backgroundApi.serviceAddress.validateAddress({
+      networkId: newObj.networkId,
+      address: newObj.address,
+    });
     if (!isValid) {
       throw new Error('Invalid address');
     }
@@ -83,9 +82,9 @@ class ServiceAddressBook extends ServiceBase {
         key: password,
       });
       await addressBookPersistAtom.set({ encoded: text });
-      return;
+    } else {
+      throw new Error('Address Book Item not found');
     }
-    throw new Error('Address Book Item not found');
   }
 
   @backgroundMethod()
@@ -118,10 +117,12 @@ class ServiceAddressBook extends ServiceBase {
   public async rollbackAddressBook() {
     if (this.rollbackData) {
       await addressBookPersistAtom.set({ encoded: this.rollbackData });
+    } else {
+      throw new Error('No rollback data');
     }
-    throw new Error('No rollback data');
   }
 
+  @backgroundMethod()
   public async findItem(params: {
     networkId: string;
     address?: string;

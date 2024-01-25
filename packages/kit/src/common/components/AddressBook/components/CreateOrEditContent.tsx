@@ -12,6 +12,7 @@ import {
   Stack,
   useForm,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
   type IAddressInputValue,
@@ -83,12 +84,48 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="networkId"
             rules={{ required: true }}
           >
-            <Select items={mockItemsNetworks} title="网络" />
+            <Select items={mockItemsNetworks} title="Networks" />
           </Form.Field>
-          <Form.Field label="Name" name="name" rules={{ required: true }}>
+          <Form.Field
+            label="Name"
+            name="name"
+            rules={{
+              required: true,
+              validate: async (text) => {
+                const searched =
+                  await backgroundApiProxy.serviceAddressBook.findItem({
+                    networkId,
+                    name: text,
+                  });
+                if (!searched || item.id === searched.id) {
+                  return undefined;
+                }
+                return 'address book name exist';
+              },
+            }}
+          >
             <Input placeholder="Required" />
           </Form.Field>
-          <Form.Field label="Address" name="address" rules={{ required: true }}>
+          <Form.Field
+            label="Address"
+            name="address"
+            rules={{
+              validate: async (output: IAddressInputValue) => {
+                if (!output.resolved) {
+                  return 'invalid address';
+                }
+                const searched =
+                  await backgroundApiProxy.serviceAddressBook.findItem({
+                    networkId,
+                    address: output.resolved,
+                  });
+                if (!searched || item.id === searched.id) {
+                  return undefined;
+                }
+                return 'address book item address exist';
+              },
+            }}
+          >
             <AddressInput
               networkId={networkId}
               placeholder="Address"

@@ -5,51 +5,63 @@ import { EModalAddressBookRoutes } from '@onekeyhq/kit/src/common/components/Add
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 
-import type { IAddressItem } from '../type';
+import type { IAddressItem, ISectionItem } from '../type';
 
-export const useAddressBookItems = () => {
+export const useAddressBookItems = (networkId?: string) => {
   const [encode] = useAddressBookPersistAtom();
-  return usePromiseResult<IAddressItem[]>(
+  return usePromiseResult<ISectionItem[]>(
     async () => {
-      const items =
+      let items =
         await backgroundApiProxy.serviceAddressBook.getAddressBookItems();
-      return items;
+      if (networkId) {
+        items = items.filter((item) => item.networkId === networkId);
+      }
+      const data = items.reduce((acc, item) => {
+        const [type] = item.networkId.split('--');
+        if (!acc[type]) {
+          acc[type] = [];
+        }
+        acc[type].push(item);
+        return acc;
+      }, {} as Record<string, IAddressItem[]>);
+      return Object.entries(data).map((o) => ({ title: o[0], data: o[1] }));
     },
     // eslint-disable-next-line
-    [encode],
+    [encode, networkId],
     { watchLoading: true },
   );
 };
 
 export const useAddressBookPick = () => {
-  const [passwordSetting] = usePasswordPersistAtom();
   const navigation = useAppNavigation();
-  return useCallback(async () => {
-    const password =
-      await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!passwordSetting.isPasswordSet || !password) {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    }
-    navigation.pushModal(EModalRoutes.AddressBookModal, {
-      screen: EModalAddressBookRoutes.PickItemModal,
-    });
-  }, [navigation, passwordSetting]);
+  return useCallback(
+    async (onPick: (item: IAddressItem) => void) => {
+      const password =
+        await backgroundApiProxy.servicePassword.getCachedPassword();
+      if (!password) {
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      }
+      navigation.pushModal(EModalRoutes.AddressBookModal, {
+        screen: EModalAddressBookRoutes.PickItemModal,
+        params: { onPick },
+      });
+    },
+    [navigation],
+  );
 };
 
 export const useAddressBookList = () => {
-  const [passwordSetting] = usePasswordPersistAtom();
   const navigation = useAppNavigation();
   return useCallback(async () => {
     const password =
       await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!passwordSetting.isPasswordSet || !password) {
+    if (!password) {
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
     }
     navigation.pushModal(EModalRoutes.AddressBookModal, {
       screen: EModalAddressBookRoutes.ListItemModal,
     });
-  }, [navigation, passwordSetting]);
+  }, [navigation]);
 };

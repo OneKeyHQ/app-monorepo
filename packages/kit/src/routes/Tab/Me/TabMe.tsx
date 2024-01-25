@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Page,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
@@ -42,8 +48,28 @@ const LockNowButton = () => {
 const AddressBookButton = () => {
   const intl = useIntl();
   const pick = useAddressBookList();
+  const onPress = useCallback(async () => {
+    const password =
+      await backgroundApiProxy.servicePassword.getCachedPassword();
+    if (!password) {
+      Dialog.show({
+        title: 'Encrypted storage',
+        icon: 'PlaceholderOutline',
+        description:
+          'All your address book data is encrypted with your login password. ',
+        tone: 'default',
+        showCancelButton: false,
+        onConfirm: async (inst) => {
+          await inst.close();
+          await pick();
+        },
+      });
+    } else {
+      await pick();
+    }
+  }, [pick]);
   return (
-    <Button onPress={pick}>
+    <Button onPress={onPress}>
       {intl.formatMessage({ id: 'title__address_book' })}
     </Button>
   );

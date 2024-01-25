@@ -12,6 +12,7 @@ import {
   SizableText,
   Stack,
   Toast,
+  useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
@@ -31,6 +32,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   showActions,
 }) => {
   const intl = useIntl();
+  const { copyText } = useClipboard();
   const appNavigation = useAppNavigation();
   const renderAvatar = useCallback(
     () => (
@@ -65,8 +67,9 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
               label: intl.formatMessage({ id: 'action__copy' }),
               icon: 'Copy1Outline',
               onPress: () => {
+                copyText(item.address);
                 Toast.success({
-                  title: 'Copied',
+                  title: intl.formatMessage({ id: 'msg__copied' }),
                 });
               },
             },
