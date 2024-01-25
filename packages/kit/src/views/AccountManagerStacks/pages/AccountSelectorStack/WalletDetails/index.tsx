@@ -147,7 +147,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       return serviceAccount.getAccountSelectorAccountsListSectionData({
         focusedWallet: selectedAccount?.focusedWallet,
         linkedNetworkId: linkNetwork ? selectedAccount?.networkId : undefined,
-        deriveType: selectedAccount.deriveType || 'default',
+        deriveType: selectedAccount.deriveType,
       });
     },
     [
