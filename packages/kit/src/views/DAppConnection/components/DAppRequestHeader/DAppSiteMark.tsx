@@ -91,4 +91,4 @@ function DAppSiteMark({
   );
 }
 
-export default DAppSiteMark;
+export { DAppSiteMark };

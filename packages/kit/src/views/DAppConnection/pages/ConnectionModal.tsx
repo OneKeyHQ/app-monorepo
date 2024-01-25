@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Page, SizableText, Stack, Toast } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import {
+  Button,
+  Divider,
+  Group,
+  Page,
+  SizableText,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
+import { NetworkSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -13,7 +24,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
-import DAppRequestHeader from '../components/DAppRequestHeader';
+import DAppRequestLayout from '../components/DAppRequestLayout';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
@@ -75,7 +86,7 @@ function DAppAccountSelector({
         sceneName={EAccountSelectorSceneName.discover}
         sceneUrl={origin}
       />
-      <NetworkSelectorTriggerHome num={num} />
+      <NetworkSelectorTriggerDappConnection num={num} />
       {createAccountButton}
     </Stack>
   );
@@ -151,24 +162,44 @@ function ConnectionModal() {
       <Page.Header headerShown={false} />
       <Page.Body>
         {accountSelectorNum === null ? null : (
-          <>
-            <DAppRequestHeader />
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: $sourceInfo?.origin,
-              }}
-              enabledNum={[accountSelectorNum]}
-            >
-              <DAppAccountSelector
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.discover,
+              sceneUrl: $sourceInfo?.origin,
+            }}
+            enabledNum={[accountSelectorNum]}
+          >
+            <DAppRequestLayout title="Connection Request">
+              <Group
+                orientation="horizontal"
+                bg="$bg"
+                borderRadius="$3"
+                borderColor="$borderSubdued"
+                borderWidth={StyleSheet.hairlineWidth}
+                separator={<Divider vertical />}
+              >
+                <Group.Item>
+                  <NetworkSelectorTriggerDappConnection
+                    num={accountSelectorNum}
+                  />
+                </Group.Item>
+                <Group.Item>
+                  <AccountSelectorTriggerDappConnection
+                    sceneName={EAccountSelectorSceneName.discover}
+                    sceneUrl={$sourceInfo?.origin}
+                    num={accountSelectorNum}
+                  />
+                </Group.Item>
+              </Group>
+            </DAppRequestLayout>
+            {/* <DAppAccountSelector
                 num={accountSelectorNum}
                 origin={$sourceInfo?.origin ?? ''}
                 onSelectedAccount={(activeAccount) => {
                   selectedAccountRef.current = activeAccount;
                 }}
-              />
-            </AccountSelectorProviderMirror>
-          </>
+              /> */}
+          </AccountSelectorProviderMirror>
         )}
       </Page.Body>
       <Page.Footer

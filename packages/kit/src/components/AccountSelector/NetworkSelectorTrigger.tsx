@@ -15,8 +15,6 @@ import {
 
 import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
 
-import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
-
 const getNetworksItems = memoFn(() =>
   // TODO ETC network
   mockPresetNetworksList.map((item) => ({
@@ -152,5 +150,77 @@ export function ControlledNetworkSelectorTrigger({
       onChange={onChange}
       title="网络"
     />
+  );
+}
+
+export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
+  const {
+    activeAccount: { network },
+  } = useActiveAccount({ num });
+  const actions = useAccountSelectorActions();
+  const { sceneName, sceneUrl, networks, defaultNetworkId } =
+    useAccountSelectorSceneInfo();
+
+  useNetworkAutoSelect({ num });
+
+  const navigation = useAppNavigation();
+
+  const handleChainPress = useCallback(() => {
+    actions.current.showChainSelector({
+      navigation,
+      num,
+      sceneName,
+      sceneUrl,
+      networks,
+      defaultNetworkId,
+    });
+  }, [
+    actions,
+    defaultNetworkId,
+    navigation,
+    networks,
+    num,
+    sceneName,
+    sceneUrl,
+  ]);
+
+  return (
+    <XStack
+      alignItems="center"
+      onPress={handleChainPress}
+      pl="$3"
+      pr="$1.5"
+      bg="$bgSubdued"
+      borderTopLeftRadius="$3"
+      borderBottomLeftRadius="$3"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      $platform-native={{
+        hitSlop: {
+          top: 8,
+          bottom: 8,
+          left: 8,
+        },
+      }}
+    >
+      <Image
+        w="$6"
+        h="$6"
+        source={{
+          uri: network?.logoURI ? network?.logoURI : '',
+        }}
+      />
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+    </XStack>
   );
 }

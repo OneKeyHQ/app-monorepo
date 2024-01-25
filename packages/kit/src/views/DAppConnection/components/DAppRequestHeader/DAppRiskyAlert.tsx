@@ -10,6 +10,7 @@ function DAppRiskyAlert() {
 
   return (
     <Alert
+      fullBleed
       type="critical"
       title={content}
       icon="ErrorSolid"
@@ -21,4 +22,4 @@ function DAppRiskyAlert() {
   );
 }
 
-export default DAppRiskyAlert;
+export { DAppRiskyAlert };
