@@ -196,7 +196,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes | undefined;
+    deriveType: IAccountDeriveTypes;
     // names?: Array<string>;
     // purpose?: number;
     // skipRepeat?: boolean;
@@ -550,7 +550,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes | undefined;
+    deriveType: IAccountDeriveTypes;
     networkId: string;
   }): Promise<IDBAccount> {
     if (accountId) {
