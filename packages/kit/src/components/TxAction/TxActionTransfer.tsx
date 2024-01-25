@@ -1,7 +1,16 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import {
+  Icon,
+  ListItem,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EDecodedTxDirection,
@@ -10,17 +19,12 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { getFormattedNumber } from '../../utils/format';
+import { Container } from '../Container';
 
-import {
-  TxActionCommonDetailView,
-  TxActionCommonListView,
-} from './TxActionCommon';
+import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
-import { Container } from '../Container';
-import { ContainerBox } from '../Container/ContainerBox';
-import { useCallback } from 'react';
 
 type ITransferBlock = {
   target: string;
@@ -259,13 +263,48 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
       if (isEmpty(transfersBlock)) return null;
 
-      const ps: React.ReactNode[] = [];
+      const transferElements: React.ReactElement[] = [];
 
       transfersBlock.forEach((block) => {
         const { target, transfersInfo } = block;
-        const transfersContent = transfersInfo.map((transfer) => {});
-        ps.push(<Container.Item title={target} key={target} />);
-        ps.push(
+        const transfersContent = (
+          <YStack space="$1">
+            {transfersInfo.map((transfer, index) => (
+              <XStack alignItems="center" space="$1" key={index}>
+                <ListItem.Avatar
+                  src={transfer.image}
+                  size="$7"
+                  circular={!transfer.isNFT}
+                  fallbackProps={{
+                    bg: '$bgStrong',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    children: (
+                      <Icon
+                        name={
+                          transfer.isNFT
+                            ? 'QuestionmarkOutline'
+                            : 'ImageMountainSolid'
+                        }
+                        color="$iconSubdued"
+                      />
+                    ),
+                  }}
+                />
+                <SizableText size="$headingLg">{`${
+                  direction === EDecodedTxDirection.OUT ? '-' : '+'
+                } ${transfer.amount} ${transfer.symbol}`}</SizableText>
+              </XStack>
+            ))}
+          </YStack>
+        );
+        transferElements.push(
+          <Container.Item
+            title={intl.formatMessage({ id: 'content__amount' })}
+            content={transfersContent}
+          />,
+        );
+        transferElements.push(
           <Container.Item
             title={intl.formatMessage({
               id:
@@ -278,16 +317,16 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       });
 
-      return (
-        <Container.Box>
-          {direction === EDecodedTxDirection.OUT && (
-            <Container.Item
-              title={intl.formatMessage({ id: 'content__from' })}
-              content={from}
-            />
-          )}
-        </Container.Box>
-      );
+      if (direction === EDecodedTxDirection.OUT) {
+        transferElements.push(
+          <Container.Item
+            title={intl.formatMessage({ id: 'content__from' })}
+            content={from}
+          />,
+        );
+      }
+
+      return <Container.Box>{transferElements}</Container.Box>;
     },
     [from, intl],
   );
