@@ -1,4 +1,4 @@
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Image, SizableText } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
