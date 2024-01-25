@@ -13,6 +13,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import BiologyAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
 import WebAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/WebAuthSwitchContainer';
+import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
@@ -22,6 +23,7 @@ import { Layout } from './utils/Layout';
 const PasswordDemoGallery = () => {
   const theme = useTheme();
   console.log(theme);
+  const { verifiedPasswordWebAuth } = useWebAuthActions();
   const handlePasswordVerify = async () => {
     const { status, password } =
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -109,13 +111,10 @@ const PasswordDemoGallery = () => {
               <Button
                 onPress={async () => {
                   try {
-                    const res =
-                      await backgroundApiProxy.servicePassword.verifyPassword({
-                        password: '',
-                        isWebAuth: true,
-                      });
+                    const res = await verifiedPasswordWebAuth();
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
                   } catch (e) {
+                    Toast.success({ title: '请输入密码' });
                     console.log('e', e);
                   }
                 }}

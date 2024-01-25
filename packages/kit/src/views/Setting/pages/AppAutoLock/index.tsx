@@ -8,7 +8,7 @@ import { ListItemSelect } from '../../components/ListItemSelect';
 
 import { useOptions } from './useOptions';
 
-const AppLock = () => {
+const AppAutoLock = () => {
   const [settings] = usePasswordPersistAtom();
   const onChange = useCallback(async (value: string) => {
     await backgroundApiProxy.servicePassword
@@ -29,4 +29,4 @@ const AppLock = () => {
   );
 };
 
-export default AppLock;
+export default AppAutoLock;
