@@ -138,7 +138,9 @@ export function AccountSelectorTriggerLegacy({
   );
 }
 
-export function AccountSelectorTriggerDappConnection({ num }: { num: number }) {
+export const AccountSelectorTriggerDappConnection = XStack.styleable<{
+  num: number;
+}>(({ num, ...rest }) => {
   const {
     activeAccount: { account },
     activeAccountName,
@@ -159,8 +161,6 @@ export function AccountSelectorTriggerDappConnection({ num }: { num: number }) {
       px="$3"
       space="$2"
       bg="$bgApp"
-      borderTopRightRadius="$3"
-      borderBottomRightRadius="$3"
       alignItems="center"
       hoverStyle={{
         bg: '$bgHover',
@@ -174,14 +174,8 @@ export function AccountSelectorTriggerDappConnection({ num }: { num: number }) {
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      $platform-native={{
-        hitSlop: {
-          top: 8,
-          bottom: 8,
-          left: 8,
-        },
-      }}
       onPress={showAccountSelector}
+      {...rest}
     >
       {account?.address ? (
         <AccountAvatar size="$6" borderRadius="$1" account={account} />
@@ -213,4 +207,4 @@ export function AccountSelectorTriggerDappConnection({ num }: { num: number }) {
       <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
-}
+});

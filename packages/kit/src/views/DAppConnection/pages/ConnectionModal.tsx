@@ -1,96 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
-
-import {
-  Button,
-  Divider,
-  Group,
-  Page,
-  SizableText,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
-import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
-import { NetworkSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { Page, Toast } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
+import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
-import DAppRequestLayout from '../components/DAppRequestLayout';
+  DAppRequestFooter,
+  DAppRequestLayout,
+} from '../components/DAppRequestLayout';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-
-function DAppAccountSelector({
-  num,
-  origin,
-  onSelectedAccount,
-}: {
-  num: number;
-  origin: string;
-  onSelectedAccount: (activeAccount: IAccountSelectorActiveAccountInfo) => void;
-}) {
-  const { serviceAccount } = backgroundApiProxy;
-  const { activeAccount } = useActiveAccount({
-    num,
-  });
-  const { wallet, account, indexedAccount, network } = activeAccount;
-  const actions = useAccountSelectorActions();
-
-  useEffect(() => {
-    // watch wallet change
-    console.log('activeAccount change', activeAccount);
-    if (activeAccount) {
-      onSelectedAccount(activeAccount);
-    }
-  }, [activeAccount, onSelectedAccount]);
-
-  const createAccountButton = useMemo(() => {
-    if (account) {
-      return <SizableText>{account.address}</SizableText>;
-    }
-    if (indexedAccount && !account) {
-      return (
-        <Button
-          onPress={async () => {
-            const c = await serviceAccount.addHDOrHWAccounts({
-              walletId: wallet?.id,
-              networkId: network?.id,
-              indexedAccountId: indexedAccount?.id,
-              deriveType: 'default',
-            });
-
-            console.log(c);
-            actions.current.refresh({ num: 0 });
-          }}
-        >
-          创建账户
-        </Button>
-      );
-    }
-    return null;
-  }, [account, indexedAccount, serviceAccount, wallet, actions, network?.id]);
-
-  return (
-    <Stack>
-      <SizableText>{origin}</SizableText>
-      <AccountSelectorTriggerHome
-        num={num}
-        sceneName={EAccountSelectorSceneName.discover}
-        sceneUrl={origin}
-      />
-      <NetworkSelectorTriggerDappConnection num={num} />
-      {createAccountButton}
-    </Stack>
-  );
-}
 
 function ConnectionModal() {
   const { serviceDApp } = backgroundApiProxy;
@@ -99,26 +22,8 @@ function ConnectionModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
-
-  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
-    null,
-  );
-  useEffect(() => {
-    if (!$sourceInfo?.origin || !$sourceInfo.scope) {
-      return;
-    }
-    serviceDApp
-      .getAccountSelectorNum({
-        origin: $sourceInfo.origin,
-        scope: $sourceInfo.scope ?? '',
-      })
-      .then((num) => {
-        setAccountSelectorNum(num);
-      })
-      .catch((e) => {
-        console.error('getAccountSelectorNum error: ', e);
-      });
-  }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp]);
+  const [continueOperate, setContinueOperate] = useState(false);
+  const { pop } = useAppNavigation();
 
   const selectedAccountRef = useRef<IAccountSelectorActiveAccountInfo | null>(
     null,
@@ -161,55 +66,24 @@ function ConnectionModal() {
     <Page>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {accountSelectorNum === null ? null : (
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.discover,
-              sceneUrl: $sourceInfo?.origin,
-            }}
-            enabledNum={[accountSelectorNum]}
-          >
-            <DAppRequestLayout title="Connection Request">
-              <Group
-                orientation="horizontal"
-                bg="$bg"
-                borderRadius="$3"
-                borderColor="$borderSubdued"
-                borderWidth={StyleSheet.hairlineWidth}
-                separator={<Divider vertical />}
-              >
-                <Group.Item>
-                  <NetworkSelectorTriggerDappConnection
-                    num={accountSelectorNum}
-                  />
-                </Group.Item>
-                <Group.Item>
-                  <AccountSelectorTriggerDappConnection
-                    sceneName={EAccountSelectorSceneName.discover}
-                    sceneUrl={$sourceInfo?.origin}
-                    num={accountSelectorNum}
-                  />
-                </Group.Item>
-              </Group>
-            </DAppRequestLayout>
-            {/* <DAppAccountSelector
-                num={accountSelectorNum}
-                origin={$sourceInfo?.origin ?? ''}
-                onSelectedAccount={(activeAccount) => {
-                  selectedAccountRef.current = activeAccount;
-                }}
-              /> */}
-          </AccountSelectorProviderMirror>
-        )}
+        <DAppRequestLayout title="Connection Request">
+          <DAppAccountListStandAloneItem />
+          <DAppRequestedPermissionContent />
+        </DAppRequestLayout>
       </Page.Body>
-      <Page.Footer
-        onConfirmText="Connect"
-        onCancelText="Cancel"
-        onConfirm={onApproval}
-        onCancel={() => {
-          dappApprove.reject();
-        }}
-      />
+      <Page.Footer>
+        <DAppRequestFooter
+          continueOperate={continueOperate}
+          setContinueOperate={(value) => setContinueOperate(!!value)}
+          onConfirm={() => {
+            void onApproval({ close: pop });
+          }}
+          onCancel={() => {
+            dappApprove.reject();
+            pop();
+          }}
+        />
+      </Page.Footer>
     </Page>
   );
 }

@@ -155,7 +155,9 @@ export function ControlledNetworkSelectorTrigger({
   );
 }
 
-export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
+export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
+  num: number;
+}>(({ num, ...rest }) => {
   const {
     activeAccount: { network },
     showChainSelector,
@@ -168,8 +170,6 @@ export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
       pl="$3"
       pr="$1.5"
       bg="$bgSubdued"
-      borderTopLeftRadius="$3"
-      borderBottomLeftRadius="$3"
       hoverStyle={{
         bg: '$bgHover',
       }}
@@ -182,13 +182,7 @@ export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      $platform-native={{
-        hitSlop: {
-          top: 8,
-          bottom: 8,
-          left: 8,
-        },
-      }}
+      {...rest}
     >
       <Image
         w="$6"
@@ -200,4 +194,4 @@ export function NetworkSelectorTriggerDappConnection({ num }: { num: number }) {
       <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
     </XStack>
   );
-}
+});

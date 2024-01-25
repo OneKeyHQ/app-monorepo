@@ -25,6 +25,7 @@ export function FooterActions({
   onConfirmText,
   confirmButtonProps,
   cancelButtonProps,
+  ...restProps
 }: IFooterActionsProps) {
   const { pop } = useAppNavigation();
   const handleCancel = useCallback(async () => {
@@ -41,8 +42,9 @@ export function FooterActions({
       animation="fast"
       pb={getTokenValue('$size.5') as number}
       bg="$bgApp"
+      {...restProps}
     >
-      <XStack justifyContent="flex-end">
+      <XStack justifyContent="flex-end" space="$2.5">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
             $md={
