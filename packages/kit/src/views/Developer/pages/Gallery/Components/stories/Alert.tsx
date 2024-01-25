@@ -88,7 +88,7 @@ const ButtonsGallery = () => (
       {
         title: 'fullBleed',
         element: (
-          <YStack space="$4" bg="red">
+          <YStack space="$4">
             <Alert
               fullBleed
               title="fullBleed"
