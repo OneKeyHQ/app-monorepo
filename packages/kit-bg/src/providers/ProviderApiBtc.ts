@@ -86,14 +86,7 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   async getAccounts(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
@@ -102,15 +95,8 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getPublicKey(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
-    if (!accountsInfo || !accountsInfo.length) {
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    if (!accountsInfo) {
       return Promise.resolve('');
     }
     return Promise.resolve(accountsInfo[0].account.pub);
@@ -167,25 +153,17 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     const { message, type } = params;
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
-    if (
-      !accountsInfo ||
-      (Array.isArray(accountsInfo) && accountsInfo.length < 1)
-    ) {
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    if (!accountsInfo) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: `Can not get current account`,
       });
     }
-
-    const accountInfo = accountsInfo[0];
     const {
       accountInfo: { walletId, accountId, networkId },
-    } = accountInfo;
+    } = accountsInfo[0];
+
     if (walletId.startsWith('hw')) {
       throw web3Errors.provider.custom({
         code: 4003,

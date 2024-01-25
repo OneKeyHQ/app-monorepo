@@ -85,14 +85,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload): Promise<string[]> {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
@@ -152,15 +145,8 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
-    if (
-      !accountsInfo ||
-      (Array.isArray(accountsInfo) && !accountsInfo.length)
-    ) {
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    if (!accountsInfo) {
       throw web3Errors.provider.unauthorized();
     }
     const {
@@ -181,26 +167,18 @@ class ProviderApiEthereum extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    let message = messages[0] as string;
-    const address = messages[1] as string;
-
-    message = this.autoFixPersonalSignMessage({ message });
-
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-        isWalletConnectRequest: request.isWalletConnectRequest,
-      });
-    if (
-      !accountsInfo ||
-      (Array.isArray(accountsInfo) && !accountsInfo.length)
-    ) {
+    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    if (!accountsInfo) {
       throw web3Errors.provider.unauthorized();
     }
     const {
       accountInfo: { accountId, networkId },
     } = accountsInfo[0];
+
+    let message = messages[0] as string;
+    const address = messages[1] as string;
+
+    message = this.autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
