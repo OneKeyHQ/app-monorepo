@@ -3,7 +3,6 @@ import {
   XStack as TMXStack,
   YStack as TMYStack,
   ZStack as TMZStack,
-  styled,
 } from 'tamagui';
 
 import type {
@@ -13,26 +12,18 @@ import type {
   ZStackProps,
 } from 'tamagui';
 
-export const Stack = styled(TMStack, {
-  backgroundColor: '$transparent',
-});
+export const Stack = TMStack;
 
 export type IStackProps = StackProps;
 
-export const XStack = styled(TMXStack, {
-  backgroundColor: '$transparent',
-});
+export const XStack = TMXStack;
 
 export type IXStackProps = XStackProps;
 
-export const YStack = styled(TMYStack, {
-  backgroundColor: '$transparent',
-});
+export const YStack = TMYStack;
 
 export type IYStackProps = YStackProps;
 
-export const ZStack = styled(TMZStack, {
-  backgroundColor: '$transparent',
-});
+export const ZStack = TMZStack;
 
 export type IZStackProps = ZStackProps;
