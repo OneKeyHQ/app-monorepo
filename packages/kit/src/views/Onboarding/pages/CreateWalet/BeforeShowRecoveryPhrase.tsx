@@ -1,7 +1,6 @@
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { EOnboardingPages } from '../../router/type';

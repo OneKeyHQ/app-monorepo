@@ -42,10 +42,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountAvatar } from '../../../../../components/AccountAvatar';
+
 import { WalletOptions } from './WalletOptions';
 
 import type { IAccountGroupProps } from '../../../router/types';
-import { AccountAvatar } from '../../../../../components/AccountAvatar';
 
 export interface IWalletDetailsProps {
   num: number;

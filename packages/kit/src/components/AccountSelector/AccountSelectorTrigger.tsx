@@ -18,12 +18,12 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { AccountAvatar } from '../AccountAvatar';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
-import { AccountAvatar } from '../AccountAvatar';
 
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
