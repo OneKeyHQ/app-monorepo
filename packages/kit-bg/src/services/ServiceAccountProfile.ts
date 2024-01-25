@@ -49,7 +49,7 @@ class ServiceAccountProfile extends ServiceBase {
     address,
   }: IAddressNetworkIdParams): Promise<boolean> {
     try {
-      await this.fetchAddressDetails({
+      await this.fetchAccountDetails({
         networkId,
         accountAddress: address,
         withValidate: true,
