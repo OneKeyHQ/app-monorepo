@@ -14,14 +14,57 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
 import { NetworkSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IAccountSelectorActiveAccountInfo,
+  IAccountSelectorRouteParams,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+export type IHandleAccountChanged = (
+  activeAccount: IAccountSelectorActiveAccountInfo,
+) => void;
+
 function AccountListItem({
+  num,
+  handleAccountChanged,
+}: {
+  num: number;
+  handleAccountChanged: IHandleAccountChanged;
+}) {
+  const { activeAccount } = useActiveAccount({ num });
+
+  useEffect(() => {
+    handleAccountChanged(activeAccount);
+  }, [activeAccount, handleAccountChanged]);
+
+  return (
+    <XGroup
+      bg="$bg"
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      borderWidth={StyleSheet.hairlineWidth}
+      separator={<Divider vertical />}
+    >
+      <Group.Item>
+        <NetworkSelectorTriggerDappConnection num={num} />
+        {/* <YStack w="$10" h="$10" bg="$bgActive" /> */}
+      </Group.Item>
+      <Group.Item>
+        <AccountSelectorTriggerDappConnection num={num} />
+      </Group.Item>
+    </XGroup>
+  );
+}
+
+function AccountListItemProvider({
   sceneName,
   sceneUrl,
   num,
-}: IAccountSelectorRouteParams) {
+  handleAccountChanged,
+}: IAccountSelectorRouteParams & {
+  handleAccountChanged: IHandleAccountChanged;
+}) {
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -30,27 +73,16 @@ function AccountListItem({
       }}
       enabledNum={[num]}
     >
-      <XGroup
-        // orientation="horizontal"
-        bg="$bg"
-        borderRadius="$3"
-        borderColor="$borderSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        separator={<Divider vertical />}
-      >
-        <Group.Item>
-          <NetworkSelectorTriggerDappConnection num={num} />
-          {/* <YStack w="$10" h="$10" bg="$bgActive" /> */}
-        </Group.Item>
-        <Group.Item>
-          <AccountSelectorTriggerDappConnection num={num} />
-        </Group.Item>
-      </XGroup>
+      <AccountListItem num={num} handleAccountChanged={handleAccountChanged} />
     </AccountSelectorProviderMirror>
   );
 }
 
-function DAppAccountListStandAloneItem() {
+function DAppAccountListStandAloneItem({
+  handleAccountChanged,
+}: {
+  handleAccountChanged: IHandleAccountChanged;
+}) {
   const { serviceDApp } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
   const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
@@ -79,10 +111,11 @@ function DAppAccountListStandAloneItem() {
         Accounts
       </SizableText>
       {accountSelectorNum === null ? null : (
-        <AccountListItem
+        <AccountListItemProvider
           sceneName={EAccountSelectorSceneName.discover}
           sceneUrl={$sourceInfo?.origin}
           num={accountSelectorNum}
+          handleAccountChanged={handleAccountChanged}
         />
       )}
     </YStack>

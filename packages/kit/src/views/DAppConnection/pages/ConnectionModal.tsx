@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Page, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,6 +14,7 @@ import {
 } from '../components/DAppRequestLayout';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+import type { IHandleAccountChanged } from '../components/DAppAccountList';
 
 function ConnectionModal() {
   const { serviceDApp } = backgroundApiProxy;
@@ -25,9 +26,25 @@ function ConnectionModal() {
   const [continueOperate, setContinueOperate] = useState(false);
   const { pop } = useAppNavigation();
 
-  const selectedAccountRef = useRef<IAccountSelectorActiveAccountInfo | null>(
-    null,
+  const [selectedAccount, setSelectedAccount] =
+    useState<IAccountSelectorActiveAccountInfo | null>(null);
+  const handleAccountChanged = useCallback<IHandleAccountChanged>(
+    (activeAccount) => {
+      setSelectedAccount(activeAccount);
+    },
+    [],
   );
+
+  const confirmDisabled = useMemo(() => {
+    if (
+      !selectedAccount ||
+      !selectedAccount.account ||
+      !selectedAccount.account.address
+    ) {
+      return true;
+    }
+    return false;
+  }, [selectedAccount]);
 
   const onApproval = useCallback(
     async ({ close }: { close: () => void }) => {
@@ -35,12 +52,11 @@ function ConnectionModal() {
         Toast.error({ title: 'no injected scope' });
         return;
       }
-      if (!selectedAccountRef.current || !selectedAccountRef.current.account) {
+      if (!selectedAccount || !selectedAccount.account) {
         Toast.error({ title: 'no account' });
         return;
       }
-      const { wallet, account, network, indexedAccount } =
-        selectedAccountRef.current;
+      const { wallet, account, network, indexedAccount } = selectedAccount;
       const accountInfo = {
         networkImpl: network?.impl ?? '',
         walletId: wallet?.id ?? '',
@@ -59,7 +75,13 @@ function ConnectionModal() {
         result: accountInfo,
       });
     },
-    [dappApprove, $sourceInfo?.origin, $sourceInfo?.scope, serviceDApp],
+    [
+      dappApprove,
+      $sourceInfo?.origin,
+      $sourceInfo?.scope,
+      serviceDApp,
+      selectedAccount,
+    ],
   );
 
   return (
@@ -67,7 +89,9 @@ function ConnectionModal() {
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout title="Connection Request">
-          <DAppAccountListStandAloneItem />
+          <DAppAccountListStandAloneItem
+            handleAccountChanged={handleAccountChanged}
+          />
           <DAppRequestedPermissionContent />
         </DAppRequestLayout>
       </Page.Body>
@@ -82,6 +106,7 @@ function ConnectionModal() {
             dappApprove.reject();
             pop();
           }}
+          confirmDisabled={confirmDisabled}
         />
       </Page.Footer>
     </Page>

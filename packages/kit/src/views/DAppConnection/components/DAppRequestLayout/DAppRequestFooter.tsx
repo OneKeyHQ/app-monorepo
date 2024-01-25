@@ -6,11 +6,13 @@ function DAppRequestFooter({
   setContinueOperate,
   onConfirm,
   onCancel,
+  confirmDisabled,
 }: {
   continueOperate: boolean;
   setContinueOperate: (checked: ICheckedState) => void;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmDisabled?: boolean;
 }) {
   return (
     <Stack
@@ -58,6 +60,7 @@ function DAppRequestFooter({
           }
           variant="destructive"
           onPress={onConfirm}
+          disabled={confirmDisabled}
         >
           Confirm
         </Button>
