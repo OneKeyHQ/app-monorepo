@@ -1074,6 +1074,7 @@ class Engine {
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
+    const dbNetwork = await this.dbApi.getNetwork(networkId);
     let privateKey: Buffer | undefined;
     try {
       privateKey = await vault.getPrivateKeyByCredential(credential);
@@ -1085,10 +1086,16 @@ class Engine {
     }
 
     const encryptedPrivateKey = encrypt(password, privateKey);
+
+    const accountNameInfo =
+      template && template.length
+        ? getAccountNameInfoByTemplate(dbNetwork.impl, template)
+        : getDefaultAccountNameInfoByImpl(dbNetwork.impl);
+
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',
-      template,
+      template: accountNameInfo.template,
     });
 
     await this.dbApi.addAccountToWallet('imported', dbAccount, {

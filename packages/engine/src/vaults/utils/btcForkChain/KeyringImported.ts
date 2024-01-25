@@ -1,3 +1,4 @@
+import { Psbt } from 'bitcoinjs-lib';
 import bs58check from 'bs58check';
 
 import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
@@ -41,6 +42,7 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<SignedTx> {
     initBitcoinEcc();
     const { password } = options;
+    const { psbtHex, inputsToSign } = unsignedTx;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
     }
@@ -53,6 +55,18 @@ export class KeyringImported extends KeyringImportedBase {
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
+
+    if (psbtHex && inputsToSign) {
+      const { network } = provider;
+      const psbt = Psbt.fromHex(psbtHex, { network });
+
+      return provider.signPsbt({
+        psbt,
+        signers,
+        inputsToSign,
+      });
+    }
+
     return provider.signTransaction(unsignedTx, signers);
   }
 
@@ -119,7 +133,7 @@ export class KeyringImported extends KeyringImportedBase {
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     initBitcoinEcc();
-    const { privateKey, name } = params;
+    const { privateKey, name, template } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
@@ -170,6 +184,7 @@ export class KeyringImported extends KeyringImportedBase {
         xpub,
         address,
         addresses: { [firstAddressRelPath]: address },
+        template,
       },
     ]);
   }

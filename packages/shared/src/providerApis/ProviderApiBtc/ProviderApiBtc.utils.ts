@@ -142,10 +142,7 @@ export function getInputsToSignFromPsbt({
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
-        if (
-          (account.template as string).startsWith(`m/86'/`) &&
-          !v.tapInternalKey
-        ) {
+        if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
           v.tapInternalKey = toXOnly(
             Buffer.from(account.pubKey as string, 'hex'),
           );
