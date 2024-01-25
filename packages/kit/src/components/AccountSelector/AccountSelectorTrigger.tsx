@@ -23,7 +23,7 @@ import {
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
-import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
+import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
@@ -72,7 +72,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
   );
 }
 
-export function AccountSelectorTrigger({
+export function AccountSelectorTriggerLegacy({
   num,
   onlyAccountSelector,
 }: {
@@ -83,6 +83,7 @@ export function AccountSelectorTrigger({
   const {
     selectedAccount: { networkId },
   } = useSelectedAccount({ num });
+
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
@@ -108,7 +109,7 @@ export function AccountSelectorTrigger({
 
       {!onlyAccountSelector ? (
         <>
-          <NetworkSelectorTrigger
+          <NetworkSelectorTriggerLegacy
             key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
               config?.sceneName || ''
             }`}

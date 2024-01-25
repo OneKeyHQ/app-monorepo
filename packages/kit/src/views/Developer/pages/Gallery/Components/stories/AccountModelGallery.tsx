@@ -5,9 +5,9 @@ import * as crypto from 'crypto';
 import { Button, Input, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
+  AccountSelectorTriggerLegacy,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -94,11 +94,11 @@ function Demo() {
           sceneUrl: '',
         }}
       >
-        <AccountSelectorTrigger num={0} />
-        <AccountSelectorActiveAccount num={0} />
+        <AccountSelectorTriggerLegacy num={0} />
+        <AccountSelectorActiveAccountLegacy num={0} />
 
-        <AccountSelectorTrigger num={1} />
-        <AccountSelectorActiveAccount num={1} />
+        <AccountSelectorTriggerLegacy num={1} />
+        <AccountSelectorActiveAccountLegacy num={1} />
       </AccountSelectorProviderMirror>
     </Stack>
   );
