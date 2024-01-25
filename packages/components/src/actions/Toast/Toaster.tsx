@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { Toaster as WebToaster } from 'burnt/web';
 import { useMedia } from 'tamagui';
 
-import { useThemeName } from '../../hooks';
+import { useThemeName } from '../../hooks/useStyle';
 
 function Toaster() {
   const media = useMedia();
