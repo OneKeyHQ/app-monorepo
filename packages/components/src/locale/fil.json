@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "Ang pamamaraang ito ay may panganib sa seguridad, kasalukuyang hindi sinusuportahan ng hardware.",
   "msg__hardware_open_blind_sign_error": "Hindi kilalang format ng lagda, pumunta sa Seguridad > Blind-Signing at paganahin ang Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "Paki-off ang Passphrase sa iyong device para magamit ang Standard Wallet",
+  "msg__hardware_params_bytes_overload": "Ang laki ng data ay lumampas sa limitasyon ng hardware. Paki-update ang firmware at subukang muli o makipag-ugnayan sa customer service.",
   "msg__hardware_polling_connect_timeout_error": "Timeout ng koneksyon. Pakisuri ang katayuan ng OneKey Bridge at i-restart ang hardware.",
   "msg__hardware_software_cannot_be_upgrade": "Hindi ma-update ng kliyente ang hardware. Kailangan mong mag-update sa https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Nakakonekta",

@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "This method has security risk, hardware not support currently.",
   "msg__hardware_open_blind_sign_error": "Unknown signature format, go to Security > Blind-Signing and enable Advanced-SOL-Sign",
   "msg__hardware_opened_passphrase": "Please turn off Passphrase on your device to use Standard Wallet",
+  "msg__hardware_params_bytes_overload": "The data size exceeds the hardware limit. Please update the firmware and try again or contact customer service.",
   "msg__hardware_polling_connect_timeout_error": "Connection timeout. Please check OneKey Bridge status and restart the hardware.",
   "msg__hardware_software_cannot_be_upgrade": "The client cannot update the hardware. You need to update to https://firmware.onekey.so.",
   "msg__hardware_status_connected": "Connected",

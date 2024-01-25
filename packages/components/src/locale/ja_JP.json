@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "この方法にはセキュリティ上のリスクがあり、ハードウェアは現在対応していない。",
   "msg__hardware_open_blind_sign_error": "署名の形式が不明な場合は、「セキュリティ」→「ブラインド署名」で「Advanced-SOL-Sign」を有効にしてください。",
   "msg__hardware_opened_passphrase": "標準ウォレットを使用するには、デバイスのパスフレーズをオフにしてください",
+  "msg__hardware_params_bytes_overload": "データサイズがハードウェアの制限を超えています。ファームウェアを更新して再試行するか、カスタマーサービスにお問い合わせください。",
   "msg__hardware_polling_connect_timeout_error": "接続タイムアウト。 OneKey Bridge のステータスを確認し、ハードウェアを再起動してください。",
   "msg__hardware_software_cannot_be_upgrade": "クライアントはハードウェアを更新できない。 https://firmware.onekey.so で更新する必要がる。",
   "msg__hardware_status_connected": "接続済み",

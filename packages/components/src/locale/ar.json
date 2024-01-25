@@ -2321,6 +2321,7 @@
   "msg__hardware_not_support": "هذه الطريقة بها مخاطر أمنية ، الأجهزة غير مدعومة حاليًا.",
   "msg__hardware_open_blind_sign_error": "تنسيق توقيع غير معروف، انتقل إلى الأمان > التوقيع الأعمى وقم بتمكين التوقيع SOL-Sign المتقدم",
   "msg__hardware_opened_passphrase": "يرجى إيقاف تشغيل عبارة المرور على جهازك لاستخدام المحفظة القياسية",
+  "msg__hardware_params_bytes_overload": "حجم البيانات يتجاوز الحد الأقصى للأجهزة. يرجى تحديث البرنامج الثابت والمحاولة مرة أخرى أو الاتصال بخدمة العملاء.",
   "msg__hardware_polling_connect_timeout_error": "انتهى وقت محاولة الاتصال. يرجى التحقق من حالة OneKey Bridge وإعادة تشغيل الجهاز.",
   "msg__hardware_software_cannot_be_upgrade": "لا يمكن للعميل تحديث الجهاز. تحتاج إلى التحديث إلى https://firmware.onekey.so.",
   "msg__hardware_status_connected": "متصل",
