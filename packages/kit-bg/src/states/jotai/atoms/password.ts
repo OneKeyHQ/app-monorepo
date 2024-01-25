@@ -11,12 +11,6 @@ import { settingsPersistAtom } from './settings';
 import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
 
 export type IPasswordAtom = {
-  passwordPromptPromiseTriggerData:
-    | {
-        idNumber: number;
-        type: EPasswordPromptType;
-      }
-    | undefined;
   unLock: boolean;
 };
 export const { target: passwordAtom, use: usePasswordAtom } =
@@ -24,10 +18,28 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     persist: false,
     name: EAtomNames.passwordAtom,
     initialValue: {
-      passwordPromptPromiseTriggerData: undefined,
       unLock: false,
     },
   });
+
+export type IPasswordPromptPromiseTriggerAtom = {
+  passwordPromptPromiseTriggerData:
+    | {
+        idNumber: number;
+        type: EPasswordPromptType;
+      }
+    | undefined;
+};
+export const {
+  target: passwordPromptPromiseTriggerAtom,
+  use: usePasswordPromptPromiseTriggerAtom,
+} = globalAtom<IPasswordPromptPromiseTriggerAtom>({
+  persist: false,
+  name: EAtomNames.passwordPromptPromiseTriggerAtom,
+  initialValue: {
+    passwordPromptPromiseTriggerData: undefined,
+  },
+});
 
 export type IPasswordPersistAtom = {
   isPasswordSet: boolean;
