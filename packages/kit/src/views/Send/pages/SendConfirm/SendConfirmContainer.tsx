@@ -46,7 +46,6 @@ function SendConfirmContainer() {
       newUnsignedTxs.push(newUnsignedTx);
     }
 
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EModalSendRoutes.SendProgress, {
       networkId,
       accountId,

@@ -236,6 +236,7 @@ export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
 }
 export interface IBuildUnsignedTxParams {
+  unsignedTx?: IUnsignedTxPro;
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;

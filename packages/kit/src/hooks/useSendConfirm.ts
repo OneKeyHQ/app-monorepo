@@ -34,25 +34,14 @@ function useSendConfirm(params: IParams) {
 
   const navigation = useAppNavigation();
 
-  const buildUnsignedTx = useCallback(
-    async (params: IBuildUnsignedTxParams) => {
-      const { unsignedTx, encodedTx, approveInfo, transfersInfo } = params;
-      if (unsignedTx) return unsignedTx;
-
-      return backgroundApiProxy.serviceSend.buildUnsignedTx({
-        accountId,
-        networkId,
-        encodedTx,
-        approveInfo,
-        transfersInfo,
-      });
-    },
-    [accountId, networkId],
-  );
-
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      let unsignedTx = await buildUnsignedTx(params);
+      let unsignedTx =
+        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          networkId,
+          accountId,
+          ...params,
+        });
 
       const isNonceRequired =
         await backgroundApiProxy.serviceSend.getIsNonceRequired({
@@ -86,7 +75,7 @@ function useSendConfirm(params: IParams) {
         },
       });
     },
-    [accountId, buildUnsignedTx, navigation, networkId],
+    [accountId, navigation, networkId],
   );
 
   return {

@@ -11,7 +11,7 @@ export type IAddressValidation = {
   // address of sub networkId
 };
 
-export type IFetchAddressDetailsParams = {
+export type IFetchAccountDetailsParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
@@ -22,7 +22,7 @@ export type IFetchAddressDetailsParams = {
   withValidate?: boolean;
 };
 
-export type IFetchAddressDetailsResp = {
+export type IFetchAccountDetailsResp = {
   address: string;
   balance?: string;
   txCount?: number;

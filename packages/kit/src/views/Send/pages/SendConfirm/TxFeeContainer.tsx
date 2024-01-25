@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -161,7 +161,7 @@ function TxFeeContainer(props: IProps) {
     };
   }, [gasSelectorItems, sendSelectedFee]);
 
-  usePromiseResult(async () => {
+  useEffect(() => {
     if (selectedGas?.feeInfo) {
       updateSendSelectedFeeInfo(selectedGas.feeInfo);
     }

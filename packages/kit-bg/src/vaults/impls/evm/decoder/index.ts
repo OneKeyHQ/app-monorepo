@@ -2,7 +2,7 @@ import { ethers } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 
 import { ABI } from './abi';
 
-class EVMTxDecoder {
+class EVMContractDecoder {
   private erc20Interface: ethers.utils.Interface;
 
   private erc721Interface: ethers.utils.Interface;
@@ -61,4 +61,4 @@ class EVMTxDecoder {
   }
 }
 
-export { EVMTxDecoder };
+export { EVMContractDecoder };

@@ -92,15 +92,9 @@ export function TokenDetails() {
       isNative: !!isNative,
     });
 
-    const localTokenId = `${network.id}__${r.info.address}`;
-
     void backgroundApiProxy.serviceToken.updateLocalTokens({
-      tokens: [
-        {
-          ...r.info,
-          $key: localTokenId,
-        },
-      ],
+      networkId,
+      tokens: [r.info],
     });
 
     return r;
