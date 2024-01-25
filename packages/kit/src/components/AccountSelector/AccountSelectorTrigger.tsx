@@ -4,10 +4,8 @@ import {
   Button,
   Dialog,
   Icon,
-  Image,
   ScrollView,
   SizableText,
-  Skeleton,
   XStack,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
@@ -15,7 +13,6 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
@@ -31,7 +28,7 @@ import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
 export function AccountSelectorTriggerHome({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, account },
+    activeAccount: { wallet, indexedAccount },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
@@ -59,7 +56,7 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
       }
       maxWidth="$40"
     >
-      <AccountAvatar size="$6" borderRadius="$1" account={account} />
+      <AccountAvatar size="$6" borderRadius="$1" account={indexedAccount} />
 
       <SizableText
         flex={1}
