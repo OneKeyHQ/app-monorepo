@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -8,6 +8,7 @@ import type {
   IImageFallbackProps,
   IImageProps,
   ISkeletonProps,
+  SizeTokens,
 } from '@onekeyhq/components';
 import type {
   IDBAccount,
@@ -37,9 +38,10 @@ const VARIANT_SIZE = {
 type IKeyOfVariantSize = keyof typeof VARIANT_SIZE;
 
 export interface IAccountAvatarProps extends IImageProps {
-  size?: IKeyOfVariantSize;
+  size?: IKeyOfVariantSize | SizeTokens;
   chain?: string;
-  account?: IDBIndexedAccount | IDBAccount;
+  account?: IDBAccount;
+  indexedAccount?: IDBIndexedAccount;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
 }
@@ -67,14 +69,32 @@ function BasicAccountAvatar({
   src,
   source,
   account,
+  indexedAccount,
   fallback,
   fallbackProps,
   circular,
   chain,
   ...restProps
 }: IAccountAvatarProps) {
+  const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
   const { containerSize, logoContainerSize, logoSize, relativeMargin } =
-    VARIANT_SIZE[size] || VARIANT_SIZE.default;
+    isValidSize
+      ? VARIANT_SIZE[size as IKeyOfVariantSize]
+      : {
+          ...VARIANT_SIZE.default,
+          containerSize: size || VARIANT_SIZE.default.containerSize,
+        };
+  const content = useMemo(() => {
+    if (indexedAccount) {
+      return (
+        <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
+      );
+    }
+    if (account) {
+      return <MemoHashImageSource id={account.address} />;
+    }
+    return <Image.Source src={src} source={source} />;
+  }, [account, indexedAccount, source, src]);
   return (
     <Stack
       w={containerSize}
@@ -92,13 +112,7 @@ function BasicAccountAvatar({
         {...(circular ? { circular: true } : { borderRadius: '$2' })}
         {...restProps}
       >
-        {account ? (
-          <MemoHashImageSource
-            id={(account as IDBIndexedAccount).idHash || account.id}
-          />
-        ) : (
-          <Image.Source src={src} source={source} />
-        )}
+        {content}
         {fallback ||
           (fallbackProps ? (
             <Image.Fallback {...fallbackProps} />

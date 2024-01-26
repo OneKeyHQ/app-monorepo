@@ -1,5 +1,6 @@
 import {
   Stack as TMStack,
+  ThemeableStack as TMThemeableStack,
   XStack as TMXStack,
   YStack as TMYStack,
   ZStack as TMZStack,
@@ -7,6 +8,7 @@ import {
 
 import type {
   StackProps,
+  ThemeableStackProps,
   XStackProps,
   YStackProps,
   ZStackProps,
@@ -27,3 +29,6 @@ export type IYStackProps = YStackProps;
 export const ZStack = TMZStack;
 
 export type IZStackProps = ZStackProps;
+
+export const ThemeableStack = TMThemeableStack;
+export type IThemeableStack = ThemeableStackProps;

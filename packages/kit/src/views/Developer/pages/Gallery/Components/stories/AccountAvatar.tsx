@@ -1,6 +1,9 @@
 import { YStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { Layout } from './utils/Layout';
 
@@ -20,12 +23,18 @@ const wallet: IDBWallet = {
   },
 };
 
-const account = {
-  walletId: '1',
-  index: 1,
-  id: '1',
+const account: IDBAccount = {
+  type: undefined,
+  path: '',
+  coinType: '',
+  impl: '',
+  networks: [],
+  template: '',
+  id: '111111111',
   name: '1',
-  idHash: '111111111',
+  pub: '',
+  address: '',
+  addresses: { 'aaaa': '1' },
 };
 
 const ToastGallery = () => (

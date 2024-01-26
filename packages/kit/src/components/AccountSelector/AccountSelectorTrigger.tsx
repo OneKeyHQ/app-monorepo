@@ -64,7 +64,7 @@ export function AccountSelectorTriggerHome({
       maxWidth="$40"
     >
       <AccountAvatar
-        size="$6"
+        size="small"
         borderRadius="$1"
         indexedAccount={indexedAccount}
         account={account}

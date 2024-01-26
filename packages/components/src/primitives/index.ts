@@ -9,3 +9,4 @@ export * from './Spinner';
 export * from './Stack';
 export * from './SizeableText';
 export * from './Heading';
+export type { SizeTokens } from 'tamagui';

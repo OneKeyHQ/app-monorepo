@@ -57,10 +57,10 @@ const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
   );
 };
 
-type IListItemAvatarCornerImageProps = Omit<
-  IListItemAvatarProps,
-  'children' | 'cornerIconProps'
->;
+type IListItemAvatarCornerImageProps = IImageProps & {
+  fallbackProps?: IImageFallbackProps;
+  fallback?: ReactElement;
+};
 
 const ListItemAvatarCornerImage = ({
   src,
