@@ -13,6 +13,7 @@ import {
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
@@ -28,17 +29,16 @@ import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { useAccountSelectorTrigger } from './hooks/useAccountSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
-import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
-
 export function AccountSelectorTriggerHome({
   num,
-  sceneName,
-  sceneUrl,
-}: { num: number } & IAccountSelectorContextData) {
-  // TODO: useAccountSelectorTrigger hooks
+  linkNetwork,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+}) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, account },
+    activeAccount: { wallet, account, indexedAccount },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
@@ -61,13 +61,18 @@ export function AccountSelectorTriggerHome({
           activeWallet: wallet,
           num,
           navigation,
-          sceneName,
-          sceneUrl,
+          sceneName: EAccountSelectorSceneName.home,
+          linkNetwork,
         })
       }
       maxWidth="$40"
     >
-      <AccountAvatar size="$6" borderRadius="$1" account={account} />
+      <AccountAvatar
+        size="$6"
+        borderRadius="$1"
+        indexedAccount={indexedAccount}
+        account={account}
+      />
 
       <SizableText
         flex={1}

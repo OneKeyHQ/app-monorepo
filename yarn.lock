@@ -4794,7 +4794,6 @@ __metadata:
     crypto-browserify: "npm:^3.12.0"
     css-loader: "npm:^6.8.1"
     date-fns: "npm:^2.30.0"
-    dayjs: "npm:^1.11.10"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
     eslint: "npm:^8.25.0"
@@ -13534,7 +13533,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dayjs@npm:^1.11.10, dayjs@npm:^1.8.15, dayjs@npm:^1.8.29":
+"dayjs@npm:^1.8.15, dayjs@npm:^1.8.29":
   version: 1.11.10
   resolution: "dayjs@npm:1.11.10"
   checksum: 27e8f5bc01c0a76f36c656e62ab7f08c2e7b040b09e613cd4844abf03fb258e0350f0a83b02c887b84d771c1f11e092deda0beef8c6df2a1afbc3f6c1fade279

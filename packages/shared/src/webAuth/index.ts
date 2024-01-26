@@ -47,17 +47,23 @@ export const registerWebAuth = async () => {
       user: {
         id: new Uint8Array(16),
         name: 'OneKey',
-        displayName: 'OneKey',
+        displayName: 'OneKey Wallet',
       },
-      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+      pubKeyCredParams: [
+        {
+          'type': 'public-key',
+          'alg': -7,
+        },
+      ],
       timeout: 60000,
       attestation: 'direct',
       challenge: challenge.buffer,
       authenticatorSelection: {
-        userVerification: 'required',
+        authenticatorAttachment: 'platform',
       },
     },
   };
+
   const cred = await navigator.credentials.create(createCredentialOptions);
   if (cred) {
     return cred.id;

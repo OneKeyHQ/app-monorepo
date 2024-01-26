@@ -187,7 +187,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // await dbTx.done;
       return result;
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       dbTx.abort();
       throw error;
     }

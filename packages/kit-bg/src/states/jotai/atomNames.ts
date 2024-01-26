@@ -6,6 +6,7 @@ export enum EAtomNames {
   settingsTimeNowAtom = 'settingsTimeNowAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   passwordAtom = 'passwordAtom',
+  passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
   accountSelectorMapAtom = 'accountSelectorMapAtom',
 }

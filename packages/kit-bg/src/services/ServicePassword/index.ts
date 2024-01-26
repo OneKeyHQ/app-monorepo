@@ -15,7 +15,7 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
+import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
@@ -28,6 +28,7 @@ import {
   passwordAtom,
   passwordBiologyAuthInfoAtom,
   passwordPersistAtom,
+  passwordPromptPromiseTriggerAtom,
 } from '../../states/jotai/atoms/password';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
@@ -144,7 +145,7 @@ export default class ServicePassword extends ServiceBase {
         return this.cachedPassword;
       }
     }
-    throw new OneKeyError.BiologyAuthFailed();
+    throw new Error('webAuth not support when cache password not exist');
   }
 
   @backgroundMethod()
@@ -158,18 +159,6 @@ export default class ServicePassword extends ServiceBase {
     await settingsPersistAtom.set((v) => ({
       ...v,
       isBiologyAuthSwitchOn: enable,
-    }));
-  }
-
-  @backgroundMethod()
-  async setWebAuthEnable(enable: boolean): Promise<void> {
-    let webAuthCredentialId: string | undefined;
-    if (enable) {
-      webAuthCredentialId = await registerWebAuth();
-    }
-    await passwordPersistAtom.set((v) => ({
-      ...v,
-      webAuthCredentialId: webAuthCredentialId ?? '',
     }));
   }
 
@@ -291,7 +280,6 @@ export default class ServicePassword extends ServiceBase {
     isBiologyAuth?: boolean;
     isWebAuth?: boolean;
   }): Promise<string> {
-    ensureSensitiveTextEncoded(password);
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
@@ -376,7 +364,7 @@ export default class ServicePassword extends ServiceBase {
     idNumber: number;
     type: EPasswordPromptType;
   }) {
-    await passwordAtom.set((v) => ({
+    await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: params,
     }));
@@ -391,7 +379,7 @@ export default class ServicePassword extends ServiceBase {
       id: promiseId,
       data,
     });
-    await passwordAtom.set((v) => ({
+    await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
     }));
@@ -406,7 +394,7 @@ export default class ServicePassword extends ServiceBase {
       id: promiseId,
       error,
     });
-    await passwordAtom.set((v) => ({
+    await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
     }));

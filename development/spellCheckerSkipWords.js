@@ -1,5 +1,6 @@
 module.exports = [
   'changelog',
+  'qrcode',
   'Eip',
   'subtype',
   'Eip1559',
@@ -590,7 +591,6 @@ module.exports = [
   'alg',
   'gitkeep',
   'COMMITHASH',
-  'dayjs',
   'swipeable',
   'nft',
   'dappradar',
@@ -610,4 +610,8 @@ module.exports = [
   'sym', // WalletConnect uri params
   'upsert',
   'nostr',
+  'Tarask',
+  'Hira',
+  'Latn',
+  'Cyrl',
 ];
