@@ -10,9 +10,6 @@ import { Toast } from '../actions/Toast';
 import type { ILocaleIds } from '../locale';
 
 const getClipboard = async () => {
-  if (!platformEnv.canGetClipboard) {
-    throw new Error('getClipboard is not allowed in Web and Extension');
-  }
   const str = await getStringAsync();
   return str.trim();
 };
