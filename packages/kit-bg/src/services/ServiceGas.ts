@@ -26,20 +26,29 @@ class ServiceGas extends ServiceBase {
     );
     const gasFee = resp.data.data;
 
+    const limitInfo = {
+      gasLimit: gasFee.limit ?? DEFAULT_GAS_LIMIT,
+      gasLimitForDisplay:
+        gasFee.limitForDisplay ?? gasFee.limit ?? DEFAULT_GAS_LIMIT,
+    };
+
     return {
       common: {
         baseFeeValue: gasFee.baseFeeValue,
-        limit: gasFee.limit ?? DEFAULT_GAS_LIMIT,
-        limitForDisplay:
-          gasFee.limitForDisplay ?? gasFee.limit ?? DEFAULT_GAS_LIMIT,
         feeDecimals: gasFee.feeDecimals,
         feeSymbol: gasFee.feeSymbol,
         nativeDecimals: gasFee.nativeDecimals,
         nativeSymbol: gasFee.nativeSymbol,
         nativeTokenPrice: gasFee.nativeTokenPrice.price,
       },
-      gas: gasFee.gas,
-      gasEIP1559: gasFee.gasEIP1559,
+      gas: gasFee.gas?.map((item) => ({
+        ...item,
+        ...limitInfo,
+      })),
+      gasEIP1559: gasFee.gasEIP1559?.map((item) => ({
+        ...item,
+        ...limitInfo,
+      })),
       feeUTXO: gasFee.feeUTXO,
       prediction: gasFee.prediction,
     };

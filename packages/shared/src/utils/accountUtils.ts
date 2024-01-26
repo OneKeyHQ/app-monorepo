@@ -138,7 +138,18 @@ function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   return accountId.split(SEPERATOR)[0] || '';
 }
 
+function buildLocalTokenId({
+  networkId,
+  tokenIdOnNetwork,
+}: {
+  networkId: string;
+  tokenIdOnNetwork: string;
+}) {
+  return `${networkId}__${tokenIdOnNetwork}`;
+}
+
 export default {
+  buildLocalTokenId,
   buildHdWalletId,
   isHdWallet,
   isHwWallet,

@@ -1,4 +1,4 @@
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Image, SizableText } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -13,7 +13,7 @@ function CommonAssetImage(props: IProps) {
         width="100%"
         height="100%"
         source={{
-          uri: nft.metadata.image,
+          uri: nft.metadata?.image,
         }}
         style={{
           borderRadius: 12,

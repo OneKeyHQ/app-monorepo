@@ -5,8 +5,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
-  IFetchAddressDetailsParams,
-  IFetchAddressDetailsResp,
+  IFetchAccountDetailsParams,
+  IFetchAccountDetailsResp,
 } from '@onekeyhq/shared/types/address';
 
 import ServiceBase from './ServiceBase';
@@ -25,18 +25,18 @@ type IQueryAddressArgs = {
 };
 
 @backgroundClass()
-class ServiceAddress extends ServiceBase {
+class ServiceAccountProfile extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   @backgroundMethod()
-  public async fetchAddressDetails(
-    params: IFetchAddressDetailsParams,
-  ): Promise<IFetchAddressDetailsResp> {
+  public async fetchAccountDetails(
+    params: IFetchAccountDetailsParams,
+  ): Promise<IFetchAccountDetailsResp> {
     const client = await this.getClient();
     const resp = await client.get<{
-      data: IFetchAddressDetailsResp;
+      data: IFetchAccountDetailsResp;
     }>('/wallet/v1/account/get-account', {
       params,
     });
@@ -49,7 +49,7 @@ class ServiceAddress extends ServiceBase {
     address,
   }: IAddressNetworkIdParams): Promise<boolean> {
     try {
-      await this.fetchAddressDetails({
+      await this.fetchAccountDetails({
         networkId,
         accountAddress: address,
         withValidate: true,
@@ -102,4 +102,4 @@ class ServiceAddress extends ServiceBase {
   }
 }
 
-export default ServiceAddress;
+export default ServiceAccountProfile;
