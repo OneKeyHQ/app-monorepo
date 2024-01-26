@@ -1,5 +1,6 @@
 module.exports = [
   'changelog',
+  'qrcode',
   'Eip',
   'subtype',
   'Eip1559',
@@ -601,4 +602,8 @@ module.exports = [
   'calc',
   '100vw',
   'Utxo',
+  'Tarask',
+  'Hira',
+  'Latn',
+  'Cyrl',
 ];

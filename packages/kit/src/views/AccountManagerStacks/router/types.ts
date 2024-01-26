@@ -9,7 +9,9 @@ export enum EAccountManagerStacksRoutes {
 }
 
 export type IAccountManagerStacksParamList = {
-  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams;
+  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams & {
+    linkNetwork?: boolean;
+  };
 };
 
 export type IAccountProps = {
@@ -24,6 +26,7 @@ export type IAccountGroupProps = {
   title?: string;
   isHiddenWalletData?: boolean;
   emptyText?: string;
+  walletId: string;
   data: IDBIndexedAccount[];
 };
 

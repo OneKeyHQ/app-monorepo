@@ -23,7 +23,7 @@ import {
   useBrowserAction,
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { formatHistoryRecordDate } from '@onekeyhq/shared/src/utils/formatDateUtils';
+import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -32,7 +32,7 @@ import type { IBrowserHistory } from '../../types';
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
-      const date = formatHistoryRecordDate(item.createdAt);
+      const date = formatRelativeDate(item.createdAt);
       if (result[date]) {
         result[date].push(item);
       } else {
