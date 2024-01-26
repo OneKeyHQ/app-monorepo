@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -20,7 +20,8 @@ import type {
 import type { ImageStyle } from 'react-native';
 
 export interface IAccountAvatarProps extends IImageProps {
-  account?: IDBIndexedAccount | IDBAccount;
+  account?: IDBAccount;
+  indexedAccount?: IDBIndexedAccount;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
 }
@@ -47,11 +48,23 @@ function BasicAccountAvatar({
   src,
   source,
   account,
+  indexedAccount,
   fallback,
   fallbackProps,
   circular,
   ...restProps
 }: IAccountAvatarProps) {
+  const content = useMemo(() => {
+    if (indexedAccount) {
+      return (
+        <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
+      );
+    }
+    if (account) {
+      return <MemoHashImageSource id={account.address} />;
+    }
+    return <Image.Source src={src} source={source} />;
+  }, [account, indexedAccount, source, src]);
   return (
     <Image
       size="$10"
@@ -63,13 +76,7 @@ function BasicAccountAvatar({
       {...(circular ? { circular: true } : { borderRadius: '$2' })}
       {...restProps}
     >
-      {account ? (
-        <MemoHashImageSource
-          id={(account as IDBIndexedAccount).idHash || account.id}
-        />
-      ) : (
-        <Image.Source src={src} source={source} />
-      )}
+      {content}
       {fallback ||
         (fallbackProps ? <Image.Fallback {...fallbackProps} /> : <Fallback />)}
     </Image>

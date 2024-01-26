@@ -196,7 +196,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes | undefined;
+    deriveType: IAccountDeriveTypes;
     // names?: Array<string>;
     // purpose?: number;
     // skipRepeat?: boolean;
@@ -420,8 +420,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getAccountSelectorAccountsListSectionData({
     focusedWallet,
+    linkedNetworkId,
+    deriveType,
   }: {
     focusedWallet: IAccountSelectorFocusedWallet;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
   }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
     if (!focusedWallet) {
       return [];
@@ -452,6 +456,24 @@ class ServiceAccount extends ServiceBase {
     const { accounts } = await this.getAccountsOfWalletLegacy({
       walletId,
     });
+    if (linkedNetworkId) {
+      await Promise.all(
+        accounts.map(async (indexedAccount: IDBIndexedAccount) => {
+          try {
+            const realAccount = await this.getAccountOfWallet({
+              accountId: undefined,
+              indexedAccountId: indexedAccount.id,
+              deriveType,
+              networkId: linkedNetworkId,
+            });
+            indexedAccount.associateAccount = realAccount;
+          } catch (e) {
+            //
+          }
+        }),
+      );
+    }
+
     return [
       {
         title: '',
@@ -528,7 +550,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     accountId: string | undefined;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes | undefined;
+    deriveType: IAccountDeriveTypes;
     networkId: string;
   }): Promise<IDBAccount> {
     if (accountId) {
@@ -693,6 +715,12 @@ class ServiceAccount extends ServiceBase {
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async getIsUTXOAccount({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.isUtxo;
   }
 
   @backgroundMethod()

@@ -3,21 +3,11 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  AccountSelectorActiveAccountHome,
-  AccountSelectorActiveAccountLegacy,
-  AccountSelectorTriggerLegacy,
-} from '../../../components/AccountSelector';
+import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -27,30 +17,6 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 
 import { WalletActionsContainer } from './WalletActionsContainer';
-
-function HomeAccountSelectorInfoDemo() {
-  const num = 0;
-  return (
-    <YStack mx="$2" my="$4">
-      <AccountSelectorTriggerLegacy num={num} />
-      <AccountSelectorActiveAccountLegacy num={num} />
-      <Button
-        onPress={() => {
-          void backgroundApiProxy.serviceHardware.inputPinOnDevice();
-        }}
-      >
-        硬件输入 PIN
-      </Button>
-      <Button
-        onPress={() => {
-          void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
-        }}
-      >
-        硬件输入 Passphrase
-      </Button>
-    </YStack>
-  );
-}
 
 function HomeHeaderContainer() {
   const intl = useIntl();
@@ -111,7 +77,6 @@ function HomeHeaderContainer() {
         </Stack>
       </Stack>
       <WalletActionsContainer />
-      <HomeAccountSelectorInfoDemo />
     </Stack>
   );
 }

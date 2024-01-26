@@ -183,6 +183,7 @@ export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;
   idHash: string;
+  associateAccount?: IDBAccount; // readonly
 };
 // TODO remove, use accountsMap instead, wallet->network->derivation(template)
 export type IDBAccountDerivation = IDBBaseObject & {
