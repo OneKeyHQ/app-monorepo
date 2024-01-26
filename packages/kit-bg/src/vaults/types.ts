@@ -97,6 +97,7 @@ export type IVaultSettings = {
   isUtxo: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+  editFeeEnabled: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;

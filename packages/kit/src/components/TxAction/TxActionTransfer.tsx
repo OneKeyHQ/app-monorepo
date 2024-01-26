@@ -265,12 +265,12 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       const transferElements: React.ReactElement[] = [];
 
-      transfersBlock.forEach((block) => {
+      transfersBlock.forEach((block, index) => {
         const { target, transfersInfo } = block;
         const transfersContent = (
           <YStack space="$1">
-            {transfersInfo.map((transfer, index) => (
-              <XStack alignItems="center" space="$1" key={index}>
+            {transfersInfo.map((transfer) => (
+              <XStack alignItems="center" space="$1" key={transfer.token}>
                 <ListItem.Avatar
                   src={transfer.image}
                   size="$7"
@@ -300,12 +300,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
         transferElements.push(
           <Container.Item
+            key={`${index}-amount`}
             title={intl.formatMessage({ id: 'content__amount' })}
             content={transfersContent}
           />,
         );
         transferElements.push(
           <Container.Item
+            key={`${index}-target`}
             title={intl.formatMessage({
               id:
                 direction === EDecodedTxDirection.OUT
@@ -320,6 +322,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       if (direction === EDecodedTxDirection.OUT) {
         transferElements.push(
           <Container.Item
+            key="from"
             title={intl.formatMessage({ id: 'content__from' })}
             content={from}
           />,

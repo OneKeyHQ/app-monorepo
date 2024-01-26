@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { SizableText } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
@@ -12,7 +13,9 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useCustomFeeAtom,
+  useSendAlertStatus,
   useSendConfirmActions,
+  useSendFeeStatus,
   useSendSelectedFeeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import {
@@ -20,8 +23,9 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
+import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EFeeType } from '@onekeyhq/shared/types/gas';
+import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/gas';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
 import { GasSelector } from '../../components/GasSelector';
@@ -41,26 +45,54 @@ function TxFeeContainer(props: IProps) {
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
-  const { updateSendSelectedFee, updateCustomFee, updateSendSelectedFeeInfo } =
-    useSendConfirmActions().current;
+  const [sendFeeStatus] = useSendFeeStatus();
+  const [sendAlertStatus] = useSendAlertStatus();
+  const {
+    updateSendSelectedFee,
+    updateCustomFee,
+    updateSendSelectedFeeInfo,
+    updateSendFeeStatus,
+  } = useSendConfirmActions().current;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
+  const { result: [isEditFeeEnabled, network] = [] } = usePromiseResult(
+    () =>
+      Promise.all([
+        backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
+        mockGetNetwork({ networkId }),
+      ]),
+    [networkId],
+  );
+
   const { result: gasFee } = usePromiseResult(
     async () => {
-      const r = await backgroundApiProxy.serviceGas.estimateGasFee({
-        networkId,
-        encodedTx: unsignedTxs[0].encodedTx,
-      });
-      return r;
+      try {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Loading,
+        });
+        const r = await backgroundApiProxy.serviceGas.estimateGasFee({
+          networkId,
+          encodedTx: unsignedTxs[0].encodedTx,
+        });
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Success,
+        });
+        return r;
+      } catch (e) {
+        updateSendFeeStatus({
+          status: ESendFeeStatus.Error,
+          errMessage: (e as Error)?.message ?? e,
+        });
+      }
     },
-    [networkId, unsignedTxs],
+    [networkId, unsignedTxs, updateSendFeeStatus],
     {
       watchLoading: true,
     },
   );
 
-  const gasSelectorItems = useMemo(() => {
+  const feeSelectorItems = useMemo(() => {
     const items = [];
     if (gasFee) {
       const feeLength = (
@@ -77,15 +109,7 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: gasFee.gasEIP1559?.[i],
           feeUTXO: gasFee.feeUTXO?.[i],
         };
-        const {
-          total,
-          totalNative,
-          totalNativeForDisplay,
-          totalFiatForDisplay,
-        } = calculateFeeForSend({
-          feeInfo,
-          nativeTokenPrice: gasFee.common.nativeTokenPrice,
-        });
+
         items.push({
           leading: (
             <SizableText fontSize={32}>
@@ -99,73 +123,111 @@ function TxFeeContainer(props: IProps) {
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
           value: String(i),
-          total,
-          totalNative,
-          totalNativeForDisplay,
-          totalFiatForDisplay,
           feeInfo,
         });
       }
 
-      // TODO add custom entry by network setting
-      // const customFeeInfo: IFeeInfoUnit = {
-      //   common: {
-      //     ...gasFee.common,
-      //     limit: customGas?.gasLimit,
-      //     limitForDisplay: customGas?.gasLimit,
-      //   },
-      //   gas: customGas?.gas,
-      //   gasEIP1559: customGas?.gasEIP1559,
-      //   feeUTXO: customGas?.feeUTXO,
-      // };
+      if (isEditFeeEnabled) {
+        const customFeeInfo: IFeeInfoUnit = {
+          common: gasFee.common,
+        };
 
-      // const { total, totalNative, totalNativeForDisplay, totalFiatForDisplay } =
-      //   calculateFeeForSend({
-      //     feeInfo: customFeeInfo,
-      //     nativeTokenPrice: gasFee.nativeTokenPrice.price,
-      //   });
-      items.push({
-        leading: (
-          <SizableText fontSize={32}>
-            {getFeeIcon({
-              feeType: EFeeType.Custom,
-            })}
-          </SizableText>
-        ),
-        label: intl.formatMessage({
-          id: getFeeLabel({ feeType: EFeeType.Custom }),
-        }),
-        value: EFeeType.Custom,
-        // total,
-        // totalNative,
-        // totalNativeForDisplay,
-        // totalFiatForDisplay,
-      });
+        if (customFee?.gas && gasFee.gas) {
+          customFeeInfo.gas = {
+            ...customFee.gas,
+            gasLimit: customFee.gas.gasLimit ?? gasFee.gas[0].gasLimit,
+            gasLimitForDisplay:
+              customFee.gas.gasLimitForDisplay ??
+              gasFee.gas[0].gasLimitForDisplay,
+          };
+        }
+
+        if (customFee?.gasEIP1559 && gasFee.gasEIP1559) {
+          customFeeInfo.gasEIP1559 = {
+            ...customFee.gasEIP1559,
+            gasLimit:
+              customFee.gasEIP1559.gasLimit ?? gasFee.gasEIP1559[0].gasLimit,
+            gasLimitForDisplay:
+              customFee.gasEIP1559.gasLimitForDisplay ??
+              gasFee.gasEIP1559[0].gasLimitForDisplay,
+          };
+        }
+
+        if (customFee?.feeUTXO && gasFee.feeUTXO) {
+          customFeeInfo.feeUTXO = customFee.feeUTXO;
+        }
+
+        items.push({
+          leading: (
+            <SizableText fontSize={32}>
+              {getFeeIcon({
+                feeType: EFeeType.Custom,
+              })}
+            </SizableText>
+          ),
+          label: intl.formatMessage({
+            id: getFeeLabel({ feeType: EFeeType.Custom }),
+          }),
+          value: EFeeType.Custom,
+          feeInfo: customFeeInfo,
+        });
+      }
 
       return items;
     }
 
     return [];
-  }, [gasFee, intl]);
+  }, [
+    customFee?.feeUTXO,
+    customFee?.gas,
+    customFee?.gasEIP1559,
+    gasFee,
+    intl,
+    isEditFeeEnabled,
+  ]);
 
-  const { selectedGas, gasSelectorValue } = useMemo(() => {
+  const { selectedFee, feeSelectorValue } = useMemo(() => {
+    let selectedFeeInfo;
+    let selectorValue;
+
+    if (isEmpty(feeSelectorItems)) return {};
+
     if (sendSelectedFee.feeType === EFeeType.Custom) {
-      return {
-        selectedGas: gasSelectorItems[gasSelectorItems.length - 1],
-        gasSelectorValue: EFeeType.Custom,
-      };
+      selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
+      selectorValue = EFeeType.Custom;
+    } else {
+      selectedFeeInfo = feeSelectorItems[sendSelectedFee.presetIndex].feeInfo;
+      selectorValue = String(sendSelectedFee.presetIndex);
     }
+
+    const { total, totalNative, totalNativeForDisplay, totalFiatForDisplay } =
+      calculateFeeForSend({
+        feeInfo: selectedFeeInfo,
+        nativeTokenPrice: gasFee?.common.nativeTokenPrice ?? 0,
+      });
+
     return {
-      selectedGas: gasSelectorItems[sendSelectedFee.presetIndex],
-      gasSelectorValue: String(sendSelectedFee.presetIndex),
+      selectedFee: {
+        feeInfo: selectedFeeInfo,
+        total,
+        totalNative,
+        totalNativeForDisplay,
+        totalFiatForDisplay,
+      },
+      feeSelectorValue: selectorValue,
     };
-  }, [gasSelectorItems, sendSelectedFee]);
+  }, [
+    gasFee?.common.nativeTokenPrice,
+    feeSelectorItems,
+    sendSelectedFee.feeType,
+    sendSelectedFee.presetIndex,
+  ]);
 
   useEffect(() => {
-    if (selectedGas?.feeInfo) {
-      updateSendSelectedFeeInfo(selectedGas.feeInfo);
+    if (selectedFee && selectedFee.feeInfo) {
+      updateSendSelectedFeeInfo(selectedFee);
     }
-  }, [selectedGas?.feeInfo, updateSendSelectedFeeInfo]);
+  }, [selectedFee, updateSendSelectedFeeInfo]);
 
   const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {
@@ -175,13 +237,13 @@ function TxFeeContainer(props: IProps) {
           params: {
             networkId,
             accountId: '',
-            customFee: customFee ?? (selectedGas.feeInfo as IFeeInfoUnit),
+            customFee: customFee ?? selectedFee?.feeInfo,
             onApply: (feeInfo: IFeeInfoUnit) => {
+              updateCustomFee(feeInfo);
               updateSendSelectedFee({
                 feeType: EFeeType.Custom,
                 presetIndex: 0,
               });
-              updateCustomFee(feeInfo);
             },
           },
         });
@@ -196,7 +258,7 @@ function TxFeeContainer(props: IProps) {
       customFee,
       navigation,
       networkId,
-      selectedGas?.feeInfo,
+      selectedFee?.feeInfo,
       updateCustomFee,
       updateSendSelectedFee,
     ],
@@ -206,19 +268,43 @@ function TxFeeContainer(props: IProps) {
     <Container.Box>
       <Container.Item
         title="Fee Estimate"
-        content={`${selectedGas?.totalNativeForDisplay ?? '0.00'} ${
+        content={`${selectedFee?.totalNativeForDisplay ?? '0.00'} ${
           gasFee?.common.nativeSymbol ?? ''
         }`}
         subContent={`${settings.currencyInfo.symbol}${
-          selectedGas?.totalFiatForDisplay ?? '0.00'
+          selectedFee?.totalFiatForDisplay ?? '0.00'
         }`}
         contentAdd={
           <GasSelector
-            items={gasSelectorItems}
-            value={gasSelectorValue}
+            items={feeSelectorItems}
+            value={feeSelectorValue}
             onChange={handleSelectedFeeOnChange}
           />
         }
+        description={{
+          children: (
+            <YStack flex={1}>
+              {sendFeeStatus.errMessage && (
+                <SizableText size="$bodyMd" color="$textCritical">
+                  {sendFeeStatus.errMessage}
+                </SizableText>
+              )}
+              {sendAlertStatus.isInsufficientNativeBalance && (
+                <SizableText size="$bodyMd" color="$textCritical">
+                  {intl.formatMessage(
+                    {
+                      id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx',
+                    },
+                    {
+                      0: network?.symbol ?? '',
+                      1: network?.name ?? '',
+                    },
+                  )}
+                </SizableText>
+              )}
+            </YStack>
+          ),
+        }}
       />
     </Container.Box>
   );

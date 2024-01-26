@@ -1,5 +1,5 @@
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import { EFeeType } from '@onekeyhq/shared/types/gas';
+import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/gas';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -31,4 +31,29 @@ export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
 export const {
   atom: sendSelectedFeeInfoAtom,
   use: useSendSelectedFeeInfoAtom,
-} = contextAtom<IFeeInfoUnit | undefined>(undefined);
+} = contextAtom<
+  | {
+      totalNative: string;
+      feeInfo: IFeeInfoUnit;
+    }
+  | undefined
+>(undefined);
+
+export const { atom: sendFeeStatus, use: useSendFeeStatus } = contextAtom<{
+  status: ESendFeeStatus;
+  errMessage?: string;
+}>({
+  status: ESendFeeStatus.Idle,
+  errMessage: '',
+});
+
+export const {
+  atom: nativeTokenTransferAmount,
+  use: useNativeTokenTransferAmount,
+} = contextAtom<string | undefined>('0');
+
+export const { atom: sendAlertStatus, use: useSendAlertStatus } = contextAtom<{
+  isInsufficientNativeBalance?: boolean;
+}>({
+  isInsufficientNativeBalance: false,
+});

@@ -54,25 +54,27 @@ function SendCustomFeeContainer() {
   const customFeeInfo = useMemo(
     () => ({
       common: customFee.common,
-      gas: {
+      gas: customFee.gas && {
         gasPrice: watchAllFields.gasPrice,
         gasLimit: watchAllFields.gasLimit,
         gasLimitForDisplay: watchAllFields.gasLimit,
       },
-      gasEIP1559: {
+      gasEIP1559: customFee.gasEIP1559 && {
         baseFeePerGas: customFee.gasEIP1559?.baseFeePerGas ?? '0',
         maxPriorityFeePerGas: watchAllFields.priorityFee,
         maxFeePerGas: watchAllFields.maxFee,
         gasLimit: watchAllFields.gasLimit,
         gasLimitForDisplay: watchAllFields.gasLimit,
       },
-      feeUTXO: {
+      feeUTXO: customFee.feeUTXO && {
         feeRate: watchAllFields.feeRate,
       },
     }),
     [
       customFee.common,
-      customFee.gasEIP1559?.baseFeePerGas,
+      customFee.feeUTXO,
+      customFee.gas,
+      customFee.gasEIP1559,
       watchAllFields.feeRate,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,

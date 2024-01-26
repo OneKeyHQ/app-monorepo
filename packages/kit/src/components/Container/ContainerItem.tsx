@@ -27,16 +27,16 @@ function ContainerItem(props: IProps) {
     <Stack>
       <YStack width="100%" py="$3" space="$0.5">
         {typeof title === 'string' ? (
-          <SizableText size="$headingSm" color="$textSubdued">
+          <SizableText size="$headingSm" color="$textSubdued" numberOfLines={1}>
             {title}
           </SizableText>
         ) : (
           title
         )}
         <XStack alignItems="center" justifyContent="space-between">
-          <XStack space="$1" alignItems="center">
+          <XStack space="$1" alignItems="center" flex={1}>
             {typeof content === 'string' ? (
-              <SizableText size="$bodyMdMedium" color="$text">
+              <SizableText size="$bodyMdMedium" color="$text" numberOfLines={2}>
                 {content}
               </SizableText>
             ) : (

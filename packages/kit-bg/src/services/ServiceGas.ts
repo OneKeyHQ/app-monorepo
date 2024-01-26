@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/types/gas';
 
 import ServiceBase from './ServiceBase';
+import { getVaultSettings } from '../vaults/settings';
 
 const DEFAULT_GAS_LIMIT = '21000';
 
@@ -52,6 +53,12 @@ class ServiceGas extends ServiceBase {
       feeUTXO: gasFee.feeUTXO,
       prediction: gasFee.prediction,
     };
+  }
+
+  @backgroundMethod()
+  async getIsEditFeeEnabled({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.NFTEnabled;
   }
 }
 

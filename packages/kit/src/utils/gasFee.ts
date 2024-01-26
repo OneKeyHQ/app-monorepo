@@ -72,20 +72,29 @@ export function calculateTotalFeeRange(
     };
   }
 
-  const gasInfo = gas as IGasLegacy;
-  const limit = gasInfo.gasLimit;
-  const limitForDisplay = gasInfo.gasLimitForDisplay ?? limit;
-  const max = new BigNumber(limit).times(gasInfo.gasPrice).toFixed();
+  if (feeInfo.gas) {
+    const gasInfo = gas as IGasLegacy;
+    const limit = gasInfo.gasLimit;
+    const limitForDisplay = gasInfo.gasLimitForDisplay ?? limit;
+    const max = new BigNumber(limit).times(gasInfo.gasPrice).toFixed();
 
-  const maxForDisplay = new BigNumber(limitForDisplay)
-    .times(gasInfo.gasPrice)
-    .toFixed();
+    const maxForDisplay = new BigNumber(limitForDisplay)
+      .times(gasInfo.gasPrice)
+      .toFixed();
+
+    return {
+      min: nanToZeroString(max),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(maxForDisplay),
+      maxForDisplay: nanToZeroString(maxForDisplay),
+    };
+  }
 
   return {
-    min: nanToZeroString(max),
-    max: nanToZeroString(max),
-    minForDisplay: nanToZeroString(maxForDisplay),
-    maxForDisplay: nanToZeroString(maxForDisplay),
+    min: '0',
+    max: '0',
+    minForDisplay: '0',
+    maxForDisplay: '0',
   };
 }
 export function calculateTotalFeeNative({
