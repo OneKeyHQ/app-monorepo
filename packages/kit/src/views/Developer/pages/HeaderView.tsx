@@ -4,6 +4,7 @@ import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
@@ -16,6 +17,29 @@ import { ETestModalPages } from '../../TestModal/router/type';
 import { ETabDeveloperRoutes } from '../type';
 
 import type { ITabDeveloperParamList } from '../type';
+
+function HomeAccountSelectorInfoDemo() {
+  return (
+    <YStack mx="$2" my="$4">
+      <AccountSelectorTriggerLegacy num={0} />
+      <AccountSelectorActiveAccountLegacy num={0} />
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPinOnDevice();
+        }}
+      >
+        硬件输入 PIN
+      </Button>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
+        }}
+      >
+        硬件输入 Passphrase
+      </Button>
+    </YStack>
+  );
+}
 
 export default function HomePageHeaderView() {
   const navigation =
@@ -61,8 +85,7 @@ export default function HomePageHeaderView() {
           }}
           enabledNum={[0]}
         >
-          <AccountSelectorTriggerLegacy num={0} />
-          <AccountSelectorActiveAccountLegacy num={0} />
+          <HomeAccountSelectorInfoDemo />
         </AccountSelectorProviderMirror>
         <SizableText>Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
