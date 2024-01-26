@@ -32,11 +32,12 @@ function HomeHeaderContainer() {
 
   const overview = usePromiseResult(async () => {
     if (!account || !network) return;
-    const r = await backgroundApiProxy.serviceAddress.fetchAddressDetails({
-      networkId: network.id,
-      accountAddress: account.address,
-      withNetWorth: true,
-    });
+    const r =
+      await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+        networkId: network.id,
+        accountAddress: account.address,
+        withNetWorth: true,
+      });
     return r;
   }, [account, network]).result;
 

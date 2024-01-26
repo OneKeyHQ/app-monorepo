@@ -63,8 +63,8 @@ function HistoryDetails() {
   const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
 
   const nativeToken = usePromiseResult(
-    () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
-    [network?.id],
+    () => backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
+    [networkId],
   ).result;
 
   const relatedAssetInfo = useMemo(() => {

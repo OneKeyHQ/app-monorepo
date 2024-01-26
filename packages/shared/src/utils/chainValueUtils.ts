@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IServerNetwork } from '../../types';
+import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -9,6 +10,11 @@ function nilError(message: string): number {
 export interface IChainValueConvertOptions {
   value: string | BigNumber;
   network: IServerNetwork;
+}
+
+export interface ITokenChainValueConvertOptions {
+  value: string | BigNumber;
+  token: IToken;
 }
 
 // onChainValue -> GWEI
@@ -79,6 +85,20 @@ function convertAmountToGwei(options: IChainValueConvertOptions) {
   });
 }
 
+function convertTokenChainValueToAmount({
+  value,
+  token,
+}: ITokenChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      -token.decimals ??
+        nilError(
+          'convertTokenChainValueToAmount ERROR: token.decimals missing',
+        ),
+    )
+    .toFixed();
+}
+
 export default {
   convertAmountToChainValue,
   convertChainValueToAmount,
@@ -86,4 +106,5 @@ export default {
   convertGweiToChainValue,
   convertGweiToAmount,
   convertAmountToGwei,
+  convertTokenChainValueToAmount,
 };

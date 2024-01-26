@@ -43,7 +43,7 @@ function NFTListItem(props: IProps) {
           <Image
             w="100%"
             h="100%"
-            source={{ uri: nft.metadata.image }}
+            source={{ uri: nft.metadata?.image }}
             style={{
               borderRadius: 10,
             }}
@@ -71,7 +71,7 @@ function NFTListItem(props: IProps) {
           {nft.collectionName}
         </SizableText>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata.name}
+          {nft.metadata?.name ?? ''}
         </SizableText>
       </Stack>
     </Stack>

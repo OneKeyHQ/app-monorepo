@@ -1,4 +1,4 @@
-import { random } from 'lodash';
+import { isNil, random } from 'lodash';
 
 import {
   backgroundClass,
@@ -12,9 +12,12 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
+import type ServiceNFT from './ServiceNFT';
+import type ServiceToken from './ServiceToken';
 import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
@@ -51,7 +54,12 @@ class ServiceSend extends ServiceBase {
       from: account.address,
       to: account.address,
       amount: `0.00000${random(1, 20)}`,
-      token: '',
+      tokenInfo: {
+        address: '',
+        decimals: 18,
+        name: 'Ethereum',
+        symbol: 'ETH',
+      },
     };
 
     // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> unsignedTx
@@ -164,25 +172,34 @@ class ServiceSend extends ServiceBase {
   ): Promise<IDecodedTx> {
     const { networkId, accountId, unsignedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.buildDecodedTx({ unsignedTx });
+    const buildTxHelper = await this.getBuildTxHelper();
+    return vault.buildDecodedTx({
+      unsignedTx,
+      ...buildTxHelper,
+    });
   }
 
   @backgroundMethod()
   public async buildUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
-    const { networkId, accountId, transfersInfo } = params;
+    const { networkId, accountId, encodedTx, transfersInfo, approveInfo } =
+      params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.buildUnsignedTx({ transfersInfo });
+    return vault.buildUnsignedTx({
+      encodedTx,
+      transfersInfo,
+      approveInfo,
+    });
   }
 
   @backgroundMethod()
   public async updateUnsignedTx(
     params: ISendTxBaseParams & IUpdateUnsignedTxParams,
   ) {
-    const { networkId, accountId, unsignedTx, feeInfo } = params;
+    const { networkId, accountId, unsignedTx, ...rest } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.updateUnsignedTx({ unsignedTx, feeInfo });
+    return vault.updateUnsignedTx({ unsignedTx, ...rest });
   }
 
   @backgroundMethod()
@@ -191,7 +208,7 @@ class ServiceSend extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
-    }>('/wallet/v1/onchain/send-transaction', {
+    }>('/wallet/v1/account/send-transaction', {
       networkId,
       tx: signedTx.rawTx,
     });
@@ -237,6 +254,74 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
     });
     return this.broadcastTransaction({ networkId, signedTx });
+  }
+
+  @backgroundMethod()
+  public async getIsNonceRequired({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.nonceRequired;
+  }
+
+  @backgroundMethod()
+  public async getNextNonce({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+  }) {
+    const { nonce } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId,
+        accountAddress,
+        withNonce: true,
+      });
+
+    if (isNil(nonce)) {
+      throw new Error('Get on-chain nonce failed.');
+    }
+
+    // TODO: fix nonce with local pending txs
+
+    return nonce;
+  }
+
+  @backgroundMethod()
+  public getBuildTxHelper(): Promise<{
+    getToken: ServiceToken['getToken'];
+    getNFT: ServiceNFT['getNFT'];
+  }> {
+    return Promise.resolve({
+      getToken: this.backgroundApi.serviceToken.getToken.bind(
+        this.backgroundApi.serviceToken,
+      ),
+      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
+        this.backgroundApi.serviceNFT,
+      ),
+    });
+  }
+
+  @backgroundMethod()
+  async prepareSendConfirmUnsignedTx(
+    params: ISendTxBaseParams & IBuildUnsignedTxParams,
+  ) {
+    const {
+      networkId,
+      accountId,
+      unsignedTx,
+      encodedTx,
+      approveInfo,
+      transfersInfo,
+    } = params;
+    if (unsignedTx) return unsignedTx;
+
+    return this.buildUnsignedTx({
+      networkId,
+      accountId,
+      encodedTx,
+      approveInfo,
+      transfersInfo,
+    });
   }
 }
 

@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { EFeeType, IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 
@@ -10,16 +9,10 @@ import {
   contextAtomMethod,
   customFeeAtom,
   sendSelectedFeeAtom,
-  unsignedTxsAtom,
+  sendSelectedFeeInfoAtom,
 } from './atoms';
 
 class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
-  updateUnsignedTxs = contextAtomMethod(
-    (get, set, unsignedTxs: IUnsignedTxPro[]) => {
-      set(unsignedTxsAtom(), unsignedTxs);
-    },
-  );
-
   updateSendSelectedFee = contextAtomMethod(
     (get, set, sendSelectedFee: { feeType: EFeeType; presetIndex: number }) => {
       set(sendSelectedFeeAtom(), sendSelectedFee);
@@ -29,6 +22,12 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   updateCustomFee = contextAtomMethod((get, set, customFee: IFeeInfoUnit) => {
     set(customFeeAtom(), customFee);
   });
+
+  updateSendSelectedFeeInfo = contextAtomMethod(
+    (get, set, feeInfo: IFeeInfoUnit) => {
+      set(sendSelectedFeeInfoAtom(), feeInfo);
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -38,13 +37,13 @@ const createActions = memoFn(() => {
 
 export function useSendConfirmActions() {
   const actions = createActions();
-  const updateUnsignedTxs = actions.updateUnsignedTxs.use();
   const updateSendSelectedFee = actions.updateSendSelectedFee.use();
   const updateCustomFee = actions.updateCustomFee.use();
+  const updateSendSelectedFeeInfo = actions.updateSendSelectedFeeInfo.use();
 
   return useRef({
-    updateUnsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
+    updateSendSelectedFeeInfo,
   });
 }

@@ -10,7 +10,10 @@ import type {
 
 import { getFormattedNumber } from '../../utils/format';
 
-import { TxActionCommonListView } from './TxActionCommon';
+import {
+  TxActionCommonDetailView,
+  TxActionCommonListView,
+} from './TxActionCommon';
 
 import type { ITxActionCommonProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
@@ -49,7 +52,7 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
-    label,
+    label: label ?? '',
     transferTarget,
     sendNFTIcon: sendsWithNFT[0]?.image,
     receiveNFTIcon: receivesWithNFT[0]?.image,
@@ -207,7 +210,23 @@ function TxActionTransferListView(props: ITxActionProps) {
 }
 
 function TxActionTransferDetailView(props: ITxActionProps) {
-  return null;
+  const {
+    sends,
+    receives,
+    label,
+    sendTokenIcon,
+    sendNFTIcon,
+    receiveNFTIcon,
+    receiveTokenIcon,
+  } = getTxActionTransferInfo(props);
+  return (
+    <TxActionCommonDetailView
+      title={label}
+      icon={sendTokenIcon ?? sendNFTIcon ?? receiveTokenIcon ?? receiveNFTIcon}
+      content={sends[0]?.amount ?? receives[0]?.amount}
+      description={sends[0]?.to ?? receives[0]?.to}
+    />
+  );
 }
 
 export { TxActionTransferListView, TxActionTransferDetailView };

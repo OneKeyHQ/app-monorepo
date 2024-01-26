@@ -41,6 +41,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildTxHelperParams,
   IBuildUnsignedTxParams,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
@@ -114,7 +115,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
 
-  abstract buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx>;
+  abstract buildDecodedTx(
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+  ): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
     params: IBuildUnsignedTxParams,
@@ -327,6 +330,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         spender: approve.to,
         tokenIcon: transfer.image,
         amount: new BigNumber(approve.amount).abs().toFixed(),
+        // TODO: isMax from server
+        isMax: false,
       },
     };
   }

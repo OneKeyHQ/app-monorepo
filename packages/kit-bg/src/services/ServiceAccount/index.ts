@@ -723,6 +723,7 @@ class ServiceAccount extends ServiceBase {
     return settings.isUtxo;
   }
 
+  @backgroundMethod()
   async buildActiveAccountInfoFromSelectedAccount({
     selectedAccount,
   }: {

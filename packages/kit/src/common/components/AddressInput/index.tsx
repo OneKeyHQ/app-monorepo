@@ -223,11 +223,12 @@ function AddressInput(props: IAddressInputProps) {
       }
       setLoading(true);
       try {
-        const result = await backgroundApiProxy.serviceAddress.queryAddress({
-          networkId,
-          address: debounceText,
-          enableNameResolve,
-        });
+        const result =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            networkId,
+            address: debounceText,
+            enableNameResolve,
+          });
         if (result.input === textRef.current) {
           setQueryResult(result);
         }
