@@ -9,8 +9,8 @@ const SettingAccountDerivationModal = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),
 );
 
-const SettingAppLockModal = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/AppLock'),
+const SettingAppAutoLockModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/AppAutoLock'),
 );
 
 const SettingCurrencyModal = LazyLoad(
@@ -74,8 +74,8 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     translationId: 'form__hardware_bridge_sdk_url',
   },
   {
-    name: EModalSettingRoutes.SettingAppLockModal,
-    component: SettingAppLockModal,
+    name: EModalSettingRoutes.SettingAppAutoLockModal,
+    component: SettingAppAutoLockModal,
     translationId: 'form__app_lock',
   },
   {

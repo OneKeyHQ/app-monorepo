@@ -1,15 +1,18 @@
 import { useCallback } from 'react';
 
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { registerWebAuth } from '@onekeyhq/shared/src/webAuth';
+import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export const useWebAuthActions = () => {
-  const [, setPasswordPersist] = usePasswordPersistAtom();
+  const [{ webAuthCredentialId: credId }, setPasswordPersist] =
+    usePasswordPersistAtom();
   const setWebAuthEnable = useCallback(
     async (enable: boolean) => {
       let webAuthCredentialId: string | undefined;
       if (enable) {
-        // register web auth must be called in ui context
+        // web auth must be called in ui context for extension
         webAuthCredentialId = await registerWebAuth();
       }
       setPasswordPersist((v) => ({
@@ -20,5 +23,18 @@ export const useWebAuthActions = () => {
     [setPasswordPersist],
   );
 
-  return { setWebAuthEnable };
+  const verifiedPasswordWebAuth = useCallback(async () => {
+    const checkCachePassword =
+      await backgroundApiProxy.servicePassword.getCachedPassword();
+    if (!checkCachePassword) {
+      throw new Error('No password cached not support web auth');
+    }
+    // web auth must be called in ui context for extension
+    const cred = await verifiedWebAuth(credId);
+    if (cred?.id === credId) {
+      return checkCachePassword;
+    }
+  }, [credId]);
+
+  return { setWebAuthEnable, verifiedPasswordWebAuth };
 };

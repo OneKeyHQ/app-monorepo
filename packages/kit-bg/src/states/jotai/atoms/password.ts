@@ -1,4 +1,4 @@
-import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppLock/const';
+import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppAutoLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -22,6 +22,7 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     },
   });
 
+// this atom is used to trigger password prompt not add other state
 export type IPasswordPromptPromiseTriggerAtom = {
   passwordPromptPromiseTriggerData:
     | {
@@ -47,6 +48,7 @@ export type IPasswordPersistAtom = {
   // Is the application not locked manually by the user
   manualLocking: boolean;
   appLockDuration: number;
+  enableSystemIdleLock: boolean;
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({
@@ -57,7 +59,19 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
       webAuthCredentialId: '',
       manualLocking: false,
       appLockDuration: 240,
+      enableSystemIdleLock: false,
     },
+  });
+
+export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
+  globalAtomComputed(async (get) => {
+    const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
+    const { appLockDuration } = get(passwordPersistAtom.atom());
+    return (
+      platformSupport &&
+      appLockDuration !== Number(ELockDuration.Never) &&
+      appLockDuration !== Number(ELockDuration.Always)
+    );
   });
 
 export const {

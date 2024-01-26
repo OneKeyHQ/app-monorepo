@@ -8,6 +8,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { useWebAuthActions } from '../../../components/BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
 import AppStateLock from './components/AppStateLock';
@@ -17,6 +18,7 @@ export function AppStateLockContainer({
   children,
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
+  const { verifiedPasswordWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
@@ -35,10 +37,7 @@ export function AppStateLockContainer({
       enableWebAuth={!!webAuthCredentialId}
       onWebAuthVerify={async () => {
         try {
-          await backgroundApiProxy.servicePassword.verifyPassword({
-            isWebAuth: true,
-            password: '',
-          });
+          await verifiedPasswordWebAuth();
           await handleUnlock();
         } catch (e) {
           Toast.error({ title: '请输入密码' });
