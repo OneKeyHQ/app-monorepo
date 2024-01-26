@@ -718,6 +718,11 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getIsUTXOAccount({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings.isUtxo;
+  }
+
   async buildActiveAccountInfoFromSelectedAccount({
     selectedAccount,
   }: {

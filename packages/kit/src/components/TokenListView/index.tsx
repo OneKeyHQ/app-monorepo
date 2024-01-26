@@ -50,7 +50,7 @@ function TokenListView(props: IProps) {
 
   return (
     <ListView
-      estimatedItemSize={60}
+      estimatedItemSize={48}
       scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
       ListHeaderComponent={

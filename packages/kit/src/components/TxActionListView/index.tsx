@@ -1,5 +1,4 @@
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { getTxActionMeta } from '../../utils/getTxActionMeta';

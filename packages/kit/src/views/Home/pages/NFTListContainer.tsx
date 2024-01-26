@@ -43,7 +43,7 @@ function NFTListContainer(props: IProps) {
 
   if (!isNFTEnabled) {
     return (
-      <Stack h="100%" alignItems="center" justifyContent="center">
+      <Stack alignItems="center" justifyContent="center">
         <Empty
           title="Not Supported"
           description="The chain does support NFT yet."

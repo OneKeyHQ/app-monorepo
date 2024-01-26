@@ -21,12 +21,34 @@ export type IOnChainHistoryTxTransfer = {
   token: string;
   amount: string;
   label: IOnChainHistoryTxLabel;
-  info: IToken | IAccountNFT;
 };
 
 export type IOnChainHistoryTxLabel = {
   label: string;
   riskLevel: number;
+};
+
+export type IOnChainHistoryTxUTXOInput = {
+  txid: string;
+  vout: number;
+  sequence: number;
+  n: number;
+  addresses: string[];
+  isAddress: boolean;
+  value: string;
+  hex: string;
+};
+
+export type IOnChainHistoryTxUTXOOutput = {
+  value: string;
+  n: number;
+  spent: boolean;
+  spentTxId: string;
+  spentIndex: number;
+  spentHeight: number;
+  hex: string;
+  addresses: string[];
+  isAddress: boolean;
 };
 
 export type IOnChainHistoryTx = {
@@ -46,6 +68,8 @@ export type IOnChainHistoryTx = {
   params: string[];
   value: string;
   label: IOnChainHistoryTxLabel;
+  inputs?: IOnChainHistoryTxUTXOInput[];
+  outputs?: IOnChainHistoryTxUTXOOutput[];
 };
 
 export type IAccountHistoryTx = {
@@ -73,9 +97,29 @@ export type IFetchAccountHistoryParams = {
   tokenAddress?: string;
 };
 
+export type IOnChainHistoryTxToken = {
+  info: IToken;
+  price: string;
+};
+
+export type IOnChainHistoryTxAsset =
+  | IOnChainHistoryTxToken
+  | IOnChainHistoryTxNFT;
+
+export type IOnChainHistoryTxNFT = IAccountNFT;
+
 export type IFetchAccountHistoryResp = {
-  data: {
-    date: string;
-    items: IOnChainHistoryTx[];
-  }[];
+  data: IOnChainHistoryTx[];
+  tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
+};
+
+export type IFetchHistoryTxDetailsParams = {
+  networkId: string;
+  txid: string;
+  accountAddress: string;
+};
+
+export type IFetchHistoryTxDetailsResp = {
+  data: IOnChainHistoryTx;
+  tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
 };
