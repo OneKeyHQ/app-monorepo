@@ -11,7 +11,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
+import {
+  AccountSelectorTriggerDAppComponent,
+  AccountSelectorTriggerDappConnection,
+} from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { NetworkSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -19,11 +22,59 @@ import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  mockPresetNetworksBtcList,
+  mockPresetNetworksEvmList,
+} from '@onekeyhq/kit-bg/src/mock';
+import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 export type IHandleAccountChanged = (
   activeAccount: IAccountSelectorActiveAccountInfo,
 ) => void;
+
+export function AccountListPureRendererItem({
+  accountId,
+}: {
+  accountId: string;
+}) {
+  const [account, setAccount] = useState<IDBAccount | undefined>();
+  useEffect(() => {
+    backgroundApiProxy.serviceAccount
+      .getAccount({
+        accountId,
+      })
+      .then((a) => setAccount(a))
+      .catch(() => {});
+  }, [accountId]);
+  return (
+    <XGroup
+      bg="$bg"
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      borderWidth={StyleSheet.hairlineWidth}
+      separator={<Divider vertical />}
+      disabled
+    >
+      <Group.Item>
+        {/* <NetworkSelectorTriggerDappConnection num={num} /> */}
+        <AccountSelectorTriggerDAppComponent
+          account={account}
+          accountName="AAAA"
+        />
+      </Group.Item>
+      <Group.Item>
+        <AccountSelectorTriggerDAppComponent
+          account={account}
+          accountName="AAAA"
+        />
+      </Group.Item>
+    </XGroup>
+  );
+}
 
 function AccountListItem({
   num,
@@ -45,10 +96,10 @@ function AccountListItem({
       borderColor="$borderSubdued"
       borderWidth={StyleSheet.hairlineWidth}
       separator={<Divider vertical />}
+      disabled
     >
       <Group.Item>
         <NetworkSelectorTriggerDappConnection num={num} />
-        {/* <YStack w="$10" h="$10" bg="$bgActive" /> */}
       </Group.Item>
       <Group.Item>
         <AccountSelectorTriggerDappConnection num={num} />
@@ -62,14 +113,17 @@ function AccountListItemProvider({
   sceneUrl,
   num,
   handleAccountChanged,
+  scopeNetworks,
 }: IAccountSelectorRouteParams & {
   handleAccountChanged: IHandleAccountChanged;
+  scopeNetworks: IServerNetwork[] | null;
 }) {
   return (
     <AccountSelectorProviderMirror
       config={{
         sceneName,
         sceneUrl,
+        networks: Array.isArray(scopeNetworks) ? scopeNetworks : undefined,
       }}
       enabledNum={[num]}
     >
@@ -88,6 +142,9 @@ function DAppAccountListStandAloneItem({
   const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
     null,
   );
+  const [scopeNetworks, setScopeNetworks] = useState<IServerNetwork[] | null>(
+    null,
+  );
   useEffect(() => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
       return;
@@ -103,6 +160,11 @@ function DAppAccountListStandAloneItem({
       .catch((e) => {
         console.error('getAccountSelectorNum error: ', e);
       });
+    const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
+    const networks = impls?.some((impl) => impl === IMPL_EVM)
+      ? mockPresetNetworksEvmList
+      : mockPresetNetworksBtcList;
+    setScopeNetworks(networks);
   }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp]);
 
   return (
@@ -116,6 +178,7 @@ function DAppAccountListStandAloneItem({
           sceneUrl={$sourceInfo?.origin}
           num={accountSelectorNum}
           handleAccountChanged={handleAccountChanged}
+          scopeNetworks={scopeNetworks}
         />
       )}
     </YStack>
