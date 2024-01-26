@@ -79,6 +79,7 @@ export type IDesktopAPI = {
   stopServer: () => void;
   quitApp: () => void;
   clearWebViewData: () => void;
+  setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -263,6 +264,12 @@ const desktopApi = {
   },
   clearWebViewData: () => {
     ipcRenderer.send(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA);
+  },
+  setSystemIdleTime: (idleTime: number, cb?: () => void) => {
+    ipcRenderer.on(ipcMessageKeys.APP_IDLE, () => {
+      cb?.();
+    });
+    ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
   },
 };
 

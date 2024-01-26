@@ -15,7 +15,6 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
@@ -100,6 +99,7 @@ export default class ServicePassword extends ServiceBase {
     return password;
   }
 
+  @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
     if (!this.cachedPassword) {
       return undefined;
@@ -135,17 +135,6 @@ export default class ServicePassword extends ServiceBase {
     const pwd = await biologyAuthUtils.getPassword();
     ensureSensitiveTextEncoded(pwd);
     return pwd;
-  }
-
-  async getWebAuthPassword(): Promise<string> {
-    const { webAuthCredentialId } = await passwordPersistAtom.get();
-    if (webAuthCredentialId && this.cachedPassword) {
-      const cred = await verifiedWebAuth(webAuthCredentialId);
-      if (cred?.id === webAuthCredentialId) {
-        return this.cachedPassword;
-      }
-    }
-    throw new Error('webAuth not support when cache password not exist');
   }
 
   @backgroundMethod()
@@ -273,18 +262,13 @@ export default class ServicePassword extends ServiceBase {
   async verifyPassword({
     password,
     isBiologyAuth,
-    isWebAuth,
   }: {
     password: string;
     isBiologyAuth?: boolean;
-    isWebAuth?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
-    }
-    if (isWebAuth) {
-      verifyingPassword = await this.getWebAuthPassword();
     }
     ensureSensitiveTextEncoded(verifyingPassword);
     await this.validatePassword({ password: verifyingPassword });
@@ -412,6 +396,14 @@ export default class ServicePassword extends ServiceBase {
     await passwordPersistAtom.set((prev) => ({
       ...prev,
       appLockDuration: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setEnableSystemIdleLock(value: boolean) {
+    await passwordPersistAtom.set((prev) => ({
+      ...prev,
+      enableSystemIdleLock: value,
     }));
   }
 
