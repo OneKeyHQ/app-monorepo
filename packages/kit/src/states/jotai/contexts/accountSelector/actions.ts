@@ -129,8 +129,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
+        linkNetwork,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
+        linkNetwork?: boolean;
       } & IAccountSelectorRouteParams,
     ) => {
       const activeAccountInfo = get(activeAccountsAtom())[num];
@@ -155,6 +157,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
           sceneName,
           sceneUrl,
+          linkNetwork,
         },
       });
     },

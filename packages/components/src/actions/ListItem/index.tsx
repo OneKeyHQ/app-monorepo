@@ -8,14 +8,8 @@ import { isValidElement } from 'react';
 
 import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
-import type {
-  IDBAccount,
-  IDBIndexedAccount,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-
 import { Divider } from '../../content';
 import { Icon, Image, SizableText, Stack } from '../../primitives';
-import { AccountAvatar } from '../AccountAvatar';
 import { IconButton } from '../IconButton';
 
 import type { IIconButtonProps } from '..';
@@ -80,7 +74,7 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 export type IListItemAvatarProps = {
-  account?: IDBIndexedAccount | IDBAccount;
+  avatar?: ReactElement;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
@@ -89,11 +83,11 @@ export type IListItemAvatarProps = {
 } & IImageProps;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const { children, cornerIconProps, cornerImageProps, ...restProps } = props;
+  const { children, cornerIconProps, cornerImageProps, avatar } = props;
 
   return (
     <Stack>
-      <AccountAvatar {...restProps} />
+      {avatar}
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
       {children}

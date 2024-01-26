@@ -82,7 +82,7 @@ export interface IAccountSelectorActiveAccountInfo {
   indexedAccount: IDBIndexedAccount | undefined;
   wallet: IDBWallet | undefined;
   network: IServerNetwork | undefined;
-  deriveType: IAccountDeriveTypes | undefined; // TODO move to jotai global
+  deriveType: IAccountDeriveTypes; // TODO move to jotai global
   // deriveInfo
   // indexedAccount
 }

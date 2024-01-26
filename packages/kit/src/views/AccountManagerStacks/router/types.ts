@@ -9,7 +9,9 @@ export enum EAccountManagerStacksRoutes {
 }
 
 export type IAccountManagerStacksParamList = {
-  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams;
+  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams & {
+    linkNetwork?: boolean;
+  };
 };
 
 export type IAccountProps = {

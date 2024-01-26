@@ -1,5 +1,6 @@
 module.exports = [
   'changelog',
+  'qrcode',
   'Eip',
   'subtype',
   'Eip1559',
