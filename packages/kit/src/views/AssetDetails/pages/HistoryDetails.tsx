@@ -1,87 +1,168 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { useRoute } from '@react-navigation/core';
+import { format } from 'date-fns';
+import { isEmpty, isNil } from 'lodash';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
-  DescriptionList,
   Divider,
   Heading,
   Image,
   Page,
+  Spinner,
+  Stack,
   Toast,
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
+import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
-const histories: {
-  key: string;
-  value: string;
-  iconAfter?: IKeyOfIcons;
-  onPress?: () => void;
-  imgUrl?: string;
-}[][] = [
-  [
-    {
-      key: 'From',
-      value: '0x123456...34567890',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-    {
-      key: 'To',
-      value: '0x123456...34567890',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-  ],
-  [
-    {
-      key: 'Token',
-      value: '1000 USDC',
-      imgUrl:
-        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-    },
-    {
-      key: 'Token Contrast',
-      value: '0xa0b8...eb48',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-  ],
-  [
-    {
-      key: 'Hash',
-      value: '0xd878...144f',
-      iconAfter: 'Copy1Outline',
-      onPress: () => Toast.success({ title: 'Copied' }),
-    },
-    {
-      key: 'Time',
-      value: 'Dec 04 2023, 21:33',
-    },
-  ],
-  [
-    {
-      key: 'Chain',
-      value: 'Ethereum',
-      imgUrl:
-        'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-    },
-    {
-      key: 'Fee',
-      value: '0.00487789 ETH',
-    },
-    {
-      key: 'Nonce',
-      value: '138',
-    },
-  ],
-];
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { TxDetails } from '../../../components/TxDetails';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalAssetDetailRoutes } from '../router/types';
+
+import type { ITxDetailsProps } from '../../../components/TxDetails';
+import type { IModalAssetDetailsParamList } from '../router/types';
+import type { RouteProp } from '@react-navigation/core';
 
 function HistoryDetails() {
-  const status = 'pending';
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAssetDetailsParamList,
+        EModalAssetDetailRoutes.HistoryDetails
+      >
+    >();
+
+  const { networkId, accountAddress, historyTx } = route.params;
+
+  const navigation = useAppNavigation();
+
+  const resp = usePromiseResult(
+    () =>
+      Promise.all([
+        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
+        backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
+          networkId,
+          accountAddress,
+          txid: historyTx.decodedTx.txid,
+        }),
+      ]),
+    [accountAddress, historyTx.decodedTx.txid, networkId],
+    { watchLoading: true },
+  );
+
+  const [network, isUTXO, txDetailsResp] = resp.result ?? [];
+
+  const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
+
+  const nativeToken = usePromiseResult(
+    () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
+    [network?.id],
+  ).result;
+
+  const relatedAssetInfo = useMemo(() => {
+    if (!txDetails) return undefined;
+    const tokenAddress =
+      txDetails.sends[0]?.token || txDetails.receives[0]?.token;
+
+    return getOnChainHistoryTxAssetInfo({
+      tokenAddress,
+      tokens,
+    });
+  }, [tokens, txDetails]);
+
+  const details = useMemo(() => {
+    if (!txDetails) return [];
+    return [
+      [
+        {
+          key: 'content__from',
+          value: txDetails.from,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+        {
+          key: 'content__to',
+          value: txDetails.to,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+      ],
+      [
+        {
+          key: 'content__asset',
+          value: relatedAssetInfo?.symbol,
+          imgUrl: relatedAssetInfo?.image,
+        },
+        {
+          key: 'content__contract_address',
+          value: relatedAssetInfo?.address,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+      ],
+      [
+        {
+          key: 'content__hash',
+          value: txDetails.tx,
+          iconAfter: 'Copy1Outline',
+          onPress: () => Toast.success({ title: 'Copied' }),
+        },
+        {
+          key: 'content__time',
+          value: format(new Date(txDetails.timestamp * 1000), 'PPpp'),
+        },
+      ],
+      [
+        {
+          key: 'network__network',
+          value: network?.name,
+          imgUrl: network?.logoURI,
+        },
+        {
+          key: 'content__fee',
+          value: `${txDetails.gasFee} ${nativeToken?.symbol ?? ''}`,
+        },
+        {
+          key: 'content__nonce',
+          value: txDetails.nonce,
+        },
+      ],
+    ].map((section) =>
+      section.filter((item) => !isNil(item.value) && !isEmpty(item.value)),
+    ) as ITxDetailsProps['details'];
+  }, [
+    nativeToken?.symbol,
+    network?.logoURI,
+    network?.name,
+    relatedAssetInfo?.address,
+    relatedAssetInfo?.image,
+    relatedAssetInfo?.symbol,
+    txDetails,
+  ]);
+
+  const handleOnViewUTXOsPress = useCallback(() => {
+    if (!txDetails) return;
+    const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
+
+    navigation.push(EModalAssetDetailRoutes.UTXODetails, {
+      inputs: onChainInputs?.map((input) => ({
+        address: input.addresses[0],
+        value: input.value,
+      })),
+      outputs: onChainOutputs?.map((output) => ({
+        address: output.addresses[0],
+        value: output.value,
+      })),
+    });
+  }, [navigation, txDetails]);
 
   const headerTitle = useCallback(
     () => (
@@ -90,22 +171,29 @@ function HistoryDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
+            uri: relatedAssetInfo?.image,
           }}
         />
         <Heading pl="$2" size="$headingLg">
-          Send
+          {txDetails?.label.label}
         </Heading>
       </XStack>
     ),
-    [],
+    [relatedAssetInfo?.image, txDetails?.label.label],
   );
 
-  return (
-    <Page>
-      <Page.Header headerTitle={headerTitle} />
-      <Page.Body>
-        {status === 'pending' && (
+  const renderHistoryDetails = useCallback(() => {
+    if (resp.isLoading) {
+      return (
+        <Stack h="100%" justifyContent="center" alignItems="center">
+          <Spinner />
+        </Stack>
+      );
+    }
+
+    return (
+      <Stack>
+        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
           <>
             <ListItem icon="ClockTimeHistoryOutline" title="Pending">
               <Button size="small" variant="tertiary">
@@ -118,62 +206,25 @@ function HistoryDetails() {
             <Divider mb="$5" pt="$3" />
           </>
         )}
-        {histories.map((section, index) => (
-          <DescriptionList
-            mx="$5"
-            // space="$0"
-            key={index}
-            {...(index !== 0 && {
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderColor: '$borderSubdued',
-              mt: '$4',
-              pt: '$4',
-            })}
-          >
-            {section.map((item, itemIndex = index) => (
-              <DescriptionList.Item
-                key={item.key}
-                {...(itemIndex !== 0 &&
-                  {
-                    // mt: '$2',
-                    // pt: '$2',
-                    // borderTopWidth: StyleSheet.hairlineWidth,
-                    // borderTopColor: '$borderSubdued',
-                  })}
-                // $gtMd={{
-                //   justifyContent: 'flex-start',
-                // }}
-              >
-                <DescriptionList.Item.Key
-                // $gtMd={{
-                //   flexBasis: '20%',
-                // }}
-                >
-                  {item.key}
-                </DescriptionList.Item.Key>
-                <XStack alignItems="center">
-                  {item.imgUrl && (
-                    <Image
-                      width="$5"
-                      height="$5"
-                      source={{
-                        uri: item.imgUrl,
-                      }}
-                      mr="$1.5"
-                    />
-                  )}
-                  <DescriptionList.Item.Value
-                    iconAfter={item.iconAfter}
-                    onPress={item.onPress}
-                  >
-                    {item.value}
-                  </DescriptionList.Item.Value>
-                </XStack>
-              </DescriptionList.Item>
-            ))}
-          </DescriptionList>
-        ))}
-      </Page.Body>
+        <TxDetails
+          details={details}
+          isUTXO={isUTXO}
+          onViewUTXOsPress={handleOnViewUTXOsPress}
+        />
+      </Stack>
+    );
+  }, [
+    resp.isLoading,
+    historyTx.decodedTx.status,
+    details,
+    isUTXO,
+    handleOnViewUTXOsPress,
+  ]);
+
+  return (
+    <Page>
+      <Page.Header headerTitle={headerTitle} />
+      <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );
 }

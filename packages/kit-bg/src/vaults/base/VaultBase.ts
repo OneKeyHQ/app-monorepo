@@ -2,7 +2,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty } from 'lodash';
 
 import type {
   IEncodedTx,
@@ -11,7 +11,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getOnChainHistoryTxStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  getOnChainHistoryTxAssetInfo,
+  getOnChainHistoryTxStatus,
+} from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IAddressValidation,
@@ -20,6 +23,7 @@ import type {
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
+  IOnChainHistoryTxAsset,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
@@ -171,10 +175,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildOnChainHistoryTx(
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
-    const { accountId, networkId, onChainHistoryTx } = params;
+    const { accountId, networkId, onChainHistoryTx, tokens } = params;
 
     try {
-      const action = this.buildHistoryTxAction({ tx: onChainHistoryTx });
+      const action = this.buildHistoryTxAction({
+        tx: onChainHistoryTx,
+        tokens,
+      });
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -211,19 +218,31 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
   }
 
-  buildHistoryTxAction({ tx }: { tx: IOnChainHistoryTx }) {
+  buildHistoryTxAction({
+    tx,
+    tokens,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxAsset>;
+  }) {
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
-      return this.buildHistoryTxDefaultAction(tx);
+      return this.buildHistoryTxDefaultAction({ tx, tokens });
     }
 
     if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
-      return this.buildHistoryTxApproveAction(tx);
+      return this.buildHistoryTxApproveAction({ tx, tokens });
     }
 
-    return this.buildHistoryTransferAction(tx);
+    return this.buildHistoryTransferAction({ tx, tokens });
   }
 
-  buildHistoryTxDefaultAction(tx: IOnChainHistoryTx): IDecodedTxAction {
+  buildHistoryTxDefaultAction({
+    tx,
+    tokens,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxAsset>;
+  }): IDecodedTxAction {
     return {
       type: EDecodedTxActionType.FUNCTION_CALL,
       functionCall: {
@@ -235,51 +254,71 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  buildHistoryTransferAction(tx: IOnChainHistoryTx): IDecodedTxAction {
+  buildHistoryTransferAction({
+    tx,
+    tokens,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxAsset>;
+  }): IDecodedTxAction {
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
       assetTransfer: {
         from: tx.from,
         to: tx.to,
         label: tx.label.label,
-        sends: tx.sends.map((send) => this.buildHistoryTransfer(send)),
+        sends: tx.sends.map((send) =>
+          this.buildHistoryTransfer({
+            transfer: send,
+            tokens,
+          }),
+        ),
         receives: tx.receives.map((receive) =>
-          this.buildHistoryTransfer(receive),
+          this.buildHistoryTransfer({
+            transfer: receive,
+            tokens,
+          }),
         ),
       },
     };
   }
 
-  buildHistoryTransfer(transfer: IOnChainHistoryTxTransfer) {
-    let image = '';
-    let symbol = '';
-    let isNFT = false;
-    if (!isNil((transfer.info as IAccountNFT)?.itemId)) {
-      const info = transfer.info as IAccountNFT;
-      image = info.metadata.image;
-      symbol = info.metadata.name;
-      isNFT = true;
-    } else if (!isNil((transfer.info as IToken)?.address)) {
-      const info = transfer.info as IToken;
-      image = info.logoURI;
-      symbol = info.symbol;
-    }
+  buildHistoryTransfer({
+    transfer,
+    tokens,
+  }: {
+    transfer: IOnChainHistoryTxTransfer;
+    tokens: Record<string, IOnChainHistoryTxAsset>;
+  }) {
+    const { image, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
+      tokenAddress: transfer.token,
+      tokens,
+    });
 
     return {
       from: transfer.from,
       to: transfer.to,
       token: transfer.token,
       amount: transfer.amount,
+      label: transfer.label.label,
       image,
       symbol,
       isNFT,
-      label: transfer.label.label,
     };
   }
 
-  buildHistoryTxApproveAction(tx: IOnChainHistoryTx): IDecodedTxAction {
+  buildHistoryTxApproveAction({
+    tx,
+    tokens,
+  }: {
+    tx: IOnChainHistoryTx;
+    tokens: Record<string, IOnChainHistoryTxAsset>;
+  }): IDecodedTxAction {
     const approve = tx.sends[0];
-    const transfer = this.buildHistoryTransfer(approve);
+    const transfer = this.buildHistoryTransfer({
+      transfer: approve,
+      tokens,
+    });
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
