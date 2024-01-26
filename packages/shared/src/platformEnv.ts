@@ -100,7 +100,6 @@ export type IPlatformEnv = {
   isRuntimeChrome?: boolean;
   isRuntimeEdge?: boolean;
 
-  canGetClipboard?: boolean;
   supportAutoUpdate?: boolean;
 
   isAppleStoreEnv?: boolean;
@@ -360,7 +359,6 @@ const platformEnv: IPlatformEnv = {
   isRuntimeChrome,
   isRuntimeEdge,
 
-  canGetClipboard,
   supportAutoUpdate,
   isAppleStoreEnv,
 };
