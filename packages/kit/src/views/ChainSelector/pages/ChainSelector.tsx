@@ -2,13 +2,12 @@ import { useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useAccountSelectorAvailableNetworks } from '../../../components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
-  useAccountSelectorContextData,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
@@ -36,10 +35,10 @@ function ChainSelector({ num }: { num: number }) {
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-  const { config } = useAccountSelectorContextData();
-  const [data, setData] = useState(config?.networks || mockPresetNetworksList);
   const selectedChain = network?.id;
   const [isEditMode, setIsEditMode] = useState(false);
+
+  const networks = useAccountSelectorAvailableNetworks();
 
   const handleListItemPress = (networkId: string) => {
     actions.current.updateSelectedAccount({
@@ -69,14 +68,14 @@ function ChainSelector({ num }: { num: number }) {
       />
       <Page.Body>
         <SortableListView
-          data={data}
+          data={networks}
           keyExtractor={(item) => `${item.id}`}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
             offset: index * CELL_HEIGHT,
             index,
           })}
-          onDragEnd={(result) => setData(result.data)}
+          onDragEnd={(result) => console.log(result.data)}
           renderItem={({ item, drag }) => (
             <ListItem
               h={CELL_HEIGHT}

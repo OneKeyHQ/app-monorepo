@@ -22,6 +22,7 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBWalletId } from '../dbs/local/types';
 import type { MessageDescriptor } from 'react-intl';
@@ -109,7 +110,9 @@ export type IVaultFactoryOptions = {
   accountId: string;
   walletId?: IDBWalletId;
 };
-export type IVaultOptions = IVaultFactoryOptions; // TODO remove
+export type IVaultOptions = IVaultFactoryOptions & {
+  backgroundApi: IBackgroundApi;
+};
 
 // PrepareAccounts ----------------------------------------------
 export type IGetPrivateKeysParams = {

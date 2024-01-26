@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -22,9 +23,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IStackProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -78,7 +77,7 @@ export function TokenDetails() {
   );
 
   const network = usePromiseResult(
-    () => mockGetNetwork({ networkId }),
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   ).result;
 

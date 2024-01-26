@@ -3,16 +3,6 @@
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 
-export function mockIsAccountCompatibleWithNetwork({
-  accountId,
-  networkId,
-}: {
-  accountId: string;
-  networkId: string;
-}) {
-  return true;
-}
-
 export const mockPresetNetworks: Record<
   'evm' | 'goerli' | 'btc' | 'tbtc',
   IServerNetwork
@@ -275,26 +265,3 @@ export const mockPresetNetworks: Record<
 };
 
 export const mockPresetNetworksList = Object.values(mockPresetNetworks);
-export const mockPresetNetworksEvmList = mockPresetNetworksList.filter(
-  (item) => item.impl === IMPL_EVM,
-);
-export const mockPresetNetworksBtcList = [
-  mockPresetNetworks.btc,
-  mockPresetNetworks.tbtc,
-];
-
-export async function mockGetNetwork({ networkId }: { networkId: string }) {
-  // TODO use simpleDB save networks
-  const network = mockPresetNetworksList.find((n) => n.id === networkId);
-  if (!network) {
-    throw new Error('network not found');
-  }
-  return network;
-}
-
-export function mockVerifyAddress({ address }: { address: string }) {
-  return {
-    isValid: true,
-    normalizedAddress: address,
-  };
-}

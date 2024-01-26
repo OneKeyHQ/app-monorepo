@@ -5,14 +5,15 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { mockPresetNetworksBtcList } from '@onekeyhq/kit-bg/src/mock';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { OnboardingOnMount } from '../../Onboarding/components';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -101,12 +102,25 @@ function HomePage() {
 
 function HomePageContainer() {
   console.log('HomePageContainer render');
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const res = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetworksByImpls({
+        impls: [
+          IMPL_BTC,
+          IMPL_TBTC,
+          // IMPL_EVM,
+        ],
+      }),
+    [],
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
-        // networks: mockPresetNetworksBtcList, // support available networks
+        // networks: res.result?.networks, // support available networks
         // defaultNetworkId: 'tbtc--0', // default selected networkId
       }}
       enabledNum={[0]}
