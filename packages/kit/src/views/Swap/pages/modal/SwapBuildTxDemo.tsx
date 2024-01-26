@@ -6,7 +6,7 @@ import { useSwapBuildTxResultAtom } from '@onekeyhq/kit/src/states/jotai/context
 import { useSwapTxHistoryActions } from '../../hooks/useSwapTxHistory';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/Routers';
+import type { IModalSwapParamList } from '../../router/types';
 
 const SwapBuildTxDemo = () => {
   const navigation =

@@ -17,10 +17,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import {
-  EModalSwapRoutes,
-  type IModalSwapParamList,
-} from '../../router/Routers';
+import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { ISwapTxHistory } from '../../types';

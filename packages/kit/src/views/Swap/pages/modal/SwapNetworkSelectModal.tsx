@@ -18,10 +18,7 @@ import {
 
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type {
-  EModalSwapRoutes,
-  IModalSwapParamList,
-} from '../../router/Routers';
+import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
 import type { ISwapNetwork } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 

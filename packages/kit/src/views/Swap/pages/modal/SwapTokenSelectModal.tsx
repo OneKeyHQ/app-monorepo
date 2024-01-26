@@ -27,10 +27,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { EModalSwapRoutes } from '../../router/Routers';
+import { EModalSwapRoutes } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/Routers';
+import type { IModalSwapParamList } from '../../router/types';
 import type { ISwapNetwork, ISwapToken } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 

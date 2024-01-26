@@ -7,8 +7,8 @@ import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
 import type { IModalReceiveParamList } from '../../views/Receive/router/type';
 import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
 import type { IModalSendParamList } from '../../views/Send/router';
-import type { IModalSwapParamList } from '../../views/Swap/router/Routers';
 import type { IModalSettingParamList } from '../../views/Setting/router/types';
+import type { IModalSwapParamList } from '../../views/Swap/router/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
 
 export enum EModalRoutes {

@@ -22,7 +22,7 @@ import {
 
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/Routers';
+import type { IModalSwapParamList } from '../../router/types';
 import type { IFetchQuoteResult } from '../../types';
 
 const SwapProviderSelectModal = () => {

@@ -1,15 +1,16 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import SwapBuildTxDemo from '../../views/Swap/pages/modal/SwapBuildTxDemo';
-import SwapHistoryDetailModal from '../../views/Swap/pages/modal/SwapHistoryDetailModal';
-import SwapHistoryListModal from '../../views/Swap/pages/modal/SwapHistoryListModal';
-import SwapNetworkSelectModal from '../../views/Swap/pages/modal/SwapNetworkSelectModal';
-import SwapProviderSelectModal from '../../views/Swap/pages/modal/SwapProviderSelectModal';
-import SwapSlippageSelectModal from '../../views/Swap/pages/modal/SwapSlippageSelectModal';
-import SwapTokenSelectModal from '../../views/Swap/pages/modal/SwapTokenSelectModal';
-import { EModalSwapRoutes } from '../../views/Swap/router/Routers';
+import SwapBuildTxDemo from '../pages/modal/SwapBuildTxDemo';
+import SwapHistoryDetailModal from '../pages/modal/SwapHistoryDetailModal';
+import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
+import SwapNetworkSelectModal from '../pages/modal/SwapNetworkSelectModal';
+import SwapProviderSelectModal from '../pages/modal/SwapProviderSelectModal';
+import SwapSlippageSelectModal from '../pages/modal/SwapSlippageSelectModal';
+import SwapTokenSelectModal from '../pages/modal/SwapTokenSelectModal';
 
-import type { IModalSwapParamList } from '../../views/Swap/router/Routers';
+import { EModalSwapRoutes } from './types';
+
+import type { IModalSwapParamList } from './types';
 
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,

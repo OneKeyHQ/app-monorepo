@@ -20,7 +20,7 @@ import {
 import { validateInput } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/Routers';
+import type { IModalSwapParamList } from '../../router/types';
 
 const SwapSlippageSelectModal = () => {
   const navigation =

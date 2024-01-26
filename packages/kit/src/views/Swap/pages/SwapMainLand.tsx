@@ -7,7 +7,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EModalSendRoutes } from '../../Send/router';
 import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
-import { EModalSwapRoutes, type IModalSwapParamList } from '../router/Routers';
+import { EModalSwapRoutes, type IModalSwapParamList } from '../router/types';
 
 import SwapActionsState from './SwapActionsState';
 import SwapQuoteInput from './SwapQuoteInput';
