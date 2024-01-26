@@ -44,6 +44,18 @@ export interface ISwapToken {
   fiatValue?: string;
 }
 
+export interface IFetchTokensParams {
+  type: 'from' | 'to';
+  networkId?: string;
+  keywords?: string;
+  fromToken?: ISwapToken;
+  limit?: number;
+  next?: string;
+  accountAddress?: string;
+  accountNetworkId?: string;
+  accountXpub?: string;
+}
+
 // quote
 
 export interface IFetchQuotesParams {

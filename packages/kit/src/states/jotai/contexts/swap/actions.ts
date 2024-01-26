@@ -17,6 +17,7 @@ import {
   swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapTokenMapAtom,
   swapTxHistoryAtom,
   swapTxHistoryStatusChangeAtom,
 } from './atoms';
@@ -41,6 +42,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   cleanManualSelectQuoteProviders = contextAtomMethod((get, set) => {
     set(swapManualSelectQuoteProvidersAtom(), undefined);
   });
+
+  catchSwapTokensMap = contextAtomMethod(
+    async (get, set, key: string, tokens: ISwapToken[]) => {
+      const swapTokenMap = get(swapTokenMapAtom());
+      const catchTokens = swapTokenMap[key];
+      if (
+        !catchTokens ||
+        JSON.stringify(catchTokens) !== JSON.stringify(tokens)
+      ) {
+        swapTokenMap[key] = tokens;
+        set(swapTokenMapAtom(), swapTokenMap);
+      }
+    },
+  );
 
   selectFromToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     const fromToken = get(swapSelectFromTokenAtom());
@@ -119,6 +134,7 @@ export const useSwapActions = () => {
   const updateSwapHistoryItem = actions.updateSwapHistoryItem.use();
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
+  const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   return useRef({
     selectFromToken,
     selectToToken,
@@ -127,5 +143,6 @@ export const useSwapActions = () => {
     syncNetworksSort,
     updateSwapHistoryItem,
     addSwapHistoryItem,
+    catchSwapTokensMap,
   });
 };

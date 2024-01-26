@@ -25,15 +25,14 @@ const {
 } = createJotaiContext({ isSingletonStore: true });
 export { ProviderJotaiContextSwap, contextAtomMethod };
 
-// swap networks
+// swap networks & tokens
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
 
-// export const {
-//   atom: swapNetworkTokenMapAtom,
-//   use: useSwapNetworkTokenMapAtom,
-// } = contextAtom<Record<string, ISwapToken[]>>({});
+export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } = contextAtom<
+  Record<string, ISwapToken[]>
+>({});
 
 // swap select token
 export const {

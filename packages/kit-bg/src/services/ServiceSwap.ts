@@ -8,6 +8,7 @@ import type {
   IFetchQuotesParams,
   IFetchResponse,
   IFetchSwapTxHistoryStatusResponse,
+  IFetchTokensParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/kit/src/views/Swap/types';
@@ -75,17 +76,7 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress,
     accountNetworkId,
     accountXpub,
-  }: {
-    type: 'from' | 'to';
-    networkId?: string;
-    keywords?: string;
-    fromToken?: ISwapToken;
-    limit?: number;
-    next?: string;
-    accountAddress?: string;
-    accountNetworkId?: string;
-    accountXpub?: string;
-  }): Promise<{ result: ISwapToken[]; next?: string }> {
+  }: IFetchTokensParams): Promise<{ result: ISwapToken[]; next?: string }> {
     if (this._tokensCancelSource) {
       this._tokensCancelSource.cancel('tokens request canceled');
     }
