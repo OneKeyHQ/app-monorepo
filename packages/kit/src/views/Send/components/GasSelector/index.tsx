@@ -12,12 +12,15 @@ type IProps = {
 
 function GasSelector(props: IProps) {
   const intl = useIntl();
-  const { triggerProps, ...rest } = props;
+  const { triggerProps, disabled, ...rest } = props;
 
   return (
     <Select
-      renderTrigger={() => <GasSelectorTrigger {...triggerProps} />}
+      renderTrigger={() => (
+        <GasSelectorTrigger disabled={disabled} {...triggerProps} />
+      )}
       title={intl.formatMessage({ id: 'content__fee' })}
+      disabled={disabled}
       {...rest}
     />
   );

@@ -15,10 +15,11 @@ type IProps = {
   contentProps?: ComponentProps<typeof Stack>;
   blockProps?: ComponentProps<typeof Stack>;
   children:
-    | (ReactElement<IContentItemBaseProps> | boolean)[]
+    | (ReactElement<IContentItemBaseProps> | boolean | null | undefined)[]
     | ReactElement<IContentItemBaseProps>
     | boolean
-    | null;
+    | null
+    | undefined;
 };
 
 function ContainerBox(props: IProps) {
@@ -49,7 +50,13 @@ function ContainerBox(props: IProps) {
         {children &&
           (children instanceof Array ? children : [children]).map(
             (child, index) => {
-              if (child === true || child === false || child === null) return;
+              if (
+                child === true ||
+                child === false ||
+                child === null ||
+                child === undefined
+              )
+                return;
               const { children: childChildren } = child.props;
               return cloneElement(child, {
                 ...child.props,

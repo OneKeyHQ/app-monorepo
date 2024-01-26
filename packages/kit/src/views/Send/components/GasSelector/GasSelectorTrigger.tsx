@@ -6,16 +6,22 @@ import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useSendSelectedFeeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import { getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
-type IProps = ComponentProps<typeof XStack>;
+type IProps = ComponentProps<typeof XStack> & {
+  disabled?: boolean;
+};
 
 function GasSelectorTrigger(props: IProps) {
   const intl = useIntl();
+  const { disabled, ...rest } = props;
 
   const [sendSelectedFee] = useSendSelectedFeeAtom();
 
   return (
-    <XStack alignItems="center" space="$1" {...props}>
-      <SizableText size="$bodyMdMedium">
+    <XStack alignItems="center" space="$1" {...rest}>
+      <SizableText
+        size="$bodyMdMedium"
+        color={disabled ? '$textDisabled' : '$text'}
+      >
         {intl.formatMessage({
           id: getFeeLabel({
             feeType: sendSelectedFee.feeType,
@@ -29,7 +35,7 @@ function GasSelectorTrigger(props: IProps) {
         }}
         name="ChevronGrabberVerOutline"
         size="$4"
-        color="$iconSubdued"
+        color={disabled ? '$iconDisabled' : '$iconSubdued'}
       />
     </XStack>
   );

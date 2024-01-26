@@ -279,6 +279,7 @@ function TxFeeContainer(props: IProps) {
             items={feeSelectorItems}
             value={feeSelectorValue}
             onChange={handleSelectedFeeOnChange}
+            disabled={sendFeeStatus.status === ESendFeeStatus.Loading}
           />
         }
         description={{

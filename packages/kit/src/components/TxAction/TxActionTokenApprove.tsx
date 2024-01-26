@@ -7,21 +7,27 @@ import {
   TxActionCommonListView,
 } from './TxActionCommon';
 
-import type { ITxActionCommonProps, ITxActionProps } from './types';
+import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 
 function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const { action } = props;
   const { tokenApprove } = action;
-  const approveIcon = tokenApprove?.tokenIcon ?? '';
+  const approveIcon = tokenApprove?.icon ?? '';
   const approveLabel = tokenApprove?.label ?? '';
   const approveAmount = tokenApprove?.amount ?? '';
-  const approveSpender = tokenApprove?.spender ?? '';
+  const approveSymbol = tokenApprove?.symbol ?? '';
+  const approveSpender = tokenApprove?.to ?? '';
+  const approveOwner = tokenApprove?.from ?? '';
+  const approveIsMax = tokenApprove?.isMax ?? false;
 
   return {
     approveIcon,
     approveAmount,
+    approveSymbol,
     approveLabel,
     approveSpender,
+    approveOwner,
+    approveIsMax,
   };
 }
 
@@ -32,7 +38,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     getTxActionTokenApproveInfo(props);
 
   const title = approveLabel;
-  const avatar: ITxActionCommonProps['avatar'] = {
+  const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: true,
     src: approveIcon,
     fallbackIcon: 'ImageMountainSolid',
@@ -58,21 +64,40 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
 
 function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { approveIcon, approveSpender, approveLabel } =
-    getTxActionTokenApproveInfo(props);
+  const {
+    approveIcon,
+    approveSpender,
+    approveOwner,
+    approveLabel,
+    approveAmount,
+    approveSymbol,
+  } = getTxActionTokenApproveInfo(props);
 
-  const title = intl.formatMessage({ id: 'form__approved' });
-  const content = approveLabel;
-  const description = `to: ${accountUtils.shortenAddress({
-    address: approveSpender,
-  })}`;
+  const content =
+    approveLabel ??
+    intl.formatMessage(
+      {
+        id: 'form__approve_str',
+      },
+      {
+        0: `${approveAmount} ${approveSymbol}`,
+      },
+    );
 
   return (
     <TxActionCommonDetailView
-      title={title}
-      icon={approveIcon}
-      content={content}
-      description={description}
+      overview={{
+        title: intl.formatMessage({ id: 'content__amount' }),
+        content,
+        avatar: {
+          src: approveIcon,
+          circular: true,
+        },
+      }}
+      target={{
+        content: approveSpender,
+      }}
+      source={{ content: approveOwner }}
     />
   );
 }

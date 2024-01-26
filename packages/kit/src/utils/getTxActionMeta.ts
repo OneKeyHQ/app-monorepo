@@ -33,6 +33,12 @@ export function getTxActionMeta({ action }: { action: IDecodedTxAction }) {
         [ETxActionComponentType.DetailView]: TxActionTokenApproveDetailView,
       };
       break;
+    case EDecodedTxActionType.FUNCTION_CALL:
+      components = {
+        [ETxActionComponentType.ListView]: TxActionFunctionCallListView,
+        [ETxActionComponentType.DetailView]: TxActionFunctionCallDetailView,
+      };
+      break;
     default:
       components = {
         [ETxActionComponentType.ListView]: TxActionFunctionCallListView,

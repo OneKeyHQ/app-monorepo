@@ -23,7 +23,7 @@ import { Container } from '../Container';
 
 import { TxActionCommonListView } from './TxActionCommon';
 
-import type { ITxActionCommonProps, ITxActionProps } from './types';
+import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
 
 type ITransferBlock = {
@@ -69,10 +69,10 @@ function getTxActionTransferInfo(props: ITxActionProps) {
     to,
     label: label ?? '',
     transferTarget,
-    sendNFTIcon: sendsWithNFT[0]?.image,
-    receiveNFTIcon: receivesWithNFT[0]?.image,
-    sendTokenIcon: sendsWithToken[0]?.image,
-    receiveTokenIcon: receivesWithToken[0]?.image,
+    sendNFTIcon: sendsWithNFT[0]?.icon,
+    receiveNFTIcon: receivesWithNFT[0]?.icon,
+    sendTokenIcon: sendsWithToken[0]?.icon,
+    receiveTokenIcon: receivesWithToken[0]?.icon,
   };
 }
 
@@ -160,7 +160,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       address: transferTarget,
     }),
   };
-  const avatar: ITxActionCommonProps['avatar'] = {
+  const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: !(sendNFTIcon || receiveNFTIcon),
     fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
       ? 'QuestionmarkSolid'
@@ -272,7 +272,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             {transfersInfo.map((transfer) => (
               <XStack alignItems="center" space="$1" key={transfer.token}>
                 <ListItem.Avatar
-                  src={transfer.image}
+                  src={transfer.icon}
                   size="$7"
                   circular={!transfer.isNFT}
                   fallbackProps={{

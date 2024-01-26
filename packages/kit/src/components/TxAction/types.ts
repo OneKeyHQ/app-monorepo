@@ -16,7 +16,7 @@ export type ITxActionComponents = {
   ) => JSX.Element | null;
 };
 
-export type ITxActionCommonProps = {
+export type ITxActionCommonListViewProps = {
   avatar: {
     circular?: boolean;
     src?: string | string[];
@@ -32,4 +32,24 @@ export type ITxActionCommonProps = {
   changeDescription?: string;
   pending?: boolean;
   tableLayout?: boolean;
+};
+
+export type ITxActionCommonDetailViewProps = {
+  overview: {
+    avatar?: {
+      circular?: boolean;
+      src?: string | string[];
+      fallbackIcon?: IKeyOfIcons;
+    };
+    title?: string;
+    content: string;
+  };
+  target?: {
+    title?: string;
+    content: string;
+  };
+  source?: {
+    title?: string;
+    content: string;
+  };
 };
