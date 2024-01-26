@@ -4,14 +4,18 @@ import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
-import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import {
+  EPasswordPromptType,
+  EPasswordResStatus,
+} from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
 const PasswordVerifyPromptMount = () => {
-  const [{ passwordPromptPromiseTriggerData }] = usePasswordAtom();
+  const [{ passwordPromptPromiseTriggerData }] =
+    usePasswordPromptPromiseTriggerAtom();
   const onClose = useCallback((id: number) => {
     void backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(id, {
       status: EPasswordResStatus.CLOSE_STATUS,
@@ -80,7 +84,10 @@ const PasswordVerifyPromptMount = () => {
       passwordPromptPromiseTriggerData &&
       !isNil(passwordPromptPromiseTriggerData.idNumber)
     ) {
-      if (passwordPromptPromiseTriggerData.type === 'verify') {
+      if (
+        passwordPromptPromiseTriggerData.type ===
+        EPasswordPromptType.PASSWORD_VERIFY
+      ) {
         showPasswordVerifyPrompt(passwordPromptPromiseTriggerData.idNumber);
       } else {
         showPasswordSetupPrompt(passwordPromptPromiseTriggerData.idNumber);

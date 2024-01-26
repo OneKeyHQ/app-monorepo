@@ -16,6 +16,8 @@
     "views/*/components/*",
     "views/*/hooks",
     "views/*/router",
-    "views/*/utils/**"
+    "views/*/utils/**",
+    "common/components/**",
+    "common/hooks/**"
    ]
 }
