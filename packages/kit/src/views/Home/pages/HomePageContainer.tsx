@@ -66,7 +66,7 @@ function HomePage() {
           sceneUrl: '',
         }}
       >
-        <AccountSelectorTriggerHome num={0} />
+        <AccountSelectorTriggerHome num={0} linkNetwork />
       </AccountSelectorProviderMirror>
     ),
     [],

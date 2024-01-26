@@ -15,7 +15,10 @@ function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
 
-function shortenAddress({ address }: { address: string }) {
+function shortenAddress({ address }: { address: string | undefined }) {
+  if (!address) {
+    return '';
+  }
   if (address.length <= 10) {
     return address;
   }
