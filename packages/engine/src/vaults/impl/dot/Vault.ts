@@ -551,8 +551,17 @@ export default class Vault extends VaultBase {
           info,
           option,
         );
-      } else {
+      } else if (chainId === 'joystream') {
         unsigned = methods.balances.transfer(
+          {
+            value: amountValue,
+            dest: toAccount,
+          },
+          info,
+          option,
+        );
+      } else {
+        unsigned = methods.balances.transferAllowDeath(
           {
             value: amountValue,
             dest: toAccount,
