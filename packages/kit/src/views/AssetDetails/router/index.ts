@@ -3,6 +3,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { HistoryDetails } from '../pages/HistoryDetails';
 import { NFTDetails } from '../pages/NFTDetails';
 import { TokenDetails } from '../pages/TokenDetails';
+import { UTXODetails } from '../pages/UTXODetails';
 
 import { EModalAssetDetailRoutes } from './types';
 
@@ -23,5 +24,9 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetDetailRoutes.HistoryDetails,
     component: HistoryDetails,
+  },
+  {
+    name: EModalAssetDetailRoutes.UTXODetails,
+    component: UTXODetails,
   },
 ];
