@@ -99,7 +99,7 @@ function HistoryDetails() {
         {
           key: 'content__asset',
           value: relatedAssetInfo?.symbol,
-          imgUrl: relatedAssetInfo?.image,
+          imgUrl: relatedAssetInfo?.icon,
         },
         {
           key: 'content__contract_address',
@@ -143,7 +143,7 @@ function HistoryDetails() {
     network?.logoURI,
     network?.name,
     relatedAssetInfo?.address,
-    relatedAssetInfo?.image,
+    relatedAssetInfo?.icon,
     relatedAssetInfo?.symbol,
     txDetails,
   ]);
@@ -171,7 +171,7 @@ function HistoryDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: relatedAssetInfo?.image,
+            uri: relatedAssetInfo?.icon,
           }}
         />
         <Heading pl="$2" size="$headingLg">
@@ -179,7 +179,7 @@ function HistoryDetails() {
         </Heading>
       </XStack>
     ),
-    [relatedAssetInfo?.image, txDetails?.label.label],
+    [relatedAssetInfo?.icon, txDetails?.label.label],
   );
 
   const renderHistoryDetails = useCallback(() => {

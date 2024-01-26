@@ -135,7 +135,6 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   tokenAddress: string;
   decimals: number;
   name: string;
-  icon: string;
   symbol: string;
   networkId: string;
 };

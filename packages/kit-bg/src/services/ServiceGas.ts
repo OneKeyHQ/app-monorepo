@@ -7,8 +7,9 @@ import type {
   IEstimateGasResp,
 } from '@onekeyhq/shared/types/fee';
 
-import ServiceBase from './ServiceBase';
 import { getVaultSettings } from '../vaults/settings';
+
+import ServiceBase from './ServiceBase';
 
 const DEFAULT_GAS_LIMIT = '21000';
 
