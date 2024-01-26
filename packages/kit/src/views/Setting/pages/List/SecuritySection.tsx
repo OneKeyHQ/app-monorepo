@@ -125,7 +125,7 @@ const EnableSystemIdleTimeItem = () => {
     'ClockTimeHistoryOutline';
 
   return supportSystemIdle ? (
-    <ListItem icon={icon} title="自动锁定启用系统闲置">
+    <ListItem icon={icon} title="启用系统闲置自动锁定">
       <Switch
         value={enableSystemIdleLock}
         onChange={async (checked) => {

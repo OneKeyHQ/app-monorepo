@@ -22,14 +22,19 @@ const LastActivityTracker = () => {
         .catch(console.error);
     }
   }, []);
-  const extHandleSystemIdle = useCallback((state: any) => {
-    if (state === 'idle' || state === 'locked') {
-      void backgroundApiProxy.servicePassword.lockApp();
-    }
-  }, []);
+  const extHandleSystemIdle = useCallback(
+    (state: 'idle' | 'locked' | 'active') => {
+      if (state === 'idle' || state === 'locked') {
+        void backgroundApiProxy.servicePassword.lockApp();
+      }
+    },
+    [],
+  );
   useInterval(refresh, 5 * 1000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refresh, []);
+
+  // idle event trigger
   useEffect(() => {
     if (supportSystemIdle && enableSystemIdleLock && unLock) {
       if (platformEnv.isExtension) {
@@ -47,7 +52,7 @@ const LastActivityTracker = () => {
         chrome.idle.onStateChanged.removeListener(extHandleSystemIdle);
       }
       if (platformEnv.isDesktop) {
-        window?.desktopApi?.setSystemIdleTime(0, () => {});
+        window?.desktopApi?.setSystemIdleTime(0); // set 0 to disable
       }
     }
   }, [
