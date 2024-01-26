@@ -25,8 +25,8 @@ import {
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/gas';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 import { GasSelector } from '../../components/GasSelector';
 import { EModalSendRoutes } from '../../router';

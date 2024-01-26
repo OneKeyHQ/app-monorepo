@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
+import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/fee';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
 import { FeePredictionContainer } from './FeePredictionContainer';

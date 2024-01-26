@@ -5,7 +5,7 @@ import type {
   EFeeType,
   ESendFeeStatus,
   IFeeInfoUnit,
-} from '@onekeyhq/shared/types/gas';
+} from '@onekeyhq/shared/types/fee';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 

@@ -1,5 +1,5 @@
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 

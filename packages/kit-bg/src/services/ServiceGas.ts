@@ -5,7 +5,7 @@ import {
 import type {
   IEstimateGasParams,
   IEstimateGasResp,
-} from '@onekeyhq/shared/types/gas';
+} from '@onekeyhq/shared/types/fee';
 
 import ServiceBase from './ServiceBase';
 import { getVaultSettings } from '../vaults/settings';

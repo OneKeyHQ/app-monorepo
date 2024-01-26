@@ -6,7 +6,7 @@ import {
   type IFeeInfoUnit,
   type IGasEIP1559,
   type IGasLegacy,
-} from '@onekeyhq/shared/types/gas';
+} from '@onekeyhq/shared/types/fee';
 
 const PRESET_FEE_ICON = ['🚅️', '🚗', '🚴‍♂️'];
 const PRESET_FEE_LABEL = ['content__fast', 'content__normal', 'content__slow'];

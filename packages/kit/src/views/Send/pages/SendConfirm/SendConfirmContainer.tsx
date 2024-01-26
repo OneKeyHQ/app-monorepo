@@ -17,7 +17,7 @@ import {
   useSendSelectedFeeInfoAtom,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
-import { ESendFeeStatus } from '@onekeyhq/shared/types/gas';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { EModalSendRoutes } from '../../router';
 
