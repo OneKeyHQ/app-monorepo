@@ -95,7 +95,8 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getNativeToken(networkId: string) {
+  public async getNativeToken(networkId: string | undefined) {
+    if (!networkId) return null;
     const tokensMap = (await simpleDb.localTokens.getRawData())?.data;
     if (tokensMap) {
       const tokens = tokensMap[networkId];
