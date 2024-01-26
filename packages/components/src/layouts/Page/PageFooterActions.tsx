@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,8 +26,9 @@ export function FooterActions({
   onConfirmText,
   confirmButtonProps,
   cancelButtonProps,
+  children,
   ...restProps
-}: IFooterActionsProps) {
+}: PropsWithChildren<IFooterActionsProps>) {
   const { pop } = useAppNavigation();
   const handleCancel = useCallback(async () => {
     await onCancel?.();
@@ -44,6 +46,7 @@ export function FooterActions({
       bg="$bgApp"
       {...restProps}
     >
+      {children}
       <XStack justifyContent="flex-end" space="$2.5">
         {(!!cancelButtonProps || !!onCancel) && (
           <Button

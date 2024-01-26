@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -6,8 +6,13 @@ import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import {
+  DAppRequestFooter,
+  DAppRequestLayout,
+} from '../components/DAppRequestLayout';
 
 function SignMessageModal() {
+  const [continueOperate, setContinueOperate] = useState(false);
   const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
@@ -38,14 +43,16 @@ function SignMessageModal() {
           <SizableText>Sign Message: {unsignedMessage.message}</SizableText>
         </Stack>
       </Page.Body>
-      <Page.Footer
-        onConfirmText="Sign"
-        onCancelText="Cancel"
-        onConfirm={handleSignMessage}
-        onCancel={() => {
-          dappApprove.reject();
-        }}
-      />
+      <Page.Footer>
+        <DAppRequestFooter
+          continueOperate={continueOperate}
+          setContinueOperate={(checked) => {
+            setContinueOperate(!!checked);
+          }}
+          onConfirm={handleSignMessage}
+          onCancel={() => dappApprove.reject()}
+        />
+      </Page.Footer>
     </Page>
   );
 }

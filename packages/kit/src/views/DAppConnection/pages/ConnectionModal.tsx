@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
@@ -17,6 +19,7 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 import type { IHandleAccountChanged } from '../components/DAppAccountList';
 
 function ConnectionModal() {
+  const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
   const dappApprove = useDappApproveAction({
@@ -74,8 +77,14 @@ function ConnectionModal() {
         close,
         result: accountInfo,
       });
+      Toast.success({
+        title: intl.formatMessage({
+          id: 'content__connected',
+        }),
+      });
     },
     [
+      intl,
       dappApprove,
       $sourceInfo?.origin,
       $sourceInfo?.scope,

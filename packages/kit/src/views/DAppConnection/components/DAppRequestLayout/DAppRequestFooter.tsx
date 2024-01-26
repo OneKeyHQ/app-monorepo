@@ -1,5 +1,5 @@
-import type { IButtonProps, ICheckedState } from '@onekeyhq/components';
-import { Button, Checkbox, Stack, XStack } from '@onekeyhq/components';
+import type { ICheckedState } from '@onekeyhq/components';
+import { Checkbox, Page } from '@onekeyhq/components';
 
 function DAppRequestFooter({
   continueOperate,
@@ -15,12 +15,20 @@ function DAppRequestFooter({
   confirmDisabled?: boolean;
 }) {
   return (
-    <Stack
-      p="$5"
+    <Page.FooterActions
       alignItems="center"
       flexDirection="row"
       justifyContent="space-between"
       space="$2.5"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+      confirmButtonProps={{
+        variant: 'destructive',
+      }}
+      cancelButtonProps={{
+        variant: 'secondary',
+        disabled: confirmDisabled,
+      }}
       $md={{
         flexDirection: 'column',
         alignItems: 'flex-start',
@@ -31,41 +39,7 @@ function DAppRequestFooter({
         value={continueOperate}
         onChange={setContinueOperate}
       />
-      <XStack
-        justifyContent="flex-end"
-        space="$2.5"
-        $md={{
-          flex: 1,
-          w: '100%',
-        }}
-      >
-        <Button
-          $md={
-            {
-              flex: 1,
-              size: 'large',
-            } as IButtonProps
-          }
-          variant="secondary"
-          onPress={onCancel}
-        >
-          Cancel
-        </Button>
-        <Button
-          $md={
-            {
-              flex: 1,
-              size: 'large',
-            } as IButtonProps
-          }
-          variant="destructive"
-          onPress={onConfirm}
-          disabled={confirmDisabled}
-        >
-          Confirm
-        </Button>
-      </XStack>
-    </Stack>
+    </Page.FooterActions>
   );
 }
 

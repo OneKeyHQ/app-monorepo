@@ -18,6 +18,7 @@ function DAppRiskyAlert() {
         primary: 'Details',
         onPrimaryPress: () => console.log('onPrimaryPress'),
       }}
+      borderTopWidth={0}
     />
   );
 }
