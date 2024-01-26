@@ -121,7 +121,12 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   to: string;
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
+<<<<<<< HEAD
   label?: string;
+=======
+  amount?: string;
+  isUTXO?: boolean;
+>>>>>>> x
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {

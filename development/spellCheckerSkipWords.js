@@ -590,7 +590,6 @@ module.exports = [
   'alg',
   'gitkeep',
   'COMMITHASH',
-  'dayjs',
   'swipeable',
   'nft',
   'dappradar',
@@ -601,4 +600,8 @@ module.exports = [
   '100vw',
   'Numberish',
   'qrcode',
+  'Tarask',
+  'Hira',
+  'Latn',
+  'Cyrl',
 ];

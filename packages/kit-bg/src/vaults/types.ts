@@ -10,7 +10,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
-import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IOnChainHistoryTx,
+  IOnChainHistoryTxAsset,
+} from '@onekeyhq/shared/types/history';
 import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -272,4 +275,5 @@ export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
   onChainHistoryTx: IOnChainHistoryTx;
+  tokens: Record<string, IOnChainHistoryTxAsset>;
 }
