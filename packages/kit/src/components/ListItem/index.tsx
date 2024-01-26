@@ -86,7 +86,7 @@ const ListItemAvatarCornerImage = ({
 
 /* Avatar */
 export type IListItemAvatarProps = {
-  account?: IDBIndexedAccount | IDBAccount;
+  avatar?: ReactElement;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
   cornerIconProps?: IListItemAvatarCornerIconProps;
@@ -96,11 +96,11 @@ export type IListItemAvatarProps = {
   IAccountAvatarProps;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const { children, cornerIconProps, cornerImageProps, ...restProps } = props;
+  const { children, cornerIconProps, cornerImageProps, avatar } = props;
 
   return (
     <Stack>
-      <AccountAvatar {...restProps} />
+      {avatar}
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
       {children}

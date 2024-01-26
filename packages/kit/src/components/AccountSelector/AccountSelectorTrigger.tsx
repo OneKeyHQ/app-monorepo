@@ -25,10 +25,16 @@ import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
-export function AccountSelectorTriggerHome({ num }: { num: number }) {
+export function AccountSelectorTriggerHome({
+  num,
+  linkNetwork,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+}) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, account },
+    activeAccount: { wallet, account, indexedAccount },
     activeAccountName,
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
@@ -52,11 +58,17 @@ export function AccountSelectorTriggerHome({ num }: { num: number }) {
           num,
           navigation,
           sceneName: EAccountSelectorSceneName.home,
+          linkNetwork,
         })
       }
       maxWidth="$40"
     >
-      <AccountAvatar size="small" borderRadius="$1" account={account} />
+      <AccountAvatar
+        size="$6"
+        borderRadius="$1"
+        indexedAccount={indexedAccount}
+        account={account}
+      />
 
       <SizableText
         flex={1}
