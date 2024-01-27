@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
 import { SizableText, YStack } from '@onekeyhq/components';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -13,10 +13,12 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useCustomFeeAtom,
-  useSendAlertStatus,
+  useNativeTokenTransferAmountAtom,
   useSendConfirmActions,
-  useSendFeeStatus,
+  useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
+  useSendTxStatusAtom,
+  useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import {
   calculateFeeForSend,
@@ -36,22 +38,24 @@ import type { IModalSendParamList } from '../../router';
 type IProps = {
   accountId: string;
   networkId: string;
-  unsignedTxs: IUnsignedTxPro[];
 };
 
 function TxFeeContainer(props: IProps) {
-  const { networkId, unsignedTxs } = props;
+  const { accountId, networkId } = props;
   const intl = useIntl();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
-  const [sendFeeStatus] = useSendFeeStatus();
-  const [sendAlertStatus] = useSendAlertStatus();
+  const [sendFeeStatus] = useSendFeeStatusAtom();
+  const [sendAlertStatus] = useSendTxStatusAtom();
+  const [nativeTokenTransferAmount] = useNativeTokenTransferAmountAtom();
+  const [unsignedTxs] = useUnsignedTxsAtom();
   const {
     updateSendSelectedFee,
     updateCustomFee,
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
+    updateSendTxStatus,
   } = useSendConfirmActions().current;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -77,6 +81,7 @@ function TxFeeContainer(props: IProps) {
         });
         updateSendFeeStatus({
           status: ESendFeeStatus.Success,
+          errMessage: '',
         });
         return r;
       } catch (e) {
@@ -88,9 +93,29 @@ function TxFeeContainer(props: IProps) {
     },
     [networkId, unsignedTxs, updateSendFeeStatus],
     {
-      watchLoading: true,
+      pollingInterval: 6000,
     },
   );
+
+  const { result: nativeToken, isLoading: isLoadingNativeBalance } =
+    usePromiseResult(async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+
+      if (!account) return;
+
+      const tokenDetails =
+        await backgroundApiProxy.serviceToken.fetchTokenDetails({
+          networkId,
+          accountAddress: account.address,
+          address: '',
+          isNative: true,
+        });
+
+      return tokenDetails;
+    }, [accountId, networkId]);
 
   const feeSelectorItems = useMemo(() => {
     const items = [];
@@ -223,12 +248,6 @@ function TxFeeContainer(props: IProps) {
     sendSelectedFee.presetIndex,
   ]);
 
-  useEffect(() => {
-    if (selectedFee && selectedFee.feeInfo) {
-      updateSendSelectedFeeInfo(selectedFee);
-    }
-  }, [selectedFee, updateSendSelectedFeeInfo]);
-
   const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {
       if (value === EFeeType.Custom) {
@@ -263,6 +282,36 @@ function TxFeeContainer(props: IProps) {
       updateSendSelectedFee,
     ],
   );
+
+  useEffect(() => {
+    if (selectedFee && selectedFee.feeInfo) {
+      updateSendSelectedFeeInfo(selectedFee);
+    }
+  }, [selectedFee, updateSendSelectedFeeInfo]);
+
+  useEffect(() => {
+    if (
+      new BigNumber(nativeTokenTransferAmount ?? 0)
+        .plus(selectedFee?.totalNative ?? 0)
+        .gt(nativeToken?.balanceParsed ?? 0)
+    ) {
+      updateSendTxStatus({
+        isLoadingNativeBalance,
+        isInsufficientNativeBalance: true,
+      });
+    } else {
+      updateSendTxStatus({
+        isLoadingNativeBalance,
+        isInsufficientNativeBalance: false,
+      });
+    }
+  }, [
+    isLoadingNativeBalance,
+    nativeToken,
+    nativeTokenTransferAmount,
+    selectedFee?.totalNative,
+    updateSendTxStatus,
+  ]);
 
   return (
     <Container.Box>
@@ -310,4 +359,4 @@ function TxFeeContainer(props: IProps) {
     </Container.Box>
   );
 }
-export { TxFeeContainer };
+export default memo(TxFeeContainer);

@@ -74,7 +74,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
   } = getTxActionTokenApproveInfo(props);
 
   const content =
-    approveLabel ??
+    approveLabel ||
     intl.formatMessage(
       {
         id: 'form__approve_str',
