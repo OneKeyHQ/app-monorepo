@@ -84,12 +84,18 @@ export function TokenDetails() {
   const tokenDetails = usePromiseResult(async () => {
     const account = await getAccount();
     if (!account || !network) return;
-    const r = backgroundApiProxy.serviceToken.fetchTokenDetail({
+    const r = await backgroundApiProxy.serviceToken.fetchTokenDetails({
       networkId,
       accountAddress: account.address,
       address: tokenAddress,
       isNative: !!isNative,
     });
+
+    void backgroundApiProxy.serviceToken.updateLocalTokens({
+      networkId,
+      tokens: [r.info],
+    });
+
     return r;
   }, [getAccount, isNative, network, networkId, tokenAddress]).result;
   const tokenHistory = usePromiseResult(async () => {
