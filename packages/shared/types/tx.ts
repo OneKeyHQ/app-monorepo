@@ -119,6 +119,11 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
+<<<<<<< HEAD
+=======
+  from: string;
+  to: string;
+>>>>>>> x
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
   label?: string;
@@ -126,7 +131,11 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
+<<<<<<< HEAD
   symbol: string;
+=======
+  tokenIcon: string;
+>>>>>>> x
   isMax: boolean;
   label?: string;
 };

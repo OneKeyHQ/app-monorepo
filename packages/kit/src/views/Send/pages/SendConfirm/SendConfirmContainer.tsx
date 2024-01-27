@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { memo, useCallback, useEffect, useMemo } from 'react';
+=======
+import { memo, useCallback } from 'react';
+>>>>>>> x
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -10,15 +14,22 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+<<<<<<< HEAD
   useNativeTokenTransferAmount,
   useSendAlertStatus,
   useSendConfirmActions,
   useSendFeeStatus,
+=======
+>>>>>>> x
   useSendSelectedFeeInfoAtom,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
+<<<<<<< HEAD
+=======
+import { SendActions } from '../../components/SendActions';
+>>>>>>> x
 import { EModalSendRoutes } from '../../router';
 
 import { TxActionsContainer } from './TxActionsContainer';
@@ -37,6 +48,7 @@ function SendConfirmContainer() {
   const { accountId, networkId, unsignedTxs } = route.params;
 
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
+<<<<<<< HEAD
   const [nativeTokenTransferAmount] = useNativeTokenTransferAmount();
   const [sendFeeStatus] = useSendFeeStatus();
   const [sendAlertStatus] = useSendAlertStatus();
@@ -77,6 +89,21 @@ function SendConfirmContainer() {
           feeInfo: sendSelectedFeeInfo?.feeInfo,
         });
 
+=======
+
+  const handleConfirm = useCallback(async () => {
+    const newUnsignedTxs = [];
+    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = unsignedTxs[i];
+      const newUnsignedTx =
+        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          accountId,
+          networkId,
+          unsignedTx,
+          feeInfo: sendSelectedFeeInfo,
+        });
+
+>>>>>>> x
       newUnsignedTxs.push(newUnsignedTx);
     }
 
@@ -86,6 +113,7 @@ function SendConfirmContainer() {
       unsignedTxs: newUnsignedTxs,
     });
   }, [accountId, navigation, networkId, sendSelectedFeeInfo, unsignedTxs]);
+<<<<<<< HEAD
 
   useEffect(() => {
     console.log('nativeTokenTransferAmount', nativeTokenTransferAmount);
@@ -122,6 +150,8 @@ function SendConfirmContainer() {
     sendAlertStatus.isInsufficientNativeBalance,
     sendFeeStatus.status,
   ]);
+=======
+>>>>>>> x
 
   return (
     <Page scrollEnabled>
@@ -129,12 +159,23 @@ function SendConfirmContainer() {
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
       <Page.Body>
+<<<<<<< HEAD
         <YStack space="$4" px="$5">
+=======
+        <YStack space="$5" px="$5">
+>>>>>>> x
           <TxActionsContainer
             accountId={accountId}
             networkId={networkId}
             unsignedTxs={unsignedTxs}
           />
+<<<<<<< HEAD
+=======
+        </YStack>
+      </Page.Body>
+      <Page.Footer>
+        <Stack padding="$5">
+>>>>>>> x
           <TxFeeContainer
             accountId={accountId}
             networkId={networkId}

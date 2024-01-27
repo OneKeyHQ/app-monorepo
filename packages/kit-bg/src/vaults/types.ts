@@ -100,7 +100,10 @@ export type IVaultSettings = {
   isUtxo: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+<<<<<<< HEAD
   editFeeEnabled: boolean;
+=======
+>>>>>>> x
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;

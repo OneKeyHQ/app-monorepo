@@ -31,6 +31,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   });
 
   updateSendSelectedFeeInfo = contextAtomMethod(
+<<<<<<< HEAD
     (
       get,
       set,
@@ -73,6 +74,12 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       set(sendAlertStatus(), status);
     },
   );
+=======
+    (get, set, feeInfo: IFeeInfoUnit) => {
+      set(sendSelectedFeeInfoAtom(), feeInfo);
+    },
+  );
+>>>>>>> x
 }
 
 const createActions = memoFn(() => {
@@ -85,17 +92,23 @@ export function useSendConfirmActions() {
   const updateSendSelectedFee = actions.updateSendSelectedFee.use();
   const updateCustomFee = actions.updateCustomFee.use();
   const updateSendSelectedFeeInfo = actions.updateSendSelectedFeeInfo.use();
+<<<<<<< HEAD
   const updateSendFeeStatus = actions.updateSendFeeStatus.use();
   const updateNativeTokenTransferAmount =
     actions.updateNativeTokenTransferAmount.use();
   const updateSendAlertStatus = actions.updateSendConfirmStatus.use();
+=======
+>>>>>>> x
 
   return useRef({
     updateSendSelectedFee,
     updateCustomFee,
     updateSendSelectedFeeInfo,
+<<<<<<< HEAD
     updateSendFeeStatus,
     updateNativeTokenTransferAmount,
     updateSendAlertStatus,
+=======
+>>>>>>> x
   });
 }

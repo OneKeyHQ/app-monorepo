@@ -2,12 +2,19 @@ import { useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+<<<<<<< HEAD
 import { YStack } from '@onekeyhq/components';
+=======
+import { Divider, SizableText, Stack, YStack } from '@onekeyhq/components';
+>>>>>>> x
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+<<<<<<< HEAD
 import { useSendConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+=======
+>>>>>>> x
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -17,9 +24,23 @@ type IProps = {
   unsignedTxs: IUnsignedTxPro[];
 };
 
+<<<<<<< HEAD
 function TxActionsContainer(props: IProps) {
   const { accountId, networkId, unsignedTxs } = props;
   const { updateNativeTokenTransferAmount } = useSendConfirmActions().current;
+=======
+type IProps = {
+  accountId: string;
+  networkId: string;
+  unsignedTxs: IUnsignedTxPro[];
+};
+
+function TxActionsContainer(props: IProps) {
+  const { accountId, networkId, unsignedTxs } = props;
+  const intl = useIntl();
+
+  const isMultiTxs = useMemo(() => unsignedTxs.length > 1, [unsignedTxs]);
+>>>>>>> x
 
   const r = usePromiseResult(
     () =>

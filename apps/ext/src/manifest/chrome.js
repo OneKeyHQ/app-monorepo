@@ -71,6 +71,7 @@ module.exports = {
     'notifications',
     // 'activeTab',
     // 'webRequest',
+    'idle',
   ],
 };
 /*
