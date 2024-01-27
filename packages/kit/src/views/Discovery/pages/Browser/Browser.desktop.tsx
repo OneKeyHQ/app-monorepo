@@ -1,13 +1,15 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
-import { Button, Page } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
+import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerBrowserSingle,
+  NetworkSelectorTriggerBrowserSingle,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
@@ -19,16 +21,18 @@ import { withBrowserProvider } from './WithBrowserProvider';
 
 function DesktopBrowserHeaderRight() {
   return (
-    <HeaderButtonGroup>
-      <HeaderIconButton icon="PlaceholderOutline" />
-      <HeaderIconButton icon="PlaceholderOutline" />
-      <HeaderIconButton
-        icon="PlaceholderOutline"
-        onPress={() => {
-          void backgroundApiProxy.serviceDiscovery.notifyTest();
-        }}
-      />
-    </HeaderButtonGroup>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: 'https://app.uniswap.org',
+      }}
+      enabledNum={[0]}
+    >
+      <HeaderButtonGroup>
+        <AccountSelectorTriggerBrowserSingle num={0} />
+        <NetworkSelectorTriggerBrowserSingle num={0} />
+      </HeaderButtonGroup>
+    </AccountSelectorProviderMirror>
   );
 }
 

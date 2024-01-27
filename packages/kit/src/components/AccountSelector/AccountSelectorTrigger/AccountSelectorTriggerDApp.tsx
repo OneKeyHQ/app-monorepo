@@ -101,3 +101,40 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     </XStack>
   );
 });
+
+export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
+  const {
+    activeAccount: { account },
+    activeAccountName,
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num });
+
+  return (
+    <XStack
+      role="button"
+      p="$1.5"
+      mx="$-1.5"
+      borderRadius="$2"
+      alignItems="center"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
+      onPress={showAccountSelector}
+    >
+      <AccountAvatar size="$6" account={account} />
+      <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
+        {activeAccountName}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+    </XStack>
+  );
+}

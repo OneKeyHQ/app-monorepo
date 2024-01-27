@@ -7,11 +7,8 @@ import {
   ScrollView,
   SizableText,
   XStack,
-  YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -26,7 +23,6 @@ import {
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
-import { useAccountSelectorTrigger } from './hooks/useAccountSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
 export function AccountSelectorTriggerHome({
