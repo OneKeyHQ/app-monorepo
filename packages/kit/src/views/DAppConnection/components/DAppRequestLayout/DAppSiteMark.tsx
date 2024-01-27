@@ -6,23 +6,27 @@ import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import type { IRiskLevel } from '../../types';
+
 function DAppSiteMark({
-  riskyLevel,
+  origin,
+  riskLevel,
 }: {
-  riskyLevel: 'Verified' | 'Unknown' | 'Scam';
+  origin: string;
+  riskLevel: IRiskLevel;
 }) {
-  const content = useMemo(() => 'app.uniswap.org', []);
+  const content = useMemo(() => origin, [origin]);
   const [faviconUri, setFaviconUri] = useState<string>('');
   useEffect(() => {
     backgroundApiProxy.serviceDiscovery
-      .getWebsiteIcon('https://app.uniswap.org')
+      .getWebsiteIcon(origin)
       .then((uri) => {
         setFaviconUri(uri);
       })
       .catch(() => {
         // ignore
       });
-  }, []);
+  }, [origin]);
 
   const riskyStyle = useMemo<{
     bg: string;
@@ -31,7 +35,7 @@ function DAppSiteMark({
     iconName: IIconProps['name'];
     iconColor: IIconProps['color'];
   }>(() => {
-    switch (riskyLevel) {
+    switch (riskLevel) {
       case 'Verified': {
         return {
           bg: '$bgSubdued',
@@ -60,7 +64,7 @@ function DAppSiteMark({
         };
       }
     }
-  }, [riskyLevel]);
+  }, [riskLevel]);
 
   return (
     <XStack

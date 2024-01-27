@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -14,6 +13,7 @@ import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
+import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { IHandleAccountChanged } from '../components/DAppAccountList';
@@ -26,7 +26,8 @@ function ConnectionModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
-  const [continueOperate, setContinueOperate] = useState(false);
+  const { continueOperate, setContinueOperate, canContinueOperate, riskLevel } =
+    useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
@@ -38,6 +39,9 @@ function ConnectionModal() {
   );
 
   const confirmDisabled = useMemo(() => {
+    if (!canContinueOperate) {
+      return true;
+    }
     if (
       !selectedAccount ||
       !selectedAccount.account ||
@@ -46,7 +50,7 @@ function ConnectionModal() {
       return true;
     }
     return false;
-  }, [selectedAccount]);
+  }, [selectedAccount, canContinueOperate]);
 
   const onApproval = useCallback(
     async ({ close }: { close: () => void }) => {
@@ -96,7 +100,11 @@ function ConnectionModal() {
     <Page>
       <Page.Header headerShown={false} />
       <Page.Body>
-        <DAppRequestLayout title="Connection Request">
+        <DAppRequestLayout
+          title="Connection Request"
+          origin={$sourceInfo?.origin ?? ''}
+          riskLevel={riskLevel}
+        >
           <DAppAccountListStandAloneItem
             handleAccountChanged={handleAccountChanged}
           />
@@ -111,7 +119,10 @@ function ConnectionModal() {
           onCancel={() => {
             dappApprove.reject();
           }}
-          confirmDisabled={confirmDisabled}
+          confirmButtonProps={{
+            disabled: confirmDisabled,
+          }}
+          showContinueOperateCheckbox={riskLevel !== 'Verified'}
         />
       </Page.Footer>
     </Page>

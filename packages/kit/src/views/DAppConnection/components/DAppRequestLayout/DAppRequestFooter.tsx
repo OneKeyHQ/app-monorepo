@@ -5,23 +5,26 @@ import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/
 function DAppRequestFooter({
   continueOperate,
   setContinueOperate,
+  showContinueOperateCheckbox,
   onConfirm,
   onCancel,
   confirmButtonProps,
 }: {
   continueOperate: boolean;
   setContinueOperate: (checked: ICheckedState) => void;
+  showContinueOperateCheckbox?: boolean;
   onConfirm: IFooterActionsProps['onConfirm'];
   onCancel: IFooterActionsProps['onCancel'];
   confirmButtonProps?: IFooterActionsProps['confirmButtonProps'];
-  confirmDisabled?: boolean;
 }) {
   const media = useMedia();
   return (
     <Page.FooterActions
       alignItems="center"
       flexDirection="row"
-      justifyContent="space-between"
+      justifyContent={
+        showContinueOperateCheckbox ? 'space-between' : 'flex-end'
+      }
       space="$2.5"
       onConfirm={onConfirm}
       onCancel={onCancel}
@@ -40,11 +43,13 @@ function DAppRequestFooter({
         w: media.md ? '100%' : 'auto',
       }}
     >
-      <Checkbox
-        label="Proceed at my own risk"
-        value={continueOperate}
-        onChange={setContinueOperate}
-      />
+      {showContinueOperateCheckbox && (
+        <Checkbox
+          label="Proceed at my own risk"
+          value={continueOperate}
+          onChange={setContinueOperate}
+        />
+      )}
     </Page.FooterActions>
   );
 }

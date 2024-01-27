@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -12,9 +12,9 @@ import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
+import { useRiskDetection } from '../hooks/useRiskDetection';
 
 function SignMessageModal() {
-  const [continueOperate, setContinueOperate] = useState(false);
   const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
@@ -26,6 +26,9 @@ function SignMessageModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const { continueOperate, setContinueOperate, canContinueOperate, riskLevel } =
+    useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const handleSignMessage = useCallback(
     async ({ close }: { close?: () => void }) => {
@@ -46,7 +49,11 @@ function SignMessageModal() {
     <Page>
       <Page.Header headerShown={false} />
       <Page.Body>
-        <DAppRequestLayout title="Message Signature Request">
+        <DAppRequestLayout
+          title="Message Signature Request"
+          origin={$sourceInfo?.origin ?? ''}
+          riskLevel={riskLevel}
+        >
           <DAppAccountListStandAloneItem readonly />
           <DAppSignMessageContent content={unsignedMessage.message} />
         </DAppRequestLayout>
@@ -59,6 +66,10 @@ function SignMessageModal() {
           }}
           onConfirm={handleSignMessage}
           onCancel={() => dappApprove.reject()}
+          confirmButtonProps={{
+            disabled: !continueOperate,
+          }}
+          showContinueOperateCheckbox={riskLevel !== 'Verified'}
         />
       </Page.Footer>
     </Page>
