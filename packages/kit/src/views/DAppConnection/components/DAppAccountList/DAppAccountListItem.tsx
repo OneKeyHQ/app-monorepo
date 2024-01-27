@@ -11,18 +11,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import {
-  AccountSelectorTriggerDAppComponent,
-  AccountSelectorTriggerDappConnection,
-} from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { NetworkSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type {
-  IAccountSelectorActiveAccountInfo,
-  IAccountSelectorRouteParams,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   mockPresetNetworksBtcList,
   mockPresetNetworksEvmList,
@@ -36,52 +29,14 @@ export type IHandleAccountChanged = (
   activeAccount: IAccountSelectorActiveAccountInfo,
 ) => void;
 
-export function AccountListPureRendererItem({
-  accountId,
-}: {
-  accountId: string;
-}) {
-  const [account, setAccount] = useState<IDBAccount | undefined>();
-  useEffect(() => {
-    backgroundApiProxy.serviceAccount
-      .getAccount({
-        accountId,
-      })
-      .then((a) => setAccount(a))
-      .catch(() => {});
-  }, [accountId]);
-  return (
-    <XGroup
-      bg="$bg"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      borderWidth={StyleSheet.hairlineWidth}
-      separator={<Divider vertical />}
-      disabled
-    >
-      <Group.Item>
-        {/* <NetworkSelectorTriggerDappConnection num={num} /> */}
-        <AccountSelectorTriggerDAppComponent
-          account={account}
-          accountName="AAAA"
-        />
-      </Group.Item>
-      <Group.Item>
-        <AccountSelectorTriggerDAppComponent
-          account={account}
-          accountName="AAAA"
-        />
-      </Group.Item>
-    </XGroup>
-  );
-}
-
 function AccountListItem({
   num,
   handleAccountChanged,
+  readonly,
 }: {
   num: number;
   handleAccountChanged: IHandleAccountChanged;
+  readonly?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
 
@@ -96,7 +51,7 @@ function AccountListItem({
       borderColor="$borderSubdued"
       borderWidth={StyleSheet.hairlineWidth}
       separator={<Divider vertical />}
-      disabled
+      disabled={readonly}
     >
       <Group.Item>
         <NetworkSelectorTriggerDappConnection num={num} />
@@ -108,33 +63,11 @@ function AccountListItem({
   );
 }
 
-function AccountListItemProvider({
-  sceneName,
-  sceneUrl,
-  num,
-  handleAccountChanged,
-  scopeNetworks,
-}: IAccountSelectorRouteParams & {
-  handleAccountChanged: IHandleAccountChanged;
-  scopeNetworks: IServerNetwork[] | null;
-}) {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName,
-        sceneUrl,
-        networks: Array.isArray(scopeNetworks) ? scopeNetworks : undefined,
-      }}
-      enabledNum={[num]}
-    >
-      <AccountListItem num={num} handleAccountChanged={handleAccountChanged} />
-    </AccountSelectorProviderMirror>
-  );
-}
-
 function DAppAccountListStandAloneItem({
+  readonly,
   handleAccountChanged,
 }: {
+  readonly?: boolean;
   handleAccountChanged: IHandleAccountChanged;
 }) {
   const { serviceDApp } = backgroundApiProxy;
@@ -154,8 +87,8 @@ function DAppAccountListStandAloneItem({
         origin: $sourceInfo.origin,
         scope: $sourceInfo.scope ?? '',
       })
-      .then((num) => {
-        setAccountSelectorNum(num);
+      .then((number) => {
+        setAccountSelectorNum(number);
       })
       .catch((e) => {
         console.error('getAccountSelectorNum error: ', e);
@@ -173,16 +106,23 @@ function DAppAccountListStandAloneItem({
         Accounts
       </SizableText>
       {accountSelectorNum === null ? null : (
-        <AccountListItemProvider
-          sceneName={EAccountSelectorSceneName.discover}
-          sceneUrl={$sourceInfo?.origin}
-          num={accountSelectorNum}
-          handleAccountChanged={handleAccountChanged}
-          scopeNetworks={scopeNetworks}
-        />
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: $sourceInfo?.origin,
+            networks: Array.isArray(scopeNetworks) ? scopeNetworks : undefined,
+          }}
+          enabledNum={[accountSelectorNum]}
+        >
+          <AccountListItem
+            num={accountSelectorNum}
+            handleAccountChanged={handleAccountChanged}
+            readonly={readonly}
+          />
+        </AccountSelectorProviderMirror>
       )}
     </YStack>
   );
 }
 
-export { AccountListItem, DAppAccountListStandAloneItem };
+export { DAppAccountListStandAloneItem };

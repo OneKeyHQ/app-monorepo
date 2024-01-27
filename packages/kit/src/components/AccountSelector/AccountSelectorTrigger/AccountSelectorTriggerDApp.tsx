@@ -1,4 +1,5 @@
-import type { IStackProps } from '@onekeyhq/components';
+import { useEffect } from 'react';
+
 import {
   Icon,
   SizableText,
@@ -7,17 +8,23 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
-// static ui, can render without account selector provider
-export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
-  account?: IDBAccount;
-  accountName: string;
-  onPress?: () => void;
-}>(({ account, accountName, onPress, disabled, ...style }) => {
+export const AccountSelectorTriggerDappConnection = XStack.styleable<{
+  num: number;
+}>(({ num, disabled, ...rest }) => {
+  const {
+    activeAccount: { account },
+    activeAccountName,
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num });
+
+  useEffect(() => {
+    console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
+  }, []);
+
   const addressText = account?.address
     ? accountUtils.shortenAddress({
         address: account.address || '',
@@ -36,7 +43,6 @@ export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
       hoverStyle={{
         bg: '$bgHover',
       }}
-      {...style}
       pressStyle={{
         bg: '$bgActive',
       }}
@@ -46,7 +52,8 @@ export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      onPress={onPress}
+      onPress={showAccountSelector}
+      {...rest}
     >
       {account?.address ? (
         <AccountAvatar size="$6" borderRadius="$1" account={account} />
@@ -54,7 +61,7 @@ export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
       {media.md ? (
         <YStack flex={1}>
           <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-            {accountName}
+            {activeAccountName}
           </SizableText>
           <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
             {addressText}
@@ -62,7 +69,7 @@ export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
         </YStack>
       ) : (
         <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {accountName}
+          {activeAccountName}
         </SizableText>
       )}
       {media.md ? null : (
@@ -79,27 +86,3 @@ export const AccountSelectorTriggerDAppComponent = XStack.styleable<{
     </XStack>
   );
 });
-
-export const AccountSelectorTriggerDappConnection = ({
-  num,
-  style,
-}: {
-  num: number;
-  style?: IStackProps;
-}) => {
-  console.log('===>>:rest: ', style);
-  const {
-    activeAccount: { account },
-    activeAccountName,
-    showAccountSelector,
-  } = useAccountSelectorTrigger({ num });
-
-  return (
-    <AccountSelectorTriggerDAppComponent
-      {...style}
-      account={account}
-      onPress={showAccountSelector}
-      accountName={activeAccountName}
-    />
-  );
-};
