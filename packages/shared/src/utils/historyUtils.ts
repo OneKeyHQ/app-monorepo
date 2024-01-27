@@ -44,22 +44,14 @@ export function getOnChainHistoryTxAssetInfo({
     const nft = asset as IOnChainHistoryTxNFT;
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';
-<<<<<<< HEAD
     icon = nft.metadata?.image ?? '';
-=======
-    image = nft.metadata?.image ?? '';
->>>>>>> x
     address = nft.collectionAddress;
     isNFT = true;
   } else if (asset && !isNil((asset as IOnChainHistoryTxToken).info?.address)) {
     const token = (asset as IOnChainHistoryTxToken).info;
     name = token.name;
     symbol = token.symbol;
-<<<<<<< HEAD
     icon = token.logoURI ?? '';
-=======
-    image = token.logoURI ?? '';
->>>>>>> x
     address = token.address;
     isNFT = false;
   }

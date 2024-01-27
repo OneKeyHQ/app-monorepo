@@ -21,10 +21,7 @@ import {
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 
-import {
-  TxActionCommonDetailView,
-  TxActionCommonListView,
-} from './TxActionCommon';
+import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
@@ -68,11 +65,8 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
-<<<<<<< HEAD
     from,
     to,
-=======
->>>>>>> x
     label: label ?? '',
     transferTarget,
     sendNFTIcon: sendsWithNFT[0]?.icon,
@@ -259,7 +253,6 @@ function buildTransfersBlock(
 }
 
 function TxActionTransferDetailView(props: ITxActionProps) {
-<<<<<<< HEAD
   const intl = useIntl();
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
@@ -346,24 +339,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       {renderTransferBlock(sendsBlock, EDecodedTxDirection.OUT)}
       {renderTransferBlock(receivesBlock, EDecodedTxDirection.IN)}
     </>
-=======
-  const {
-    sends,
-    receives,
-    label,
-    sendTokenIcon,
-    sendNFTIcon,
-    receiveNFTIcon,
-    receiveTokenIcon,
-  } = getTxActionTransferInfo(props);
-  return (
-    <TxActionCommonDetailView
-      title={label}
-      icon={sendTokenIcon ?? sendNFTIcon ?? receiveTokenIcon ?? receiveNFTIcon}
-      content={sends[0]?.amount ?? receives[0]?.amount}
-      description={sends[0]?.to ?? receives[0]?.to}
-    />
->>>>>>> x
   );
 }
 

@@ -1,9 +1,5 @@
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-<<<<<<< HEAD
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-=======
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
->>>>>>> x
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
