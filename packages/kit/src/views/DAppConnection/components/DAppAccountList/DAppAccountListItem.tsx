@@ -35,13 +35,13 @@ function AccountListItem({
   readonly,
 }: {
   num: number;
-  handleAccountChanged: IHandleAccountChanged;
+  handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
 
   useEffect(() => {
-    handleAccountChanged(activeAccount);
+    handleAccountChanged?.(activeAccount);
   }, [activeAccount, handleAccountChanged]);
 
   return (
@@ -68,7 +68,7 @@ function DAppAccountListStandAloneItem({
   handleAccountChanged,
 }: {
   readonly?: boolean;
-  handleAccountChanged: IHandleAccountChanged;
+  handleAccountChanged?: IHandleAccountChanged;
 }) {
   const { serviceDApp } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();

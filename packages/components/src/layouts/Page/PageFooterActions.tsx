@@ -17,6 +17,7 @@ export type IFooterActionsProps = {
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
   cancelButtonProps?: IActionButtonProps;
+  buttonContainerProps?: IStackProps;
 } & IStackProps;
 
 export function FooterActions({
@@ -26,6 +27,7 @@ export function FooterActions({
   onConfirmText,
   confirmButtonProps,
   cancelButtonProps,
+  buttonContainerProps,
   children,
   ...restProps
 }: PropsWithChildren<IFooterActionsProps>) {
@@ -47,7 +49,7 @@ export function FooterActions({
       {...restProps}
     >
       {children}
-      <XStack justifyContent="flex-end" space="$2.5">
+      <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
             $md={

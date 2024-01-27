@@ -40,19 +40,32 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       space="$2"
       bg="$bgApp"
       alignItems="center"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      hoverStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgHover',
+            }
+      }
+      pressStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgActive',
+            }
+      }
       focusable={!disabled}
-      focusStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
+      focusStyle={
+        disabled
+          ? undefined
+          : {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+            }
+      }
       onPress={showAccountSelector}
+      disabled={disabled}
       {...rest}
     >
       {account?.address ? (
@@ -82,7 +95,9 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           {addressText}
         </SizableText>
       )}
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+      {disabled ? null : (
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      )}
     </XStack>
   );
 });

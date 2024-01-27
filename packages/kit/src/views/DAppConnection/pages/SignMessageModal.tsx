@@ -6,6 +6,8 @@ import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
+import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -17,6 +19,7 @@ function SignMessageModal() {
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
+    indexedAccountId: string;
   }>();
 
   const dappApprove = useDappApproveAction({
@@ -24,24 +27,29 @@ function SignMessageModal() {
     closeWindowAfterResolved: true,
   });
 
-  const handleSignMessage = useCallback(async () => {
-    const result = await backgroundApiProxy.serviceDApp.signMessage({
-      unsignedMessage,
-      networkId,
-      accountId,
-    });
-    void dappApprove.resolve({
-      result,
-    });
-  }, [unsignedMessage, dappApprove, networkId, accountId]);
+  const handleSignMessage = useCallback(
+    async ({ close }: { close?: () => void }) => {
+      const result = await backgroundApiProxy.serviceDApp.signMessage({
+        unsignedMessage,
+        networkId,
+        accountId,
+      });
+      void dappApprove.resolve({
+        result,
+      });
+      close?.();
+    },
+    [unsignedMessage, dappApprove, networkId, accountId],
+  );
 
   return (
     <Page>
-      <Page.Header title="WalletConnect Sessions" />
+      <Page.Header headerShown={false} />
       <Page.Body>
-        <Stack>
-          <SizableText>Sign Message: {unsignedMessage.message}</SizableText>
-        </Stack>
+        <DAppRequestLayout title="Message Signature Request">
+          <DAppAccountListStandAloneItem readonly />
+          <DAppSignMessageContent content={unsignedMessage.message} />
+        </DAppRequestLayout>
       </Page.Body>
       <Page.Footer>
         <DAppRequestFooter

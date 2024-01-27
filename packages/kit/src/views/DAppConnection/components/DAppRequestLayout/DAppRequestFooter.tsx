@@ -1,19 +1,22 @@
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Page } from '@onekeyhq/components';
+import { Checkbox, Page, useMedia } from '@onekeyhq/components';
+import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
 
 function DAppRequestFooter({
   continueOperate,
   setContinueOperate,
   onConfirm,
   onCancel,
-  confirmDisabled,
+  confirmButtonProps,
 }: {
   continueOperate: boolean;
   setContinueOperate: (checked: ICheckedState) => void;
-  onConfirm: () => void;
-  onCancel: () => void;
+  onConfirm: IFooterActionsProps['onConfirm'];
+  onCancel: IFooterActionsProps['onCancel'];
+  confirmButtonProps?: IFooterActionsProps['confirmButtonProps'];
   confirmDisabled?: boolean;
 }) {
+  const media = useMedia();
   return (
     <Page.FooterActions
       alignItems="center"
@@ -24,14 +27,17 @@ function DAppRequestFooter({
       onCancel={onCancel}
       confirmButtonProps={{
         variant: 'destructive',
+        ...confirmButtonProps,
       }}
       cancelButtonProps={{
         variant: 'secondary',
-        disabled: confirmDisabled,
       }}
       $md={{
         flexDirection: 'column',
         alignItems: 'flex-start',
+      }}
+      buttonContainerProps={{
+        w: media.md ? '100%' : 'auto',
       }}
     >
       <Checkbox

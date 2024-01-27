@@ -27,7 +27,6 @@ function ConnectionModal() {
     closeWindowAfterResolved: true,
   });
   const [continueOperate, setContinueOperate] = useState(false);
-  const { pop } = useAppNavigation();
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
@@ -108,12 +107,9 @@ function ConnectionModal() {
         <DAppRequestFooter
           continueOperate={continueOperate}
           setContinueOperate={(value) => setContinueOperate(!!value)}
-          onConfirm={() => {
-            void onApproval({ close: pop });
-          }}
+          onConfirm={onApproval}
           onCancel={() => {
             dappApprove.reject();
-            pop();
           }}
           confirmDisabled={confirmDisabled}
         />

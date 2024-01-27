@@ -157,7 +157,7 @@ export function ControlledNetworkSelectorTrigger({
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
-}>(({ num, ...rest }) => {
+}>(({ num, disabled, ...rest }) => {
   const {
     activeAccount: { network },
     showChainSelector,
@@ -170,18 +170,32 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       pl="$3"
       pr="$1.5"
       bg="$bgSubdued"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
+      w="$16"
+      hoverStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgHover',
+            }
+      }
+      pressStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgActive',
+            }
+      }
+      focusable={!disabled}
+      focusStyle={
+        disabled
+          ? undefined
+          : {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+            }
+      }
+      disabled={disabled}
       {...rest}
     >
       <Image
@@ -191,7 +205,9 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
           uri: network?.logoURI ? network?.logoURI : '',
         }}
       />
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      {disabled ? null : (
+        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      )}
     </XStack>
   );
 });
