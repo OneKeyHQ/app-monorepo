@@ -36,7 +36,6 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
-import { mockGetNetwork } from '../../mock';
 import { vaultFactory } from '../../vaults/factory';
 import {
   getVaultSettings,
@@ -765,7 +764,9 @@ class ServiceAccount extends ServiceBase {
 
     if (networkId) {
       try {
-        network = await mockGetNetwork({ networkId });
+        network = await this.backgroundApi.serviceNetwork.getNetwork({
+          networkId,
+        });
       } catch (e) {
         console.error(e);
       }
