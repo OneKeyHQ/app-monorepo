@@ -137,36 +137,30 @@ function MobileTabListModal() {
 
   useEffect(() => {
     // wait for flatListRef.current to be ready
-    setTimeout(
-      () => {
-        if (!flatListRef.current) return;
-        const index = data.findIndex((t) => t.id === activeTabId);
-        if (index === -1) return;
-        flatListRef.current.scrollToIndex({
-          index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
-          animated: false,
-          viewPosition: 0,
-        });
-      },
-      data.length > 10 ? 300 : 200,
-    );
+    setTimeout(() => {
+      if (!flatListRef.current) return;
+      const index = data.findIndex((t) => t.id === activeTabId);
+      if (index === -1) return;
+      flatListRef.current.scrollToIndex({
+        index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
+        animated: false,
+        viewPosition: 0,
+      });
+    }, 500);
   }, [activeTabId, data]);
 
   useEffect(() => {
     // wait for pinnedListRef.current to be ready
-    setTimeout(
-      () => {
-        if (!pinnedListRef.current) return;
-        const index = pinnedData.findIndex((t) => t.id === activeTabId);
-        if (index === -1) return;
-        pinnedListRef.current.scrollToIndex({
-          index,
-          animated: false,
-          viewPosition: 0,
-        });
-      },
-      pinnedData.length > 10 ? 300 : 200,
-    );
+    setTimeout(() => {
+      if (!pinnedListRef.current) return;
+      const index = pinnedData.findIndex((t) => t.id === activeTabId);
+      if (index === -1) return;
+      pinnedListRef.current.scrollToIndex({
+        index,
+        animated: false,
+        viewPosition: 0,
+      });
+    }, 300);
   }, [activeTabId, pinnedData]);
 
   const { handleShareUrl } = useBrowserOptionsAction();

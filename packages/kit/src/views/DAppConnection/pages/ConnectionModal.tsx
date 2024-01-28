@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
@@ -31,11 +32,21 @@ function ConnectionModal() {
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
+  // Throttling is required to prevent an infinite loop caused by multiple renderings of `activeAccount` on mobile devices.
+  const throttledSetSelectedAccount = useRef(
+    throttle((activeAccount) => {
+      setSelectedAccount(activeAccount);
+      console.log(
+        'connectionmodal setActiveAccount: ',
+        JSON.stringify(activeAccount),
+      );
+    }, 500),
+  ).current;
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
     (activeAccount) => {
-      setSelectedAccount(activeAccount);
+      throttledSetSelectedAccount(activeAccount);
     },
-    [],
+    [throttledSetSelectedAccount],
   );
 
   const confirmDisabled = useMemo(() => {
