@@ -109,6 +109,8 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
+  const media = useMedia();
+
   return (
     <XStack
       role="button"
@@ -131,10 +133,14 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       onPress={showAccountSelector}
     >
       <AccountAvatar size="$6" account={account} />
-      <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-        {activeAccountName}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      {media.gtMd ? (
+        <>
+          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
+            {activeAccountName}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        </>
+      ) : null}
     </XStack>
   );
 }

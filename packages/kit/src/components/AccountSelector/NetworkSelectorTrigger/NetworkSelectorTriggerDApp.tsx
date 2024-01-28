@@ -1,4 +1,10 @@
-import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
@@ -65,6 +71,8 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
+  const media = useMedia();
+
   return (
     <XStack
       role="button"
@@ -93,15 +101,14 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
           uri: network?.logoURI ? network?.logoURI : '',
         }}
       />
-      <SizableText
-        userSelect="none"
-        pl="$2"
-        size="$bodyMdMedium"
-        numberOfLines={1}
-      >
-        {network?.name}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      {media.gtMd ? (
+        <>
+          <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
+            {network?.name}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        </>
+      ) : null}
     </XStack>
   );
 }
