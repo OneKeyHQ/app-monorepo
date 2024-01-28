@@ -1,4 +1,4 @@
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 import { CosmwasmQuery } from './CosmwasmQuery';
 import { MintScanQuery } from './MintScanQuery';
@@ -51,12 +51,12 @@ class QueryRegistry {
 
 export const queryRegistry = new QueryRegistry();
 const cosmwasmQuery = new CosmwasmQuery();
-queryRegistry.register(OnekeyNetwork.juno, cosmwasmQuery);
-// queryRegistry.register(OnekeyNetwork.terra, cosmwasmQuery); // terra2
-queryRegistry.register(OnekeyNetwork.osmosis, cosmwasmQuery);
-queryRegistry.register(OnekeyNetwork.secretnetwork, new SecretwasmQuery());
+queryRegistry.register(getNetworkIdsMap().juno, cosmwasmQuery);
+// queryRegistry.register(getNetworkIdsMap().terra, cosmwasmQuery); // terra2
+queryRegistry.register(getNetworkIdsMap().osmosis, cosmwasmQuery);
+queryRegistry.register(getNetworkIdsMap().secretnetwork, new SecretwasmQuery());
 
 const mintScanQuery = new MintScanQuery();
-queryRegistry.register(OnekeyNetwork.cosmoshub, mintScanQuery);
-queryRegistry.register(OnekeyNetwork.akash, mintScanQuery);
-queryRegistry.register(OnekeyNetwork.fetch, mintScanQuery);
+queryRegistry.register(getNetworkIdsMap().cosmoshub, mintScanQuery);
+queryRegistry.register(getNetworkIdsMap().akash, mintScanQuery);
+queryRegistry.register(getNetworkIdsMap().fetch, mintScanQuery);

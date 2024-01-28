@@ -13,7 +13,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../dbs/local/consts';
-import { mockGetNetwork } from '../mock';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -55,7 +54,9 @@ export async function createKeyringInstance(vault: VaultBase) {
 
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
-  const network = await mockGetNetwork({ networkId: options.networkId });
+  const network = await options.backgroundApi.serviceNetwork.getNetwork({
+    networkId: options.networkId,
+  });
   let vault: VaultBase | null = null as unknown as VaultBase;
 
   // if (network.impl === IMPL_EVM) {

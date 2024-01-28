@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
-import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorSceneInfo,
@@ -15,15 +15,27 @@ import {
 
 import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
 
-const getNetworksItems = memoFn(() =>
-  // TODO ETC network
-  mockPresetNetworksList.map((item) => ({
-    value: item.id,
-    label: item.name,
-  })),
-);
+function useNetworkSelectorItems() {
+  const { serviceNetwork } = backgroundApiProxy;
+
+  const allNetworksRes = usePromiseResult(
+    () => serviceNetwork.getAllNetworks(),
+    [serviceNetwork],
+  );
+  const items = useMemo(
+    () =>
+      allNetworksRes.result?.networks.map((item) => ({
+        value: item.id,
+        label: item.name,
+      })) || [],
+    [allNetworksRes.result?.networks],
+  );
+
+  return items;
+}
 
 export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
+  const items = useNetworkSelectorItems();
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
@@ -40,7 +52,7 @@ export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
         网络选择器 {selectedAccount.networkId}
       </SizableText>
       <Select
-        items={getNetworksItems()}
+        items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>
           actions.current.updateSelectedAccount({
@@ -143,12 +155,8 @@ export function ControlledNetworkSelectorTrigger({
   value?: string;
   onChange?: (networkId: string) => void;
 }) {
+  const items = useNetworkSelectorItems();
   return (
-    <Select
-      items={getNetworksItems()}
-      value={value}
-      onChange={onChange}
-      title="网络"
-    />
+    <Select items={items} value={value} onChange={onChange} title="网络" />
   );
 }

@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
-
 import {
   useAccountSelectorActions,
   useAccountSelectorContextData,
@@ -9,18 +7,23 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
+import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
+
 export function useNetworkAutoSelect({ num }: { num: number }) {
   const {
     selectedAccount: { networkId },
   } = useSelectedAccount({ num });
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { config } = useAccountSelectorContextData();
-  const networks = config?.networks || mockPresetNetworksList;
+  const networks = useAccountSelectorAvailableNetworks();
   const defaultNetworkId = config?.defaultNetworkId;
 
   const actions = useAccountSelectorActions();
   useEffect(() => {
     if (!isReady) {
+      return;
+    }
+    if (!networks || !networks.length) {
       return;
     }
     // TODO move below code to actions

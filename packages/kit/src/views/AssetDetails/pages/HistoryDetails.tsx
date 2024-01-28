@@ -16,7 +16,6 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -46,7 +45,7 @@ function HistoryDetails() {
   const resp = usePromiseResult(
     () =>
       Promise.all([
-        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,

@@ -1,6 +1,6 @@
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import { OnekeyNetwork } from '../config/networkIds';
+import { getNetworkIdsMap } from '../config/networkIds';
 
 const SEPERATOR = '--';
 const INDEX_PLACEHOLDER = '$$INDEX$$';
@@ -26,12 +26,11 @@ const COINTYPE_CFX = '503';
 
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
-export const COINNAME_BTC = 'BTC'
+export const COINNAME_BTC = 'BTC';
 
 const IMPL_TBTC = 'tbtc';
 const COINTYPE_TBTC = '1';
-export const COINNAME_TBTC = 'TEST'
-
+export const COINNAME_TBTC = 'TEST';
 
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
@@ -156,11 +155,11 @@ export enum SocketEvents {
   'Notification' = 'notification',
 }
 
-export const enabledAccountDynamicNetworkIds: string[] = [
-  OnekeyNetwork.eth,
-  OnekeyNetwork.polygon,
-  OnekeyNetwork.arbitrum,
-  OnekeyNetwork.optimism,
+export const getEnabledAccountDynamicNetworkIds = (): string[] => [
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().polygon,
+  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().optimism,
 ];
 
 function getSupportedImpls() {
@@ -248,5 +247,5 @@ export const isLightningNetwork = (coinType: string) =>
 export const isLightningNetworkByImpl = (impl?: string) =>
   impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
 export const isLightningNetworkByNetworkId = (networkId?: string) =>
-  networkId === OnekeyNetwork.lightning ||
-  networkId === OnekeyNetwork.tlightning;
+  networkId === getNetworkIdsMap().lightning ||
+  networkId === getNetworkIdsMap().tlightning;
