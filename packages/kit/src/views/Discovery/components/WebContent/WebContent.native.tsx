@@ -8,8 +8,8 @@ import {
   RefreshControl,
   ScrollView,
   Stack,
+  useBackHandler,
 } from '@onekeyhq/components';
-import useBackHandler from '@onekeyhq/kit/src/hooks/useBackHandler';
 import {
   homeTab,
   useBrowserAction,
