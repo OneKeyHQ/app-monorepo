@@ -1,8 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
-
-import { useRiskDetection } from '../../hooks/useRiskDetection';
+import { SizableText, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 
 import { DAppRiskyAlert } from './DAppRiskyAlert';
 import { DAppSiteMark } from './DAppSiteMark';
@@ -19,8 +17,13 @@ function DAppRequestLayout({
   origin: string;
   riskLevel: IRiskLevel;
 }>) {
+  const { top } = useSafeAreaInsets();
   return (
-    <Stack>
+    <Stack
+      $md={{
+        mt: top,
+      }}
+    >
       <DAppRiskyAlert riskLevel={riskLevel} />
       <Stack p="$5" space="$8">
         <Stack space="$2.5">

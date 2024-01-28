@@ -87,10 +87,12 @@ class ServiceDApp extends ServiceBase {
     request,
     screens = [],
     params = {},
+    fullScreen,
   }: {
     request: IJsBridgeMessagePayload;
     screens: any[];
     params?: any;
+    fullScreen?: boolean;
   }) {
     console.log('sampleMethod');
     return new Promise((resolve, reject) => {
@@ -99,7 +101,10 @@ class ServiceDApp extends ServiceBase {
         reject,
       });
       const modalScreens = screens;
-      const routeNames = [ERootRoutes.Modal, ...modalScreens];
+      const routeNames = [
+        fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+        ...modalScreens,
+      ];
       const $sourceInfo: IDappSourceInfo = {
         id,
         origin: request.origin || '',
@@ -274,7 +279,7 @@ class ServiceDApp extends ServiceBase {
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
-      origin,
+      params.origin,
       networkImpl,
       storageType,
     );
@@ -383,6 +388,13 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllConnectedAccountsByOrigin(origin: string) {
+    return this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+      origin,
+    );
+  }
+
+  @backgroundMethod()
   async getConnectedNetworks(params: IGetDAppAccountInfoParams) {
     const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
@@ -408,6 +420,7 @@ class ServiceDApp extends ServiceBase {
       return;
     }
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    // TODO: buildActiveAccount, upsert accountselector simpledb, emit event bus
     await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
       params.origin,
       networkImpl,

@@ -39,3 +39,7 @@ export interface IGetDAppAccountInfoParams {
     networkImpl?: string;
   };
 }
+
+export type IConnectionAccountInfoWithNum = IConnectionAccountInfo & {
+  num: number;
+};

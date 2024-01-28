@@ -1,6 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   IConnectionAccountInfo,
+  IConnectionAccountInfoWithNum,
   IConnectionItem,
   IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
@@ -306,6 +307,38 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         },
       };
     });
+  }
+
+  @backgroundMethod()
+  async findAccountsInfoByOrigin(
+    origin: string,
+  ): Promise<IConnectionAccountInfoWithNum[] | null> {
+    const rawData = await this.getRawData();
+
+    if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+      return null;
+    }
+    const injectedItem = rawData.data.injectedProvider?.[origin];
+    if (
+      injectedItem?.connectionMap &&
+      Object.keys(injectedItem.connectionMap).length > 0
+    ) {
+      return Object.entries(injectedItem.connectionMap).map(([k, v]) => ({
+        ...v,
+        num: Number(k),
+      }));
+    }
+    const walletConnectItem = rawData.data.walletConnect?.[origin];
+    if (
+      walletConnectItem?.connectionMap &&
+      Object.keys(walletConnectItem.connectionMap).length > 0
+    ) {
+      return Object.entries(walletConnectItem.connectionMap).map(([k, v]) => ({
+        ...v,
+        num: Number(k),
+      }));
+    }
+    return null;
   }
 
   @backgroundMethod()

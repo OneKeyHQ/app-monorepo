@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import { isNil } from 'lodash';
-
 import { Spinner } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,40 +18,46 @@ function HeaderRightToolBar() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
-  const { result: accountSelectorNum, isLoading } =
+  const { result: connectedAccountsInfo, isLoading } =
     usePromiseResult(async () => {
       if (!origin) {
         return;
       }
-      const number = await backgroundApiProxy.serviceDApp.getAccountSelectorNum(
-        {
+      const connectedAccount =
+        await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
           origin,
-          scope: 'ethereum',
-        },
-      );
-      return number;
+        );
+      console.log('====>>>connectedAccount: ', connectedAccount);
+      return connectedAccount;
     }, [origin]);
 
   const content = useMemo(() => {
     console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
-    if (isLoading || typeof accountSelectorNum !== 'number') {
+    if (isLoading) {
       return <Spinner />;
     }
+    if (!connectedAccountsInfo || !origin) {
+      return null;
+    }
     return (
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.discover,
-          sceneUrl: origin ?? '',
-        }}
-        enabledNum={[accountSelectorNum ?? 0]}
-      >
-        <HeaderButtonGroup>
-          <AccountSelectorTriggerBrowserSingle num={accountSelectorNum} />
-          <NetworkSelectorTriggerBrowserSingle num={accountSelectorNum} />
-        </HeaderButtonGroup>
-      </AccountSelectorProviderMirror>
+      <>
+        {connectedAccountsInfo.map((accountInfo) => (
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.discover,
+              sceneUrl: origin ?? '',
+            }}
+            enabledNum={[accountInfo.num]}
+          >
+            <HeaderButtonGroup>
+              <AccountSelectorTriggerBrowserSingle num={accountInfo.num} />
+              <NetworkSelectorTriggerBrowserSingle num={accountInfo.num} />
+            </HeaderButtonGroup>
+          </AccountSelectorProviderMirror>
+        ))}
+      </>
     );
-  }, [accountSelectorNum, origin, isLoading]);
+  }, [connectedAccountsInfo, origin, isLoading]);
 
   return <>{content}</>;
 }
