@@ -42,16 +42,16 @@ export function getOnChainHistoryTxAssetInfo({
 
   if (asset && !isNil((asset as IOnChainHistoryTxNFT).itemId)) {
     const nft = asset as IOnChainHistoryTxNFT;
-    name = nft.metadata.name;
-    symbol = nft.metadata.name;
-    image = nft.metadata.image;
+    name = nft.metadata?.name ?? '';
+    symbol = nft.metadata?.name ?? '';
+    image = nft.metadata?.image ?? '';
     address = nft.collectionAddress;
     isNFT = true;
   } else if (asset && !isNil((asset as IOnChainHistoryTxToken).info?.address)) {
     const token = (asset as IOnChainHistoryTxToken).info;
     name = token.name;
     symbol = token.symbol;
-    image = token.logoURI;
+    image = token.logoURI ?? '';
     address = token.address;
     isNFT = false;
   }

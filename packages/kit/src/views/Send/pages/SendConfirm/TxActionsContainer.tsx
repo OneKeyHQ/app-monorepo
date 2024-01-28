@@ -3,28 +3,38 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Divider, SizableText, Stack, YStack } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useUnsignedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 
 import { Container } from '../../components/Container';
 
-function TxActionsContainer() {
+type IProps = {
+  accountId: string;
+  networkId: string;
+  unsignedTxs: IUnsignedTxPro[];
+};
+
+function TxActionsContainer(props: IProps) {
+  const { accountId, networkId, unsignedTxs } = props;
   const intl = useIntl();
-  const [unsignedTxs] = useUnsignedTxsAtom();
 
   const isMultiTxs = useMemo(() => unsignedTxs.length > 1, [unsignedTxs]);
 
   const r = usePromiseResult(
     () =>
       Promise.all(
-        unsignedTxs.map(() =>
-          backgroundApiProxy.serviceSend.demoBuildDecodedTx(),
+        unsignedTxs.map((unsignedTx) =>
+          backgroundApiProxy.serviceSend.buildDecodedTx({
+            accountId,
+            networkId,
+            unsignedTx,
+          }),
         ),
       ),
-    [unsignedTxs],
+    [accountId, networkId, unsignedTxs],
   );
 
   const renderActions = useCallback(() => {

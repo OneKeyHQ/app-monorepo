@@ -25,7 +25,7 @@ type IProps = {
 function CommonAssetContent(props: IProps) {
   const intl = useIntl();
   const { networkId, nft } = props;
-  const { attributes } = nft.metadata;
+  const { attributes } = nft.metadata ?? {};
 
   const network = usePromiseResult(
     () => mockGetNetwork({ networkId }),
