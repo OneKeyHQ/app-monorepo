@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { debounce } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -43,9 +44,16 @@ function AccountListItem({
   compressionUiMode?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
-
+  // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
+  const debouncedHandleAccountChanged = useRef(
+    debounce(
+      (account: IAccountSelectorActiveAccountInfo) =>
+        handleAccountChanged?.(account),
+      200,
+    ),
+  );
   useEffect(() => {
-    handleAccountChanged?.(activeAccount);
+    debouncedHandleAccountChanged.current(activeAccount);
   }, [activeAccount, handleAccountChanged]);
 
   return (

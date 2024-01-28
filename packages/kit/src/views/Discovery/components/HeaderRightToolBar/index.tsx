@@ -4,7 +4,6 @@ import {
   Popover,
   SizableText,
   Spinner,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -21,6 +20,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { AccountListItem } from '../../../DAppConnection/components/DAppAccountList';
+import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
@@ -73,21 +73,39 @@ function AvatarStackTrigger({
 function AccountSelectorPopoverContent({
   origin,
   accountsInfo,
+  afterChangeAccount,
 }: {
   origin: string;
   accountsInfo: IConnectionAccountInfoWithNum[];
+  afterChangeAccount: () => void;
 }) {
+  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   return (
     <YStack p="$5" space="$2">
       {accountsInfo.map((account) => (
         <AccountSelectorProviderMirror
+          key={account.num}
           config={{
             sceneName: EAccountSelectorSceneName.discover,
             sceneUrl: origin,
           }}
           enabledNum={[account.num]}
         >
-          <AccountListItem num={account.num} compressionUiMode />
+          <AccountListItem
+            key={account.num}
+            num={account.num}
+            compressionUiMode
+            handleAccountChanged={async (activeAccount) => {
+              await handleAccountInfoChanged({
+                origin,
+                accountSelectorNum: account.num,
+                prevAccountInfo: account,
+                selectedAccount: activeAccount,
+                storageType: account.storageType,
+              });
+              afterChangeAccount();
+            }}
+          />
         </AccountSelectorProviderMirror>
       ))}
     </YStack>
@@ -99,18 +117,21 @@ function HeaderRightToolBar() {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
-  const { result: connectedAccountsInfo, isLoading } =
-    usePromiseResult(async () => {
-      if (!origin) {
-        return;
-      }
-      const connectedAccount =
-        await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
-          origin,
-        );
-      console.log('====>>>connectedAccount: ', connectedAccount);
-      return connectedAccount;
-    }, [origin]);
+  const {
+    result: connectedAccountsInfo,
+    isLoading,
+    run,
+  } = usePromiseResult(async () => {
+    if (!origin) {
+      return;
+    }
+    const connectedAccount =
+      await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
+        origin,
+      );
+    console.log('====>>>connectedAccount: ', connectedAccount);
+    return connectedAccount;
+  }, [origin]);
 
   const content = useMemo(() => {
     console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
@@ -152,11 +173,14 @@ function HeaderRightToolBar() {
           <AccountSelectorPopoverContent
             origin={origin}
             accountsInfo={connectedAccountsInfo}
+            afterChangeAccount={() => {
+              void run();
+            }}
           />
         }
       />
     );
-  }, [connectedAccountsInfo, origin, isLoading, isOpen]);
+  }, [connectedAccountsInfo, origin, isLoading, isOpen, run]);
 
   return <>{content}</>;
 }

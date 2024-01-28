@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IConnectionAccountInfo,
+  IStorageType,
+} from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -92,4 +97,85 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
       }
     }
   }, [isFocusedInDiscoveryTab, tab?.url, webviewRef, isMountedRef]);
+}
+
+export function useShouldUpdateConnectedAccount() {
+  const shouldUpdateConnectedAccount = useCallback(
+    (
+      prevAccountInfo: IConnectionAccountInfo,
+      accountInfo: IConnectionAccountInfo,
+    ) =>
+      prevAccountInfo &&
+      (prevAccountInfo.walletId !== accountInfo.walletId ||
+        prevAccountInfo.indexedAccountId !== accountInfo.indexedAccountId ||
+        prevAccountInfo.networkId !== accountInfo.networkId ||
+        prevAccountInfo.accountId !== accountInfo.accountId ||
+        prevAccountInfo.address !== accountInfo.address),
+    [],
+  );
+
+  const getAccountInfoByActiveAccount = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      const updatedAccountInfo: IConnectionAccountInfo = {
+        walletId: activeAccount.wallet?.id ?? '',
+        indexedAccountId: activeAccount.indexedAccount?.id ?? '',
+        networkId: activeAccount.network?.id ?? '',
+        accountId: activeAccount.account?.id ?? '',
+        address: activeAccount.account?.address ?? '',
+        networkImpl: activeAccount.network?.impl ?? '',
+      };
+      return updatedAccountInfo;
+    },
+    [],
+  );
+
+  const handleAccountInfoChanged = useCallback(
+    async ({
+      origin,
+      accountSelectorNum,
+      prevAccountInfo,
+      selectedAccount,
+      storageType,
+    }: {
+      origin: string;
+      accountSelectorNum: number;
+      prevAccountInfo: IConnectionAccountInfo;
+      selectedAccount: IAccountSelectorActiveAccountInfo;
+      storageType: IStorageType;
+    }) => {
+      const willUpdateAccountInfo =
+        getAccountInfoByActiveAccount(selectedAccount);
+      if (
+        !shouldUpdateConnectedAccount(prevAccountInfo, willUpdateAccountInfo)
+      ) {
+        return;
+      }
+
+      const { serviceDApp } = backgroundApiProxy;
+      await backgroundApiProxy.serviceDApp.updateConnectionSession({
+        origin,
+        accountSelectorNum,
+        updatedAccountInfo: willUpdateAccountInfo,
+        storageType,
+      });
+      console.log(
+        'useShouldUpdateConnectedAccount handleAccountChanged: ',
+        accountSelectorNum,
+        prevAccountInfo,
+        selectedAccount,
+      );
+
+      if (prevAccountInfo.accountId !== willUpdateAccountInfo.accountId) {
+        void serviceDApp.notifyDAppAccountsChanged(origin);
+      }
+      if (prevAccountInfo.networkId !== willUpdateAccountInfo.networkId) {
+        void serviceDApp.notifyDAppChainChanged(origin);
+      }
+    },
+    [getAccountInfoByActiveAccount, shouldUpdateConnectedAccount],
+  );
+
+  return {
+    handleAccountInfoChanged,
+  };
 }

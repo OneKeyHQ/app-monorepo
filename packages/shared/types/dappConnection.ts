@@ -42,4 +42,5 @@ export interface IGetDAppAccountInfoParams {
 
 export type IConnectionAccountInfoWithNum = IConnectionAccountInfo & {
   num: number;
+  storageType: IStorageType;
 };
