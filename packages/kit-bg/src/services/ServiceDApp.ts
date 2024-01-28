@@ -187,6 +187,7 @@ class ServiceDApp extends ServiceBase {
         EModalRoutes.DAppConnectionModal,
         EDAppConnectionModal.ConnectionModal,
       ],
+      fullScreen: true,
     });
 
     return result;
@@ -212,6 +213,7 @@ class ServiceDApp extends ServiceBase {
         accountId,
         networkId,
       },
+      fullScreen: true,
     });
   }
 

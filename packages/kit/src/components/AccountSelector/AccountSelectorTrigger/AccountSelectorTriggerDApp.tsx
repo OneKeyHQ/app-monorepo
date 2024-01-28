@@ -14,7 +14,8 @@ import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
 export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
-}>(({ num, disabled, ...rest }) => {
+  compressionUiMode?: boolean;
+}>(({ num, compressionUiMode, disabled, ...rest }) => {
   const {
     activeAccount: { account },
     activeAccountName,
@@ -32,6 +33,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     : 'No Address';
 
   const media = useMedia();
+  const isCompressionUiMode = media.md || compressionUiMode;
   return (
     <XStack
       flex={1}
@@ -71,7 +73,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       {account?.address ? (
         <AccountAvatar size="$6" borderRadius="$1" account={account} />
       ) : null}
-      {media.md ? (
+      {isCompressionUiMode ? (
         <YStack flex={1}>
           <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
             {activeAccountName}
@@ -85,7 +87,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           {activeAccountName}
         </SizableText>
       )}
-      {media.md ? null : (
+      {isCompressionUiMode ? null : (
         <SizableText
           flex={1}
           size="$bodyMdMedium"

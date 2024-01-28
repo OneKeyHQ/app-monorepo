@@ -1,6 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { SizableText, Spinner, XStack } from '@onekeyhq/components';
+import {
+  Popover,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -13,10 +20,11 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
+import { AccountListItem } from '../../../DAppConnection/components/DAppAccountList';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
-function AvatarStack({
+function AvatarStackTrigger({
   accountsInfo,
 }: {
   accountsInfo: IConnectionAccountInfoWithNum[];
@@ -33,7 +41,7 @@ function AvatarStack({
   }, [accountsInfo]);
 
   return (
-    <XStack testID="multi-avatar">
+    <XStack role="button" testID="multi-avatar">
       {accounts?.slice(0, 2).map((account, index) => (
         <AccountAvatar
           key={account?.id}
@@ -62,7 +70,32 @@ function AvatarStack({
   );
 }
 
+function AccountSelectorPopoverContent({
+  origin,
+  accountsInfo,
+}: {
+  origin: string;
+  accountsInfo: IConnectionAccountInfoWithNum[];
+}) {
+  return (
+    <YStack p="$5" space="$2">
+      {accountsInfo.map((account) => (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl: origin,
+          }}
+          enabledNum={[account.num]}
+        >
+          <AccountListItem num={account.num} compressionUiMode />
+        </AccountSelectorProviderMirror>
+      ))}
+    </YStack>
+  );
+}
+
 function HeaderRightToolBar() {
+  const [isOpen, setIsOpen] = useState(false);
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const origin = tab?.url ? new URL(tab.url).origin : null;
@@ -107,8 +140,23 @@ function HeaderRightToolBar() {
         </>
       );
     }
-    return <AvatarStack accountsInfo={connectedAccountsInfo} />;
-  }, [connectedAccountsInfo, origin, isLoading]);
+    return (
+      <Popover
+        title="Popover Demo"
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        renderTrigger={
+          <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
+        }
+        renderContent={
+          <AccountSelectorPopoverContent
+            origin={origin}
+            accountsInfo={connectedAccountsInfo}
+          />
+        }
+      />
+    );
+  }, [connectedAccountsInfo, origin, isLoading, isOpen]);
 
   return <>{content}</>;
 }

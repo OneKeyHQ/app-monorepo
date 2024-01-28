@@ -35,10 +35,12 @@ function AccountListItem({
   num,
   handleAccountChanged,
   readonly,
+  compressionUiMode,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
+  compressionUiMode?: boolean;
 }) {
   const { activeAccount } = useActiveAccount({ num });
 
@@ -59,7 +61,10 @@ function AccountListItem({
         <NetworkSelectorTriggerDappConnection num={num} />
       </Group.Item>
       <Group.Item>
-        <AccountSelectorTriggerDappConnection num={num} />
+        <AccountSelectorTriggerDappConnection
+          num={num}
+          compressionUiMode={compressionUiMode}
+        />
       </Group.Item>
     </XGroup>
   );
@@ -74,6 +79,7 @@ function DAppAccountListStandAloneItem({
 }) {
   const { serviceDApp } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
+  console.log('=====>>>>>DAppAccountListStandAloneItem');
   const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
     null,
   );
@@ -84,12 +90,15 @@ function DAppAccountListStandAloneItem({
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
       return;
     }
+    console.log('===>>>: $sourceInfo?.origin: ', $sourceInfo?.origin);
+    console.log('===>>>: $sourceInfo?.scope: ', $sourceInfo?.scope);
     serviceDApp
       .getAccountSelectorNum({
         origin: $sourceInfo.origin,
         scope: $sourceInfo.scope ?? '',
       })
       .then((number) => {
+        console.log('=====>>>>>>>>>: getAccountSelectorNum: ', number);
         setAccountSelectorNum(number);
       })
       .catch((e) => {
@@ -127,4 +136,4 @@ function DAppAccountListStandAloneItem({
   );
 }
 
-export { DAppAccountListStandAloneItem };
+export { DAppAccountListStandAloneItem, AccountListItem };
