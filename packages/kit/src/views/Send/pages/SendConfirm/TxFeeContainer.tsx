@@ -74,7 +74,7 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
-        const r = await backgroundApiProxy.serviceGas.estimateGasFee({
+        const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
           encodedTx: unsignedTxs[0].encodedTx,
         });
@@ -109,8 +109,7 @@ function TxFeeContainer(props: IProps) {
         await backgroundApiProxy.serviceToken.fetchTokenDetails({
           networkId,
           accountAddress: account.address,
-          address: '',
-          isNative: true,
+          contractList: [''],
         });
 
       return tokenDetails;

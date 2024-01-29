@@ -61,7 +61,7 @@ function TokenListContainer(props: IProps) {
         smallBalanceTokens: r.smallBalanceTokens.data,
       });
       refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
-      refreshSmallBalanceTokensFiatValue(r.smallBalanceTokens.fiatValue);
+      refreshSmallBalanceTokensFiatValue(r.smallBalanceTokens.fiatValue ?? '0');
 
       const allTokens = [
         ...r.tokens.data,

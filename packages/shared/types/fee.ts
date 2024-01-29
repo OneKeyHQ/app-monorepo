@@ -19,6 +19,7 @@ export type IGasEIP1559 = {
   gasLimit: string;
   gasLimitForDisplay: string;
   gasPrice?: string;
+  confidence?: number;
 };
 
 export type IGasLegacy = {
@@ -51,8 +52,6 @@ export type IFeeInfoUnit = {
   feeUTXO?: IFeeUTXO;
 };
 
-export type IGasEIP1559Prediction = IGasEIP1559 & { confidence: number };
-
 export type IEstimateGasResp = {
   isEIP1559: true;
   feeDecimals: number;
@@ -63,11 +62,8 @@ export type IEstimateGasResp = {
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
   feeUTXO?: IFeeUTXO[];
-  limit: string;
-  limitForDisplay: string;
   nativeTokenPrice: {
     price: number;
     price24h: number;
   };
-  prediction?: IGasEIP1559Prediction[];
 };

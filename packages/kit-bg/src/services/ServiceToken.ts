@@ -72,11 +72,11 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async fetchTokenDetails(params: IFetchTokenDetailParams) {
     const client = await this.getClient();
-    const resp = await client.get<{
+    const resp = await client.post<{
       data: {
         info: IToken;
       } & ITokenFiat;
-    }>('/wallet/v1/account/token/detail', { params });
+    }>('/wallet/v1/account/token/detail', params);
     return resp.data.data;
   }
 
@@ -116,8 +116,7 @@ class ServiceToken extends ServiceBase {
     try {
       const tokenDetails = await this.fetchTokenDetails({
         networkId,
-        address: tokenIdOnNetwork,
-        isNative: tokenIdOnNetwork === '',
+        contractList: [tokenIdOnNetwork],
       });
 
       const tokenInfo = tokenDetails.info;
