@@ -117,14 +117,29 @@ class ServiceAddressBook extends ServiceBase {
     return items;
   }
 
-  public async updateAddressBookDb(newPassword: string) {
-    const { items, encoded } = await this.getItemsAndPassword();
+  public async startAddressBookUpdate(
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    const data = await addressBookPersistAtom.get();
+    let items: IAddressItem[] = [];
+    if (data.encoded) {
+      const text = decodeSensitiveText({
+        encodedText: data.encoded,
+        key: oldPassword,
+      });
+      items = JSON.parse(text) as IAddressItem[];
+    }
     const text = encodeSensitiveText({
       text: JSON.stringify(items),
       key: newPassword,
     });
     await addressBookPersistAtom.set({ encoded: text });
-    this.rollbackData = encoded;
+    this.rollbackData = data.encoded;
+  }
+
+  public async finishAddressBookUpdate() {
+    this.rollbackData = undefined;
   }
 
   public async rollbackAddressBook() {
