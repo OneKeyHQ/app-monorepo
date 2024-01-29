@@ -32,3 +32,8 @@ export const socketBridgeScanUrl = 'https://socketscan.io/tx/';
 export const networkTransactionExplorerReplaceStr = '{transaction}';
 
 export const swapTokenCatchMapMaxCount = 30;
+
+export const swapApproveUnlimitedValue =
+  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+export const swapApproveResetValue = '0x0';

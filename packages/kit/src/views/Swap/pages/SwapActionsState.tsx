@@ -1,26 +1,31 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Alert,
   Button,
+  Dialog,
   SizableText,
   Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
 } from '../../../states/jotai/contexts/swap';
+import { swapApproveUnlimitedValue } from '../config/SwapProvider.constants';
 import { useSwapStepState } from '../hooks/useSwapStepState';
 import { ESwapStepStateType } from '../types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
   onWrapped: () => void;
-  onApprove: (allowanceValue: number) => void;
+  onApprove: (amount: string, shoutResetApprove?: boolean) => void;
 }
 
 const SwapActionsState = ({
@@ -96,9 +101,33 @@ const SwapActionsState = ({
     swapStepState,
   ]);
 
+  const handleApprove = useCallback(
+    (isUnLimit: boolean) => {
+      const approveAmount = isUnLimit
+        ? swapApproveUnlimitedValue
+        : toBigIntHex(new BigNumber(fromAmount));
+      if (swapStepState.shoutResetApprove) {
+        Dialog.confirm({
+          onConfirmText: 'Continue',
+          onConfirm: () => {
+            onApprove(approveAmount, true);
+          },
+          showCancelButton: true,
+          title: 'Need to Send 2 Transactions to Change Allowance',
+          description:
+            'Some tokens require multiple transactions to modify the allowance. You must first set the allowance to zero before establishing the new desired allowance value.',
+          icon: 'TxStatusWarningCircleIllus',
+        });
+      } else {
+        onApprove(approveAmount);
+      }
+    },
+    [fromAmount, onApprove, swapStepState.shoutResetApprove],
+  );
+
   const onActionHandler = useCallback(() => {
     if (swapStepState.type === ESwapStepStateType.APPROVE) {
-      onApprove(Number(fromAmount));
+      handleApprove(false);
       return;
     }
     if (swapStepState.type === ESwapStepStateType.BUILD_TX) {
@@ -109,17 +138,17 @@ const SwapActionsState = ({
       onBuildTx();
     }
   }, [
-    fromAmount,
-    onApprove,
+    handleApprove,
     onBuildTx,
     onWrapped,
     swapStepState.isWrapped,
     swapStepState.type,
   ]);
 
+  // only approve step can trigger this action
   const onAction2Handler = useCallback(() => {
-    onApprove(-1); // -1 means approve unlimited
-  }, [onApprove]);
+    handleApprove(true);
+  }, [handleApprove]);
 
   return (
     <YStack space="$4">

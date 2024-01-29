@@ -215,6 +215,17 @@ export type IApproveInfo = {
   tokenInfo?: IToken;
 };
 
+export enum EWrappedType {
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
+}
+
+export type IWrappedInfo = {
+  amount: string;
+  contract: string;
+  type: EWrappedType;
+};
+
 // Send ------------
 export interface IBuildTxHelperParams {
   getToken: ({
@@ -246,6 +257,7 @@ export interface IBuildUnsignedTxParams {
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
+  wrappedInfo?: IWrappedInfo;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;

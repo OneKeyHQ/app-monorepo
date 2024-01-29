@@ -39,9 +39,26 @@ export function useSwapStepState() {
   if (!quoteCurrentSelect) {
     return stepState;
   }
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+
+  // check account
+  if (!activeAccount.account?.address) {
+    stepState.type = ESwapStepStateType.ACCOUNT_CHECK;
+    stepState.isLoading = false;
+    stepState.disabled = true;
+    stepState.wrongMsg = `Please connect your wallet`;
+    return stepState;
+  }
+  const balanceBN = new BigNumber(fromToken?.balanceParsed ?? 0);
+  if (balanceBN.comparedTo(fromTokenAmountBN) !== 1) {
+    stepState.type = ESwapStepStateType.ACCOUNT_CHECK;
+    stepState.isLoading = false;
+    stepState.disabled = true;
+    stepState.wrongMsg = `Insufficient balance`;
+    return stepState;
+  }
 
   // check min max amount
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount);
   if (quoteCurrentSelect.limit?.min) {
     const minAmountBN = new BigNumber(quoteCurrentSelect.limit.min);
     if (fromTokenAmountBN.lt(minAmountBN)) {
@@ -63,25 +80,10 @@ export function useSwapStepState() {
     }
   }
 
-  // check account
-  if (!activeAccount.account?.address) {
-    stepState.type = ESwapStepStateType.ACCOUNT_CHECK;
-    stepState.isLoading = false;
-    stepState.disabled = true;
-    stepState.wrongMsg = `Please connect your wallet`;
-    return stepState;
-  }
-  const balanceBN = new BigNumber(fromToken?.balanceParsed ?? 0);
-  if (balanceBN.comparedTo(fromTokenAmountBN) !== 1) {
-    stepState.type = ESwapStepStateType.ACCOUNT_CHECK;
-    stepState.isLoading = false;
-    stepState.disabled = true;
-    stepState.wrongMsg = `Insufficient balance`;
-    return stepState;
-  }
-
   if (quoteCurrentSelect.allowanceResult) {
     stepState.type = ESwapStepStateType.APPROVE;
+    stepState.shoutResetApprove =
+      !!quoteCurrentSelect.allowanceResult.shouldResetApprove;
     stepState.isLoading = false; // Todo check approve transaction state
     stepState.disabled = false;
     return stepState;

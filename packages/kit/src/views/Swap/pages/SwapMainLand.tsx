@@ -2,10 +2,12 @@ import { memo, useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EModalSendRoutes } from '../../Send/router';
+import { swapApproveResetValue } from '../config/SwapProvider.constants';
 import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../router/types';
 
@@ -35,31 +37,74 @@ const SwapMainLoad = () => {
     });
   }, [navigation]);
 
-  const onApprove = useCallback(
-    async (allowanceValue: number) => {
-      await approveTx(allowanceValue);
-      console.log('onApprove-', allowanceValue); // -1 means infinite
+  const onOpenConfirmTx = useCallback(
+    (params: {
+      accountId: string;
+      networkId: string;
+      unsignedTxs: IUnsignedTxPro[];
+      onSuccess?: (txs: ISignedTxPro[]) => void;
+    }) => {
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendConfirm,
+        params,
+      });
     },
-    [approveTx],
+    [navigation],
+  );
+
+  const onBuildTx = useCallback(async () => {
+    const { unsignedTx, networkId, accountId, onSuccess } = await buildTx();
+
+    if (unsignedTx) {
+      onOpenConfirmTx({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+        onSuccess,
+      });
+    }
+  }, [buildTx, onOpenConfirmTx]);
+
+  const onApprove = useCallback(
+    async (amount: string, shoutResetApprove?: boolean) => {
+      let res;
+      if (shoutResetApprove) {
+        res = await approveTx(swapApproveResetValue);
+        res.onSuccess = async () => {
+          await onApprove(amount);
+        };
+      } else {
+        res = await approveTx(amount);
+        res.onSuccess = async () => {
+          await onBuildTx();
+        };
+      }
+      const unsignedTx = res?.unsignedTx;
+      const networkId = res?.networkId;
+      const accountId = res?.accountId;
+      if (unsignedTx && networkId && accountId) {
+        onOpenConfirmTx({
+          accountId,
+          networkId,
+          unsignedTxs: [unsignedTx],
+          onSuccess: res.onSuccess,
+        });
+      }
+    },
+    [approveTx, onBuildTx, onOpenConfirmTx],
   );
 
   const onWrapped = useCallback(async () => {
-    await wrappedTx();
-  }, [wrappedTx]);
-
-  const onBuildTx = useCallback(async () => {
-    const { unsignedTx, networkId, accountId } = await buildTx();
+    const { unsignedTx, networkId, accountId, onSuccess } = await wrappedTx();
     if (unsignedTx) {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId: networkId,
-          networkId: accountId,
-          unsignedTxs: [unsignedTx],
-        },
+      onOpenConfirmTx({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+        onSuccess,
       });
     }
-  }, [buildTx, navigation]);
+  }, [onOpenConfirmTx, wrappedTx]);
 
   return (
     <YStack flex={1} space="$4">
