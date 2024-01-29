@@ -11,6 +11,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -306,6 +310,7 @@ class ServiceDApp extends ServiceBase {
       ),
       storageType,
     });
+    appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   @backgroundMethod()

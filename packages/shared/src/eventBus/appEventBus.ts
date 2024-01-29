@@ -9,6 +9,7 @@ export enum EAppEventBusNames {
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
+  DAppConnectUpdate = 'DAppConnectUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -27,6 +28,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.NetworkChanged]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
+  [EAppEventBusNames.DAppConnectUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

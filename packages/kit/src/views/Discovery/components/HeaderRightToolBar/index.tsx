@@ -17,6 +17,10 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { type IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -182,6 +186,16 @@ function HeaderRightToolBar() {
   const afterChangeAccount = useCallback(() => {
     void run();
   }, [run]);
+
+  useEffect(() => {
+    const fn = () => {
+      setTimeout(() => afterChangeAccount(), 200);
+    };
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
+    };
+  }, [afterChangeAccount]);
 
   const content = useMemo(() => {
     console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
