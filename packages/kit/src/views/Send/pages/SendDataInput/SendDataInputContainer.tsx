@@ -9,11 +9,9 @@ import { useIntl } from 'react-intl';
 import {
   Form,
   Icon,
-  IconButton,
   Input,
   Page,
   SizableText,
-  XStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,6 +28,7 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
+import AmountInput from '../../components/AmountInput';
 import { EModalSendRoutes } from '../../router';
 
 import type { IModalSendParamList } from '../../router';
@@ -150,14 +149,21 @@ function SendDataInputContainer() {
     form.setValue('amount', linkedAmount);
   }, [form, linkedAmount]);
   const handleOnSelectToken = useCallback(() => navigation.pop(), [navigation]);
-  const handleOnSendMax = useCallback(() => {
-    if (isUseFiat) {
-      form.setValue('amount', tokenDetails?.fiatValue ?? '0');
-    } else {
-      form.setValue('amount', tokenDetails?.balanceParsed ?? '0');
-    }
-    void form.trigger('amount');
-  }, [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
+  const handleOnChangeAmountPercent = useCallback(
+    (percent: number) => {
+      form.setValue(
+        'amount',
+        new BigNumber(
+          (isUseFiat ? tokenDetails?.fiatValue : tokenDetails?.balanceParsed) ??
+            0,
+        )
+          .times(percent)
+          .toFixed(),
+      );
+      void form.trigger('amount');
+    },
+    [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
+  );
   const handleOnConfirm = useCallback(async () => {
     try {
       const toAddress = form.getValues('to').resolved;
@@ -165,13 +171,23 @@ function SendDataInputContainer() {
 
       setIsSubmitting(true);
 
+      let realAmount = amount;
+
+      if (isUseFiat) {
+        if (new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
+          realAmount = tokenDetails?.balanceParsed ?? '0';
+        } else {
+          realAmount = linkedAmount;
+        }
+      }
+
       const account = await getAccount();
 
       const transfersInfo: ITransferInfo[] = [
         {
           from: account.address,
           to: toAddress,
-          amount,
+          amount: realAmount,
           nftInfo:
             isNFT && nftDetails
               ? {
@@ -226,6 +242,8 @@ function SendDataInputContainer() {
     form,
     getAccount,
     isNFT,
+    isUseFiat,
+    linkedAmount,
     navigation,
     networkId,
     nftDetails,
@@ -236,17 +254,21 @@ function SendDataInputContainer() {
     (value: string) => {
       const tokenInfo = tokenDetails;
       const amountBN = new BigNumber(value ?? 0);
+      let isInsufficientBalance = false;
       if (isUseFiat) {
         if (amountBN.isGreaterThan(tokenInfo?.fiatValue ?? 0)) {
-          return false;
+          isInsufficientBalance = true;
         }
       } else if (amountBN.isGreaterThan(tokenInfo?.balanceParsed ?? 0)) {
-        return false;
+        isInsufficientBalance = true;
       }
+
+      if (isInsufficientBalance)
+        return intl.formatMessage({ id: 'msg__insufficient_balance' });
 
       return true;
     },
-    [isUseFiat, tokenDetails],
+    [intl, isUseFiat, tokenDetails],
   );
 
   const isSubmitDisabled = useMemo(() => {
@@ -292,27 +314,6 @@ function SendDataInputContainer() {
             }
           },
         }}
-        description={
-          <XStack pt="$1.5" alignItems="center">
-            <SizableText size="$bodyLg" color="$textSubdued" pr="$1">
-              ≈
-              {isUseFiat
-                ? `${linkedAmount} ${tokenSymbol}`
-                : `${currencySymbol}${linkedAmount}`}
-            </SizableText>
-            <IconButton
-              title={
-                isUseFiat ? 'Enter amount as token' : 'Enter amount as fiat'
-              }
-              icon="SwitchVerOutline"
-              size="small"
-              iconProps={{
-                size: '$4',
-              }}
-              onPress={handleOnChangeAmountMode}
-            />
-          </XStack>
-        }
       >
         <SizableText
           size="$bodyMd"
@@ -331,16 +332,13 @@ function SendDataInputContainer() {
           )}
         </SizableText>
 
-        <Input
-          size="large"
-          inputMode="decimal"
-          placeholder={intl.formatMessage({ id: 'action__enter_amount' })}
-          addOns={[
-            {
-              label: intl.formatMessage({ id: 'action__max' }),
-              onPress: handleOnSendMax,
-            },
-          ]}
+        <AmountInput
+          isUseFiat={isUseFiat}
+          linkedAmount={linkedAmount}
+          tokenSymbol={tokenSymbol}
+          currencySymbol={currencySymbol}
+          onChangePercent={handleOnChangeAmountPercent}
+          onChangeAmountMode={handleOnChangeAmountMode}
         />
       </Form.Field>
     );
@@ -348,7 +346,7 @@ function SendDataInputContainer() {
     currencySymbol,
     form,
     handleOnChangeAmountMode,
-    handleOnSendMax,
+    handleOnChangeAmountPercent,
     handleValidateTokenAmount,
     intl,
     isUseFiat,
@@ -375,7 +373,6 @@ function SendDataInputContainer() {
           </SizableText>
           <Input
             size="large"
-            placeholder={intl.formatMessage({ id: 'action__enter_amount' })}
             addOns={[
               {
                 label: intl.formatMessage({ id: 'action__max' }),
