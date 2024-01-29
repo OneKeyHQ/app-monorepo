@@ -35,7 +35,7 @@ function WalletActionsContainer() {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    const [isSingleTokenNetwork, nativeToken] = await Promise.all([
+    const [networkSettings, nativeToken] = await Promise.all([
       backgroundApiProxy.serviceNetwork.getNetworkSettings({
         networkId: network.id,
       }),
@@ -43,7 +43,7 @@ function WalletActionsContainer() {
         networkId: network.id,
       }),
     ]);
-    if (isSingleTokenNetwork && nativeToken) {
+    if (networkSettings.isSingleToken && nativeToken) {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
         params: {

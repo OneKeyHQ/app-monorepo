@@ -433,6 +433,9 @@ function SendDataInputContainer() {
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
+        <SizableText size="$bodyMdMedium" mt="$5">
+          Please ensure that the selected network and address are correct
+        </SizableText>
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}
