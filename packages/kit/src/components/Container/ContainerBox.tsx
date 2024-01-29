@@ -15,10 +15,11 @@ type IProps = {
   contentProps?: ComponentProps<typeof Stack>;
   blockProps?: ComponentProps<typeof Stack>;
   children:
-    | (ReactElement<IContentItemBaseProps> | boolean)[]
+    | (ReactElement<IContentItemBaseProps> | boolean | null | undefined)[]
     | ReactElement<IContentItemBaseProps>
     | boolean
-    | null;
+    | null
+    | undefined;
 };
 
 function ContainerBox(props: IProps) {
@@ -27,7 +28,7 @@ function ContainerBox(props: IProps) {
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
         <SizableText
-          py="$2"
+          px="$4"
           size="$headingSm"
           color="$textSubdued"
           {...titleProps}
@@ -40,14 +41,22 @@ function ContainerBox(props: IProps) {
       <Stack
         borderWidth={1}
         borderRadius={12}
-        borderColor="$borderSubdued"
+        borderColor="$border"
+        bg="$bgSubdued"
         overflow="hidden"
+        px="$5"
         {...contentProps}
       >
         {children &&
           (children instanceof Array ? children : [children]).map(
             (child, index) => {
-              if (child === true || child === false || child === null) return;
+              if (
+                child === true ||
+                child === false ||
+                child === null ||
+                child === undefined
+              )
+                return;
               const { children: childChildren } = child.props;
               return cloneElement(child, {
                 ...child.props,

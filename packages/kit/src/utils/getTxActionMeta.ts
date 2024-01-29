@@ -14,6 +14,10 @@ import {
   TxActionTransferDetailView,
   TxActionTransferListView,
 } from '../components/TxAction/TxActionTransfer';
+import {
+  TxActionUnknownDetailView,
+  TxActionUnknownListView,
+} from '../components/TxAction/TxActionUnknown';
 
 import type { ITxActionComponents } from '../components/TxAction/types';
 
@@ -33,10 +37,16 @@ export function getTxActionMeta({ action }: { action: IDecodedTxAction }) {
         [ETxActionComponentType.DetailView]: TxActionTokenApproveDetailView,
       };
       break;
-    default:
+    case EDecodedTxActionType.FUNCTION_CALL:
       components = {
         [ETxActionComponentType.ListView]: TxActionFunctionCallListView,
         [ETxActionComponentType.DetailView]: TxActionFunctionCallDetailView,
+      };
+      break;
+    default:
+      components = {
+        [ETxActionComponentType.ListView]: TxActionUnknownListView,
+        [ETxActionComponentType.DetailView]: TxActionUnknownDetailView,
       };
   }
 

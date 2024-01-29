@@ -8,7 +8,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/kit/src/utils/gasFee';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 type IProps = {
   feeInfo: IFeeInfoUnit;

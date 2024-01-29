@@ -17,6 +17,7 @@ export type ITxDetailsProps = {
     iconAfter?: IKeyOfIcons;
     onPress?: () => void;
     imgUrl?: string;
+    isNFT?: boolean;
   }[][];
   isUTXO?: boolean;
   onViewUTXOsPress?: () => void;
@@ -39,11 +40,20 @@ function TxDetails(props: ITxDetailsProps) {
           })}
         >
           {section.map((item) => (
-            <DescriptionList.Item key={item.key}>
+            <DescriptionList.Item
+              key={item.key}
+              space="$5"
+              alignItems="flex-start"
+            >
               <DescriptionList.Item.Key>
                 {intl.formatMessage({ id: item.key })}
               </DescriptionList.Item.Key>
-              <XStack alignItems="center">
+              <XStack
+                alignItems="center"
+                flex={1}
+                flexWrap="wrap"
+                justifyContent="flex-end"
+              >
                 {item.imgUrl && (
                   <Image
                     width="$5"
@@ -51,12 +61,20 @@ function TxDetails(props: ITxDetailsProps) {
                     source={{
                       uri: item.imgUrl,
                     }}
+                    circular={!item.isNFT}
+                    borderRadius={3}
                     mr="$1.5"
                   />
                 )}
                 <DescriptionList.Item.Value
+                  flex={item.imgUrl ? 0 : 1}
                   iconAfter={item.iconAfter}
                   onPress={item.onPress}
+                  textProps={{
+                    flex: 1,
+                    numberOfLines: 2,
+                    alignContent: 'flex-start',
+                  }}
                 >
                   {item.value}
                 </DescriptionList.Item.Value>

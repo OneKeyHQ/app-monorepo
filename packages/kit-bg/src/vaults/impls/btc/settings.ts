@@ -71,6 +71,7 @@ const settings: IVaultSettings = {
   isUtxo: true,
   NFTEnabled: false,
   nonceRequired: false,
+  editFeeEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

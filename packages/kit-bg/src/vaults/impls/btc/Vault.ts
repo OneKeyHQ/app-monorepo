@@ -27,7 +27,7 @@ import type {
   INetworkAccountAddressDetail,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';

@@ -1,57 +1,32 @@
-import { memo, useCallback } from 'react';
+import { memo, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page, Stack, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { Page, YStack } from '@onekeyhq/components';
 import {
-  useSendSelectedFeeInfoAtom,
+  useSendConfirmActions,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
 
-import { SendActions } from '../../components/SendActions';
-import { EModalSendRoutes } from '../../router';
+import SendConfirmActionsContainer from './SendConfirmActionsContainer';
+import TxActionsContainer from './TxActionsContainer';
+import TxFeeContainer from './TxFeeContainer';
 
-import { TxActionsContainer } from './TxActionsContainer';
-import { TxFeeContainer } from './TxFeeContainer';
-
-import type { IModalSendParamList } from '../../router';
+import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {
   const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  const { updateUnsignedTxs } = useSendConfirmActions().current;
   const { accountId, networkId, unsignedTxs } = route.params;
 
-  const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
-
-  const handleConfirm = useCallback(async () => {
-    const newUnsignedTxs = [];
-    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      const unsignedTx = unsignedTxs[i];
-      const newUnsignedTx =
-        await backgroundApiProxy.serviceSend.updateUnsignedTx({
-          accountId,
-          networkId,
-          unsignedTx,
-          feeInfo: sendSelectedFeeInfo,
-        });
-
-      newUnsignedTxs.push(newUnsignedTx);
-    }
-
-    navigation.push(EModalSendRoutes.SendProgress, {
-      networkId,
-      accountId,
-      unsignedTxs: newUnsignedTxs,
-    });
-  }, [accountId, navigation, networkId, sendSelectedFeeInfo, unsignedTxs]);
+  useEffect(
+    () => updateUnsignedTxs(unsignedTxs),
+    [unsignedTxs, updateUnsignedTxs],
+  );
 
   return (
     <Page scrollEnabled>
@@ -59,27 +34,15 @@ function SendConfirmContainer() {
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
       <Page.Body>
-        <YStack space="$5" px="$5">
-          <TxActionsContainer
-            accountId={accountId}
-            networkId={networkId}
-            unsignedTxs={unsignedTxs}
-          />
+        <YStack space="$4" px="$5">
+          <TxActionsContainer accountId={accountId} networkId={networkId} />
+          <TxFeeContainer accountId={accountId} networkId={networkId} />
         </YStack>
       </Page.Body>
-      <Page.Footer>
-        <Stack padding="$5">
-          <TxFeeContainer
-            accountId={accountId}
-            networkId={networkId}
-            unsignedTxs={unsignedTxs}
-          />
-          <SendActions
-            onConfirm={handleConfirm}
-            onCancel={() => navigation.popStack()}
-          />
-        </Stack>
-      </Page.Footer>
+      <SendConfirmActionsContainer
+        accountId={accountId}
+        networkId={networkId}
+      />
     </Page>
   );
 }

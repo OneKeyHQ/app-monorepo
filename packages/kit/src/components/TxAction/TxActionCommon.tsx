@@ -1,23 +1,26 @@
-import { isString } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IListItemProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
-  Image,
   ListItem,
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 
-import type { ITxActionCommonProps } from './types';
+import { Container } from '../Container';
+
+import type {
+  ITxActionCommonDetailViewProps,
+  ITxActionCommonListViewProps,
+} from './types';
 
 function TxActionCommonAvatar({
   avatar,
   tableLayout,
-}: Pick<ITxActionCommonProps, 'avatar' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const icon = avatar?.fallbackIcon;
   const containerSize = tableLayout ? '$8' : '$10';
   const borderRadius = avatar.circular ? '$full' : '$2';
@@ -98,7 +101,7 @@ function TxActionCommonAvatar({
 function TxActionCommonTitle({
   title,
   tableLayout,
-}: Pick<ITxActionCommonProps, 'title' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'title' | 'tableLayout'>) {
   return (
     <SizableText
       numberOfLines={1}
@@ -118,7 +121,7 @@ function TxActionCommonTitle({
 function TxActionCommonDescription({
   description,
   tableLayout,
-}: Pick<ITxActionCommonProps, 'description' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
     <XStack alignItems="center">
       {description?.prefix && (
@@ -151,7 +154,7 @@ function TxActionCommonDescription({
 function TxActionCommonChange({
   change,
   tableLayout,
-}: Pick<ITxActionCommonProps, 'change' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'change' | 'tableLayout'>) {
   return (
     <SizableText
       size="$bodyLgMedium"
@@ -174,7 +177,7 @@ function TxActionCommonChange({
 function TxActionCommonChangeDescription({
   changeDescription,
   tableLayout,
-}: Pick<ITxActionCommonProps, 'changeDescription' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'changeDescription' | 'tableLayout'>) {
   return (
     <SizableText
       size="$bodyMd"
@@ -194,60 +197,19 @@ function TxActionCommonChangeDescription({
   );
 }
 
-function TxActionCommonDetailView(props: {
-  title?: React.ReactNode;
-  icon?: React.ReactNode;
-  content?: React.ReactNode;
-  description?: React.ReactNode;
-}) {
-  const { title, icon, content, description } = props;
-  return (
-    <YStack space="$1" px="$4" py="$3">
-      {isString(title) ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {title}
-        </SizableText>
-      ) : (
-        title
-      )}
-      <XStack space="$2" alignItems="center">
-        {isString(icon) ? (
-          <Image size="$8" circular>
-            <Image.Source src={icon} />
-            <Image.Fallback>
-              <Icon name="ImageMountainSolid" size="$8" />
-            </Image.Fallback>
-          </Image>
-        ) : (
-          icon
-        )}
-        {isString(content) ? (
-          <SizableText size="$headingXl">{content}</SizableText>
-        ) : (
-          content
-        )}
-      </XStack>
-      {isString(description) ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {description}
-        </SizableText>
-      ) : (
-        description
-      )}
-    </YStack>
-  );
-}
-
-function TxActionCommonListView({
-  avatar,
-  title,
-  description,
-  change,
-  changeDescription,
-  pending,
-  tableLayout,
-  ...rest
-}: ITxActionCommonProps & IListItemProps) {
+function TxActionCommonListView(
+  props: ITxActionCommonListViewProps & IListItemProps,
+) {
+  const {
+    avatar,
+    title,
+    description,
+    change,
+    changeDescription,
+    pending,
+    tableLayout,
+    ...rest
+  } = props;
   return (
     <Stack
       {...(tableLayout && {
@@ -302,6 +264,54 @@ function TxActionCommonListView({
         </XStack>
       )}
     </Stack>
+  );
+}
+
+function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
+  const { overview, target, source } = props;
+  const intl = useIntl();
+  return (
+    <Container.Box>
+      <Container.Item
+        title={overview.title}
+        content={
+          <XStack alignItems="center" space="$1">
+            <ListItem.Avatar
+              src={overview.avatar?.fallbackIcon}
+              size="$7"
+              circular={overview.avatar?.circular}
+              fallbackProps={{
+                bg: '$bgStrong',
+                justifyContent: 'center',
+                alignItems: 'center',
+                children: (
+                  <Icon
+                    name={
+                      overview.avatar?.fallbackIcon ?? 'QuestionmarkOutline'
+                    }
+                    color="$iconSubdued"
+                  />
+                ),
+              }}
+            />
+            <SizableText size="$headingLg">{overview.content}</SizableText>
+          </XStack>
+        }
+      />
+      {target && (
+        <Container.Item
+          title={target.title ?? intl.formatMessage({ id: 'content__to' })}
+          content={target.content}
+        />
+      )}
+
+      {source && (
+        <Container.Item
+          title={source.title ?? intl.formatMessage({ id: 'content__from' })}
+          content={source.content}
+        />
+      )}
+    </Container.Box>
   );
 }
 

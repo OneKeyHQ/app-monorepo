@@ -13,10 +13,13 @@ import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { AxiosInstance } from 'axios';
 
 export type IServiceBaseProps = {
   backgroundApi: any;
 };
+
+let client: AxiosInstance | null = null;
 
 @backgroundClass()
 export default class ServiceBase {
@@ -28,6 +31,8 @@ export default class ServiceBase {
 
   getClient = memoizee(
     async (endpointName?: EEndpointName) => {
+      if (client && !endpointName) return client;
+
       let endpoint = '';
       const endpoints = await getEndpoints();
       if (endpointName) {
@@ -51,7 +56,8 @@ export default class ServiceBase {
               baseURL: endpoint,
               timeout: 60 * 1000,
             };
-      const client = axios.create(options);
+      client = axios.create(options);
+
       return client;
     },
     {

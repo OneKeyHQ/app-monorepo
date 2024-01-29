@@ -11,6 +11,7 @@ import {
   Progress,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -57,11 +58,14 @@ function SendProgressContainer() {
       }
 
       onSuccess?.(signedTxs);
+      Toast.success({
+        title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
+      });
     } catch (e) {
       navigation.pop();
       throw e;
     }
-  }, [accountId, navigation, networkId, onSuccess, unsignedTxs]);
+  }, [accountId, intl, navigation, networkId, onSuccess, unsignedTxs]);
 
   const isSendSuccess = currentProgress === unsignedTxs.length;
 
