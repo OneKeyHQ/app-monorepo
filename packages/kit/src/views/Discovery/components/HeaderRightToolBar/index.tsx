@@ -7,9 +7,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerBrowserSingle,

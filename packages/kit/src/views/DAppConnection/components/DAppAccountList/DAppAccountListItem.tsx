@@ -16,12 +16,7 @@ import {
   NetworkSelectorTriggerDappConnection,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import {
-  mockPresetNetworksBtcList,
-  mockPresetNetworksEvmList,
-} from '@onekeyhq/kit-bg/src/mock';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -74,12 +69,13 @@ function DAppAccountListStandAloneItem({
   readonly?: boolean;
   handleAccountChanged?: IHandleAccountChanged;
 }) {
-  const { serviceDApp } = backgroundApiProxy;
+  const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
   console.log('=====>>>>>DAppAccountListStandAloneItem');
   const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
     null,
   );
+  // TODO: change network
   const [scopeNetworks, setScopeNetworks] = useState<IServerNetwork[] | null>(
     null,
   );
@@ -101,12 +97,17 @@ function DAppAccountListStandAloneItem({
       .catch((e) => {
         console.error('getAccountSelectorNum error: ', e);
       });
-    const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
-    const networks = impls?.some((impl) => impl === IMPL_EVM)
-      ? mockPresetNetworksEvmList
-      : mockPresetNetworksBtcList;
-    setScopeNetworks(networks);
-  }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp]);
+    void (async () => {
+      const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
+      if (!Array.isArray(impls)) {
+        setScopeNetworks([]);
+      }
+      const networks = await serviceNetwork.getNetworksByImpls({
+        impls: impls as string[],
+      });
+      setScopeNetworks(networks.networks);
+    })();
+  }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp, serviceNetwork]);
 
   return (
     <YStack space="$2">
@@ -118,7 +119,7 @@ function DAppAccountListStandAloneItem({
           config={{
             sceneName: EAccountSelectorSceneName.discover,
             sceneUrl: $sourceInfo?.origin,
-            networks: Array.isArray(scopeNetworks) ? scopeNetworks : undefined,
+            // networks: scopeNetworks,
           }}
           enabledNum={[accountSelectorNum]}
         >

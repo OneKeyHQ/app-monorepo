@@ -7,7 +7,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';

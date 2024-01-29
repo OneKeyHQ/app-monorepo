@@ -1,11 +1,11 @@
-import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getTimeDurationMs } from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const getEIP155Chains = memoizee(
   () =>
-    serverPresetNetworks
+    getPresetNetworks()
       .filter((n) => n.impl === IMPL_EVM)
       .map((n) => ({
         chainId: n.chainId,
