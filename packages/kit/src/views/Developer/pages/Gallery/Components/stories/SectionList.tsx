@@ -5,12 +5,12 @@ import {
   Button,
   Divider,
   Icon,
-  ListItem,
   SectionList,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { NFTDATA, TOKENDATA } from './ListItem';
 import { Layout } from './utils/Layout';

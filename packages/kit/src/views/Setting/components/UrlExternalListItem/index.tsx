@@ -1,7 +1,7 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
-import { ListItem } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 
 type IUrlExternalListItemProps = {

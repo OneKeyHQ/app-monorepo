@@ -9,12 +9,12 @@ import {
   Heading,
   Icon,
   Image,
-  ListItem,
   Page,
   SizableText,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';

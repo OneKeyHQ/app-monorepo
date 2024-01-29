@@ -1,4 +1,5 @@
-import { Icon, ListItem } from '@onekeyhq/components';
+import { Icon } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';

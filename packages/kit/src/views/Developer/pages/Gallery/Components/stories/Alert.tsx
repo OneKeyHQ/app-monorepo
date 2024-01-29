@@ -85,6 +85,20 @@ const ButtonsGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'fullBleed',
+        element: (
+          <YStack space="$4">
+            <Alert
+              fullBleed
+              title="fullBleed"
+              description="Description here..."
+              icon="PlaceholderOutline"
+              action={{ primary: 'Action' }}
+            />
+          </YStack>
+        ),
+      },
     ]}
   />
 );

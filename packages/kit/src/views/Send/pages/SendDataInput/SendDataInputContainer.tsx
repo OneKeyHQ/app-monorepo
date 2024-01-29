@@ -11,7 +11,6 @@ import {
   Icon,
   IconButton,
   Input,
-  ListItem,
   Page,
   SizableText,
   XStack,
@@ -22,6 +21,7 @@ import {
   AddressInput,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';

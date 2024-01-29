@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Divider, Icon, ListItem, Stack } from '@onekeyhq/components';
+import { Divider, Icon, Stack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import useAppNavigation from '../../hooks/useAppNavigation';

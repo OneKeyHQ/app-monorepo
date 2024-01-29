@@ -1,5 +1,7 @@
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -11,6 +13,8 @@ export interface IWalletAvatarProps {
   size?: SizeTokens;
   img?: IAllWalletAvatarImageNames;
   wallet: IDBWallet | undefined;
+  icon?: IKeyOfIcons;
+  onIconPress?: () => void;
 }
 
 export function WalletAvatarBase({
@@ -39,10 +43,12 @@ export function WalletAvatarBase({
 }
 
 export function WalletAvatar({
-  status,
   size = '$10',
+  status,
   wallet,
   img,
+  icon,
+  onIconPress,
 }: IWalletAvatarProps) {
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
@@ -60,6 +66,29 @@ export function WalletAvatar({
           <Stack borderRadius="$full" w="$2.5" h="$2.5" bg="$bgSuccessStrong" />
         </Stack>
       )}
+      {icon ? (
+        <Stack
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+          bg="$bgApp"
+          p="$px"
+          borderRadius="$full"
+          zIndex="$1"
+          animation="quick"
+          hitSlop={
+            platformEnv.isNative
+              ? { top: 16, left: 16, right: 16, bottom: 16 }
+              : undefined
+          }
+          onPress={onIconPress}
+          hoverStyle={{
+            scale: 1.25,
+          }}
+        >
+          <Icon size="$4.5" name={icon} />
+        </Stack>
+      ) : null}
     </Stack>
   );
 }

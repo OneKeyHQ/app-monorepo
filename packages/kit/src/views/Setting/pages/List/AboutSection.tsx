@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListItem } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 
 import { UrlExternalListItem } from '../../components/UrlExternalListItem';

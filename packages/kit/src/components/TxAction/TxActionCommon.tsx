@@ -1,14 +1,8 @@
 import { useIntl } from 'react-intl';
 
-import type { IListItemProps } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  ListItem,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 
 import { Container } from '../Container';
 

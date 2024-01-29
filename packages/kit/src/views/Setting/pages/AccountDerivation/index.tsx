@@ -1,4 +1,5 @@
-import { ListItem, Page, SizableText, Stack } from '@onekeyhq/components';
+import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 const AccountDerivation = () => (
   <Page>

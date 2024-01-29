@@ -8,7 +8,6 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -19,6 +18,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { AccountAvatar } from '../AccountAvatar';
 
 import { AccountSelectorDialog } from './AccountSelectorDialog';
 import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
@@ -64,7 +64,7 @@ export function AccountSelectorTriggerHome({
       maxWidth="$40"
     >
       <AccountAvatar
-        size="$6"
+        size="small"
         borderRadius="$1"
         indexedAccount={indexedAccount}
         account={account}

@@ -2,26 +2,28 @@ import { useEffect, useState } from 'react';
 
 import CreateAvatarListWorker from './createAvatarList.worker.js';
 
-import type { IUseBlockieImageUri } from './type';
+import type { IUseBlockieImageUri } from './type.js';
 
 // @ts-expect-error
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const worker = new CreateAvatarListWorker() as Worker;
 
-const events = new Map<string, (data: string) => void>();
+const events = new Map<string, ((data: string) => void)[]>();
 
 worker.onmessage = (event: MessageEvent<{ id: string; data: string }>) => {
   const { id, data } = event.data;
-  const callback = events.get(id);
-  if (callback) {
+  const callbacks = events.get(id);
+  callbacks?.forEach((callback) => {
     callback(data);
     events.delete(id);
-  }
+  });
 };
 
 function makeBlockieImageUri(id: string) {
   return new Promise<string>((resolve) => {
-    events.set(id, resolve);
+    const callbacks = events.get(id) || [];
+    callbacks.push(resolve);
+    events.set(id, callbacks);
     worker.postMessage(id);
   });
 }

@@ -8,13 +8,13 @@ import {
   Divider,
   Heading,
   Image,
-  ListItem,
   Page,
   Spinner,
   Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
