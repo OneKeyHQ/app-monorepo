@@ -78,7 +78,6 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       role="button"
       alignItems="center"
       p="$1.5"
-      mx="$-1.5"
       borderRadius="$2"
       hoverStyle={{
         bg: '$bgHover',

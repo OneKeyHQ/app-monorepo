@@ -25,6 +25,17 @@ export function useHandleDiscoveryAccountChanged({
       200,
     ),
   );
+  // Use `useEffect` to listen for changes to `handleAccountChanged` and reset the debounced function.
+  useEffect(() => {
+    debouncedHandleAccountChanged.current = debounce(
+      (a: IAccountSelectorActiveAccountInfo) => handleAccountChanged?.(a),
+      200,
+    );
+    return () => {
+      debouncedHandleAccountChanged.current.cancel();
+    };
+  }, [handleAccountChanged]);
+
   useEffect(() => {
     debouncedHandleAccountChanged.current(activeAccount);
   }, [activeAccount, handleAccountChanged]);

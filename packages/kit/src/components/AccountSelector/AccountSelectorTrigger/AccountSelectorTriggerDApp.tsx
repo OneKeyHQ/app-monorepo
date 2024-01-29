@@ -117,7 +117,6 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
     <XStack
       role="button"
       p="$1.5"
-      mx="$-1.5"
       borderRadius="$2"
       alignItems="center"
       hoverStyle={{

@@ -326,6 +326,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       return Object.entries(injectedItem.connectionMap).map(([k, v]) => ({
         ...v,
         num: Number(k),
+        storageType: 'injectedProvider',
       }));
     }
     const walletConnectItem = rawData.data.walletConnect?.[origin];
@@ -336,6 +337,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       return Object.entries(walletConnectItem.connectionMap).map(([k, v]) => ({
         ...v,
         num: Number(k),
+        storageType: 'walletConnect',
       }));
     }
     return null;

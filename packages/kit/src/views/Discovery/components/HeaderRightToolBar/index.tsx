@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Popover,
@@ -40,7 +40,6 @@ function SingleAccountAndNetworkSelectorTrigger({
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
     async (activeAccount: IAccountSelectorActiveAccountInfo) => {
-      console.log(2);
       await handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
@@ -120,6 +119,12 @@ function AccountSelectorPopoverContent({
   accountsInfo: IConnectionAccountInfoWithNum[];
   afterChangeAccount: () => void;
 }) {
+  useEffect(() => {
+    console.log('Mounted AccountSelectorPopoverContent');
+    return () => {
+      console.log('Unmounted AccountSelectorPopoverContent');
+    };
+  }, []);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   return (
     <YStack p="$5" space="$2">
@@ -213,6 +218,7 @@ function HeaderRightToolBar() {
     return (
       <Popover
         title="Popover Demo"
+        keepChildrenMounted
         open={isOpen}
         onOpenChange={setIsOpen}
         renderTrigger={
