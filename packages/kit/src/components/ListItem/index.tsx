@@ -8,18 +8,30 @@ import { isValidElement } from 'react';
 
 import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
 
-import { Divider } from '../../content';
-import { Icon, Image, SizableText, Stack } from '../../primitives';
-import { IconButton } from '../IconButton';
-
-import type { IIconButtonProps } from '..';
+import {
+  Divider,
+  Icon,
+  IconButton,
+  Image,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
 import type {
   IIconProps,
   IImageFallbackProps,
   IImageProps,
   ISizableTextProps,
   IStackProps,
-} from '../../primitives';
+} from '@onekeyhq/components/src/primitives';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+
+import { AccountAvatar } from '../AccountAvatar';
+
+import type { IAccountAvatarProps } from '../AccountAvatar';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;
@@ -45,10 +57,10 @@ const ListItemAvatarCornerIcon = (props: IListItemAvatarCornerIconProps) => {
   );
 };
 
-type IListItemAvatarCornerImageProps = Omit<
-  IListItemAvatarProps,
-  'children' | 'cornerIconProps'
->;
+type IListItemAvatarCornerImageProps = IImageProps & {
+  fallbackProps?: IImageFallbackProps;
+  fallback?: ReactElement;
+};
 
 const ListItemAvatarCornerImage = ({
   src,
@@ -73,21 +85,24 @@ const ListItemAvatarCornerImage = ({
 );
 
 /* Avatar */
-export type IListItemAvatarProps = {
-  avatar?: ReactElement;
-  fallback?: ReactElement;
-  fallbackProps?: IImageFallbackProps;
-  cornerIconProps?: IListItemAvatarCornerIconProps;
-  cornerImageProps?: IListItemAvatarCornerImageProps;
-  children?: React.ReactNode;
-} & IImageProps;
+export type IListItemAvatarProps = PropsWithChildren<
+  {
+    account?: IDBIndexedAccount | IDBAccount;
+    avatar?: ReactElement;
+    fallback?: ReactElement;
+    fallbackProps?: IImageFallbackProps;
+    cornerIconProps?: IListItemAvatarCornerIconProps;
+    cornerImageProps?: IListItemAvatarCornerImageProps;
+  } & Omit<IAccountAvatarProps, 'children'>
+>;
 
 const ListItemAvatar = (props: IListItemAvatarProps) => {
-  const { children, cornerIconProps, cornerImageProps, avatar } = props;
+  const { children, cornerIconProps, cornerImageProps, avatar, ...restProps } =
+    props;
 
   return (
     <Stack>
-      {avatar}
+      {avatar || <AccountAvatar {...restProps} />}
       {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
       {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
       {children}
