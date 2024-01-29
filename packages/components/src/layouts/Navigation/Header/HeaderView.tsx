@@ -88,7 +88,7 @@ function HeaderView({
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
         alignItems="center"
-        bg={!headerTransparent ? '$bgApp' : 'transparent'}
+        bg={headerTransparent ? 'transparent' : '$bgApp'}
         style={
           headerTransparent ? { position: 'absolute', right: 0, left: 0 } : {}
         }
