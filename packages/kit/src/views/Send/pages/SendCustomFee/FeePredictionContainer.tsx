@@ -8,7 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFeeConfidenceLevelStyle } from '@onekeyhq/kit/src/utils/gasFee';
-import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
+import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/fee';
 
 type IProps = {
   networkId: string;

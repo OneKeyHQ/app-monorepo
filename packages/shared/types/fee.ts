@@ -1,5 +1,12 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
+export enum ESendFeeStatus {
+  Loading = 'Loading',
+  Idle = 'Idle',
+  Success = 'Success',
+  Error = 'Error',
+}
+
 export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',

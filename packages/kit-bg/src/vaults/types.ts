@@ -9,7 +9,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IOnChainHistoryTx,
   IOnChainHistoryTxAsset,
@@ -108,6 +108,7 @@ export type IVaultSettings = {
   isUtxo: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+  editFeeEnabled: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
