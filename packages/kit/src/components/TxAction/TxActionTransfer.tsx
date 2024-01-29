@@ -4,13 +4,8 @@ import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  ListItem,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EDecodedTxDirection,

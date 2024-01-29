@@ -1,16 +1,17 @@
 import { StyleSheet } from 'react-native';
 
-import type { IIconProps, IListItemProps } from '@onekeyhq/components';
+import type { IIconProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Divider,
   Group,
   Icon,
-  ListItem,
   Page,
   Stack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { EOnboardingPages } from '../../router/type';

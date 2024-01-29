@@ -1,10 +1,5 @@
-import {
-  Dialog,
-  ListItem,
-  SizableText,
-  Stack,
-  Switch,
-} from '@onekeyhq/components';
+import { Dialog, SizableText, Stack, Switch } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { WalletOptionItem } from './WalletOptionItem';
 

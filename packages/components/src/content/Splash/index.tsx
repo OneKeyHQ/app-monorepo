@@ -1,4 +1,5 @@
-import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 

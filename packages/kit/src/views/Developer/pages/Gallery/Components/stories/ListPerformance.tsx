@@ -3,14 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBenchmark } from '@shopify/flash-list';
 
 import type { IListViewRef } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  ListItem,
-  ListView,
-  RefreshControl,
-} from '@onekeyhq/components';
+import { Button, Icon, ListView, RefreshControl } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { NFTDATA } from './ListItem';
