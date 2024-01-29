@@ -1,3 +1,4 @@
+import { getAddress } from '@ethersproject/address';
 import BigNumber from 'bignumber.js';
 
 import { secp256k1 } from '@onekeyhq/core/src/secret';
@@ -5,6 +6,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
 import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
@@ -67,4 +69,28 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
   }
 
   return baseTx;
+}
+
+export function validateEvmAddress(
+  address: string,
+): Promise<IAddressValidation> {
+  let isValid = false;
+  let checksumAddress = '';
+
+  try {
+    checksumAddress = getAddress(address);
+    isValid = checksumAddress.length === 42;
+  } catch {
+    return Promise.resolve({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
+  }
+
+  return Promise.resolve({
+    normalizedAddress: checksumAddress.toLowerCase() || '',
+    displayAddress: checksumAddress || '',
+    isValid,
+  });
 }

@@ -4,7 +4,7 @@
 // import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 // import CoreChainCfx from '../chains/cfx';
-// import CoreChainCosmos from '../chains/cosmos';
+import CoreChainCosmos from '../chains/cosmos';
 // import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
@@ -27,6 +27,8 @@ export class CoreChainApiHub {
 
   btc = new CoreChainBtc();
 
+  cosmos = new CoreChainCosmos();
+
   // bch = new CoreChainBch();
 
   // ltc = new CoreChainLtc();
@@ -38,8 +40,6 @@ export class CoreChainApiHub {
   // apt = new CoreChainApt();
 
   // cfx = new CoreChainCfx();
-
-  // cosmos = new CoreChainCosmos();
 
   // xrp = new CoreChainXrp();
 

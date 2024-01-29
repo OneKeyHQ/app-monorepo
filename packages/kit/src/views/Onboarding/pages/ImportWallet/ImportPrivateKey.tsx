@@ -45,7 +45,11 @@ export function ImportPrivateKey() {
         onConfirm={async () => {
           const values = form.getValues();
           const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
-            input: values.input,
+            input: await backgroundApiProxy.servicePassword.encodeSensitiveText(
+              {
+                text: values.input,
+              },
+            ),
             networkId: values.networkId,
           });
           console.log(r, values);
