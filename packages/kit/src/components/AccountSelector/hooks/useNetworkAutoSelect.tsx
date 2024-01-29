@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+
 import {
   useAccountSelectorActions,
-  useAccountSelectorContextData,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
@@ -13,25 +14,28 @@ export function useNetworkAutoSelect({ num }: { num: number }) {
   const {
     selectedAccount: { networkId },
   } = useSelectedAccount({ num });
+
   const [isReady] = useAccountSelectorStorageReadyAtom();
-  const { config } = useAccountSelectorContextData();
-  const networks = useAccountSelectorAvailableNetworks();
-  const defaultNetworkId = config?.defaultNetworkId;
+  const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
+    num,
+  });
 
   const actions = useAccountSelectorActions();
+
+  // ** auto select first network if no network selected yet
   useEffect(() => {
     if (!isReady) {
       return;
     }
-    if (!networks || !networks.length) {
+    if (!networkIds || !networkIds.length) {
       return;
     }
     // TODO move below code to actions
-    const network = networks.find((item) => item.id === networkId);
+    const network = networkIds.find((item) => item === networkId);
     if (!network || !networkId) {
-      let usedNetworkId = networks[0].id;
+      let usedNetworkId = networkIds[0];
       if (defaultNetworkId) {
-        const founded = networks.find((item) => item.id === defaultNetworkId);
+        const founded = networkIds.find((item) => item === defaultNetworkId);
         if (founded) {
           usedNetworkId = defaultNetworkId;
         }
@@ -47,5 +51,19 @@ export function useNetworkAutoSelect({ num }: { num: number }) {
         });
       }
     }
-  }, [actions, defaultNetworkId, isReady, networkId, networks, num]);
+  }, [actions, defaultNetworkId, isReady, networkId, networkIds, num]);
+
+  // TODO UI unmount & mount unexpectedly, cause hooks rerun
+  // TODO useUpdateEffect()
+  // useEffect(() => {
+  //   if (!isReady) {
+  //     return;
+  //   }
+  //   void actions.current.autoSelectNetworkOfOthersWalletAccount({
+  //     num,
+  //     othersWalletAccountId,
+  //   });
+  // }, [actions, isReady, num, othersWalletAccountId]);
+
+  useDebugComponentRemountLog({ name: 'useNetworkAutoSelect' });
 }

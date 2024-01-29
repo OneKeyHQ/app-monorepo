@@ -27,6 +27,7 @@ import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
+  EDBAccountType,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -969,6 +970,21 @@ ssphrase wallet
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
   }): Promise<void> {
     const db = await this.readyDb;
+    accounts.forEach((account) => {
+      if (account.type === EDBAccountType.VARIANT && account.address) {
+        throw new Error('VARIANT account should not set account address');
+      }
+      if (
+        walletId === WALLET_TYPE_IMPORTED ||
+        walletId === WALLET_TYPE_WATCHING
+      ) {
+        if (!account.createAtNetwork) {
+          throw new Error(
+            'imported or watching account should set createAtNetwork',
+          );
+        }
+      }
+    });
     await db.withTransaction(async (tx) => {
       // add account record
       const { added, addedIds } = await db.txAddRecords({

@@ -103,10 +103,12 @@ function HomePage() {
 function HomePageContainer() {
   console.log('HomePageContainer render');
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const res = usePromiseResult(
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    result: { networkIds },
+  } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceNetwork.getNetworksByImpls({
+      backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
         impls: [
           IMPL_BTC,
           IMPL_TBTC,
@@ -114,16 +116,25 @@ function HomePageContainer() {
         ],
       }),
     [],
+    {
+      initResult: {
+        networkIds: [],
+      },
+    },
   );
   return (
     <AccountSelectorProviderMirror
       config={{
         sceneName: EAccountSelectorSceneName.home,
         sceneUrl: '',
-        // networks: res.result?.networks, // support available networks
-        // defaultNetworkId: 'tbtc--0', // default selected networkId
       }}
       enabledNum={[0]}
+      // availableNetworksMap={{
+      //   0: {
+      //     networkIds, // support available networks
+      //     defaultNetworkId: getNetworkIdsMap().tbtc, // default selected networkId
+      //   },
+      // }}
     >
       <HomePage />
       <OnboardingOnMount />

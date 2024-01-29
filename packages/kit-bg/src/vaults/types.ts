@@ -21,13 +21,14 @@ import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
 } from './impls/btc/settings';
+import type { IAccountDeriveInfoMapCosmos } from './impls/cosmos/settings';
 import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBWalletId } from '../dbs/local/types';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
@@ -38,6 +39,11 @@ export enum EVaultKeyringTypes {
 }
 
 // AccountNameInfo
+export type IAccountDeriveInfoItems = {
+  value: string;
+  label: string;
+  item: IAccountDeriveInfo;
+};
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
   idSuffix?: string; // hd-1--m/44'/60'/0'/0/0--LedgerLive
@@ -79,7 +85,8 @@ export type IAccountDeriveInfoMapBase = {
 };
 export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapEvm
-  | IAccountDeriveInfoMapBtc;
+  | IAccountDeriveInfoMapBtc
+  | IAccountDeriveInfoMapCosmos;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
@@ -131,6 +138,8 @@ export type IGetPrivateKeysResult = {
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
+  networks?: string[]; // watching account only available networkId
+  createAtNetwork: string;
   pub?: string;
   xpub?: string;
   name: string;
@@ -139,6 +148,7 @@ export type IPrepareWatchingAccountsParams = {
 export type IPrepareImportedAccountsParams = {
   password: string;
   importedCredential: ICoreImportedCredentialEncryptHex;
+  createAtNetwork: string;
   name: string;
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
@@ -193,6 +203,12 @@ export type IHardwareGetAddressParams = {
 };
 
 export type IGetAddressParams = IHardwareGetAddressParams;
+
+export type IBuildAccountAddressDetailParams = {
+  networkId: string;
+  networkInfo: IVaultSettingsNetworkInfo;
+  account: IDBAccount;
+};
 
 // Internal txInfo ----------------------------------------------
 export type ITransferInfo = {
@@ -281,3 +297,10 @@ export interface IBuildHistoryTxParams {
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxAsset>;
 }
+
+export type IGetPrivateKeyFromImportedParams = {
+  input: string;
+};
+export type IGetPrivateKeyFromImportedResult = {
+  privateKey: string;
+};

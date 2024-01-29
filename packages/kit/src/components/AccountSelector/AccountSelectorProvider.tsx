@@ -14,16 +14,22 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorJotaiProvider } from '../../states/jotai/contexts/accountSelector';
+import {
+  AccountSelectorJotaiProvider,
+  useAccountSelectorAvailableNetworksAtom,
+} from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorEffects } from './AccountSelectorEffects';
 import { AccountSelectorStorageInit } from './AccountSelectorStorageInit';
 import { AccountSelectorStorageReady } from './AccountSelectorStorageReady';
 import { accountSelectorStore } from './accountSelectorStore';
 
-import type { IAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
+import type {
+  IAccountSelectorAvailableNetworksMap,
+  IAccountSelectorContextData,
+} from '../../states/jotai/contexts/accountSelector';
 
-function AccountSelectorProviderCmp({
+function AccountSelectorRootProviderCmp({
   enabledNumStr,
   sceneName,
   sceneUrl,
@@ -55,9 +61,9 @@ function AccountSelectorProviderCmp({
     </AccountSelectorJotaiProvider>
   );
 }
-const AccountSelectorProvider = memo(AccountSelectorProviderCmp);
+const AccountSelectorRootProvider = memo(AccountSelectorRootProviderCmp);
 
-function AccountSelectorProvidersAutoMountCmp() {
+function AccountSelectorRootProvidersAutoMountCmp() {
   const [map] = useAccountSelectorMapAtom();
   const mapEntries = useMemo(() => Object.entries(map), [map]);
   // const mapEntries = [];
@@ -81,7 +87,7 @@ function AccountSelectorProvidersAutoMountCmp() {
           return null;
         }
         return (
-          <AccountSelectorProvider
+          <AccountSelectorRootProvider
             key={key}
             sceneName={sceneName}
             sceneUrl={sceneUrl}
@@ -93,8 +99,8 @@ function AccountSelectorProvidersAutoMountCmp() {
   );
 }
 
-export const AccountSelectorProvidersAutoMount = memo(
-  AccountSelectorProvidersAutoMountCmp,
+export const AccountSelectorRootProvidersAutoMount = memo(
+  AccountSelectorRootProvidersAutoMountCmp,
 );
 
 function AccountSelectorMapTracker({
@@ -153,14 +159,27 @@ function AccountSelectorMapTracker({
 
   return null;
 }
+
+function AccountSelectorAvailableNetworksInit(props: {
+  availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
+}) {
+  const { availableNetworksMap } = props;
+  const [, setMap] = useAccountSelectorAvailableNetworksAtom();
+  useEffect(() => {
+    if (availableNetworksMap) setMap(availableNetworksMap);
+  }, [availableNetworksMap, setMap]);
+  return null;
+}
 export function AccountSelectorProviderMirror({
   children,
   config,
   enabledNum,
+  availableNetworksMap,
 }: {
   children?: any;
   config: IAccountSelectorContextData;
   enabledNum: number[];
+  availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
 }) {
   if (!enabledNum || enabledNum.length <= 0) {
     throw new Error(
@@ -172,7 +191,12 @@ export function AccountSelectorProviderMirror({
     <>
       <AccountSelectorMapTracker config={config} enabledNum={enabledNum} />
       <AccountSelectorJotaiProvider store={store} config={config}>
-        <AccountSelectorStorageReady>{children}</AccountSelectorStorageReady>
+        <AccountSelectorStorageReady>
+          <AccountSelectorAvailableNetworksInit
+            availableNetworksMap={availableNetworksMap}
+          />
+          {children}
+        </AccountSelectorStorageReady>
       </AccountSelectorJotaiProvider>
     </>
   );
