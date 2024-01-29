@@ -40,7 +40,7 @@ const VARIANT_SIZE = {
 type IKeyOfVariantSize = keyof typeof VARIANT_SIZE;
 
 export interface IAccountAvatarProps extends IImageProps {
-  address: string;
+  address?: string;
   size?: IKeyOfVariantSize | SizeTokens;
   networkId?: string;
   account?: IDBAccount;

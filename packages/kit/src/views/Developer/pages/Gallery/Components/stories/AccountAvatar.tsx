@@ -48,13 +48,14 @@ const ToastGallery = () => (
         element: (
           <YStack space="$4" justifyContent="center">
             <AccountAvatar />
+            <AccountAvatar address="0x1111111" />
             <AccountAvatar account={account} />
             <AccountAvatar size="small" />
             <AccountAvatar size="small" account={account} />
-            <AccountAvatar chain="btc" />
-            <AccountAvatar account={account} chain="btc" />
-            <AccountAvatar size="small" chain="btc" />
-            <AccountAvatar size="small" account={account} chain="btc" />
+            <AccountAvatar networkId="btc" />
+            <AccountAvatar account={account} networkId="tbtc--0" />
+            <AccountAvatar size="small" networkId="tbtc--0" />
+            <AccountAvatar size="small" account={account} networkId="tbtc--0" />
           </YStack>
         ),
       },
