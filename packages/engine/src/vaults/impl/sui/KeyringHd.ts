@@ -4,6 +4,7 @@ import {
   Ed25519PublicKey,
   IntentScope,
   JsonRpcProvider,
+  bcs,
   messageWithIntent,
   toB64,
   toSerializedSignature,
@@ -157,7 +158,7 @@ export class KeyringHd extends KeyringHdBase {
       messages.map(async (message) => {
         const messageScope = messageWithIntent(
           IntentScope.PersonalMessage,
-          hexToBytes(message.message),
+          bcs.ser(['vector', 'u8'], hexToBytes(message.message)).toBytes(),
         );
         const digest = blake2b(messageScope, { dkLen: 32 });
         const [signature] = await signer.sign(Buffer.from(digest));
