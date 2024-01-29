@@ -34,7 +34,6 @@ export interface IDialogFooterProps extends PropsWithChildren {
   confirmButtonProps?: IDialogButtonProps;
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
-  // 
   onCancel?: () => void;
 }
 
