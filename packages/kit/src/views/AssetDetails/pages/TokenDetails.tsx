@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -22,9 +23,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IStackProps } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -78,19 +77,25 @@ export function TokenDetails() {
   );
 
   const network = usePromiseResult(
-    () => mockGetNetwork({ networkId }),
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   ).result;
 
   const tokenDetails = usePromiseResult(async () => {
     const account = await getAccount();
     if (!account || !network) return;
-    const r = backgroundApiProxy.serviceToken.fetchTokenDetail({
+    const r = await backgroundApiProxy.serviceToken.fetchTokenDetails({
       networkId,
       accountAddress: account.address,
       address: tokenAddress,
       isNative: !!isNative,
     });
+
+    void backgroundApiProxy.serviceToken.updateLocalTokens({
+      networkId,
+      tokens: [r.info],
+    });
+
     return r;
   }, [getAccount, isNative, network, networkId, tokenAddress]).result;
   const tokenHistory = usePromiseResult(async () => {

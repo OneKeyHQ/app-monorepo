@@ -5,17 +5,18 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import localDb from '../../dbs/local/localDb';
-import { mockGetNetwork } from '../../mock';
 import { getVaultSettings, getVaultSettingsNetworkInfo } from '../settings';
 
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
-import type { IVaultFactoryOptions } from '../types';
+import type { IVaultOptions } from '../types';
 
 export class VaultContext {
-  constructor(options: IVaultFactoryOptions) {
+  constructor(options: IVaultOptions) {
     this.options = options;
     this.networkId = options.networkId || '';
     this.accountId = options.accountId || '';
+    this.backgroundApi = options.backgroundApi;
     this.walletId =
       options.walletId ||
       (this.accountId
@@ -26,7 +27,9 @@ export class VaultContext {
     }
   }
 
-  options: IVaultFactoryOptions;
+  backgroundApi: IBackgroundApi;
+
+  options: IVaultOptions;
 
   networkId: string; // "evm--97"
 
@@ -75,7 +78,10 @@ export class VaultContext {
 
   async getNetwork({ cached }: { cached?: boolean } = {}) {
     if (!cached || !this._network || this._network.id !== this.networkId) {
-      this._network = await mockGetNetwork({ networkId: this.networkId });
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: this.networkId,
+      });
+      this._network = network;
     }
     return this._network;
   }

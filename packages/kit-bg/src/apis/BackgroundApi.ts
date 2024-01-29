@@ -4,6 +4,7 @@
 // eslint-disable-next-line import/order
 
 import simpleDb from '../dbs/simple/simpleDb';
+import { vaultFactory } from '../vaults/factory';
 
 import BackgroundApiBase from './BackgroundApiBase';
 
@@ -12,6 +13,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
     super();
+    vaultFactory.setBackgroundApi(this);
     void this.serviceBootstrap.init();
   }
 
@@ -57,6 +59,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceDiscovery', { value });
+    return value;
+  }
+
+  get serviceNetwork() {
+    const Service =
+      require('../services/ServiceNetwork') as typeof import('../services/ServiceNetwork');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceNetwork', { value });
     return value;
   }
 
@@ -180,13 +192,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceAddress() {
-    const ServiceAddress =
-      require('../services/ServiceAddress') as typeof import('../services/ServiceAddress');
-    const value = new ServiceAddress.default({
+  get serviceAccountProfile() {
+    const ServiceAccountProfile =
+      require('../services/ServiceAccountProfile') as typeof import('../services/ServiceAccountProfile');
+    const value = new ServiceAccountProfile.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'serviceAddress', { value });
+    Object.defineProperty(this, 'serviceAccountProfile', { value });
     return value;
   }
 

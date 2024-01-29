@@ -16,7 +16,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
@@ -82,7 +82,8 @@ function SendCustomFeeContainer() {
   );
 
   const shouldRenderFeePrediction = useMemo(
-    () => [OnekeyNetwork.eth, OnekeyNetwork.polygon].includes(networkId),
+    () =>
+      [getNetworkIdsMap().eth, getNetworkIdsMap().polygon].includes(networkId),
     [networkId],
   );
 

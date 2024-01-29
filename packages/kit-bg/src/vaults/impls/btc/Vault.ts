@@ -41,6 +41,9 @@ import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildTxHelperParams,
+  IBuildUnsignedTxParams,
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
@@ -68,21 +71,20 @@ export default class VaultBtc extends VaultBase {
 
   override settings: IVaultSettings = settings;
 
-  override async buildEncodedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IEncodedTxBtc> {
-    const { transfersInfo } = options;
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+  ): Promise<IEncodedTxBtc> {
+    const { transfersInfo } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
   }
 
-  override async buildUnsignedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IUnsignedTxPro> {
-    const { transfersInfo } = options;
-    const encodedTx = await this.buildEncodedTx({ transfersInfo });
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx(encodedTx);
     }
