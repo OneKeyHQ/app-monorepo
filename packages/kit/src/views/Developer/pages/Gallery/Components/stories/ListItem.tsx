@@ -1,13 +1,8 @@
 import { useState } from 'react';
 
 import type { ISwitchProps } from '@onekeyhq/components';
-import {
-  Icon,
-  ListItem,
-  SizableText,
-  Stack,
-  Switch,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, Switch } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { Layout } from './utils/Layout';
 
@@ -81,7 +76,7 @@ export const NFTDATA = [
   },
   {
     src: '',
-    title: 'Critter Osar',
+    title: 'Critter Osa',
     subtitle: 'Magic Eden · 5/22/23, 1:33 PM',
     amount: '3.186 SOL',
     value: '$52.82',

@@ -1,11 +1,6 @@
-import type { IListItemProps } from '@onekeyhq/components';
-import {
-  Icon,
-  ListItem,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenBalanceView } from './TokenBalanceView';

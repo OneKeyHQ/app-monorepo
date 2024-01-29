@@ -1,5 +1,6 @@
-import { ActionList, ListItem } from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
   IDBAccount,
