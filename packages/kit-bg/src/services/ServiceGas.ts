@@ -59,7 +59,7 @@ class ServiceGas extends ServiceBase {
   @backgroundMethod()
   async getIsEditFeeEnabled({ networkId }: { networkId: string }) {
     const settings = await getVaultSettings({ networkId });
-    return settings.NFTEnabled;
+    return settings.editFeeEnabled;
   }
 }
 

@@ -289,21 +289,12 @@ function TxFeeContainer(props: IProps) {
   }, [selectedFee, updateSendSelectedFeeInfo]);
 
   useEffect(() => {
-    if (
-      new BigNumber(nativeTokenTransferAmount ?? 0)
+    updateSendTxStatus({
+      isLoadingNativeBalance,
+      isInsufficientNativeBalance: new BigNumber(nativeTokenTransferAmount ?? 0)
         .plus(selectedFee?.totalNative ?? 0)
-        .gt(nativeToken?.balanceParsed ?? 0)
-    ) {
-      updateSendTxStatus({
-        isLoadingNativeBalance,
-        isInsufficientNativeBalance: true,
-      });
-    } else {
-      updateSendTxStatus({
-        isLoadingNativeBalance,
-        isInsufficientNativeBalance: false,
-      });
-    }
+        .gt(nativeToken?.balanceParsed ?? 0),
+    });
   }, [
     isLoadingNativeBalance,
     nativeToken,

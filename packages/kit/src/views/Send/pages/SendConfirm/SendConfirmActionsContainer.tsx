@@ -28,7 +28,7 @@ function SendConfirmActionsContainer(props: IProps) {
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  const tableLayout = useMemo(() => media.gtLg, [media.gtLg]);
+  const tableLayout = media.gtLg;
 
   const handleOnConfirm = useCallback(async () => {
     const newUnsignedTxs = [];
