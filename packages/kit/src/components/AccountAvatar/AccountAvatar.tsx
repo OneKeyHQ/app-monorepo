@@ -14,7 +14,9 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -38,8 +40,9 @@ const VARIANT_SIZE = {
 type IKeyOfVariantSize = keyof typeof VARIANT_SIZE;
 
 export interface IAccountAvatarProps extends IImageProps {
+  address: string;
   size?: IKeyOfVariantSize | SizeTokens;
-  chain?: string;
+  networkId?: string;
   account?: IDBAccount;
   indexedAccount?: IDBIndexedAccount;
   fallback?: ReactElement;
@@ -64,16 +67,36 @@ function Fallback({
   );
 }
 
+function ChainImage({
+  networkId,
+  size,
+}: {
+  networkId?: string;
+  size: IImageProps['size'];
+}) {
+  const { serviceNetwork } = backgroundApiProxy;
+  const res = usePromiseResult(
+    () =>
+      networkId
+        ? serviceNetwork.getNetwork({ networkId })
+        : Promise.resolve({ logoURI: '' }),
+    [networkId, serviceNetwork],
+  );
+  const { logoURI } = res.result || {};
+  return logoURI ? <Image size={size} src={logoURI} /> : null;
+}
+
 function BasicAccountAvatar({
   size = 'default',
   src,
+  address,
   source,
   account,
   indexedAccount,
   fallback,
   fallbackProps,
   circular,
-  chain,
+  networkId,
   ...restProps
 }: IAccountAvatarProps) {
   const isValidSize = !!VARIANT_SIZE[size as IKeyOfVariantSize];
@@ -85,6 +108,9 @@ function BasicAccountAvatar({
           containerSize: size || VARIANT_SIZE.default.containerSize,
         };
   const content = useMemo(() => {
+    if (address) {
+      return <MemoHashImageSource id={address} />;
+    }
     if (indexedAccount) {
       return (
         <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
@@ -94,7 +120,7 @@ function BasicAccountAvatar({
       return <MemoHashImageSource id={account.address} />;
     }
     return <Image.Source src={src} source={source} />;
-  }, [account, indexedAccount, source, src]);
+  }, [account, address, indexedAccount, source, src]);
   return (
     <Stack
       w={containerSize}
@@ -121,7 +147,7 @@ function BasicAccountAvatar({
           ))}
       </Image>
 
-      {chain ? (
+      {networkId ? (
         <Stack
           position="absolute"
           justifyContent="center"
@@ -135,10 +161,7 @@ function BasicAccountAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          <Image
-            size={logoSize}
-            src={getPresetNetworks().find((i) => i.code === chain)?.logoURI}
-          />
+          <ChainImage networkId={networkId} size={logoSize} />
         </Stack>
       ) : null}
     </Stack>
