@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
-import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -253,12 +252,6 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
     });
     return this.broadcastTransaction({ networkId, signedTx });
-  }
-
-  @backgroundMethod()
-  public async getIsNonceRequired({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings.nonceRequired;
   }
 
   @backgroundMethod()

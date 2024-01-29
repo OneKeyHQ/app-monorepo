@@ -17,11 +17,14 @@ function NFTListContainer(props: IProps) {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
-  const isNFTEnabled = usePromiseResult(() => {
+  const isNFTEnabled = usePromiseResult(async () => {
     if (!network) return Promise.resolve(false);
-    return backgroundApiProxy.serviceNFT.getIsNetworkNFTEnabled({
-      networkId: network.id,
-    });
+    const settings = await backgroundApiProxy.serviceNetwork.getNetworkSettings(
+      {
+        networkId: network.id,
+      },
+    );
+    return settings.NFTEnabled;
   }, [network]).result;
 
   const nfts = usePromiseResult(

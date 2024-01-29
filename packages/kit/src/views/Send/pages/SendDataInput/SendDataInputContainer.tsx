@@ -44,8 +44,13 @@ function SendDataInputContainer() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
-  const { serviceNFT, serviceSend, serviceAccount, serviceToken } =
-    backgroundApiProxy;
+  const {
+    serviceNFT,
+    serviceSend,
+    serviceAccount,
+    serviceToken,
+    serviceNetwork,
+  } = backgroundApiProxy;
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
@@ -205,9 +210,11 @@ function SendDataInputContainer() {
         transfersInfo,
       });
 
-      const isNonceRequired = await serviceSend.getIsNonceRequired({
-        networkId,
-      });
+      const isNonceRequired = (
+        await serviceNetwork.getNetworkSettings({
+          networkId,
+        })
+      ).nonceRequired;
 
       if (isNonceRequired) {
         const nonce = await serviceSend.getNextNonce({
@@ -247,6 +254,7 @@ function SendDataInputContainer() {
     navigation,
     networkId,
     nftDetails,
+    serviceNetwork,
     serviceSend,
     tokenDetails,
   ]);

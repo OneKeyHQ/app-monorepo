@@ -11,8 +11,6 @@ import type {
   IFetchNFTDetailsResp,
 } from '@onekeyhq/shared/types/nft';
 
-import { getVaultSettings } from '../vaults/settings';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -42,12 +40,6 @@ class ServiceNFT extends ServiceBase {
       },
     );
     return resp.data.data;
-  }
-
-  @backgroundMethod()
-  public async getIsNetworkNFTEnabled({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings.NFTEnabled;
   }
 
   @backgroundMethod()

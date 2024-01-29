@@ -106,6 +106,7 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
 
   isUtxo: boolean;
+  isSingleToken: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
   editFeeEnabled: boolean;

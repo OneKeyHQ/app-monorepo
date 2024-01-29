@@ -43,10 +43,11 @@ function useSendConfirm(params: IParams) {
           ...params,
         });
 
-      const isNonceRequired =
-        await backgroundApiProxy.serviceSend.getIsNonceRequired({
+      const isNonceRequired = (
+        await backgroundApiProxy.serviceNetwork.getNetworkSettings({
           networkId,
-        });
+        })
+      ).nonceRequired;
 
       if (isNonceRequired && isNil(unsignedTx.nonce)) {
         const account = await backgroundApiProxy.serviceAccount.getAccount({
