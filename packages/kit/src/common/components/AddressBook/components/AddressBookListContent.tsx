@@ -103,7 +103,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   );
 };
 
-const RenderAddressBookEmpty = () => {
+const RenderEmptyAddressBook = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   return (
@@ -117,6 +117,17 @@ const RenderAddressBookEmpty = () => {
           navigation.push(EModalAddressBookRoutes.AddItemModal);
         },
       }}
+    />
+  );
+};
+
+const RenderNoSearchResult = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({ id: 'content__no_results' })}
+      description="No match found for your search. Try to add this contact."
     />
   );
 };
@@ -160,23 +171,27 @@ export const AddressBookListContent = ({
       };
     }) => (
       <SectionList.SectionHeader
-        title={section.title}
+        title={section.title.toUpperCase()}
         justifyContent="space-between"
       >
-        <IconButton
-          size="small"
-          variant="tertiary"
-          icon={
-            section.isFold ? 'ChevronTopSmallOutline' : 'ChevronDownSmallSolid'
-          }
-          onPress={() => onToggle(section.title)}
-          testID={`address-cat-${section.title}-${
-            section.isFold ? 'fold' : 'unfold'
-          }`}
-        />
+        {!searchKey ? (
+          <IconButton
+            size="small"
+            variant="tertiary"
+            testID={`address-cat-${section.title}-${
+              section.isFold ? 'fold' : 'unfold'
+            }`}
+            icon={
+              section.isFold
+                ? 'ChevronTopSmallOutline'
+                : 'ChevronDownSmallSolid'
+            }
+            onPress={() => onToggle(section.title)}
+          />
+        ) : null}
       </SectionList.SectionHeader>
     ),
-    [onToggle],
+    [onToggle, searchKey],
   );
 
   const renderItem = useCallback(
@@ -189,24 +204,26 @@ export const AddressBookListContent = ({
     ),
     [showActions, onPressItem],
   );
-  const memoSections = useMemo(
-    () =>
-      sections.map((item) => {
-        const isFold = foldItems.includes(item.title);
-        const data = searchKey
-          ? item.data.filter(
-              (o) =>
-                o.address.includes(searchKey) || o.name.includes(searchKey),
-            )
-          : item.data;
-        return {
-          title: item.title,
-          data: isFold ? [] : data,
-          isFold,
-        };
-      }),
-    [foldItems, sections, searchKey],
-  );
+  const memoSections = useMemo(() => {
+    if (searchKey) {
+      const result = sections.map((item) => {
+        const data = item.data.filter(
+          (o) => o.address.includes(searchKey) || o.name.includes(searchKey),
+        );
+        return { title: item.title, data };
+      });
+      return result.filter((o) => o.data.length > 0);
+    }
+    return sections.map((item) => {
+      const isFold = foldItems.includes(item.title);
+      const { data } = item;
+      return {
+        title: item.title,
+        data: isFold ? [] : data,
+        isFold,
+      };
+    });
+  }, [foldItems, sections, searchKey]);
 
   return (
     <SectionList
@@ -215,7 +232,9 @@ export const AddressBookListContent = ({
       sections={memoSections}
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
-      ListEmptyComponent={RenderAddressBookEmpty}
+      ListEmptyComponent={
+        sections.length ? RenderNoSearchResult : RenderEmptyAddressBook
+      }
       keyExtractor={(item: unknown) => (item as IAddressItem).address}
     />
   );

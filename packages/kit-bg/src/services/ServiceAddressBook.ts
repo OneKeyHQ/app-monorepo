@@ -53,9 +53,13 @@ class ServiceAddressBook extends ServiceBase {
       throw new Error('Invalid address');
     }
     const { items, password } = await this.getItemsAndPassword();
-    const exist = items.find((item) => item.address === newObj.address);
-    if (exist) {
+    const addressExist = await this.findItem({ address: newObj.address });
+    if (addressExist) {
       throw new Error('Address already exist');
+    }
+    const nameExist = await this.findItem({ name: newObj.name });
+    if (nameExist) {
+      throw new Error('Name already exist');
     }
     newObj.id = generateUUID();
     items.push(newObj);
@@ -67,15 +71,23 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async editAddressBookItem(item: IAddressItem) {
-    if (!item.id) {
+  public async editAddressBookItem(obj: IAddressItem) {
+    if (!obj.id) {
       throw new Error('Missing id');
     }
     const { items, password } = await this.getItemsAndPassword();
-    const dataIndex = items.findIndex((i) => i.id === item.id);
+    const addressExist = await this.findItem({ address: obj.address });
+    if (addressExist && addressExist.id !== obj.id) {
+      throw new Error('Address already exist');
+    }
+    const nameExist = await this.findItem({ name: obj.name });
+    if (nameExist && nameExist.id !== obj.id) {
+      throw new Error('Name already exist');
+    }
+    const dataIndex = items.findIndex((i) => i.id === obj.id);
     if (dataIndex >= 0) {
       const data = items[dataIndex];
-      const newObj = { ...data, ...item };
+      const newObj = { ...data, ...obj };
       items[dataIndex] = newObj;
       const text = encodeSensitiveText({
         text: JSON.stringify(items),
@@ -124,7 +136,7 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async findItem(params: {
-    networkId: string;
+    networkId?: string;
     address?: string;
     name?: string;
   }): Promise<IAddressItem | undefined> {
@@ -133,12 +145,16 @@ class ServiceAddressBook extends ServiceBase {
     }
     const { items } = await this.getItemsAndPassword();
     const item = items.find((i) => {
-      let match = i.networkId === params.networkId;
+      let match = true;
+      if (params.networkId) {
+        match = i.networkId === params.networkId;
+      }
       if (params.address) {
-        match = match && i.address === params.address;
+        match =
+          match && i.address.toLowerCase() === params.address.toLowerCase();
       }
       if (params.name) {
-        match = match && i.name === params.name;
+        match = match && i.name.toLowerCase() === params.name.toLowerCase();
       }
       return match;
     });

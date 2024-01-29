@@ -13,7 +13,7 @@ import type { IAddressItem } from '../../type';
 const defaultValues: IAddressItem = {
   name: '',
   address: '',
-  networkId: 'evm--1',
+  networkId: 'btc--0',
 };
 
 const AddItemPage = () => {

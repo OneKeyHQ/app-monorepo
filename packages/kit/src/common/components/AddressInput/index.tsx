@@ -23,14 +23,12 @@ import {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EModalAddressBookRoutes } from '@onekeyhq/kit/src/common/components/AddressBook/router/types';
 import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { useAddressBookPick } from '../AddressBook/hooks/useAddressBook';
 
 type IAddressPluginsOptions = {
   clipboard?: boolean;
@@ -83,18 +81,15 @@ type IContactsPluginProps = IAddressPluginProps & {
 };
 
 const ContactsPlugin: FC<IContactsPluginProps> = ({ onChange, networkId }) => {
-  const navigation = useAppNavigation();
+  const pick = useAddressBookPick();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AddressBookModal, {
-      screen: EModalAddressBookRoutes.PickItemModal,
-      params: {
-        networkId,
-        onPick: (item: IAddressItem) => {
-          onChange?.(item.address);
-        },
+    void pick({
+      networkId,
+      onPick: (item: IAddressItem) => {
+        onChange?.(item.address);
       },
     });
-  }, [onChange, navigation, networkId]);
+  }, [onChange, pick, networkId]);
   return (
     <IconButton
       onPress={onPress}

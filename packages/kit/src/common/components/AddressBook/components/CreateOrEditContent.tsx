@@ -5,11 +5,14 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Form,
+  Icon,
   IconButton,
   Input,
   Page,
   Select,
+  SizableText,
   Stack,
+  XStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -102,13 +105,12 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               validate: async (text) => {
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
-                    networkId,
                     name: text,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;
                 }
-                return 'address book name exist';
+                return 'The name already exists.';
               },
             }}
           >
@@ -120,25 +122,34 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             rules={{
               validate: async (output: IAddressInputValue) => {
                 if (!output.resolved) {
-                  return 'invalid address';
+                  return 'Invalid address';
                 }
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
-                    networkId,
                     address: output.resolved,
                   });
                 if (!searched || item.id === searched.id) {
                   return undefined;
                 }
-                return 'address book item address exist';
+                return 'The address already exists.';
               },
             }}
+            description={
+              networkId.startsWith('evm--') ? (
+                <XStack alignItems="center" mt="$1">
+                  <Icon size="$4" name="CheckRadioSolid" />
+                  <SizableText size="$bodyMd" ml="$1">
+                    Also add to additional EVM-compatible Chains
+                  </SizableText>
+                </XStack>
+              ) : null
+            }
           >
             <AddressInput
               networkId={networkId}
               placeholder="Address"
-              enableNameResolve={false}
               testID="address-form-address"
+              enableNameResolve
             />
           </Form.Field>
         </Form>
@@ -146,6 +157,8 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       <Page.Footer>
         <Stack p="$5">
           <Button
+            variant="primary"
+            loading={form.formState.isSubmitting}
             disabled={!form.formState.isValid}
             onPress={form.handleSubmit(onSave)}
             testID="address-form-save"

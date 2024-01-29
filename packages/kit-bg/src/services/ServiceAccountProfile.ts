@@ -84,7 +84,6 @@ class ServiceAccountProfile extends ServiceBase {
         if (resolveNames) {
           result.resolveAddress = resolveNames.names?.[0].value;
           result.resolveOptions = resolveNames.names?.map((o) => o.value);
-
           if (!result.isValid) {
             result.isValid = await this.validateAddress({
               networkId,

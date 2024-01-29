@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   EModalAddressBookRoutes,
@@ -38,13 +38,22 @@ const EditItemPage = () => {
 
   const onRemove = useCallback(
     async (item: IAddressItem) => {
-      if (item.id) {
-        await backgroundApiProxy.serviceAddressBook.removeAddressBookItem(
-          item.id,
-        );
-        Toast.success({ title: 'Delete Successful' });
-        navigation.pop();
-      }
+      Dialog.show({
+        title: 'Delete Contact',
+        icon: 'DeleteOutline',
+        description:
+          'Please confirm whether to delete this contact from the address book. Type "Confirm" to delete.',
+        tone: 'destructive',
+        onConfirm: async () => {
+          if (item.id) {
+            await backgroundApiProxy.serviceAddressBook.removeAddressBookItem(
+              item.id,
+            );
+            Toast.success({ title: 'Delete Successful' });
+            navigation.pop();
+          }
+        },
+      });
     },
     [navigation],
   );
