@@ -79,7 +79,7 @@ export const Toast = {
   message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
-  show: ({ onClose, children, onDismiss }: IShowToasterProps) => {
+  show: ({ onClose, children }: IShowToasterProps) => {
     let instanceRef: RefObject<IShowToasterInstance> | undefined =
       createRef<IShowToasterInstance>();
     let portalRef:
@@ -90,7 +90,6 @@ export const Toast = {
 
     const handleClose = () =>
       new Promise<void>((resolve) => {
-        void onClose?.();
         // Remove the React node after the animation has finished.
         setTimeout(() => {
           if (instanceRef) {
@@ -100,14 +99,17 @@ export const Toast = {
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          onDismiss?.();
+          void onClose?.();
           resolve();
         }, 300);
       });
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowToaster ref={instanceRef} onClose={handleClose}>
+        <ShowToaster
+          ref={instanceRef}
+          onClose={handleClose}
+        >
           {children}
         </ShowToaster>,
       ),

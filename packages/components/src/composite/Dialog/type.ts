@@ -76,8 +76,6 @@ export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
   /* Run it after dialog is closed  */
   onClose?: () => void | Promise<void>;
-  /* Run it after the closing animation of the Dialog is finished  */
-  onDismiss?: () => void | Promise<void>;
 }
 
 export type IDialogConfirmProps = Omit<

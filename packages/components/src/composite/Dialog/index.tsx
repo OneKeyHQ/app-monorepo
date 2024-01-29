@@ -354,11 +354,7 @@ const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({
-  onClose,
-  onDismiss,
-  ...props
-}: IDialogShowProps): IDialogInstance {
+function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
   let portalRef:
@@ -368,8 +364,6 @@ function DialogShow({
     | undefined;
   const handleClose = () =>
     new Promise<void>((resolve) => {
-      void onClose?.();
-      // Remove the React node after the animation has finished.
       setTimeout(() => {
         if (instanceRef) {
           instanceRef = undefined;
@@ -378,7 +372,7 @@ function DialogShow({
           portalRef.current.destroy();
           portalRef = undefined;
         }
-        void onDismiss?.();
+        void onClose?.();
         resolve();
       }, 300);
     });
