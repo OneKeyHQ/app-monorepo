@@ -7,7 +7,7 @@ import { Badge, ListItem, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFeeConfidenceLevelStyle } from '@onekeyhq/kit/src/utils/gasFee';
-import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/gas';
+import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/fee';
 
 type IProps = {
   networkId: string;

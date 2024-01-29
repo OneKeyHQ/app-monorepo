@@ -29,7 +29,7 @@ export function getOnChainHistoryTxAssetInfo({
   tokens: Record<string, IOnChainHistoryTxAsset>;
 }) {
   let asset = null;
-  let image = '';
+  let icon = '';
   let name = '';
   let symbol = '';
   let address = '';
@@ -44,14 +44,14 @@ export function getOnChainHistoryTxAssetInfo({
     const nft = asset as IOnChainHistoryTxNFT;
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';
-    image = nft.metadata?.image ?? '';
+    icon = nft.metadata?.image ?? '';
     address = nft.collectionAddress;
     isNFT = true;
   } else if (asset && !isNil((asset as IOnChainHistoryTxToken).info?.address)) {
     const token = (asset as IOnChainHistoryTxToken).info;
     name = token.name;
     symbol = token.symbol;
-    image = token.logoURI ?? '';
+    icon = token.logoURI ?? '';
     address = token.address;
     isNFT = false;
   }
@@ -59,7 +59,7 @@ export function getOnChainHistoryTxAssetInfo({
     name,
     address,
     symbol,
-    image,
+    icon,
     isNFT,
   };
 }

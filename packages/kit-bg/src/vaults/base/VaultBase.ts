@@ -205,7 +205,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const { accountId, networkId, onChainHistoryTx, tokens } = params;
 
     try {
-      const action = this.buildHistoryTxAction({
+      const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
         tokens,
       });
@@ -245,7 +245,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
   }
 
-  buildHistoryTxAction({
+  async buildHistoryTxAction({
     tx,
     tokens,
   }: {
@@ -253,7 +253,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
-      return this.buildHistoryTxDefaultAction({ tx, tokens });
+      if (tx.type) return this.buildHistoryTxFunctionCallAction({ tx });
+      return this.buildHistoryTxUnknownAction({ tx });
     }
 
     if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
@@ -263,20 +264,37 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return this.buildHistoryTransferAction({ tx, tokens });
   }
 
-  buildHistoryTxDefaultAction({
+  async buildHistoryTxFunctionCallAction({
     tx,
-    tokens,
   }: {
     tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
-  }): IDecodedTxAction {
+  }): Promise<IDecodedTxAction> {
+    const network = await this.getNetwork();
     return {
       type: EDecodedTxActionType.FUNCTION_CALL,
       functionCall: {
-        target: tx.to,
+        from: tx.from,
+        to: tx.to,
         functionName: tx.type,
         functionHash: tx.functionCode,
         args: tx.params,
+        icon: network.logoURI,
+      },
+    };
+  }
+
+  async buildHistoryTxUnknownAction({
+    tx,
+  }: {
+    tx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxAction> {
+    const network = await this.getNetwork();
+    return {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: tx.from,
+        to: tx.to,
+        icon: network.logoURI,
       },
     };
   }
@@ -317,7 +335,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
-    const { image, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
+    const { icon, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
       tokenAddress: transfer.token,
       tokens,
     });
@@ -328,7 +346,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       token: transfer.token,
       amount: transfer.amount,
       label: transfer.label.label,
-      image,
+      icon,
       symbol,
       isNFT,
     };
@@ -350,9 +368,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         label: approve.label.label ?? tx.label.label,
-        owner: approve.from,
-        spender: approve.to,
-        tokenIcon: transfer.image,
+        from: approve.from,
+        to: approve.to,
+        icon: transfer.icon,
+        symbol: transfer.symbol,
         amount: new BigNumber(approve.amount).abs().toFixed(),
         // TODO: isMax from server
         isMax: false,
