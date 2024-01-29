@@ -3,7 +3,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AccountSelectorProvidersAutoMount } from '../components/AccountSelector';
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import '../utils/axiosInterceptor';
@@ -29,7 +28,6 @@ export function KitProvider() {
   return (
     <GlobalJotaiReady>
       <ThemeProvider>
-        <AccountSelectorProvidersAutoMount />
         <SplashProvider>
           <GestureHandlerRootView style={flexStyle}>
             <Container />
