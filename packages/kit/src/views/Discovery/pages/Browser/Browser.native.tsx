@@ -14,6 +14,7 @@ import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/di
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
+import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
   useActiveTabId,
@@ -39,6 +40,7 @@ function MobileBrowser() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { handleScroll, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
+  useDAppNotifyChanges({ tabId: activeTabId });
 
   const { displayHomePage } = useDisplayHomePageFlag();
 

@@ -17,7 +17,7 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-import type { IHandleAccountChanged } from '../components/DAppAccountList';
+import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 
 function ConnectionModal() {
   const intl = useIntl();
@@ -32,21 +32,15 @@ function ConnectionModal() {
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
-  // Throttling is required to prevent an infinite loop caused by multiple renderings of `activeAccount` on mobile devices.
-  const throttledSetSelectedAccount = useRef(
-    throttle((activeAccount) => {
+  const handleAccountChanged = useCallback<IHandleAccountChanged>(
+    (activeAccount) => {
       setSelectedAccount(activeAccount);
       console.log(
         'connectionmodal setActiveAccount: ',
         JSON.stringify(activeAccount),
       );
-    }, 500),
-  ).current;
-  const handleAccountChanged = useCallback<IHandleAccountChanged>(
-    (activeAccount) => {
-      throttledSetSelectedAccount(activeAccount);
     },
-    [throttledSetSelectedAccount],
+    [],
   );
 
   const confirmDisabled = useMemo(() => {

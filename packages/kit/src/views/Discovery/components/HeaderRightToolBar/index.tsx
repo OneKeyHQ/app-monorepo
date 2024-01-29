@@ -231,7 +231,7 @@ function HeaderRightToolBar() {
     }
     return (
       <Popover
-        title="Popover Demo"
+        title="Connected Accounts"
         keepChildrenMounted
         open={isOpen}
         onOpenChange={setIsOpen}
