@@ -15,7 +15,6 @@ import {
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -48,26 +47,22 @@ function HistoryDetails() {
   const resp = usePromiseResult(
     () =>
       Promise.all([
-        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,
           accountAddress,
           txid: historyTx.decodedTx.txid,
         }),
+        backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
 
-  const [network, isUTXO, txDetailsResp] = resp.result ?? [];
+  const [network, isUTXO, txDetailsResp, nativeToken] = resp.result ?? [];
 
   const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
-
-  const nativeToken = usePromiseResult(
-    () => backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
-    [networkId],
-  ).result;
 
   const relatedAssetInfo = useMemo(() => {
     if (!txDetails) return undefined;

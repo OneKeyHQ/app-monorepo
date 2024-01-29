@@ -25,7 +25,6 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -64,7 +63,7 @@ function TxFeeContainer(props: IProps) {
     () =>
       Promise.all([
         backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
-        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
       ]),
     [networkId],
   );

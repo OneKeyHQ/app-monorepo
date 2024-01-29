@@ -1,8 +1,9 @@
 import Axios from 'axios';
 import BigNumber from 'bignumber.js';
 
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
+import type { AxiosInstance } from 'axios';
 import type {
   Cw20TokenBalance,
   Cw20AssetInfo as ICw20AssetInfo,
@@ -16,17 +17,16 @@ import type {
   RelayerPaths,
   Transaction,
 } from './mintScanTypes';
-import type { AxiosInstance } from 'axios';
 
 const NetworkIDMinScanMap: Record<string, string> = {
-  [OnekeyNetwork.cryptoorgchain]: 'cryptoorg',
-  [OnekeyNetwork.cosmoshub]: 'cosmos',
-  [OnekeyNetwork.akash]: 'akash',
-  [OnekeyNetwork.fetch]: 'fetchai',
-  [OnekeyNetwork.juno]: 'juno',
-  [OnekeyNetwork.osmosis]: 'osmosis',
-  [OnekeyNetwork.secretnetwork]: 'secret',
-  // [OnekeyNetwork.injective]: 'injective',
+  [getNetworkIdsMap().cryptoorgchain]: 'cryptoorg',
+  [getNetworkIdsMap().cosmoshub]: 'cosmos',
+  [getNetworkIdsMap().akash]: 'akash',
+  [getNetworkIdsMap().fetch]: 'fetchai',
+  [getNetworkIdsMap().juno]: 'juno',
+  [getNetworkIdsMap().osmosis]: 'osmosis',
+  [getNetworkIdsMap().secretnetwork]: 'secret',
+  // [getNetworkIdsMap().injective]: 'injective',
 };
 
 export class MintScanQuery implements IQuery {
