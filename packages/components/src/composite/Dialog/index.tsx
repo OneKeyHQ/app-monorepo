@@ -383,6 +383,31 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
         resolve();
       }, 300);
     });
+
+  if (platformEnv.isDev) {
+    const {
+      showFooter,
+      onCancel,
+      onCancelText,
+      cancelButtonProps,
+      onConfirm,
+      onConfirmText,
+      confirmButtonProps,
+    } = props;
+    if (
+      !showFooter &&
+      (onCancel ||
+        onCancelText ||
+        cancelButtonProps ||
+        onConfirm ||
+        onConfirmText ||
+        confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+  }
   portalRef = {
     current: Portal.Render(
       Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
