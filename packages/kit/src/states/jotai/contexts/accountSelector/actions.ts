@@ -6,13 +6,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
+import type { IChainSelectorRouteParams } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
 import { EChainSelectorPages } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
+  IDBAccount,
   IDBCreateHWWalletParamsBase,
   IDBIndexedAccount,
   IDBWallet,
@@ -32,6 +29,7 @@ import {
   accountSelectorStorageReadyAtom,
   activeAccountsAtom,
   contextAtomMethod,
+  defaultActiveAccountInfo,
   defaultSelectedAccount,
   selectedAccountsAtom,
 } from './atoms';
@@ -42,15 +40,6 @@ import type {
 } from './atoms';
 
 const { serviceAccount } = backgroundApiProxy;
-
-// TODO move to utils
-function isOthersWallet({ walletId }: { walletId: string }) {
-  return (
-    walletId === WALLET_TYPE_WATCHING ||
-    walletId === WALLET_TYPE_EXTERNAL ||
-    walletId === WALLET_TYPE_IMPORTED
-  );
-}
 
 export type IAccountSelectorSyncFromSceneParams = {
   from: {
@@ -71,6 +60,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }));
   });
 
+  reloadActiveAccountInfoNonce = 0;
+
   reloadActiveAccountInfo = contextAtomMethod(
     async (
       get,
@@ -81,14 +72,34 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> => {
       const { num, selectedAccount } = payload;
-      const { activeAccount } =
+      this.reloadActiveAccountInfoNonce += 1;
+      const nonce = this.reloadActiveAccountInfoNonce;
+      console.log('buildActiveAccountInfoFromSelectedAccount', {
+        selectedAccount,
+        nonce,
+      });
+      const { activeAccount, nonce: resultNonce } =
         await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
           selectedAccount,
+          nonce,
         });
-      set(activeAccountsAtom(), (v) => ({
-        ...v,
-        [num]: activeAccount,
-      }));
+
+      console.log('buildActiveAccountInfoFromSelectedAccount', {
+        selectedAccount,
+        activeAccount,
+        nonce,
+      });
+      if (resultNonce === this.reloadActiveAccountInfoNonce) {
+        console.log('buildActiveAccountInfoFromSelectedAccount update state', {
+          selectedAccount,
+          activeAccount,
+          nonce,
+        });
+        set(activeAccountsAtom(), (v) => ({
+          ...v,
+          [num]: activeAccount,
+        }));
+      }
       return activeAccount;
     },
   );
@@ -105,9 +116,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, builder } = payload;
-      const accounts = get(selectedAccountsAtom());
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
-        accounts[num] || defaultSelectedAccount(),
+        this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
       );
       const newSelectedAccount = builder(oldSelectedAccount);
       if (isEqual(oldSelectedAccount, newSelectedAccount)) {
@@ -117,6 +127,52 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...v,
         [num]: newSelectedAccount,
       }));
+    },
+  );
+
+  confirmAccountSelect = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        indexedAccount: IDBIndexedAccount | undefined;
+        othersWalletAccount: IDBAccount | undefined;
+        num: number;
+      },
+    ) => {
+      const { num, othersWalletAccount, indexedAccount } = params;
+      if (othersWalletAccount && indexedAccount) {
+        throw new Error(
+          'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
+        );
+      }
+      if (!othersWalletAccount && !indexedAccount) {
+        throw new Error(
+          'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both undefined',
+        );
+      }
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: indexedAccount?.id || othersWalletAccount?.id || '',
+      });
+      if (!walletId) {
+        throw new Error('confirmSelectAccount ERROR: walletId is undefined');
+      }
+
+      const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
+        num,
+        account: othersWalletAccount,
+      });
+
+      this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => ({
+          ...v,
+          networkId: accountNetworkId || v.networkId,
+          walletId,
+          othersWalletAccountId: othersWalletAccount?.id,
+          indexedAccountId: indexedAccount?.id,
+        }),
+      });
     },
   );
 
@@ -135,11 +191,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         linkNetwork?: boolean;
       } & IAccountSelectorRouteParams,
     ) => {
-      const activeAccountInfo = get(activeAccountsAtom())[num];
+      const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
         let focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
-        if (isOthersWallet({ walletId: focusedWalletNew })) {
+        if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
           focusedWalletNew = '$$others';
         }
         this.updateSelectedAccount.call(set, {
@@ -172,7 +228,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...routeParams
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-      } & IAccountSelectorRouteParams,
+      } & IChainSelectorRouteParams,
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
         screen: EChainSelectorPages.ChainSelector,
@@ -262,10 +318,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
-      const selectedAccountsInfo = get(selectedAccountsAtom())[0];
+      const selectedAccount = this.getSelectedAccount.call(set, { num: 0 });
 
       // auto change to next available wallet
-      if (selectedAccountsInfo?.walletId === walletId) {
+      if (selectedAccount?.walletId === walletId) {
         const { wallets } = await serviceAccount.getHDAndHWWallets();
         const firstWallet: IDBWallet | undefined = wallets[0];
         let firstAccount: IDBIndexedAccount | undefined;
@@ -291,7 +347,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num: 0,
           builder: (v) => ({
             ...v,
-            focusedWallet: selectedAccountsInfo?.walletId,
+            focusedWallet: selectedAccount?.walletId,
           }),
         });
       }
@@ -318,10 +374,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
-      const selectedAccount = get(selectedAccountsAtom());
+      const selectedAccountsMap = get(selectedAccountsAtom());
       if (
         selectedAccountsMapInDB &&
-        !isEqual(selectedAccountsMapInDB, selectedAccount)
+        !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
         set(selectedAccountsAtom(), () => selectedAccountsMapInDB);
       }
@@ -355,6 +411,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  getSelectedAccount = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        num,
+      }: {
+        num: number;
+      },
+    ) => {
+      const selectedAccount = get(selectedAccountsAtom())[num];
+      return selectedAccount || defaultSelectedAccount();
+    },
+  );
+
+  getActiveAccount = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        num,
+      }: {
+        num: number;
+      },
+    ) => {
+      const activeAccount = get(activeAccountsAtom())[num];
+      return activeAccount || defaultActiveAccountInfo();
+    },
+  );
+
   syncFromScene = contextAtomMethod(
     async (get, set, { from, num }: IAccountSelectorSyncFromSceneParams) => {
       const { sceneName, sceneUrl, sceneNum } = from;
@@ -373,11 +459,78 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  getAutoSelectNetworkIdForAccount = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        num,
+        account,
+      }: {
+        num: number;
+        account: IDBAccount | undefined;
+      },
+    ) => {
+      if (!account) {
+        return '';
+      }
+      const { networkId } = this.getSelectedAccount.call(set, { num });
+      if (!networkId) {
+        return '';
+      }
+      const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
+        account,
+        networkId,
+      });
+      if (accountNetworkId && accountNetworkId !== networkId) {
+        return accountNetworkId;
+      }
+      return '';
+    },
+  );
+
+  autoSelectNetworkOfOthersWalletAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        num,
+        othersWalletAccountId,
+      }: {
+        num: number;
+        othersWalletAccountId: string | undefined;
+      },
+    ) => {
+      if (!othersWalletAccountId) {
+        return;
+      }
+      const account = await serviceAccount.getDBAccount({
+        accountId: othersWalletAccountId,
+      });
+      if (!account) {
+        return;
+      }
+      const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
+        num,
+        account,
+      });
+      if (accountNetworkId) {
+        this.updateSelectedAccount.call(set, {
+          num,
+          builder: (v) => ({
+            ...v,
+            networkId: accountNetworkId,
+          }),
+        });
+      }
+    },
+  );
+
   autoSelectAccount = contextAtomMethod(
     async (get, set, { num }: { num: number }) => {
       const storageReady = get(accountSelectorStorageReadyAtom());
-      const selectedAccount = get(selectedAccountsAtom())[num];
-      const activeAccount = get(activeAccountsAtom())[num];
+      const selectedAccount = this.getSelectedAccount.call(set, { num });
+      const activeAccount = this.getActiveAccount.call(set, { num });
       // TODO auto select account from home scene
       if (activeAccount && activeAccount?.ready && storageReady) {
         const { network, wallet, indexedAccount, account } = activeAccount;
@@ -476,7 +629,10 @@ export function useAccountSelectorActions() {
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const autoSelectAccount = actions.autoSelectAccount.use();
+  const autoSelectNetworkOfOthersWalletAccount =
+    actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
+  const confirmAccountSelect = actions.confirmAccountSelect.use();
 
   return useRef({
     reloadActiveAccountInfo,
@@ -492,6 +648,8 @@ export function useAccountSelectorActions() {
     createHWHiddenWallet,
     createHWWalletWithHidden,
     autoSelectAccount,
+    autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,
+    confirmAccountSelect,
   });
 }

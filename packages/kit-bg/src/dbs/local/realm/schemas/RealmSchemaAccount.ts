@@ -25,6 +25,8 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public networks?: string[];
 
+  public createAtNetwork?: string;
+
   public pub?: string;
 
   public xpub?: string;
@@ -52,6 +54,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       coinType: 'string',
       impl: 'string',
       networks: 'string?[]',
+      createAtNetwork: 'string?',
       pub: 'string?',
       xpub: 'string?',
       xpubSegwit: 'string?',
@@ -83,6 +86,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       pub: '',
       impl: this.impl,
       networks: this.networks,
+      createAtNetwork: this.createAtNetwork,
     };
     if (this.type === EDBAccountType.SIMPLE) {
       ret.pub = this.pub || '';

@@ -7,7 +7,7 @@ const INDEX_PLACEHOLDER = '$$INDEX$$';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
-const COINTYPE_ETC = '61';
+const COINTYPE_ETC = '61'; // TODO new vault?
 
 const IMPL_SOL = 'sol';
 const COINTYPE_SOL = '501';

@@ -1,14 +1,13 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { getAddress } from '@ethersproject/address';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
-import { encodeSensitiveText } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   buildTxActionDirection,
@@ -16,24 +15,27 @@ import {
 } from '@onekeyhq/kit/src/utils/txAction';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IXpubValidation } from '@onekeyhq/shared/types/address';
+import type {
+  IAddressValidation,
+  INetworkAccountAddressDetail,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
-import {
-  EDecodedTxActionType,
-  EDecodedTxDirection,
-  EDecodedTxStatus,
-} from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxActionAssetTransfer,
   IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -64,10 +66,13 @@ import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionParams,
+  IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildTxHelperParams,
   IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IVaultSettings,
@@ -77,10 +82,29 @@ import type {
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
+  override async buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail> {
+    const { account, networkId } = params;
+    // all evm chain shared same db account and same address, so we just validate db address only,
+    // do not need recalculate address for each sub chain
+    const { normalizedAddress, displayAddress } = await this.validateAddress(
+      account.address,
+    );
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+    };
+  }
+
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
     const { transfersInfo, approveInfo } = params;
+
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(params);
     }
@@ -222,26 +246,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async validateAddress(address: string) {
-    let isValid = false;
-    let checksumAddress = '';
-
-    try {
-      checksumAddress = getAddress(address);
-      isValid = checksumAddress.length === 42;
-    } catch {
-      return Promise.resolve({
-        isValid: false,
-        normalizedAddress: '',
-        displayAddress: '',
-      });
-    }
-
-    return Promise.resolve({
-      normalizedAddress: checksumAddress.toLowerCase() || '',
-      displayAddress: checksumAddress || '',
-      isValid,
-    });
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    return validateEvmAddress(address);
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
@@ -736,15 +742,9 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getPrivateKeyFromImported({
-    input,
-  }: {
-    input: string;
-  }): Promise<{ privateKey: string }> {
-    let privateKey = hexUtils.stripHexPrefix(input);
-    privateKey = encodeSensitiveText({ text: privateKey });
-    return {
-      privateKey,
-    };
+  override async getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    return super.baseGetPrivateKeyFromImported(params);
   }
 }

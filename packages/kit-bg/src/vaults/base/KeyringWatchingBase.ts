@@ -3,6 +3,7 @@
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 
@@ -11,7 +12,8 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IDBSimpleAccount } from '../../dbs/local/types';
+import type { IDBAccount, IDBSimpleAccount } from '../../dbs/local/types';
+import type { IPrepareWatchingAccountsParams } from '../types';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.watching;
@@ -28,26 +30,41 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     );
   }
 
-  async basePrepareSimpleWatchingAccounts({
-    coinType,
-    impl,
-    address,
-    name,
-  }: {
-    coinType: string;
-    impl: string;
-    address: string;
-    name: string;
-  }) {
+  async basePrepareUtxoWatchingAccounts(): Promise<IDBAccount[]> {
+    throw new NotImplemented();
+  }
+
+  async basePrepareSimpleWatchingAccounts(
+    params: IPrepareWatchingAccountsParams,
+    options: {
+      onlyAvailableOnCertainNetworks?: boolean;
+      impl?: string;
+      coinType?: string;
+      // accountType?: EDBAccountType;
+    } = {},
+  ): Promise<IDBAccount[]> {
+    const { address, name, networks, createAtNetwork } = params;
     if (!address) {
       throw new InvalidAddress();
     }
+    if (!createAtNetwork) {
+      throw new Error(
+        'basePrepareSimpleWatchingAccounts ERROR: createAtNetwork is not defined',
+      );
+    }
+    const { onlyAvailableOnCertainNetworks = false } = options;
+    const settings = await this.getVaultSettings();
+    const coinType = options.coinType || settings.coinTypeDefault;
+    const impl = options.impl || settings.impl;
+
     const account: IDBSimpleAccount = {
       id: `${WALLET_TYPE_WATCHING}--${coinType}--${address}`,
       name: name || '',
       type: EDBAccountType.SIMPLE,
       coinType,
       impl,
+      networks: onlyAvailableOnCertainNetworks ? networks : undefined,
+      createAtNetwork,
       address,
       pub: '',
       path: '',

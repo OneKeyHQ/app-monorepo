@@ -4,11 +4,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import localDb from '../../dbs/local/localDb';
 import { getVaultSettings, getVaultSettingsNetworkInfo } from '../settings';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBAccount, IDBWalletId } from '../../dbs/local/types';
+import type { IDBWalletId } from '../../dbs/local/types';
 import type { IVaultOptions } from '../types';
 
 export class VaultContext {
@@ -37,44 +36,13 @@ export class VaultContext {
 
   accountId: string; // "hd-1--m/44'/60'/0'/0/0"
 
-  _dbAccount!: IDBAccount;
-
-  // TODO resetCache after dbAccount and network DB updated
-
-  async getDbAccount(params?: { noCache?: boolean }): Promise<IDBAccount> {
-    const { noCache } = { noCache: false, ...params };
-    if (noCache || !this._dbAccount || this._dbAccount.id !== this.accountId) {
-      this._dbAccount = await localDb.getAccount({ accountId: this.accountId });
-    }
-
-    // let { address, type } = this._dbAccount;
-    // if (
-    //   type === AccountType.VARIANT &&
-    //   mockIsAccountCompatibleWithNetwork({
-    //     accountId: this.accountId,
-    //     networkId: this.networkId,
-    //   })
-    // ) {
-    //   address = await this.addressFromBase(this._dbAccount);
-    // }
-
-    const { address } = this._dbAccount;
-
-    return {
-      ...this._dbAccount,
-      address,
-    };
-  }
-
-  async getAccountPath() {
-    return (await this.getDbAccount()).path;
-  }
-
-  async getAccountAddress() {
-    return (await this.getDbAccount()).address;
-  }
-
   _network!: IServerNetwork;
+
+  // getAccount() moved to VaultBase
+
+  async getNetworkId() {
+    return this.networkId;
+  }
 
   async getNetwork({ cached }: { cached?: boolean } = {}) {
     if (!cached || !this._network || this._network.id !== this.networkId) {

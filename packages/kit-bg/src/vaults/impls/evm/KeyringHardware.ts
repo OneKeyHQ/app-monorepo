@@ -20,7 +20,7 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import type { IDBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IPrepareHardwareAccountsParams,
   ISignTransactionParams,
@@ -132,7 +132,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const sdk = await this.getHardwareSDKInstance();
-    const path = await this.getAccountPath();
+    const path = await this.vault.getAccountPath();
     const chainId = await this.getNetworkChainId();
     const { unsignedTx } = params;
     return hardwareEvmSignTransaction({
@@ -150,7 +150,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<IDBSimpleAccount[]> {
+  ): Promise<IDBAccount[]> {
     const { addressEncoding } = params.deriveInfo;
     const chainId = await this.getNetworkChainId();
 

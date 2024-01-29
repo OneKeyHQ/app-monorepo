@@ -4,10 +4,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   useAccountSelectorActions,
   useAccountSelectorStorageReadyAtom,
+  useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-
-import { useDeriveTypeAutoSelect } from './hooks/useDeriveTypeAutoSelect';
 
 export function DeriveTypeSelectorTrigger({
   num,
@@ -19,10 +18,13 @@ export function DeriveTypeSelectorTrigger({
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
+  const {
+    activeAccount: { deriveInfoItems, deriveInfo },
+  } = useActiveAccount({ num });
 
-  const { deriveInfoItems, currentDeriveInfo } = useDeriveTypeAutoSelect({
-    num,
-  });
+  if (selectedAccount.focusedWallet === '$$others') {
+    return null;
+  }
 
   if (!isReady) {
     return null;
@@ -34,7 +36,7 @@ export function DeriveTypeSelectorTrigger({
         <SizableText size="$headingXl">
           派生选择器{' '}
           {accountUtils.beautifyPathTemplate({
-            template: currentDeriveInfo?.item?.template || '',
+            template: deriveInfo?.template || '',
           })}
         </SizableText>
       ) : null}

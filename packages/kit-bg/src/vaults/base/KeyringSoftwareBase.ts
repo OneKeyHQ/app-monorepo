@@ -102,7 +102,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
 
     const { password, unsignedTx } = params;
-    const dbAccount = await this.getDbAccount();
+    const account = await this.vault.getAccount();
 
     const credentials = await this.baseGetCredentialsInfo(params);
 
@@ -111,7 +111,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const result = await this.coreApi.signTransaction({
       networkInfo,
       unsignedTx,
-      account: dbAccount,
+      account,
       password,
       credentials,
     });
@@ -125,7 +125,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       throw new Error('coreApi is not defined');
     }
     const { password, messages } = params;
-    const dbAccount = await this.getDbAccount();
+    const account = await this.vault.getAccount();
 
     const credentials = await this.baseGetCredentialsInfo(params);
     const networkInfo = await this.getCoreApiNetworkInfo();
@@ -135,7 +135,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         checkIsDefined(this.coreApi).signMessage({
           networkInfo,
           unsignedMsg: msg,
-          account: dbAccount,
+          account,
           password,
           credentials,
         }),
@@ -151,14 +151,14 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const dbAccount = await this.getDbAccount();
+    const account = await this.vault.getAccount();
     const credentials = await this.baseGetCredentialsInfo({ password });
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeys = await this.coreApi.getPrivateKeys({
       networkInfo,
       password,
-      account: { ...dbAccount, relPaths },
+      account: { ...account, relPaths },
       credentials,
     });
     const result: IGetPrivateKeysResult = {};
@@ -171,20 +171,27 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsImported(
     params: IPrepareImportedAccountsParams,
     options: {
-      coinType: string;
-      impl: string;
-      accountType: EDBAccountType;
-    },
+      accountType?: EDBAccountType;
+      impl?: string;
+      coinType?: string;
+    } = {},
   ): Promise<Array<IDBSimpleAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, importedCredential, password } = params;
+    const { name, importedCredential, password, createAtNetwork } = params;
     const { privateKey } = decryptImportedCredential({
       credential: importedCredential,
       password,
     });
-    const { coinType, accountType, impl } = options;
+    const settings = await this.getVaultSettings();
+
+    const accountType = options.accountType || settings.accountType;
+    const impl = options.impl || settings.impl;
+    const coinType =
+      options.coinType ||
+      params.deriveInfo?.coinType ||
+      settings.coinTypeDefault;
 
     const networkInfo = await this.getCoreApiNetworkInfo();
 
@@ -203,6 +210,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         path: '',
         coinType,
         impl,
+        createAtNetwork,
         pub: publicKey,
         address,
         addresses,

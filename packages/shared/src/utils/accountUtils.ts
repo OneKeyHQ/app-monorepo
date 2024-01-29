@@ -2,13 +2,18 @@
 import { isNil } from 'lodash';
 
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
 } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { EAccountSelectorSceneName } from '../../types';
 import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
 
+import networkUtils from './networkUtils';
 import uriUtils from './uriUtils';
 
 function beautifyPathTemplate({ template }: { template: string }) {
@@ -64,6 +69,7 @@ function buildHDAccountId({
   if (idSuffix) {
     id = `${walletId}--${usedPath}--${idSuffix}`;
   }
+  // utxo always remove last 0/0
   if (isUtxo) {
     id = id.replace(/\/0\/0$/i, '');
   }
@@ -148,6 +154,77 @@ function buildLocalTokenId({
   return `${networkId}__${tokenIdOnNetwork}`;
 }
 
+function isAccountCompatibleWithNetwork({
+  account,
+  networkId,
+}: {
+  account: IDBAccount;
+  networkId: string;
+}) {
+  if (!networkId) {
+    throw new Error(
+      'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
+    );
+  }
+  if (!account.impl) {
+    throw new Error(
+      'isAccountCompatibleWithNetwork ERROR: account.impl is not defined',
+    );
+  }
+
+  const impl = networkUtils.getNetworkImpl({ networkId });
+  // check if impl matched
+  if (impl !== account.impl) {
+    return false;
+  }
+
+  // check if accountSupportNetworkId matched
+  if (account.networks && account.networks.length) {
+    for (const accountSupportNetworkId of account.networks) {
+      if (accountSupportNetworkId === networkId) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
+function getAccountCompatibleNetwork({
+  account,
+  networkId,
+}: {
+  account: IDBAccount;
+  networkId: string;
+}) {
+  let accountNetworkId = networkId;
+
+  const activeNetworkImpl = networkUtils.getNetworkImpl({
+    networkId,
+  });
+
+  // if impl not matched, use createAtNetwork
+  if (activeNetworkImpl !== account.impl) {
+    accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+  }
+
+  // if accountNetworkId not in account available networks, use first networkId of available networks
+  if (account.networks && account.networks.length) {
+    if (!account.networks.includes(accountNetworkId)) {
+      [accountNetworkId] = account.networks;
+    }
+  }
+  return accountNetworkId || '';
+}
+
+function isOthersWallet({ walletId }: { walletId: string }) {
+  return (
+    walletId === WALLET_TYPE_WATCHING ||
+    walletId === WALLET_TYPE_EXTERNAL ||
+    walletId === WALLET_TYPE_IMPORTED
+  );
+}
+
 export default {
   buildLocalTokenId,
   buildHdWalletId,
@@ -161,4 +238,7 @@ export default {
   buildAccountSelectorSceneId,
   getDeviceIdFromWallet,
   getWalletIdFromAccountId,
+  isAccountCompatibleWithNetwork,
+  getAccountCompatibleNetwork,
+  isOthersWallet,
 };

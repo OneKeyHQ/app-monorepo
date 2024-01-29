@@ -3,9 +3,11 @@ import { useState } from 'react';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useAccountSelectorAvailableNetworks } from '../../../components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -37,8 +39,24 @@ function ChainSelector({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const selectedChain = network?.id;
   const [isEditMode, setIsEditMode] = useState(false);
+  const { serviceNetwork } = backgroundApiProxy;
 
-  const networks = useAccountSelectorAvailableNetworks();
+  const { networkIds } = useAccountSelectorAvailableNetworks({ num });
+
+  const {
+    result: { networks },
+  } = usePromiseResult(
+    () =>
+      serviceNetwork.getNetworksByIds({
+        networkIds: networkIds || [],
+      }),
+    [networkIds, serviceNetwork],
+    {
+      initResult: {
+        networks: [],
+      },
+    },
+  );
 
   const handleListItemPress = (networkId: string) => {
     actions.current.updateSelectedAccount({
@@ -138,15 +156,13 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
-  const { num, sceneName, sceneUrl, networks, defaultNetworkId } = route.params;
+  const { num, sceneName, sceneUrl } = route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}
       config={{
         sceneName,
         sceneUrl,
-        networks,
-        defaultNetworkId,
       }}
     >
       <ChainSelector num={num} />

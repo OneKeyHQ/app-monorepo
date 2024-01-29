@@ -28,6 +28,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETH,
   },
+  // TODO
   etcNative: {
     // category: `44'/${COINTYPE_ETH}'`,
     namePrefix: 'ETC-Native',

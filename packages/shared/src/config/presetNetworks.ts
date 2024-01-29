@@ -263,5 +263,196 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  return [eth, goerli, btc, tbtc];
+  const tatom: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'theta-testnet-001',
+    'code': 'tatom',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'cosmos',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0',
+        },
+        'mainCoinDenom': 'uatom',
+      },
+    },
+    'id': 'cosmos--theta-testnet-001',
+    'impl': 'cosmos',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
+    'name': 'Cosmos Testnet',
+    'rpcURLs': [
+      {
+        'url': 'https://rest.sentry-01.theta-testnet.polypore.xyz',
+      },
+      {
+        'url': 'https://rest.sentry-02.theta-testnet.polypore.xyz',
+      },
+    ],
+    'shortcode': 'tatom',
+    'shortname': 'TCosmos',
+    'symbol': 'TATOM',
+    'feeMeta': {
+      'code': 'tatom',
+      'decimals': 6,
+      'symbol': 'TATOM',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.theta-testnet.polypore.xyz/accounts/{address}',
+        'block': 'https://explorer.theta-testnet.polypore.xyz/blocks/{block}',
+        'name': 'https://explorer.theta-testnet.polypore.xyz/',
+        'transaction':
+          'https://explorer.theta-testnet.polypore.xyz/transactions/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const cosmoshub: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'cosmoshub-4',
+    'code': 'cosmoshub',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'cosmos',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0',
+        },
+        'mainCoinDenom': 'uatom',
+      },
+    },
+    'id': 'cosmos--cosmoshub-4',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
+    'name': 'Cosmos',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd-cosmoshub.keplr.app',
+      },
+      {
+        'url': 'https://cosmos-lcd.quickapi.com',
+      },
+      {
+        'url': 'https://lcd-cosmoshub.blockapsis.com',
+      },
+      {
+        'url': 'https://node.onekey.so/cosmos',
+      },
+    ],
+    'shortcode': 'cosmoshub',
+    'shortname': 'Cosmos',
+    'symbol': 'ATOM',
+    'feeMeta': {
+      'code': 'cosmoshub',
+      'decimals': 6,
+      'symbol': 'ATOM',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'cosmos',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'ATOM',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/cosmos/account/{address}',
+        'block': 'https://www.mintscan.io/cosmos/blocks/{block}',
+        'name': 'https://www.mintscan.io/cosmos/',
+        'transaction': 'https://www.mintscan.io/cosmos/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const osmosis: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'osmosis-1',
+    'code': 'osmosis',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'osmo',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.04',
+          'low': '0.0025',
+          'min': '0.0025',
+          'normal': '0.025',
+        },
+        'mainCoinDenom': 'uosmo',
+      },
+    },
+    'id': 'cosmos--osmosis-1',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/osmosis/osmosis.png',
+    'name': 'Osmosis',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd-osmosis.keplr.app/',
+      },
+      {
+        'url': 'https://lcd-osmosis.blockapsis.com/',
+      },
+      {
+        'url': 'https://lcd.osmosis.zone',
+      },
+      {
+        'url': 'https://osmosis-lcd.quickapi.com',
+      },
+      {
+        'url': 'https://node.onekey.so/osmosis',
+      },
+    ],
+    'shortcode': 'osmosis',
+    'shortname': 'Osmosis',
+    'symbol': 'OSMO',
+    'feeMeta': {
+      'code': 'osmosis',
+      'decimals': 6,
+      'symbol': 'OSMO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'osmosis',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'OSMO',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/osmosis/account/{address}',
+        'block': 'https://www.mintscan.io/osmosis/blocks/{block}',
+        'name': 'https://www.mintscan.io/osmosis/',
+        'transaction': 'https://www.mintscan.io/osmosis/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  return [eth, goerli, btc, tbtc, tatom, cosmoshub, osmosis];
 });

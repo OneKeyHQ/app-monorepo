@@ -1,22 +1,37 @@
-import { useMemo } from 'react';
-
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useAccountSelectorContextData } from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorAvailableNetworksAtom } from '../../../states/jotai/contexts/accountSelector';
 
-export function useAccountSelectorAvailableNetworks(): IServerNetwork[] {
+import type { IAccountSelectorAvailableNetworks } from '../../../states/jotai/contexts/accountSelector';
+
+export function useAccountSelectorAvailableNetworks({
+  num,
+}: {
+  num: number;
+}): IAccountSelectorAvailableNetworks {
   const { serviceNetwork } = backgroundApiProxy;
-  const { config } = useAccountSelectorContextData();
+  const [map] = useAccountSelectorAvailableNetworksAtom();
+  const availableNetworksInfo = map[num];
 
-  const allNetworksRes = usePromiseResult(
-    () => serviceNetwork.getAllNetworks(),
-    [serviceNetwork],
-  );
-  const data = useMemo(
-    () => config?.networks || allNetworksRes.result?.networks || [],
-    [allNetworksRes.result?.networks, config?.networks],
-  );
-  return data;
+  const networkIds: string[] = usePromiseResult(
+    async () => {
+      if (
+        availableNetworksInfo?.networkIds &&
+        availableNetworksInfo?.networkIds?.length
+      ) {
+        return availableNetworksInfo?.networkIds;
+      }
+      const { networkIds: ids } = await serviceNetwork.getAllNetworkIds();
+      return ids;
+    },
+    [availableNetworksInfo.networkIds, serviceNetwork],
+    {
+      initResult: [],
+    },
+  ).result;
+
+  return {
+    networkIds,
+    defaultNetworkId: availableNetworksInfo.defaultNetworkId,
+  };
 }

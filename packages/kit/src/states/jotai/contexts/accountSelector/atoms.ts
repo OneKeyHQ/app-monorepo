@@ -6,9 +6,14 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EAccountSelectorSceneName,
   IServerNetwork,
@@ -19,8 +24,6 @@ import { createJotaiContext } from '../../utils/createJotaiContext';
 export interface IAccountSelectorContextData {
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
-  networks?: IServerNetwork[];
-  defaultNetworkId?: string;
 }
 export type IAccountSelectorRouteParams = IAccountSelectorContextData & {
   num: number;
@@ -75,6 +78,20 @@ export const {
   use: useAccountSelectorStorageReadyAtom,
 } = contextAtom<boolean>(false);
 
+export type IAccountSelectorAvailableNetworks = {
+  networkIds?: string[];
+  defaultNetworkId?: string;
+};
+export type IAccountSelectorAvailableNetworksMap = {
+  [num: number]: IAccountSelectorAvailableNetworks;
+};
+export const {
+  atom: accountSelectorAvailableNetworksAtom,
+  use: useAccountSelectorAvailableNetworksAtom,
+} = contextAtom<IAccountSelectorAvailableNetworksMap>({
+  0: {},
+});
+
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
   isOthersWallet?: boolean;
@@ -82,17 +99,18 @@ export interface IAccountSelectorActiveAccountInfo {
   indexedAccount: IDBIndexedAccount | undefined;
   wallet: IDBWallet | undefined;
   network: IServerNetwork | undefined;
-  deriveType: IAccountDeriveTypes; // TODO move to jotai global
-  // deriveInfo
-  // indexedAccount
+  deriveType: IAccountDeriveTypes;
+  deriveInfo?: IAccountDeriveInfo | undefined;
+  deriveInfoItems: IAccountDeriveInfoItems[];
 }
-const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
+export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({
     account: undefined,
     indexedAccount: undefined,
     wallet: undefined,
     network: undefined,
     deriveType: 'default',
+    deriveInfoItems: [],
     ready: false,
   });
 export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
@@ -104,6 +122,8 @@ export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
   activeAccountName: string;
 } {
+  const [selectedAccounts] = useSelectedAccountsAtom();
+  noopObject(selectedAccounts);
   const [accounts] = useActiveAccountsAtom();
   const accountInfo = accounts[num];
   const activeAccount = accountInfo || defaultActiveAccountInfo();

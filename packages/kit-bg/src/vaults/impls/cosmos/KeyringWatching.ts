@@ -11,6 +11,8 @@ export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBAccount[]> {
-    return super.basePrepareSimpleWatchingAccounts(params);
+    return super.basePrepareSimpleWatchingAccounts(params, {
+      onlyAvailableOnCertainNetworks: true,
+    });
   }
 }

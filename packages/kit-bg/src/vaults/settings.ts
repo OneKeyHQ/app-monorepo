@@ -1,5 +1,6 @@
 import {
   IMPL_BTC,
+  IMPL_COSMOS,
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -11,6 +12,22 @@ import type {
   IVaultSettings,
   IVaultSettingsNetworkInfo,
 } from './types';
+
+function validateVaultSettings({
+  settings,
+  networkId,
+}: {
+  settings: IVaultSettings;
+  networkId: string;
+}) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (!settings.accountDeriveInfo.default) {
+      throw new Error(
+        `no default accountDeriveInfo found in vault settings: ${networkId}`,
+      );
+    }
+  }
+}
 
 export async function getVaultSettings({ networkId }: { networkId: string }) {
   if (!networkId) {
@@ -24,8 +41,14 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_EVM]: () => import('./impls/evm/settings'),
     [IMPL_BTC]: () => import('./impls/btc/settings'),
     [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
+    [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
   };
+  const loader = settingsLoader[impl];
+  if (!loader) {
+    throw new Error(`no settings found: impl=${impl}`);
+  }
   const settings = (await settingsLoader[impl]()).default;
+  validateVaultSettings({ settings, networkId });
   return settings;
 }
 

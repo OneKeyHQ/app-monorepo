@@ -27,7 +27,7 @@ export interface IAccountSelectorSelectedAccount {
 export interface IAccountSelectorSelectedAccountsMap {
   [num: number]: IAccountSelectorSelectedAccount;
 }
-export interface IAccountSelectorSectionData {
+export interface IAccountSelectorAccountsListSectionData {
   title: string;
   isHiddenWalletData?: boolean;
   data: IDBIndexedAccount[] | IDBAccount[];

@@ -66,7 +66,7 @@ axios.interceptors.response.use(async (response) => {
 
   if (data.code !== 0) {
     throw new OneKeyError({
-      autoToast: true,
+      autoToast: false,
       message: data.message,
     });
   }

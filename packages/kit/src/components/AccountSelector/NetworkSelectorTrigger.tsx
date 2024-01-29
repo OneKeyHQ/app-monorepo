@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -13,7 +14,7 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
-import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
+import { useAccountSelectorAvailableNetworks } from './hooks/useAccountSelectorAvailableNetworks';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
@@ -34,13 +35,14 @@ function useNetworkSelectorItems() {
   return items;
 }
 
-export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
+export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
   const items = useNetworkSelectorItems();
+
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
 
-  useNetworkAutoSelect({ num });
+  useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerLegacy' });
 
   if (!isReady) {
     return null;
@@ -69,15 +71,21 @@ export function NetworkSelectorTriggerLegacy({ num }: { num: number }) {
   );
 }
 
-export function NetworkSelectorTriggerHome({ num }: { num: number }) {
+export const NetworkSelectorTriggerLegacy = memo(
+  NetworkSelectorTriggerLegacyCmp,
+);
+
+function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const { sceneName, sceneUrl, networks, defaultNetworkId } =
-    useAccountSelectorSceneInfo();
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+  const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
+    num,
+  });
 
-  useNetworkAutoSelect({ num });
+  useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
   const navigation = useAppNavigation();
 
@@ -87,14 +95,14 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
       num,
       sceneName,
       sceneUrl,
-      networks,
+      networkIds,
       defaultNetworkId,
     });
   }, [
     actions,
     defaultNetworkId,
     navigation,
-    networks,
+    networkIds,
     num,
     sceneName,
     sceneUrl,
@@ -147,6 +155,7 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
     </XStack>
   );
 }
+export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 
 export function ControlledNetworkSelectorTrigger({
   value,
