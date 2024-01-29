@@ -136,12 +136,14 @@ export function useShouldUpdateConnectedAccount() {
       prevAccountInfo,
       selectedAccount,
       storageType,
+      afterUpdate,
     }: {
       origin: string;
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
       selectedAccount: IAccountSelectorActiveAccountInfo;
       storageType: IStorageType;
+      afterUpdate: () => void;
     }) => {
       const willUpdateAccountInfo =
         getAccountInfoByActiveAccount(selectedAccount);
@@ -164,6 +166,8 @@ export function useShouldUpdateConnectedAccount() {
         prevAccountInfo,
         selectedAccount,
       );
+
+      afterUpdate();
 
       if (prevAccountInfo.accountId !== willUpdateAccountInfo.accountId) {
         void serviceDApp.notifyDAppAccountsChanged(origin);

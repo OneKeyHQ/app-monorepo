@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { debounce } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -17,8 +16,6 @@ import {
   NetworkSelectorTriggerDappConnection,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   mockPresetNetworksBtcList,
   mockPresetNetworksEvmList,
@@ -28,9 +25,9 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-export type IHandleAccountChanged = (
-  activeAccount: IAccountSelectorActiveAccountInfo,
-) => void;
+import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
+
+import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
 function AccountListItem({
   num,
@@ -43,18 +40,10 @@ function AccountListItem({
   readonly?: boolean;
   compressionUiMode?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num });
-  // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
-  const debouncedHandleAccountChanged = useRef(
-    debounce(
-      (account: IAccountSelectorActiveAccountInfo) =>
-        handleAccountChanged?.(account),
-      200,
-    ),
-  );
-  useEffect(() => {
-    debouncedHandleAccountChanged.current(activeAccount);
-  }, [activeAccount, handleAccountChanged]);
+  useHandleDiscoveryAccountChanged({
+    num,
+    handleAccountChanged,
+  });
 
   return (
     <XGroup

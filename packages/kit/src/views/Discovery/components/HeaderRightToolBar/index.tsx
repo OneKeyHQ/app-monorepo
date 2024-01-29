@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Popover,
@@ -16,13 +16,54 @@ import {
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { type IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { AccountListItem } from '../../../DAppConnection/components/DAppAccountList';
+import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+
+function SingleAccountAndNetworkSelectorTrigger({
+  origin,
+  num,
+  account,
+  afterChangeAccount,
+}: {
+  origin: string;
+  num: number;
+  account: IConnectionAccountInfoWithNum;
+  afterChangeAccount: () => void;
+}) {
+  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
+  const handleAccountChanged = useCallback(
+    async (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      console.log(2);
+      await handleAccountInfoChanged({
+        origin,
+        accountSelectorNum: num,
+        prevAccountInfo: account,
+        selectedAccount: activeAccount,
+        storageType: account.storageType,
+        afterUpdate: afterChangeAccount,
+      });
+    },
+    [num, account, afterChangeAccount, handleAccountInfoChanged, origin],
+  );
+
+  useHandleDiscoveryAccountChanged({
+    num,
+    handleAccountChanged,
+  });
+  return (
+    <>
+      <AccountSelectorTriggerBrowserSingle num={num} />
+      <NetworkSelectorTriggerBrowserSingle num={num} />
+    </>
+  );
+}
 
 function AvatarStackTrigger({
   accountsInfo,
@@ -102,8 +143,8 @@ function AccountSelectorPopoverContent({
                 prevAccountInfo: account,
                 selectedAccount: activeAccount,
                 storageType: account.storageType,
+                afterUpdate: afterChangeAccount,
               });
-              afterChangeAccount();
             }}
           />
         </AccountSelectorProviderMirror>
@@ -133,6 +174,10 @@ function HeaderRightToolBar() {
     return connectedAccount;
   }, [origin]);
 
+  const afterChangeAccount = useCallback(() => {
+    void run();
+  }, [run]);
+
   const content = useMemo(() => {
     console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
     if (isLoading) {
@@ -153,8 +198,12 @@ function HeaderRightToolBar() {
               enabledNum={[accountInfo.num]}
             >
               <HeaderButtonGroup>
-                <AccountSelectorTriggerBrowserSingle num={accountInfo.num} />
-                <NetworkSelectorTriggerBrowserSingle num={accountInfo.num} />
+                <SingleAccountAndNetworkSelectorTrigger
+                  origin={origin}
+                  num={accountInfo.num}
+                  account={accountInfo}
+                  afterChangeAccount={afterChangeAccount}
+                />
               </HeaderButtonGroup>
             </AccountSelectorProviderMirror>
           ))}
@@ -173,14 +222,12 @@ function HeaderRightToolBar() {
           <AccountSelectorPopoverContent
             origin={origin}
             accountsInfo={connectedAccountsInfo}
-            afterChangeAccount={() => {
-              void run();
-            }}
+            afterChangeAccount={afterChangeAccount}
           />
         }
       />
     );
-  }, [connectedAccountsInfo, origin, isLoading, isOpen, run]);
+  }, [connectedAccountsInfo, origin, isLoading, isOpen, afterChangeAccount]);
 
   return <>{content}</>;
 }
