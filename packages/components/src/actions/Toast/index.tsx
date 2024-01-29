@@ -106,10 +106,7 @@ export const Toast = {
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowToaster
-          ref={instanceRef}
-          onClose={handleClose}
-        >
+        <ShowToaster ref={instanceRef} onClose={handleClose}>
           {children}
         </ShowToaster>,
       ),
