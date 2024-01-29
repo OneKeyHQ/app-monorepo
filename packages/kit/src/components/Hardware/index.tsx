@@ -45,7 +45,7 @@ export const confirmPinOnDevice = async () => {
     title: 'Enter PIN on Device',
     showFooter: false,
     renderContent: <EnterPinOnDevice />,
-    onCancel: () => {
+    onClose: () => {
       event.cancel();
     },
   });
@@ -73,7 +73,7 @@ export const confirmByPin = async () => {
         }}
       />
     ),
-    onDismiss: () => {
+    onClose: () => {
       event.cancel();
     },
   });
@@ -86,7 +86,7 @@ export const confirmPhraseOnDevice = async () => {
     title: 'Enter Passphrase on Device',
     showFooter: false,
     renderContent: <EnterPassphraseOnDevice />,
-    onCancel: () => {
+    onClose: () => {
       event.cancel();
     },
   });
@@ -110,7 +110,7 @@ export const confirmPhrase = async () => {
         }}
       />
     ),
-    onCancel: () => {
+    onClose: () => {
       event.cancel();
     },
   });
@@ -134,7 +134,7 @@ export const confirmPassphrase = async () => {
         }}
       />
     ),
-    onCancel: () => {
+    onClose: () => {
       event.cancel();
     },
   });
