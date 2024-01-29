@@ -1,19 +1,16 @@
 import { sha256 } from '@noble/hashes/sha256';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import {
-  baseAddressToAddress,
-  pubkeyToBaseAddress,
+  pubkeyToAddressDetail,
   serializeSignedTx,
   serializeTxForSignature,
 } from './sdkCosmos';
 
-import type { IEncodedTxCosmos } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -26,6 +23,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
+import type { IEncodedTxCosmos } from './types';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -95,18 +93,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey, networkInfo } = query;
-    const address = pubkeyToBaseAddress(
+
+    const { baseAddress, address } = pubkeyToAddressDetail({
       curve,
-      bufferUtils.hexToBytes(publicKey),
-    );
-    const addressCosmos = baseAddressToAddress(
-      checkIsDefined(networkInfo?.addressPrefix),
-      address,
-    );
+      publicKey,
+      addressPrefix: networkInfo?.addressPrefix,
+    });
+
     return Promise.resolve({
-      address,
+      address: '', // cosmos address should generate by sub chain
+      // baseAddress,
       addresses: {
-        [networkInfo.networkId]: addressCosmos,
+        [networkInfo.networkId]: address,
       },
       publicKey,
     });
@@ -117,6 +115,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressesResult> {
     return this.baseGetAddressesFromHd(query, {
       curve,
+      generateFrom: 'publicKey',
     });
   }
 }

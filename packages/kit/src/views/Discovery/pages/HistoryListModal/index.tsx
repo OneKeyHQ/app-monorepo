@@ -8,7 +8,6 @@ import {
   Dialog,
   Empty,
   IconButton,
-  ListItem,
   Page,
   SectionList,
   SizableText,
@@ -17,6 +16,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {

@@ -147,8 +147,7 @@ class ServiceSend extends ServiceBase {
                 label: '',
                 amount: '1',
                 symbol: 'ETH',
-                image:
-                  'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
               },
             ],
             receives: [],

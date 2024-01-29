@@ -67,7 +67,7 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  let formatTemplate = 'LLL dd yyyy, HH:mm';
+  let formatTemplate = 'LLL dd yyyy, HH:mm:ss';
 
   if (
     (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
@@ -82,7 +82,7 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     formatTemplate = formatTemplate.replace('LLL ', '');
   }
   if (options?.hideTimeForever) {
-    formatTemplate = formatTemplate.replace(', HH:mm', '');
+    formatTemplate = formatTemplate.replace(', HH:mm:ss', '');
   }
 
   return format(parsedDate, formatTemplate) ?? '';
