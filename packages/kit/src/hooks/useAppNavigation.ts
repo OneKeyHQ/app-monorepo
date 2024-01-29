@@ -1,7 +1,6 @@
 import { useNavigation } from '@react-navigation/core';
-import { useIntl } from 'react-intl';
 
-import { Page, useThemeValue } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
@@ -71,15 +70,9 @@ function useAppNavigation<
     });
   };
 
-  const intl = useIntl();
-  const textColor = useThemeValue('text');
-
+  const pageHeaderReload = Page.Header.usePageHeaderReloadOptions();
   function setOptions(options: Partial<IStackNavigationOptions>) {
-    const reloadOptions = Page.Header.usePageHeaderSearchOptions(
-      options,
-      intl,
-      { searchTextColor: textColor },
-    );
+    const reloadOptions = pageHeaderReload.reload(options);
     navigation.setOptions(reloadOptions);
   }
 
