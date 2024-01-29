@@ -5,7 +5,6 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -104,8 +103,8 @@ function HomePage() {
 function HomePageContainer() {
   console.log('HomePageContainer render');
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     result: { networkIds },
   } = usePromiseResult(
     () =>
@@ -130,12 +129,12 @@ function HomePageContainer() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
-      availableNetworksMap={{
-        0: {
-          networkIds, // support available networks
-          defaultNetworkId: getNetworkIdsMap().tbtc, // default selected networkId
-        },
-      }}
+      // availableNetworksMap={{
+      //   0: {
+      //     networkIds, // support available networks
+      //     defaultNetworkId: getNetworkIdsMap().tbtc, // default selected networkId
+      //   },
+      // }}
     >
       <HomePage />
       <OnboardingOnMount />
