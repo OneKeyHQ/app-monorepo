@@ -200,6 +200,8 @@ function DialogFrame({
         position={position}
         onPositionChange={setPosition}
         dismissOnSnapToBottom
+        // the native dismissOnOverlayPress used on native side,
+        //  so it needs to assign a value to onOpenChange.
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
@@ -232,7 +234,12 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open} onOpenChange={handleOpenChange}>
+    <TMDialog
+      open={open}
+      // the native dismissOnOverlayPress used on native side,
+      //  so it needs to assign a value to onOpenChange.
+      onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
+    >
       <AnimatePresence>
         {open ? (
           <Stack
