@@ -56,7 +56,11 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   const headerRight = useCallback(
     () =>
       onRemove ? (
-        <IconButton icon="DeleteOutline" onPress={() => onRemove(item)} />
+        <IconButton
+          icon="DeleteOutline"
+          onPress={() => onRemove(item)}
+          testID="address-form-remove"
+        />
       ) : null,
     [onRemove, item],
   );
@@ -84,7 +88,11 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="networkId"
             rules={{ required: true }}
           >
-            <Select items={mockItemsNetworks} title="Networks" />
+            <Select
+              items={mockItemsNetworks}
+              title="Networks"
+              testID="address-form-network"
+            />
           </Form.Field>
           <Form.Field
             label="Name"
@@ -104,7 +112,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               },
             }}
           >
-            <Input placeholder="Required" />
+            <Input placeholder="Required" testID="address-form-name" />
           </Form.Field>
           <Form.Field
             label="Address"
@@ -130,6 +138,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               networkId={networkId}
               placeholder="Address"
               enableNameResolve={false}
+              testID="address-form-address"
             />
           </Form.Field>
         </Form>
@@ -139,6 +148,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           <Button
             disabled={!form.formState.isValid}
             onPress={form.handleSubmit(onSave)}
+            testID="address-form-save"
           >
             {intl.formatMessage({ id: 'action__save' })}
           </Button>

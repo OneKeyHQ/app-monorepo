@@ -63,13 +63,16 @@ const AddressBookButton = () => {
           await inst.close();
           await pick();
         },
+        confirmButtonProps: {
+          testID: 'encrypted-storage-confirm',
+        },
       });
     } else {
       await pick();
     }
   }, [pick]);
   return (
-    <Button onPress={onPress}>
+    <Button onPress={onPress} testID="me-address-book">
       {intl.formatMessage({ id: 'title__address_book' })}
     </Button>
   );

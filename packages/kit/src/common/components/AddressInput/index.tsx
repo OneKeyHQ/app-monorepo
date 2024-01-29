@@ -40,9 +40,10 @@ type IAddressPluginsOptions = {
 
 type IAddressPluginProps = {
   onChange?: (text: string) => void;
+  testID?: string;
 };
 
-const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { getClipboard } = useClipboard();
   const onPress = useCallback(async () => {
     const text = await getClipboard();
@@ -54,11 +55,12 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
       size="small"
       icon="Copy1Outline"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
 
-const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
     // TODO: after QrCode final release, update callback result
@@ -71,6 +73,7 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
       size="small"
       icon="ScanSolid"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
@@ -348,9 +351,17 @@ function AddressInput(props: IAddressInputProps) {
           </XStack>
           <XStack space="$2">
             {plugins.clipboard ? (
-              <ClipboardPlugin onChange={onChangeText} />
+              <ClipboardPlugin
+                onChange={onChangeText}
+                testID={`${rest.testID ?? ''}-clip`}
+              />
             ) : null}
-            {plugins.scan ? <ScanPlugin onChange={onChangeText} /> : null}
+            {plugins.scan ? (
+              <ScanPlugin
+                onChange={onChangeText}
+                testID={`${rest.testID ?? ''}-scan`}
+              />
+            ) : null}
             {plugins.contacts ? (
               <ContactsPlugin onChange={onChangeText} networkId={networkId} />
             ) : null}

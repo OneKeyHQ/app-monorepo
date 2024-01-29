@@ -58,6 +58,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
       subtitle={item.address}
       renderAvatar={renderAvatar}
       onPress={() => onPress?.(item)}
+      testID={`address-item-${item.id || ''}`}
     >
       {showActions ? (
         <ActionList
@@ -72,6 +73,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
               },
+              testID: `address-menu-copy-${item.id ?? ''}`,
             },
             {
               label: intl.formatMessage({ id: 'action__edit' }),
@@ -86,9 +88,15 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   });
                 }
               },
+              testID: `address-menu-edit-${item.id ?? ''}`,
             },
           ]}
-          renderTrigger={<ListItem.IconButton icon="DotVerSolid" />}
+          renderTrigger={
+            <ListItem.IconButton
+              icon="DotVerSolid"
+              testID={`address-item-menu-${item.id || ''}`}
+            />
+          }
         />
       ) : null}
     </ListItem>
@@ -162,6 +170,9 @@ export const AddressBookListContent = ({
             section.isFold ? 'ChevronTopSmallOutline' : 'ChevronDownSmallSolid'
           }
           onPress={() => onToggle(section.title)}
+          testID={`address-cat-${section.title}-${
+            section.isFold ? 'fold' : 'unfold'
+          }`}
         />
       </SectionList.SectionHeader>
     ),

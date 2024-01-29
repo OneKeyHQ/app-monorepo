@@ -25,7 +25,7 @@ const AddItemPage = () => {
         await backgroundApiProxy.serviceAddressBook.addAddressBookItem(item);
         appNavigation.pop();
       } catch (e) {
-        Toast.error({ title: (e as Error).message });
+        Toast.error({ title: (e as Error).message, duration: 50000 });
       }
     },
     [appNavigation],

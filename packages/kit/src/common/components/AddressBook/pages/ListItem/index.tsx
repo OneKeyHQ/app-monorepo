@@ -15,7 +15,12 @@ const HeaderRightComponent = () => {
     navigation.push(EModalAddressBookRoutes.AddItemModal);
   }, [navigation]);
   return (
-    <IconButton variant="tertiary" icon="PlusCircleOutline" onPress={onPress} />
+    <IconButton
+      variant="tertiary"
+      icon="PlusCircleOutline"
+      onPress={onPress}
+      testID="address-book-add-icon"
+    />
   );
 };
 
