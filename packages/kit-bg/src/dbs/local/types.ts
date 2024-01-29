@@ -156,8 +156,8 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   coinType: string;
   impl: string; // single chain account belongs to network impl
   networks?: string[]; // single chain account belongs to certain networks
+  createAtNetwork?: string;
   template?: string;
-  avatar?: string; // TODO remove
 };
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;

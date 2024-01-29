@@ -10,35 +10,36 @@ import { useThemeValue } from '../../hooks';
 import { XStack } from '../../primitives';
 
 import type { IStackNavigationOptions } from '../Navigation';
-import type { IntlShape } from 'react-intl';
 
 export type IPageHeaderProps = IStackNavigationOptions;
 
-const usePageHeaderSearchOptions = (
-  props: IPageHeaderProps,
-  intl: IntlShape,
-  colorList: { searchTextColor: string },
-) => {
-  if (!props) {
-    return props;
-  }
+const usePageHeaderReloadOptions = () => {
+  const intl = useIntl();
+  const searchTextColor = useThemeValue('text');
+  const reload = (props: IPageHeaderProps) => {
+    if (!props) {
+      return props;
+    }
 
-  const { headerSearchBarOptions } = props;
-
-  if (headerSearchBarOptions) {
+    const { headerSearchBarOptions, headerTransparent, headerStyle } = props;
     return {
       ...props,
-      headerSearchBarOptions: {
-        hideNavigationBar: false,
-        hideWhenScrolling: false,
-        cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
-        textColor: colorList.searchTextColor,
-        tintColor: colorList.searchTextColor,
-        ...headerSearchBarOptions,
-      },
+      ...(headerTransparent && {
+        headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
+      }),
+      ...(headerSearchBarOptions && {
+        headerSearchBarOptions: {
+          hideNavigationBar: false,
+          hideWhenScrolling: false,
+          cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
+          textColor: searchTextColor,
+          tintColor: searchTextColor,
+          ...headerSearchBarOptions,
+        },
+      }),
     };
-  }
-  return props;
+  };
+  return { reload };
 };
 
 function HeaderRightContainerHOC(Component?: ComponentType) {
@@ -66,11 +67,8 @@ const useHeaderRightProps = (props: IPageHeaderProps) => {
 };
 
 const PageHeader = (props: IPageHeaderProps) => {
-  const intl = useIntl();
-  const textColor = useThemeValue('text');
-  const reloadOptions = usePageHeaderSearchOptions(props, intl, {
-    searchTextColor: textColor,
-  });
+  const pageHeaderReload = usePageHeaderReloadOptions();
+  const reloadOptions = pageHeaderReload.reload(props);
   const headerProps = useHeaderRightProps(reloadOptions);
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -80,6 +78,6 @@ const PageHeader = (props: IPageHeaderProps) => {
   return null;
 };
 
-PageHeader.usePageHeaderSearchOptions = usePageHeaderSearchOptions;
+PageHeader.usePageHeaderReloadOptions = usePageHeaderReloadOptions;
 
 export { PageHeader };

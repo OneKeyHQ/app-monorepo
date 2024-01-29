@@ -12,7 +12,7 @@ import type {
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type { IPrepareHardwareAccountsParams } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
@@ -28,7 +28,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<IDBUtxoAccount[]> {
+  ): Promise<IDBAccount[]> {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     const { addressEncoding } = params.deriveInfo;

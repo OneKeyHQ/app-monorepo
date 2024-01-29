@@ -23,8 +23,11 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
-import type { IXpubValidation } from '@onekeyhq/shared/types/address';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/gas';
+import type {
+  INetworkAccountAddressDetail,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -40,13 +43,35 @@ import type { IDBAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
+  IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildTxHelperParams,
+  IBuildUnsignedTxParams,
   ITransferInfo,
   IVaultSettings,
 } from '../../types';
 
 // btc vault
 export default class VaultBtc extends VaultBase {
+  override async buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail> {
+    const { account, networkId } = params;
+    // btc and tbtc use different cointype, so they do not share same db account, just use db account address only
+    const { address } = account;
+    // const { normalizedAddress, displayAddress } = await this.validateAddress(
+    //   account.address,
+    // );
+    return {
+      networkId,
+      normalizedAddress: address,
+      displayAddress: address,
+      address,
+      baseAddress: address,
+    };
+  }
+
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     noopObject(params);
     throw new Error('Method not implemented.');
@@ -68,21 +93,20 @@ export default class VaultBtc extends VaultBase {
 
   override settings: IVaultSettings = settings;
 
-  override async buildEncodedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IEncodedTxBtc> {
-    const { transfersInfo } = options;
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams & IBuildTxHelperParams,
+  ): Promise<IEncodedTxBtc> {
+    const { transfersInfo } = params;
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(transfersInfo);
     }
     throw new OneKeyInternalError();
   }
 
-  override async buildUnsignedTx(options: {
-    transfersInfo: ITransferInfo[] | undefined;
-  }): Promise<IUnsignedTxPro> {
-    const { transfersInfo } = options;
-    const encodedTx = await this.buildEncodedTx({ transfersInfo });
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams & IBuildTxHelperParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx(encodedTx);
     }
@@ -303,11 +327,11 @@ export default class VaultBtc extends VaultBase {
     account: ICoreApiSignAccount;
     btcExtraInfo: ICoreApiSignBtcExtraInfo;
   }> {
-    const dbAccount = await this.getDbAccount();
+    const account = await this.getAccount();
 
     let addresses: string[] = [];
     if (unsignedMessage) {
-      addresses = [dbAccount.address];
+      addresses = [account.address];
     }
     if (unsignedTx) {
       const emptyInputs: Array<ITxInputToSign | IBtcInput> = [];
@@ -318,7 +342,7 @@ export default class VaultBtc extends VaultBase {
         )
         .filter(Boolean)
         .map((input) => input.address)
-        .concat(dbAccount.address);
+        .concat(account.address);
     }
 
     const {
@@ -327,7 +351,7 @@ export default class VaultBtc extends VaultBase {
       pathToAddresses,
     } = await this.getRelPathToAddressByBlockbookApi({
       addresses,
-      account: dbAccount,
+      account,
     });
 
     const btcExtraInfo: ICoreApiSignBtcExtraInfo = {
@@ -341,12 +365,12 @@ export default class VaultBtc extends VaultBase {
       btcExtraInfo.nonWitnessPrevTxs = nonWitnessPrevTxs;
     }
 
-    const account: ICoreApiSignAccount = {
-      ...dbAccount,
+    const signerAccount: ICoreApiSignAccount = {
+      ...account,
       relPaths,
     };
 
-    return { btcExtraInfo, account };
+    return { btcExtraInfo, account: signerAccount };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

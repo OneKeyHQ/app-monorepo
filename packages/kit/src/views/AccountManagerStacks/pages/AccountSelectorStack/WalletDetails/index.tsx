@@ -8,13 +8,13 @@ import {
   Button,
   Icon,
   IconButton,
-  ListItem,
   SectionList,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { AccountAvatar } from '@onekeyhq/components/src/actions/AccountAvatar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -36,7 +36,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -148,6 +148,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         focusedWallet: selectedAccount?.focusedWallet,
         linkedNetworkId: linkNetwork ? selectedAccount?.networkId : undefined,
         deriveType: selectedAccount.deriveType,
+        othersNetworkId: selectedAccount?.networkId,
       });
     },
     [
@@ -339,30 +340,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             }}
             subtitle={renderSubTitle(item)}
             {...(!editMode && {
-              onPress: () => {
+              onPress: async () => {
                 if (isOthers) {
-                  actions.current.updateSelectedAccount({
+                  await actions.current.confirmAccountSelect({
                     num,
-                    builder: (v) => ({
-                      ...v,
-                      walletId: accountUtils.getWalletIdFromAccountId({
-                        accountId: item.id,
-                      }),
-                      othersWalletAccountId: item.id,
-                      indexedAccountId: undefined,
-                    }),
-                    othersWalletAccountId: item.id,
-                    indexedAccountId: undefined,
+                    indexedAccount: undefined,
+                    othersWalletAccount: item as IDBAccount,
+                    autoChangeToAccountMatchedNetwork: true,
                   });
                 } else if (focusedWalletInfo) {
-                  actions.current.updateSelectedAccount({
+                  await actions.current.confirmAccountSelect({
                     num,
-                    builder: (v) => ({
-                      ...v,
-                      walletId: focusedWalletInfo?.wallet?.id,
-                      othersWalletAccountId: undefined,
-                      indexedAccountId: item.id,
-                    }),
+                    indexedAccount: item as IDBIndexedAccount,
+                    othersWalletAccount: undefined,
+                    autoChangeToAccountMatchedNetwork: true,
                   });
                 }
                 navigation.popStack();
@@ -387,7 +378,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         renderSectionFooter={({
           section,
         }: {
-          section: IAccountSelectorSectionData;
+          section: IAccountSelectorAccountsListSectionData;
         }) => (
           <ListItem
             onPress={async () => {

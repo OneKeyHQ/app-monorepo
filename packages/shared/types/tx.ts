@@ -93,21 +93,25 @@ export type IDecodedTx = {
 export type IDecodedTxActionBase = {
   nativeAmount?: string;
   nativeAmountValue?: string;
+  from: string;
+  to: string;
+  icon?: string;
 };
+
+export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
   token: string;
   amount: string;
-  image: string;
+  icon: string;
   symbol: string;
   isNFT?: boolean;
   label?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
-  target: string; // contractAddress
   functionName: string; // approve
   functionHash?: string; // 0x095ea7b3
   functionSignature?: string; // approve(address, amount)
@@ -115,26 +119,20 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
-  from: string;
-  to: string;
-  label: string;
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
-  amount?: string;
-  isUTXO?: boolean;
+  label?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
-  owner: string;
-  spender: string;
   amount: string;
-  label: string;
-  tokenIcon: string;
+  symbol: string;
+  isMax: boolean;
+  label?: string;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   tokenAddress: string;
-  logoURI: string;
   decimals: number;
   name: string;
   symbol: string;
@@ -151,4 +149,6 @@ export type IDecodedTxAction = {
   tokenActivate?: IDecodedTxActionTokenActivate;
 
   functionCall?: IDecodedTxActionFunctionCall;
+
+  unknownAction?: IDecodedTxActionUnknown;
 };

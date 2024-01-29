@@ -9,6 +9,7 @@ import {
   Menu,
   app,
   ipcMain,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -57,6 +58,8 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+
+let systemIdleInterval: NodeJS.Timeout;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
@@ -176,6 +179,23 @@ function clearWebData() {
   return session.defaultSession.clearStorageData({
     storages: ['cookies'],
   });
+}
+
+function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
+  if (systemIdleInterval) {
+    clearInterval(systemIdleInterval);
+  }
+  if (setIdleTime <= 0) {
+    return;
+  }
+  systemIdleInterval = setInterval(() => {
+    const idleTime = powerMonitor.getSystemIdleTime();
+    const systemState = powerMonitor.getSystemIdleState(setIdleTime);
+    if (idleTime > setIdleTime || systemState === 'locked') {
+      event.reply(ipcMessageKeys.APP_IDLE);
+      clearInterval(systemIdleInterval);
+    }
+  }, 1000);
 }
 
 function createMainWindow() {
@@ -379,6 +399,10 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.APP_CLEAR_WEBVIEW_DATA, () => {
     void clearWebData();
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
+    systemIdleHandler(setIdleTime, event);
   });
 
   // reset appState to undefined  to avoid screen lock.

@@ -3,8 +3,9 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox, Dialog, Input, ListItem } from '@onekeyhq/components';
+import { Checkbox, Dialog, Input } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { Section } from './Section';
 

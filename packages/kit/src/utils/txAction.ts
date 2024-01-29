@@ -1,5 +1,8 @@
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
-import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+} from '@onekeyhq/shared/types/tx';
 
 export function buildTxActionDirection({
   from,
@@ -31,4 +34,42 @@ export function getDisplayedActions({ decodedTx }: { decodedTx: IDecodedTx }) {
   return (
     (outputActions && outputActions.length ? outputActions : actions) || []
   );
+}
+
+export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
+  const otherActions: IDecodedTxAction[] = [];
+  let mergedAssetTransferAction: IDecodedTxAction | null = null;
+  actions.forEach((action) => {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
+      if (mergedAssetTransferAction) {
+        if (
+          mergedAssetTransferAction.assetTransfer?.from ===
+            action.assetTransfer.from &&
+          mergedAssetTransferAction.assetTransfer.to === action.assetTransfer.to
+        ) {
+          mergedAssetTransferAction.assetTransfer.sends = [
+            ...mergedAssetTransferAction.assetTransfer.sends,
+            ...action.assetTransfer.sends,
+          ];
+
+          mergedAssetTransferAction.assetTransfer.receives = [
+            ...mergedAssetTransferAction.assetTransfer.receives,
+            ...action.assetTransfer.receives,
+          ];
+        } else {
+          otherActions.push(action);
+        }
+      } else {
+        mergedAssetTransferAction = action;
+      }
+    } else {
+      otherActions.push(action);
+    }
+  });
+  return [mergedAssetTransferAction, ...otherActions].filter(
+    Boolean,
+  ) as IDecodedTxAction[];
 }

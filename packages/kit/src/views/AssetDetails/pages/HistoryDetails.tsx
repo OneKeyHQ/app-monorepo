@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { format } from 'date-fns';
 import { isEmpty, isNil } from 'lodash';
 
 import {
@@ -9,14 +8,14 @@ import {
   Divider,
   Heading,
   Image,
-  ListItem,
   Page,
   Spinner,
   Stack,
-  Toast,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -43,29 +42,27 @@ function HistoryDetails() {
 
   const navigation = useAppNavigation();
 
+  const { copyText } = useClipboard();
+
   const resp = usePromiseResult(
     () =>
       Promise.all([
-        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,
           accountAddress,
           txid: historyTx.decodedTx.txid,
         }),
+        backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
       ]),
     [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
 
-  const [network, isUTXO, txDetailsResp] = resp.result ?? [];
+  const [network, isUTXO, txDetailsResp, nativeToken] = resp.result ?? [];
 
   const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
-
-  const nativeToken = usePromiseResult(
-    () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
-    [network?.id],
-  ).result;
 
   const relatedAssetInfo = useMemo(() => {
     if (!txDetails) return undefined;
@@ -86,26 +83,27 @@ function HistoryDetails() {
           key: 'content__from',
           value: txDetails.from,
           iconAfter: 'Copy1Outline',
-          onPress: () => Toast.success({ title: 'Copied' }),
+          onPress: () => copyText(txDetails.from),
         },
         {
           key: 'content__to',
           value: txDetails.to,
           iconAfter: 'Copy1Outline',
-          onPress: () => Toast.success({ title: 'Copied' }),
+          onPress: () => copyText(txDetails.to),
         },
       ],
       [
         {
           key: 'content__asset',
           value: relatedAssetInfo?.symbol,
-          imgUrl: relatedAssetInfo?.image,
+          imgUrl: relatedAssetInfo?.icon,
+          isNFT: relatedAssetInfo?.isNFT,
         },
         {
           key: 'content__contract_address',
           value: relatedAssetInfo?.address,
           iconAfter: 'Copy1Outline',
-          onPress: () => Toast.success({ title: 'Copied' }),
+          onPress: () => copyText(relatedAssetInfo?.address ?? ''),
         },
       ],
       [
@@ -113,11 +111,11 @@ function HistoryDetails() {
           key: 'content__hash',
           value: txDetails.tx,
           iconAfter: 'Copy1Outline',
-          onPress: () => Toast.success({ title: 'Copied' }),
+          onPress: () => copyText(txDetails.tx),
         },
         {
           key: 'content__time',
-          value: format(new Date(txDetails.timestamp * 1000), 'PPpp'),
+          value: formatDate(new Date(txDetails.timestamp * 1000)),
         },
       ],
       [
@@ -139,11 +137,13 @@ function HistoryDetails() {
       section.filter((item) => !isNil(item.value) && !isEmpty(item.value)),
     ) as ITxDetailsProps['details'];
   }, [
+    copyText,
     nativeToken?.symbol,
     network?.logoURI,
     network?.name,
     relatedAssetInfo?.address,
-    relatedAssetInfo?.image,
+    relatedAssetInfo?.icon,
+    relatedAssetInfo?.isNFT,
     relatedAssetInfo?.symbol,
     txDetails,
   ]);
@@ -171,15 +171,17 @@ function HistoryDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: relatedAssetInfo?.image,
+            uri: relatedAssetInfo?.icon,
           }}
+          circular={!relatedAssetInfo?.isNFT}
+          borderRadius={3}
         />
-        <Heading pl="$2" size="$headingLg">
+        <Heading pl="$2" size="$headingLg" textTransform="capitalize">
           {txDetails?.label.label}
         </Heading>
       </XStack>
     ),
-    [relatedAssetInfo?.image, txDetails?.label.label],
+    [relatedAssetInfo?.icon, relatedAssetInfo?.isNFT, txDetails?.label.label],
   );
 
   const renderHistoryDetails = useCallback(() => {

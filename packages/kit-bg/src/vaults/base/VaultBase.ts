@@ -4,6 +4,10 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -11,13 +15,17 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  INetworkAccountAddressDetail,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
@@ -27,21 +35,23 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { VaultContext } from './VaultContext';
 
 import type { KeyringBase } from './KeyringBase';
-import type { IDBWalletType } from '../../dbs/local/types';
+import type { IDBAccount, IDBWalletType } from '../../dbs/local/types';
 import type {
   IBroadcastTransactionParams,
+  IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildTxHelperParams,
   IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
   IVaultOptions,
@@ -90,9 +100,20 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
 
-  abstract getPrivateKeyFromImported(params: {
-    input: string;
-  }): Promise<{ privateKey: string }>;
+  async baseGetPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    const input = decodeSensitiveText({ encodedText: params.input });
+    let privateKey = hexUtils.stripHexPrefix(input);
+    privateKey = encodeSensitiveText({ text: privateKey });
+    return {
+      privateKey,
+    };
+  }
+
+  abstract getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult>;
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -112,9 +133,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     this.keyring = await config.keyringCreator(this);
   }
 
+  abstract buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail>;
+
   abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
 
-  abstract buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx>;
+  abstract buildDecodedTx(
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+  ): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
     params: IBuildUnsignedTxParams,
@@ -178,7 +205,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const { accountId, networkId, onChainHistoryTx, tokens } = params;
 
     try {
-      const action = this.buildHistoryTxAction({
+      const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
         tokens,
       });
@@ -218,7 +245,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
   }
 
-  buildHistoryTxAction({
+  async buildHistoryTxAction({
     tx,
     tokens,
   }: {
@@ -226,7 +253,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
-      return this.buildHistoryTxDefaultAction({ tx, tokens });
+      if (tx.type) return this.buildHistoryTxFunctionCallAction({ tx });
+      return this.buildHistoryTxUnknownAction({ tx });
     }
 
     if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
@@ -236,20 +264,37 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return this.buildHistoryTransferAction({ tx, tokens });
   }
 
-  buildHistoryTxDefaultAction({
+  async buildHistoryTxFunctionCallAction({
     tx,
-    tokens,
   }: {
     tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
-  }): IDecodedTxAction {
+  }): Promise<IDecodedTxAction> {
+    const network = await this.getNetwork();
     return {
       type: EDecodedTxActionType.FUNCTION_CALL,
       functionCall: {
-        target: tx.to,
+        from: tx.from,
+        to: tx.to,
         functionName: tx.type,
         functionHash: tx.functionCode,
         args: tx.params,
+        icon: network.logoURI,
+      },
+    };
+  }
+
+  async buildHistoryTxUnknownAction({
+    tx,
+  }: {
+    tx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxAction> {
+    const network = await this.getNetwork();
+    return {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: tx.from,
+        to: tx.to,
+        icon: network.logoURI,
       },
     };
   }
@@ -290,7 +335,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
-    const { image, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
+    const { icon, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
       tokenAddress: transfer.token,
       tokens,
     });
@@ -301,7 +346,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       token: transfer.token,
       amount: transfer.amount,
       label: transfer.label.label,
-      image,
+      icon,
       symbol,
       isNFT,
     };
@@ -323,10 +368,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
         label: approve.label.label ?? tx.label.label,
-        owner: approve.from,
-        spender: approve.to,
-        tokenIcon: transfer.image,
+        from: approve.from,
+        to: approve.to,
+        icon: transfer.icon,
+        symbol: transfer.symbol,
         amount: new BigNumber(approve.amount).abs().toFixed(),
+        // TODO: isMax from server
+        isMax: false,
       },
     };
   }
@@ -339,5 +387,47 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       ...signedTx,
       encodedTx: signedTx.encodedTx ?? unsignedTx.encodedTx,
     };
+  }
+
+  // TODO resetCache after dbAccount and network DB updated
+  // TODO add memo
+  async getAccount(): Promise<INetworkAccount> {
+    const account: IDBAccount =
+      await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: this.accountId,
+      });
+
+    if (
+      !accountUtils.isAccountCompatibleWithNetwork({
+        account,
+        networkId: this.networkId,
+      })
+    ) {
+      throw new Error(
+        `account impl not matched to network: ${this.networkId} ${account.id}`,
+      );
+    }
+
+    const networkInfo = await this.getNetworkInfo();
+    const addressDetail = await this.buildAccountAddressDetail({
+      networkInfo,
+      account,
+      networkId: this.networkId,
+    });
+
+    const address = addressDetail?.address || account.address;
+    return {
+      ...account,
+      addressDetail,
+      address,
+    };
+  }
+
+  async getAccountAddress() {
+    return (await this.getAccount()).address;
+  }
+
+  async getAccountPath() {
+    return (await this.getAccount()).path;
   }
 }
