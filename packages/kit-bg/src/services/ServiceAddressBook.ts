@@ -45,10 +45,11 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async addAddressBookItem(newObj: IAddressItem) {
-    const isValid = await this.backgroundApi.serviceAddress.validateAddress({
-      networkId: newObj.networkId,
-      address: newObj.address,
-    });
+    const isValid =
+      await this.backgroundApi.serviceAccountProfile.validateAddress({
+        networkId: newObj.networkId,
+        address: newObj.address,
+      });
     if (!isValid) {
       throw new Error('Invalid address');
     }

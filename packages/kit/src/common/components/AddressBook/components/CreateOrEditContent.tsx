@@ -20,7 +20,7 @@ import {
   AddressInput,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import type { IAddressItem } from '../type';
 
@@ -31,7 +31,7 @@ type ICreateOrEditContentProps = {
   onRemove?: (item: IAddressItem) => void;
 };
 
-const mockItemsNetworks = mockPresetNetworksList.map((item) => ({
+const mockItemsNetworks = getPresetNetworks().map((item) => ({
   value: item.id,
   label: item.name,
 }));
