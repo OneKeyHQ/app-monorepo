@@ -14,7 +14,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -137,7 +137,7 @@ function BasicAccountAvatar({
         >
           <Image
             size={logoSize}
-            src={serverPresetNetworks.find((i) => i.code === chain)?.logoURI}
+            src={getPresetNetworks().find((i) => i.code === chain)?.logoURI}
           />
         </Stack>
       ) : null}
