@@ -17,7 +17,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAddressBookList } from '../../../common/hooks/useAddressBook';
+import {
+  useAddressBookList,
+  useAddressBookPick,
+} from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -78,6 +81,48 @@ const AddressBookButton = () => {
   );
 };
 
+const AddressBookPickButton = () => {
+  const pick = useAddressBookPick();
+  const onPress = useCallback(async () => {
+    const password =
+      await backgroundApiProxy.servicePassword.getCachedPassword();
+    if (!password) {
+      Dialog.show({
+        title: 'Encrypted storage',
+        icon: 'PlaceholderOutline',
+        description:
+          'All your address book data is encrypted with your login password. ',
+        tone: 'default',
+        showCancelButton: false,
+        onConfirm: async (inst) => {
+          await inst.close();
+          await pick({
+            networkId: 'evm--1',
+            onPick: (item) => {
+              console.log('item', item);
+            },
+          });
+        },
+        confirmButtonProps: {
+          testID: 'encrypted-storage-confirm',
+        },
+      });
+    } else {
+      await pick({
+        networkId: 'evm--1',
+        onPick: (item) => {
+          console.log('item', item);
+        },
+      });
+    }
+  }, [pick]);
+  return (
+    <Button onPress={onPress} testID="me-pick-address-book">
+      Pick Address Book
+    </Button>
+  );
+};
+
 const TabMe = () => {
   const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
@@ -114,6 +159,7 @@ const TabMe = () => {
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
           <AddressBookButton />
+          <AddressBookPickButton />
           <LockNowButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
