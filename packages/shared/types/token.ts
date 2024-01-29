@@ -33,6 +33,7 @@ export type ITokenData = {
   data: IAccountToken[];
   keys: string;
   map: Record<string, ITokenFiat>; // key: networkId_tokenAddress
+  fiatValue: string;
 };
 
 export type IFetchAccountTokensResp = {

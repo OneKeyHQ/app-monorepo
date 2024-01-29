@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { useCallback } from 'react';
 
 import { Divider, Icon, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -12,7 +10,9 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
+  useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/token-list';
+import { getFormattedNumber } from '../../utils/format';
 import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
@@ -32,21 +32,10 @@ function TokenListFooter(props: IProps) {
 
   const [smallBalanceTokenListMap] = useSmallBalanceTokenListMapAtom();
 
+  const [smallBalanceTokensFiatValue] = useSmallBalanceTokensFiatValueAtom();
+
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
-
-  const smallBalanceTokensValue = useMemo(() => {
-    const value = smallBalanceTokens.reduce((acc, token) => {
-      const tokenFiat = smallBalanceTokenListMap[token.$key];
-      return acc.plus(tokenFiat.fiatValue ?? 0);
-    }, new BigNumber(0));
-
-    return `${settings.currencyInfo.symbol}${value.toFixed(2)}`;
-  }, [
-    settings.currencyInfo.symbol,
-    smallBalanceTokenListMap,
-    smallBalanceTokens,
-  ]);
 
   const handleLowValueTokensPress = useCallback(() => {
     if (!account || !network || smallBalanceTokens.length === 0) return;
@@ -92,7 +81,12 @@ function TokenListFooter(props: IProps) {
           flex={1}
           primary={`${smallBalanceTokens.length} Low-value Assets`}
         />
-        <ListItem.Text primary={smallBalanceTokensValue} />
+        <ListItem.Text
+          primary={`${settings.currencyInfo.symbol}${
+            getFormattedNumber(smallBalanceTokensFiatValue, { decimal: 2 }) ??
+            '0'
+          }`}
+        />
       </ListItem>
     </Stack>
   );

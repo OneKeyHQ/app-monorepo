@@ -37,6 +37,7 @@ function TokenListContainer(props: IProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
   } = useTokenListActions().current;
 
   const promise = usePromiseResult(
@@ -60,6 +61,7 @@ function TokenListContainer(props: IProps) {
         smallBalanceTokens: r.smallBalanceTokens.data,
       });
       refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
+      refreshSmallBalanceTokensFiatValue(r.smallBalanceTokens.fiatValue);
 
       const allTokens = [
         ...r.tokens.data,
@@ -81,6 +83,7 @@ function TokenListContainer(props: IProps) {
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
+      refreshSmallBalanceTokensFiatValue,
       refreshTokenList,
       refreshTokenListMap,
     ],
