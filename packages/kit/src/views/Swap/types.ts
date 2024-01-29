@@ -44,6 +44,11 @@ export interface ISwapToken {
   fiatValue?: string;
 }
 
+export interface ISwapTokenCatch {
+  data: ISwapToken[];
+  updatedAt: number;
+}
+
 export interface IFetchTokensParams {
   type: 'from' | 'to';
   networkId?: string;

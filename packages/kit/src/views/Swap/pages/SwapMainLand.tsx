@@ -48,15 +48,14 @@ const SwapMainLoad = () => {
   }, [wrappedTx]);
 
   const onBuildTx = useCallback(async () => {
-    const { encodedTx, transferInfo, networkId, accountId } = await buildTx();
-    if (encodedTx && transferInfo) {
+    const { unsignedTx, networkId, accountId } = await buildTx();
+    if (unsignedTx) {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendConfirm,
         params: {
           accountId: networkId,
           networkId: accountId,
-          unsignedTxs: [{ encodedTx }],
-          transfersInfo: [transferInfo],
+          unsignedTxs: [unsignedTx],
         },
       });
     }

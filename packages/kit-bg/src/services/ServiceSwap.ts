@@ -32,8 +32,6 @@ import type { CancelTokenSource } from 'axios';
 export default class ServiceSwap extends ServiceBase {
   private _quoteCancelSource?: CancelTokenSource;
 
-  private _tokensCancelSource?: CancelTokenSource;
-
   // --------------------- fetch
   @backgroundMethod()
   async cancelQuoteFetchQuotes() {
@@ -77,9 +75,6 @@ export default class ServiceSwap extends ServiceBase {
     accountNetworkId,
     accountXpub,
   }: IFetchTokensParams): Promise<{ result: ISwapToken[]; next?: string }> {
-    if (this._tokensCancelSource) {
-      this._tokensCancelSource.cancel('tokens request canceled');
-    }
     const providersArr = fromToken?.providers.split(',');
     const params = {
       fromTokenNetworkId: fromToken?.networkId,
@@ -100,32 +95,20 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       accountXpub,
     };
-    this._tokensCancelSource = axios.CancelToken.source();
-    const endpoints = await getEndpoints();
-    const fetchUrl = `${endpoints.http}/swap/v1/tokens`;
-    // const client = await this.getClient();
+    const client = await this.getClient();
     try {
-      const { data } = await axios.get<
+      const { data } = await client.get<
         IFetchResponse<{ next?: string; data: ISwapToken[] }>
-      >(fetchUrl, {
+      >('/swap/v1/tokens', {
         params,
-        cancelToken: this._tokensCancelSource.token,
-        baseURL: endpoints.http,
       });
       if (data?.code === 0 && data?.data) {
         return { result: data.data.data, next: data.data.next };
       }
       Toast.error({ title: 'error', message: data?.message });
     } catch (e) {
-      if (axios.isCancel(e)) {
-        throw new Error('cancel');
-      } else {
-        const error = e as { message: string };
-        Toast.error({ title: 'error', message: error?.message });
-        return { result: [], next: undefined };
-      }
-    } finally {
-      this._tokensCancelSource = undefined;
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
     }
     return { result: [], next: undefined };
   }

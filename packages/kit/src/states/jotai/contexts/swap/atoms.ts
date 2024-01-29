@@ -11,6 +11,7 @@ import type {
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
+  ISwapTokenCatch,
   ISwapTxHistory,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
@@ -30,9 +31,13 @@ export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
 
-export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } = contextAtom<
-  Record<string, ISwapToken[]>
->({});
+export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
+  contextAtom<{
+    updatedAt: number;
+    tokenCatch?: Record<string, ISwapTokenCatch>;
+  }>({
+    updatedAt: 0,
+  });
 
 // swap select token
 export const {

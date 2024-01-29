@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
+import { swapTokenCatchMapMaxCount } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
 import type {
   ISwapToken,
   ISwapTxHistory,
@@ -46,14 +47,38 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   catchSwapTokensMap = contextAtomMethod(
     async (get, set, key: string, tokens: ISwapToken[]) => {
       const swapTokenMap = get(swapTokenMapAtom());
-      const catchTokens = swapTokenMap[key];
-      if (
-        !catchTokens ||
-        JSON.stringify(catchTokens) !== JSON.stringify(tokens)
-      ) {
-        swapTokenMap[key] = tokens;
-        set(swapTokenMapAtom(), swapTokenMap);
+      const catchTokens = swapTokenMap.tokenCatch?.[key];
+      const dateNow = getTimeStamp();
+      let catchCount = 0;
+      if (swapTokenMap.tokenCatch && catchTokens?.data) {
+        // have catch
+        if (JSON.stringify(catchTokens.data) !== JSON.stringify(tokens)) {
+          // catch data not equal
+          swapTokenMap.tokenCatch[key] = { data: tokens, updatedAt: dateNow };
+        }
+        catchCount = Object.keys(swapTokenMap.tokenCatch).length;
+      } else {
+        // no catch
+        swapTokenMap.tokenCatch = {
+          ...(swapTokenMap.tokenCatch ?? {}),
+          [key]: { data: tokens, updatedAt: dateNow },
+        };
+        catchCount = Object.keys(swapTokenMap.tokenCatch).length;
       }
+      if (swapTokenMap.tokenCatch && catchCount > swapTokenCatchMapMaxCount) {
+        // clean old catch
+        const oldUpdatedAtKey = Object.entries(swapTokenMap.tokenCatch).reduce(
+          (min, [mapKey, obj]) =>
+            obj.updatedAt < (swapTokenMap.tokenCatch?.[min]?.updatedAt ?? 0)
+              ? mapKey
+              : min,
+          Object.keys(swapTokenMap.tokenCatch)[0],
+        );
+        if (oldUpdatedAtKey) {
+          delete swapTokenMap.tokenCatch[oldUpdatedAtKey];
+        }
+      }
+      set(swapTokenMapAtom(), { ...swapTokenMap, updatedAt: dateNow });
     },
   );
 

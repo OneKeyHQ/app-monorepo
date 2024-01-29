@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -54,6 +54,7 @@ export function useSwapBuildTx() {
       receiverAddress &&
       activeAccount.network?.id
     ) {
+      let unsignedTx;
       setSwapBuildTxFetching(true);
       const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
         fromToken,
@@ -65,46 +66,38 @@ export function useSwapBuildTx() {
         userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
-      let encodedTx: IEncodedTx = {
-        from: activeAccount.account?.address,
-        to: '',
-        value: '0',
-      };
-      let transferInfo: ITransferInfo = {
-        from: activeAccount.account?.address,
-        token: fromToken.contractAddress,
-        to: '',
-        amount: fromTokenAmount,
-      };
       if (res?.swftOrder) {
         // swft order
-        transferInfo = {
-          ...transferInfo,
+        const transferInfo: ITransferInfo = {
+          from: activeAccount.account?.address,
+          tokenInfo: {
+            ...fromToken,
+            address: fromToken.contractAddress,
+            name: fromToken.name ?? fromToken.symbol,
+          },
           to: res.swftOrder.platformAddr,
           amount: res.swftOrder.depositCoinAmt,
         };
-        const buildEncodedTx =
-          await backgroundApiProxy.serviceSend.buildUnsignedTx({
-            transfersInfo: [transferInfo],
-            networkId: activeAccount.network?.id,
-            accountId: activeAccount.account?.id,
-          });
-        encodedTx = buildEncodedTx.encodedTx;
+        unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
+          transfersInfo: [transferInfo],
+          networkId: activeAccount.network?.id,
+          accountId: activeAccount.account?.id,
+        });
       }
       if (res?.tx) {
-        transferInfo = {
-          ...transferInfo,
-          to: res.tx.to,
-          amount: fromTokenAmount,
+        unsignedTx = {
+          encodedTx: {
+            ...res?.tx,
+            from: activeAccount.account?.address,
+          },
         };
-        encodedTx = { ...res?.tx, from: activeAccount.account?.address };
       }
+      console.log('unsignedTx--', unsignedTx);
 
       setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);
       return {
-        encodedTx,
-        transferInfo,
+        unsignedTx,
         networkId: activeAccount.network?.id,
         accountId: activeAccount.account?.id,
       };

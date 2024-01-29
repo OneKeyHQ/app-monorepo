@@ -51,7 +51,7 @@ export function useSwapTokenList(
   currentNetworkId?: string,
   keywords?: string,
 ) {
-  const [swapTokensMap] = useSwapTokenMapAtom();
+  const [{ tokenCatch }] = useSwapTokenMapAtom();
   const { catchSwapTokensMap } = useSwapActions().current;
   const { activeAccount } = useActiveAccount({
     num: selectTokenModalType === 'from' ? 0 : 1,
@@ -76,7 +76,10 @@ export function useSwapTokenList(
       selectTokenModalType,
     ],
   );
-  const currentTokens = swapTokensMap[JSON.stringify(tokenFetchParams)] || [];
+
+  const currentTokens =
+    tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [];
+
   const fetchTokens = useCallback(
     async (params: IFetchTokensParams) => {
       const mapKey = JSON.stringify(params);
