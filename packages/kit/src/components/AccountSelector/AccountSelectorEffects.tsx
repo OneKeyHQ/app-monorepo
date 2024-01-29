@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import {
   EAppEventBusNames,
@@ -13,14 +13,10 @@ import {
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
 import { useAccountAutoSelect } from './hooks/useAccountAutoSelect';
+import { useDeriveTypeAutoSelect } from './hooks/useDeriveTypeAutoSelect';
+import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
 
-export function AccountSelectorEffects({
-  num,
-  children,
-}: {
-  num: number;
-  children?: any;
-}) {
+function AccountSelectorEffectsCmp({ num }: { num: number }) {
   // TODO multiple UI sync
   const actions = useAccountSelectorActions();
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
@@ -30,12 +26,14 @@ export function AccountSelectorEffects({
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   useAccountAutoSelect({ num });
+  useNetworkAutoSelect({ num });
+  useDeriveTypeAutoSelect({ num });
 
-  const reloadActiveAccountInfo = useCallback(() => {
+  const reloadActiveAccountInfo = useCallback(async () => {
     if (!isReady) {
       return;
     }
-    void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+    await actions.current.reloadActiveAccountInfo({ num, selectedAccount });
     // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({
@@ -60,7 +58,7 @@ export function AccountSelectorEffects({
   ]);
 
   useEffect(() => {
-    reloadActiveAccountInfo();
+    void reloadActiveAccountInfo();
   }, [reloadActiveAccountInfo]);
 
   useEffect(() => {
@@ -72,9 +70,7 @@ export function AccountSelectorEffects({
     };
   }, [reloadActiveAccountInfo]);
 
-  if (isReady) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return children;
-  }
   return null;
 }
+
+export const AccountSelectorEffects = memo(AccountSelectorEffectsCmp);

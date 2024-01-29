@@ -27,6 +27,15 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllNetworkIds(): Promise<{ networkIds: string[] }> {
+    const { networks } = await this.getAllNetworks();
+    const networkIds = networks.map((n) => n.id);
+    return {
+      networkIds,
+    };
+  }
+
+  @backgroundMethod()
   async getNetwork({
     networkId,
   }: {

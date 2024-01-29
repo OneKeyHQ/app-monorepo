@@ -35,3 +35,11 @@ export type IFetchAccountDetailsResp = {
 export type IXpubValidation = {
   isValid: boolean;
 };
+
+export type INetworkAccountAddressDetail = {
+  networkId: string;
+  address: string; // real address at certain subnetwork, alias for displayAddress
+  baseAddress: string; // base address shared with all subnetworks
+  normalizedAddress: string; // lowercase address saved to db in EVM
+  displayAddress: string; // checksum address in EVM
+};

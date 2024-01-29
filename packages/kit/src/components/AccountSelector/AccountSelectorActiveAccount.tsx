@@ -153,6 +153,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     <Button
       size="small"
       onPress={async () => {
+        console.log({
+          selectedAccount,
+          activeAccount,
+        });
         if (!selectedAccount) {
           return;
         }
