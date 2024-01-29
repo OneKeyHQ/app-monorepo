@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import {
   IconButton,
   Popover,
@@ -13,7 +11,6 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 function TxHistoryListHeader() {
-  const intl = useIntl();
   const [val, setVal] = useState(true);
 
   return (

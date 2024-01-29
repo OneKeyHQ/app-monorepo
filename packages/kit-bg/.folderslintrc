@@ -9,6 +9,6 @@
     "services/*",
     "states/**",
     "vaults/base/*",
-    "vaults/impls/*"
+    "vaults/impls/**"
    ]
 }

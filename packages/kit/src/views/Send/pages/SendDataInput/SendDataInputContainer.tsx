@@ -25,47 +25,51 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 
-import type { EModalSendRoutes, IModalSendParamList } from '../../router';
+import { EModalSendRoutes } from '../../router';
+
+import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
   const intl = useIntl();
 
   const [isUseFiat, setIsUseFiat] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
+
+  const { serviceNFT, serviceSend, serviceAccount, serviceToken } =
+    backgroundApiProxy;
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
 
   const getAccount = useCallback(
     async () =>
-      backgroundApiProxy.serviceAccount.getAccountOfWallet({
+      serviceAccount.getAccount({
         accountId,
-        indexedAccountId: '',
         networkId,
-        deriveType: 'default',
       }),
-    [accountId, networkId],
+    [accountId, networkId, serviceAccount],
   );
 
   const network = usePromiseResult(
-    () => mockGetNetwork({ networkId }),
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   ).result;
 
-  const nftResult = usePromiseResult(
+  const { result: nftDetails, isLoading: isLoadingNFT } = usePromiseResult(
     async () => {
       if (!isNFT) return;
       const account = await getAccount();
-      const r = await backgroundApiProxy.serviceNFT.fetchNFTDetails({
+      const r = await serviceNFT.fetchNFTDetails({
         networkId,
         accountAddress: account.address,
         collectionAddress: nft?.collectionAddress ?? '',
@@ -73,15 +77,22 @@ function SendDataInputContainer() {
       });
       return r;
     },
-    [getAccount, isNFT, networkId, nft?.collectionAddress, nft?.itemId],
+    [
+      getAccount,
+      isNFT,
+      networkId,
+      nft?.collectionAddress,
+      nft?.itemId,
+      serviceNFT,
+    ],
     { watchLoading: true },
   );
 
-  const tokenResult = usePromiseResult(
+  const { result: tokenDetails, isLoading: isLoadingToken } = usePromiseResult(
     async () => {
       if (isNFT) return;
       const account = await getAccount();
-      const r = await backgroundApiProxy.serviceToken.fetchTokenDetail({
+      const r = await serviceToken.fetchTokenDetails({
         networkId,
         accountAddress: account.address,
         address: token?.address ?? '',
@@ -89,12 +100,19 @@ function SendDataInputContainer() {
       });
       return r;
     },
-    [getAccount, isNFT, networkId, token?.address, token?.isNative],
+    [
+      getAccount,
+      isNFT,
+      networkId,
+      serviceToken,
+      token?.address,
+      token?.isNative,
+    ],
     { watchLoading: true },
   );
 
   const currencySymbol = settings.currencyInfo.symbol;
-  const tokenSymbol = tokenResult.result?.info.symbol ?? '';
+  const tokenSymbol = tokenDetails?.info.symbol ?? '';
 
   const form = useForm({
     defaultValues: {
@@ -112,7 +130,7 @@ function SendDataInputContainer() {
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
 
-    const tokenPrice = tokenResult.result?.price;
+    const tokenPrice = tokenDetails?.price;
 
     if (isNil(tokenPrice)) return '0';
 
@@ -125,7 +143,7 @@ function SendDataInputContainer() {
     return (
       getFormattedNumber(amountBN.times(tokenPrice), { decimal: 4 }) ?? '0'
     );
-  }, [amount, isUseFiat, tokenResult.result?.price]);
+  }, [amount, isUseFiat, tokenDetails?.price]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
@@ -134,43 +152,89 @@ function SendDataInputContainer() {
   const handleOnSelectToken = useCallback(() => navigation.pop(), [navigation]);
   const handleOnSendMax = useCallback(() => {
     if (isUseFiat) {
-      form.setValue('amount', tokenResult.result?.fiatValue ?? '0');
+      form.setValue('amount', tokenDetails?.fiatValue ?? '0');
     } else {
-      form.setValue('amount', tokenResult.result?.balanceParsed ?? '0');
+      form.setValue('amount', tokenDetails?.balanceParsed ?? '0');
     }
     void form.trigger('amount');
-  }, [
-    form,
-    isUseFiat,
-    tokenResult.result?.balanceParsed,
-    tokenResult.result?.fiatValue,
-  ]);
+  }, [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
   const handleOnConfirm = useCallback(async () => {
-    // TODO: handleOnConfirm
-    // const account = await getAccount();
-    // const transfersInfo: ITransferInfo[] = [
-    //   {
-    //     from: account.address,
-    //     to: isValidName ? resolvedAddress : toAddress,
-    //     amount,
-    //     token: tokenResult.result?.info.address ?? '',
-    //   },
-    // ];
-    // const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-    //   networkId,
-    //   accountId,
-    //   transfersInfo,
-    // });
-    // navigation.push(EModalSendRoutes.SendConfirm, {
-    //   accountId,
-    //   networkId,
-    //   unsignedTxs: [unsignedTx],
-    //   transfersInfo,
-    // });
-  }, []);
+    try {
+      const toAddress = form.getValues('to').resolved;
+      if (!toAddress) return;
+
+      setIsSubmitting(true);
+
+      const account = await getAccount();
+
+      const transfersInfo: ITransferInfo[] = [
+        {
+          from: account.address,
+          to: toAddress,
+          amount,
+          nftInfo:
+            isNFT && nftDetails
+              ? {
+                  nftId: nftDetails.itemId,
+                  nftAddress: nftDetails.collectionAddress,
+                  nftType: nftDetails.collectionType,
+                }
+              : undefined,
+          tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
+        },
+      ];
+      let unsignedTx = await serviceSend.buildUnsignedTx({
+        networkId,
+        accountId,
+        transfersInfo,
+      });
+
+      const isNonceRequired = await serviceSend.getIsNonceRequired({
+        networkId,
+      });
+
+      if (isNonceRequired) {
+        const nonce = await serviceSend.getNextNonce({
+          networkId,
+          accountAddress: account.address,
+        });
+        unsignedTx = await serviceSend.updateUnsignedTx({
+          networkId,
+          accountId,
+          unsignedTx,
+          nonceInfo: { nonce },
+        });
+      }
+      setIsSubmitting(false);
+
+      navigation.push(EModalSendRoutes.SendConfirm, {
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+      });
+    } catch (e: any) {
+      setIsSubmitting(false);
+
+      throw new OneKeyError({
+        info: e.message ?? e,
+        autoToast: true,
+      });
+    }
+  }, [
+    accountId,
+    amount,
+    form,
+    getAccount,
+    isNFT,
+    navigation,
+    networkId,
+    nftDetails,
+    serviceSend,
+    tokenDetails,
+  ]);
   const handleValidateTokenAmount = useCallback(
     (value: string) => {
-      const tokenInfo = tokenResult.result;
+      const tokenInfo = tokenDetails;
       const amountBN = new BigNumber(value ?? 0);
       if (isUseFiat) {
         if (amountBN.isGreaterThan(tokenInfo?.fiatValue ?? 0)) {
@@ -182,11 +246,11 @@ function SendDataInputContainer() {
 
       return true;
     },
-    [isUseFiat, tokenResult.result],
+    [isUseFiat, tokenDetails],
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (tokenResult.isLoading || nftResult.isLoading) return true;
+    if (isLoadingToken || isLoadingNFT || isSubmitting) return true;
 
     if (!form.formState.isValid || !amount) {
       return true;
@@ -194,12 +258,13 @@ function SendDataInputContainer() {
   }, [
     amount,
     form.formState.isValid,
-    nftResult.isLoading,
-    tokenResult.isLoading,
+    isLoadingNFT,
+    isLoadingToken,
+    isSubmitting,
   ]);
 
   const renderTokenDataInputForm = useCallback(() => {
-    const tokenInfo = tokenResult.result;
+    const tokenInfo = tokenDetails;
     return (
       <Form.Field
         name="amount"
@@ -288,7 +353,7 @@ function SendDataInputContainer() {
     intl,
     isUseFiat,
     linkedAmount,
-    tokenResult.result,
+    tokenDetails,
     tokenSymbol,
   ]);
   const renderNFTDataInputForm = useCallback(() => {
@@ -335,7 +400,7 @@ function SendDataInputContainer() {
           >
             <ListItem
               avatarProps={{
-                src: isNFT ? nft?.metadata.image : token?.logoURI,
+                src: isNFT ? nft?.metadata?.image : token?.logoURI,
               }}
               mx="$0"
               borderWidth={1}
@@ -367,7 +432,10 @@ function SendDataInputContainer() {
       <Page.Footer
         onConfirm={handleOnConfirm}
         onConfirmText={intl.formatMessage({ id: 'action__next' })}
-        confirmButtonProps={{ disabled: isSubmitDisabled }}
+        confirmButtonProps={{
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
       />
     </Page>
   );

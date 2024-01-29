@@ -16,7 +16,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { mockGetNetwork } from '@onekeyhq/kit-bg/src/mock';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -46,7 +45,7 @@ function HistoryDetails() {
   const resp = usePromiseResult(
     () =>
       Promise.all([
-        mockGetNetwork({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,
@@ -63,8 +62,8 @@ function HistoryDetails() {
   const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
 
   const nativeToken = usePromiseResult(
-    () => backgroundApiProxy.serviceToken.getNativeToken(network?.id),
-    [network?.id],
+    () => backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
+    [networkId],
   ).result;
 
   const relatedAssetInfo = useMemo(() => {

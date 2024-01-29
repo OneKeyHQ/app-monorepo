@@ -100,7 +100,6 @@ export type IPlatformEnv = {
   isRuntimeChrome?: boolean;
   isRuntimeEdge?: boolean;
 
-  canGetClipboard?: boolean;
   supportAutoUpdate?: boolean;
 
   isAppleStoreEnv?: boolean;
@@ -295,8 +294,6 @@ export const isManifestV3: boolean =
   // TODO firefox check v3
   isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 
-export const canGetClipboard: boolean = !isWeb && !isExtension;
-
 export const supportAutoUpdate: boolean =
   isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);
 
@@ -362,7 +359,6 @@ const platformEnv: IPlatformEnv = {
   isRuntimeChrome,
   isRuntimeEdge,
 
-  canGetClipboard,
   supportAutoUpdate,
   isAppleStoreEnv,
 };

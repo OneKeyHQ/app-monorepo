@@ -9,7 +9,6 @@ import {
   Divider,
   Page,
   SectionList,
-  Stack,
   XStack,
 } from '@onekeyhq/components';
 import type { IBtcUTXO } from '@onekeyhq/kit-bg/src/vaults/impls/btc/types';
