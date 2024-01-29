@@ -95,7 +95,7 @@
     "react-native-keyboard-manager": "^6.5.11-1",
     "react-native-level-fs": "^3.0.1",
     "react-native-metrix": "^0.6.3",
-    "react-native-mmkv": "^2.8.0",
+    "react-native-mmkv": "^2.11.0",
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71",
     "react-native-pager-view": "6.1.4",
     "react-native-randombytes": "^3.6.1",
