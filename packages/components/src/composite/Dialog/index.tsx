@@ -390,6 +390,8 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
       onCancel,
       onCancelText,
       cancelButtonProps,
+      showConfirmButton,
+      showCancelButton,
       onConfirm,
       onConfirmText,
       confirmButtonProps,
@@ -405,6 +407,21 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
     ) {
       throw new Error(
         'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (
+      !showConfirmButton &&
+      (onConfirm || onConfirmText || confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showConfirmButton is false, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (!showCancelButton && (onCancel || onCancelText || cancelButtonProps)) {
+      throw new Error(
+        'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
       );
     }
   }
