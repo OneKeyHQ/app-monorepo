@@ -59,44 +59,30 @@ export function TokenDetails() {
   const { accountId, networkId, tokenAddress, tokenSymbol, tokenLogoURI } =
     route.params;
 
-  const getAccount = useCallback(
-    async () =>
-      backgroundApiProxy.serviceAccount.getAccountOfWallet({
+  const { result: [tokenHistory, tokenDetails] = [] } =
+    usePromiseResult(async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
-        indexedAccountId: '',
         networkId,
-        deriveType: 'default',
-      }),
-    [accountId, networkId],
-  );
+      });
+      if (!account) return;
 
-  const network = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
-  ).result;
+      const [history, details] = await Promise.all([
+        backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId: account.id,
+          accountAddress: account.address,
+          networkId,
+          tokenAddress,
+        }),
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: account.address,
+          contractList: [tokenAddress],
+        }),
+      ]);
 
-  const tokenDetails = usePromiseResult(async () => {
-    const account = await getAccount();
-    if (!account || !network) return;
-    const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-      networkId,
-      accountAddress: account.address,
-      contractList: [tokenAddress],
-    });
-
-    return r?.[0];
-  }, [getAccount, network, networkId, tokenAddress]).result;
-  const tokenHistory = usePromiseResult(async () => {
-    const account = await getAccount();
-    if (!account || !network) return;
-    const r = backgroundApiProxy.serviceHistory.fetchAccountHistory({
-      accountId: account.id,
-      accountAddress: account.address,
-      networkId,
-      tokenAddress,
-    });
-    return r;
-  }, [getAccount, network, networkId, tokenAddress]).result;
+      return [history, details[0]];
+    }, [accountId, networkId, tokenAddress]);
 
   const tokenValue = useMemo(
     () =>

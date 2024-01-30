@@ -59,13 +59,30 @@ function TxFeeContainer(props: IProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { result: [isEditFeeEnabled, network] = [] } = usePromiseResult(
-    () =>
-      Promise.all([
+  const {
+    result: [isEditFeeEnabled, network, nativeToken] = [],
+    isLoading: isLoadingNativeBalance,
+  } = usePromiseResult(
+    async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+
+      if (!account) return;
+
+      return Promise.all([
         backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-      ]),
-    [networkId],
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: account.address,
+          contractList: [''],
+        }),
+      ]);
+    },
+    [accountId, networkId],
+    { watchLoading: true },
   );
 
   const { result: gasFee } = usePromiseResult(
@@ -83,6 +100,8 @@ function TxFeeContainer(props: IProps) {
         // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
           r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+        } else if (r.gasEIP1559) {
+          r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
         }
 
         updateSendFeeStatus({
@@ -102,25 +121,6 @@ function TxFeeContainer(props: IProps) {
       pollingInterval: 6000,
     },
   );
-
-  const { result: nativeToken, isLoading: isLoadingNativeBalance } =
-    usePromiseResult(async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-
-      if (!account) return;
-
-      const tokensDetails =
-        await backgroundApiProxy.serviceToken.fetchTokensDetails({
-          networkId,
-          accountAddress: account.address,
-          contractList: [''],
-        });
-
-      return tokensDetails?.[0];
-    }, [accountId, networkId]);
 
   const feeSelectorItems = useMemo(() => {
     const items = [];
@@ -299,7 +299,7 @@ function TxFeeContainer(props: IProps) {
       isLoadingNativeBalance,
       isInsufficientNativeBalance: new BigNumber(nativeTokenTransferAmount ?? 0)
         .plus(selectedFee?.totalNative ?? 0)
-        .gt(nativeToken?.balanceParsed ?? 0),
+        .gt(nativeToken?.[0].balanceParsed ?? 0),
     });
 
     return () =>
