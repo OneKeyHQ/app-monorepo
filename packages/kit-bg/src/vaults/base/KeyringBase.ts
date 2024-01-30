@@ -58,14 +58,16 @@ export abstract class KeyringBase extends VaultContext {
     params: IPrepareHdAccountsParamsBase,
     options: IPrepareHdAccountsOptions,
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
+    const { walletId } = this;
+    if (!walletId) {
+      throw new Error('walletId is not defined');
+    }
     const { names, deriveInfo, indexes } = params;
     const { coinType, template, namePrefix, idSuffix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
     }
-    if (!this.walletId) {
-      throw new Error('walletId is not defined');
-    }
+
     const settings = await this.getVaultSettings();
     const { accountType } = settings;
 
@@ -75,23 +77,31 @@ export abstract class KeyringBase extends VaultContext {
     const addressInfos = await buildAddressesInfo({
       usedIndexes,
     });
-
     const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
-    for (let index = 0; index < addressInfos.length; index += 1) {
-      const { path, publicKey, address, addresses } = addressInfos[index];
+    for (let idx = 0; idx < addressInfos.length; idx += 1) {
+      const { path, publicKey, address, addresses } = addressInfos[idx];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
       }
       if (accountType === EDBAccountType.VARIANT && !addresses) {
         throw new Error('addresses is required for variant account');
       }
+      if (accountType === EDBAccountType.VARIANT && address) {
+        throw new Error('address should not set for variant account');
+      }
 
-      const name = names?.[index] || `${namePrefix} #${usedIndexes[index] + 1}`;
+      const pathIndex = usedIndexes[idx];
+      const name = names?.[idx] || `${namePrefix} #${pathIndex + 1}`;
 
       const id = accountUtils.buildHDAccountId({
-        walletId: this.walletId,
+        walletId,
         path,
         idSuffix,
+      });
+
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index: pathIndex,
       });
 
       ret.push({
@@ -99,6 +109,8 @@ export abstract class KeyringBase extends VaultContext {
         name,
         type: accountType,
         path,
+        pathIndex,
+        indexedAccountId,
         coinType, // TODO save deriveType to account
         impl: settings.impl,
         pub: publicKey,
@@ -115,21 +127,23 @@ export abstract class KeyringBase extends VaultContext {
     params: IPrepareHdAccountsParamsBase,
     options: IPrepareHdAccountsOptions,
   ): Promise<IDBUtxoAccount[]> {
-    if (!this.walletId) {
+    const { walletId } = this;
+    if (!walletId) {
       throw new Error('walletId is undefined');
     }
-    const {
-      indexes,
-      deriveInfo,
-      // purpose,
-      names,
-      skipCheckAccountExist,
-    } = params;
+    const { indexes, deriveInfo, names, skipCheckAccountExist } = params;
     const { coinType, template, namePrefix } = deriveInfo;
     if (!coinType) {
       throw new Error('coinType is not defined');
     }
+
     const settings = await this.getVaultSettings();
+    const { accountType } = settings;
+
+    if (accountType !== EDBAccountType.UTXO) {
+      throw new Error('accountType is not utxo');
+    }
+
     const { checkIsAccountUsed, buildAddressesInfo } = options;
 
     const ignoreFirst = indexes[0] !== 0;
@@ -141,9 +155,10 @@ export abstract class KeyringBase extends VaultContext {
     });
 
     const ret: IDBUtxoAccount[] = [];
-    let index = 0;
+    let idx = 0;
     for (const {
       path,
+      relPath,
       publicKey,
       xpub,
       xpubSegwit,
@@ -151,18 +166,34 @@ export abstract class KeyringBase extends VaultContext {
       addresses,
     } of addressesInfo) {
       if (!path || isNil(xpub) || !addresses) {
-        throw new Error('path or xpub or addresses is undefined');
+        throw new Error(
+          'basePrepareHdUtxoAccounts ERROR: path or xpub or addresses is undefined',
+        );
+      }
+      if (!relPath) {
+        throw new Error(
+          'basePrepareHdUtxoAccounts ERROR: relPath is undefined',
+        );
       }
 
       const prefix = namePrefix;
-      const name = names?.[index] || `${prefix} #${usedIndexes[index] + 1}`;
+      const pathIndex = usedIndexes[idx];
+      const name = names?.[idx] || `${prefix} #${pathIndex + 1}`;
       const id = `${this.walletId}--${path}`;
-      if (!ignoreFirst || index > 0) {
+      if (!ignoreFirst || idx > 0) {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId: this.walletId,
+          index: pathIndex,
+        });
+
         ret.push({
           id,
           name,
-          type: EDBAccountType.UTXO,
+          type: accountType,
           path,
+          pathIndex,
+          indexedAccountId,
+          relPath,
           coinType,
           impl: settings.impl,
           pub: publicKey,
@@ -174,7 +205,7 @@ export abstract class KeyringBase extends VaultContext {
         });
       }
 
-      const isLast = index === addressesInfo.length - 1;
+      const isLast = idx === addressesInfo.length - 1;
       if (!skipCheckAccountExist && !isLast && checkIsAccountUsed) {
         const { isUsed } = await checkIsAccountUsed({
           xpub,
@@ -191,7 +222,7 @@ export abstract class KeyringBase extends VaultContext {
         await wait(200);
       }
 
-      index += 1;
+      idx += 1;
     }
     return ret;
   }
