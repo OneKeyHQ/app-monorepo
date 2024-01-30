@@ -20,8 +20,8 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   } = useNetworkSelectorTrigger({ num });
 
   const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(() => {
-    closePopover?.();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
     showChainSelector();
   }, [closePopover, showChainSelector]);
 
@@ -83,8 +83,8 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const media = useMedia();
 
   const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(() => {
-    closePopover?.();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
     showChainSelector();
   }, [closePopover, showChainSelector]);
 

@@ -23,8 +23,8 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   } = useAccountSelectorTrigger({ num });
 
   const { closePopover } = usePopoverContext();
-  const handlePress = useCallback(() => {
-    closePopover?.();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
     showAccountSelector();
   }, []);
 
@@ -119,8 +119,8 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   const media = useMedia();
 
-  const handlePress = useCallback(() => {
-    closePopover?.();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
     showAccountSelector();
   }, [closePopover, showAccountSelector]);
 

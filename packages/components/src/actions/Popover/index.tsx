@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,7 +38,7 @@ export interface IPopoverProps extends TMPopoverProps {
 }
 
 interface IPopoverContext {
-  closePopover?: () => void;
+  closePopover?: () => Promise<void>;
 }
 
 const PopoverContext = createContext({} as IPopoverContext);
@@ -134,9 +135,20 @@ function RawPopover({
       transformOrigin = 'top right';
   }
 
-  const closePopover = useCallback(() => {
-    onOpenChange?.(false);
-  }, [onOpenChange]);
+  const closePopover = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        onOpenChange?.(false);
+        setTimeout(
+          () => {
+            resolve();
+          },
+          // Need to execute the callback after the sheet animation ends on the Native side
+          platformEnv.isNative ? 300 : 0,
+        );
+      }),
+    [onOpenChange],
+  );
 
   const openPopover = useCallback(() => {
     onOpenChange?.(true);
@@ -146,7 +158,7 @@ function RawPopover({
     if (!isOpen) {
       return false;
     }
-    closePopover();
+    void closePopover();
     return true;
   }, [closePopover, isOpen]);
 
