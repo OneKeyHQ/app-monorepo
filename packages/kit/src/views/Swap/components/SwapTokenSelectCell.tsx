@@ -3,12 +3,12 @@ import { useCallback, useMemo } from 'react';
 import {
   IconButton,
   Image,
-  ListItem,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 
+import { ListItem } from '../../../components/ListItem';
 import { shortContractAddress } from '../utils/utils';
 
 import type { ISwapNetwork, ISwapToken } from '../types';

@@ -5,11 +5,11 @@ import Fuse from 'fuse.js';
 
 import {
   type IPageNavigationProp,
-  ListItem,
   ListView,
   Page,
   SearchBar,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapActions,

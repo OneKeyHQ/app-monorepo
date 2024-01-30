@@ -7,12 +7,12 @@ import {
   Badge,
   Icon,
   Image,
-  ListItem,
   ListView,
   Page,
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapManualSelectQuoteProvidersAtom,
