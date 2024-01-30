@@ -3,17 +3,6 @@ import bech32 from 'bech32';
 import useParseQRCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
 import { EQRCodeHandlerType } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode/handlers/type';
 
-// jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
-//   __esModule: true,
-//   default: jest.fn(),
-// }));
-// jest.mock('@onekeyhq/components', () => ({
-//   useClipboard: jest.fn(),
-// }));
-// jest.mock('react-intl', () => ({
-//   useIntl: jest.fn(),
-// }));
-
 describe('useParseQRCode', () => {
   const { parse } = useParseQRCode();
   it('should parse as migrate', () => {
