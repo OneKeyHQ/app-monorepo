@@ -37,6 +37,7 @@ export type IModalSendParamList = {
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
     onSuccess?: (txs: ISignedTxPro[]) => void;
+    onFail?: (error: Error) => void;
   };
   [EModalSendRoutes.SendCustomFee]: {
     networkId: string;

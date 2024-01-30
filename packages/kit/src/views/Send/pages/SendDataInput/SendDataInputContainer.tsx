@@ -94,24 +94,16 @@ function SendDataInputContainer() {
 
   const { result: tokenDetails, isLoading: isLoadingToken } = usePromiseResult(
     async () => {
-      if (isNFT) return;
+      if (isNFT || !token) return;
       const account = await getAccount();
-      const r = await serviceToken.fetchTokenDetails({
+      const r = await serviceToken.fetchTokensDetails({
         networkId,
         accountAddress: account.address,
-        address: token?.address ?? '',
-        isNative: token?.isNative ?? false,
+        contractList: [token.address],
       });
-      return r;
+      return r?.[0];
     },
-    [
-      getAccount,
-      isNFT,
-      networkId,
-      serviceToken,
-      token?.address,
-      token?.isNative,
-    ],
+    [getAccount, isNFT, networkId, serviceToken, token],
     { watchLoading: true },
   );
 

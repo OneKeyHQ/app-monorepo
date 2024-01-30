@@ -15,7 +15,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useTokenListActions,
   withTokenListProvider,
-} from '../../../states/jotai/contexts/token-list';
+} from '../../../states/jotai/contexts/tokenList';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
 
@@ -42,6 +42,7 @@ function TokenListContainer(props: IProps) {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
   } = useTokenListActions().current;
 
   const promise = usePromiseResult(
@@ -65,6 +66,7 @@ function TokenListContainer(props: IProps) {
         smallBalanceTokens: r.smallBalanceTokens.data,
       });
       refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
+      refreshSmallBalanceTokensFiatValue(r.smallBalanceTokens.fiatValue ?? '0');
 
       const mergedTokenData = getMergedTokenData({
         tokens: r.tokens,
@@ -90,6 +92,7 @@ function TokenListContainer(props: IProps) {
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
+      refreshSmallBalanceTokensFiatValue,
       refreshTokenList,
       refreshTokenListMap,
     ],
