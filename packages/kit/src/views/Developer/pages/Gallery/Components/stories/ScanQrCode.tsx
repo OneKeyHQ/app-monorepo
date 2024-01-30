@@ -29,9 +29,9 @@ const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
   const openScanQrCodeModal = useCallback(() => {
     scanQrCode
-      .start()
+      .start(true)
       .then((value) => {
-        alert(value);
+        console.log(value);
       })
       .catch((e) => {
         console.log(e);

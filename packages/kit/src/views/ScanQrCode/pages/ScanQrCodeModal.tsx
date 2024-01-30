@@ -8,7 +8,6 @@ import { Page, ScanQrCode } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
 import type {
@@ -19,7 +18,6 @@ import type { RouteProp } from '@react-navigation/core';
 
 export default function ScanQrCodeModal() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<
@@ -29,14 +27,6 @@ export default function ScanQrCodeModal() {
     >();
   const { callback } = route.params;
 
-  const overrideCallback = useCallback(
-    (value: string) => {
-      callback(value);
-      navigation.pop();
-    },
-    [navigation, callback],
-  );
-
   const pickImage = useCallback(async () => {
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
@@ -45,9 +35,9 @@ export default function ScanQrCodeModal() {
 
     if (!result.canceled) {
       const data = await scanFromURLAsync(result.assets[0].uri);
-      if (data) overrideCallback(data);
+      if (data) callback(data);
     }
-  }, [overrideCallback]);
+  }, [callback]);
   const headerRightCall = useCallback(
     () => (
       <HeaderIconButton onPress={pickImage} icon="ImageSquareMountainOutline" />
@@ -66,7 +56,7 @@ export default function ScanQrCodeModal() {
         headerRight={headerRightCall}
       />
       <Page.Body>
-        <ScanQrCode handleBarCodeScanned={overrideCallback} />
+        <ScanQrCode handleBarCodeScanned={callback} />
       </Page.Body>
     </Page>
   );

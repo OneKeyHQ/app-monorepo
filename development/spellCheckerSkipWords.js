@@ -608,4 +608,5 @@ module.exports = [
   'Hira',
   'Latn',
   'Cyrl',
+  'symKey',
 ];
