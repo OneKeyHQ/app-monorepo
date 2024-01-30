@@ -153,6 +153,9 @@ export type IDBAvatar = string; // stringify(IAvatarInfo)
 export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
+  pathIndex?: number;
+  relPath?: string;
+  indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
   networks?: string[]; // single chain account belongs to certain networks
