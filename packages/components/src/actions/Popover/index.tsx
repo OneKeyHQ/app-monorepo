@@ -1,5 +1,11 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { Popover as TMPopover } from 'tamagui';
 
@@ -29,6 +35,12 @@ export interface IPopoverProps extends TMPopoverProps {
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
 }
+
+interface IPopoverContext {
+  closePopover?: () => void;
+}
+
+const PopoverContext = createContext({} as IPopoverContext);
 
 const usePopoverValue = (
   open?: boolean,
@@ -62,6 +74,13 @@ const usePopoverValue = (
           onOpenChange: setIsOpen,
         }),
     openPopover,
+    closePopover,
+  };
+};
+
+export const usePopoverContext = () => {
+  const { closePopover } = useContext(PopoverContext);
+  return {
     closePopover,
   };
 };
@@ -135,11 +154,21 @@ function RawPopover({
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
-  const content = RenderContent
-    ? ((
-        <RenderContent isOpen={isOpen} closePopover={closePopover} />
-      ) as ReactElement)
-    : (renderContent as ReactElement);
+  const popoverContextValue = useMemo(
+    () => ({
+      closePopover,
+    }),
+    [closePopover],
+  );
+  const content = (
+    <PopoverContext.Provider value={popoverContextValue}>
+      {RenderContent
+        ? ((
+            <RenderContent isOpen={isOpen} closePopover={closePopover} />
+          ) as ReactElement)
+        : (renderContent as ReactElement)}
+    </PopoverContext.Provider>
+  );
   return (
     <TMPopover
       offset={8}

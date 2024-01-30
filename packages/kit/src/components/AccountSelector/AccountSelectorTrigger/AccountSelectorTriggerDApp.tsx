@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   Icon,
@@ -6,6 +6,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -20,6 +21,12 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     activeAccount: { account },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
+
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(() => {
+    closePopover?.();
+    showAccountSelector();
+  }, []);
 
   useEffect(() => {
     console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
@@ -65,7 +72,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
               outlineStyle: 'solid',
             }
       }
-      onPress={showAccountSelector}
+      onPress={handlePress}
       disabled={disabled}
       {...rest}
     >
@@ -108,8 +115,14 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
     activeAccount: { account },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
+  const { closePopover } = usePopoverContext();
 
   const media = useMedia();
+
+  const handlePress = useCallback(() => {
+    closePopover?.();
+    showAccountSelector();
+  }, [closePopover, showAccountSelector]);
 
   return (
     <XStack
@@ -129,7 +142,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      onPress={showAccountSelector}
+      onPress={handlePress}
     >
       <AccountAvatar size="$6" account={account} />
       {media.gtMd ? (
