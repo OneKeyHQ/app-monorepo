@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Button, Page, SortableListView } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Button, Page } from '@onekeyhq/components';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -13,6 +15,7 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { ListNetworkView } from '../components/ListNetworkView';
 
 import type {
   EChainSelectorPages,
@@ -30,12 +33,11 @@ function getHeaderRightComponent(
   );
 }
 
-const CELL_HEIGHT = 48;
-
 function ChainSelector({ num }: { num: number }) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
+  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const selectedChain = network?.id;
@@ -74,6 +76,15 @@ function ChainSelector({ num }: { num: number }) {
     setIsEditMode(!isEditMode);
   };
 
+  const [topNetworks, setTopNetworks] = useState<IServerNetwork[]>([]);
+  const [searchText, setSearchText] = useState('');
+
+  useEffect(() => {
+    if (networks.length) {
+      setTopNetworks(networks.slice(0, 4));
+    }
+  }, [networks]);
+
   return (
     <Page>
       <Page.Header
@@ -82,69 +93,19 @@ function ChainSelector({ num }: { num: number }) {
           getHeaderRightComponent(isEditMode, handleEditButtonPress)
         }
         headerSearchBarOptions={{
-          placeholder: 'Search',
+          placeholder: intl.formatMessage({ id: 'form__search' }),
+          onChangeText: (e) => setSearchText(e.nativeEvent.text),
         }}
       />
       <Page.Body>
-        <SortableListView
-          data={networks}
-          keyExtractor={(item) => `${item.id}`}
-          getItemLayout={(_, index) => ({
-            length: CELL_HEIGHT,
-            offset: index * CELL_HEIGHT,
-            index,
-          })}
-          onDragEnd={(result) => console.log(result.data)}
-          renderItem={({ item, drag }) => (
-            <ListItem
-              h={CELL_HEIGHT}
-              avatarProps={{
-                src:
-                  item.logoURI ||
-                  `https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/${item.code}.png`,
-                size: '$8',
-              }}
-              title={item.name}
-              {...(!isEditMode && {
-                onPress: () => handleListItemPress(item.id),
-              })}
-            >
-              {isEditMode && (
-                <ListItem.IconButton
-                  title="Move to top"
-                  key="moveToTop"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  icon="AlignTopOutline"
-                />
-              )}
-              {isEditMode && (
-                <ListItem.IconButton
-                  key="darg"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  cursor="move"
-                  icon="DragOutline"
-                  onPressIn={drag}
-                />
-              )}
-              {!isEditMode && selectedChain === item.id && (
-                <ListItem.CheckMark
-                  key="checkmark"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                />
-              )}
-            </ListItem>
-          )}
+        <ListNetworkView
+          searchText={searchText}
+          isEditMode={isEditMode}
+          topNetworks={topNetworks}
+          allNetworks={networks}
+          selectNetworkId={selectedChain}
+          onChangeTopNetworks={setTopNetworks}
+          onPressItem={(item) => handleListItemPress(item.id)}
         />
       </Page.Body>
     </Page>
