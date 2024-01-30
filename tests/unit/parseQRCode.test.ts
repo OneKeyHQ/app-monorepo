@@ -1,7 +1,7 @@
 import bech32 from 'bech32';
 
 import useParseQRCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
-import { EQRCodeHandlerType } from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode/handlers/type';
+import { EQRCodeHandlerType } from '@onekeyhq/kit/src/views/ScanQrCode/utils/parseQRCodeHandler/type';
 
 describe('useParseQRCode', () => {
   const { parse } = useParseQRCode();
