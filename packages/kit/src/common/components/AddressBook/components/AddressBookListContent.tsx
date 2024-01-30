@@ -58,7 +58,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
       subtitle={item.address}
       renderAvatar={renderAvatar}
       onPress={() => onPress?.(item)}
-      testID={`address-item-${item.id || ''}`}
+      testID={`address-item-${item.address || ''}`}
     >
       {showActions ? (
         <ActionList
@@ -94,7 +94,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
           renderTrigger={
             <ListItem.IconButton
               icon="DotVerSolid"
-              testID={`address-item-menu-${item.id || ''}`}
+              testID={`address-item-menu-${item.address || ''}`}
             />
           }
         />
@@ -116,6 +116,7 @@ const RenderEmptyAddressBook = () => {
         onPress: () => {
           navigation.push(EModalAddressBookRoutes.AddItemModal);
         },
+        testID: 'address-book-add-button',
       }}
     />
   );
@@ -178,7 +179,7 @@ export const AddressBookListContent = ({
           <IconButton
             size="small"
             variant="tertiary"
-            testID={`address-cat-${section.title}-${
+            testID={`address-cat-${section.title.toUpperCase()}-${
               section.isFold ? 'fold' : 'unfold'
             }`}
             icon={
