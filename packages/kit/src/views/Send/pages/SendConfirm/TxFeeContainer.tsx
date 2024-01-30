@@ -19,7 +19,7 @@ import {
   useSendSelectedFeeAtom,
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
   getFeeIcon,

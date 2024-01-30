@@ -10,7 +10,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { EModalSendRoutes, type IModalSendParamList } from '../../router';

@@ -11,7 +11,7 @@ import {
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
-} from '../../states/jotai/contexts/token-list';
+} from '../../states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '../../utils/format';
 import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
