@@ -6,7 +6,7 @@ import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type ServiceAccount from '../services/ServiceAccount';
-import type ServiceAddress from '../services/ServiceAddress';
+import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDefi from '../services/ServiceDefi';
@@ -15,6 +15,7 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
+import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
@@ -38,6 +39,8 @@ class BackgroundApiProxy
   ) as ServicePassword;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
+
+  serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
 
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
 
@@ -67,7 +70,9 @@ class BackgroundApiProxy
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
 
-  serviceAddress = this._createProxyService('serviceAddress') as ServiceAddress;
+  serviceAccountProfile = this._createProxyService(
+    'serviceAccountProfile',
+  ) as ServiceAccountProfile;
 
   serviceOnboarding = this._createProxyService(
     'serviceOnboarding',

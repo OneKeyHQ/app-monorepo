@@ -15,7 +15,7 @@ export type IAccountNFT = {
   collectionSymbol: string;
   collectionType: ENFTType;
   itemId: string;
-  metadata: {
+  metadata?: {
     description: string;
     externalUrl: string;
     image: string;
@@ -39,9 +39,9 @@ export type IFetchAccountNFTsResp = {
 
 export type IFetchNFTDetailsParams = {
   networkId: string;
-  accountAddress: string;
-  collectionAddress: string;
   itemId: string;
+  accountAddress?: string;
+  collectionAddress?: string;
 };
 
 export type IFetchNFTDetailsResp = {

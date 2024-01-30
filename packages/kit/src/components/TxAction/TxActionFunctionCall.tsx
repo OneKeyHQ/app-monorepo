@@ -7,19 +7,23 @@ import {
   TxActionCommonListView,
 } from './TxActionCommon';
 
-import type { ITxActionCommonProps, ITxActionProps } from './types';
+import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 
 function getTxActionFunctionCallInfo(props: ITxActionProps) {
   const { action } = props;
   const { functionCall } = action;
-  const target = functionCall?.target ?? '';
+  const functionFrom = functionCall?.from ?? '';
+  const functionTo = functionCall?.to ?? '';
   const functionName = functionCall?.functionName ?? '';
   const functionHash = functionCall?.functionHash ?? '';
   const functionSignature = functionCall?.functionSignature ?? '';
+  const functionIcon = functionCall?.icon ?? '';
   const args = functionCall?.args ?? [];
 
   return {
-    target,
+    functionFrom,
+    functionTo,
+    functionIcon,
     functionName,
     functionHash,
     functionSignature,
@@ -29,16 +33,18 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { target, functionName } = getTxActionFunctionCallInfo(props);
+  const { functionTo, functionName, functionIcon } =
+    getTxActionFunctionCallInfo(props);
 
   const title = functionName;
-  const avatar: ITxActionCommonProps['avatar'] = {
+  const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: true,
+    src: functionIcon,
     fallbackIcon: 'ImageMountainSolid',
   };
   const description = {
     prefix: intl.formatMessage({ id: 'content__to' }),
-    children: accountUtils.shortenAddress({ address: target }),
+    children: accountUtils.shortenAddress({ address: functionTo }),
   };
 
   return (
@@ -52,17 +58,21 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
 
 function TxActionFunctionCallDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { target, functionName } = getTxActionFunctionCallInfo(props);
-
-  const title = intl.formatMessage({ id: 'transaction__contract_interaction' });
-  const content = functionName;
-  const description = `To: ${target}`;
+  const { functionFrom, functionTo, functionName, functionIcon } =
+    getTxActionFunctionCallInfo(props);
 
   return (
     <TxActionCommonDetailView
-      title={title}
-      content={content}
-      description={description}
+      overview={{
+        title: intl.formatMessage({ id: 'transaction__contract_interaction' }),
+        content: functionName,
+        avatar: {
+          src: functionIcon,
+          circular: true,
+        },
+      }}
+      target={{ title: 'To Contract', content: functionTo }}
+      source={{ content: functionFrom }}
     />
   );
 }

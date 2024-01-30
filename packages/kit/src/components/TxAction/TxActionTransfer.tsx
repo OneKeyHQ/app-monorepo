@@ -1,19 +1,30 @@
+import { useCallback } from 'react';
+
 import BigNumber from 'bignumber.js';
-import { isEmpty, map, uniq } from 'lodash';
+import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type {
-  IDecodedTxActionAssetTransfer,
-  IDecodedTxTransferInfo,
+import {
+  EDecodedTxDirection,
+  type IDecodedTxActionAssetTransfer,
+  type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { getFormattedNumber } from '../../utils/format';
+import { Container } from '../Container';
 
 import { TxActionCommonListView } from './TxActionCommon';
 
-import type { ITxActionCommonProps, ITxActionProps } from './types';
+import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+
+type ITransferBlock = {
+  target: string;
+  transfersInfo: IDecodedTxTransferInfo[];
+};
 
 function getTxActionTransferInfo(props: ITxActionProps) {
   const { action } = props;
@@ -49,12 +60,14 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
-    label,
+    from,
+    to,
+    label: label ?? '',
     transferTarget,
-    sendNFTIcon: sendsWithNFT[0]?.image,
-    receiveNFTIcon: receivesWithNFT[0]?.image,
-    sendTokenIcon: sendsWithToken[0]?.image,
-    receiveTokenIcon: receivesWithToken[0]?.image,
+    sendNFTIcon: sendsWithNFT[0]?.icon,
+    receiveNFTIcon: receivesWithNFT[0]?.icon,
+    sendTokenIcon: sendsWithToken[0]?.icon,
+    receiveTokenIcon: receivesWithToken[0]?.icon,
   };
 }
 
@@ -142,7 +155,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       address: transferTarget,
     }),
   };
-  const avatar: ITxActionCommonProps['avatar'] = {
+  const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: !(sendNFTIcon || receiveNFTIcon),
     fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
       ? 'QuestionmarkSolid'
@@ -206,8 +219,122 @@ function TxActionTransferListView(props: ITxActionProps) {
   );
 }
 
+function buildTransfersBlock(
+  transferGroup: Record<string, IDecodedTxTransferInfo[]>,
+) {
+  const transfersBlock: ITransferBlock[] = [];
+
+  forOwn(transferGroup, (transfers, target) => {
+    const transfersInfo: IDecodedTxTransferInfo[] = [];
+    const tokenGroup = groupBy(transfers, 'token');
+    forOwn(tokenGroup, (tokens) => {
+      const token = tokens[0];
+      const tokensAmount = tokens.reduce(
+        (acc, item) => acc.plus(item.amount),
+        new BigNumber(0),
+      );
+      transfersInfo.push({
+        ...token,
+        amount: tokensAmount.toFixed(),
+      });
+    });
+    transfersBlock.push({
+      target,
+      transfersInfo,
+    });
+  });
+
+  return transfersBlock;
+}
+
 function TxActionTransferDetailView(props: ITxActionProps) {
-  return null;
+  const intl = useIntl();
+  const { sends, receives, from } = getTxActionTransferInfo(props);
+
+  const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
+  const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
+
+  const renderTransferBlock = useCallback(
+    (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
+      if (isEmpty(transfersBlock)) return null;
+
+      const transferElements: React.ReactElement[] = [];
+
+      transfersBlock.forEach((block, index) => {
+        const { target, transfersInfo } = block;
+        const transfersContent = (
+          <YStack space="$1">
+            {transfersInfo.map((transfer) => (
+              <XStack alignItems="center" space="$1" key={transfer.token}>
+                <ListItem.Avatar
+                  src={transfer.icon}
+                  size="$7"
+                  circular={!transfer.isNFT}
+                  fallbackProps={{
+                    bg: '$bgStrong',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    children: (
+                      <Icon
+                        name={
+                          transfer.isNFT
+                            ? 'QuestionmarkOutline'
+                            : 'ImageMountainSolid'
+                        }
+                        color="$iconSubdued"
+                      />
+                    ),
+                  }}
+                />
+                <SizableText size="$headingLg">{`${
+                  direction === EDecodedTxDirection.OUT ? '-' : '+'
+                } ${transfer.amount} ${transfer.symbol}`}</SizableText>
+              </XStack>
+            ))}
+          </YStack>
+        );
+        transferElements.push(
+          <Container.Item
+            key={`${index}-amount`}
+            title={intl.formatMessage({ id: 'content__amount' })}
+            content={transfersContent}
+          />,
+        );
+        transferElements.push(
+          <Container.Item
+            key={`${index}-target`}
+            title={intl.formatMessage({
+              id:
+                direction === EDecodedTxDirection.OUT
+                  ? 'content__to'
+                  : 'content__from',
+            })}
+            content={target}
+          />,
+        );
+      });
+
+      if (direction === EDecodedTxDirection.OUT) {
+        transferElements.push(
+          <Container.Item
+            key="from"
+            title={intl.formatMessage({ id: 'content__from' })}
+            content={from}
+          />,
+        );
+      }
+
+      return <Container.Box>{transferElements}</Container.Box>;
+    },
+    [from, intl],
+  );
+
+  return (
+    <>
+      {renderTransferBlock(sendsBlock, EDecodedTxDirection.OUT)}
+      {renderTransferBlock(receivesBlock, EDecodedTxDirection.IN)}
+    </>
+  );
 }
 
 export { TxActionTransferListView, TxActionTransferDetailView };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { AnimatePresence } from 'tamagui';
 
 import {
@@ -7,13 +8,13 @@ import {
   Button,
   Icon,
   IconButton,
-  ListItem,
   SectionList,
-  Skeleton,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -35,7 +36,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -45,21 +46,34 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletOptions } from './WalletOptions';
 
-import type { IAccountGroupProps, IAccountProps } from '../../../router/types';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountGroupProps,
+  IAccountManagerStacksParamList,
+} from '../../../router/types';
+import type { RouteProp } from '@react-navigation/core';
 
 export interface IWalletDetailsProps {
   num: number;
-  onAccountPress?: (id: IAccountProps['id']) => void;
   wallet?: IDBWallet;
 }
 
-export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
+export function WalletDetails({ num }: IWalletDetailsProps) {
   const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+
+  const route =
+    useRoute<
+      RouteProp<
+        IAccountManagerStacksParamList,
+        EAccountManagerStacksRoutes.AccountSelectorStack
+      >
+    >();
+  const linkNetwork = route.params?.linkNetwork;
 
   const navigation = useAppNavigation();
 
@@ -132,9 +146,18 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
 
       return serviceAccount.getAccountSelectorAccountsListSectionData({
         focusedWallet: selectedAccount?.focusedWallet,
+        linkedNetworkId: linkNetwork ? selectedAccount?.networkId : undefined,
+        deriveType: selectedAccount.deriveType,
+        othersNetworkId: selectedAccount?.networkId,
       });
     },
-    [selectedAccount?.focusedWallet, serviceAccount],
+    [
+      linkNetwork,
+      selectedAccount.deriveType,
+      selectedAccount?.focusedWallet,
+      selectedAccount?.networkId,
+      serviceAccount,
+    ],
     {
       checkIsFocused: false,
     },
@@ -179,6 +202,26 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
 
     return console.log('clicked');
   };
+
+  const renderSubTitle = useCallback(
+    (item: IDBAccount | IDBIndexedAccount) => {
+      let address: string | undefined;
+      if (isOthers) {
+        const account = item as IDBAccount | undefined;
+        address = account?.address;
+      } else {
+        const indexedAccount = item as IDBIndexedAccount | undefined;
+        address = indexedAccount?.associateAccount?.address;
+      }
+      if (!address && !isOthers && linkNetwork) {
+        return '--';
+      }
+      return accountUtils.shortenAddress({
+        address,
+      });
+    },
+    [isOthers, linkNetwork],
+  );
 
   return (
     <Stack flex={1} pb={bottom}>
@@ -276,78 +319,66 @@ export function WalletDetails({ onAccountPress, num }: IWalletDetailsProps) {
             )}
           </>
         )}
-        renderItem={({ item }: { item: IDBIndexedAccount | IDBAccount }) => (
+        renderItem={({
+          item,
+        }: {
+          item: IDBIndexedAccount | IDBAccount;
+          section: IAccountGroupProps;
+        }) => (
           <ListItem
             key={item.id}
-            avatarProps={{
-              // eslint-disable-next-line spellcheck/spell-checker
-              src: item.avatar,
-              fallbackProps: {
-                delayMs: 150,
-                children: <Skeleton w="$10" h="$10" />,
-              },
-              // cornerImageProps: item.networkImageSrc
-              //   ? {
-              //       src: item.networkImageSrc,
-              //       fallbackProps: {
-              //         children: <Skeleton w="$4" h="$4" />,
-              //       },
-              //     }
-              //   : undefined,
-            }}
+            renderAvatar={
+              <AccountAvatar
+                fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
+                indexedAccount={isOthers ? undefined : (item as any)}
+                account={isOthers ? (item as any) : undefined}
+              />
+            }
             title={item.name}
             titleProps={{
               numberOfLines: 1,
             }}
-            subtitle={
-              (item as IDBAccount)?.address
-                ? accountUtils.shortenAddress({
-                    address: (item as IDBAccount)?.address,
-                  })
-                : undefined
-            }
-            {...(onAccountPress &&
-              !editMode && {
-                onPress: () => {
-                  if (isOthers) {
-                    actions.current.updateSelectedAccount({
-                      num,
-                      builder: (v) => ({
-                        ...v,
-                        walletId: accountUtils.getWalletIdFromAccountId({
-                          accountId: item.id,
-                        }),
-                        othersWalletAccountId: item.id,
-                        indexedAccountId: undefined,
-                      }),
-                    });
-                  } else if (focusedWalletInfo) {
-                    actions.current.updateSelectedAccount({
-                      num,
-                      builder: (v) => ({
-                        ...v,
-                        walletId: focusedWalletInfo?.wallet?.id,
-                        othersWalletAccountId: undefined,
-                        indexedAccountId: item.id,
-                      }),
-                    });
-                  }
-                  navigation.popStack();
-                },
-                checkMark: isOthers
-                  ? selectedAccount.othersWalletAccountId === item.id
-                  : selectedAccount.indexedAccountId === item.id,
-              })}
+            subtitle={renderSubTitle(item)}
+            {...(!editMode && {
+              onPress: async () => {
+                if (isOthers) {
+                  await actions.current.confirmAccountSelect({
+                    num,
+                    indexedAccount: undefined,
+                    othersWalletAccount: item as IDBAccount,
+                    autoChangeToAccountMatchedNetwork: true,
+                  });
+                } else if (focusedWalletInfo) {
+                  await actions.current.confirmAccountSelect({
+                    num,
+                    indexedAccount: item as IDBIndexedAccount,
+                    othersWalletAccount: undefined,
+                    autoChangeToAccountMatchedNetwork: true,
+                  });
+                }
+                navigation.popStack();
+              },
+              checkMark: isOthers
+                ? selectedAccount.othersWalletAccountId === item.id
+                : selectedAccount.indexedAccountId === item.id,
+            })}
           >
             <AnimatePresence>
-              {editMode && <AccountRenameButton account={item} />}
+              {editMode && (
+                <AccountRenameButton
+                  account={isOthers ? (item as IDBAccount) : undefined}
+                  indexedAccount={
+                    isOthers ? undefined : (item as IDBIndexedAccount)
+                  }
+                />
+              )}
             </AnimatePresence>
           </ListItem>
         )}
         renderSectionFooter={({
           section,
         }: {
-          section: IAccountSelectorSectionData;
+          section: IAccountSelectorAccountsListSectionData;
         }) => (
           <ListItem
             onPress={async () => {

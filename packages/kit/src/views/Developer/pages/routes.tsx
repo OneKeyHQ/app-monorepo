@@ -41,6 +41,8 @@ export enum EGalleryRoutes {
   componentScanQrCode = 'component-scanQrCode',
   ComponentWebview = 'component-webview',
   ComponentListView = 'component-ListView',
+  ComponentWalletAvatar = 'component-WalletAvatar',
+  ComponentAccountAvatar = 'component-AccountAvatar',
   ComponentSectionList = 'component-SectionList',
   ComponentSortableListView = 'component-SortableListView',
   ComponentSortableSectionList = 'component-SortableSectionList',
@@ -50,4 +52,5 @@ export enum EGalleryRoutes {
   ComponentLinearGradientGallery = 'component-LinearGradient',
   ComponentHardware = 'component-Hardware',
   ComponentImage = 'component-Image',
+  ComponentAddressInput = 'component-AddressInput',
 }

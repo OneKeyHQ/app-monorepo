@@ -1,4 +1,4 @@
-import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppLock/const';
+import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppAutoLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -11,12 +11,6 @@ import { settingsPersistAtom } from './settings';
 import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
 
 export type IPasswordAtom = {
-  passwordPromptPromiseTriggerData:
-    | {
-        idNumber: number;
-        type: EPasswordPromptType;
-      }
-    | undefined;
   unLock: boolean;
 };
 export const { target: passwordAtom, use: usePasswordAtom } =
@@ -24,10 +18,29 @@ export const { target: passwordAtom, use: usePasswordAtom } =
     persist: false,
     name: EAtomNames.passwordAtom,
     initialValue: {
-      passwordPromptPromiseTriggerData: undefined,
       unLock: false,
     },
   });
+
+// this atom is used to trigger password prompt not add other state
+export type IPasswordPromptPromiseTriggerAtom = {
+  passwordPromptPromiseTriggerData:
+    | {
+        idNumber: number;
+        type: EPasswordPromptType;
+      }
+    | undefined;
+};
+export const {
+  target: passwordPromptPromiseTriggerAtom,
+  use: usePasswordPromptPromiseTriggerAtom,
+} = globalAtom<IPasswordPromptPromiseTriggerAtom>({
+  persist: false,
+  name: EAtomNames.passwordPromptPromiseTriggerAtom,
+  initialValue: {
+    passwordPromptPromiseTriggerData: undefined,
+  },
+});
 
 export type IPasswordPersistAtom = {
   isPasswordSet: boolean;
@@ -35,6 +48,7 @@ export type IPasswordPersistAtom = {
   // Is the application not locked manually by the user
   manualLocking: boolean;
   appLockDuration: number;
+  enableSystemIdleLock: boolean;
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({
@@ -45,7 +59,19 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
       webAuthCredentialId: '',
       manualLocking: false,
       appLockDuration: 240,
+      enableSystemIdleLock: false,
     },
+  });
+
+export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
+  globalAtomComputed(async (get) => {
+    const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
+    const { appLockDuration } = get(passwordPersistAtom.atom());
+    return (
+      platformSupport &&
+      appLockDuration !== Number(ELockDuration.Never) &&
+      appLockDuration !== Number(ELockDuration.Always)
+    );
   });
 
 export const {

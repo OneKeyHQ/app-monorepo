@@ -6,6 +6,8 @@ import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
   IFetchAccountHistoryResp,
+  IFetchHistoryTxDetailsParams,
+  IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
 
 import { vaultFactory } from '../vaults/factory';
@@ -22,7 +24,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
     const client = await this.getClient();
-    const resp = await client.post<IFetchAccountHistoryResp>(
+    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
       '/wallet/v1/account/history/list',
       params,
     );
@@ -32,31 +34,32 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const onChainHistoryTxs = resp.data.data;
+    const { data: onChainHistoryTxs, tokens } = resp.data.data;
 
-    const txGroup: {
-      title: string;
-      data: IAccountHistoryTx[];
-    }[] = [];
+    const txs = await Promise.all(
+      onChainHistoryTxs.map((tx) =>
+        vault.buildOnChainHistoryTx({
+          accountId,
+          networkId,
+          onChainHistoryTx: tx,
+          tokens,
+        }),
+      ),
+    );
 
-    for (let i = 0; i < onChainHistoryTxs.length; i += 1) {
-      const { date, items } = onChainHistoryTxs[i];
-      const txs = await Promise.all(
-        items.map((tx) =>
-          vault.buildOnChainHistoryTx({
-            accountId,
-            networkId,
-            onChainHistoryTx: tx,
-          }),
-        ),
-      );
-      txGroup.push({
-        title: date,
-        data: txs.filter(Boolean) as IAccountHistoryTx[],
-      });
-    }
+    return txs.filter(Boolean) as IAccountHistoryTx[];
+  }
 
-    return txGroup;
+  @backgroundMethod()
+  public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
+    const client = await this.getClient();
+    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+      '/wallet/v1/account/history/detail',
+      {
+        params,
+      },
+    );
+    return resp.data.data;
   }
 }
 

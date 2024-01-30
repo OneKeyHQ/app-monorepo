@@ -139,6 +139,18 @@ const ListViewGallery = LazyLoad(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListView'
     ),
 );
+const AccountAvatarGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountAvatar'
+    ),
+);
+const WalletAvatarGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WalletAvatar'
+    ),
+);
 const LocalDBGallery = LazyLoad(
   () =>
     import(
@@ -307,6 +319,12 @@ const WebviewGallery = LazyLoad(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebView'
     ),
 );
+const AddressInputGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'
+    ),
+);
 
 export const galleryScreenList: {
   name: EGalleryRoutes;
@@ -332,6 +350,14 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
+  {
+    name: EGalleryRoutes.ComponentAccountAvatar,
+    component: AccountAvatarGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentWalletAvatar,
+    component: WalletAvatarGallery,
+  },
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
   {
     name: EGalleryRoutes.ComponentSortableListView,
@@ -429,5 +455,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentImage,
     component: ImageGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAddressInput,
+    component: AddressInputGallery,
   },
 ];

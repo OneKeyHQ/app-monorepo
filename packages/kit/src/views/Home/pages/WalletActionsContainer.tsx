@@ -13,7 +13,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { NetworkSelectorTrigger } from '../../../components/AccountSelector/NetworkSelectorTrigger';
+import { NetworkSelectorTriggerLegacy } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -37,9 +37,9 @@ function WalletActionsContainer() {
     if (!account || !network) return;
     // TODO: Check if it is a single token network by settings
     const isSingleTokenNetwork = false;
-    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken(
-      network.id,
-    );
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+      networkId: network.id,
+    });
     if (isSingleTokenNetwork && nativeToken) {
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
@@ -74,7 +74,7 @@ function WalletActionsContainer() {
               }}
               enabledNum={[1]}
             >
-              <NetworkSelectorTrigger key={1} num={1} />
+              <NetworkSelectorTriggerLegacy key={1} num={1} />
             </AccountSelectorProviderMirror>
 
             <AccountSelectorProviderMirror
@@ -84,7 +84,7 @@ function WalletActionsContainer() {
               }}
               enabledNum={[0]}
             >
-              <NetworkSelectorTrigger key={0} num={0} />
+              <NetworkSelectorTriggerLegacy key={0} num={0} />
             </AccountSelectorProviderMirror>
 
             <AccountSelectorProviderMirror

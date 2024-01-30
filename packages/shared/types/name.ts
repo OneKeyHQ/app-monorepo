@@ -1,6 +1,7 @@
 export type INameResolver = {
   subtype: string;
   value: string;
+  label?: string;
 };
 
 export type IResolveNameParams = {

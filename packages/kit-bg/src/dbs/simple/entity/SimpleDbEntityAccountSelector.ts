@@ -24,7 +24,10 @@ export interface IAccountSelectorSelectedAccount {
   deriveType: IAccountDeriveTypes; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
-export interface IAccountSelectorSectionData {
+export interface IAccountSelectorSelectedAccountsMap {
+  [num: number]: IAccountSelectorSelectedAccount;
+}
+export interface IAccountSelectorAccountsListSectionData {
   title: string;
   isHiddenWalletData?: boolean;
   data: IDBIndexedAccount[] | IDBAccount[];
@@ -33,9 +36,7 @@ export interface IAccountSelectorSectionData {
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
     [sceneId: string]: {
-      selector: {
-        [num: number]: IAccountSelectorSelectedAccount;
-      };
+      selector: IAccountSelectorSelectedAccountsMap;
     };
   };
 }
@@ -83,15 +84,13 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }
 
   @backgroundMethod()
-  async getSelectedAccount({
+  async getSelectedAccountsMap({
     sceneName,
     sceneUrl,
-    num,
   }: {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
-    num: number;
-  }) {
+  }): Promise<IAccountSelectorSelectedAccountsMap | undefined> {
     const sceneId = accountUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,
@@ -105,6 +104,24 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     //   deriveType: 'default',
     //   focusedWallet: undefined,
     // };
-    return data?.selectorInfo[sceneId]?.selector?.[num] || undefined;
+    const result = data?.selectorInfo[sceneId]?.selector || undefined;
+    return result;
+  }
+
+  @backgroundMethod()
+  async getSelectedAccount({
+    sceneName,
+    sceneUrl,
+    num,
+  }: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }): Promise<IAccountSelectorSelectedAccount | undefined> {
+    const selectedAccountsMap = await this.getSelectedAccountsMap({
+      sceneName,
+      sceneUrl,
+    });
+    return selectedAccountsMap?.[num];
   }
 }
