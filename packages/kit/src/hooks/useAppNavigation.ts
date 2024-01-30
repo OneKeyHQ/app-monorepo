@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useNavigation } from '@react-navigation/core';
 
 import { Page } from '@onekeyhq/components';
@@ -19,62 +21,92 @@ function useAppNavigation<
 >() {
   const navigation = useNavigation<P>();
 
-  const popStack = () => {
+  const popStack = useCallback(() => {
     navigation.getParent()?.goBack?.();
-  };
+  }, [navigation]);
 
-  const pop = () => {
+  const pop = useCallback(() => {
     if (navigation.canGoBack?.()) {
       navigation.goBack?.();
     } else {
       popStack();
     }
-  };
+  }, [navigation, popStack]);
 
-  const switchTab = <T extends ETabRoutes>(
-    route: T,
-    params?: {
-      screen: keyof ITabStackParamList[T];
-      params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
+  const switchTab = useCallback(
+    <T extends ETabRoutes>(
+      route: T,
+      params?: {
+        screen: keyof ITabStackParamList[T];
+        params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
+      },
+    ) => {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: route,
+        params,
+      });
     },
-  ) => {
-    navigation.navigate(ERootRoutes.Main, {
-      screen: route,
-      params,
-    });
-  };
+    [navigation],
+  );
 
-  const pushModal = <T extends EModalRoutes>(
-    route: T,
-    params?: {
-      screen: keyof IModalParamList[T];
-      params?: IModalParamList[T][keyof IModalParamList[T]];
+  const pushModalPage = useCallback(
+    <T extends EModalRoutes>(
+      modalType: ERootRoutes.Modal | ERootRoutes.iOSFullScreen,
+      route: T,
+      params?: {
+        screen: keyof IModalParamList[T];
+        params?: IModalParamList[T][keyof IModalParamList[T]];
+      },
+    ) => {
+      if (navigation.push) {
+        navigation.push(modalType, {
+          screen: route,
+          params,
+        });
+        return;
+      }
+      navigation.navigate(modalType, {
+        screen: route,
+        params,
+      });
     },
-  ) => {
-    navigation.push(ERootRoutes.Modal, {
-      screen: route,
-      params,
-    });
-  };
+    [navigation],
+  );
 
-  const pushFullModal = <T extends EModalRoutes>(
-    route: T,
-    params?: {
-      screen: keyof IModalParamList[T];
-      params?: IModalParamList[T][keyof IModalParamList[T]];
+  const pushModal = useCallback(
+    <T extends EModalRoutes>(
+      route: T,
+      params?: {
+        screen: keyof IModalParamList[T];
+        params?: IModalParamList[T][keyof IModalParamList[T]];
+      },
+    ) => {
+      pushModalPage(ERootRoutes.Modal, route, params);
     },
-  ) => {
-    navigation.push(ERootRoutes.iOSFullScreen, {
-      screen: route,
-      params,
-    });
-  };
+    [pushModalPage],
+  );
+
+  const pushFullModal = useCallback(
+    <T extends EModalRoutes>(
+      route: T,
+      params?: {
+        screen: keyof IModalParamList[T];
+        params?: IModalParamList[T][keyof IModalParamList[T]];
+      },
+    ) => {
+      pushModalPage(ERootRoutes.iOSFullScreen, route, params);
+    },
+    [pushModalPage],
+  );
 
   const pageHeaderReload = Page.Header.usePageHeaderReloadOptions();
-  function setOptions(options: Partial<IStackNavigationOptions>) {
-    const reloadOptions = pageHeaderReload.reload(options);
-    navigation.setOptions(reloadOptions);
-  }
+  const setOptions = useCallback(
+    (options: Partial<IStackNavigationOptions>) => {
+      const reloadOptions = pageHeaderReload.reload(options);
+      navigation.setOptions(reloadOptions);
+    },
+    [navigation, pageHeaderReload],
+  );
 
   return {
     navigation,
