@@ -9,7 +9,7 @@ import useParseQRCode from './useParseQRCode';
 import type {
   IBaseValue,
   IQRCodeHandlerParseResult,
-} from './useParseQRCode/handlers/type';
+} from '../utils/parseQRCodeHandler/type';
 
 export default function useScanQrCode() {
   const navigation = useAppNavigation();

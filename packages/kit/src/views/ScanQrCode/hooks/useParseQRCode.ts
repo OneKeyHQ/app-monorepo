@@ -8,8 +8,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 // import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 // import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 
-import * as handlers from './handlers';
-import { EQRCodeHandlerType } from './handlers/type';
+import * as handlers from '../utils/parseQRCodeHandler';
+import { EQRCodeHandlerType } from '../utils/parseQRCodeHandler/type';
 
 import type {
   IAnimationValue,
@@ -17,7 +17,7 @@ import type {
   IQRCodeHandler,
   IQRCodeHandlerParse,
   IQRCodeHandlerParseResult,
-} from './handlers/type';
+} from '../utils/parseQRCodeHandler/type';
 
 const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
 
