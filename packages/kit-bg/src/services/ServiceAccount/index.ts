@@ -306,6 +306,7 @@ class ServiceAccount extends ServiceBase {
     }
     // TODO move to vault
     const accounts = await vault.keyring.prepareAccounts(prepareParams);
+    // TODO validate account contains pathIndex
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
@@ -578,13 +579,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAccountsByIndexedAccount({
+    indexedAccountIds,
     networkId,
     deriveType,
-    indexedAccountIds,
   }: {
-    deriveType: IAccountDeriveTypes;
-    networkId: string;
     indexedAccountIds: string[];
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
@@ -643,7 +644,10 @@ class ServiceAccount extends ServiceBase {
         deriveType,
         indexedAccountIds: [indexedAccountId],
       });
-      return accounts[0];
+      if (accounts[0]) {
+        return accounts[0];
+      }
+      throw new Error(`indexedAccounts not found: ${indexedAccountId}`);
     }
     throw new OneKeyInternalError({
       message: 'accountId or indexedAccountId missing',
@@ -879,9 +883,10 @@ class ServiceAccount extends ServiceBase {
     const isOthersWallet = Boolean(account && !indexedAccountId);
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
+      indexedAccount,
+      accountName: account?.name || indexedAccount?.name || '',
       wallet,
       network,
-      indexedAccount,
       deriveType,
       deriveInfo,
       deriveInfoItems: await this.getDeriveInfoItemsOfNetwork({ networkId }),

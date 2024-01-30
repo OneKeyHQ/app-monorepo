@@ -19,6 +19,12 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public path?: string;
 
+  public pathIndex?: number;
+
+  public relPath?: string;
+
+  public indexedAccountId?: string;
+
   public coinType!: string;
 
   public impl!: string;
@@ -51,6 +57,9 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       name: 'string',
       type: 'string',
       path: 'string?',
+      pathIndex: 'int?',
+      relPath: 'string?',
+      indexedAccountId: 'string?',
       coinType: 'string',
       impl: 'string',
       networks: 'string?[]',
@@ -80,6 +89,9 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       name: this.name,
       type: this.type,
       path: this.path || '',
+      pathIndex: this.pathIndex,
+      relPath: this.relPath,
+      indexedAccountId: this.indexedAccountId,
       coinType: this.coinType,
       address: this.address || '',
       template: this.template || '',

@@ -101,7 +101,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     return Promise.resolve({
-      address: '', // cosmos address should generate by sub chain
+      address: '', // cosmos address should generate by sub chain, keep empty here
       // baseAddress,
       addresses: {
         [networkInfo.networkId]: address,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -37,6 +37,15 @@ const LockNowButton = () => {
     </Button>
   );
 };
+
+function TestRefreshCmp() {
+  const {
+    activeAccount: { accountName },
+  } = useActiveAccount({ num: 0 });
+  console.log('TestRefresh refresh', accountName);
+  return <Button>TestRefresh: {accountName}</Button>;
+}
+const TestRefresh = memo(TestRefreshCmp);
 
 const TabMe = () => {
   const intl = useIntl();
@@ -99,6 +108,7 @@ const TabMe = () => {
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}
           </SizableText>
+          <TestRefresh />
         </YStack>
       </Page.Body>
     </Page>

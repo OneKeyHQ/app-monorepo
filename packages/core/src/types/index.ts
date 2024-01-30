@@ -68,6 +68,7 @@ export type ICoreApiGetAddressItem = {
   // utxo use accountPrefixPath like    m/49'/0'/1'
   //           but not fullPath like    m/49'/0'/1'/0/0
   path?: string;
+  relPath?: string;
   xpub?: string;
   xpubSegwit?: string;
   addresses?: { [relPathOrNetworkId: string]: string };

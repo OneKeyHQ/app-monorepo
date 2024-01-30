@@ -11,7 +11,6 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
@@ -82,9 +81,9 @@ export type IAccountSelectorAvailableNetworks = {
   networkIds?: string[];
   defaultNetworkId?: string;
 };
-export type IAccountSelectorAvailableNetworksMap = {
+export type IAccountSelectorAvailableNetworksMap = Partial<{
   [num: number]: IAccountSelectorAvailableNetworks;
-};
+}>;
 export const {
   atom: accountSelectorAvailableNetworksAtom,
   use: useAccountSelectorAvailableNetworksAtom,
@@ -97,6 +96,7 @@ export interface IAccountSelectorActiveAccountInfo {
   isOthersWallet?: boolean;
   account: IDBAccount | undefined;
   indexedAccount: IDBIndexedAccount | undefined;
+  accountName: string;
   wallet: IDBWallet | undefined;
   network: IServerNetwork | undefined;
   deriveType: IAccountDeriveTypes;
@@ -107,6 +107,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({
     account: undefined,
     indexedAccount: undefined,
+    accountName: '',
     wallet: undefined,
     network: undefined,
     deriveType: 'default',
@@ -120,24 +121,14 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
 
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
-  activeAccountName: string;
 } {
   const [selectedAccounts] = useSelectedAccountsAtom();
   noopObject(selectedAccounts);
   const [accounts] = useActiveAccountsAtom();
   const accountInfo = accounts[num];
   const activeAccount = accountInfo || defaultActiveAccountInfo();
-  let activeAccountName = activeAccount.account?.name || '';
-  const walletId = activeAccount.wallet?.id || '';
-  if (
-    accountUtils.isHdWallet({ walletId }) ||
-    accountUtils.isHwWallet({ walletId })
-  ) {
-    activeAccountName = activeAccount.indexedAccount?.name || '';
-  }
   return {
-    activeAccount: accountInfo || defaultActiveAccountInfo(),
-    activeAccountName,
+    activeAccount,
   };
 }
 
