@@ -10,6 +10,7 @@ import {
   Button,
   IconButton,
   Image,
+  Input,
   ListView,
   Page,
   SearchBar,
@@ -36,6 +37,7 @@ import type {
   IDiscoveryBanner,
 } from '@onekeyhq/shared/types/discovery';
 
+import { EDAppConnectionModal } from '../../../DAppConnection/router';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -205,9 +207,11 @@ function DashboardHeader({
   handleOpenWebsite: ({ dApp, webSite }: IMatchDAppItemType) => void;
   handleHeaderMorePress: (tabIndex: number) => void;
 }) {
+  const navigation = useAppNavigation();
   const [tabIndex, setTabIndex] = useState(0);
   const bookmarks = useMemo(() => bookmarkData ?? [], [bookmarkData]);
   const histories = useMemo(() => historyData ?? [], [historyData]);
+  const [wcUri, setWcUri] = useState('');
   return (
     <Stack p="$4">
       <SizableText size="$headingXl" py="$2">
@@ -219,6 +223,32 @@ function DashboardHeader({
         }}
       >
         NotifyTest
+      </Button>
+      <Button
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+            screen: EDAppConnectionModal.ConnectionList,
+          });
+        }}
+      >
+        Connection List
+      </Button>
+      <Input onChangeText={setWcUri} />
+      <Button
+        onPress={async () => {
+          await backgroundApiProxy.walletConnect.initialize();
+          await backgroundApiProxy.walletConnect.connect(wcUri);
+        }}
+      >
+        WalletConnect Connect
+      </Button>
+      <Button
+        variant="primary"
+        onPress={() => {
+          void backgroundApiProxy.simpleDb.dappConnection.clearRawData();
+        }}
+      >
+        Clean
       </Button>
       <Stack
         pb="$2"
@@ -381,7 +411,21 @@ function Dashboard() {
     <Page>
       <Page.Body>
         <YStack p="$2" alignItems="center" justifyContent="center" />
-        <Tab
+        <DashboardHeader
+          banners={result?.banners}
+          bookmarkData={bookmarkData}
+          historyData={historyData}
+          handleHeaderMorePress={handleHeaderMorePress}
+          handleSearchBarPress={handleSearchBarPress}
+          handleOpenWebsite={({ dApp, webSite }) =>
+            handleOpenWebSite({
+              navigation,
+              dApp,
+              webSite,
+            })
+          }
+        />
+        {/* <Tab
           data={data}
           initialScrollIndex={0}
           ListHeaderComponent={
@@ -400,11 +444,11 @@ function Dashboard() {
               }
             />
           }
-          headerProps={{
+            headerProps={{
             itemContainerStyle: { flex: 1 },
             cursorStyle: { width: '70%', h: '$0.5', bg: '$text' },
           }}
-        />
+        /> */}
       </Page.Body>
     </Page>
   );

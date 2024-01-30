@@ -150,7 +150,10 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       storage[origin] = connectionItem;
 
       const newData = { ...data, [storageType]: storage };
-      console.log('simpledb upsertConnection: ', data);
+      console.log(
+        'simpledb upsertConnection: ',
+        JSON.stringify(newData, null, 2),
+      );
       return {
         data: newData,
       };
@@ -179,6 +182,17 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         };
       }
 
+      console.log(
+        'simpledb beforeUpdate rawData: ',
+        JSON.stringify(rawData.data, null, 2),
+      );
+
+      console.log(
+        'simpledb updateConnectionAccountInfo: ',
+        JSON.stringify(updatedAccountInfo, null, 2),
+        accountSelectorNum,
+      );
+
       const storage = rawData.data[storageType];
       const connectionItem = storage[origin];
       if (!connectionItem) {
@@ -203,6 +217,11 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         ...storage,
         [origin]: updatedConnectionItem,
       };
+
+      console.log(
+        'simpledb updateConnectionAccountInfo: ',
+        JSON.stringify(updatedStorage, null, 2),
+      );
 
       return {
         data: {
