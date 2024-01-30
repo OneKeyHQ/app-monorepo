@@ -377,7 +377,7 @@ function BasicSelect<T extends string | ISelectItem>({
           placeholder={placeholder}
           readonly
           flex={1}
-          testID={`${props.testID || ''}-value-${value || ''}`}
+          testID={`${props.testID || ''}-input`}
         />
         <Icon
           name="ChevronBottomSolid"

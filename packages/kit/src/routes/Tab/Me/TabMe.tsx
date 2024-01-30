@@ -155,7 +155,7 @@ const TabMe = () => {
           >
             Onboarding
           </Button>
-          <Button onPress={onPress}>
+          <Button onPress={onPress} testID="me-settings">
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
           <AddressBookButton />
