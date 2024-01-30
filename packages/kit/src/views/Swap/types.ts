@@ -42,11 +42,19 @@ export interface ISwapToken {
   price: number;
   price24h?: number;
   fiatValue?: string;
+  accountAddress?: string;
 }
 
 export interface ISwapTokenCatch {
   data: ISwapToken[];
   updatedAt: number;
+}
+
+export interface ISwapTokenDetailInfo {
+  price: string;
+  balance: string;
+  balanceParsed: string;
+  fiatValue: string;
 }
 
 export interface IFetchTokensParams {

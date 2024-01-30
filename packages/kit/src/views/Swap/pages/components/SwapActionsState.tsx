@@ -11,16 +11,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-
 import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
-} from '../../../states/jotai/contexts/swap';
-import { swapApproveUnlimitedValue } from '../config/SwapProvider.constants';
-import { useSwapStepState } from '../hooks/useSwapStepState';
-import { ESwapStepStateType } from '../types';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+
+import { swapApproveUnlimitedValue } from '../../config/SwapProvider.constants';
+import { useSwapStepState } from '../../hooks/useSwapStepState';
+import { ESwapStepStateType } from '../../types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;

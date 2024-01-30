@@ -28,6 +28,7 @@ import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { EModalSwapRoutes } from '../../router/types';
+import SwapAccountAddressContainer from '../components/SwapAccountAddressContainer';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/types';
@@ -75,20 +76,35 @@ const SwapTokenSelectPage = () => {
     async (item: ISwapToken) => {
       if (type === 'from') {
         void selectFromToken(item);
-        updateSelectedAccount({
-          num: 0,
-          builder: (v) => ({ ...v, networkId: item.networkId }),
-        });
+        // updateSelectedAccount({
+        //   num: 0,
+        //   builder: (v) => ({ ...v, networkId: item.networkId }),
+        // });
       } else {
         void selectToToken(item);
-        updateSelectedAccount({
-          num: 1,
-          builder: (v) => ({ ...v, networkId: item.networkId }),
-        });
+        // updateSelectedAccount({
+        //   num: 1,
+        //   builder: (v) => ({ ...v, networkId: item.networkId }),
+        // });
       }
       navigation.popStack();
     },
-    [navigation, selectFromToken, selectToToken, type, updateSelectedAccount],
+    [navigation, selectFromToken, selectToToken, type],
+  );
+
+  const onSelectCurrentNetwork = useCallback(
+    (network: ISwapNetwork) => {
+      console.log('network-', network);
+      setSearchKeyword('');
+      setCurrentSelectNetwork(network);
+      if (network.networkId !== 'all') {
+        updateSelectedAccount({
+          num: type === 'from' ? 0 : 1,
+          builder: (v) => ({ ...v, networkId: network.networkId }),
+        });
+      }
+    },
+    [type, updateSelectedAccount],
   );
 
   const renderItem = useCallback(
@@ -131,19 +147,16 @@ const SwapTokenSelectPage = () => {
             setSearchKeyword('');
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapNetworkSelect,
-              params: { setCurrentSelectNetwork },
+              params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
             });
           }}
           onlySupportSingleNetWork={onlySupportSingleNetWork}
           networks={swapNetworks.slice(0, 3)}
           selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={(network) => {
-            setSearchKeyword('');
-            setCurrentSelectNetwork(network);
-          }}
+          onSelectNetwork={onSelectCurrentNetwork}
         />
       </YStack>
-
+      <SwapAccountAddressContainer num={type === 'from' ? 0 : 1} />
       {fetchLoading ? (
         <Spinner flex={1} justifyContent="center" alignItems="center" />
       ) : (

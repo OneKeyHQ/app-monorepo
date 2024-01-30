@@ -11,6 +11,7 @@ import type {
   IFetchTokensParams,
   ISwapNetwork,
   ISwapToken,
+  ISwapTokenDetailInfo,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import {
   EExchangeProtocol,
@@ -111,6 +112,41 @@ export default class ServiceSwap extends ServiceBase {
       Toast.error({ title: 'error', message: error?.message });
     }
     return { result: [], next: undefined };
+  }
+
+  @backgroundMethod()
+  async fetchSwapTokenDetails({
+    networkId,
+    accountAddress,
+    xpub,
+    contractAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+    contractAddress: string;
+  }): Promise<ISwapTokenDetailInfo | undefined> {
+    const params = {
+      networkId,
+      accountAddress,
+      xpub,
+      contractAddress,
+    };
+    const client = await this.getClient();
+    try {
+      const { data } = await client.get<IFetchResponse<ISwapTokenDetailInfo>>(
+        '/swap/v1/token/detail',
+        { params },
+      );
+      if (data?.code === 0 && data?.data) {
+        return data.data;
+      }
+      Toast.error({ title: 'error', message: data?.message });
+    } catch (e) {
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
+    }
+    return undefined;
   }
 
   @backgroundMethod()

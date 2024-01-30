@@ -3,18 +3,18 @@ import { memo, useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EModalSendRoutes } from '../../Send/router';
-import { swapApproveResetValue } from '../config/SwapProvider.constants';
-import { useSwapBuildTx } from '../hooks/useSwapBuiltTx';
-import { EModalSwapRoutes, type IModalSwapParamList } from '../router/types';
+import { EModalSendRoutes } from '../../../Send/router';
+import { swapApproveResetValue } from '../../config/SwapProvider.constants';
+import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
+import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
-import { withSwapProvider } from './WithSwapProvider';
 
 const SwapMainLoad = () => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();

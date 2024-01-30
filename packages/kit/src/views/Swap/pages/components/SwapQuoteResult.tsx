@@ -1,16 +1,16 @@
 import { memo, useMemo } from 'react';
 
 import { YStack } from '@onekeyhq/components';
-
 import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-} from '../../../states/jotai/contexts/swap';
-import SwapCommonInfoItem from '../components/SwapCommonInfoItem';
-import SwapProviderInfoItem from '../components/SwapProviderInfoItem';
-import SwapRateInfoItem from '../components/SwapRateInfoItem';
-import { useSwapQuote } from '../hooks/useSwapQuote';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+
+import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
+import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { useSwapQuote } from '../../hooks/useSwapQuote';
 
 interface ISwapQuoteResultProps {
   receivedAddress?: string;

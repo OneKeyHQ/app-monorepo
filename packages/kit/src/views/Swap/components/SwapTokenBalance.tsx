@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { SizableText, XStack } from '@onekeyhq/components';
 
 interface ISwapTokenBalanceProps {
-  balance: number;
+  balance: string;
   symbol: string;
 }
 const SwapTokenBalance = ({ balance, symbol }: ISwapTokenBalanceProps) => (

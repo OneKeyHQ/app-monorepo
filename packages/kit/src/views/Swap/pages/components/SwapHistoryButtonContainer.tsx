@@ -3,7 +3,7 @@ import { Button, IconButton } from '@onekeyhq/components';
 import {
   useSwapTxHistoryListSyncFromSimpleDb,
   useSwapTxHistoryStateSyncInterval,
-} from '../hooks/useSwapTxHistory';
+} from '../../hooks/useSwapTxHistory';
 
 interface ISwapHistoryButtonContainerProps {
   onHistoryButtonPress: () => void;

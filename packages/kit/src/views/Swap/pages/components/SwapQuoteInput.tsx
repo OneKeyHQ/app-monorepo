@@ -3,23 +3,29 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, XStack, YStack } from '@onekeyhq/components';
-
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-} from '../../../states/jotai/contexts/swap';
-import SwapTokenAmountInput from '../components/SwapTokenAmountInput';
-import SwapTokenCurrencyValue from '../components/SwapTokenCurrencyValue';
-import SwapTokenSelectTrigger from '../components/SwapTokenSelectTrigger';
-import { useSwapQuote } from '../hooks/useSwapQuote';
-import { useSwapNetworkList } from '../hooks/useSwapTokens';
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import SwapAccountContainer from './SwapAccountContainer';
+import SwapFromAmountPercentage from '../../components/SwapFromAmountPercentage';
+import SwapTokenAmountInput from '../../components/SwapTokenAmountInput';
+import SwapTokenCurrencyValue from '../../components/SwapTokenCurrencyValue';
+import SwapTokenSelectTrigger from '../../components/SwapTokenSelectTrigger';
+import { swapFromAmountPercentageItems } from '../../config/SwapProvider.constants';
+import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapNetworkList } from '../../hooks/useSwapTokens';
+import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
 
-import type { ISwapFromAmountPercentageItem } from '../types';
+import SwapAccountAddressContainer from './SwapAccountAddressContainer';
+import { SwapSelectTokenBalance } from './SwapSelectTokenBalance';
+
+import type { ISwapFromAmountPercentageItem } from '../../types';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: 'from' | 'to') => void;
@@ -33,7 +39,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
-
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { activeAccount: activeAccount1 } = useActiveAccount({ num: 1 });
   useEffect(() => {
     void quoteFetch(Number(fromInputAmount));
   }, [fromInputAmount, quoteFetch]);
@@ -69,6 +76,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
     [],
   );
 
+  useSwapAccountNetworkSync({ fromToken, toToken });
+
   return (
     <YStack>
       <YStack
@@ -97,11 +106,23 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
             }}
           />
         </XStack>
-        <SwapAccountContainer
-          num={0}
-          token={fromToken}
-          onSelectAmountPercentage={onSelectAmountPercentage}
-        />
+        {fromToken ? (
+          <>
+            <SwapAccountAddressContainer num={0} />
+            <XStack>
+              <SwapSelectTokenBalance
+                accountAddress={activeAccount?.account?.address}
+                accountNetworkId={activeAccount?.network?.id}
+                accountXpub={(activeAccount?.account as IDBUtxoAccount)?.xpub}
+                token={fromToken}
+              />
+              <SwapFromAmountPercentage
+                selectItems={swapFromAmountPercentageItems}
+                onSelectItem={onSelectAmountPercentage}
+              />
+            </XStack>
+          </>
+        ) : null}
       </YStack>
       <XStack justifyContent="center">
         <Button borderRadius="$4" onPress={alternationToken}>
@@ -137,7 +158,19 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           />
         </XStack>
 
-        <SwapAccountContainer num={1} token={toToken} isReceiver />
+        {toToken ? (
+          <>
+            <SwapAccountAddressContainer num={1} />
+            <XStack>
+              <SwapSelectTokenBalance
+                accountAddress={activeAccount1?.account?.address}
+                accountNetworkId={activeAccount1?.network?.id}
+                accountXpub={(activeAccount1?.account as IDBUtxoAccount)?.xpub}
+                token={toToken}
+              />
+            </XStack>
+          </>
+        ) : null}
       </YStack>
     </YStack>
   );

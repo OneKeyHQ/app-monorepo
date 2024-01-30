@@ -8,8 +8,8 @@ import {
   AccountSelectorTriggerSwap,
 } from '../../../components/AccountSelector';
 
-import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
-import SwapMainLand from './SwapMainLand';
+import SwapHeaderRightActionContainer from './components/SwapHeaderRightActionContainer';
+import SwapMainLand from './components/SwapMainLand';
 
 const SwapPageContainer = () => {
   const headerRight = useCallback(
