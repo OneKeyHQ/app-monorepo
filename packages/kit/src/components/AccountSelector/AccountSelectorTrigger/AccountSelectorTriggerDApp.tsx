@@ -18,7 +18,6 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 }>(({ num, compressionUiMode, disabled, ...rest }) => {
   const {
     activeAccount: { account },
-    activeAccountName,
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
@@ -76,7 +75,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       {isCompressionUiMode ? (
         <YStack flex={1}>
           <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-            {activeAccountName}
+            {account?.name ?? ''}
           </SizableText>
           <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
             {addressText}
@@ -84,7 +83,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         </YStack>
       ) : (
         <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {activeAccountName}
+          {account?.name ?? ''}
         </SizableText>
       )}
       {isCompressionUiMode ? null : (
@@ -107,7 +106,6 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
     activeAccount: { account },
-    activeAccountName,
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
@@ -137,7 +135,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       {media.gtMd ? (
         <>
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
-            {activeAccountName}
+            {account?.name ?? ''}
           </SizableText>
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         </>

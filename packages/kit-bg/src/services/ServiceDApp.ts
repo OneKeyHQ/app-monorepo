@@ -19,7 +19,7 @@ import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IDappSourceInfo, IServerNetwork } from '@onekeyhq/shared/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
   IConnectionAccountInfo,
   IGetDAppAccountInfoParams,
@@ -112,7 +112,7 @@ class ServiceDApp extends ServiceBase {
         id,
         origin: request.origin || '',
         hostname: uriUtils.getHostNameFromUrl({ url: request.origin || '' }),
-        scope: request.scope as any,
+        scope: request.scope,
         data: request.data as any,
       };
 
@@ -335,20 +335,22 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async disconnectAccount({
+  async disconnectWebsite({
     origin,
-    options,
-    num,
-  }: IGetDAppAccountInfoParams & { num: number }) {
-    const { storageType } = getQueryDAppAccountParams({
-      origin,
-      options,
-    });
-    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
+    storageType,
+  }: {
+    origin: string;
+    storageType: IStorageType;
+  }) {
+    return this.backgroundApi.simpleDb.dappConnection.deleteConnection(
       origin,
       storageType,
-      num,
     );
+  }
+
+  @backgroundMethod()
+  async disconnectAllWebsites() {
+    return this.backgroundApi.simpleDb.dappConnection.clearRawData();
   }
 
   async getConnectedAccountsInfo({
@@ -398,6 +400,16 @@ class ServiceDApp extends ServiceBase {
     return this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
       origin,
     );
+  }
+
+  @backgroundMethod()
+  async getAllConnectedList() {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    if (!rawData || !rawData.data || !rawData.data.injectedProvider) {
+      return [];
+    }
+    return Object.values(rawData.data.injectedProvider);
   }
 
   @backgroundMethod()

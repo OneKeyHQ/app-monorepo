@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
@@ -37,7 +36,7 @@ function ConnectionModal() {
       setSelectedAccount(activeAccount);
       console.log(
         'connectionmodal setActiveAccount: ',
-        JSON.stringify(activeAccount),
+        activeAccount.account?.id,
       );
     },
     [],

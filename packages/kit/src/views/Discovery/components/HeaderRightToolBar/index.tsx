@@ -132,14 +132,14 @@ function AccountSelectorPopoverContent({
   }, []);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   return (
-    <YStack p="$5" space="$2">
-      <AccountSelectorProviderMirror
-        config={{
-          sceneName: EAccountSelectorSceneName.discover,
-          sceneUrl: origin,
-        }}
-        enabledNum={accountsInfo.map((account) => account.num)}
-      >
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: origin,
+      }}
+      enabledNum={accountsInfo.map((account) => account.num)}
+    >
+      <YStack p="$5" space="$2">
         {accountsInfo.map((account) => (
           <AccountListItem
             key={account.num}
@@ -157,8 +157,8 @@ function AccountSelectorPopoverContent({
             }}
           />
         ))}
-      </AccountSelectorProviderMirror>
-    </YStack>
+      </YStack>
+    </AccountSelectorProviderMirror>
   );
 }
 
