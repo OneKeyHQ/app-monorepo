@@ -23,7 +23,7 @@ type IProps = {
 };
 
 function SendConfirmActionsContainer(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, onSuccess, onFail } = props;
   const media = useMedia();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -52,8 +52,18 @@ function SendConfirmActionsContainer(props: IProps) {
       networkId,
       accountId,
       unsignedTxs: newUnsignedTxs,
+      onSuccess,
+      onFail,
     });
-  }, [accountId, navigation, networkId, sendSelectedFeeInfo, unsignedTxs]);
+  }, [
+    accountId,
+    navigation,
+    networkId,
+    onFail,
+    onSuccess,
+    sendSelectedFeeInfo?.feeInfo,
+    unsignedTxs,
+  ]);
 
   const isSubmitDisabled = useMemo(() => {
     if (
