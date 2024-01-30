@@ -10,7 +10,7 @@ import {
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
 export function useNetworkSelectorTrigger({ num }: { num: number }) {
-  const { activeAccount, activeAccountName } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
@@ -40,7 +40,6 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
 
   return {
     activeAccount,
-    activeAccountName,
     showChainSelector,
   };
 }

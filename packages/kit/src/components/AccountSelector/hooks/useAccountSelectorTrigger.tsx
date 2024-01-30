@@ -9,7 +9,7 @@ import {
 
 export function useAccountSelectorTrigger({ num }: { num: number }) {
   const navigation = useAppNavigation();
-  const { activeAccount, activeAccountName } = useActiveAccount({ num });
+  const { activeAccount } = useActiveAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const actions = useAccountSelectorActions();
 
@@ -27,6 +27,5 @@ export function useAccountSelectorTrigger({ num }: { num: number }) {
   return {
     showAccountSelector,
     activeAccount,
-    activeAccountName,
   };
 }

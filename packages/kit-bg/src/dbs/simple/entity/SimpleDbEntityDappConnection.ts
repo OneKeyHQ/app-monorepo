@@ -264,65 +264,31 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async deleteConnection(
-    origin: string,
-    storageType: IStorageType,
-    num: number,
-  ) {
+  async deleteConnection(origin: string, storageType: IStorageType) {
     await this.setRawData(({ rawData }) => {
-      let data: IDappConnectionData['data'] = {
-        injectedProvider: {},
-        walletConnect: {},
-      };
-
-      if (rawData?.data && typeof rawData.data === 'object') {
-        data = { ...rawData.data };
-        // Ensure that both `injectedProvider` and `walletConnect` keys exist.
-        data.injectedProvider = data.injectedProvider || {};
-        data.walletConnect = data.walletConnect || {};
-      }
-
-      if (storageType === 'walletConnect') {
+      if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
           data: {
-            ...data,
+            injectedProvider: {},
             walletConnect: {},
           },
         };
       }
 
-      const storage = data[storageType];
-      // Find the connection item for the given origin
-      const connectionItem = storage[origin];
-      if (connectionItem) {
-        // Delete the connection information for the given num (accountSelectorNumber)
-        const accountInfo = connectionItem.connectionMap[num];
-        if (accountInfo) {
-          // Delete the connection info from connectionMap
-          delete connectionItem.connectionMap[num];
-
-          // Rebuild networkImplMap and addressMap
-          const { networkImplMap, addressMap } = generateMaps(
-            connectionItem.connectionMap,
-          );
-          connectionItem.networkImplMap = networkImplMap;
-          connectionItem.addressMap = addressMap;
-        }
-
-        // If connectionMap is empty after deletion, remove the connection item
-        if (Object.keys(connectionItem.connectionMap).length === 0) {
-          delete storage[origin];
-        } else {
-          // Otherwise, update the storage with the modified connectionItem
-          storage[origin] = connectionItem;
-        }
+      if (!rawData.data[storageType]) {
+        console.warn(`Storage type '${storageType}' not found.`);
+        return rawData;
       }
 
-      // Return the updated rawData
+      delete rawData.data[storageType][origin];
+
       return {
+        ...rawData,
         data: {
-          ...data,
-          [storageType]: storage,
+          ...rawData.data,
+          [storageType]: {
+            ...rawData.data[storageType],
+          },
         },
       };
     });

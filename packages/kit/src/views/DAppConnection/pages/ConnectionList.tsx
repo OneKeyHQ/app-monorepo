@@ -1,117 +1,72 @@
 import { useCallback } from 'react';
 
-import { ListView, Page } from '@onekeyhq/components';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import { Button, Empty, ListView, Page } from '@onekeyhq/components';
+import type { IStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
 
-function ConnectionList() {
-  const { serviceDApp } = backgroundApiProxy;
-  const { result, run } = usePromiseResult(async () => {
-    const r = await serviceDApp.getInjectProviderConnectedList();
-    return r;
-  }, [serviceDApp]);
+function ConnectionListEmpty() {
+  return (
+    <Empty
+      icon="LinkSolid"
+      title="No dApps Connected"
+      description="You haven't connected to any dApps yet. "
+    />
+  );
+}
 
-  const shouldUpdateSession = useCallback(
-    (
-      prevAccountInfo: IConnectionAccountInfo,
-      accountInfo: IConnectionAccountInfo,
-    ): boolean =>
-      prevAccountInfo &&
-      (prevAccountInfo.walletId !== accountInfo.walletId ||
-        prevAccountInfo.indexedAccountId !== accountInfo.indexedAccountId ||
-        prevAccountInfo.networkId !== accountInfo.networkId ||
-        prevAccountInfo.accountId !== accountInfo.accountId ||
-        prevAccountInfo.address !== accountInfo.address),
+function ConnectionList() {
+  const { result, run } = usePromiseResult(
+    async () => backgroundApiProxy.serviceDApp.getAllConnectedList(),
     [],
   );
 
-  const handleAccountInfoChanged = useCallback(
-    async ({
-      origin,
-      accountSelectorNum,
-      prevAccountInfo,
-      selectedAccount,
-    }: {
-      origin: string;
-      accountSelectorNum: number;
-      prevAccountInfo: IConnectionAccountInfo;
-      selectedAccount: IAccountSelectorActiveAccountInfo;
-    }) => {
-      console.log(
-        'handleAccountChanged: ',
-        accountSelectorNum,
-        prevAccountInfo,
-        selectedAccount,
-      );
-      const updatedAccountInfo: IConnectionAccountInfo = {
-        walletId: selectedAccount.wallet?.id ?? '',
-        indexedAccountId: selectedAccount.indexedAccount?.id ?? '',
-        networkId: selectedAccount.network?.id ?? '',
-        accountId: selectedAccount.account?.id ?? '',
-        address: selectedAccount.account?.address ?? '',
-        networkImpl: selectedAccount.network?.impl ?? '',
-      };
-      if (!shouldUpdateSession(prevAccountInfo, updatedAccountInfo)) {
-        return;
-      }
-
-      await serviceDApp.updateConnectionSession({
+  const handleDAppDisconnect = useCallback(
+    async (origin: string, storageType: IStorageType) => {
+      await backgroundApiProxy.serviceDApp.disconnectWebsite({
         origin,
-        accountSelectorNum,
-        updatedAccountInfo,
-        storageType: 'injectedProvider',
+        storageType,
       });
-
       void run();
-
-      if (prevAccountInfo.accountId !== updatedAccountInfo.accountId) {
-        void serviceDApp.notifyDAppAccountsChanged(origin);
-      }
-      if (prevAccountInfo.networkId !== updatedAccountInfo.networkId) {
-        void serviceDApp.notifyDAppChainChanged(origin);
-      }
     },
-    [serviceDApp, shouldUpdateSession, run],
+    [run],
   );
 
-  const handleDisconnect = useCallback(
-    async ({
-      origin,
-      networkImpl,
-      accountSelectorNum,
-    }: {
-      origin: string;
-      networkImpl: string;
-      accountSelectorNum: number;
-    }) => {
-      await serviceDApp.disconnectAccount({
-        origin,
-        options: { networkImpl },
-        num: accountSelectorNum,
-      });
-      void run();
-    },
-    [serviceDApp, run],
+  const renderHeaderRight = useCallback(
+    () => (
+      <Button
+        variant="tertiary"
+        size="medium"
+        onPress={async () => {
+          await backgroundApiProxy.serviceDApp.disconnectAllWebsites();
+          void run();
+        }}
+      >
+        Remove All
+      </Button>
+    ),
+    [run],
   );
 
   return (
     <Page>
-      <Page.Header title="Connection List" />
+      <Page.Header
+        title="dApp connections"
+        headerRight={() => renderHeaderRight()}
+      />
       <Page.Body>
         <ListView
+          estimatedItemSize={48}
+          scrollEnabled
           data={result}
-          estimatedItemSize="$10"
-          // ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={ConnectionListEmpty}
           keyExtractor={(item) => item.origin}
           renderItem={({ item }) => (
             <ConnectionListItem
               item={item}
-              handleAccountInfoChanged={handleAccountInfoChanged}
-              handleDisconnect={handleDisconnect}
+              handleDisconnect={handleDAppDisconnect}
             />
           )}
         />
