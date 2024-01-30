@@ -1,7 +1,12 @@
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenData,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 export enum EModalSendRoutes {
   SendAssetInput = 'SendAssetInput',
@@ -16,6 +21,7 @@ export type IModalSendParamList = {
   [EModalSendRoutes.SendAssetInput]: {
     networkId: string;
     accountId: string;
+    all: ITokenData;
   };
   [EModalSendRoutes.SendDataInput]: {
     networkId: string;

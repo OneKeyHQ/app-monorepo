@@ -9,6 +9,7 @@ import {
   TextArea,
   useForm,
 } from '@onekeyhq/components';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,8 +23,9 @@ import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
+import { ITokenData } from '@onekeyhq/shared/types/token';
 
-function WalletActionsContainer() {
+function WalletActionsContainer({ all }: { all: ITokenData }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -35,34 +37,15 @@ function WalletActionsContainer() {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    const [networkSettings, nativeToken] = await Promise.all([
-      backgroundApiProxy.serviceNetwork.getNetworkSettings({
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.SendAssetInput,
+      params: {
         networkId: network.id,
-      }),
-      backgroundApiProxy.serviceToken.getNativeToken({
-        networkId: network.id,
-      }),
-    ]);
-    if (networkSettings.isSingleToken && nativeToken) {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendDataInput,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-          isNFT: false,
-          token: nativeToken,
-        },
-      });
-    } else {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendAssetInput,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-        },
-      });
-    }
-  }, [account, navigation, network]);
+        accountId: account.id,
+        all,
+      },
+    });
+  }, [account, all, navigation, network]);
 
   const handleOnReceive = useCallback(() => {
     Dialog.confirm({

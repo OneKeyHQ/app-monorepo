@@ -1,9 +1,9 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useMedia } from 'tamagui';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -16,6 +16,9 @@ import {
 } from '../../../states/jotai/contexts/token-list';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
+import { Portal } from '@onekeyhq/components';
+import { WalletActionsContainer } from './WalletActionsContainer';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -23,6 +26,7 @@ type IProps = {
 
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
+  const [all, setAll] = useState<ITokenData>();
 
   const {
     activeAccount: { account, network },
@@ -61,11 +65,15 @@ function TokenListContainer(props: IProps) {
       });
       refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
 
-      const allTokens = [
-        ...r.tokens.data,
-        ...r.riskTokens.data,
-        ...r.smallBalanceTokens.data,
-      ];
+      const mergedTokenData = getMergedTokenData({
+        tokens: r.tokens,
+        smallBalanceTokens: r.smallBalanceTokens,
+        riskTokens: r.riskTokens,
+      });
+
+      setAll(mergedTokenData.tokens);
+
+      const allTokens = mergedTokenData.tokens.data;
 
       if (allTokens && allTokens.length) {
         void backgroundApiProxy.serviceToken.updateLocalTokens({
@@ -109,16 +117,21 @@ function TokenListContainer(props: IProps) {
   );
 
   return (
-    <TokenListView
-      withHeader
-      withFooter
-      isLoading={promise.isLoading}
-      onPressToken={handleOnPressToken}
-      onContentSizeChange={onContentSizeChange}
-      {...(media.gtLg && {
-        tableLayout: true,
-      })}
-    />
+    <>
+      <Portal.Body container="test123">
+        <WalletActionsContainer all={all} />
+      </Portal.Body>
+      <TokenListView
+        withHeader
+        withFooter
+        isLoading={promise.isLoading}
+        onPressToken={handleOnPressToken}
+        onContentSizeChange={onContentSizeChange}
+        {...(media.gtLg && {
+          tableLayout: true,
+        })}
+      />
+    </>
   );
 }
 

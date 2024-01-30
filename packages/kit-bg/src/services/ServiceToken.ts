@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -33,37 +34,7 @@ class ServiceToken extends ServiceBase {
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
-      const mergedTokens = [
-        ...tokens.data,
-        ...smallBalanceTokens.data,
-        ...riskTokens.data,
-      ];
-
-      const mergedKeys = `${tokens.keys}_${smallBalanceTokens.keys}_${riskTokens.keys}`;
-
-      const mergedTokenMap = {
-        ...tokens.map,
-        ...smallBalanceTokens.map,
-        ...riskTokens.map,
-      };
-
-      return {
-        tokens: {
-          data: mergedTokens,
-          keys: mergedKeys,
-          map: mergedTokenMap,
-        },
-        riskTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-        smallBalanceTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-      };
+      return getMergedTokenData({ tokens, riskTokens, smallBalanceTokens });
     }
 
     return resp.data.data;
