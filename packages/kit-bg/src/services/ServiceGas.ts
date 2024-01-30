@@ -33,7 +33,7 @@ class ServiceGas extends ServiceBase {
         feeSymbol: gasFee.feeSymbol,
         nativeDecimals: gasFee.nativeDecimals,
         nativeSymbol: gasFee.nativeSymbol,
-        nativeTokenPrice: gasFee.nativeTokenPrice.price,
+        nativeTokenPrice: gasFee.nativeTokenPrice?.price,
       },
       gas: gasFee.gas,
       gasEIP1559: gasFee.gasEIP1559,

@@ -70,13 +70,14 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokenDetails(params: IFetchTokenDetailParams) {
+  public async fetchTokensDetails(params: IFetchTokenDetailParams) {
     const client = await this.getClient();
     const resp = await client.post<{
-      data: {
+      data: ({
         info: IToken;
-      } & ITokenFiat;
+      } & ITokenFiat)[];
     }>('/wallet/v1/account/token/detail', params);
+
     return resp.data.data;
   }
 
@@ -114,12 +115,12 @@ class ServiceToken extends ServiceBase {
     if (localToken) return localToken;
 
     try {
-      const tokenDetails = await this.fetchTokenDetails({
+      const tokensDetails = await this.fetchTokensDetails({
         networkId,
         contractList: [tokenIdOnNetwork],
       });
 
-      const tokenInfo = tokenDetails.info;
+      const tokenInfo = tokensDetails[0].info;
 
       void this.updateLocalTokens({
         networkId,
@@ -128,7 +129,7 @@ class ServiceToken extends ServiceBase {
 
       return tokenInfo;
     } catch (error) {
-      console.log('fetchTokenDetails ERROR:', error);
+      console.log('fetchTokensDetails ERROR:', error);
     }
 
     throw new Error('getToken ERROR: token not found.');

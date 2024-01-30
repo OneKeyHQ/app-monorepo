@@ -48,4 +48,4 @@ export type IFetchTokenDetailParams = {
   accountAddress?: string;
 };
 
-export type IFetchTokenDetailResp = IAccountToken;
+export type IFetchTokenDetailResp = IAccountToken[];

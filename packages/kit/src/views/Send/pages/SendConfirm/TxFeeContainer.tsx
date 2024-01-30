@@ -78,6 +78,11 @@ function TxFeeContainer(props: IProps) {
           networkId,
           encodedTx: unsignedTxs[0].encodedTx,
         });
+
+        if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+          r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+        }
+
         updateSendFeeStatus({
           status: ESendFeeStatus.Success,
           errMessage: '',
@@ -105,14 +110,14 @@ function TxFeeContainer(props: IProps) {
 
       if (!account) return;
 
-      const tokenDetails =
-        await backgroundApiProxy.serviceToken.fetchTokenDetails({
+      const tokensDetails =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: account.address,
           contractList: [''],
         });
 
-      return tokenDetails;
+      return tokensDetails?.[0];
     }, [accountId, networkId]);
 
   const feeSelectorItems = useMemo(() => {
@@ -294,11 +299,15 @@ function TxFeeContainer(props: IProps) {
         .plus(selectedFee?.totalNative ?? 0)
         .gt(nativeToken?.balanceParsed ?? 0),
     });
+
+    return () =>
+      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
   }, [
     isLoadingNativeBalance,
     nativeToken,
     nativeTokenTransferAmount,
     selectedFee?.totalNative,
+    updateSendFeeStatus,
     updateSendTxStatus,
   ]);
 
@@ -317,18 +326,21 @@ function TxFeeContainer(props: IProps) {
             items={feeSelectorItems}
             value={feeSelectorValue}
             onChange={handleSelectedFeeOnChange}
-            disabled={sendFeeStatus.status === ESendFeeStatus.Loading}
+            disabled={
+              sendFeeStatus.status === ESendFeeStatus.Loading ||
+              sendFeeStatus.status === ESendFeeStatus.Error
+            }
           />
         }
         description={{
-          children: (
+          content: (
             <YStack flex={1}>
-              {sendFeeStatus.errMessage && (
+              {sendFeeStatus.errMessage ? (
                 <SizableText size="$bodyMd" color="$textCritical">
                   {sendFeeStatus.errMessage}
                 </SizableText>
-              )}
-              {sendAlertStatus.isInsufficientNativeBalance && (
+              ) : null}
+              {sendAlertStatus.isInsufficientNativeBalance ? (
                 <SizableText size="$bodyMd" color="$textCritical">
                   {intl.formatMessage(
                     {
@@ -340,7 +352,7 @@ function TxFeeContainer(props: IProps) {
                     },
                   )}
                 </SizableText>
-              )}
+              ) : null}
             </YStack>
           ),
         }}

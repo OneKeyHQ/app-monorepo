@@ -56,14 +56,8 @@ export function TokenDetails() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const {
-    accountId,
-    networkId,
-    tokenAddress,
-    isNative,
-    tokenSymbol,
-    tokenLogoURI,
-  } = route.params;
+  const { accountId, networkId, tokenAddress, tokenSymbol, tokenLogoURI } =
+    route.params;
 
   const getAccount = useCallback(
     async () =>
@@ -84,20 +78,14 @@ export function TokenDetails() {
   const tokenDetails = usePromiseResult(async () => {
     const account = await getAccount();
     if (!account || !network) return;
-    const r = await backgroundApiProxy.serviceToken.fetchTokenDetails({
+    const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress: account.address,
-      address: tokenAddress,
-      isNative: !!isNative,
+      contractList: [tokenAddress],
     });
 
-    void backgroundApiProxy.serviceToken.updateLocalTokens({
-      networkId,
-      tokens: [r.info],
-    });
-
-    return r;
-  }, [getAccount, isNative, network, networkId, tokenAddress]).result;
+    return r?.[0];
+  }, [getAccount, network, networkId, tokenAddress]).result;
   const tokenHistory = usePromiseResult(async () => {
     const account = await getAccount();
     if (!account || !network) return;

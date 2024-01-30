@@ -45,7 +45,7 @@ export type IFeeInfoUnit = {
     feeSymbol: string;
     nativeDecimals: number;
     nativeSymbol: string;
-    nativeTokenPrice: number;
+    nativeTokenPrice?: number;
   };
   gas?: IGasLegacy;
   gasEIP1559?: IGasEIP1559;
@@ -62,7 +62,7 @@ export type IEstimateGasResp = {
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
   feeUTXO?: IFeeUTXO[];
-  nativeTokenPrice: {
+  nativeTokenPrice?: {
     price: number;
     price24h: number;
   };

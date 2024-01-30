@@ -21,7 +21,7 @@ function SendConfirmContainer() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs } = useSendConfirmActions().current;
-  const { accountId, networkId, unsignedTxs } = route.params;
+  const { accountId, networkId, unsignedTxs, onSuccess, onFail } = route.params;
 
   useEffect(
     () => updateUnsignedTxs(unsignedTxs),
@@ -42,6 +42,8 @@ function SendConfirmContainer() {
       <SendConfirmActionsContainer
         accountId={accountId}
         networkId={networkId}
+        onSuccess={onSuccess}
+        onFail={onFail}
       />
     </Page>
   );
