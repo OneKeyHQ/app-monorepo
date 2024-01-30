@@ -29,24 +29,24 @@ function SendAssetInputContainer() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { networkId, accountId, all } = route.params;
+  const { networkId, accountId, tokens } = route.params;
 
-  // const promise = usePromiseResult(async () => {
-  //   const account = await backgroundApiProxy.serviceAccount.getAccountOfWallet({
-  //     accountId,
-  //     indexedAccountId: '',
-  //     networkId,
-  //     deriveType: 'default',
-  //   });
-  //   const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-  //     networkId,
-  //     accountAddress: account.address,
-  //     mergeTokens: true,
-  //   });
+  usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccountOfWallet({
+      accountId,
+      indexedAccountId: '',
+      networkId,
+      deriveType: 'default',
+    });
+    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+      networkId,
+      accountAddress: account.address,
+      mergeTokens: true,
+    });
 
-  //   refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
-  //   refreshTokenListMap(r.tokens.map);
-  // }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
+    refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+    refreshTokenListMap(r.tokens.map);
+  }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
 
   const handleTokenOnPress = useCallback(
     (token: IAccountToken) => {
@@ -61,19 +61,16 @@ function SendAssetInputContainer() {
   );
 
   useEffect(() => {
-    if (all) {
-      refreshTokenList({ tokens: all.data, keys: all.keys });
-      refreshTokenListMap(all.map);
+    if (tokens) {
+      refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
+      refreshTokenListMap(tokens.map);
     }
-  }, [all, refreshTokenList, refreshTokenListMap]);
+  }, [refreshTokenList, refreshTokenListMap, tokens]);
 
   return (
     <Page>
       <Page.Body>
-        <TokenListView
-          // isLoading={promise.isLoading}
-          onPressToken={handleTokenOnPress}
-        />
+        <TokenListView onPressToken={handleTokenOnPress} />
       </Page.Body>
     </Page>
   );

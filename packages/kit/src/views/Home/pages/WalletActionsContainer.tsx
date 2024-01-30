@@ -9,10 +9,9 @@ import {
   TextArea,
   useForm,
 } from '@onekeyhq/components';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ITokenData } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { NetworkSelectorTriggerLegacy } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -23,9 +22,8 @@ import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
-import { ITokenData } from '@onekeyhq/shared/types/token';
 
-function WalletActionsContainer({ all }: { all: ITokenData }) {
+function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -42,10 +40,10 @@ function WalletActionsContainer({ all }: { all: ITokenData }) {
       params: {
         networkId: network.id,
         accountId: account.id,
-        all,
+        tokens,
       },
     });
-  }, [account, all, navigation, network]);
+  }, [account, tokens, navigation, network]);
 
   const handleOnReceive = useCallback(() => {
     Dialog.confirm({

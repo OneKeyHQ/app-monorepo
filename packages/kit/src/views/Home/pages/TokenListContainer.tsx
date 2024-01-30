@@ -2,7 +2,9 @@ import { memo, useCallback, useState } from 'react';
 
 import { useMedia } from 'tamagui';
 
+import { Portal } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -16,9 +18,8 @@ import {
 } from '../../../states/jotai/contexts/token-list';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
-import { Portal } from '@onekeyhq/components';
+
 import { WalletActionsContainer } from './WalletActionsContainer';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -26,7 +27,7 @@ type IProps = {
 
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
-  const [all, setAll] = useState<ITokenData>();
+  const [allTokens, setAllTokens] = useState<ITokenData>();
 
   const {
     activeAccount: { account, network },
@@ -71,14 +72,14 @@ function TokenListContainer(props: IProps) {
         riskTokens: r.riskTokens,
       });
 
-      setAll(mergedTokenData.tokens);
+      setAllTokens(mergedTokenData.tokens);
 
-      const allTokens = mergedTokenData.tokens.data;
+      const mergedTokens = mergedTokenData.tokens.data;
 
-      if (allTokens && allTokens.length) {
+      if (mergedTokens && mergedTokens.length) {
         void backgroundApiProxy.serviceToken.updateLocalTokens({
           networkId: network.id,
-          tokens: allTokens,
+          tokens: mergedTokens,
         });
       }
     },
@@ -118,8 +119,8 @@ function TokenListContainer(props: IProps) {
 
   return (
     <>
-      <Portal.Body container="test123">
-        <WalletActionsContainer all={all} />
+      <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
+        <WalletActionsContainer tokens={allTokens} />
       </Portal.Body>
       <TokenListView
         withHeader

@@ -29,6 +29,7 @@ enum EConstantName {
   FULL_WINDOW_OVERLAY_PORTAL = 'Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ACCOUNT_SELECTOR',
+  WALLET_ACTIONS = 'WALLET_ACTIONS',
 }
 
 export interface IPortalManager {

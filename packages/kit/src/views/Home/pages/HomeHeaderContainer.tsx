@@ -29,7 +29,7 @@ function HomeHeaderContainer() {
           <HomeOverviewContainer />
         </Stack>
       </Stack>
-      <Portal.Container name="test123" />
+      <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
     </Stack>
   );
 }
