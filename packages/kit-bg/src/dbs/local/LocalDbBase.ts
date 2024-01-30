@@ -484,6 +484,29 @@ ssphrase wallet
     });
   }
 
+  async getIndexedAccountByAccount({ account }: { account: IDBAccount }) {
+    const accountId = account.id;
+    if (
+      accountUtils.isHdAccount({ accountId }) ||
+      accountUtils.isHwAccount({
+        accountId,
+      })
+    ) {
+      const { indexedAccountId } = account;
+      if (!indexedAccountId) {
+        throw new Error(
+          `indexedAccountId is missing from account: ${accountId}`,
+        );
+      }
+      // indexedAccount must be create before account, keep throw error here, do not try catch
+      const indexedAccount = await this.getIndexedAccount({
+        id: indexedAccountId,
+      });
+      return indexedAccount;
+    }
+    return undefined;
+  }
+
   async getIndexedAccounts({ walletId }: { walletId?: string } = {}) {
     const db = await this.readyDb;
     // TODO performance
@@ -960,6 +983,59 @@ ssphrase wallet
     );
   }
 
+  validateAccountsFields(accounts: IDBAccount[]) {
+    if (process.env.NODE_ENV !== 'production') {
+      accounts.forEach((account) => {
+        const accountId = account.id;
+
+        const walletId = accountUtils.getWalletIdFromAccountId({
+          accountId,
+        });
+
+        if (!account.impl) {
+          throw new Error(
+            'validateAccountsFields ERROR: account.impl is missing',
+          );
+        }
+
+        if (account.type === EDBAccountType.VARIANT) {
+          if (account.address) {
+            throw new Error('VARIANT account should not set account address');
+          }
+        }
+
+        if (account.type === EDBAccountType.UTXO) {
+          if (!account.relPath) {
+            throw new Error('UTXO account should set relPath');
+          }
+        }
+
+        if (
+          accountUtils.isHdWallet({ walletId }) ||
+          accountUtils.isHwWallet({ walletId })
+        ) {
+          if (isNil(account.pathIndex)) {
+            throw new Error('HD account should set pathIndex');
+          }
+          if (!account.indexedAccountId) {
+            throw new Error('HD account should set indexedAccountId');
+          }
+        }
+
+        if (
+          accountUtils.isImportedWallet({ walletId }) ||
+          accountUtils.isWatchingWallet({ walletId })
+        ) {
+          if (!account.createAtNetwork) {
+            throw new Error(
+              'imported or watching account should set createAtNetwork',
+            );
+          }
+        }
+      });
+    }
+  }
+
   async addAccountsToWallet({
     walletId,
     accounts,
@@ -970,21 +1046,9 @@ ssphrase wallet
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
   }): Promise<void> {
     const db = await this.readyDb;
-    accounts.forEach((account) => {
-      if (account.type === EDBAccountType.VARIANT && account.address) {
-        throw new Error('VARIANT account should not set account address');
-      }
-      if (
-        walletId === WALLET_TYPE_IMPORTED ||
-        walletId === WALLET_TYPE_WATCHING
-      ) {
-        if (!account.createAtNetwork) {
-          throw new Error(
-            'imported or watching account should set createAtNetwork',
-          );
-        }
-      }
-    });
+
+    this.validateAccountsFields(accounts);
+
     await db.withTransaction(async (tx) => {
       // add account record
       const { added, addedIds } = await db.txAddRecords({
@@ -1072,7 +1136,14 @@ ssphrase wallet
       id: accountId,
     });
     if (!account.impl) {
-      throw new Error('account.impl is missing');
+      throw new Error(`account.impl is missing: ${accountId}`);
+    }
+    const indexedAccount = await this.getIndexedAccountByAccount({
+      account,
+    });
+    // fix account name by indexedAccount name
+    if (indexedAccount) {
+      account.name = indexedAccount.name;
     }
     return account;
   }
