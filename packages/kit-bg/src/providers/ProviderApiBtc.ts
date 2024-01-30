@@ -5,7 +5,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
   ENetworkTypeEnum,
@@ -22,7 +22,7 @@ import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export const isBTCNetwork = (networkId?: string) =>
-  networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc;
+  networkId === getNetworkIdsMap().btc || networkId === getNetworkIdsMap().tbtc;
 
 export function getNetworkName(network: IServerNetwork) {
   if (network && isBTCNetwork(network.id)) {
@@ -130,9 +130,9 @@ class ProviderApiBtc extends ProviderApiBase {
     const { network: networkName } = params;
     let networkId;
     if (networkName === 'livenet') {
-      networkId = OnekeyNetwork.btc;
+      networkId = getNetworkIdsMap().btc;
     } else if (networkName === 'testnet') {
-      networkId = OnekeyNetwork.tbtc;
+      networkId = getNetworkIdsMap().tbtc;
     }
     if (!networkId) {
       throw web3Errors.provider.custom({

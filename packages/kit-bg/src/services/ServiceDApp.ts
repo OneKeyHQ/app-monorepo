@@ -10,7 +10,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -405,13 +404,10 @@ class ServiceDApp extends ServiceBase {
   async getConnectedNetworks(params: IGetDAppAccountInfoParams) {
     const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
-    const networks = accountsInfo
-      .map((accountInfo) =>
-        serverPresetNetworks.find((i) => i.id === accountInfo.networkId),
-      )
-      .filter(Boolean);
-
-    return Promise.resolve(networks as IServerNetwork[]);
+    const networkIds = accountsInfo.map((accountInfo) => accountInfo.networkId);
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByIds({ networkIds });
+    return networks;
   }
 
   @backgroundMethod()
@@ -421,8 +417,9 @@ class ServiceDApp extends ServiceBase {
   }: IGetDAppAccountInfoParams & {
     newNetworkId: string;
   }) {
-    const networks = await this.backgroundApi.serviceDApp.fetchNetworks();
-    const included = networks.some((network) => network.id === newNetworkId);
+    const { networkIds } =
+      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
+    const included = networkIds.some((networkId) => networkId === newNetworkId);
     if (!included) {
       return;
     }
@@ -434,11 +431,6 @@ class ServiceDApp extends ServiceBase {
       newNetworkId,
       storageType,
     );
-  }
-
-  @backgroundMethod()
-  async fetchNetworks() {
-    return Promise.resolve(serverPresetNetworks);
   }
 
   @backgroundMethod()

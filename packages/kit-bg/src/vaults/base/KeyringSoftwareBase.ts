@@ -135,7 +135,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         checkIsDefined(this.coreApi).signMessage({
           networkInfo,
           unsignedMsg: msg,
-          account,
+          account: { ...account, relPaths: ['0/0'] },
           password,
           credentials,
         }),

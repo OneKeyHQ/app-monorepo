@@ -16,8 +16,8 @@ import {
   NetworkSelectorTriggerDappConnection,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
@@ -72,41 +72,27 @@ function DAppAccountListStandAloneItem({
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
   console.log('=====>>>>>DAppAccountListStandAloneItem');
-  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
-    null,
-  );
-  // TODO: change network
-  const [scopeNetworks, setScopeNetworks] = useState<IServerNetwork[] | null>(
-    null,
-  );
-  useEffect(() => {
+
+  const { result } = usePromiseResult(async () => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
-      return;
+      return {
+        accountSelectorNum: null,
+        networkIds: null,
+      };
     }
-    console.log('===>>>: $sourceInfo?.origin: ', $sourceInfo?.origin);
-    console.log('===>>>: $sourceInfo?.scope: ', $sourceInfo?.scope);
-    serviceDApp
-      .getAccountSelectorNum({
-        origin: $sourceInfo.origin,
-        scope: $sourceInfo.scope ?? '',
-      })
-      .then((number) => {
-        console.log('=====>>>>>>>>>: getAccountSelectorNum: ', number);
-        setAccountSelectorNum(number);
-      })
-      .catch((e) => {
-        console.error('getAccountSelectorNum error: ', e);
-      });
-    void (async () => {
-      const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
-      if (!Array.isArray(impls)) {
-        setScopeNetworks([]);
-      }
-      const networks = await serviceNetwork.getNetworksByImpls({
-        impls: impls as string[],
-      });
-      setScopeNetworks(networks.networks);
-    })();
+    const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
+      origin: $sourceInfo.origin,
+      scope: $sourceInfo.scope ?? '',
+    });
+    const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
+    const networkIds = impls
+      ? (await serviceNetwork.getNetworkIdsByImpls({ impls })).networkIds
+      : null;
+
+    return {
+      accountSelectorNum,
+      networkIds,
+    };
   }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp, serviceNetwork]);
 
   return (
@@ -114,22 +100,26 @@ function DAppAccountListStandAloneItem({
       <SizableText size="$headingMd" color="$text">
         Accounts
       </SizableText>
-      {accountSelectorNum === null ? null : (
+      {typeof result?.accountSelectorNum === 'number' &&
+      Array.isArray(result?.networkIds) ? (
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.discover,
             sceneUrl: $sourceInfo?.origin,
             // networks: scopeNetworks,
           }}
-          enabledNum={[accountSelectorNum]}
+          enabledNum={[result.accountSelectorNum]}
+          availableNetworksMap={{
+            [result.accountSelectorNum]: { networkIds: result.networkIds },
+          }}
         >
           <AccountListItem
-            num={accountSelectorNum}
+            num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}
           />
         </AccountSelectorProviderMirror>
-      )}
+      ) : null}
     </YStack>
   );
 }

@@ -7,6 +7,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -223,9 +224,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!request.origin) {
       throw new Error('origin is required');
     }
-    const networks = await this.backgroundApi.serviceDApp.fetchNetworks();
+    const { networkIds: evmNetworkIds } =
+      await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+        impls: [IMPL_EVM],
+      });
     const networkId = `evm--${parseInt(params.chainId)}`;
-    const included = networks.some((network) => network.id === networkId);
+    const included = evmNetworkIds.some((id) => id === networkId);
     if (!included) {
       // https://uniswap-v3.scroll.io/#/swap required Error response
       throw web3Errors.provider.custom({

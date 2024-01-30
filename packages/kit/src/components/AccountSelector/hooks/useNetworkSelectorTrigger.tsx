@@ -7,15 +7,15 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
-import { useNetworkAutoSelect } from './useNetworkAutoSelect';
+import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
 export function useNetworkSelectorTrigger({ num }: { num: number }) {
   const { activeAccount, activeAccountName } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-  const { sceneName, sceneUrl, networks, defaultNetworkId } =
-    useAccountSelectorSceneInfo();
-
-  useNetworkAutoSelect({ num });
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+  const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
+    num,
+  });
 
   const navigation = useAppNavigation();
 
@@ -25,14 +25,14 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
       num,
       sceneName,
       sceneUrl,
-      networks,
+      networkIds,
       defaultNetworkId,
     });
   }, [
     actions,
     defaultNetworkId,
+    networkIds,
     navigation,
-    networks,
     num,
     sceneName,
     sceneUrl,
