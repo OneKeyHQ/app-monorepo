@@ -79,6 +79,8 @@ function TxFeeContainer(props: IProps) {
           encodedTx: unsignedTxs[0].encodedTx,
         });
 
+        // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
+        // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
           r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
         }
