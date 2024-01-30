@@ -3,4 +3,5 @@ module.exports = {
   useEffect: jest.fn((func: () => void) => func()),
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   useState: jest.fn((initialState: any) => [initialState, jest.fn()]),
+  useCallback: jest.fn((func: () => void) => func),
 };
