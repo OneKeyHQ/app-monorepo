@@ -65,6 +65,7 @@ function useAppNavigation<
         });
         return;
       }
+      // If there is no stack route, use navigate to create a router stack.
       navigation.navigate(modalType, {
         screen: route,
         params,
