@@ -25,32 +25,29 @@ function DashboardContent({
 }) {
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const { result: bookmarksData, run: refreshBrowserBookmark } =
-    usePromiseResult(
-      async () =>
-        backgroundApiProxy.serviceDiscovery.getBookmarkData({
-          generateIcon: true,
-          sliceCount: 8,
-        }),
-      [],
-    );
+  const {
+    result: [bookmarksData, historiesData, homePageData] = [],
+    run: refreshBrowserData,
+  } = usePromiseResult(async () => {
+    const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
+      generateIcon: true,
+      sliceCount: 8,
+    });
+    const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
+      generateIcon: true,
+      sliceCount: 8,
+    });
+    const homePageResponse =
+      await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
 
-  const { result: historiesData, run: refreshBrowserHistory } =
-    usePromiseResult(
-      async () =>
-        backgroundApiProxy.serviceDiscovery.getHistoryData({
-          generateIcon: true,
-          sliceCount: 8,
-        }),
-      [],
-    );
+    return Promise.all([bookmarks, histories, homePageResponse]);
+  }, []);
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
       // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
       setTimeout(() => {
-        void refreshBrowserBookmark();
-        void refreshBrowserHistory();
+        void refreshBrowserData();
       });
     }
   });
@@ -69,7 +66,11 @@ function DashboardContent({
   const content = useMemo(
     () => (
       <>
-        <Banner />
+        <Banner
+          banners={
+            Array.isArray(homePageData?.banners) ? homePageData?.banners : []
+          }
+        />
         <BookmarksAndHistoriesSection
           bookmarksData={bookmarksData}
           historiesData={historiesData}
@@ -85,7 +86,14 @@ function DashboardContent({
         <SuggestedAndExploreSection />
       </>
     ),
-    [bookmarksData, historiesData, onPressMore, handleOpenWebSite, navigation],
+    [
+      bookmarksData,
+      historiesData,
+      onPressMore,
+      handleOpenWebSite,
+      navigation,
+      homePageData,
+    ],
   );
 
   if (platformEnv.isNative) {

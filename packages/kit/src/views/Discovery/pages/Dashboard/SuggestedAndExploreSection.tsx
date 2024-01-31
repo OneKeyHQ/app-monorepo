@@ -15,9 +15,9 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../../routes/Modal/type';
 import { EChainSelectorPages } from '../../../ChainSelector/router/type';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
@@ -38,19 +38,6 @@ type IDapps = {
   title?: string;
   data: IDapp[];
 }[];
-
-const generateRepeatedData = (count: number) => {
-  const data = [];
-  for (let i = 0; i < count; i += 1) {
-    data.push({
-      imgUrl: 'https://placehold.jp/200x200.png',
-      name: 'Name',
-      description:
-        'Cillum commodo ex veniam labore ipsum Lorem qui consectetur labore nulla.',
-    });
-  }
-  return data;
-};
 
 const SuggestedData: IDapps = [
   {
