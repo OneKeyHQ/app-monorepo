@@ -9,7 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSendConfirmActions,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 

@@ -33,6 +33,7 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
   const intl = useIntl();
+  const { tableLayout } = props;
   const { functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
 
@@ -52,6 +53,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       title={title}
       avatar={avatar}
       description={description}
+      tableLayout={tableLayout}
     />
   );
 }
