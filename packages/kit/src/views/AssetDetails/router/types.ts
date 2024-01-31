@@ -19,6 +19,7 @@ export type IModalAssetDetailsParamList = {
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;
+    accountId: string;
     accountAddress: string;
     collectionAddress: string;
     itemId: string;

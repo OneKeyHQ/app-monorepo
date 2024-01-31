@@ -122,7 +122,7 @@ function TokenListContainer(props: IProps) {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
+      <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
         <WalletActionsContainer tokens={allTokens} />
       </Portal.Body>
       <TokenListView

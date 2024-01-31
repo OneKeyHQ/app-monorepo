@@ -373,7 +373,6 @@ export default class Vault extends VaultBase {
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
-
       if (nftInfo) {
         const { nftAddress, nftId, nftType } = nftInfo;
         const data = await this._buildEncodedDataFromTransferNFT({

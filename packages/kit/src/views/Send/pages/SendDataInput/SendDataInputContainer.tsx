@@ -25,8 +25,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import AmountInput from '../../components/AmountInput';
 import { EModalSendRoutes } from '../../router';
@@ -55,55 +57,61 @@ function SendDataInputContainer() {
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
 
-  const getAccount = useCallback(
-    async () =>
-      serviceAccount.getAccount({
-        accountId,
-        networkId,
-      }),
-    [accountId, networkId, serviceAccount],
-  );
-
-  const network = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
-  ).result;
-
-  const { result: nftDetails, isLoading: isLoadingNFT } = usePromiseResult(
+  const {
+    result: [network, tokenDetails, nftDetails] = [],
+    isLoading: isLoadingAssets,
+  } = usePromiseResult(
     async () => {
-      if (!isNFT) return;
-      const account = await getAccount();
-      const r = await serviceNFT.fetchNFTDetails({
-        networkId,
-        accountAddress: account.address,
-        collectionAddress: nft?.collectionAddress ?? '',
-        itemId: nft?.itemId ?? '',
-      });
-      return r;
+      if (!token && !nft) {
+        throw new OneKeyInternalError('token and nft info are both missing.');
+      }
+      const r = await Promise.all([
+        serviceAccount.getAccount({
+          accountId,
+          networkId,
+        }),
+        serviceNetwork.getNetwork({ networkId }),
+      ]);
+
+      let nftResp: IAccountNFT[] | undefined;
+      let tokenResp:
+        | ({
+            info: IToken;
+          } & ITokenFiat)[]
+        | undefined;
+
+      if (isNFT && nft) {
+        nftResp = await serviceNFT.fetchNFTDetails({
+          networkId,
+          accountAddress: r[0].address,
+          params: [
+            {
+              collectionAddress: nft.collectionAddress,
+              itemId: nft.itemId,
+            },
+          ],
+        });
+      } else if (!isNFT && token) {
+        tokenResp = await serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: r[0].address,
+          contractList: [token.address],
+        });
+      }
+
+      return [r[1], tokenResp?.[0], nftResp?.[0]];
     },
     [
-      getAccount,
+      accountId,
       isNFT,
       networkId,
-      nft?.collectionAddress,
-      nft?.itemId,
+      nft,
+      serviceAccount,
       serviceNFT,
+      serviceNetwork,
+      serviceToken,
+      token,
     ],
-    { watchLoading: true },
-  );
-
-  const { result: tokenDetails, isLoading: isLoadingToken } = usePromiseResult(
-    async () => {
-      if (isNFT || !token) return;
-      const account = await getAccount();
-      const r = await serviceToken.fetchTokensDetails({
-        networkId,
-        accountAddress: account.address,
-        contractList: [token.address],
-      });
-      return r?.[0];
-    },
-    [getAccount, isNFT, networkId, serviceToken, token],
     { watchLoading: true },
   );
 
@@ -178,7 +186,7 @@ function SendDataInputContainer() {
         }
       }
 
-      const account = await getAccount();
+      const account = await serviceAccount.getAccount({ networkId, accountId });
 
       const transfersInfo: ITransferInfo[] = [
         {
@@ -239,13 +247,13 @@ function SendDataInputContainer() {
     accountId,
     amount,
     form,
-    getAccount,
     isNFT,
     isUseFiat,
     linkedAmount,
     navigation,
     networkId,
     nftDetails,
+    serviceAccount,
     serviceNetwork,
     serviceSend,
     tokenDetails,
@@ -272,17 +280,22 @@ function SendDataInputContainer() {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isLoadingToken || isLoadingNFT || isSubmitting) return true;
+    if (isLoadingAssets || isSubmitting) return true;
 
-    if (!form.formState.isValid || !amount) {
+    if (!form.formState.isValid) {
+      return true;
+    }
+
+    if ((!isNFT || nft?.collectionType === ENFTType.ERC1155) && !amount) {
       return true;
     }
   }, [
     amount,
     form.formState.isValid,
-    isLoadingNFT,
-    isLoadingToken,
+    isLoadingAssets,
+    isNFT,
     isSubmitting,
+    nft?.collectionType,
   ]);
 
   const renderTokenDataInputForm = useCallback(() => {
@@ -410,7 +423,7 @@ function SendDataInputContainer() {
             </ListItem>
           </Form.Field>
           <Form.Field
-            label={intl.formatMessage({ id: 'form__to_uppercase' })}
+            label={intl.formatMessage({ id: 'content__to' })}
             name="to"
             rules={{
               required: true,
