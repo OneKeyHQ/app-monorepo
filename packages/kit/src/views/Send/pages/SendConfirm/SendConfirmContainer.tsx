@@ -12,6 +12,7 @@ import {
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
+import TxSimulationContainer from './TxSimulationContainer';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -37,6 +38,7 @@ function SendConfirmContainer() {
         <YStack space="$4" px="$5">
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
+          <TxSimulationContainer />
         </YStack>
       </Page.Body>
       <SendConfirmActionsContainer

@@ -10,6 +10,7 @@ import {
 
 type IProps = {
   title?: React.ReactNode;
+  subtitle?: React.ReactNode;
   content?: React.ReactNode;
   subContent?: React.ReactNode;
   contentAdd?: React.ReactNode;
@@ -21,18 +22,42 @@ type IProps = {
 };
 
 function ContainerItem(props: IProps) {
-  const { title, content, subContent, contentAdd, description, hasDivider } =
-    props;
+  const {
+    title,
+    subtitle,
+    content,
+    subContent,
+    contentAdd,
+    description,
+    hasDivider,
+  } = props;
   return (
     <Stack>
       <YStack width="100%" py="$3" space="$0.5">
-        {typeof title === 'string' ? (
-          <SizableText size="$headingSm" color="$textSubdued" numberOfLines={1}>
-            {title}
-          </SizableText>
-        ) : (
-          title
-        )}
+        <XStack alignItems="center" space="$1">
+          {typeof title === 'string' ? (
+            <SizableText
+              size="$headingSm"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {title}
+            </SizableText>
+          ) : (
+            title
+          )}
+          {typeof subtitle === 'string' ? (
+            <SizableText
+              size="$headingSm"
+              color="$textDisabled"
+              numberOfLines={1}
+            >
+              {subtitle}
+            </SizableText>
+          ) : (
+            subtitle
+          )}
+        </XStack>
         <XStack alignItems="center" justifyContent="space-between">
           <XStack space="$1" alignItems="center" flex={1}>
             {typeof content === 'string' ? (
