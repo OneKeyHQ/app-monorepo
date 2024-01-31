@@ -41,11 +41,10 @@ const usePageHeaderReloadOptions = () => {
 const PageHeader = (props: IPageHeaderProps) => {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const reloadOptions = pageHeaderReload.reload(props);
-  const headerProps = reloadOptions;
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    navigation.setOptions(headerProps);
-  }, [navigation, headerProps]);
+    navigation.setOptions(reloadOptions);
+  }, [navigation, reloadOptions]);
 
   return null;
 };
