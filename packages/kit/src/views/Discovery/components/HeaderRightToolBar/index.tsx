@@ -6,6 +6,7 @@ import {
   Spinner,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -131,6 +132,11 @@ function AccountSelectorPopoverContent({
     };
   }, []);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
+  const { closePopover } = usePopoverContext();
+  const beforeShowTrigger = useCallback(
+    async () => closePopover?.(),
+    [closePopover],
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -145,6 +151,7 @@ function AccountSelectorPopoverContent({
             key={account.num}
             num={account.num}
             compressionUiMode
+            beforeShowTrigger={beforeShowTrigger}
             handleAccountChanged={async (activeAccount) => {
               await handleAccountInfoChanged({
                 origin,

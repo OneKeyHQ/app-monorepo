@@ -6,24 +6,23 @@ import {
   SizableText,
   XStack,
   useMedia,
-  usePopoverContext,
 } from '@onekeyhq/components';
 
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
-}>(({ num, disabled, ...rest }) => {
+  beforeShowTrigger?: () => Promise<void>;
+}>(({ num, disabled, beforeShowTrigger, ...rest }) => {
   const {
     activeAccount: { network },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
-  const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
-    await closePopover?.();
+    await beforeShowTrigger?.();
     showChainSelector();
-  }, [closePopover, showChainSelector]);
+  }, [beforeShowTrigger, showChainSelector]);
 
   return (
     <XStack
@@ -82,11 +81,9 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   const media = useMedia();
 
-  const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
-    await closePopover?.();
     showChainSelector();
-  }, [closePopover, showChainSelector]);
+  }, [showChainSelector]);
 
   return (
     <XStack

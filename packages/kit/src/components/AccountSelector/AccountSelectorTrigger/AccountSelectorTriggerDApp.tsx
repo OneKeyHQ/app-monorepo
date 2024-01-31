@@ -16,17 +16,17 @@ import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   compressionUiMode?: boolean;
-}>(({ num, compressionUiMode, disabled, ...rest }) => {
+  beforeShowTrigger?: () => Promise<void>;
+}>(({ num, compressionUiMode, disabled, beforeShowTrigger, ...rest }) => {
   const {
     activeAccount: { account },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
-  const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
-    await closePopover?.();
+    await beforeShowTrigger?.();
     showAccountSelector();
-  }, []);
+  }, [beforeShowTrigger, showAccountSelector]);
 
   useEffect(() => {
     console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');

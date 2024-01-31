@@ -27,11 +27,13 @@ function AccountListItem({
   handleAccountChanged,
   readonly,
   compressionUiMode,
+  beforeShowTrigger,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
   compressionUiMode?: boolean;
+  beforeShowTrigger?: () => Promise<void>;
 }) {
   useHandleDiscoveryAccountChanged({
     num,
@@ -48,12 +50,16 @@ function AccountListItem({
       disabled={readonly}
     >
       <Group.Item>
-        <NetworkSelectorTriggerDappConnection num={num} />
+        <NetworkSelectorTriggerDappConnection
+          num={num}
+          beforeShowTrigger={beforeShowTrigger}
+        />
       </Group.Item>
       <Group.Item>
         <AccountSelectorTriggerDappConnection
           num={num}
           compressionUiMode={compressionUiMode}
+          beforeShowTrigger={beforeShowTrigger}
         />
       </Group.Item>
     </XGroup>
