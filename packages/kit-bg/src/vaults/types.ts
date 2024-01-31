@@ -238,6 +238,7 @@ export enum EWrappedType {
 }
 
 export type IWrappedInfo = {
+  from: string;
   amount: string;
   contract: string;
   type: EWrappedType;
@@ -265,6 +266,7 @@ export interface IBuildTxHelperParams {
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
+  wrappedInfo?: IWrappedInfo;
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;

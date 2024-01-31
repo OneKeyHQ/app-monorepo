@@ -16,6 +16,16 @@ import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
 import networkUtils from './networkUtils';
 import uriUtils from './uriUtils';
 
+function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
+  /*
+  external--60--0xf588ff00613814c3f86efc57059121c74eb237f1
+  hd-1--m/44'/118'/0'/0/0
+  hw-da2fb055-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0'
+  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1MscdP3RAhbrLUJ--m/49'/0'/0'
+  */
+  return accountId.split(SEPERATOR)[0] || '';
+}
+
 function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
@@ -33,8 +43,31 @@ function shortenAddress({ address }: { address: string | undefined }) {
 function isHdWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HD}-`));
 }
+
 function isHwWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
+}
+
+function isImportedWallet({ walletId }: { walletId: string | undefined }) {
+  return walletId === WALLET_TYPE_IMPORTED;
+}
+
+function isWatchingWallet({ walletId }: { walletId: string | undefined }) {
+  return walletId === WALLET_TYPE_WATCHING;
+}
+
+function isExternalWallet({ walletId }: { walletId: string | undefined }) {
+  return walletId === WALLET_TYPE_EXTERNAL;
+}
+
+function isHdAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isHdWallet({ walletId });
+}
+
+function isHwAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isHwWallet({ walletId });
 }
 
 function buildHDAccountId({
@@ -134,16 +167,6 @@ function getDeviceIdFromWallet({ walletId }: { walletId: string }) {
   return walletId.replace(`${WALLET_TYPE_HW}-`, '');
 }
 
-function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
-  /*
-  external--60--0xf588ff00613814c3f86efc57059121c74eb237f1
-  hd-1--m/44'/118'/0'/0/0
-  hw-da2fb055-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0'
-  hw-f5f9b539-2879-4811-bac2-8d143b08adef-mg2PbFeAMoms9Z7f5by1MscdP3RAhbrLUJ--m/49'/0'/0'
-  */
-  return accountId.split(SEPERATOR)[0] || '';
-}
-
 function buildLocalTokenId({
   networkId,
   tokenIdOnNetwork,
@@ -230,6 +253,11 @@ export default {
   buildHdWalletId,
   isHdWallet,
   isHwWallet,
+  isWatchingWallet,
+  isImportedWallet,
+  isExternalWallet,
+  isHdAccount,
+  isHwAccount,
   buildHDAccountId,
   buildIndexedAccountId,
   parseIndexedAccountId,
