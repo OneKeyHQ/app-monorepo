@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { IScrollViewProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IBadgeType,
+  IScrollViewProps,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Heading,
@@ -161,7 +165,11 @@ export function SuggestedAndExploreSection({
                         {item.name}
                       </SizableText>
                       {Array.isArray(item.tags) && item.tags.length ? (
-                        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+                        <Badge
+                          badgeSize="sm"
+                          badgeType={item.tags[0].type as IBadgeType}
+                          ml="$2"
+                        >
                           {item.tags[0].name}
                         </Badge>
                       ) : null}

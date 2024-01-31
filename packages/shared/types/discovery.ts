@@ -35,7 +35,7 @@ export interface IDApp {
 export interface IDAppTag {
   tagId: string;
   name: string;
-  color: string;
+  type: string;
 }
 
 export interface IDiscoveryListParams {
