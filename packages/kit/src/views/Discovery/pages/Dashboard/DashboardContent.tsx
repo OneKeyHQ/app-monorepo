@@ -89,6 +89,13 @@ function DashboardContent({
               ? homePageData.categories
               : []
           }
+          handleOpenWebSite={({ webSite }) =>
+            handleOpenWebSite({
+              webSite,
+              navigation,
+              shouldPopNavigation: false,
+            })
+          }
         />
       </>
     ),

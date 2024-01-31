@@ -21,6 +21,8 @@ import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
+import type { IMatchDAppItemType } from '../../types';
+
 const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
   const chunks = [];
   for (let i = 0; i < array.length; i += chunkSize) {
@@ -51,8 +53,10 @@ function ItemsContainer({
 
 export function SuggestedAndExploreSection({
   suggestedData,
+  handleOpenWebSite,
 }: {
   suggestedData: ICategory[];
+  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const [isExploreView, setIsExploreView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -128,6 +132,14 @@ export function SuggestedAndExploreSection({
                   }}
                   $gtLg={{
                     flexBasis: '33.3333%',
+                  }}
+                  onPress={() => {
+                    handleOpenWebSite({
+                      webSite: {
+                        url: item.url,
+                        title: item.name,
+                      },
+                    });
                   }}
                 >
                   <Image w="$14" h="$14" borderRadius="$3">
