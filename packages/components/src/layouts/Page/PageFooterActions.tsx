@@ -10,10 +10,10 @@ import type { IButtonProps, IStackProps } from '../../primitives';
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: (close: () => void, closeStacks: () => void) => void;
+  onConfirm?: (close: () => void, closePageStack: () => void) => void;
   onCancel?: (
     close: () => void,
-    closeStacks: () => void,
+    closePageStack: () => void,
   ) => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;

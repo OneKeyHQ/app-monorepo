@@ -94,8 +94,8 @@ function SendConfirmActionsContainer(props: IProps) {
       }}
       onConfirmText="Sign and Broadcast"
       onConfirm={handleOnConfirm}
-      onCancel={(close, closeStacks) => {
-        closeStacks();
+      onCancel={(close, closePageStack) => {
+        closePageStack();
       }}
     />
   );
