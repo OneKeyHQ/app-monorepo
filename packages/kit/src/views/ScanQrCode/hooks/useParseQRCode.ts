@@ -9,7 +9,9 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 // import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 
 import * as handlers from '../utils/parseQRCodeHandler';
+import * as deeplinkHandler from '../utils/parseQRCodeHandler/deeplink';
 import { EQRCodeHandlerType } from '../utils/parseQRCodeHandler/type';
+import * as urlHandler from '../utils/parseQRCodeHandler/url';
 
 import type {
   IAnimationValue,
@@ -19,7 +21,11 @@ import type {
   IQRCodeHandlerParseResult,
 } from '../utils/parseQRCodeHandler/type';
 
-const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
+const handlerList = {
+  ...handlers,
+  ...deeplinkHandler,
+  ...urlHandler,
+} as Record<string, IQRCodeHandler<IBaseValue>>;
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -34,13 +40,17 @@ const useParseQRCode = () => {
       Object.keys(handlerList).forEach((key) => {
         const handler = handlerList[key];
         if (!result) {
-          const itemResult = handler(value, options);
-          if (itemResult) {
-            result = {
-              type: itemResult.type,
-              data: itemResult.data,
-              raw: value,
-            };
+          try {
+            const itemResult = handler(value, options);
+            if (itemResult) {
+              result = {
+                type: itemResult.type,
+                data: itemResult.data,
+                raw: value,
+              };
+            }
+          } catch (e) {
+            console.error(e);
           }
         }
       });

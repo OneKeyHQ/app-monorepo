@@ -7,6 +7,8 @@ import type {
   IQRCodeHandlerResult,
 } from './type';
 
+// eth://0x5ABC
+// ethereum://0x5ABC
 export const ethereum: IQRCodeHandler<IEthereumValue> = (value, options) => {
   const urlValue = urlHandler(value, options);
   let result: IQRCodeHandlerResult<IEthereumValue> = null;

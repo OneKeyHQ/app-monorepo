@@ -9,6 +9,9 @@ import type {
 
 let CACHE_ANIMATION_DATA_LIST: (string | undefined)[];
 
+// ur://bytes/1-3/1ABC
+// ur://bytes/2-3/2ABC
+// ur://bytes/3-3/3ABC
 export const animation: IQRCodeHandler<IAnimationValue> = (value, options) => {
   const urlValue = urlHandler(value, options);
   let result: IQRCodeHandlerResult<IAnimationValue> = null;
@@ -33,7 +36,7 @@ export const animation: IQRCodeHandler<IAnimationValue> = (value, options) => {
       if (fullData) {
         CACHE_ANIMATION_DATA_LIST = [];
       }
-      const animationData = {
+      const animationData: IAnimationValue = {
         partIndex,
         partSize,
         partData,

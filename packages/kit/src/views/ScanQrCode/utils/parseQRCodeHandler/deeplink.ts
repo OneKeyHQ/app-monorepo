@@ -3,6 +3,8 @@ import { url as urlHandler } from './url';
 
 import type { IQRCodeHandler, IQRCodeHandlerResult, IUrlValue } from './type';
 
+// onekey://search/list?q=onekey
+// onekey-wallet://search/list?q=onekey
 export const deeplink: IQRCodeHandler<IUrlValue> = (value, options) => {
   const urlValue = urlHandler(value, options);
   let result: IQRCodeHandlerResult<IUrlValue> = null;

@@ -27,15 +27,9 @@ const ScanQrCameraDemo = () => {
 
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
-  const openScanQrCodeModal = useCallback(() => {
-    scanQrCode
-      .start(true)
-      .then((value) => {
-        console.log(value);
-      })
-      .catch((e) => {
-        console.log(e);
-      });
+  const openScanQrCodeModal = useCallback(async () => {
+    const result = await scanQrCode.start(true);
+    console.log(result);
   }, [scanQrCode]);
   return (
     <Layout

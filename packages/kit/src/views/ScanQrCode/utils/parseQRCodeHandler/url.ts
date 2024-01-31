@@ -2,6 +2,7 @@ import { EQRCodeHandlerType } from './type';
 
 import type { IQRCodeHandler, IQRCodeHandlerResult, IUrlValue } from './type';
 
+// https://www.google.com/search?q=onekey
 export const url: IQRCodeHandler<IUrlValue> = (value) => {
   let result: IQRCodeHandlerResult<IUrlValue>;
   try {

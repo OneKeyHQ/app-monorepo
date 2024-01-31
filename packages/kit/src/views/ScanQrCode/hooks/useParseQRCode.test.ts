@@ -104,6 +104,28 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+  it('should parse as deeplink', () => {
+    expect(parse('onekey://search/list?q=onekey')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.DEEPLINK,
+        data: {
+          urlSchema: 'onekey',
+          urlPathList: ['search', 'list'],
+          urlParamList: { 'q': 'onekey' },
+        },
+      }),
+    );
+    expect(parse('onekey-wallet://search/list?q=onekey')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.DEEPLINK,
+        data: {
+          urlSchema: 'onekey-wallet',
+          urlPathList: ['search', 'list'],
+          urlParamList: { 'q': 'onekey' },
+        },
+      }),
+    );
+  });
   it('should parse as wallet connect', () => {
     expect(
       parse(

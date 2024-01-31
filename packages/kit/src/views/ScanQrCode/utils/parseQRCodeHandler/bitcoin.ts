@@ -7,6 +7,8 @@ import type {
   IQRCodeHandlerResult,
 } from './type';
 
+// btc://5ABC
+// bitcoin://5ABC
 export const bitcoin: IQRCodeHandler<IBitcoinValue> = (value, options) => {
   const urlValue = urlHandler(value, options);
   let result: IQRCodeHandlerResult<IBitcoinValue> = null;
