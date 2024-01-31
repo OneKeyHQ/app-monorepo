@@ -21,6 +21,7 @@ export function useAccountSelectorTrigger({ num }: { num: number }) {
       navigation,
       sceneName,
       sceneUrl,
+      linkNetwork: true,
     });
   }, [actions, navigation, num, sceneName, sceneUrl, activeAccount?.wallet]);
 

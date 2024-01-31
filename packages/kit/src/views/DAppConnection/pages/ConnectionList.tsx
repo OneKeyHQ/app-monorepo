@@ -10,6 +10,7 @@ import ConnectionListItem from '../components/ConnectionList/ConnectionListItem'
 function ConnectionListEmpty() {
   return (
     <Empty
+      flex={1}
       icon="LinkSolid"
       title="No dApps Connected"
       description="You haven't connected to any dApps yet. "
@@ -58,6 +59,9 @@ function ConnectionList() {
       />
       <Page.Body>
         <ListView
+          contentContainerStyle={{
+            flex: 1,
+          }}
           estimatedItemSize={48}
           scrollEnabled
           data={result}
