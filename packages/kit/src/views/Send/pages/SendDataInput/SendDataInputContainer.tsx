@@ -418,6 +418,9 @@ function SendDataInputContainer() {
             rules={{
               required: true,
               validate: (value: IAddressInputValue) => {
+                if (value.pending) {
+                  return;
+                }
                 if (!value.resolved) {
                   return intl.formatMessage({ id: 'form__address_invalid' });
                 }
