@@ -182,13 +182,20 @@ class ServiceSend extends ServiceBase {
   public async buildUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
-    const { networkId, accountId, encodedTx, transfersInfo, approveInfo } =
-      params;
+    const {
+      networkId,
+      wrappedInfo,
+      accountId,
+      encodedTx,
+      transfersInfo,
+      approveInfo,
+    } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       encodedTx,
       transfersInfo,
       approveInfo,
+      wrappedInfo,
     });
   }
 
@@ -311,6 +318,7 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      wrappedInfo,
     } = params;
     if (unsignedTx) return unsignedTx;
 
@@ -320,6 +328,7 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      wrappedInfo,
     });
   }
 }

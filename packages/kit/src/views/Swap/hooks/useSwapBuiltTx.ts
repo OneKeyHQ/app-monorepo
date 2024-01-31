@@ -50,8 +50,9 @@ export function useSwapBuildTx() {
   );
   const handleApproveTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {},
   []);
-  const handleWrappedTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {},
-  []);
+  const handleWrappedTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {
+    console.log('txs-', txs);
+  }, []);
   const wrappedTx = useCallback(async () => {
     // todo wrapped tx  need vault add fn
     if (
@@ -67,6 +68,7 @@ export function useSwapBuildTx() {
         ? EWrappedType.WITHDRAW
         : EWrappedType.DEPOSIT;
       const wrappedInfo: IWrappedInfo = {
+        from: activeAccount.account?.address,
         type: wrappedType,
         contract:
           wrappedType === EWrappedType.WITHDRAW
