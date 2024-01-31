@@ -79,7 +79,7 @@ class ServiceAccountProfile extends ServiceBase {
             name: address,
             networkId,
           });
-        if (resolveNames) {
+        if (resolveNames && resolveNames.names?.length) {
           result.resolveAddress = resolveNames.names?.[0].value;
           result.resolveOptions = resolveNames.names?.map((o) => o.value);
 
