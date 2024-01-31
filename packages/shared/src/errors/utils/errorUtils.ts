@@ -30,9 +30,10 @@ export function toPlainErrorObject(error: IOneKeyError) {
       autoToast: error.autoToast,
       data: error.data,
       info: error.info,
-      stack: error.stack,
-      // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
-      // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
+      // Crash in native hermes engine (error.stack serialize fail, only if Web3Errors object)
+      stack: platformEnv.isNative
+        ? 'Access error.stack failed in native hermes engine: unable to serialize, circular reference is too complex to analyze'
+        : error.stack,
     },
     isUndefined,
   );

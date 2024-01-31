@@ -25,10 +25,11 @@ function useDappApproveAction({
   const reject = useCallback(
     ({ close, error }: { close?: () => void; error?: Error } = {}) => {
       // eslint-disable-next-line no-param-reassign
-      error = error || rejectError || web3Errors.provider.userRejectedRequest();
+      const newError =
+        error || rejectError || web3Errors.provider.userRejectedRequest();
       void backgroundApiProxy.servicePromise.rejectCallback({
         id,
-        error: toPlainErrorObject(error),
+        error: toPlainErrorObject(newError),
       });
       if (isExtStandaloneWindow) {
         // timeout wait reject done.
