@@ -10,8 +10,11 @@ import type { IButtonProps, IStackProps } from '../../primitives';
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: (params: { close: () => void }) => void;
-  onCancel?: () => void | Promise<void>;
+  onConfirm?: (close: () => void, closeStacks: () => void) => void;
+  onCancel?: (
+    close: () => void,
+    closeStacks: () => void,
+  ) => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
@@ -28,15 +31,17 @@ export function FooterActions({
   cancelButtonProps,
   buttonContainerProps,
 }: IFooterActionsProps) {
-  const { pop } = useAppNavigation();
+  const { pop, popStack } = useAppNavigation();
   const handleCancel = useCallback(async () => {
-    await onCancel?.();
-    pop();
-  }, [onCancel, pop]);
+    await onCancel?.(pop, popStack);
+    if (!onCancel?.length) {
+      pop();
+    }
+  }, [onCancel, pop, popStack]);
 
   const handleConfirm = useCallback(() => {
-    onConfirm?.({ close: pop });
-  }, [onConfirm, pop]);
+    onConfirm?.(pop, popStack);
+  }, [onConfirm, pop, popStack]);
   return (
     <Stack
       p="$5"
