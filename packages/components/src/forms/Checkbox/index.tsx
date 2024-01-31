@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -139,36 +139,25 @@ function CheckboxGroup({
   value,
   listStyle,
 }: ICheckboxGroupProps) {
-  /* 
-    We introduced an 'innerValue' here because we need the 'prevInnerValue' for 'setInnerValue'.
-      - This is because we utilize 'memo' to minimize redundant rendering of unrelated cells.
-      - The 'onChangeHandler' doesn't refresh when capturing the new `value` because the unrelated cells remain unchanged.
-    Perhaps there might be a better solution for this scenario.
-  */
-
-  const [innerValue, setInnerValue] = useState(value);
+  const innerValueRef = useRef(value);
   useEffect(() => {
-    onChange(innerValue);
-  }, [innerValue, onChange]);
+    innerValueRef.current = value;
+  }, [value]);
 
   const isAll = useMemo(
-    () =>
-      innerValue.length === options.length &&
-      innerValue.findIndex((v) => !v) === -1,
-    [innerValue, options],
+    () => value.length === options.length && value.findIndex((v) => !v) === -1,
+    [value, options],
   );
   const handleSelectAll = useCallback(() => {
-    setInnerValue(options.map(() => !isAll));
-  }, [setInnerValue, isAll, options]);
+    onChange(options.map(() => !isAll));
+  }, [onChange, isAll, options]);
 
   const onChangeHandler = useCallback(
     (index: number, v: ICheckedState) => {
-      setInnerValue((prevInnerValue) => {
-        prevInnerValue[index] = v;
-        return [...prevInnerValue];
-      });
+      innerValueRef.current[index] = v;
+      onChange([...innerValueRef.current]);
     },
-    [setInnerValue],
+    [onChange],
   );
 
   const renderItem = useCallback(
