@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -9,7 +10,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { EModalSendRoutes, type IModalSendParamList } from '../../router';
@@ -17,10 +18,12 @@ import { EModalSendRoutes, type IModalSendParamList } from '../../router';
 type IProps = {
   accountId: string;
   networkId: string;
+  onSuccess?: (txs: ISignedTxPro[]) => void;
+  onFail?: (error: Error) => void;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, onSuccess, onFail } = props;
   const media = useMedia();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -49,8 +52,18 @@ function SendConfirmActionsContainer(props: IProps) {
       networkId,
       accountId,
       unsignedTxs: newUnsignedTxs,
+      onSuccess,
+      onFail,
     });
-  }, [accountId, navigation, networkId, sendSelectedFeeInfo, unsignedTxs]);
+  }, [
+    accountId,
+    navigation,
+    networkId,
+    onFail,
+    onSuccess,
+    sendSelectedFeeInfo?.feeInfo,
+    unsignedTxs,
+  ]);
 
   const isSubmitDisabled = useMemo(() => {
     if (

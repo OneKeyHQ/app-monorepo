@@ -1,19 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Button,
   LottieView,
   Page,
-  Progress,
-  SizableText,
+  Spinner,
   Stack,
   Toast,
-  XStack,
-  YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -25,15 +22,20 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendProgressContainer() {
   const intl = useIntl();
+  const media = useMedia();
   const [currentProgress, setCurrentProgress] = useState(0);
+  const submitted = useRef(false);
+  const tableLayout = media.gtLg;
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-  const { networkId, accountId, unsignedTxs, onSuccess } = route.params;
+  const { networkId, accountId, unsignedTxs, onSuccess, onFail } = route.params;
 
   usePromiseResult(async () => {
     const signedTxs: ISignedTxPro[] = [];
+    if (submitted.current) return;
+    submitted.current = true;
     try {
       for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
         const unsignedTx = unsignedTxs[i];
@@ -53,7 +55,8 @@ function SendProgressContainer() {
           txid,
         });
 
-        setCurrentProgress(i);
+        setCurrentProgress(i + 1);
+
         // TODO: save local history
       }
 
@@ -61,11 +64,15 @@ function SendProgressContainer() {
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
       });
-    } catch (e) {
+    } catch (e: any) {
+      Toast.error({
+        title: (e as Error).message,
+      });
+      onFail?.(e as Error);
       navigation.pop();
       throw e;
     }
-  }, [accountId, intl, navigation, networkId, onSuccess, unsignedTxs]);
+  }, [accountId, intl, navigation, networkId, onFail, onSuccess, unsignedTxs]);
 
   const isSendSuccess = currentProgress === unsignedTxs.length;
 
@@ -75,30 +82,32 @@ function SendProgressContainer() {
         <Stack height="100%" alignItems="center" justifyContent="center">
           {isSendSuccess ? (
             <LottieView
-              width="100%"
-              height="$24"
+              width={200}
+              height={200}
               autoPlay
               loop={false}
               source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
             />
           ) : (
-            <YStack padding="$4" space="$4">
-              <Progress value={currentProgress} max={unsignedTxs.length} />
-              <SizableText>
-                {currentProgress}/{unsignedTxs.length}
-              </SizableText>
-            </YStack>
+            <Stack
+              width="100%"
+              height="100%"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Spinner size="large" />
+            </Stack>
           )}
         </Stack>
       </Page.Body>
       {isSendSuccess && (
-        <Page.Footer>
-          <XStack padding="$4">
-            <Button variant="primary" onPress={() => navigation.popStack()}>
-              {intl.formatMessage({ id: 'action__done' })}
-            </Button>
-          </XStack>
-        </Page.Footer>
+        <Page.Footer
+          confirmButtonProps={{
+            size: tableLayout ? 'medium' : 'large',
+          }}
+          onConfirmText={intl.formatMessage({ id: 'action__done' })}
+          onConfirm={() => navigation.popStack()}
+        />
       )}
     </Page>
   );
