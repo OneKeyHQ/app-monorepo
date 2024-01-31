@@ -19,7 +19,7 @@ import {
   useSendSelectedFeeAtom,
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/send-confirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
   getFeeIcon,
@@ -59,13 +59,30 @@ function TxFeeContainer(props: IProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { result: [isEditFeeEnabled, network] = [] } = usePromiseResult(
-    () =>
-      Promise.all([
+  const {
+    result: [isEditFeeEnabled, network, nativeToken] = [],
+    isLoading: isLoadingNativeBalance,
+  } = usePromiseResult(
+    async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+
+      if (!account) return;
+
+      return Promise.all([
         backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-      ]),
-    [networkId],
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: account.address,
+          contractList: [''],
+        }),
+      ]);
+    },
+    [accountId, networkId],
+    { watchLoading: true },
   );
 
   const { result: gasFee } = usePromiseResult(
@@ -74,10 +91,19 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
-        const r = await backgroundApiProxy.serviceGas.estimateGasFee({
+        const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
           encodedTx: unsignedTxs[0].encodedTx,
         });
+
+        // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
+        // these five levels are also provided as predictions on the custom fee page for users to choose
+        if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+          r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
+        } else if (r.gasEIP1559) {
+          r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
+        }
+
         updateSendFeeStatus({
           status: ESendFeeStatus.Success,
           errMessage: '',
@@ -95,26 +121,6 @@ function TxFeeContainer(props: IProps) {
       pollingInterval: 6000,
     },
   );
-
-  const { result: nativeToken, isLoading: isLoadingNativeBalance } =
-    usePromiseResult(async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-
-      if (!account) return;
-
-      const tokenDetails =
-        await backgroundApiProxy.serviceToken.fetchTokenDetails({
-          networkId,
-          accountAddress: account.address,
-          address: '',
-          isNative: true,
-        });
-
-      return tokenDetails;
-    }, [accountId, networkId]);
 
   const feeSelectorItems = useMemo(() => {
     const items = [];
@@ -293,13 +299,17 @@ function TxFeeContainer(props: IProps) {
       isLoadingNativeBalance,
       isInsufficientNativeBalance: new BigNumber(nativeTokenTransferAmount ?? 0)
         .plus(selectedFee?.totalNative ?? 0)
-        .gt(nativeToken?.balanceParsed ?? 0),
+        .gt(nativeToken?.[0].balanceParsed ?? 0),
     });
+
+    return () =>
+      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
   }, [
     isLoadingNativeBalance,
     nativeToken,
     nativeTokenTransferAmount,
     selectedFee?.totalNative,
+    updateSendFeeStatus,
     updateSendTxStatus,
   ]);
 
@@ -318,18 +328,21 @@ function TxFeeContainer(props: IProps) {
             items={feeSelectorItems}
             value={feeSelectorValue}
             onChange={handleSelectedFeeOnChange}
-            disabled={sendFeeStatus.status === ESendFeeStatus.Loading}
+            disabled={
+              sendFeeStatus.status === ESendFeeStatus.Loading ||
+              sendFeeStatus.status === ESendFeeStatus.Error
+            }
           />
         }
         description={{
-          children: (
+          content: (
             <YStack flex={1}>
-              {sendFeeStatus.errMessage && (
+              {sendFeeStatus.errMessage ? (
                 <SizableText size="$bodyMd" color="$textCritical">
                   {sendFeeStatus.errMessage}
                 </SizableText>
-              )}
-              {sendAlertStatus.isInsufficientNativeBalance && (
+              ) : null}
+              {sendAlertStatus.isInsufficientNativeBalance ? (
                 <SizableText size="$bodyMd" color="$textCritical">
                   {intl.formatMessage(
                     {
@@ -341,7 +354,7 @@ function TxFeeContainer(props: IProps) {
                     },
                   )}
                 </SizableText>
-              )}
+              ) : null}
             </YStack>
           ),
         }}
