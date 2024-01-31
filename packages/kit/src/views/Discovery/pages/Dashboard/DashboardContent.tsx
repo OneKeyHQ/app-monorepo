@@ -83,7 +83,13 @@ function DashboardContent({
             })
           }
         />
-        <SuggestedAndExploreSection />
+        <SuggestedAndExploreSection
+          suggestedData={
+            Array.isArray(homePageData?.categories)
+              ? homePageData.categories
+              : []
+          }
+        />
       </>
     ),
     [
