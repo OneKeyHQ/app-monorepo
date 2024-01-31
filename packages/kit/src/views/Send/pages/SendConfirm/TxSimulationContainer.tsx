@@ -90,7 +90,7 @@ function TxSimulationContainer() {
             <Image
               w={58}
               h={12}
-              source={require('@onekeyhq/kit/assets/blockaid_logo.png')}
+              src="https://assets-global.website-files.com/64ec731552ca9f8cc0180db8/64eca09007998d22c2590665_Vector.svg"
             />
           </XStack>
         }
