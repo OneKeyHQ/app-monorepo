@@ -29,16 +29,14 @@ function Items({
   const media = useMedia();
 
   useEffect(() => {
-    if (media.gtXl) {
-      setNumberOfItems(8);
-    } else if (media.gtLg) {
-      setNumberOfItems(6);
-    } else if (media.gtSm) {
-      setNumberOfItems(5);
-    } else {
-      setNumberOfItems(4);
-    }
-  }, [media.gtLg, media.gtMd, media.gtSm, media.gtXl]);
+    const calculateNumberOfItems = () => {
+      if (media.gtXl) return 8;
+      if (media.gtLg) return 6;
+      if (media.gtSm) return 5;
+      return 4;
+    };
+    setNumberOfItems(calculateNumberOfItems());
+  }, [media.gtXl, media.gtLg, media.gtSm, media.gtMd]);
 
   return (
     <XStack
