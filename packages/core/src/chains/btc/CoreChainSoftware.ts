@@ -866,12 +866,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
         const firstAddressRelPath = '0/0';
         const relativePaths = [firstAddressRelPath];
-        const { [firstAddressRelPath]: address } = await this.getAddressFromXpub({
-          network,
-          xpub,
-          relativePaths,
-          addressEncoding,
-        });
+        const { [firstAddressRelPath]: address } =
+          await this.getAddressFromXpub({
+            network,
+            xpub,
+            relativePaths,
+            addressEncoding,
+          });
 
         let xpubSegwit = xpub;
         if (isTaprootPath(pathPrefix)) {
@@ -893,6 +894,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           address,
           publicKey,
           path,
+          relPath: firstAddressRelPath,
           xpub,
           xpubSegwit,
           addresses: { [firstAddressRelPath]: address },

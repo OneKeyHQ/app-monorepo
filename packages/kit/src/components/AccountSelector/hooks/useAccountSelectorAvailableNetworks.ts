@@ -24,7 +24,7 @@ export function useAccountSelectorAvailableNetworks({
       const { networkIds: ids } = await serviceNetwork.getAllNetworkIds();
       return ids;
     },
-    [availableNetworksInfo.networkIds, serviceNetwork],
+    [availableNetworksInfo?.networkIds, serviceNetwork],
     {
       initResult: [],
     },
@@ -32,6 +32,6 @@ export function useAccountSelectorAvailableNetworks({
 
   return {
     networkIds,
-    defaultNetworkId: availableNetworksInfo.defaultNetworkId,
+    defaultNetworkId: availableNetworksInfo?.defaultNetworkId,
   };
 }

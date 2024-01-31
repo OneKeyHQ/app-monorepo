@@ -11,7 +11,7 @@ type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
 };
 
-type IPromiseResultOptions<T> = {
+export type IPromiseResultOptions<T> = {
   initResult?: T; // TODO rename to initData
   watchLoading?: boolean; // make isLoading work, which cause more once render
   loadingDelay?: number;
@@ -22,31 +22,34 @@ type IPromiseResultOptions<T> = {
   pollingInterval?: number;
 };
 
-export function usePromiseResult<T>(
-  method: () => Promise<T>,
-  deps: any[],
-  options: { initResult: T } & IPromiseResultOptions<T>,
-): { result: T; isLoading: boolean | undefined };
-
-export function usePromiseResult<T>(
-  method: () => Promise<T>,
-  deps: any[],
-  options?: IPromiseResultOptions<T>,
-): {
+export type IUsePromiseResultReturn<T> = {
   result: T | undefined;
   isLoading: boolean | undefined;
   run: (config?: IRunnerConfig) => Promise<void>;
 };
 
+export type IUsePromiseResultReturnWithInitValue<T> =
+  IUsePromiseResultReturn<T> & {
+    result: T;
+  };
+
+export function usePromiseResult<T>(
+  method: () => Promise<T>,
+  deps: any[],
+  options: { initResult: T } & IPromiseResultOptions<T>,
+): IUsePromiseResultReturnWithInitValue<T>;
+
+export function usePromiseResult<T>(
+  method: () => Promise<T>,
+  deps: any[],
+  options?: IPromiseResultOptions<T>,
+): IUsePromiseResultReturn<T>;
+
 export function usePromiseResult<T>(
   method: () => Promise<T>,
   deps: any[] = [],
   options: IPromiseResultOptions<T> = {},
-): {
-  result: T | undefined;
-  isLoading: boolean | undefined;
-  run: (config?: IRunnerConfig) => Promise<void>;
-} {
+): IUsePromiseResultReturn<T> {
   const [result, setResult] = useState<T | undefined>(
     options.initResult as any,
   );
@@ -166,7 +169,6 @@ export function usePromiseResult<T>(
     }
   }, [isFocused, run]);
 
-  // TODO rename result to data
   return { result, isLoading, run };
 }
 
