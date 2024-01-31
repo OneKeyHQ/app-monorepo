@@ -53,6 +53,12 @@ const EditItemPage = () => {
             navigation.pop();
           }
         },
+        confirmButtonProps: {
+          testID: 'address-remove-confirm',
+        },
+        cancelButtonProps: {
+          testID: 'address-remove-cancel',
+        },
       });
     },
     [navigation],
