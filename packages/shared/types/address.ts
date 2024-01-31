@@ -31,6 +31,10 @@ export type IFetchAccountDetailsResp = {
   nonce?: number;
   isContract?: boolean;
   netWorth?: string;
+  validateInfo?: {
+    isValid: boolean;
+    addressType: string;
+  };
 };
 export type IXpubValidation = {
   isValid: boolean;

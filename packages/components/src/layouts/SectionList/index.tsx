@@ -63,6 +63,7 @@ type ISectionLayoutItem = {
   type: ESectionLayoutType;
   value: any;
   section?: any;
+  sectionIndex: number;
 };
 
 function BaseSectionList<T>(
@@ -73,6 +74,7 @@ function BaseSectionList<T>(
     renderSectionFooter,
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
+    keyExtractor,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -84,12 +86,14 @@ function BaseSectionList<T>(
         reloadSectionList.push({
           value: section,
           index: sectionIndex,
+          sectionIndex,
           type: ESectionLayoutType.SectionSeparator,
         });
       }
       reloadSectionList.push({
         value: section,
         index: sectionIndex,
+        sectionIndex,
         type: ESectionLayoutType.Header,
       });
       section?.data?.forEach?.((item, index) => {
@@ -97,12 +101,14 @@ function BaseSectionList<T>(
           value: item,
           section,
           index,
+          sectionIndex,
           type: ESectionLayoutType.Item,
         });
       });
       reloadSectionList.push({
         value: section,
         index: sectionIndex,
+        sectionIndex,
         type: ESectionLayoutType.Footer,
       });
     });
@@ -184,6 +190,16 @@ function BaseSectionList<T>(
     (item: T) => (item as ISectionLayoutItem).type,
     [],
   );
+  const reloadKeyExtractor = useCallback(
+    (item: T, index: number) => {
+      const layoutItem = item as ISectionLayoutItem;
+      if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
+        return keyExtractor(layoutItem.value, index);
+      }
+      return `${layoutItem.type}_${layoutItem.sectionIndex}_${layoutItem.index}`;
+    },
+    [keyExtractor],
+  );
   return (
     <ListView
       ref={ref}
@@ -191,6 +207,7 @@ function BaseSectionList<T>(
       renderItem={renderSectionAndItem as ListRenderItem<T>}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
+      keyExtractor={reloadKeyExtractor}
       {...restProps}
     />
   );

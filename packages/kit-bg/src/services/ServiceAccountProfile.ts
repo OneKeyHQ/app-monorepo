@@ -49,12 +49,12 @@ class ServiceAccountProfile extends ServiceBase {
     address,
   }: IAddressNetworkIdParams): Promise<boolean> {
     try {
-      await this.fetchAccountDetails({
+      const result = await this.fetchAccountDetails({
         networkId,
         accountAddress: address,
         withValidate: true,
       });
-      return true;
+      return Boolean(result.validateInfo?.isValid);
     } catch {
       return false;
     }
@@ -72,10 +72,6 @@ class ServiceAccountProfile extends ServiceBase {
         networkId,
         address,
       });
-      await this.backgroundApi.serviceValidator.validateAddress({
-        networkId,
-        address,
-      });
       const includeDot = checkIsDomain(address);
       if (includeDot && enableNameResolve) {
         const resolveNames =
@@ -83,17 +79,15 @@ class ServiceAccountProfile extends ServiceBase {
             name: address,
             networkId,
           });
-        if (resolveNames) {
+        if (resolveNames && resolveNames.names?.length) {
           result.resolveAddress = resolveNames.names?.[0].value;
           result.resolveOptions = resolveNames.names?.map((o) => o.value);
 
           if (!result.isValid) {
-            const resolveValidateResult =
-              await this.backgroundApi.serviceValidator.validateAddress({
-                networkId,
-                address: result.resolveAddress,
-              });
-            result.isValid = resolveValidateResult.isValid;
+            result.isValid = await this.validateAddress({
+              networkId,
+              address: result.resolveAddress,
+            });
           }
         }
       }
