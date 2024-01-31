@@ -229,8 +229,14 @@ export type IApproveInfo = {
   owner: string;
   spender: string;
   amount: string;
+  isMax?: boolean;
   tokenInfo?: IToken;
 };
+
+// export interface ISwapInfoForConfirm{
+//   fromToken: IToken;
+//   toToken: IToken;
+// }
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',

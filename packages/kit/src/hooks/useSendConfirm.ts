@@ -31,6 +31,7 @@ type IBuildUnsignedTxParams = {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  // swapInfo?:
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
 };
@@ -43,23 +44,23 @@ function useSendConfirm(params: IParams) {
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const {
+        onSuccess,
+        onFail,
         encodedTx,
-        unsignedTx: preUnsignedTx,
         transfersInfo,
         approveInfo,
         wrappedInfo,
-        onFail,
-        onSuccess,
+        unsignedTx: preUnsignedTx,
       } = params;
       let unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           networkId,
           accountId,
+          unsignedTx: preUnsignedTx,
           encodedTx,
           transfersInfo,
           approveInfo,
           wrappedInfo,
-          unsignedTx: preUnsignedTx,
         });
 
       const isNonceRequired =

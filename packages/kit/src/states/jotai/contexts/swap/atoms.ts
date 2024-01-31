@@ -63,6 +63,11 @@ export const {
     : undefined;
 });
 
+export const {
+  atom: swapSelectedTokenBalanceAtom,
+  use: useSwapSelectedTokenBalanceAtom,
+} = contextAtom('0');
+
 // swap quote
 export const {
   atom: swapManualSelectQuoteProvidersAtom,
@@ -150,7 +155,6 @@ export const { atom: swapBuildTxResultAtom, use: useSwapBuildTxResultAtom } =
   contextAtom<IFetchBuildTxResponse | undefined>(undefined);
 
 // swap receiver address
-
 export const {
   atom: swapReceiverAddressTypeAtom,
   use: useSwapReceiverAddressTypeAtom,

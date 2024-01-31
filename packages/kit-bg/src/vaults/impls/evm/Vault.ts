@@ -436,7 +436,8 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxEvm> {
     const { approveInfo } = params;
 
-    const { owner, spender, amount, tokenInfo } = approveInfo as IApproveInfo;
+    const { owner, spender, amount, tokenInfo, isMax } =
+      approveInfo as IApproveInfo;
 
     if (!tokenInfo) {
       throw new Error(
@@ -446,7 +447,7 @@ export default class Vault extends VaultBase {
 
     const amountBN = new BigNumber(amount);
     const amountHex = toBigIntHex(
-      amountBN.isNaN()
+      amountBN.isNaN() || isMax
         ? new BigNumber(2).pow(256).minus(1)
         : amountBN.shiftedBy(tokenInfo.decimals),
     );
@@ -569,7 +570,7 @@ export default class Vault extends VaultBase {
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
-      nonce: Number(tx.nonce),
+      nonce: isNil(tx.nonce) ? tx.nonce : new BigNumber(tx.nonce).toNumber(),
     });
   }
 

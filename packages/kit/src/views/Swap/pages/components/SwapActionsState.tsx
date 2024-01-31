@@ -1,7 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import {
   Alert,
   Button,
@@ -16,16 +14,18 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { swapApproveUnlimitedValue } from '../../config/SwapProvider.constants';
 import { useSwapStepState } from '../../hooks/useSwapStepState';
 import { ESwapStepStateType } from '../../types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
   onWrapped: () => void;
-  onApprove: (amount: string, shoutResetApprove?: boolean) => void;
+  onApprove: (
+    amount: string,
+    isMax?: boolean,
+    shoutResetApprove?: boolean,
+  ) => void;
 }
 
 const SwapActionsState = ({
@@ -103,14 +103,11 @@ const SwapActionsState = ({
 
   const handleApprove = useCallback(
     (isUnLimit: boolean) => {
-      const approveAmount = isUnLimit
-        ? swapApproveUnlimitedValue
-        : toBigIntHex(new BigNumber(fromAmount));
       if (swapStepState.shoutResetApprove) {
         Dialog.confirm({
           onConfirmText: 'Continue',
           onConfirm: () => {
-            onApprove(approveAmount, true);
+            onApprove(fromAmount, isUnLimit, true);
           },
           showCancelButton: true,
           title: 'Need to Send 2 Transactions to Change Allowance',
@@ -119,7 +116,7 @@ const SwapActionsState = ({
           icon: 'TxStatusWarningCircleIllus',
         });
       } else {
-        onApprove(approveAmount);
+        onApprove(fromAmount, isUnLimit);
       }
     },
     [fromAmount, onApprove, swapStepState.shoutResetApprove],

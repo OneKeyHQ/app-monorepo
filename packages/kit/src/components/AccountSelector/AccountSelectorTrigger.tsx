@@ -89,7 +89,6 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
     activeAccount: { wallet, account, accountName },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-
   return (
     <XStack
       role="button"

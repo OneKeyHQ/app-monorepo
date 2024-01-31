@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
@@ -9,6 +9,7 @@ import {
   useSwapActions,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectedTokenBalanceAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -117,7 +118,8 @@ export function useSwapSelectedTokenDetail({
   accountNetworkId?: string;
   accountXpub?: string;
 }) {
-  const [currentTokenBalance, setCurrentTokenBalance] = useState('0.0');
+  const [swapSelectedTokenBalance, setSwapSelectedTokenBalance] =
+    useSwapSelectedTokenBalanceAtom();
 
   const { isLoading } = usePromiseResult(
     async () => {
@@ -126,7 +128,7 @@ export function useSwapSelectedTokenDetail({
         token.accountAddress === accountAddress &&
         accountNetworkId === token.networkId
       ) {
-        setCurrentTokenBalance(token.balanceParsed ?? '0.0');
+        setSwapSelectedTokenBalance(token.balanceParsed ?? '0.0');
       } else {
         const detailInfo =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -136,14 +138,20 @@ export function useSwapSelectedTokenDetail({
             contractAddress: token.contractAddress,
           });
         if (detailInfo) {
-          setCurrentTokenBalance(detailInfo.balanceParsed);
+          setSwapSelectedTokenBalance(detailInfo.balanceParsed);
         }
       }
     },
-    [accountAddress, accountNetworkId, accountXpub, token],
+    [
+      accountAddress,
+      accountNetworkId,
+      accountXpub,
+      setSwapSelectedTokenBalance,
+      token,
+    ],
     {
       watchLoading: true,
     },
   );
-  return { isLoading, currentTokenBalance };
+  return { isLoading, swapSelectedTokenBalance };
 }

@@ -9,6 +9,7 @@ import {
   useSwapQuoteTokenMarketingRateWarningAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectedTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
 import { ESwapStepStateType } from '../types';
 
@@ -23,6 +24,7 @@ export function useSwapStepState() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [rateWarning] = useSwapQuoteTokenMarketingRateWarningAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [selectedTokenBalance] = useSwapSelectedTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const stepState: ISwapStepState = {
     type: ESwapStepStateType.PRE,
@@ -49,7 +51,7 @@ export function useSwapStepState() {
     stepState.wrongMsg = `Please connect your wallet`;
     return stepState;
   }
-  const balanceBN = new BigNumber(fromToken?.balanceParsed ?? 0);
+  const balanceBN = new BigNumber(selectedTokenBalance ?? 0);
   if (balanceBN.comparedTo(fromTokenAmountBN) !== 1) {
     stepState.type = ESwapStepStateType.ACCOUNT_CHECK;
     stepState.isLoading = false;
@@ -84,8 +86,8 @@ export function useSwapStepState() {
     stepState.type = ESwapStepStateType.APPROVE;
     stepState.shoutResetApprove =
       !!quoteCurrentSelect.allowanceResult.shouldResetApprove;
-    stepState.isLoading = false; // Todo check approve transaction state
-    stepState.disabled = false;
+    stepState.isLoading = buildTxFetching;
+    stepState.disabled = buildTxFetching;
     return stepState;
   }
   stepState.type = ESwapStepStateType.BUILD_TX;

@@ -40,13 +40,13 @@ const SwapMainLoad = () => {
   }, [buildTx]);
 
   const onApprove = useCallback(
-    async (amount: string, shoutResetApprove?: boolean) => {
+    async (amount: string, isMax?: boolean, shoutResetApprove?: boolean) => {
       if (shoutResetApprove) {
-        await approveTx(swapApproveResetValue, async () => {
-          await onApprove(amount);
+        await approveTx(swapApproveResetValue, false, async () => {
+          await onApprove(amount, isMax);
         });
       } else {
-        await approveTx(amount, async () => {
+        await approveTx(amount, isMax, async () => {
           await onBuildTx();
         });
       }

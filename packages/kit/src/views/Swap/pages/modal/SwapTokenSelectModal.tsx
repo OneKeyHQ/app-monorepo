@@ -94,14 +94,14 @@ const SwapTokenSelectPage = () => {
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
-      setSearchKeyword('');
-      setCurrentSelectNetwork(network);
       if (network.networkId !== 'all') {
         updateSelectedAccount({
           num: type === 'from' ? 0 : 1,
           builder: (v) => ({ ...v, networkId: network.networkId }),
         });
       }
+      setSearchKeyword('');
+      setCurrentSelectNetwork(network);
     },
     [type, updateSelectedAccount],
   );

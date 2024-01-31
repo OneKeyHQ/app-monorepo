@@ -21,18 +21,18 @@ export const SwapSelectTokenBalance = ({
   accountNetworkId,
   token,
 }: ISwapSelectTokenBalanceProps) => {
-  const { isLoading, currentTokenBalance } = useSwapSelectedTokenDetail({
+  const { isLoading, swapSelectedTokenBalance } = useSwapSelectedTokenDetail({
     token,
     accountAddress,
     accountXpub,
     accountNetworkId,
   });
   const computedBalance = useMemo(() => {
-    const balanceBN = new BigNumber(currentTokenBalance ?? 0);
+    const balanceBN = new BigNumber(swapSelectedTokenBalance ?? 0);
     return balanceBN.isNaN()
       ? '0'
       : balanceBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
-  }, [currentTokenBalance]);
+  }, [swapSelectedTokenBalance]);
   return isLoading ? (
     <Skeleton w="$20" h="$10" />
   ) : (

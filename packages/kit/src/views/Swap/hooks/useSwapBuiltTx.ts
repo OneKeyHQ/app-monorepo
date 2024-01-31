@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
@@ -56,7 +56,6 @@ export function useSwapBuildTx() {
     console.log('txs-', txs);
   }, []);
   const wrappedTx = useCallback(async () => {
-    // todo wrapped tx  need vault add fn
     if (
       fromToken &&
       toToken &&
@@ -66,6 +65,7 @@ export function useSwapBuildTx() {
       receiverAddress &&
       activeAccount.network?.id
     ) {
+      setSwapBuildTxFetching(true);
       const wrappedType = fromToken.contractAddress
         ? EWrappedType.WITHDRAW
         : EWrappedType.DEPOSIT;
@@ -82,20 +82,8 @@ export function useSwapBuildTx() {
         wrappedInfo,
         onSuccess: handleWrappedTxSuccess,
       });
-
-      // const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-      //   networkId: activeAccount.network?.id,
-      //   accountId: activeAccount.account?.id,
-      //   wrappedInfo,
-      // });
-      // return {
-      //   unsignedTx,
-      //   networkId: activeAccount.network?.id,
-      //   accountId: activeAccount.account?.id,
-      //   onSuccess: handleWrappedTxSuccess,
-      // };
+      setSwapBuildTxFetching(false);
     }
-    // return {};
   }, [
     activeAccount.account?.address,
     activeAccount.network?.id,
@@ -105,11 +93,13 @@ export function useSwapBuildTx() {
     navigationToSendConfirm,
     receiverAddress,
     selectQuote,
+    setSwapBuildTxFetching,
     toToken,
   ]);
   const approveTx = useCallback(
-    async (amount: string, onApproveSuccess?: () => void) => {
+    async (amount: string, isMax?: boolean, onApproveSuccess?: () => void) => {
       const allowanceInfo = selectQuote?.allowanceResult;
+      setSwapBuildTxFetching(true);
       if (
         allowanceInfo &&
         fromToken &&
@@ -121,6 +111,7 @@ export function useSwapBuildTx() {
           owner: activeAccount.account.address,
           spender: allowanceInfo.allowanceTarget,
           amount,
+          isMax,
           tokenInfo: {
             ...fromToken,
             address: fromToken.contractAddress,
@@ -131,6 +122,7 @@ export function useSwapBuildTx() {
           approveInfo,
           onSuccess: onApproveSuccess,
         });
+        setSwapBuildTxFetching(false);
       }
     },
     [
@@ -140,6 +132,7 @@ export function useSwapBuildTx() {
       fromToken,
       navigationToSendConfirm,
       selectQuote?.allowanceResult,
+      setSwapBuildTxFetching,
     ],
   );
 
@@ -154,7 +147,6 @@ export function useSwapBuildTx() {
       receiverAddress &&
       activeAccount.network?.id
     ) {
-      let unsignedTx;
       setSwapBuildTxFetching(true);
       const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
         fromToken,
@@ -166,9 +158,12 @@ export function useSwapBuildTx() {
         userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
+      let transferInfo: ITransferInfo | undefined;
+      let encodedTx: IEncodedTx | undefined;
       if (res?.swftOrder) {
+        encodedTx = undefined;
         // swft order
-        const transferInfo: ITransferInfo = {
+        transferInfo = {
           from: activeAccount.account?.address,
           tokenInfo: {
             ...fromToken,
@@ -178,32 +173,26 @@ export function useSwapBuildTx() {
           to: res.swftOrder.platformAddr,
           amount: res.swftOrder.depositCoinAmt,
         };
-        unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-          transfersInfo: [transferInfo],
-          networkId: activeAccount.network?.id,
-          accountId: activeAccount.account?.id,
-        });
       }
       if (res?.tx) {
+        transferInfo = undefined;
         const valueHex = toBigIntHex(new BigNumber(res.tx.value));
-        unsignedTx = {
-          encodedTx: {
-            ...res?.tx,
-            value: valueHex,
-            from: activeAccount.account?.address,
-          },
+        encodedTx = {
+          ...res?.tx,
+          value: valueHex,
+          from: activeAccount.account?.address,
         };
       }
-      setSwapBuildTxResult(res);
-      setSwapBuildTxFetching(false);
       await navigationToSendConfirm({
-        unsignedTx,
+        transfersInfo: transferInfo ? [transferInfo] : undefined,
+        encodedTx,
         onSuccess: handleBuildTxSuccess,
       });
+      setSwapBuildTxResult(res);
+      setSwapBuildTxFetching(false);
     }
   }, [
     activeAccount.account?.address,
-    activeAccount.account?.id,
     activeAccount.network?.id,
     fromToken,
     fromTokenAmount,

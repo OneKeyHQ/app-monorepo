@@ -33,7 +33,4 @@ export const networkTransactionExplorerReplaceStr = '{transaction}';
 
 export const swapTokenCatchMapMaxCount = 30;
 
-export const swapApproveUnlimitedValue =
-  '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-
-export const swapApproveResetValue = '0x0';
+export const swapApproveResetValue = '0';
