@@ -666,7 +666,7 @@ export default class Vault extends VaultBase {
     const transfer: IDecodedTxTransferInfo = {
       from,
       to: recipient,
-      token: token.address,
+      tokenIdOnNetwork: token.address,
       icon: token.logoURI ?? '',
       symbol: token.symbol,
       amount,
@@ -701,6 +701,7 @@ export default class Vault extends VaultBase {
         amount,
         icon: token.logoURI ?? '',
         symbol: token.symbol,
+        tokenIdOnNetwork: token.address,
         isMax: amount === InfiniteAmountText,
       },
     };
@@ -723,7 +724,7 @@ export default class Vault extends VaultBase {
     const transfer: IDecodedTxTransferInfo = {
       from: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
-      token: nativeToken.address,
+      tokenIdOnNetwork: nativeToken.address,
       icon: nativeToken.logoURI ?? '',
       symbol: nativeToken.symbol,
       amount: new BigNumber(encodedTx.value)
@@ -805,7 +806,7 @@ export default class Vault extends VaultBase {
     const transfer: IDecodedTxTransferInfo = {
       from,
       to,
-      token: nftId,
+      tokenIdOnNetwork: nftId,
       amount,
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',

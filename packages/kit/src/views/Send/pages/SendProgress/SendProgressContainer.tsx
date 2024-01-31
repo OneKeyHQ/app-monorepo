@@ -1,17 +1,10 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  LottieView,
-  Page,
-  Spinner,
-  Stack,
-  Toast,
-  useMedia,
-} from '@onekeyhq/components';
+import { Page, Spinner, Stack, Toast } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -22,10 +15,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendProgressContainer() {
   const intl = useIntl();
-  const media = useMedia();
-  const [currentProgress, setCurrentProgress] = useState(0);
   const submitted = useRef(false);
-  const tableLayout = media.gtLg;
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const navigation =
@@ -55,15 +45,27 @@ function SendProgressContainer() {
           txid,
         });
 
-        setCurrentProgress(i + 1);
-
-        // TODO: save local history
+        if (signedTx) {
+          await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx,
+              decodedTx: await backgroundApiProxy.serviceSend.buildDecodedTx({
+                networkId,
+                accountId,
+                unsignedTx,
+              }),
+            },
+          });
+        }
       }
 
       onSuccess?.(signedTxs);
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
       });
+      navigation.popStack();
     } catch (e: any) {
       Toast.error({
         title: (e as Error).message,
@@ -74,41 +76,13 @@ function SendProgressContainer() {
     }
   }, [accountId, intl, navigation, networkId, onFail, onSuccess, unsignedTxs]);
 
-  const isSendSuccess = currentProgress === unsignedTxs.length;
-
   return (
     <Page>
       <Page.Body>
         <Stack height="100%" alignItems="center" justifyContent="center">
-          {isSendSuccess ? (
-            <LottieView
-              width={200}
-              height={200}
-              autoPlay
-              loop={false}
-              source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
-            />
-          ) : (
-            <Stack
-              width="100%"
-              height="100%"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Spinner size="large" />
-            </Stack>
-          )}
+          <Spinner size="large" />
         </Stack>
       </Page.Body>
-      {isSendSuccess && (
-        <Page.Footer
-          confirmButtonProps={{
-            size: tableLayout ? 'medium' : 'large',
-          }}
-          onConfirmText={intl.formatMessage({ id: 'action__done' })}
-          onConfirm={() => navigation.popStack()}
-        />
-      )}
     </Page>
   );
 }

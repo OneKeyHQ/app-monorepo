@@ -142,7 +142,7 @@ class ServiceSend extends ServiceBase {
               {
                 from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
                 to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-                token: '',
+                tokenIdOnNetwork: '',
                 label: '',
                 amount: '1',
                 symbol: 'ETH',

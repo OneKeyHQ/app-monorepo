@@ -161,14 +161,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async buildHistoryTx({
     historyTxToMerge,
-    encodedTx,
     decodedTx,
     signedTx,
     isSigner,
     isLocalCreated,
   }: {
     historyTxToMerge?: IAccountHistoryTx;
-    encodedTx?: IEncodedTx | null;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
     isSigner?: boolean;
@@ -178,12 +176,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     if (!txid) {
       throw new Error('buildHistoryTx txid not found');
     }
-    // const address = await this.getAccountAddress();
-    // decodedTx.txid = txid || decodedTx.txid;
-    // decodedTx.owner = address;
-    // if (isSigner) {
-    //   decodedTx.signer = address;
-    // }
+    const address = await this.getAccountAddress();
+    decodedTx.txid = txid || decodedTx.txid;
+    decodedTx.owner = address;
+    if (isSigner) {
+      decodedTx.signer = address;
+    }
 
     // must include accountId here, so that two account wont share same tx history
     const historyId = `${this.networkId}_${txid}_${this.accountId}`;
@@ -343,7 +341,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return {
       from: transfer.from,
       to: transfer.to,
-      token: transfer.token,
+      tokenIdOnNetwork: transfer.token,
       amount: transfer.amount,
       label: transfer.label.label,
       icon,
@@ -372,6 +370,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         to: approve.to,
         icon: transfer.icon,
         symbol: transfer.symbol,
+        tokenIdOnNetwork: transfer.tokenIdOnNetwork,
         amount: new BigNumber(approve.amount).abs().toFixed(),
         // TODO: isMax from server
         isMax: false,

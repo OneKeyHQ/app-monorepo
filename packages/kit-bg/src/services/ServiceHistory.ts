@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
@@ -9,7 +10,9 @@ import type {
   IFetchHistoryTxDetailsParams,
   IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -60,6 +63,41 @@ class ServiceHistory extends ServiceBase {
       },
     );
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async saveLocalHistoryTxs(params: { txs: IAccountHistoryTx[] }) {
+    const { txs } = params;
+    if (!txs || !txs.length) return;
+
+    return simpleDb.localHistory.saveLocalHistoryTxs(txs);
+  }
+
+  @backgroundMethod()
+  public async saveSendConfirmHistoryTxs(params: {
+    networkId: string;
+    accountId: string;
+    data: ISendTxOnSuccessData;
+    feeInfo?: IFeeInfoUnit | undefined;
+  }) {
+    const { networkId, accountId, feeInfo, data } = params;
+
+    if (!data || !data.decodedTx) {
+      return;
+    }
+
+    const { decodedTx, signedTx } = data;
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const newHistoryTx = await vault.buildHistoryTx({
+      decodedTx,
+      signedTx,
+      isSigner: true,
+      isLocalCreated: true,
+    });
+    newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
+
+    await this.saveLocalHistoryTxs({ txs: [newHistoryTx] });
   }
 }
 
