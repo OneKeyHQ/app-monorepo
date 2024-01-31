@@ -14,7 +14,7 @@ type IProps = {
   subContent?: React.ReactNode;
   contentAdd?: React.ReactNode;
   description?: {
-    children?: React.ReactNode;
+    content?: React.ReactNode;
     icon?: IKeyOfIcons;
   };
   hasDivider?: boolean;
@@ -54,15 +54,15 @@ function ContainerItem(props: IProps) {
         </XStack>
         {description && (
           <XStack alignItems="center">
-            {description?.icon && (
+            {description.icon && (
               <Icon color="$iconSubdued" size="$4" name={description.icon} />
             )}
-            {typeof description?.children === 'string' ? (
+            {typeof description.content === 'string' ? (
               <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {description.children}
+                {description.content}
               </SizableText>
             ) : (
-              description.children
+              description.content
             )}
           </XStack>
         )}

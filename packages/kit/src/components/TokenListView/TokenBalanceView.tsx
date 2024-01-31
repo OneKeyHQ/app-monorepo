@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { SizableText } from '@onekeyhq/components';
 
-import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {
