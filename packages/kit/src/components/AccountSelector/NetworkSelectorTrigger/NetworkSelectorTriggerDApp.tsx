@@ -1,9 +1,12 @@
+import { useCallback } from 'react';
+
 import {
   Icon,
   Image,
   SizableText,
   XStack,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
@@ -16,10 +19,16 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    showChainSelector();
+  }, [closePopover, showChainSelector]);
+
   return (
     <XStack
       alignItems="center"
-      onPress={showChainSelector}
+      onPress={handlePress}
       pl="$3"
       pr="$1.5"
       bg="$bgSubdued"
@@ -73,6 +82,12 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
 
   const media = useMedia();
 
+  const { closePopover } = usePopoverContext();
+  const handlePress = useCallback(async () => {
+    await closePopover?.();
+    showChainSelector();
+  }, [closePopover, showChainSelector]);
+
   return (
     <XStack
       role="button"
@@ -91,7 +106,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
-      onPress={showChainSelector}
+      onPress={handlePress}
     >
       <Image
         w="$6"

@@ -29,6 +29,7 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { dispatchWebViewOverlayEvent } from '../WebView/DesktopOverlay';
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
@@ -196,6 +197,14 @@ function HeaderRightToolBar() {
     };
   }, [afterChangeAccount]);
 
+  const handleOpenChange = useCallback(
+    (value: boolean) => {
+      dispatchWebViewOverlayEvent(value);
+      setIsOpen(value);
+    },
+    [setIsOpen],
+  );
+
   const content = useMemo(() => {
     console.log('=====> DesktopBrowserHeaderRightCmp: memo renderer');
     if (isLoading) {
@@ -233,7 +242,7 @@ function HeaderRightToolBar() {
         title="Connected Accounts"
         keepChildrenMounted
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={handleOpenChange}
         renderTrigger={
           <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
         }
@@ -246,7 +255,14 @@ function HeaderRightToolBar() {
         }
       />
     );
-  }, [connectedAccountsInfo, origin, isLoading, isOpen, afterChangeAccount]);
+  }, [
+    isLoading,
+    connectedAccountsInfo,
+    origin,
+    isOpen,
+    handleOpenChange,
+    afterChangeAccount,
+  ]);
 
   return <>{content}</>;
 }
