@@ -12,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
-import { DashboardContent as DiscoveryDashboard } from '../Dashboard/DashboardContent';
+import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
 import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
 

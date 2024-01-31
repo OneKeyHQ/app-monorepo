@@ -194,14 +194,14 @@ export function SuggestedAndExploreSection({
         </XStack>
       </ItemsContainer>
     ),
-    [],
+    [handleOpenWebSite],
   );
 
   const suggestedView = useMemo(
     () => (
       <>
         {chunkedSuggestedData.map((i, index) => (
-          <>
+          <Stack key={`${i.name}--${i.categoryId}`}>
             <Heading
               size="$headingMd"
               pt="$2"
@@ -212,7 +212,7 @@ export function SuggestedAndExploreSection({
               {i.name}
             </Heading>
             {renderChunkItemView(i.dataChunks, i.categoryId)}
-          </>
+          </Stack>
         ))}
       </>
     ),
@@ -349,12 +349,14 @@ export function SuggestedAndExploreSection({
     >
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading
+          key="suggested"
           selected={!isExploreView}
           onPress={() => setIsExploreView(false)}
         >
           Suggested
         </DashboardSectionHeader.Heading>
         <DashboardSectionHeader.Heading
+          key="explore"
           selected={isExploreView}
           onPress={() => setIsExploreView(true)}
         >

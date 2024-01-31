@@ -67,11 +67,13 @@ function DashboardContent({
     () => (
       <>
         <Banner
+          key="Banner"
           banners={
             Array.isArray(homePageData?.banners) ? homePageData?.banners : []
           }
         />
         <BookmarksAndHistoriesSection
+          key="BookmarksAndHistoriesSection"
           bookmarksData={bookmarksData}
           historiesData={historiesData}
           onPressMore={onPressMore}
@@ -84,6 +86,7 @@ function DashboardContent({
           }
         />
         <SuggestedAndExploreSection
+          key="SuggestedAndExploreSection"
           suggestedData={
             Array.isArray(homePageData?.categories)
               ? homePageData.categories
