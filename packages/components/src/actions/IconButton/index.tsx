@@ -1,4 +1,3 @@
-import { useSharedPress } from '../../hooks';
 import {
   ButtonFrame,
   Icon,
@@ -6,6 +5,7 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
+import { useSharedPress } from '../../primitives/Button/useEvent';
 import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';

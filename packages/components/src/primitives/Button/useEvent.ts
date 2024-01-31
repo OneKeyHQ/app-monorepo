@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import type { IButtonProps } from '../primitives';
+import type { IButtonProps } from '..';
 import type { GestureResponderEvent } from 'react-native';
 
 export const useSharedPress = ({

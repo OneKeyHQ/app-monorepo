@@ -6,10 +6,11 @@ import {
   withStaticProperties,
 } from 'tamagui';
 
-import { useSharedPress } from '../../hooks';
 import { Icon } from '../Icon';
 import { SizableText } from '../SizeableText';
 import { Spinner } from '../Spinner';
+
+import { useSharedPress } from './useEvent';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ColorTokens, FontSizeTokens, ThemeableStackProps } from 'tamagui';

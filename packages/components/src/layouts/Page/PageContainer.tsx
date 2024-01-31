@@ -10,7 +10,8 @@ import type { IPageProps } from './type';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 export function PageContainer({ children, skipLoading }: IPageProps) {
-  const { scrollEnabled, pageRef, pageOffsetRef, scrollProps } = useContext(PageContext);
+  const { scrollEnabled, pageRef, pageOffsetRef, scrollProps } =
+    useContext(PageContext);
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {

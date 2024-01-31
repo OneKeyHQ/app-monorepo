@@ -609,4 +609,6 @@ module.exports = [
   'Hira',
   'Latn',
   'Cyrl',
+  'Viewable',
+  'viewability',
 ];
