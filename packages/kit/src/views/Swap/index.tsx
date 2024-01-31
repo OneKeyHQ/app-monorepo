@@ -4,9 +4,9 @@ import { Page, SizableText } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
-  AccountSelectorActiveAccount,
+  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
+  AccountSelectorTriggerLegacy,
 } from '../../components/AccountSelector';
 
 const Swap = () => {
@@ -23,11 +23,11 @@ const Swap = () => {
           }}
           enabledNum={[0, 1]}
         >
-          <AccountSelectorTrigger num={0} />
-          <AccountSelectorActiveAccount num={0} />
+          <AccountSelectorTriggerLegacy num={0} />
+          <AccountSelectorActiveAccountLegacy num={0} />
 
-          <AccountSelectorTrigger num={1} />
-          <AccountSelectorActiveAccount num={1} />
+          <AccountSelectorTriggerLegacy num={1} />
+          <AccountSelectorActiveAccountLegacy num={1} />
         </AccountSelectorProviderMirror>
       </Page.Body>
     </Page>

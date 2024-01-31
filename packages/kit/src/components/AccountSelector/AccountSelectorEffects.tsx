@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import {
   EAppEventBusNames,
@@ -12,13 +12,11 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
-export function AccountSelectorEffects({
-  num,
-  children,
-}: {
-  num: number;
-  children?: any;
-}) {
+import { useAccountAutoSelect } from './hooks/useAccountAutoSelect';
+import { useDeriveTypeAutoSelect } from './hooks/useDeriveTypeAutoSelect';
+import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
+
+function AccountSelectorEffectsCmp({ num }: { num: number }) {
   // TODO multiple UI sync
   const actions = useAccountSelectorActions();
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
@@ -27,16 +25,15 @@ export function AccountSelectorEffects({
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
-  useEffect(() => {
-    void actions.current.initFromStorage({
-      sceneName,
-      sceneUrl,
-      num,
-    });
-  }, [actions, num, sceneName, sceneUrl]);
+  useAccountAutoSelect({ num });
+  useNetworkAutoSelect({ num });
+  useDeriveTypeAutoSelect({ num });
 
-  const reloadActiveAccountInfo = useCallback(() => {
-    void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+  const reloadActiveAccountInfo = useCallback(async () => {
+    if (!isReady) {
+      return;
+    }
+    await actions.current.reloadActiveAccountInfo({ num, selectedAccount });
     // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({
@@ -52,6 +49,7 @@ export function AccountSelectorEffects({
     }
   }, [
     actions,
+    isReady,
     isSelectedAccountDefaultValue,
     num,
     sceneName,
@@ -60,7 +58,7 @@ export function AccountSelectorEffects({
   ]);
 
   useEffect(() => {
-    reloadActiveAccountInfo();
+    void reloadActiveAccountInfo();
   }, [reloadActiveAccountInfo]);
 
   useEffect(() => {
@@ -72,9 +70,7 @@ export function AccountSelectorEffects({
     };
   }, [reloadActiveAccountInfo]);
 
-  if (isReady) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return children;
-  }
   return null;
 }
+
+export const AccountSelectorEffects = memo(AccountSelectorEffectsCmp);

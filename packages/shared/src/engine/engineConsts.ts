@@ -1,13 +1,13 @@
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import { OnekeyNetwork } from '../config/networkIds';
+import { getNetworkIdsMap } from '../config/networkIds';
 
 const SEPERATOR = '--';
 const INDEX_PLACEHOLDER = '$$INDEX$$';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
-const COINTYPE_ETC = '61';
+const COINTYPE_ETC = '61'; // TODO new vault?
 
 const IMPL_SOL = 'sol';
 const COINTYPE_SOL = '501';
@@ -26,12 +26,11 @@ const COINTYPE_CFX = '503';
 
 const IMPL_BTC = 'btc';
 const COINTYPE_BTC = '0';
-export const COINNAME_BTC = 'BTC'
+export const COINNAME_BTC = 'BTC';
 
 const IMPL_TBTC = 'tbtc';
 const COINTYPE_TBTC = '1';
-export const COINNAME_TBTC = 'TEST'
-
+export const COINNAME_TBTC = 'TEST';
 
 const IMPL_TRON = 'tron';
 const COINTYPE_TRON = '195';
@@ -74,6 +73,7 @@ const COINTYPE_KASPA = '111111';
 
 const IMPL_NEXA = 'nexa';
 const COINTYPE_NEXA = '29223';
+
 const IMPL_LIGHTNING = 'lightning';
 // To determine the coin type, we first assign numerical values to each letter based on their position in the alphabet.
 // For example, "L" is assigned a value of 12, "I" is assigned a value of 9, "G" is assigned a value of 7, and so on.
@@ -155,11 +155,11 @@ export enum SocketEvents {
   'Notification' = 'notification',
 }
 
-export const enabledAccountDynamicNetworkIds: string[] = [
-  OnekeyNetwork.eth,
-  OnekeyNetwork.polygon,
-  OnekeyNetwork.arbitrum,
-  OnekeyNetwork.optimism,
+export const getEnabledAccountDynamicNetworkIds = (): string[] => [
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().polygon,
+  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().optimism,
 ];
 
 function getSupportedImpls() {
@@ -170,59 +170,59 @@ function getSupportedImpls() {
 }
 
 export {
-  SEPERATOR,
-  INDEX_PLACEHOLDER,
-  IMPL_EVM,
-  COINTYPE_ETH,
-  COINTYPE_ETC,
-  IMPL_SOL,
-  COINTYPE_SOL,
-  IMPL_ALGO,
-  COINTYPE_ALGO,
-  IMPL_NEAR,
-  COINTYPE_NEAR,
-  IMPL_STC,
-  COINTYPE_STC,
-  IMPL_CFX,
-  COINTYPE_CFX,
-  IMPL_BTC,
-  COINTYPE_BTC,
-  IMPL_TBTC,
-  COINTYPE_TBTC,
-  IMPL_TRON,
-  COINTYPE_TRON,
-  IMPL_APTOS,
-  COINTYPE_APTOS,
-  IMPL_DOGE,
-  COINTYPE_DOGE,
-  IMPL_LTC,
-  COINTYPE_LTC,
-  IMPL_BCH,
-  COINTYPE_BCH,
-  IMPL_XRP,
-  COINTYPE_XRP,
-  IMPL_COSMOS,
-  COINTYPE_COSMOS,
-  IMPL_ADA,
   COINTYPE_ADA,
-  IMPL_SUI,
-  COINTYPE_SUI,
-  IMPL_FIL,
-  COINTYPE_FIL,
-  IMPL_DOT,
-  COINTYPE_DOT,
-  IMPL_XMR,
-  COINTYPE_XMR,
-  IMPL_KASPA,
-  COINTYPE_KASPA,
-  IMPL_NEXA,
-  COINTYPE_NEXA,
-  IMPL_LIGHTNING,
-  COINTYPE_LIGHTNING,
-  IMPL_LIGHTNING_TESTNET,
-  COINTYPE_LIGHTNING_TESTNET,
-  IMPL_ALLNETWORKS,
+  COINTYPE_ALGO,
   COINTYPE_ALLNETWORKS,
+  COINTYPE_APTOS,
+  COINTYPE_BCH,
+  COINTYPE_BTC,
+  COINTYPE_CFX,
+  COINTYPE_COSMOS,
+  COINTYPE_DOGE,
+  COINTYPE_DOT,
+  COINTYPE_ETC,
+  COINTYPE_ETH,
+  COINTYPE_FIL,
+  COINTYPE_KASPA,
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_LTC,
+  COINTYPE_NEAR,
+  COINTYPE_NEXA,
+  COINTYPE_SOL,
+  COINTYPE_STC,
+  COINTYPE_SUI,
+  COINTYPE_TBTC,
+  COINTYPE_TRON,
+  COINTYPE_XMR,
+  COINTYPE_XRP,
+  IMPL_ADA,
+  IMPL_ALGO,
+  IMPL_ALLNETWORKS,
+  IMPL_APTOS,
+  IMPL_BCH,
+  IMPL_BTC,
+  IMPL_CFX,
+  IMPL_COSMOS,
+  IMPL_DOGE,
+  IMPL_DOT,
+  IMPL_EVM,
+  IMPL_FIL,
+  IMPL_KASPA,
+  IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+  IMPL_LTC,
+  IMPL_NEAR,
+  IMPL_NEXA,
+  IMPL_SOL,
+  IMPL_STC,
+  IMPL_SUI,
+  IMPL_TBTC,
+  IMPL_TRON,
+  IMPL_XMR,
+  IMPL_XRP,
+  INDEX_PLACEHOLDER,
+  SEPERATOR,
   getSupportedImpls,
 };
 
@@ -247,5 +247,5 @@ export const isLightningNetwork = (coinType: string) =>
 export const isLightningNetworkByImpl = (impl?: string) =>
   impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
 export const isLightningNetworkByNetworkId = (networkId?: string) =>
-  networkId === OnekeyNetwork.lightning ||
-  networkId === OnekeyNetwork.tlightning;
+  networkId === getNetworkIdsMap().lightning ||
+  networkId === getNetworkIdsMap().tlightning;

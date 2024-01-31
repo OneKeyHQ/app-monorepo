@@ -5,12 +5,16 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { OnboardingOnMount } from '../../Onboarding/components';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -63,7 +67,7 @@ function HomePage() {
           sceneUrl: '',
         }}
       >
-        <AccountSelectorTriggerHome num={0} />
+        <AccountSelectorTriggerHome num={0} linkNetwork />
       </AccountSelectorProviderMirror>
     ),
     [],
@@ -78,7 +82,6 @@ function HomePage() {
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
             initialScrollIndex={0}
-            stickyHeaderIndices={[1]}
             $md={{
               width: '100%',
             }}
@@ -98,6 +101,27 @@ function HomePage() {
 }
 
 function HomePageContainer() {
+  console.log('HomePageContainer render');
+
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    result: { networkIds },
+  } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
+        impls: [
+          IMPL_BTC,
+          IMPL_TBTC,
+          // IMPL_EVM,
+        ],
+      }),
+    [],
+    {
+      initResult: {
+        networkIds: [],
+      },
+    },
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -105,8 +129,15 @@ function HomePageContainer() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      // availableNetworksMap={{
+      //   0: {
+      //     networkIds, // support available networks
+      //     defaultNetworkId: getNetworkIdsMap().tbtc, // default selected networkId
+      //   },
+      // }}
     >
       <HomePage />
+      <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );
 }

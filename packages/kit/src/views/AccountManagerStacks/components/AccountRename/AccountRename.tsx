@@ -1,71 +1,50 @@
-import { useState } from 'react';
-
-import {
-  ActionList,
-  Dialog,
-  Input,
-  ListItem,
-  useMedia,
-} from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
-function AccountRenameDialog({
-  indexedAccount,
-}: {
-  indexedAccount: IDBIndexedAccount;
-}) {
-  const { serviceAccount } = backgroundApiProxy;
-  const media = useMedia();
-  const [name, setName] = useState(indexedAccount?.name || '');
-  return (
-    <>
-      <Input
-        value={name}
-        onChangeText={setName}
-        size={media.gtMd ? 'medium' : 'large'}
-        autoFocus
-      />
-      <Dialog.Footer
-        confirmButtonProps={{
-          disabled: !name,
-        }}
-        onConfirm={async () => {
-          if (indexedAccount?.id && name) {
-            await serviceAccount.setAccountName({
-              indexedAccountId: indexedAccount?.id,
-              name,
-            });
-          }
-        }}
-      />
-    </>
-  );
-}
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export function AccountRenameButton({
   indexedAccount,
+  account,
 }: {
-  indexedAccount: IDBIndexedAccount;
+  indexedAccount?: IDBIndexedAccount;
+  account?: IDBAccount;
 }) {
-  return (
-    <ActionList
-      title={indexedAccount.name}
-      renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
-      items={[
-        {
-          icon: 'PencilOutline',
-          label: 'Rename',
-          onPress: () => {
-            Dialog.show({
-              title: 'Rename',
-              renderContent: (
-                <AccountRenameDialog indexedAccount={indexedAccount} />
-              ),
-            });
+  const { serviceAccount } = backgroundApiProxy;
+  const name = indexedAccount?.name || account?.name;
+  if (name) {
+    return (
+      <ActionList
+        title={name}
+        renderTrigger={<ListItem.IconButton icon="DotHorOutline" />}
+        items={[
+          {
+            icon: 'PencilOutline',
+            label: 'Rename',
+            onPress: async () => {
+              showRenameDialog(name, {
+                onSubmit: async (newName) => {
+                  if (indexedAccount?.id && newName) {
+                    await serviceAccount.setAccountName({
+                      indexedAccountId: indexedAccount?.id,
+                      name,
+                    });
+                  } else if (account?.id && newName) {
+                    await serviceAccount.setAccountName({
+                      accountId: account.id,
+                      name,
+                    });
+                  }
+                },
+              });
+            },
           },
-        },
-      ]}
-    />
-  );
+        ]}
+      />
+    );
+  }
 }

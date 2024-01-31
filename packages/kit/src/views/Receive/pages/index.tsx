@@ -26,9 +26,9 @@ export const QrCode = () => null;
 type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
 export function Receive() {
-  const [chain, setChain] = useState('Bitcoin');
-  const [addressType, setAddressType] = useState('Nested SegWit');
-  const [isHardwareWallet, setIsHardwareWallet] = useState(true);
+  const [chain] = useState('Bitcoin');
+  const [addressType] = useState('Nested SegWit');
+  const [isHardwareWallet] = useState(true);
   const [addressState, setAddressState] = useState<IAddressState>('unverified');
 
   const isShowAddress =

@@ -1,31 +1,48 @@
-import { useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
-import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
+  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { EChainSelectorPages } from '../../views/ChainSelector/router/type';
 
-const getNetworksItems = memoFn(() =>
-  // TODO ETC network
-  mockPresetNetworksList.map((item) => ({
-    value: item.id,
-    label: item.name,
-  })),
-);
+import { useAccountSelectorAvailableNetworks } from './hooks/useAccountSelectorAvailableNetworks';
 
-export function NetworkSelectorTrigger({ num }: { num: number }) {
+function useNetworkSelectorItems() {
+  const { serviceNetwork } = backgroundApiProxy;
+
+  const allNetworksRes = usePromiseResult(
+    () => serviceNetwork.getAllNetworks(),
+    [serviceNetwork],
+  );
+  const items = useMemo(
+    () =>
+      allNetworksRes.result?.networks.map((item) => ({
+        value: item.id,
+        label: item.name,
+      })) || [],
+    [allNetworksRes.result?.networks],
+  );
+
+  return items;
+}
+
+export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
+  const items = useNetworkSelectorItems();
+
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const [isReady] = useAccountSelectorStorageReadyAtom();
+
+  useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerLegacy' });
 
   if (!isReady) {
     return null;
@@ -37,7 +54,7 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
         网络选择器 {selectedAccount.networkId}
       </SizableText>
       <Select
-        items={getNetworksItems()}
+        items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>
           actions.current.updateSelectedAccount({
@@ -54,19 +71,42 @@ export function NetworkSelectorTrigger({ num }: { num: number }) {
   );
 }
 
-export function NetworkSelectorTriggerHome({ num }: { num: number }) {
+export const NetworkSelectorTriggerLegacy = memo(
+  NetworkSelectorTriggerLegacyCmp,
+);
+
+function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
+  const actions = useAccountSelectorActions();
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+  const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
+    num,
+  });
+
+  useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
   const navigation = useAppNavigation();
 
   const handleChainPress = useCallback(() => {
-    // TODO pass num to router
-    navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-      screen: EChainSelectorPages.ChainSelector,
+    actions.current.showChainSelector({
+      navigation,
+      num,
+      sceneName,
+      sceneUrl,
+      networkIds,
+      defaultNetworkId,
     });
-  }, [navigation]);
+  }, [
+    actions,
+    defaultNetworkId,
+    navigation,
+    networkIds,
+    num,
+    sceneName,
+    sceneUrl,
+  ]);
 
   return (
     <XStack
@@ -113,5 +153,19 @@ export function NetworkSelectorTriggerHome({ num }: { num: number }) {
       </SizableText>
       <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
     </XStack>
+  );
+}
+export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
+
+export function ControlledNetworkSelectorTrigger({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (networkId: string) => void;
+}) {
+  const items = useNetworkSelectorItems();
+  return (
+    <Select items={items} value={value} onChange={onChange} title="网络" />
   );
 }

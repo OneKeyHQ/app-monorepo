@@ -1,15 +1,23 @@
 import { useState } from 'react';
 
-import { Button, ListItem, Page, SortableListView } from '@onekeyhq/components';
-import { mockPresetNetworksList } from '@onekeyhq/kit-bg/src/mock';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IPageScreenProps } from '@onekeyhq/components';
+import { Button, Page, SortableListView } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useAccountSelectorAvailableNetworks } from '../../../components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+
+import type {
+  EChainSelectorPages,
+  IChainSelectorParamList,
+} from '../router/type';
 
 function getHeaderRightComponent(
   isEditMode: boolean,
@@ -30,10 +38,26 @@ function ChainSelector({ num }: { num: number }) {
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-
-  const [data, setData] = useState(mockPresetNetworksList);
   const selectedChain = network?.id;
   const [isEditMode, setIsEditMode] = useState(false);
+  const { serviceNetwork } = backgroundApiProxy;
+
+  const { networkIds } = useAccountSelectorAvailableNetworks({ num });
+
+  const {
+    result: { networks },
+  } = usePromiseResult(
+    () =>
+      serviceNetwork.getNetworksByIds({
+        networkIds: networkIds || [],
+      }),
+    [networkIds, serviceNetwork],
+    {
+      initResult: {
+        networks: [],
+      },
+    },
+  );
 
   const handleListItemPress = (networkId: string) => {
     actions.current.updateSelectedAccount({
@@ -63,14 +87,14 @@ function ChainSelector({ num }: { num: number }) {
       />
       <Page.Body>
         <SortableListView
-          data={data}
+          data={networks}
           keyExtractor={(item) => `${item.id}`}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
             offset: index * CELL_HEIGHT,
             index,
           })}
-          onDragEnd={(result) => setData(result.data)}
+          onDragEnd={(result) => console.log(result.data)}
           renderItem={({ item, drag }) => (
             <ListItem
               h={CELL_HEIGHT}
@@ -127,15 +151,22 @@ function ChainSelector({ num }: { num: number }) {
   );
 }
 
-export default function ChainSelectorPage() {
+export default function ChainSelectorPage({
+  route,
+}: IPageScreenProps<
+  IChainSelectorParamList,
+  EChainSelectorPages.ChainSelector
+>) {
+  const { num, sceneName, sceneUrl } = route.params;
   return (
     <AccountSelectorProviderMirror
-      enabledNum={[0]}
+      enabledNum={[num]}
       config={{
-        sceneName: EAccountSelectorSceneName.home, // TODO read sceneName from router or jotai
+        sceneName,
+        sceneUrl,
       }}
     >
-      <ChainSelector num={0} />
+      <ChainSelector num={num} />
     </AccountSelectorProviderMirror>
   );
 }

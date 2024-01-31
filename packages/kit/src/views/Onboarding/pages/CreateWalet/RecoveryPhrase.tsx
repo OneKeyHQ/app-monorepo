@@ -1,6 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
-
-import * as Clipboard from 'expo-clipboard';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -9,6 +7,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
@@ -62,9 +61,21 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
+  const { copyText } = useClipboard();
   const { servicePassword } = backgroundApiProxy;
-  const mnemonic = useMemo(() => generateMnemonic(), []);
-  const phrases = useMemo(() => mnemonic.split(' '), [mnemonic]);
+
+  useEffect(() => {
+    console.log('RecoveryPhrase useEffect');
+  }, []);
+
+  const mnemonic = useMemo(() => {
+    console.log('RecoveryPhrase generateMnemonic');
+    return generateMnemonic();
+  }, []);
+  const phrases = useMemo(
+    () => mnemonic.split(' ').filter(Boolean),
+    [mnemonic],
+  );
 
   const handleConfirmPress = useCallback(async () => {
     navigation.push(EOnboardingPages.VerifyRecoverPhrase, {
@@ -103,7 +114,7 @@ export function RecoveryPhrase() {
               size="small"
               variant="tertiary"
               onPress={async () => {
-                await Clipboard.setStringAsync(mnemonic);
+                copyText(mnemonic);
               }}
             >
               Copy All(Only in Dev)

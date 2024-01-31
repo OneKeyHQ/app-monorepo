@@ -2,6 +2,7 @@
 /* eslint-disable new-cap */
 import {
   IMPL_BTC,
+  IMPL_COSMOS,
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -13,7 +14,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../dbs/local/consts';
-import { mockGetNetwork } from '../mock';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -55,7 +55,9 @@ export async function createKeyringInstance(vault: VaultBase) {
 
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
-  const network = await mockGetNetwork({ networkId: options.networkId });
+  const network = await options.backgroundApi.serviceNetwork.getNetwork({
+    networkId: options.networkId,
+  });
   let vault: VaultBase | null = null as unknown as VaultBase;
 
   // if (network.impl === IMPL_EVM) {
@@ -67,8 +69,13 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_EVM]: () => import('./impls/evm/Vault') as any,
     [IMPL_BTC]: () => import('./impls/btc/Vault') as any,
     [IMPL_TBTC]: () => import('./impls/tbtc/Vault') as any,
+    [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
   };
-  const VaultClass = (await vaultsLoader[network.impl]()).default;
+  const loader = vaultsLoader[network.impl];
+  if (!loader) {
+    throw new Error(`no vault found: impl=${network.impl}`);
+  }
+  const VaultClass = (await loader()).default;
 
   // @ts-ignore
   vault = new VaultClass(options);

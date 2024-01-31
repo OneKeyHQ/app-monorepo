@@ -3,7 +3,6 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
-  IAccountToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
@@ -71,7 +70,7 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokenDetail(params: IFetchTokenDetailParams) {
+  public async fetchTokenDetails(params: IFetchTokenDetailParams) {
     const client = await this.getClient();
     const resp = await client.get<{
       data: {
@@ -87,24 +86,53 @@ class ServiceToken extends ServiceBase {
     tokens,
   }: {
     networkId: string;
-    tokens: IAccountToken[];
+    tokens: IToken[];
   }) {
     return simpleDb.localTokens.updateTokens({
-      [networkId]: tokens,
+      networkId,
+      tokens,
     });
   }
 
   @backgroundMethod()
-  public async getNativeToken(networkId: string) {
-    const tokensMap = (await simpleDb.localTokens.getRawData())?.data;
-    if (tokensMap) {
-      const tokens = tokensMap[networkId];
-      const nativeToken = tokens?.find((token) => token.isNative);
-      if (nativeToken) {
-        return nativeToken;
-      }
+  public async getNativeToken({ networkId }: { networkId: string }) {
+    return this.getToken({ networkId, tokenIdOnNetwork: '' });
+  }
+
+  @backgroundMethod()
+  public async getToken(params: {
+    networkId: string;
+    tokenIdOnNetwork: string;
+  }) {
+    const { networkId, tokenIdOnNetwork } = params;
+
+    const localToken = await simpleDb.localTokens.getToken({
+      networkId,
+      tokenIdOnNetwork,
+    });
+
+    if (localToken) return localToken;
+
+    try {
+      const tokenDetails = await this.fetchTokenDetails({
+        networkId,
+        address: tokenIdOnNetwork,
+        isNative: tokenIdOnNetwork === '',
+      });
+
+      const tokenInfo = tokenDetails.info;
+
+      void this.updateLocalTokens({
+        networkId,
+        tokens: [tokenInfo],
+      });
+
+      return tokenInfo;
+    } catch (error) {
+      console.log('fetchTokenDetails ERROR:', error);
     }
-    return null;
+
+    throw new Error('getToken ERROR: token not found.');
   }
 }
 

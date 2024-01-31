@@ -10,7 +10,6 @@ import {
   Dialog,
   HeightTransition,
   Icon,
-  ListItem,
   LottieView,
   Page,
   SizableText,
@@ -23,6 +22,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { wait } from '@onekeyhq/kit/src/utils/helper';

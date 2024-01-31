@@ -4,7 +4,7 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
@@ -24,7 +24,7 @@ export class KeyringHd extends KeyringHdBase {
 
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
-  ): Promise<IDBUtxoAccount[]> {
+  ): Promise<IDBAccount[]> {
     const sdkBtc = await import('@onekeyhq/core/src/chains/btc/sdkBtc');
     sdkBtc.initBitcoinEcc();
 
