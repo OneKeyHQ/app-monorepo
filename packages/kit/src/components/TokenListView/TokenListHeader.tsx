@@ -15,7 +15,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
-} from '../../states/jotai/contexts/token-list';
+} from '../../states/jotai/contexts/tokenList';
 import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {

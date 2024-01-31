@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { IGasEIP1559Prediction } from '@onekeyhq/shared/types/fee';
+import type { IGasEIP1559 } from '@onekeyhq/shared/types/fee';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
 import { FeePredictionContainer } from './FeePredictionContainer';
@@ -95,7 +95,7 @@ function SendCustomFeeContainer() {
   }, [form.formState.isValid]);
 
   const handleSelectFeePrediction = useCallback(
-    (prediction: IGasEIP1559Prediction) => {
+    (prediction: IGasEIP1559) => {
       form.setValue('priorityFee', prediction.maxPriorityFeePerGas);
       form.setValue('maxFee', prediction.maxFeePerGas);
     },

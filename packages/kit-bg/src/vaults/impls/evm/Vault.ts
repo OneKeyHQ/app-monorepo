@@ -39,6 +39,22 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import {
+  EWrappedType,
+  type IApproveInfo,
+  type IBroadcastTransactionParams,
+  type IBuildAccountAddressDetailParams,
+  type IBuildDecodedTxParams,
+  type IBuildEncodedTxParams,
+  type IBuildTxHelperParams,
+  type IBuildUnsignedTxParams,
+  type IGetPrivateKeyFromImportedParams,
+  type IGetPrivateKeyFromImportedResult,
+  type ITransferInfo,
+  type IUpdateUnsignedTxParams,
+  type IVaultSettings,
+  type IWrappedInfo,
+} from '../../types';
 
 import { EVMContractDecoder } from './decoder';
 import {
@@ -48,6 +64,7 @@ import {
   EErc20TxDescriptionName,
   EErc721MethodSelectors,
   EErc721TxDescriptionName,
+  EWrapperTokenMethodSelectors,
 } from './decoder/abi';
 import {
   InfiniteAmountText,
@@ -63,20 +80,6 @@ import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
-import type {
-  IApproveInfo,
-  IBroadcastTransactionParams,
-  IBuildAccountAddressDetailParams,
-  IBuildDecodedTxParams,
-  IBuildEncodedTxParams,
-  IBuildTxHelperParams,
-  IBuildUnsignedTxParams,
-  IGetPrivateKeyFromImportedParams,
-  IGetPrivateKeyFromImportedResult,
-  ITransferInfo,
-  IUpdateUnsignedTxParams,
-  IVaultSettings,
-} from '../../types';
 
 // evm vault
 export default class Vault extends VaultBase {
@@ -103,7 +106,7 @@ export default class Vault extends VaultBase {
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
-    const { transfersInfo, approveInfo } = params;
+    const { transfersInfo, approveInfo, wrappedInfo } = params;
 
     if (transfersInfo && !isEmpty(transfersInfo)) {
       return this._buildEncodedTxFromTransfer(params);
@@ -112,7 +115,46 @@ export default class Vault extends VaultBase {
     if (approveInfo) {
       return this._buildEncodeTxFromApprove(params);
     }
+
+    if (wrappedInfo) {
+      return this._buildEncodedTxFromWrapperToken(params);
+    }
+
     throw new OneKeyInternalError();
+  }
+
+  async _buildEncodedTxFromWrapperToken(params: IBuildEncodedTxParams) {
+    const { wrappedInfo } = params;
+    const { from, amount, contract, type } = wrappedInfo as IWrappedInfo;
+    const network = await this.getNetwork();
+    const methodID =
+      type === EWrappedType.DEPOSIT
+        ? EWrapperTokenMethodSelectors.deposit
+        : EWrapperTokenMethodSelectors.withdraw;
+
+    const amountHex = toBigIntHex(
+      new BigNumber(amount).shiftedBy(network.decimals),
+    );
+
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
+
+    if (type === EWrappedType.DEPOSIT) {
+      return {
+        from,
+        to: contract,
+        value: amountHex,
+        data,
+      };
+    }
+
+    return {
+      from,
+      to: contract,
+      value: '0x0',
+      data,
+    };
   }
 
   override async buildDecodedTx(

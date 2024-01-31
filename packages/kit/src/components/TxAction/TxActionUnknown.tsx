@@ -25,6 +25,7 @@ function getTxActionUnknownInfo(props: ITxActionProps) {
 
 function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
+  const { tableLayout } = props;
   const { unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
 
   const title = intl.formatMessage({
@@ -33,7 +34,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: true,
     src: unknownIcon,
-    fallbackIcon: 'ImageMountainSolid',
+    fallbackIcon: 'QuestionmarkOutline',
   };
   const description = {
     prefix: intl.formatMessage({ id: 'content__to' }),
@@ -45,6 +46,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
       title={title}
       avatar={avatar}
       description={description}
+      tableLayout={tableLayout}
     />
   );
 }

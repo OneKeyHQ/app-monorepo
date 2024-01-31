@@ -11,7 +11,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useTokenListActions,
   withTokenListProvider,
-} from '@onekeyhq/kit/src/states/jotai/contexts/token-list';
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { EModalSendRoutes } from '../../router';

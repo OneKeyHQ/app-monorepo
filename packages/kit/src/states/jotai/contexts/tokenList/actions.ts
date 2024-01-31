@@ -13,6 +13,7 @@ import {
   riskyTokenListMapAtom,
   smallBalanceTokenListAtom,
   smallBalanceTokenListMapAtom,
+  smallBalanceTokensFiatValueAtom,
   tokenListAtom,
   tokenListMapAtom,
 } from './atoms';
@@ -104,6 +105,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       set(smallBalanceTokenListMapAtom(), payload);
     },
   );
+
+  refreshSmallBalanceTokensFiatValue = contextAtomMethod(
+    (get, set, value: string) => {
+      set(smallBalanceTokensFiatValueAtom(), value);
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -122,6 +129,9 @@ export function useTokenListActions() {
   const refreshSmallBalanceTokenListMap =
     actions.refreshSmallBalanceTokenListMap.use();
 
+  const refreshSmallBalanceTokensFiatValue =
+    actions.refreshSmallBalanceTokensFiatValue.use();
+
   return useRef({
     refreshTokenList,
     refreshTokenListMap,
@@ -129,5 +139,6 @@ export function useTokenListActions() {
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
+    refreshSmallBalanceTokensFiatValue,
   });
 }

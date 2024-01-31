@@ -4,7 +4,7 @@ import type { ISizableTextProps } from '@onekeyhq/components';
 import { SizableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {

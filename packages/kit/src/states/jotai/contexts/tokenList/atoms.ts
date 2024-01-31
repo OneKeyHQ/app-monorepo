@@ -55,3 +55,8 @@ export const {
 } = contextAtom<{
   [key: string]: ITokenFiat;
 }>({});
+
+export const {
+  atom: smallBalanceTokensFiatValueAtom,
+  use: useSmallBalanceTokensFiatValueAtom,
+} = contextAtom<string>('0');

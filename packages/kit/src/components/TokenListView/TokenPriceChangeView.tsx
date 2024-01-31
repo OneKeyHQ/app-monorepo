@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { SizableText } from '@onekeyhq/components';
 
-import { useTokenListMapAtom } from '../../states/jotai/contexts/token-list';
+import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 type IProps = {
   $key: string;
