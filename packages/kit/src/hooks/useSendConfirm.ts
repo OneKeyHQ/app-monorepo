@@ -3,10 +3,15 @@ import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
 
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
+  IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -25,7 +30,8 @@ type IBuildUnsignedTxParams = {
   unsignedTx?: IUnsignedTxPro;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
-  onSuccess?: (txs: IEncodedTx[]) => void;
+  wrappedInfo?: IWrappedInfo;
+  onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
 };
 
@@ -36,11 +42,24 @@ function useSendConfirm(params: IParams) {
 
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
+      const {
+        encodedTx,
+        unsignedTx: preUnsignedTx,
+        transfersInfo,
+        approveInfo,
+        wrappedInfo,
+        onFail,
+        onSuccess,
+      } = params;
       let unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           networkId,
           accountId,
-          ...params,
+          encodedTx,
+          transfersInfo,
+          approveInfo,
+          wrappedInfo,
+          unsignedTx: preUnsignedTx,
         });
 
       const isNonceRequired =
@@ -72,6 +91,8 @@ function useSendConfirm(params: IParams) {
           accountId,
           networkId,
           unsignedTxs: [unsignedTx],
+          onSuccess,
+          onFail,
         },
       });
     },

@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Dialog } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
@@ -13,6 +12,7 @@ import type {
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapBuildTxFetchingAtom,
@@ -38,6 +38,10 @@ export function useSwapBuildTx() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const receiverAddress = useSwapReceiverAddress();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const { navigationToSendConfirm } = useSendConfirm({
+    accountId: activeAccount.account?.id ?? '',
+    networkId: activeAccount.network?.id ?? '',
+  });
   const handleBuildTxSuccess = useCallback(
     async (txs: ISignedTxPro[]) => {
       if (txs?.[0].txid) {
@@ -48,8 +52,6 @@ export function useSwapBuildTx() {
     },
     [generateSwapHistoryItem],
   );
-  const handleApproveTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {},
-  []);
   const handleWrappedTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {
     console.log('txs-', txs);
   }, []);
@@ -76,32 +78,37 @@ export function useSwapBuildTx() {
             : toToken.contractAddress,
         amount: fromTokenAmount,
       };
-      const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
-        networkId: activeAccount.network?.id,
-        accountId: activeAccount.account?.id,
+      await navigationToSendConfirm({
         wrappedInfo,
-      });
-      return {
-        unsignedTx,
-        networkId: activeAccount.network?.id,
-        accountId: activeAccount.account?.id,
         onSuccess: handleWrappedTxSuccess,
-      };
+      });
+
+      // const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx({
+      //   networkId: activeAccount.network?.id,
+      //   accountId: activeAccount.account?.id,
+      //   wrappedInfo,
+      // });
+      // return {
+      //   unsignedTx,
+      //   networkId: activeAccount.network?.id,
+      //   accountId: activeAccount.account?.id,
+      //   onSuccess: handleWrappedTxSuccess,
+      // };
     }
-    return {};
+    // return {};
   }, [
     activeAccount.account?.address,
-    activeAccount.account?.id,
     activeAccount.network?.id,
     fromToken,
     fromTokenAmount,
     handleWrappedTxSuccess,
+    navigationToSendConfirm,
     receiverAddress,
     selectQuote,
     toToken,
   ]);
   const approveTx = useCallback(
-    async (amount: string) => {
+    async (amount: string, onApproveSuccess?: () => void) => {
       const allowanceInfo = selectQuote?.allowanceResult;
       if (
         allowanceInfo &&
@@ -120,28 +127,18 @@ export function useSwapBuildTx() {
             name: fromToken.name ?? fromToken.symbol,
           },
         };
-        const unsignedTx = await backgroundApiProxy.serviceSend.buildUnsignedTx(
-          {
-            networkId: activeAccount.network?.id,
-            accountId: activeAccount.account?.id,
-            approveInfo,
-          },
-        );
-        return {
-          unsignedTx,
-          networkId: activeAccount.network?.id,
-          accountId: activeAccount.account?.id,
-          onSuccess: handleApproveTxSuccess,
-        };
+        await navigationToSendConfirm({
+          approveInfo,
+          onSuccess: onApproveSuccess,
+        });
       }
-      return {};
     },
     [
       activeAccount.account?.address,
       activeAccount.account?.id,
       activeAccount.network?.id,
       fromToken,
-      handleApproveTxSuccess,
+      navigationToSendConfirm,
       selectQuote?.allowanceResult,
     ],
   );
@@ -199,14 +196,11 @@ export function useSwapBuildTx() {
       }
       setSwapBuildTxResult(res);
       setSwapBuildTxFetching(false);
-      return {
+      await navigationToSendConfirm({
         unsignedTx,
-        networkId: activeAccount.network?.id,
-        accountId: activeAccount.account?.id,
         onSuccess: handleBuildTxSuccess,
-      };
+      });
     }
-    return {};
   }, [
     activeAccount.account?.address,
     activeAccount.account?.id,
@@ -214,6 +208,7 @@ export function useSwapBuildTx() {
     fromToken,
     fromTokenAmount,
     handleBuildTxSuccess,
+    navigationToSendConfirm,
     receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,

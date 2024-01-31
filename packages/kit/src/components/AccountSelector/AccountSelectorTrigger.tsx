@@ -86,8 +86,7 @@ export function AccountSelectorTriggerHome({
 export function AccountSelectorTriggerSwap({ num }: { num: number }) {
   const navigation = useAppNavigation();
   const {
-    activeAccount: { wallet, account },
-    activeAccountName,
+    activeAccount: { wallet, account, accountName },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
 
@@ -123,7 +122,7 @@ export function AccountSelectorTriggerSwap({ num }: { num: number }) {
         pr="$1"
         numberOfLines={1}
       >
-        {activeAccountName}
+        {accountName}
       </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
