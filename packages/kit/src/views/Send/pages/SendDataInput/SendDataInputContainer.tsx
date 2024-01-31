@@ -118,6 +118,7 @@ function SendDataInputContainer() {
 
   // token amount or fiat amount
   const amount = form.watch('amount');
+  const toPending = form.watch('to.pending');
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
@@ -242,7 +243,8 @@ function SendDataInputContainer() {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isLoadingToken || isLoadingNFT || isSubmitting) return true;
+    if (isLoadingToken || isLoadingNFT || isSubmitting || toPending)
+      return true;
 
     if (!form.formState.isValid || !amount) {
       return true;
@@ -253,6 +255,7 @@ function SendDataInputContainer() {
     isLoadingNFT,
     isLoadingToken,
     isSubmitting,
+    toPending,
   ]);
 
   const renderTokenDataInputForm = useCallback(() => {
