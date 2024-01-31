@@ -94,7 +94,6 @@ const SwapTokenSelectPage = () => {
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
-      console.log('network-', network);
       setSearchKeyword('');
       setCurrentSelectNetwork(network);
       if (network.networkId !== 'all') {
