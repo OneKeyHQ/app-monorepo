@@ -56,59 +56,33 @@ export function TokenDetails() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const {
-    accountId,
-    networkId,
-    tokenAddress,
-    isNative,
-    tokenSymbol,
-    tokenLogoURI,
-  } = route.params;
+  const { accountId, networkId, tokenAddress, tokenSymbol, tokenLogoURI } =
+    route.params;
 
-  const getAccount = useCallback(
-    async () =>
-      backgroundApiProxy.serviceAccount.getAccountOfWallet({
+  const { result: [tokenHistory, tokenDetails] = [] } =
+    usePromiseResult(async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
-        indexedAccountId: '',
         networkId,
-        deriveType: 'default',
-      }),
-    [accountId, networkId],
-  );
+      });
+      if (!account) return;
 
-  const network = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
-  ).result;
+      const [history, details] = await Promise.all([
+        backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId: account.id,
+          accountAddress: account.address,
+          networkId,
+          tokenAddress,
+        }),
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: account.address,
+          contractList: [tokenAddress],
+        }),
+      ]);
 
-  const tokenDetails = usePromiseResult(async () => {
-    const account = await getAccount();
-    if (!account || !network) return;
-    const r = await backgroundApiProxy.serviceToken.fetchTokenDetails({
-      networkId,
-      accountAddress: account.address,
-      address: tokenAddress,
-      isNative: !!isNative,
-    });
-
-    void backgroundApiProxy.serviceToken.updateLocalTokens({
-      networkId,
-      tokens: [r.info],
-    });
-
-    return r;
-  }, [getAccount, isNative, network, networkId, tokenAddress]).result;
-  const tokenHistory = usePromiseResult(async () => {
-    const account = await getAccount();
-    if (!account || !network) return;
-    const r = backgroundApiProxy.serviceHistory.fetchAccountHistory({
-      accountId: account.id,
-      accountAddress: account.address,
-      networkId,
-      tokenAddress,
-    });
-    return r;
-  }, [getAccount, network, networkId, tokenAddress]).result;
+      return [history, details[0]];
+    }, [accountId, networkId, tokenAddress]);
 
   const tokenValue = useMemo(
     () =>
