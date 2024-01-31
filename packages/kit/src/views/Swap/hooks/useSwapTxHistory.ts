@@ -13,21 +13,18 @@ import useFormatDate from '../../../hooks/useFormatDate';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ETabRoutes } from '../../../routes/Tab/type';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapBuildTxResultAtom,
   useSwapFromTokenAmountAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTxHistoryAtom,
   useSwapTxHistoryPendingAtom,
+  useSwapTxInfoAtom,
 } from '../../../states/jotai/contexts/swap';
 import { getTimeStamp } from '../../../utils/helper';
 import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
-
-import { useSwapReceiverAddress } from './useSwapReceiverAddress';
 
 import type { ISwapTxHistory } from '../types';
 import type ViewShot from 'react-native-view-shot';
@@ -118,64 +115,48 @@ export function useSwapTxHistoryStateSyncInterval() {
 
 export function useSwapTxHistoryActions() {
   const { addSwapHistoryItem } = useSwapActions().current;
-  const [swapBuildTxResult] = useSwapBuildTxResultAtom(); // current build tx result
+  const [swapTxInfo] = useSwapTxInfoAtom(); // current build tx result
   const [swapNetworks] = useSwapNetworksAtom();
-  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
-  const [toToken, setToken] = useSwapSelectToTokenAtom();
-  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const receiverAddress = useSwapReceiverAddress();
+  const [, setFromToken] = useSwapSelectFromTokenAtom();
+  const [, setToken] = useSwapSelectToTokenAtom();
+  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const generateSwapHistoryItem = useCallback(
     async ({ txId, netWorkFee }: { txId: string; netWorkFee: string }) => {
-      if (
-        swapBuildTxResult &&
-        fromToken &&
-        toToken &&
-        activeAccount.account?.address
-      ) {
+      if (swapTxInfo) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           baseInfo: {
-            toAmount: swapBuildTxResult.result.toAmount,
-            fromAmount: fromTokenAmount,
-            fromToken,
-            toToken,
+            toAmount: swapTxInfo.receiver.amount,
+            fromAmount: swapTxInfo.sender.amount,
+            fromToken: swapTxInfo.sender.token,
+            toToken: swapTxInfo.receiver.token,
             fromNetwork: swapNetworks.find(
-              (item) => item?.networkId === fromToken.networkId,
+              (item) => item?.networkId === swapTxInfo.sender.token.networkId,
             ),
             toNetwork: swapNetworks.find(
-              (item) => item?.networkId === toToken.networkId,
+              (item) => item?.networkId === swapTxInfo.receiver.token.networkId,
             ),
           },
           txInfo: {
             txId,
             netWorkFee,
-            sender: activeAccount.account?.address,
-            receiver: receiverAddress ?? '',
+            sender: swapTxInfo.accountAddress,
+            receiver: swapTxInfo.receivingAddress,
           },
           date: {
             created: getTimeStamp(),
             updated: getTimeStamp(),
           },
           swapInfo: {
-            instantRate: swapBuildTxResult.result.instantRate,
-            provider: swapBuildTxResult.result.info,
+            instantRate: swapTxInfo.swapBuildResData.result.instantRate,
+            provider: swapTxInfo.swapBuildResData.result.info,
           },
-          ctx: swapBuildTxResult.ctx,
+          ctx: swapTxInfo.swapBuildResData.ctx,
         };
         await addSwapHistoryItem(swapHistoryItem);
       }
     },
-    [
-      activeAccount.account?.address,
-      addSwapHistoryItem,
-      fromToken,
-      fromTokenAmount,
-      receiverAddress,
-      swapBuildTxResult,
-      swapNetworks,
-      toToken,
-    ],
+    [addSwapHistoryItem, swapNetworks, swapTxInfo],
   );
 
   const swapAgainUseHistoryItem = useCallback(

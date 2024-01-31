@@ -16,12 +16,12 @@ import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapBuildTxFetchingAtom,
-  useSwapBuildTxResultAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
+  useSwapTxInfoAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapReceiverAddress } from './useSwapReceiverAddress';
@@ -34,7 +34,7 @@ export function useSwapBuildTx() {
   const [slippagePercentage] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setSwapBuildTxResult] = useSwapBuildTxResultAtom();
+  const [, setSwapTxInfo] = useSwapTxInfoAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const receiverAddress = useSwapReceiverAddress();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -46,7 +46,7 @@ export function useSwapBuildTx() {
     async (txs: ISignedTxPro[]) => {
       if (txs?.[0].txid) {
         const txId = txs[0].txid;
-        const netWorkFee = '999';
+        const netWorkFee = '999'; // todo
         await generateSwapHistoryItem({ txId, netWorkFee });
       }
     },
@@ -78,10 +78,25 @@ export function useSwapBuildTx() {
             : toToken.contractAddress,
         amount: fromTokenAmount,
       };
+      const swapInfo = {
+        sender: {
+          amount: fromTokenAmount,
+          token: fromToken,
+        },
+        receiver: {
+          amount: selectQuote.toAmount,
+          token: toToken,
+        },
+        accountAddress: activeAccount.account?.address,
+        receivingAddress: receiverAddress,
+        swapBuildResData: { result: selectQuote },
+      };
       await navigationToSendConfirm({
         wrappedInfo,
+        swapInfo,
         onSuccess: handleWrappedTxSuccess,
       });
+      setSwapTxInfo(swapInfo);
       setSwapBuildTxFetching(false);
     }
   }, [
@@ -94,6 +109,7 @@ export function useSwapBuildTx() {
     receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,
+    setSwapTxInfo,
     toToken,
   ]);
   const approveTx = useCallback(
@@ -158,6 +174,7 @@ export function useSwapBuildTx() {
         userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
+      if (!res) return;
       let transferInfo: ITransferInfo | undefined;
       let encodedTx: IEncodedTx | undefined;
       if (res?.swftOrder) {
@@ -183,12 +200,26 @@ export function useSwapBuildTx() {
           from: activeAccount.account?.address,
         };
       }
+      const swapInfo = {
+        sender: {
+          amount: fromTokenAmount,
+          token: fromToken,
+        },
+        receiver: {
+          amount: selectQuote.toAmount,
+          token: toToken,
+        },
+        accountAddress: activeAccount.account?.address,
+        receivingAddress: receiverAddress,
+        swapBuildResData: res,
+      };
       await navigationToSendConfirm({
         transfersInfo: transferInfo ? [transferInfo] : undefined,
         encodedTx,
+        swapInfo,
         onSuccess: handleBuildTxSuccess,
       });
-      setSwapBuildTxResult(res);
+      setSwapTxInfo(swapInfo);
       setSwapBuildTxFetching(false);
     }
   }, [
@@ -201,7 +232,7 @@ export function useSwapBuildTx() {
     receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,
-    setSwapBuildTxResult,
+    setSwapTxInfo,
     slippagePercentage,
     toToken,
   ]);

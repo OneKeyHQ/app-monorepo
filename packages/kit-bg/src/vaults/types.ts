@@ -233,11 +233,6 @@ export type IApproveInfo = {
   tokenInfo?: IToken;
 };
 
-// export interface ISwapInfoForConfirm{
-//   fromToken: IToken;
-//   toToken: IToken;
-// }
-
 export enum EWrappedType {
   DEPOSIT = 'deposit',
   WITHDRAW = 'withdraw',

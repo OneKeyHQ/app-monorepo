@@ -20,6 +20,8 @@ import { EModalSendRoutes } from '../views/Send/router';
 
 import useAppNavigation from './useAppNavigation';
 
+import type { ISwapTxInfo } from '../views/Swap/types';
+
 type IParams = {
   accountId: string;
   networkId: string;
@@ -31,7 +33,7 @@ type IBuildUnsignedTxParams = {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
-  // swapInfo?:
+  swapInfo?: ISwapTxInfo;
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
 };

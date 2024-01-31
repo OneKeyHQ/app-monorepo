@@ -167,6 +167,18 @@ export interface IFetchBuildTxResponse {
   ctx?: any;
 }
 
+export interface ISwapInfoSide {
+  amount: string;
+  token: ISwapToken;
+}
+export interface ISwapTxInfo {
+  sender: ISwapInfoSide;
+  receiver: ISwapInfoSide;
+  accountAddress: string;
+  receivingAddress: string;
+  swapBuildResData: IFetchBuildTxResponse;
+}
+
 export interface IEVMTransaction {
   to: string;
   value: string;

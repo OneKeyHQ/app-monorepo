@@ -1,6 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import SwapBuildTxDemo from '../pages/modal/SwapBuildTxDemo';
 import SwapHistoryDetailModal from '../pages/modal/SwapHistoryDetailModal';
 import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
 import SwapNetworkSelectModal from '../pages/modal/SwapNetworkSelectModal';
@@ -35,11 +34,6 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapSlippageSelect,
     component: SwapSlippageSelectModal,
     translationId: 'title__slippage',
-  },
-  {
-    name: EModalSwapRoutes.SwapBuildTxDemo,
-    component: SwapBuildTxDemo,
-    translationId: 'title__transaction_details',
   },
   {
     name: EModalSwapRoutes.SwapHistoryList,

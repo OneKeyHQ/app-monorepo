@@ -13,6 +13,7 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
   ISwapTxHistory,
+  ISwapTxInfo,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 
@@ -151,8 +152,9 @@ export const {
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
 
-export const { atom: swapBuildTxResultAtom, use: useSwapBuildTxResultAtom } =
-  contextAtom<IFetchBuildTxResponse | undefined>(undefined);
+export const { atom: swapTxInfoAtom, use: useSwapTxInfoAtom } = contextAtom<
+  ISwapTxInfo | undefined
+>(undefined);
 
 // swap receiver address
 export const {
