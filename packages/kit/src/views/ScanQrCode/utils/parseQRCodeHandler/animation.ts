@@ -1,5 +1,4 @@
 import { EQRCodeHandlerType } from './type';
-import { url as urlHandler } from './url';
 
 import type {
   IAnimationValue,
@@ -13,7 +12,7 @@ let CACHE_ANIMATION_DATA_LIST: (string | undefined)[];
 // ur://bytes/2-3/2ABC
 // ur://bytes/3-3/3ABC
 export const animation: IQRCodeHandler<IAnimationValue> = (value, options) => {
-  const urlValue = urlHandler(value, options);
+  const urlValue = options?.urlResult;
   let result: IQRCodeHandlerResult<IAnimationValue> = null;
   if (urlValue) {
     if (['ur'].findIndex((item) => item === urlValue.data.urlSchema) !== -1) {

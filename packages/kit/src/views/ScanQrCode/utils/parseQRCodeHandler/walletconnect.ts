@@ -1,5 +1,4 @@
 import { EQRCodeHandlerType } from './type';
-import { url as urlHandler } from './url';
 
 import type {
   IQRCodeHandler,
@@ -22,7 +21,7 @@ export const walletConnect: IQRCodeHandler<IWalletConnectValue> = (
   value,
   options,
 ) => {
-  const urlValue = urlHandler(value, options);
+  const urlValue = options?.urlResult;
   let result: IQRCodeHandlerResult<IWalletConnectValue> = null;
   if (urlValue) {
     if (['wc'].findIndex((item) => item === urlValue.data.urlSchema) !== -1) {

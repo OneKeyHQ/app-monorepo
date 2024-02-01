@@ -1,5 +1,4 @@
 import { EQRCodeHandlerType } from './type';
-import { url as urlHandler } from './url';
 
 import type {
   IEthereumValue,
@@ -10,7 +9,7 @@ import type {
 // eth://0x5ABC
 // ethereum://0x5ABC
 export const ethereum: IQRCodeHandler<IEthereumValue> = (value, options) => {
-  const urlValue = urlHandler(value, options);
+  const urlValue = options?.urlResult;
   let result: IQRCodeHandlerResult<IEthereumValue> = null;
   if (urlValue) {
     if (

@@ -1,5 +1,4 @@
 import { EQRCodeHandlerType } from './type';
-import { url as urlHandler } from './url';
 
 import type {
   IBitcoinValue,
@@ -10,7 +9,7 @@ import type {
 // btc://5ABC
 // bitcoin://5ABC
 export const bitcoin: IQRCodeHandler<IBitcoinValue> = (value, options) => {
-  const urlValue = urlHandler(value, options);
+  const urlValue = options?.urlResult;
   let result: IQRCodeHandlerResult<IBitcoinValue> = null;
   if (urlValue) {
     if (

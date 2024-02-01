@@ -1,4 +1,3 @@
-import { deeplink as deeplinkHandler } from './deeplink';
 import { EQRCodeHandlerType } from './type';
 
 import type {
@@ -10,7 +9,7 @@ import type {
 // onekey://migrate/192.168.1.2
 // onekey-wallet://migrate/192.168.1.2
 export const migrate: IQRCodeHandler<IMigrateValue> = (value, options) => {
-  const deepValue = options?.deeplinkResult ?? deeplinkHandler(value, options);
+  const deepValue = options?.deeplinkResult;
   let result: IQRCodeHandlerResult<IMigrateValue> = null;
   if (deepValue) {
     if (deepValue.data.urlPathList?.[0] === 'migrate') {
