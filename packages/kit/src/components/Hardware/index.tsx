@@ -2,6 +2,7 @@ import { Dialog, Toast } from '@onekeyhq/components';
 
 import {
   ConfirmOnClassic,
+  ConfirmOnDevice,
   ConfirmPassphrase,
   EnterPassphraseOnDevice,
   EnterPhase,
@@ -38,6 +39,23 @@ export const confirmOnClassic = async () => {
   setTimeout(async () => {
     event.confirm();
     await toast.close();
+  }, 3500);
+  await event.run();
+};
+
+export const confirmOnDevice = async () => {
+  const event = mockListenDeviceResult();
+  const dialog = Dialog.show({
+    title: 'Confirm on Device',
+    showFooter: false,
+    renderContent: <ConfirmOnDevice />,
+    onCancel: () => {
+      event.cancel();
+    },
+  });
+  setTimeout(async () => {
+    event.confirm();
+    await dialog.close();
   }, 3500);
   await event.run();
 };

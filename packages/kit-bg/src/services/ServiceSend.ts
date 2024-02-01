@@ -233,12 +233,22 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
       });
-    const signedTx = await vault.signTransaction({
-      unsignedTx,
-      password,
-      deviceParams,
-    });
-    return signedTx;
+    // signTransaction
+    const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const signedTx = await vault.signTransaction({
+          unsignedTx,
+          password,
+          deviceParams,
+        });
+        console.log('signTx@vault.signTransaction', signedTx);
+        return signedTx;
+      },
+      { deviceParams },
+    );
+
+    console.log('signTx@serviceSend.signTransaction', tx);
+    return tx;
   }
 
   @backgroundMethod()

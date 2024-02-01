@@ -14,6 +14,10 @@ interface IGlobalErrorListenerInfo {
   promiseErrorListener: (event: PromiseRejectionEvent) => void;
 }
 
+function logErrorDetail(error: any) {
+  console.warn('globalErrorHandler Error log: \n', toPlainErrorObject(error));
+}
+
 class GlobalErrorHandler {
   listenersMap = new Map<any, IGlobalErrorListenerInfo>();
 
@@ -21,16 +25,15 @@ class GlobalErrorHandler {
     const map: IGlobalErrorListenerInfo = {
       nativeErrorListener: (error: Error) => {
         listener(error);
-        console.warn(
-          'globalErrorHandler RN Error:\n',
-          toPlainErrorObject(error),
-        );
+        logErrorDetail(error);
       },
       errorListener: (event: ErrorEvent) => {
         listener(event.error);
+        logErrorDetail(event.error);
       },
       promiseErrorListener: (event: PromiseRejectionEvent) => {
         listener(event.reason);
+        logErrorDetail(event.reason);
       },
     };
     if (platformEnv.isNative) {

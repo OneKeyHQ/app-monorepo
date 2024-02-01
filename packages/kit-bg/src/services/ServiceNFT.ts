@@ -1,9 +1,9 @@
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IFetchAccountNFTsParams,
   IFetchAccountNFTsResp,
@@ -86,7 +86,7 @@ class ServiceNFT extends ServiceBase {
       promise: true,
       primitive: true,
       max: 10,
-      maxAge: getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
     },
   );
 }
