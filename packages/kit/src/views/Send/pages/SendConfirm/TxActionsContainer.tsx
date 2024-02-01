@@ -45,7 +45,7 @@ function TxActionsContainer(props: IProps) {
       decodedTx.actions.forEach((action) => {
         if (action.type === EDecodedTxActionType.ASSET_TRANSFER) {
           action.assetTransfer?.sends.forEach((send) => {
-            if (!send.isNFT && send.token === '') {
+            if (!send.isNFT && send.tokenIdOnNetwork === '') {
               nativeTokenTransferBN = nativeTokenTransferBN.plus(
                 send.amount ?? 0,
               );

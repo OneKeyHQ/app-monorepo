@@ -56,8 +56,7 @@ export function TokenDetails() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const { accountId, networkId, tokenAddress, tokenSymbol, tokenLogoURI } =
-    route.params;
+  const { accountId, networkId, tokenInfo } = route.params;
 
   const { result: [tokenHistory, tokenDetails] = [] } =
     usePromiseResult(async () => {
@@ -72,17 +71,17 @@ export function TokenDetails() {
           accountId: account.id,
           accountAddress: account.address,
           networkId,
-          tokenAddress,
+          tokenAddress: tokenInfo.address,
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: account.address,
-          contractList: [tokenAddress],
+          contractList: [tokenInfo.address],
         }),
       ]);
 
       return [history, details[0]];
-    }, [accountId, networkId, tokenAddress]);
+    }, [accountId, networkId, tokenInfo.address]);
 
   const tokenValue = useMemo(
     () =>
@@ -109,10 +108,10 @@ export function TokenDetails() {
         networkId,
         accountId,
         isNFT: false,
-        token: tokenDetails?.info,
+        token: tokenDetails?.info ?? tokenInfo,
       },
     });
-  }, [accountId, navigation, networkId, tokenDetails]);
+  }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
 
   const headerTitle = useCallback(
     () => (
@@ -122,19 +121,19 @@ export function TokenDetails() {
           width="$6"
           height="$6"
           source={{
-            uri: tokenLogoURI ?? tokenDetails?.info.logoURI,
+            uri: tokenInfo.logoURI ?? tokenDetails?.info.logoURI,
           }}
         />
         <Heading pl="$2" size="$headingLg">
-          {tokenSymbol ?? tokenDetails?.info.symbol}
+          {tokenInfo.symbol ?? tokenDetails?.info.symbol}
         </Heading>
       </XStack>
     ),
     [
       tokenDetails?.info.logoURI,
       tokenDetails?.info.symbol,
-      tokenLogoURI,
-      tokenSymbol,
+      tokenInfo.logoURI,
+      tokenInfo.symbol,
     ],
   );
 
@@ -175,7 +174,7 @@ export function TokenDetails() {
   );
 
   const renderTokenAddress = useCallback(() => {
-    if (!tokenAddress) return null;
+    if (!tokenInfo.address) return null;
     return (
       <XGroup
         bg="$bgStrong"
@@ -216,7 +215,7 @@ export function TokenDetails() {
             }}
           />
           <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
-            {accountUtils.shortenAddress({ address: tokenAddress })}
+            {accountUtils.shortenAddress({ address: tokenInfo.address })}
           </SizableText>
         </XStack>
         {media.gtMd && (
@@ -249,7 +248,7 @@ export function TokenDetails() {
         )}
       </XGroup>
     );
-  }, [media.gtMd, tokenAddress]);
+  }, [media.gtMd, tokenInfo.address]);
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />

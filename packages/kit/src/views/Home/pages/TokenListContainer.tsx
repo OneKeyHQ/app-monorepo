@@ -110,10 +110,7 @@ function TokenListContainer(props: IProps) {
         params: {
           accountId: account.id,
           networkId: network.id,
-          tokenAddress: token.address,
-          tokenSymbol: token.symbol,
-          tokenLogoURI: token.logoURI,
-          isNative: token.isNative,
+          tokenInfo: token,
         },
       });
     },

@@ -265,7 +265,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         const transfersContent = (
           <YStack space="$1">
             {transfersInfo.map((transfer) => (
-              <XStack alignItems="center" space="$1" key={transfer.token}>
+              <XStack
+                alignItems="center"
+                space="$1"
+                key={transfer.tokenIdOnNetwork}
+              >
                 <ListItem.Avatar
                   src={transfer.icon}
                   size="$7"

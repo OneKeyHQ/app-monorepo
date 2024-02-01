@@ -1,5 +1,6 @@
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 export enum EModalAssetDetailRoutes {
   TokenDetails = 'TokenDetails',
@@ -12,10 +13,7 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.TokenDetails]: {
     accountId: string;
     networkId: string;
-    tokenAddress: string;
-    tokenSymbol?: string;
-    tokenLogoURI?: string;
-    isNative?: boolean;
+    tokenInfo: IToken;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

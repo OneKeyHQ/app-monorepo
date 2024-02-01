@@ -56,10 +56,7 @@ function TokenList() {
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId,
         networkId,
-        tokenAddress: token.address,
-        tokenSymbol: token.symbol,
-        tokenLogoURI: token.logoURI,
-        isNative: token.isNative,
+        tokenInfo: token,
       });
     },
     [accountId, navigation, networkId],
