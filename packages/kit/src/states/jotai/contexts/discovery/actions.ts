@@ -496,12 +496,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
+        shouldPopNavigation = true,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
+        shouldPopNavigation?: boolean;
       },
     ) => {
       const isNewWindow = !useCurrentWindow;
@@ -514,7 +516,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
       if (platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
-      } else {
+      } else if (shouldPopNavigation) {
         navigation.pop();
       }
     },

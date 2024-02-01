@@ -4,6 +4,7 @@ export enum EBrowserShortcutEvents {
   Refresh = 'Refresh',
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
+  Search = 'Search',
 }
 
 export const getShortcutsMap: () => Record<
@@ -30,6 +31,10 @@ export const getShortcutsMap: () => Record<
     keys: 'CmdOrCtrl+W',
     desc: 'Close Tab',
   },
+  [EBrowserShortcutEvents.Search]: {
+    keys: '/',
+    desc: 'Search',
+  },
 });
 
 export const getDisplayKeysMap = (isMac?: boolean) => ({
@@ -40,4 +45,5 @@ export const getDisplayKeysMap = (isMac?: boolean) => ({
   Right: '→',
   Up: '↑',
   Down: '↓',
+  Search: '/',
 });

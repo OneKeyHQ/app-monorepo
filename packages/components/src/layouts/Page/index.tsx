@@ -21,6 +21,7 @@ function PageProvider({
   children,
   skipLoading = false,
   scrollEnabled = false,
+  scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
 }: IPageProps) {
   const pageRef = useRef<IScrollViewRef>(null);
@@ -32,12 +33,13 @@ function PageProvider({
   const value = useMemo(
     () => ({
       scrollEnabled,
+      scrollProps,
       safeAreaEnabled,
       pageRef,
       pageOffsetRef,
       footerRef,
     }),
-    [safeAreaEnabled, scrollEnabled],
+    [safeAreaEnabled, scrollEnabled, scrollProps],
   );
   return (
     <PageContext.Provider value={value}>

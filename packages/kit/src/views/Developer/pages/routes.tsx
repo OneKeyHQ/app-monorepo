@@ -40,6 +40,7 @@ export enum EGalleryRoutes {
   componentQRCode = 'component-qrCode',
   componentScanQrCode = 'component-scanQrCode',
   ComponentWebview = 'component-webview',
+  ComponentSwiper = 'component-swiper',
   ComponentListView = 'component-ListView',
   ComponentWalletAvatar = 'component-WalletAvatar',
   ComponentAccountAvatar = 'component-AccountAvatar',

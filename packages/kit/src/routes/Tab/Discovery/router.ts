@@ -2,7 +2,7 @@ import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Browser from '../../../views/Discovery/pages/Browser/Browser';
-import DiscoveryDashboard from '../../../views/Discovery/pages/Dashboard';
+import DiscoveryDashboard from '../../../views/Discovery/pages/Dashboard/DashboardContainer';
 
 import { ETabDiscoveryRoutes } from './type';
 

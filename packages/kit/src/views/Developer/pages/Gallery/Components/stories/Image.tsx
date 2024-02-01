@@ -1,4 +1,4 @@
-import { Image, Skeleton, YStack } from '@onekeyhq/components';
+import { Icon, Image, Skeleton, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -62,6 +62,18 @@ const ImageGallery = () => (
               />
               <Image.Fallback>
                 <Skeleton width="100%" height="100%" />
+              </Image.Fallback>
+            </Image>
+
+            <Image height="$10" width="$10">
+              <Image.Source
+                delayMs={2500}
+                source={{
+                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                }}
+              />
+              <Image.Fallback>
+                <Icon name="ImageMountainsOutline" size="$8" />
               </Image.Fallback>
             </Image>
 

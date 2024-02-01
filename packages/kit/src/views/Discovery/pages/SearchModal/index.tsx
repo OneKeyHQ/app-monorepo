@@ -3,12 +3,16 @@ import { useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import {
+  Button,
+  Heading,
   IconButton,
+  Image,
   ListView,
   Page,
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -26,6 +30,8 @@ import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
+import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
 
 import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type { RouteProp } from '@react-navigation/core';
@@ -101,9 +107,9 @@ function SearchModal() {
   const displayHistoryList = (historyData ?? []).length > 0;
 
   return (
-    <Page skipLoading safeAreaEnabled>
+    <Page skipLoading safeAreaEnabled scrollEnabled>
       <Page.Header
-        headerTitle="Search Modal"
+        headerTitle="Search"
         headerSearchBarOptions={{
           autoFocus: true,
           placeholder: 'Search',
@@ -126,176 +132,136 @@ function SearchModal() {
           },
         }}
       />
-      <Page.Body>
-        <ScrollView>
-          {displaySearchList && (
-            <ListView
-              estimatedItemSize="$10"
-              data={searchList}
-              keyExtractor={(item) => item.dappId}
-              renderItem={({ item }) => (
-                <ListItem
-                  avatarProps={{
-                    src: item.logo || item.originLogo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
-                    },
-                  }}
-                  title={item.name}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  onPress={() => {
-                    if (item.dappId === SEARCH_ITEM_ID) {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: searchValue,
-                          title: searchValue,
-                        },
-                      });
-                    } else {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        dApp: item,
-                      });
-                    }
-                  }}
-                />
-              )}
-            />
-          )}
-          {displayBookmarkList && (
-            <>
-              <XStack
-                px="$4"
-                py="$3"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <SizableText size="$headingSm">Bookmarks</SizableText>
-                <IconButton
-                  size="small"
-                  icon="DotHorOutline"
-                  variant="tertiary"
-                  focusStyle={undefined}
-                  p="$0.5"
-                  m={-3}
-                  onPress={() => {
-                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                      screen: EDiscoveryModalRoutes.BookmarkListModal,
-                    });
-                  }}
-                />
-              </XStack>
-              <ListView
-                estimatedItemSize="$10"
-                horizontal
-                data={bookmarkData}
-                keyExtractor={(item) => item.url}
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <YStack
-                    maxWidth="$20"
-                    alignItems="center"
-                    justifyContent="center"
-                    p="$4"
-                    onPress={() => {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: item.url,
-                          title: item.title,
-                        },
-                      });
-                    }}
-                  >
-                    <ListItem.Avatar
-                      src={item.logo}
-                      fallbackProps={{
-                        children: <Skeleton w="$10" h="$10" />,
-                      }}
-                      circular
-                    />
-                    <SizableText
-                      flex={1}
-                      minHeight="$8"
-                      numberOfLines={1}
-                      mt="$2"
-                      color="$text"
-                      size="$bodyMd"
-                    >
-                      {item.title}
-                    </SizableText>
-                  </YStack>
-                )}
-              />
-            </>
-          )}
-          {displayHistoryList && (
-            <>
-              <XStack
-                px="$4"
-                py="$3"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <SizableText size="$headingSm">Recents</SizableText>
-                <IconButton
-                  size="small"
-                  icon="DotHorOutline"
-                  variant="tertiary"
-                  focusStyle={undefined}
-                  p="$0.5"
-                  m={-3}
-                  onPress={() => {
-                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                      screen: EDiscoveryModalRoutes.HistoryListModal,
-                    });
-                  }}
-                />
-              </XStack>
-              <ListView
-                height="100%"
-                estimatedItemSize="$10"
-                data={historyData}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <ListItem
-                    avatarProps={{
-                      src: item.logo,
-                      fallbackProps: {
-                        children: <Skeleton w="$10" h="$10" />,
+      <Page.Body pt="$2" pb="$5">
+        {displaySearchList && (
+          <Stack pb="$5">
+            {searchList.map((item, index) => (
+              <ListItem
+                key={index}
+                avatarProps={{
+                  src: item.logo || item.originLogo,
+                  fallbackProps: {
+                    children: <Skeleton w="$10" h="$10" />,
+                  },
+                }}
+                title={item.name}
+                subtitleProps={{
+                  numberOfLines: 1,
+                }}
+                onPress={() => {
+                  if (item.dappId === SEARCH_ITEM_ID) {
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow,
+                      tabId,
+                      webSite: {
+                        url: searchValue,
+                        title: searchValue,
                       },
-                    }}
-                    title={item.title}
-                    subtitleProps={{
-                      numberOfLines: 1,
-                    }}
-                    testID={`search-modal-${item.title.toLowerCase()}`}
-                    onPress={() => {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: item.url,
-                          title: item.title,
-                        },
-                      });
-                    }}
-                  />
-                )}
+                    });
+                  } else {
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow,
+                      tabId,
+                      dApp: item,
+                    });
+                  }
+                }}
               />
-            </>
-          )}
-        </ScrollView>
+            ))}
+          </Stack>
+        )}
+
+        {displayBookmarkList && (
+          <Stack>
+            <DappSearchModalSectionHeader
+              title="Bookmarks"
+              onMorePress={() => {
+                navigation.push(EDiscoveryModalRoutes.BookmarkListModal);
+              }}
+            />
+            <XStack>
+              {bookmarkData?.map((item, index) => (
+                <Stack
+                  key={index}
+                  flexBasis="25%"
+                  alignItems="center"
+                  py="$2"
+                  $gtMd={{
+                    flexBasis: '16.66666667%',
+                  }}
+                  onPress={() => {
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow,
+                      tabId,
+                      webSite: {
+                        url: item.url,
+                        title: item.title,
+                      },
+                    });
+                  }}
+                >
+                  <Image w="$14" h="$14" borderRadius="$3">
+                    <Image.Source
+                      source={{
+                        uri: item.logo,
+                      }}
+                    />
+                  </Image>
+                  <SizableText
+                    mt="$2"
+                    px="$2"
+                    size="$bodyLgMedium"
+                    textAlign="center"
+                    $gtMd={{
+                      size: '$bodyMdMedium',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </SizableText>
+                </Stack>
+              ))}
+            </XStack>
+          </Stack>
+        )}
+        {displayHistoryList && (
+          <Stack pt="$5">
+            <DappSearchModalSectionHeader
+              title="History"
+              onMorePress={() => {
+                navigation.push(EDiscoveryModalRoutes.HistoryListModal);
+              }}
+            />
+            {historyData?.map((item, index) => (
+              <ListItem
+                key={index}
+                avatarProps={{
+                  src: item.logo,
+                }}
+                title={item.title}
+                subtitle={item.url}
+                subtitleProps={{
+                  numberOfLines: 1,
+                }}
+                testID={`search-modal-${item.title.toLowerCase()}`}
+                onPress={() => {
+                  handleOpenWebSite({
+                    navigation,
+                    useCurrentWindow,
+                    tabId,
+                    webSite: {
+                      url: item.url,
+                      title: item.title,
+                    },
+                  });
+                }}
+              />
+            ))}
+          </Stack>
+        )}
       </Page.Body>
     </Page>
   );

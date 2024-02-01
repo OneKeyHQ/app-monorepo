@@ -326,6 +326,13 @@ const AddressInputGallery = LazyLoad(
     ),
 );
 
+const SwiperGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Swiper'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -359,6 +366,7 @@ export const galleryScreenList: {
     component: WalletAvatarGallery,
   },
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
+  { name: EGalleryRoutes.ComponentSwiper, component: SwiperGallery },
   {
     name: EGalleryRoutes.ComponentSortableListView,
     component: SortableListViewGallery,
