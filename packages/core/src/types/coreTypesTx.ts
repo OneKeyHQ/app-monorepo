@@ -1,3 +1,4 @@
+import type { ISwapTxInfo } from '@onekeyhq/kit/src/views/Swap/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 import type { ICurveName } from './coreTypesBase';
@@ -106,6 +107,7 @@ export type ISignedTxResult = ISignedTx & {
   // for lightning network
   nonce?: number;
   randomSeed?: number;
+  swapInfo?: ISwapTxInfo;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;

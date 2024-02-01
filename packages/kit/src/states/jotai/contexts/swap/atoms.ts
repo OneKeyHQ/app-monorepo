@@ -6,7 +6,6 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import type {
-  IFetchBuildTxResponse,
   IFetchQuoteResult,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
@@ -65,8 +64,13 @@ export const {
 });
 
 export const {
-  atom: swapSelectedTokenBalanceAtom,
-  use: useSwapSelectedTokenBalanceAtom,
+  atom: swapSelectedFromTokenBalanceAtom,
+  use: useSwapSelectedFromTokenBalanceAtom,
+} = contextAtom('0');
+
+export const {
+  atom: swapSelectedToTokenBalanceAtom,
+  use: useSwapSelectedToTokenBalanceAtom,
 } = contextAtom('0');
 
 // swap quote
@@ -151,10 +155,6 @@ export const {
   atom: swapBuildTxFetchingAtom,
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
-
-export const { atom: swapTxInfoAtom, use: useSwapTxInfoAtom } = contextAtom<
-  ISwapTxInfo | undefined
->(undefined);
 
 // swap receiver address
 export const {

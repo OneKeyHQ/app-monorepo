@@ -13,16 +13,19 @@ interface ISwapSelectTokenBalanceProps {
   accountXpub?: string;
   accountAddress?: string;
   accountNetworkId?: string;
+  type: 'from' | 'to';
   token?: ISwapToken;
 }
 export const SwapSelectTokenBalance = ({
   accountXpub,
   accountAddress,
   accountNetworkId,
+  type,
   token,
 }: ISwapSelectTokenBalanceProps) => {
   const { isLoading, swapSelectedTokenBalance } = useSwapSelectedTokenDetail({
     token,
+    type,
     accountAddress,
     accountXpub,
     accountNetworkId,

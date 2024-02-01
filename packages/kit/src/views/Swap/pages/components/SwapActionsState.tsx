@@ -38,10 +38,8 @@ const SwapActionsState = ({
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [selectCurrentProvider] = useSwapQuoteCurrentSelectAtom();
   const isApproveStepStatus = useMemo(
-    () =>
-      swapStepState.type === ESwapStepStateType.APPROVE &&
-      !swapStepState.isLoading,
-    [swapStepState.type, swapStepState.isLoading],
+    () => swapStepState.type === ESwapStepStateType.APPROVE,
+    [swapStepState.type],
   );
 
   const wrongMsgComponent = useMemo(() => {

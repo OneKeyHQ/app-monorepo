@@ -9,7 +9,8 @@ import {
   useSwapActions,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
-  useSwapSelectedTokenBalanceAtom,
+  useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedToTokenBalanceAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -109,17 +110,22 @@ export function useSwapTokenList(
 
 export function useSwapSelectedTokenDetail({
   token,
+  type,
   accountAddress,
   accountNetworkId,
   accountXpub,
 }: {
+  type: 'from' | 'to';
   token?: ISwapToken;
   accountAddress?: string;
   accountNetworkId?: string;
   accountXpub?: string;
 }) {
-  const [swapSelectedTokenBalance, setSwapSelectedTokenBalance] =
-    useSwapSelectedTokenBalanceAtom();
+  const [swapSelectedFromTokenBalance, setSwapSelectedFromTokenBalance] =
+    useSwapSelectedFromTokenBalanceAtom();
+
+  const [swapSelectedToTokenBalance, setSwapSelectedToTokenBalance] =
+    useSwapSelectedToTokenBalanceAtom();
 
   const { isLoading } = usePromiseResult(
     async () => {
@@ -128,7 +134,11 @@ export function useSwapSelectedTokenDetail({
         token.accountAddress === accountAddress &&
         accountNetworkId === token.networkId
       ) {
-        setSwapSelectedTokenBalance(token.balanceParsed ?? '0.0');
+        if (type === 'from') {
+          setSwapSelectedFromTokenBalance(token.balanceParsed ?? '0.0');
+        } else {
+          setSwapSelectedToTokenBalance(token.balanceParsed ?? '0.0');
+        }
       } else {
         const detailInfo =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -138,7 +148,11 @@ export function useSwapSelectedTokenDetail({
             contractAddress: token.contractAddress,
           });
         if (detailInfo) {
-          setSwapSelectedTokenBalance(detailInfo.balanceParsed);
+          if (type === 'from') {
+            setSwapSelectedFromTokenBalance(detailInfo.balanceParsed ?? '0.0');
+          } else {
+            setSwapSelectedToTokenBalance(detailInfo.balanceParsed ?? '0.0');
+          }
         }
       }
     },
@@ -146,12 +160,20 @@ export function useSwapSelectedTokenDetail({
       accountAddress,
       accountNetworkId,
       accountXpub,
-      setSwapSelectedTokenBalance,
+      setSwapSelectedFromTokenBalance,
+      setSwapSelectedToTokenBalance,
       token,
+      type,
     ],
     {
       watchLoading: true,
     },
   );
-  return { isLoading, swapSelectedTokenBalance };
+  return {
+    isLoading,
+    swapSelectedTokenBalance:
+      type === 'from'
+        ? swapSelectedFromTokenBalance
+        : swapSelectedToTokenBalance,
+  };
 }

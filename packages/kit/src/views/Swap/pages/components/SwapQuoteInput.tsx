@@ -115,6 +115,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
                 accountNetworkId={activeAccount?.network?.id}
                 accountXpub={(activeAccount?.account as IDBUtxoAccount)?.xpub}
                 token={fromToken}
+                type="from"
               />
               <SwapFromAmountPercentage
                 selectItems={swapFromAmountPercentageItems}
@@ -167,6 +168,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
                 accountNetworkId={activeAccount1?.network?.id}
                 accountXpub={(activeAccount1?.account as IDBUtxoAccount)?.xpub}
                 token={toToken}
+                type="to"
               />
             </XStack>
           </>

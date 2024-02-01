@@ -76,7 +76,7 @@ const SwapTxHistoryViewInBrowser = ({
   }, [onViewInBrowser, toTxExplorerUrl]);
 
   const onHandleSocketBridgeTxExplorer = useCallback(() => {
-    onViewInBrowser(`${socketBridgeScanUrl}${item.txInfo.txId}}`);
+    onViewInBrowser(`${socketBridgeScanUrl}${item.txInfo.txId}`);
   }, [item.txInfo.txId, onViewInBrowser]);
 
   const triggerViewInBrowser = useMemo(

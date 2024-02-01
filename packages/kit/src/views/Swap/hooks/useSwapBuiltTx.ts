@@ -21,7 +21,6 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
-  useSwapTxInfoAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapReceiverAddress } from './useSwapReceiverAddress';
@@ -34,7 +33,6 @@ export function useSwapBuildTx() {
   const [slippagePercentage] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setSwapTxInfo] = useSwapTxInfoAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const receiverAddress = useSwapReceiverAddress();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -44,10 +42,15 @@ export function useSwapBuildTx() {
   });
   const handleBuildTxSuccess = useCallback(
     async (txs: ISignedTxPro[]) => {
-      if (txs?.[0].txid) {
+      console.log('txs-', txs);
+      if (txs?.[0].txid && txs?.[0].swapInfo) {
         const txId = txs[0].txid;
         const netWorkFee = '999'; // todo
-        await generateSwapHistoryItem({ txId, netWorkFee });
+        await generateSwapHistoryItem({
+          txId,
+          netWorkFee,
+          swapTxInfo: txs?.[0].swapInfo,
+        });
       }
     },
     [generateSwapHistoryItem],
@@ -96,7 +99,6 @@ export function useSwapBuildTx() {
         swapInfo,
         onSuccess: handleWrappedTxSuccess,
       });
-      setSwapTxInfo(swapInfo);
       setSwapBuildTxFetching(false);
     }
   }, [
@@ -109,7 +111,6 @@ export function useSwapBuildTx() {
     receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,
-    setSwapTxInfo,
     toToken,
   ]);
   const approveTx = useCallback(
@@ -213,13 +214,13 @@ export function useSwapBuildTx() {
         receivingAddress: receiverAddress,
         swapBuildResData: res,
       };
+
       await navigationToSendConfirm({
         transfersInfo: transferInfo ? [transferInfo] : undefined,
         encodedTx,
         swapInfo,
         onSuccess: handleBuildTxSuccess,
       });
-      setSwapTxInfo(swapInfo);
       setSwapBuildTxFetching(false);
     }
   }, [
@@ -232,7 +233,6 @@ export function useSwapBuildTx() {
     receiverAddress,
     selectQuote,
     setSwapBuildTxFetching,
-    setSwapTxInfo,
     slippagePercentage,
     toToken,
   ]);

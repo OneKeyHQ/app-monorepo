@@ -21,12 +21,11 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTxHistoryAtom,
   useSwapTxHistoryPendingAtom,
-  useSwapTxInfoAtom,
 } from '../../../states/jotai/contexts/swap';
 import { getTimeStamp } from '../../../utils/helper';
 import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
 
-import type { ISwapTxHistory } from '../types';
+import type { ISwapTxHistory, ISwapTxInfo } from '../types';
 import type ViewShot from 'react-native-view-shot';
 
 export function useSwapTxHistoryListSyncFromSimpleDb() {
@@ -36,7 +35,7 @@ export function useSwapTxHistoryListSyncFromSimpleDb() {
       const histories =
         await backgroundApiProxy.simpleDb.swapHistory.getSwapHistoryList();
       const sortHistories = histories.sort(
-        (a, b) => a.date.created - b.date.created,
+        (a, b) => b.date.created - a.date.created,
       );
       setSwapHistory(sortHistories);
     },
@@ -94,20 +93,23 @@ export function useSwapTxHistoryStateSyncInterval() {
     });
   }, []);
 
-  useListenTabFocusState(ETabRoutes.Swap, (isFocus: boolean) => {
-    if (isFocus) {
-      triggerSwapPendingHistoryInterval();
-    } else {
-      cleanupSwapPendingHistoryInterval();
-    }
-  });
-
-  useEffect(
-    () => () => {
-      cleanupSwapPendingHistoryInterval();
+  useListenTabFocusState(
+    ETabRoutes.Swap,
+    (isFocus: boolean, isHiddenModel: boolean) => {
+      if (isFocus && !isHiddenModel) {
+        triggerSwapPendingHistoryInterval();
+      } else {
+        cleanupSwapPendingHistoryInterval();
+      }
     },
-    [cleanupSwapPendingHistoryInterval],
   );
+
+  useEffect(() => {
+    triggerSwapPendingHistoryInterval();
+    return () => {
+      cleanupSwapPendingHistoryInterval();
+    };
+  }, [cleanupSwapPendingHistoryInterval, triggerSwapPendingHistoryInterval]);
   return {
     swapTxHistoryPending,
   };
@@ -115,13 +117,20 @@ export function useSwapTxHistoryStateSyncInterval() {
 
 export function useSwapTxHistoryActions() {
   const { addSwapHistoryItem } = useSwapActions().current;
-  const [swapTxInfo] = useSwapTxInfoAtom(); // current build tx result
   const [swapNetworks] = useSwapNetworksAtom();
   const [, setFromToken] = useSwapSelectFromTokenAtom();
   const [, setToken] = useSwapSelectToTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const generateSwapHistoryItem = useCallback(
-    async ({ txId, netWorkFee }: { txId: string; netWorkFee: string }) => {
+    async ({
+      txId,
+      netWorkFee,
+      swapTxInfo,
+    }: {
+      txId: string;
+      netWorkFee: string;
+      swapTxInfo: ISwapTxInfo;
+    }) => {
       if (swapTxInfo) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
@@ -156,7 +165,7 @@ export function useSwapTxHistoryActions() {
         await addSwapHistoryItem(swapHistoryItem);
       }
     },
-    [addSwapHistoryItem, swapNetworks, swapTxInfo],
+    [addSwapHistoryItem, swapNetworks],
   );
 
   const swapAgainUseHistoryItem = useCallback(
