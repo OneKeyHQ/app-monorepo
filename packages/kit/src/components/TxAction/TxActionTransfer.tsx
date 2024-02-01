@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -13,6 +13,8 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 
@@ -251,11 +253,16 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout } = props;
+  const { tableLayout, networkId } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
+
+  const network = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+    [networkId],
+  ).result;
 
   const renderTransferBlock = useCallback(
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
@@ -332,6 +339,18 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       }
 
+      transferElements.push(
+        <Container.Item
+          title={intl.formatMessage({ id: 'network__network' })}
+          content={
+            <XStack alignItems="center" space="$1">
+              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+              <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+            </XStack>
+          }
+        />,
+      );
+
       return (
         <Container.Box
           contentProps={{
@@ -344,10 +363,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         </Container.Box>
       );
     },
-    [from, intl, tableLayout],
+    [from, intl, network?.logoURI, network?.name, tableLayout],
   );
-
-  console.log('hello');
 
   return (
     <>

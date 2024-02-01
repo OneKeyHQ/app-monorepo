@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { Page, XStack, YStack } from '@onekeyhq/components';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import {
   useSendConfirmActions,
@@ -20,13 +20,12 @@ import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {
   const intl = useIntl();
-  const media = useMedia();
+  const tableLayout = false;
+  // const tableLayout = useMedia().gtLg;
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs } = useSendConfirmActions().current;
   const { accountId, networkId, unsignedTxs, onSuccess, onFail } = route.params;
-
-  const tableLayout = media.gtLg;
 
   useEffect(
     () => updateUnsignedTxs(unsignedTxs),
@@ -46,17 +45,26 @@ function SendConfirmContainer() {
                 justifyContent: 'space-between',
               }}
             >
-              <TxSimulationContainer />
+              <TxSimulationContainer tableLayout={tableLayout} />
             </Container.Box>
             <YStack flex={1} justifyContent="space-between" mr="$-5">
-              <TxActionsContainer accountId={accountId} networkId={networkId} />
+              <TxActionsContainer
+                accountId={accountId}
+                networkId={networkId}
+                tableLayout={tableLayout}
+              />
               <YStack>
-                <TxFeeContainer accountId={accountId} networkId={networkId} />
+                <TxFeeContainer
+                  accountId={accountId}
+                  networkId={networkId}
+                  tableLayout={tableLayout}
+                />
                 <SendConfirmActionsContainer
                   accountId={accountId}
                   networkId={networkId}
                   onSuccess={onSuccess}
                   onFail={onFail}
+                  tableLayout={tableLayout}
                 />
               </YStack>
             </YStack>

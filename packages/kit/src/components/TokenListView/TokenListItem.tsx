@@ -13,10 +13,12 @@ type IProps = {
   token: IAccountToken;
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
+  withPrice?: boolean;
+  withName?: boolean;
 };
 
 function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
-  const { token, onPress, tableLayout, ...rest } = props;
+  const { token, onPress, tableLayout, withName, withPrice, ...rest } = props;
 
   return (
     <ListItem
@@ -77,33 +79,41 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
           )}
         </XStack>
 
-        <XStack space="$2">
-          <TokenPriceView
-            size="$bodyMd"
-            color="$textSubdued"
-            $key={token.$key ?? ''}
-            {...(tableLayout && {
-              size: '$bodyLg',
-              color: '$text',
-              w: '$32',
-              textAlign: 'right',
-              $gtXl: {
-                w: '$56',
-              },
-              $gt2xl: {
-                w: '$72',
-              },
-            })}
-          />
-          <TokenPriceChangeView
-            $key={token.$key ?? ''}
-            size="$bodyMd"
-            {...(tableLayout && {
-              size: '$bodyLg',
-              w: '$24',
-            })}
-          />
-        </XStack>
+        {withPrice && (
+          <XStack space="$2">
+            <TokenPriceView
+              size="$bodyMd"
+              color="$textSubdued"
+              $key={token.$key ?? ''}
+              {...(tableLayout && {
+                size: '$bodyLg',
+                color: '$text',
+                w: '$32',
+                textAlign: 'right',
+                $gtXl: {
+                  w: '$56',
+                },
+                $gt2xl: {
+                  w: '$72',
+                },
+              })}
+            />
+            <TokenPriceChangeView
+              $key={token.$key ?? ''}
+              size="$bodyMd"
+              {...(tableLayout && {
+                size: '$bodyLg',
+                w: '$24',
+              })}
+            />
+          </XStack>
+        )}
+
+        {withName && (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {token.name}
+          </SizableText>
+        )}
       </Stack>
 
       <Stack
