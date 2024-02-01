@@ -48,15 +48,17 @@ function SendConfirmContainer() {
             >
               <TxSimulationContainer />
             </Container.Box>
-            <YStack flex={1} justifyContent="space-between">
+            <YStack flex={1} justifyContent="space-between" mr="$-5">
               <TxActionsContainer accountId={accountId} networkId={networkId} />
-              <TxFeeContainer accountId={accountId} networkId={networkId} />
-              <SendConfirmActionsContainer
-                accountId={accountId}
-                networkId={networkId}
-                onSuccess={onSuccess}
-                onFail={onFail}
-              />
+              <YStack>
+                <TxFeeContainer accountId={accountId} networkId={networkId} />
+                <SendConfirmActionsContainer
+                  accountId={accountId}
+                  networkId={networkId}
+                  onSuccess={onSuccess}
+                  onFail={onFail}
+                />
+              </YStack>
             </YStack>
           </XStack>
         </Page.Body>

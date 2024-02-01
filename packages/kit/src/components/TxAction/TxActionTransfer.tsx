@@ -338,6 +338,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             borderWidth: tableLayout ? 0 : 1,
             bg: tableLayout ? '$transparent' : '$bgSubdued',
           }}
+          hasDivider={!tableLayout}
         >
           {transferElements}
         </Container.Box>
@@ -345,6 +346,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     },
     [from, intl, tableLayout],
   );
+
+  console.log('hello');
 
   return (
     <>

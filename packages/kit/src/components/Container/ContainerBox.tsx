@@ -20,10 +20,18 @@ type IProps = {
     | boolean
     | null
     | undefined;
+  hasDivider?: boolean;
 };
 
 function ContainerBox(props: IProps) {
-  const { title, titleProps, contentProps, blockProps, children } = props;
+  const {
+    title,
+    titleProps,
+    contentProps,
+    blockProps,
+    children,
+    hasDivider = true,
+  } = props;
   return (
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
@@ -61,10 +69,12 @@ function ContainerBox(props: IProps) {
               return cloneElement(child, {
                 ...child.props,
                 key: index.toString(),
-                hasDivider:
-                  index !==
-                  (children instanceof Array ? children : [children]).length -
-                    1,
+                hasDivider: hasDivider
+                  ? index !==
+                    (children instanceof Array ? children : [children]).length -
+                      1
+                  : hasDivider,
+
                 children: childChildren,
               });
             },

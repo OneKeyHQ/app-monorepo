@@ -81,6 +81,7 @@ function TxSimulationContainer() {
         borderWidth: tableLayout ? 0 : 1,
         bg: tableLayout ? '$transparent' : '$bgSubdued',
       }}
+      hasDivider={!tableLayout}
     >
       <Container.Item
         title="Total out"

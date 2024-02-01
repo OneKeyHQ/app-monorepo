@@ -81,16 +81,35 @@ function SendConfirmActionsContainer(props: IProps) {
     sendFeeStatus.status,
   ]);
 
+  if (tableLayout) {
+    return (
+      <Page.FooterActions
+        confirmButtonProps={{
+          size: 'medium',
+          flex: 0,
+          disabled: isSubmitDisabled,
+        }}
+        cancelButtonProps={{
+          size: 'medium',
+          flex: 0,
+        }}
+        onConfirmText="Sign and Broadcast"
+        onConfirm={handleOnConfirm}
+        onCancel={() => navigation.popStack()}
+      />
+    );
+  }
+
   return (
-    <Page.FooterActions
+    <Page.Footer
       confirmButtonProps={{
-        size: tableLayout ? 'medium' : 'large',
-        flex: tableLayout ? 0 : 2,
+        size: 'large',
+        flex: 2,
         disabled: isSubmitDisabled,
       }}
       cancelButtonProps={{
-        size: tableLayout ? 'medium' : 'large',
-        flex: tableLayout ? 0 : 1,
+        size: 'large',
+        flex: 1,
       }}
       onConfirmText="Sign and Broadcast"
       onConfirm={handleOnConfirm}
