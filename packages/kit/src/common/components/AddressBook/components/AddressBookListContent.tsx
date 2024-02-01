@@ -129,6 +129,7 @@ const RenderNoSearchResult = () => {
       icon="SearchOutline"
       title={intl.formatMessage({ id: 'content__no_results' })}
       description="No match found for your search. Try to add this contact."
+      testID="address-book-search-empty"
     />
   );
 };
