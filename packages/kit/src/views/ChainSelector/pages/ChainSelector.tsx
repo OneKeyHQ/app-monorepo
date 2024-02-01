@@ -104,7 +104,9 @@ function ChainSelector({ num }: { num: number }) {
           topNetworks={topNetworks}
           allNetworks={networks}
           selectNetworkId={selectedChain}
-          onChangeTopNetworks={setTopNetworks}
+          onChangeTopNetworks={(items) => {
+            setTopNetworks(items);
+          }}
           onPressItem={(item) => handleListItemPress(item.id)}
         />
       </Page.Body>

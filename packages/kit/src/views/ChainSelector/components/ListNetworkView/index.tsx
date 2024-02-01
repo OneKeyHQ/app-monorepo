@@ -1,9 +1,10 @@
-import { type FC, useCallback, useMemo } from 'react';
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { createContext, useContext } from 'react';
 
 import { Empty, SectionList, SortableListView } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -14,7 +15,7 @@ type IListNetworkContext = {
   topNetworkIds: Set<string>;
   topNetworks: IServerNetwork[];
   onPressItem?: (item: IServerNetwork) => void;
-  onChangeTopNetworks?: (networks: IServerNetwork[]) => void;
+  setTopNetworks?: (networks: IServerNetwork[]) => void;
 };
 
 const ListNetworkContext = createContext<IListNetworkContext>({
@@ -35,7 +36,7 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
     onPressItem,
     topNetworks,
     topNetworkIds,
-    onChangeTopNetworks,
+    setTopNetworks,
   } = useContext(ListNetworkContext);
   return (
     <ListItem
@@ -60,14 +61,14 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
         <ListItem.IconButton
           onPress={() => {
             if (topNetworkIds.has(item.id)) {
-              onChangeTopNetworks?.([
+              setTopNetworks?.([
                 ...topNetworks.filter((o) => o.id !== item.id),
               ]);
             } else {
-              onChangeTopNetworks?.([...topNetworks, item]);
+              setTopNetworks?.([...topNetworks, item]);
             }
           }}
-          title="Move to top"
+          title={topNetworkIds.has(item.id) ? 'Unpin' : 'Pin'}
           key="moveToTop"
           animation="quick"
           enterStyle={{
@@ -85,24 +86,26 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
 
 const ListTopNetworks = () => {
   const {
-    onChangeTopNetworks,
+    setTopNetworks,
     isEditMode,
     topNetworks,
     selectNetworkId,
     searchText,
     onPressItem,
   } = useContext(ListNetworkContext);
-  const { result: networks } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.filterNetworks({
-        networks: topNetworks,
-        searchKey: searchText ?? '',
-      }),
-    [topNetworks, searchText],
-    {
-      initResult: [],
-    },
-  );
+  const networks = useMemo(() => {
+    if (!searchText) {
+      return topNetworks;
+    }
+    return topNetworks.filter((item) => {
+      const name = item.name.toLowerCase();
+      const shortname = item.shortname.toLowerCase();
+      return shortname.includes(searchText) || name.includes(searchText);
+    });
+  }, [topNetworks, searchText]);
+  if (isEditMode && searchText) {
+    return null;
+  }
   if (isEditMode && searchText) {
     return null;
   }
@@ -149,7 +152,7 @@ const ListTopNetworks = () => {
           ) : null}
         </ListItem>
       )}
-      onDragEnd={(result) => onChangeTopNetworks?.(result.data)}
+      onDragEnd={(result) => setTopNetworks?.(result.data)}
       scrollEnabled={false}
     />
   );
@@ -172,23 +175,31 @@ const ListNetworkEmpty = () => (
 export const ListNetworkView: FC<IListNetworkViewProps> = ({
   allNetworks,
   onPressItem,
-  onChangeTopNetworks,
   selectNetworkId,
-  topNetworks,
+  topNetworks: _topNetworks,
   isEditMode,
   searchText,
+  onChangeTopNetworks,
 }) => {
+  const [topNetworks, setTopNetworks] = useState(_topNetworks);
+  const lastIsEditMode = usePrevious(isEditMode);
+
+  useEffect(() => {
+    if (!isEditMode && lastIsEditMode) {
+      onChangeTopNetworks?.(topNetworks);
+    }
+  }, [isEditMode, lastIsEditMode, topNetworks, onChangeTopNetworks]);
+
+  useEffect(() => {
+    setTopNetworks(_topNetworks);
+  }, [_topNetworks]);
+
   const { result: sections } = usePromiseResult(
-    async () => {
-      const networks = await backgroundApiProxy.serviceNetwork.filterNetworks({
+    async () =>
+      backgroundApiProxy.serviceNetwork.groupNetworks({
         networks: allNetworks,
         searchKey: searchText ?? '',
-      });
-      const result = await backgroundApiProxy.serviceNetwork.groupNetworks(
-        networks,
-      );
-      return result;
-    },
+      }),
     [allNetworks, searchText],
     { initResult: [] },
   );
@@ -199,7 +210,7 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
       selectNetworkId,
       onPressItem,
       isEditMode,
-      onChangeTopNetworks,
+      setTopNetworks,
       searchText,
     }),
     [
@@ -207,7 +218,7 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
       selectNetworkId,
       onPressItem,
       isEditMode,
-      onChangeTopNetworks,
+      setTopNetworks,
       searchText,
     ],
   );

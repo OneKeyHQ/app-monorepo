@@ -86,8 +86,18 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async groupNetworks(networks: IServerNetwork[]) {
-    const data = networks.reduce((result, item) => {
+  async groupNetworks({
+    networks,
+    searchKey,
+  }: {
+    networks: IServerNetwork[];
+    searchKey?: string;
+  }) {
+    let input = networks;
+    if (searchKey) {
+      input = await this.filterNetworks({ networks, searchKey });
+    }
+    const data = input.reduce((result, item) => {
       const firstLetter = item.name[0].toUpperCase();
       if (!result[firstLetter]) {
         result[firstLetter] = [];
