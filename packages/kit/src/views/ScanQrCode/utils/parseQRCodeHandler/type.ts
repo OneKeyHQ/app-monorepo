@@ -155,7 +155,10 @@ export type IQRCodeHandlerResult<T extends IBaseValue> = {
 
 export type IQRCodeHandler<T extends IBaseValue> = (
   value: string,
-  options?: object,
+  options?: {
+    urlResult?: IQRCodeHandlerResult<IUrlValue>;
+    deeplinkResult?: IQRCodeHandlerResult<IUrlValue>;
+  },
 ) => IQRCodeHandlerResult<T>;
 
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =

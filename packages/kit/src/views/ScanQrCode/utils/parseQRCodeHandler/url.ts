@@ -11,7 +11,8 @@ export const url: IQRCodeHandler<IUrlValue> = (value) => {
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')
-        .split('/'),
+        .split('/')
+        .filter((x) => x?.length > 0),
       urlParamList: Array.from(urlObject.searchParams.entries()).reduce<{
         [key: string]: any;
       }>((paramList, [paramKey, paramValue]) => {

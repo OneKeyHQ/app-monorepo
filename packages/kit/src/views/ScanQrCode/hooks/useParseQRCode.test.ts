@@ -126,6 +126,15 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+  it('should parse as unknown', () => {
+    expect(parse('abcd')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.UNKNOWN,
+        data: 'abcd',
+        raw: 'abcd',
+      }),
+    );
+  });
   it('should parse as wallet connect', () => {
     expect(
       parse(

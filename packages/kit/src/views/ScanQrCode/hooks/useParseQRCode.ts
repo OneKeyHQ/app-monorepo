@@ -21,11 +21,7 @@ import type {
   IQRCodeHandlerParseResult,
 } from '../utils/parseQRCodeHandler/type';
 
-const handlerList = {
-  ...handlers,
-  ...deeplinkHandler,
-  ...urlHandler,
-} as Record<string, IQRCodeHandler<IBaseValue>>;
+const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -37,25 +33,31 @@ const useParseQRCode = () => {
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     (value, options) => {
       let result: IQRCodeHandlerParseResult<IBaseValue> | undefined;
-      Object.keys(handlerList).forEach((key) => {
-        const handler = handlerList[key];
-        if (!result) {
-          try {
-            const itemResult = handler(value, options);
-            if (itemResult) {
-              result = {
-                type: itemResult.type,
-                data: itemResult.data,
-                raw: value,
-              };
-            }
-          } catch (e) {
-            console.error(e);
+      const urlResult = urlHandler.url(value);
+      const deeplinkResult = deeplinkHandler.deeplink(value, { urlResult });
+      for (const handler of Object.values(handlerList)) {
+        try {
+          const itemResult = handler(value, {
+            ...options,
+            urlResult,
+            deeplinkResult,
+          });
+          if (itemResult) {
+            result = {
+              type: itemResult.type,
+              data: itemResult.data,
+              raw: value,
+            };
+            break;
           }
+        } catch (e) {
+          console.error(e);
         }
-      });
+      }
       if (!result) {
-        result = { type: EQRCodeHandlerType.UNKNOWN, raw: value, data: value };
+        const itemResult = deeplinkResult ??
+          urlResult ?? { type: EQRCodeHandlerType.UNKNOWN, data: value };
+        result = { ...itemResult, raw: value };
       }
 
       if (
@@ -85,7 +87,7 @@ const useParseQRCode = () => {
           break;
         }
         default: {
-          Dialog.show({
+          Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),
             description: value,
             onConfirmText: intl.formatMessage({
@@ -94,7 +96,6 @@ const useParseQRCode = () => {
             confirmButtonProps: {
               icon: 'Copy3Outline',
             },
-            showCancelButton: false,
             onConfirm: ({ preventClose }) => {
               preventClose();
               clipboard?.copyText(value);
