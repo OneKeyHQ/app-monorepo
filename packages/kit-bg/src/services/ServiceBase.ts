@@ -1,13 +1,13 @@
 import axios from 'axios';
 import memoizee from 'memoizee';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpoints } from '../endpoints';
@@ -63,7 +63,7 @@ export default class ServiceBase {
     {
       promise: true,
       primitive: true,
-      maxAge: getTimeDurationMs({ minute: 10 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
       max: 2,
     },
   );

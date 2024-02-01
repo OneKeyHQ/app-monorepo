@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions, import/order */
 import '@onekeyhq/shared/src/polyfills';
 
-import { offscreenSetup } from '../offscreen/offscreenSetup';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { startKeepAlivePolling } from '../background/keepAlive';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { offscreenSetup } from '../offscreen/offscreenSetup';
 
 // send a message every 20 sec to service worker
 startKeepAlivePolling();
@@ -20,5 +20,8 @@ function checkPortEstablished() {
     window.location.reload();
   }
 }
-timer = setInterval(checkPortEstablished, getTimeDurationMs({ seconds: 5 }));
+timer = setInterval(
+  checkPortEstablished,
+  timerUtils.getTimeDurationMs({ seconds: 5 }),
+);
 // console.log('offscreen');

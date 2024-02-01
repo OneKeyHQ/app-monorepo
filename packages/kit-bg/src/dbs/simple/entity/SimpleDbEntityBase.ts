@@ -1,4 +1,4 @@
-import { Mutex } from 'async-mutex';
+import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -11,7 +11,7 @@ type ISimpleDbEntitySavedData<T> = {
   updatedAt: number;
 };
 abstract class SimpleDbEntityBase<T> {
-  mutex = new Mutex();
+  mutex = new Semaphore(1);
 
   abstract readonly entityName: string;
 
