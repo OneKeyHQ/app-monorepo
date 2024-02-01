@@ -1,7 +1,7 @@
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -24,7 +24,7 @@ export class VaultFactory {
     promise: true,
     primitive: true,
     max: 1,
-    maxAge: getTimeDurationMs({ minute: 15 }),
+    maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
     dispose: async (vault: VaultBaseChainOnly) => {
       // release resources
       await vault.destroy();
