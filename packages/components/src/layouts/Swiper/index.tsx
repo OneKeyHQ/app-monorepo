@@ -118,6 +118,7 @@ function BaseSwiperFlatList<T>(
             scrollEnabled={scrollEnabled}
             renderItem={handleRenderItem}
             data={data}
+            extraData={data}
             initialNumToRender={1}
             initialScrollIndex={index}
             estimatedItemSize={sharedStyle.height as any}
