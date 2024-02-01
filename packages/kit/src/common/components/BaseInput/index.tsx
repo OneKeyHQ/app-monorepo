@@ -35,6 +35,7 @@ const useAutoSize = (onChangeText?: (text: string) => void) => {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     if (!initHeightRef.current) {
       initHeightRef.current = e.nativeEvent.layout.height;
+      // fix missing numberOfLines on iOS.
       if (platformEnv.isNativeIOS) {
         setMinHeight(initHeightRef.current * 2);
       }
@@ -43,7 +44,7 @@ const useAutoSize = (onChangeText?: (text: string) => void) => {
 
   return {
     minHeight,
-    onLayout: handleLayout,
+    onLayout: platformEnv.isNativeAndroid ? undefined : handleLayout,
     textAreaRef,
     onChangeText: platformEnv.isNative ? onChangeText : handleTextChange,
     numberOfLines,
