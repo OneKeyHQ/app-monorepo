@@ -10,6 +10,8 @@ export interface IDiscoveryBanner {
   hrefType: string;
   rank: number;
   useSystemBrowser: boolean;
+  title?: string;
+  theme?: 'light' | 'dark';
 }
 
 export interface ICategory {
@@ -33,7 +35,7 @@ export interface IDApp {
 export interface IDAppTag {
   tagId: string;
   name: string;
-  color: string;
+  type: string;
 }
 
 export interface IDiscoveryListParams {

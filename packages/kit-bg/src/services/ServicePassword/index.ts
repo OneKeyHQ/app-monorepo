@@ -1,8 +1,14 @@
+import type {
+  IDecryptStringParams,
+  IEncryptStringParams,
+} from '@onekeyhq/core/src/secret';
 import {
   decodePassword,
   decodeSensitiveText,
   decrypt,
+  decryptString,
   encodeSensitiveText,
+  encryptString,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
@@ -71,6 +77,16 @@ export default class ServicePassword extends ServiceBase {
       };
     }
     return null;
+  }
+
+  @backgroundMethod()
+  async encryptString(params: IEncryptStringParams) {
+    return encryptString(params);
+  }
+
+  @backgroundMethod()
+  async decryptString(params: IDecryptStringParams) {
+    return decryptString(params);
   }
 
   @backgroundMethod()

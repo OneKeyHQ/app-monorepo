@@ -97,10 +97,13 @@ const TabMe = () => {
           </Button>
           <Button
             onPress={() => {
-              void backgroundApiProxy.serviceSend.demoSend({
-                networkId: activeAccount.network?.id || '',
-                accountId: activeAccount.account?.id || '',
-              });
+              void backgroundApiProxy.serviceSend
+                .demoSend({
+                  networkId: activeAccount.network?.id || '',
+                  accountId: activeAccount.account?.id || '',
+                })
+                .then((r) => console.log('demoSend done:', r))
+                .catch((e) => console.error('demoSend error', e));
             }}
           >
             测试发送流程(使用首页的账户选择器)

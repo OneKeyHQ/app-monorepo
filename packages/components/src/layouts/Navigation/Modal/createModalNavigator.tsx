@@ -87,7 +87,10 @@ function ModalNavigator({
   }, [navigation, descriptor]);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
-  const currentRouteIndex = rootNavigation?.getState?.().index ?? 0;
+  const currentRouteIndex = Math.max(
+    1,
+    rootNavigation?.getState?.().index ?? 0,
+  );
 
   useEffect(() => {
     if (ROOT_NAVIGATION_INDEX_LISTENER) {
@@ -99,9 +102,13 @@ function ModalNavigator({
     ROOT_NAVIGATION_INDEX_LISTENER = rootNavigation?.addListener(
       'state',
       () => {
+        const newIndex = rootNavigation?.getState?.().index ?? 0;
+        if (newIndex <= 0) {
+          return;
+        }
         Animated.timing(ROOT_NAVIGATION_INDEX_VALUE, {
           duration: 150,
-          toValue: rootNavigation?.getState?.().index ?? 0,
+          toValue: newIndex,
           useNativeDriver: false,
         }).start();
       },
