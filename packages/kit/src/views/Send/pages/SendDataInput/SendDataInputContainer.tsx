@@ -90,24 +90,16 @@ function SendDataInputContainer() {
 
   const { result: tokenDetails, isLoading: isLoadingToken } = usePromiseResult(
     async () => {
-      if (isNFT) return;
+      if (isNFT || !token) return;
       const account = await getAccount();
-      const r = await serviceToken.fetchTokenDetails({
+      const r = await serviceToken.fetchTokensDetails({
         networkId,
         accountAddress: account.address,
-        address: token?.address ?? '',
-        isNative: token?.isNative ?? false,
+        contractList: [token.address],
       });
-      return r;
+      return r?.[0];
     },
-    [
-      getAccount,
-      isNFT,
-      networkId,
-      serviceToken,
-      token?.address,
-      token?.isNative,
-    ],
+    [getAccount, isNFT, networkId, serviceToken, token],
     { watchLoading: true },
   );
 
@@ -126,6 +118,7 @@ function SendDataInputContainer() {
 
   // token amount or fiat amount
   const amount = form.watch('amount');
+  const toPending = form.watch('to.pending');
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
@@ -250,7 +243,8 @@ function SendDataInputContainer() {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isLoadingToken || isLoadingNFT || isSubmitting) return true;
+    if (isLoadingToken || isLoadingNFT || isSubmitting || toPending)
+      return true;
 
     if (!form.formState.isValid || !amount) {
       return true;
@@ -261,6 +255,7 @@ function SendDataInputContainer() {
     isLoadingNFT,
     isLoadingToken,
     isSubmitting,
+    toPending,
   ]);
 
   const renderTokenDataInputForm = useCallback(() => {
@@ -418,6 +413,9 @@ function SendDataInputContainer() {
             rules={{
               required: true,
               validate: (value: IAddressInputValue) => {
+                if (value.pending) {
+                  return;
+                }
                 if (!value.resolved) {
                   return intl.formatMessage({ id: 'form__address_invalid' });
                 }

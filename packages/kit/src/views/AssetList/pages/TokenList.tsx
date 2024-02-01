@@ -11,7 +11,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useTokenListActions,
   withTokenListProvider,
-} from '../../../states/jotai/contexts/token-list';
+} from '../../../states/jotai/contexts/tokenList';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 
 import type {

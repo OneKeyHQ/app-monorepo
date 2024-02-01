@@ -490,14 +490,14 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.confirm({
                   title: 'call by Dismiss Function',
-                  description: 'onDismiss',
-                  onDismiss: () => {
+                  description: 'onClose',
+                  onClose: () => {
                     alert('Execute it once the dialog is closed');
                   },
                 })
               }
             >
-              onDismiss Function
+              onClose Function
             </Button>
             <Button
               onPress={() => {

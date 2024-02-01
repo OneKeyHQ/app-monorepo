@@ -200,6 +200,8 @@ function DialogFrame({
         position={position}
         onPositionChange={setPosition}
         dismissOnSnapToBottom
+        // the native dismissOnOverlayPress used on native side,
+        //  so it needs to assign a value to onOpenChange.
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
@@ -232,7 +234,12 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open} onOpenChange={handleOpenChange}>
+    <TMDialog
+      open={open}
+      // the native dismissOnOverlayPress used on native side,
+      //  so it needs to assign a value to onOpenChange.
+      onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
+    >
       <AnimatePresence>
         {open ? (
           <Stack
@@ -354,11 +361,7 @@ const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
   BaseDialogContainer,
 );
 
-function DialogShow({
-  onClose,
-  onDismiss,
-  ...props
-}: IDialogShowProps): IDialogInstance {
+function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
   let portalRef:
@@ -368,8 +371,6 @@ function DialogShow({
     | undefined;
   const handleClose = () =>
     new Promise<void>((resolve) => {
-      void onClose?.();
-      // Remove the React node after the animation has finished.
       setTimeout(() => {
         if (instanceRef) {
           instanceRef = undefined;
@@ -378,10 +379,52 @@ function DialogShow({
           portalRef.current.destroy();
           portalRef = undefined;
         }
-        void onDismiss?.();
+        void onClose?.();
         resolve();
       }, 300);
     });
+
+  if (platformEnv.isDev) {
+    const {
+      showFooter,
+      onCancel,
+      onCancelText,
+      cancelButtonProps,
+      showConfirmButton,
+      showCancelButton,
+      onConfirm,
+      onConfirmText,
+      confirmButtonProps,
+    } = props;
+    if (
+      !showFooter &&
+      (onCancel ||
+        onCancelText ||
+        cancelButtonProps ||
+        onConfirm ||
+        onConfirmText ||
+        confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (
+      !showConfirmButton &&
+      (onConfirm || onConfirmText || confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showConfirmButton is false, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (!showCancelButton && (onCancel || onCancelText || cancelButtonProps)) {
+      throw new Error(
+        'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
+      );
+    }
+  }
   portalRef = {
     current: Portal.Render(
       Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
