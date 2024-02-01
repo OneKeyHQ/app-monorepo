@@ -23,7 +23,7 @@ function DAppRequestLayout({
         mt: top,
       }}
     >
-      <DAppRiskyAlert urlSecurityInfo={urlSecurityInfo} />
+      <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />
       <Stack p="$5" space="$8">
         <Stack space="$2.5">
           <DAppSiteMark origin={origin} urlSecurityInfo={urlSecurityInfo} />
