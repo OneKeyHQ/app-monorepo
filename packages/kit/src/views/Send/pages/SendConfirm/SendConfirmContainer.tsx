@@ -39,7 +39,7 @@ function SendConfirmContainer() {
         <Page.Body>
           <XStack h="100%" px="$5">
             <Container.Box
-              blockProps={{ width: '236px', height: '100%' }}
+              blockProps={{ width: '236px', pb: '$5' }}
               contentProps={{
                 height: '100%',
                 flexDirection: 'column-reverse',
