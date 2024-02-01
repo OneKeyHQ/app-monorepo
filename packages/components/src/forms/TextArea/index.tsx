@@ -42,6 +42,9 @@ function BaseTextArea(
       focusStyle={sharedStyles.focusStyle}
       disabled={disabled}
       cursor={sharedStyles.cursor}
+      style={{
+        borderCurve: 'continuous',
+      }}
       {...props}
     />
   );
