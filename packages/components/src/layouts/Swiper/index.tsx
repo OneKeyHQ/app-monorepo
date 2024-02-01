@@ -105,7 +105,7 @@ function BaseSwiperFlatList<T>(
       onLayout={onContainerLayout}
       {...sharedStyle}
     >
-      {containerWidth ? (
+      {containerWidth && data?.length ? (
         <>
           <ListView
             {...restProps}
