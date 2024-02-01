@@ -20,7 +20,6 @@ import { Trigger } from '../Trigger';
 
 export type IShowToasterProps = PropsWithChildren<{
   onClose?: () => Promise<void> | void;
-  onDismiss?: () => void;
   dismissOnOverlayPress?: boolean;
   duration?: number;
   disableSwipeGesture?: boolean;
