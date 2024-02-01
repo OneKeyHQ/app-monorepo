@@ -1,5 +1,5 @@
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { getTimeDurationMs } from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { IMPL_EVM } from '../engine/engineConsts';
 
@@ -12,7 +12,7 @@ export type INamespaceUnion = 'eip155';
 export const WALLET_CONNECT_ALL_CHAINS = [...getEIP155Chains()];
 
 export const getAllChains = memoizee(() => [...getEIP155Chains()], {
-  maxAge: getTimeDurationMs({
+  maxAge: timerUtils.getTimeDurationMs({
     minute: 5,
   }),
 });
