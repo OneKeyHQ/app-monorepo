@@ -4,9 +4,9 @@ import { useIsFocused } from '@react-navigation/core';
 import { requestPermissionsAsync as requestCameraPermissionsAsync } from 'expo-barcode-scanner';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
-import { Linking } from 'react-native';
 
 import { Dialog, Stack, YStack } from '@onekeyhq/components';
+import { openSettings } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
@@ -64,7 +64,7 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
                 .openUrlInTab(EXT_HTML_FILES.uiExpandTab)
                 .catch(console.error);
             } else {
-              void Linking.openSettings();
+              openSettings('camera');
             }
           },
         });
