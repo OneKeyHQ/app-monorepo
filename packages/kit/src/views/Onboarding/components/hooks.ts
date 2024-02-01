@@ -62,6 +62,8 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const openStatusRef = useRef(false);
 
+  const updateByPressLock = useRef(false);
+
   const resetSuggestions = useCallback(() => {
     openStatusRef.current = false;
     updateSuggestions([]);
@@ -85,6 +87,11 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
 
   const onInputChange = useCallback(
     (value: string) => {
+      // on ios, when the value is changed, onInputChange will called twice.
+      //  so lock the update when the value is changed by press suggestion item.
+      if (updateByPressLock.current) {
+        return value;
+      }
       if (!value) {
         resetSuggestions();
       }
@@ -99,19 +106,24 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     [fetchSuggestions, resetSuggestions],
   );
 
-  const getFormValue = useCallback(() => {
-    const key = `phrase${selectInputIndex + 1}`;
-    const values = form.getValues() as Record<string, string>;
-    const value = values[key];
-    return value;
-  }, [form, selectInputIndex]);
+  const getFormValueByIndex = useCallback(
+    (index: number) => {
+      const key = `phrase${index + 1}`;
+      const values = form.getValues() as Record<string, string>;
+      const value = values[key];
+      return value;
+    },
+    [form],
+  );
 
   const updateInputValueWithLock = useCallback(
-    (word: string) => {
+    async (word: string) => {
+      updateByPressLock.current = true;
       updateInputValue(word);
       resetSuggestions();
       if (word.length > 0) {
-        void focusNextInput();
+        await focusNextInput();
+        updateByPressLock.current = false;
       }
     },
     [focusNextInput, resetSuggestions, updateInputValue],
@@ -125,19 +137,22 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     },
   });
 
-  const checkIsValid = useCallback(() => {
-    const value = getFormValue();
-    const result = isValidWord(value);
-    if (!result) {
-      updateInputValueWithLock('');
-      openStatusRef.current = false;
-    }
-  }, [getFormValue, isValidWord, updateInputValueWithLock]);
+  const checkIsValid = useCallback(
+    async (index: number) => {
+      const value = getFormValueByIndex(index);
+      const result = isValidWord(value);
+      if (!result) {
+        await updateInputValueWithLock('');
+        openStatusRef.current = false;
+      }
+    },
+    [getFormValueByIndex, isValidWord, updateInputValueWithLock],
+  );
 
   const onInputFocus = useCallback(
     (index: number) => {
       if (openStatusRef.current && index !== selectInputIndex) {
-        checkIsValid();
+        void checkIsValid(index);
       }
       setSelectInputIndex(index);
     },
@@ -150,7 +165,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
         return;
       }
       if (index === selectInputIndex) {
-        checkIsValid();
+        void checkIsValid(index);
         setSelectInputIndex(-1);
       }
       openStatusRef.current = false;
