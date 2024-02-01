@@ -27,8 +27,13 @@ function SignMessageModal() {
     closeWindowAfterResolved: true,
   });
 
-  const { continueOperate, setContinueOperate, canContinueOperate, riskLevel } =
-    useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  const {
+    continueOperate,
+    setContinueOperate,
+    canContinueOperate,
+    riskLevel,
+    urlSecurityInfo,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const handleSignMessage = useCallback(
     async ({ close }: { close?: () => void }) => {
@@ -52,7 +57,7 @@ function SignMessageModal() {
         <DAppRequestLayout
           title="Message Signature Request"
           origin={$sourceInfo?.origin ?? ''}
-          riskLevel={riskLevel}
+          urlSecurityInfo={urlSecurityInfo}
         >
           <DAppAccountListStandAloneItem readonly />
           <DAppSignMessageContent content={unsignedMessage.message} />
@@ -67,9 +72,9 @@ function SignMessageModal() {
           onConfirm={handleSignMessage}
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
-            disabled: !continueOperate,
+            disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'Verified'}
+          showContinueOperateCheckbox={riskLevel !== 'security'}
         />
       </Page.Footer>
     </Page>

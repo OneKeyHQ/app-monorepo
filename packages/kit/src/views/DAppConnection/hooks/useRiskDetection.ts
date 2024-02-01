@@ -1,36 +1,28 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import type { IRiskLevel } from '../types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 function useRiskDetection({ origin }: { origin: string }) {
-  const [riskLevel, setRiskLevel] = useState<IRiskLevel>('Unknown');
   const [continueOperate, setContinueOperate] = useState(false);
 
-  const canContinueOperate = useMemo(
-    () => riskLevel === 'Verified' || continueOperate,
-    [continueOperate, riskLevel],
-  );
-
-  useEffect(() => {
-    if (!origin) return;
-
-    // 定义一个获取随机风险等级的函数
-    const getRandomRiskLevel = (): IRiskLevel => {
-      const riskLevels: IRiskLevel[] = ['Verified', 'Unknown', 'Scam'];
-      const randomIndex = Math.floor(Math.random() * riskLevels.length);
-      return riskLevels[randomIndex];
-    };
-
-    // 使用上面定义的函数设置随机风险等级
-    setRiskLevel(getRandomRiskLevel());
-    // setRiskLevel('Verified');
+  const { result: urlSecurityInfo } = usePromiseResult(async () => {
+    if (!origin) return {} as IHostSecurity;
+    return backgroundApiProxy.serviceDiscovery.checkUrlSecurity(origin);
   }, [origin]);
+
+  const canContinueOperate = useMemo(
+    () => urlSecurityInfo?.level === 'security' || continueOperate,
+    [continueOperate, urlSecurityInfo?.level],
+  );
 
   return {
     continueOperate,
     setContinueOperate,
     canContinueOperate,
-    riskLevel,
+    urlSecurityInfo,
+    riskLevel: urlSecurityInfo?.level ?? 'unknown',
   };
 }
 

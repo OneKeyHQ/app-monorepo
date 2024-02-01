@@ -5,15 +5,14 @@ import { StyleSheet } from 'react-native';
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
-import type { IRiskLevel } from '../../types';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 function DAppSiteMark({
   origin,
-  riskLevel,
+  urlSecurityInfo,
 }: {
   origin: string;
-  riskLevel: IRiskLevel;
+  urlSecurityInfo?: IHostSecurity;
 }) {
   const content = useMemo(() => origin, [origin]);
   const [faviconUri, setFaviconUri] = useState<string>('');
@@ -32,11 +31,21 @@ function DAppSiteMark({
     bg: string;
     borderColor: string;
     textColor: string;
-    iconName: IIconProps['name'];
-    iconColor: IIconProps['color'];
+    iconName: IIconProps['name'] | null;
+    iconColor: IIconProps['color'] | null;
   }>(() => {
-    switch (riskLevel) {
-      case 'Verified': {
+    const defaultStyle = {
+      bg: '$bgSubdued',
+      borderColor: '$borderSubdued',
+      textColor: '$textSubdued',
+      iconName: null,
+      iconColor: null,
+    };
+    if (!urlSecurityInfo?.level) {
+      return defaultStyle;
+    }
+    switch (urlSecurityInfo?.level) {
+      case 'security': {
         return {
           bg: '$bgSubdued',
           borderColor: '$border',
@@ -45,7 +54,7 @@ function DAppSiteMark({
           iconColor: '$iconSuccess',
         };
       }
-      case 'Scam': {
+      case 'high': {
         return {
           bg: '$bgCriticalSubdued',
           borderColor: '$borderCritical',
@@ -54,7 +63,7 @@ function DAppSiteMark({
           iconColor: '$iconCritical',
         };
       }
-      default: {
+      case 'medium': {
         return {
           bg: '$bgCautionSubdued',
           borderColor: '$borderCaution',
@@ -63,8 +72,11 @@ function DAppSiteMark({
           iconColor: '$iconCaution',
         };
       }
+      default: {
+        return defaultStyle;
+      }
     }
-  }, [riskLevel]);
+  }, [urlSecurityInfo?.level]);
 
   return (
     <XStack
@@ -90,7 +102,13 @@ function DAppSiteMark({
       >
         {content}
       </SizableText>
-      <Icon name={riskyStyle.iconName} color={riskyStyle.iconColor} size="$5" />
+      {riskyStyle.iconName && riskyStyle.iconColor ? (
+        <Icon
+          name={riskyStyle.iconName}
+          color={riskyStyle.iconColor}
+          size="$5"
+        />
+      ) : null}
     </XStack>
   );
 }

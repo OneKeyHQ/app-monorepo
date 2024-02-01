@@ -1,25 +1,16 @@
 import { useMemo } from 'react';
 
 import { Alert } from '@onekeyhq/components';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
-import type { IRiskLevel } from '../../types';
+function DAppRiskyAlert({
+  urlSecurityInfo,
+}: {
+  urlSecurityInfo?: IHostSecurity;
+}) {
+  const isScamLevel = urlSecurityInfo?.level === 'high';
 
-function DAppRiskyAlert({ riskLevel }: { riskLevel: IRiskLevel }) {
-  const content = useMemo(() => {
-    switch (riskLevel) {
-      case 'Scam': {
-        return 'Risky domain. Leave to secure your assets.';
-      }
-      case 'Unknown': {
-        return 'This domain cannot be verified. Check the request carefully before approving.';
-      }
-      default:
-        return '';
-    }
-  }, [riskLevel]);
-  const isScamLevel = riskLevel === 'Scam';
-
-  if (riskLevel === 'Verified') {
+  if (!urlSecurityInfo?.alert) {
     return null;
   }
 
@@ -27,7 +18,7 @@ function DAppRiskyAlert({ riskLevel }: { riskLevel: IRiskLevel }) {
     <Alert
       fullBleed
       type={isScamLevel ? 'critical' : 'warning'}
-      title={content}
+      title={urlSecurityInfo.alert}
       icon={isScamLevel ? 'ErrorSolid' : 'InfoSquareSolid'}
       action={{
         primary: 'Details',

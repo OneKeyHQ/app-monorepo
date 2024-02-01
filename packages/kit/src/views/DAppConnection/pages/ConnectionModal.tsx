@@ -26,8 +26,13 @@ function ConnectionModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
-  const { continueOperate, setContinueOperate, canContinueOperate, riskLevel } =
-    useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  const {
+    continueOperate,
+    setContinueOperate,
+    canContinueOperate,
+    riskLevel,
+    urlSecurityInfo,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
@@ -107,7 +112,7 @@ function ConnectionModal() {
         <DAppRequestLayout
           title="Connection Request"
           origin={$sourceInfo?.origin ?? ''}
-          riskLevel={riskLevel}
+          urlSecurityInfo={urlSecurityInfo}
         >
           <DAppAccountListStandAloneItem
             handleAccountChanged={handleAccountChanged}
@@ -126,7 +131,7 @@ function ConnectionModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'Verified'}
+          showContinueOperateCheckbox={riskLevel !== 'security'}
         />
       </Page.Footer>
     </Page>

@@ -219,13 +219,6 @@ function DashboardHeader({
       </SizableText>
       <Button
         onPress={() => {
-          void backgroundApiProxy.serviceDiscovery.notifyTest();
-        }}
-      >
-        NotifyTest
-      </Button>
-      <Button
-        onPress={() => {
           navigation.pushModal(EModalRoutes.DAppConnectionModal, {
             screen: EDAppConnectionModal.ConnectionList,
           });

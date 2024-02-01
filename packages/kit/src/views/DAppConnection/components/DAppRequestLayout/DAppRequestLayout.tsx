@@ -1,21 +1,20 @@
 import type { PropsWithChildren } from 'react';
 
 import { SizableText, Stack, useSafeAreaInsets } from '@onekeyhq/components';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppRiskyAlert } from './DAppRiskyAlert';
 import { DAppSiteMark } from './DAppSiteMark';
 
-import type { IRiskLevel } from '../../types';
-
 function DAppRequestLayout({
   title,
   origin,
-  riskLevel,
+  urlSecurityInfo,
   children,
 }: PropsWithChildren<{
   title: string;
   origin: string;
-  riskLevel: IRiskLevel;
+  urlSecurityInfo?: IHostSecurity;
 }>) {
   const { top } = useSafeAreaInsets();
   return (
@@ -24,10 +23,10 @@ function DAppRequestLayout({
         mt: top,
       }}
     >
-      <DAppRiskyAlert riskLevel={riskLevel} />
+      <DAppRiskyAlert urlSecurityInfo={urlSecurityInfo} />
       <Stack p="$5" space="$8">
         <Stack space="$2.5">
-          <DAppSiteMark origin={origin} riskLevel={riskLevel} />
+          <DAppSiteMark origin={origin} urlSecurityInfo={urlSecurityInfo} />
           <SizableText color="$text" size="$heading3xl">
             {title}
           </SizableText>

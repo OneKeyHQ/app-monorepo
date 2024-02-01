@@ -42,3 +42,17 @@ export interface IDiscoveryListParams {
   category: string;
   network?: string;
 }
+
+export type IHostSecurityLevel = 'medium' | 'high' | 'security' | 'unknown';
+export interface IAttackType {
+  name: string;
+  description: string;
+}
+
+export interface IHostSecurity {
+  host: string;
+  level: IHostSecurityLevel;
+  attackTypes: IAttackType[];
+  phishingSite: boolean;
+  alert: string;
+}

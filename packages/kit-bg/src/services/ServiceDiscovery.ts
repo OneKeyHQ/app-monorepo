@@ -16,13 +16,12 @@ import type {
   IDApp,
   IDiscoveryHomePageData,
   IDiscoveryListParams,
+  IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
-
-import type ProviderApiBase from '../providers/ProviderApiBase';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -122,6 +121,30 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
+  async checkUrlSecurity(url: string) {
+    return this._checkUrlSecurity(url);
+  }
+
+  _checkUrlSecurity = memoizee(
+    async (url: string) => {
+      const client = await this.getClient();
+      const res = await client.get<{ data: IHostSecurity }>(
+        '/utility/v1/discover/check-host',
+        {
+          params: {
+            url,
+          },
+        },
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
   async getBookmarkData(
     options:
       | {
@@ -170,19 +193,6 @@ class ServiceDiscovery extends ServiceBase {
     );
 
     return bookmarks;
-  }
-
-  @backgroundMethod()
-  async notifyTest() {
-    await wait(600);
-    Object.values(this.backgroundApi.providers).forEach(
-      (provider: ProviderApiBase) => {
-        provider.notifyDappChainChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin: new URL('https://app.uniswap.org').origin,
-        });
-      },
-    );
   }
 }
 
