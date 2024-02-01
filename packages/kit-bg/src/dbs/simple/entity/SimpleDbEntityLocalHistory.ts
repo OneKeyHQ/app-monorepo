@@ -1,6 +1,5 @@
 import { uniqBy } from 'lodash';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
@@ -8,38 +7,143 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
-const MAX_SAVED_HISTORY_COUNT = 1000;
-const AUTO_CLEAN_HISTORY_TIME = getTimeDurationMs({ day: 1 });
-
 export interface ILocalHistory {
-  txs: IAccountHistoryTx[];
-  lastCleanTime?: number;
+  pendingTxs: IAccountHistoryTx[];
 }
 
 export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory> {
   entityName = 'localHistory';
 
-  // disable full history cache,
-  // but add accountHistoryCache instead to save memory
-  override enableCache = false;
+  override enableCache = true;
 
-  accountHistoryCache: {
-    accountId?: string;
-    networkId?: string;
-    txs: IAccountHistoryTx[];
-  } = {
-    txs: [],
-  };
+  @backgroundMethod()
+  public async saveLocalHistoryPendingTxs(txs: IAccountHistoryTx[]) {
+    if (!txs || !txs.length) return;
+    const rawData = await this.getRawData();
 
-  _getAccountLocalHistory(params: {
+    let pendingTxs = rawData?.pendingTxs ?? [];
+
+    pendingTxs = uniqBy([...txs, ...pendingTxs], (tx) => tx.id).filter(
+      (tx) => tx.decodedTx.status === EDecodedTxStatus.Pending,
+    );
+
+    return this.setRawData({
+      ...rawData?.pendingTxs,
+      pendingTxs,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateLocalHistoryPendingTxs(
+    onChainHistoryTxs: IAccountHistoryTx[],
+  ) {
+    if (!onChainHistoryTxs || !onChainHistoryTxs.length) return;
+    const rawData = await this.getRawData();
+
+    const pendingTxs = rawData?.pendingTxs;
+
+    if (!pendingTxs || !pendingTxs.length) return;
+
+    const newPendingTxs: IAccountHistoryTx[] = [];
+
+    for (const tx of pendingTxs) {
+      const onChainHistoryTx = onChainHistoryTxs.find(
+        (item) => item.id === tx.id,
+      );
+      if (
+        !onChainHistoryTx ||
+        onChainHistoryTx.decodedTx.status === EDecodedTxStatus.Pending
+      ) {
+        newPendingTxs.push(tx);
+      }
+    }
+
+    return this.setRawData({
+      ...rawData,
+      pendingTxs: newPendingTxs,
+    });
+  }
+
+  @backgroundMethod()
+  public async getAccountLocalHistoryPendingTxs(params: {
     accountId: string;
     networkId: string;
-    allTxs: IAccountHistoryTx[];
+    tokenIdOnNetwork?: string;
   }) {
-    const { accountId, networkId, allTxs } = params;
-    return allTxs.filter(
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+
+    const pendingTxs = (await this.getRawData())?.pendingTxs || [];
+    let accountPendingTxs = this._getAccountLocalHistoryPendingTxs({
+      pendingTxs,
+      accountId,
+      networkId,
+    });
+
+    accountPendingTxs.sort(
+      (b, a) =>
+        (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+        (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+    );
+
+    if (tokenIdOnNetwork || tokenIdOnNetwork === '') {
+      accountPendingTxs = accountPendingTxs.filter(
+        (tx) =>
+          ([] as IDecodedTxAction[])
+            .concat(tx.decodedTx.actions)
+            .concat(tx.decodedTx.outputActions || [])
+            .filter(
+              (action) =>
+                action &&
+                this._checkIsActionIncludesToken({
+                  historyTx: tx,
+                  action,
+                  tokenIdOnNetwork,
+                }),
+            ).length > 0,
+      );
+    }
+
+    return accountPendingTxs;
+  }
+
+  @backgroundMethod()
+  async getPendingNonceList(props: {
+    accountId: string;
+    networkId: string;
+  }): Promise<number[]> {
+    const { accountId, networkId } = props;
+    const pendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      accountId,
+      networkId,
+    });
+    const nonceList = pendingTxs.map((tx) => tx.decodedTx.nonce);
+    return nonceList || [];
+  }
+
+  @backgroundMethod()
+  async getMaxPendingNonce(props: {
+    accountId: string;
+    networkId: string;
+  }): Promise<number | null> {
+    const nonceList = await this.getPendingNonceList(props);
+    if (nonceList.length) {
+      const nonce = Math.max(...nonceList);
+      if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
+        return null;
+      }
+      return nonce;
+    }
+    return null;
+  }
+
+  _getAccountLocalHistoryPendingTxs(params: {
+    accountId: string;
+    networkId: string;
+    pendingTxs: IAccountHistoryTx[];
+  }) {
+    const { accountId, networkId, pendingTxs } = params;
+    return pendingTxs.filter(
       (tx) =>
-        tx.decodedTx.status !== EDecodedTxStatus.Removed &&
         tx.decodedTx.accountId === accountId &&
         tx.decodedTx.networkId === networkId,
     );
@@ -65,174 +169,5 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       (historyTx.decodedTx?.tokenIdOnNetwork === tokenIdOnNetwork &&
         tokenIdOnNetwork)
     );
-  }
-
-  @backgroundMethod()
-  public async saveLocalHistoryTxs(txs: IAccountHistoryTx[]) {
-    if (!txs || !txs.length) return;
-    const rawData = await this.getRawData();
-
-    let allTxs = rawData?.txs ?? [];
-
-    allTxs = uniqBy([...txs, ...allTxs], (tx) => tx.id);
-
-    const { accountId, networkId } = this.accountHistoryCache;
-    if (accountId && networkId) {
-      const items = this._getAccountLocalHistory({
-        allTxs,
-        accountId,
-        networkId,
-      });
-      this.accountHistoryCache = {
-        accountId,
-        networkId,
-        txs: items,
-      };
-    }
-
-    setTimeout(() => {
-      void this.cleanHistory();
-    }, 5000);
-
-    return this.setRawData({
-      ...rawData,
-      txs: allTxs,
-    });
-  }
-
-  @backgroundMethod()
-  public async getAccountLocalHistory(params: {
-    accountId: string;
-    networkId: string;
-    tokenIdOnNetwork?: string;
-    isPending?: boolean;
-    limit?: number;
-  }) {
-    const { accountId, networkId, isPending, tokenIdOnNetwork, limit } = params;
-    let txs: IAccountHistoryTx[] = [];
-
-    if (
-      this.accountHistoryCache.accountId === accountId &&
-      this.accountHistoryCache.networkId === networkId &&
-      this.accountHistoryCache.txs &&
-      this.accountHistoryCache.txs.length
-    ) {
-      txs = this.accountHistoryCache.txs;
-    } else {
-      const allTxs = (await this.getRawData())?.txs || [];
-      txs = this._getAccountLocalHistory({
-        allTxs,
-        accountId,
-        networkId,
-      });
-      this.accountHistoryCache = {
-        accountId,
-        networkId,
-        txs,
-      };
-    }
-
-    txs = txs
-      .sort(
-        (b, a) =>
-          (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-          (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-      )
-      .sort((a, b) => {
-        const num1 = a.decodedTx.status === EDecodedTxStatus.Pending ? -1 : 1;
-        const num2 = b.decodedTx.status === EDecodedTxStatus.Pending ? -1 : 1;
-        return num1 - num2; // pending to first
-      });
-
-    if (tokenIdOnNetwork || tokenIdOnNetwork === '') {
-      txs = txs.filter(
-        (tx) =>
-          ([] as IDecodedTxAction[])
-            .concat(tx.decodedTx.actions)
-            .concat(tx.decodedTx.outputActions || [])
-            .filter(
-              (action) =>
-                action &&
-                this._checkIsActionIncludesToken({
-                  historyTx: tx,
-                  action,
-                  tokenIdOnNetwork,
-                }),
-            ).length > 0,
-      );
-    }
-
-    if (isPending) {
-      txs = txs.filter(
-        (tx) => tx.decodedTx.status === EDecodedTxStatus.Pending,
-      );
-    }
-
-    txs = txs.slice(0, limit);
-
-    return txs;
-  }
-
-  @backgroundMethod()
-  async getPendingNonceList(props: {
-    accountId: string;
-    networkId: string;
-  }): Promise<number[]> {
-    const { accountId, networkId } = props;
-    const pendingTxs = await this.getAccountLocalHistory({
-      accountId,
-      networkId,
-      isPending: true,
-    });
-    const nonceList = pendingTxs.map((tx) => tx.decodedTx.nonce);
-    return nonceList || [];
-  }
-
-  @backgroundMethod()
-  async getMaxPendingNonce(props: {
-    accountId: string;
-    networkId: string;
-  }): Promise<number | null> {
-    const nonceList = await this.getPendingNonceList(props);
-    if (nonceList.length) {
-      const nonce = Math.max(...nonceList);
-      if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
-        return null;
-      }
-      return nonce;
-    }
-    return null;
-  }
-
-  async cleanHistory() {
-    const rawData = await this.getRawData();
-    if (!rawData) {
-      return;
-    }
-    const allTxs = rawData?.txs || [];
-    if (!allTxs.length) {
-      return;
-    }
-    const lastCleanTime = rawData?.lastCleanTime || 0;
-    if (Date.now() - lastCleanTime < AUTO_CLEAN_HISTORY_TIME) {
-      return;
-    }
-
-    const allTxsCleaned = [];
-    let count = 0;
-    for (const tx of allTxs) {
-      if (!tx.isLocalCreated) {
-        count += 1;
-      }
-      allTxsCleaned.push(tx);
-      if (count > MAX_SAVED_HISTORY_COUNT) {
-        break;
-      }
-    }
-    await this.setRawData({
-      ...rawData,
-      txs: allTxsCleaned,
-      lastCleanTime: Date.now(),
-    });
   }
 }

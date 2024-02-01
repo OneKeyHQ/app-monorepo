@@ -25,6 +25,23 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const onChainHistoryTxs = await this.fetchAccountOnChainHistory(params);
+
+    await simpleDb.localHistory.updateLocalHistoryPendingTxs(onChainHistoryTxs);
+
+    const localHistoryPendingTxs =
+      await simpleDb.localHistory.getAccountLocalHistoryPendingTxs({
+        networkId,
+        accountId,
+        tokenIdOnNetwork,
+      });
+
+    return [...localHistoryPendingTxs, ...onChainHistoryTxs];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
@@ -39,18 +56,20 @@ class ServiceHistory extends ServiceBase {
 
     const { data: onChainHistoryTxs, tokens } = resp.data.data;
 
-    const txs = await Promise.all(
-      onChainHistoryTxs.map((tx) =>
-        vault.buildOnChainHistoryTx({
-          accountId,
-          networkId,
-          onChainHistoryTx: tx,
-          tokens,
-        }),
-      ),
-    );
+    const txs = (
+      await Promise.all(
+        onChainHistoryTxs.map((tx) =>
+          vault.buildOnChainHistoryTx({
+            accountId,
+            networkId,
+            onChainHistoryTx: tx,
+            tokens,
+          }),
+        ),
+      )
+    ).filter(Boolean) as IAccountHistoryTx[];
 
-    return txs.filter(Boolean) as IAccountHistoryTx[];
+    return txs;
   }
 
   @backgroundMethod()
@@ -66,11 +85,32 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async saveLocalHistoryTxs(params: { txs: IAccountHistoryTx[] }) {
-    const { txs } = params;
-    if (!txs || !txs.length) return;
+  public async getAccountLocalHistoryPendingTxs(params: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork?: string;
+    limit?: number;
+    isPending?: boolean;
+  }) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const localHistoryPendingTxs =
+      await simpleDb.localHistory.getAccountLocalHistoryPendingTxs({
+        networkId,
+        accountId,
+        tokenIdOnNetwork,
+      });
 
-    return simpleDb.localHistory.saveLocalHistoryTxs(txs);
+    return localHistoryPendingTxs;
+  }
+
+  @backgroundMethod()
+  public async saveLocalHistoryPendingTxs(params: {
+    pendingTxs: IAccountHistoryTx[];
+  }) {
+    const { pendingTxs } = params;
+    if (!pendingTxs || !pendingTxs.length) return;
+
+    return simpleDb.localHistory.saveLocalHistoryPendingTxs(pendingTxs);
   }
 
   @backgroundMethod()
@@ -97,7 +137,7 @@ class ServiceHistory extends ServiceBase {
     });
     newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
 
-    await this.saveLocalHistoryTxs({ txs: [newHistoryTx] });
+    await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }
 

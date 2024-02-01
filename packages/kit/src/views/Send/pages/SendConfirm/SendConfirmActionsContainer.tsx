@@ -82,7 +82,7 @@ function SendConfirmActionsContainer(props: IProps) {
   ]);
 
   return (
-    <Page.Footer
+    <Page.FooterActions
       confirmButtonProps={{
         size: tableLayout ? 'medium' : 'large',
         flex: tableLayout ? 0 : 2,

@@ -1,6 +1,13 @@
 import { memo, useCallback } from 'react';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
@@ -54,6 +61,8 @@ function SimulationItem(item: ITxSimulationItem) {
 }
 
 function TxSimulationContainer() {
+  const tableLayout = useMedia().gtLg;
+
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (
       <YStack space="$1">
@@ -66,7 +75,13 @@ function TxSimulationContainer() {
   );
 
   return (
-    <Container.Box>
+    <Container.Box
+      contentProps={{
+        px: tableLayout ? '0' : '$5',
+        borderWidth: tableLayout ? 0 : 1,
+        bg: tableLayout ? '$transparent' : '$bgSubdued',
+      }}
+    >
       <Container.Item
         title="Total out"
         subtitle="Include fee"
@@ -78,9 +93,11 @@ function TxSimulationContainer() {
       />
       <Container.Item
         content={
-          <SizableText size="$bodySm" color="$textSubdued">
-            For reference only
-          </SizableText>
+          tableLayout ? null : (
+            <SizableText size="$bodySm" color="$textSubdued">
+              For reference only
+            </SizableText>
+          )
         }
         contentAdd={
           <XStack alignItems="center" space="$1">
