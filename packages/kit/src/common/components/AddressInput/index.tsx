@@ -46,9 +46,9 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   }, [onChange, getClipboard]);
   return (
     <IconButton
+      title="Paste"
       variant="tertiary"
-      size="small"
-      icon="Copy1Outline"
+      icon="ClipboardOutline"
       onPress={onPress}
     />
   );
@@ -63,8 +63,8 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   }, [onChange, start]);
   return (
     <IconButton
+      title="Scan"
       variant="tertiary"
-      size="small"
       icon="ScanSolid"
       onPress={onPress}
     />
@@ -78,9 +78,9 @@ const ContactsPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   }, [onChange]);
   return (
     <IconButton
+      title="Contacts"
       onPress={onPress}
       variant="tertiary"
-      size="small"
       icon="BookOpenOutline"
     />
   );
@@ -99,7 +99,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
 }) => {
   if (options.length <= 1) {
     return (
-      <Badge badgeType="info" badgeSize="sm">
+      <Badge badgeSize="sm">
         <Badge.Text>
           {accountUtils.shortenAddress({
             address: value,
@@ -113,18 +113,21 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
       title="Choose an Address"
       placeholder="Choose an Address"
       renderTrigger={() => (
-        <Badge badgeType="info" badgeSize="sm">
+        <Badge badgeSize="sm" userSelect="none">
           <Badge.Text>
             {accountUtils.shortenAddress({
               address: value,
             })}
           </Badge.Text>
-          <Icon name="DotVerSolid" size="$3" />
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
         </Badge>
       )}
       items={options.map((o) => ({ label: o, value: o }))}
       value={value}
       onChange={onChange}
+      floatingPanelProps={{
+        width: '$80',
+      }}
     />
   );
 };
@@ -250,14 +253,16 @@ function AddressInput(props: IAddressInputProps) {
 
   const AddressInputExtension = useMemo(
     () => (
-      <XStack justifyContent="space-between">
-        <XStack space="$1">
+      <XStack
+        justifyContent="space-between"
+        flexWrap="wrap"
+        alignItems="center"
+      >
+        <XStack space="$2">
           {loading ? (
-            <XStack justifyContent="center" alignItems="center">
-              <Spinner />
-            </XStack>
+            <Spinner />
           ) : (
-            <XStack>
+            <>
               {queryResult.walletAccountName ? (
                 <Badge badgeType="success" badgeSize="sm">
                   {queryResult.walletAccountName}
@@ -275,10 +280,10 @@ function AddressInput(props: IAddressInputProps) {
                   First Transfer
                 </Badge>
               ) : null}
-            </XStack>
+            </>
           )}
         </XStack>
-        <XStack space="$2">
+        <XStack space="$6">
           {plugins.clipboard ? (
             <ClipboardPlugin onChange={onChangeText} />
           ) : null}

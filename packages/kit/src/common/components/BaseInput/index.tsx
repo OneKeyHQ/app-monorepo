@@ -1,15 +1,13 @@
 import type { ComponentProps } from 'react';
-import { useState } from 'react';
 
-import { Stack, TextArea, YStack } from '@onekeyhq/components';
+import { Group, Stack, TextArea } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 
 export type IBaseInputProps = {
   extension?: React.ReactNode;
 } & ComponentProps<typeof TextArea>;
 function BaseInput(props: IBaseInputProps) {
-  const { onBlur, disabled, error, editable, size, extension, ...rest } = props;
-  const [isFocus, setFocus] = useState<boolean>(false);
+  const { disabled, error, editable, size, extension, ...rest } = props;
 
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -19,41 +17,36 @@ function BaseInput(props: IBaseInputProps) {
   });
 
   return (
-    <YStack space="$2">
-      <YStack
-        space="$2"
-        borderWidth={sharedStyles.borderWidth}
-        borderColor={sharedStyles.borderColor}
-        borderRadius={sharedStyles.borderRadius}
-        outlineColor={
-          isFocus ? sharedStyles.focusStyle.outlineColor : undefined
-        }
-        outlineStyle={
-          isFocus ? sharedStyles.focusStyle.outlineStyle : undefined
-        }
-        outlineWidth={
-          isFocus ? sharedStyles.focusStyle.outlineWidth : undefined
-        }
-      >
+    <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
+      <Group.Item>
         <TextArea
-          w="full"
-          onFocus={() => setFocus(true)}
-          onBlur={(e) => {
-            setFocus(false);
-            onBlur?.(e);
-          }}
-          borderColor="$transparent"
-          hoverStyle={{ borderColor: '$transparent' }}
-          focusStyle={{ borderColor: '$transparent' }}
+          borderBottomWidth={0}
+          error={error}
+          numberOfLines={2}
+          multiline
+          editable={editable}
+          disabled={disabled}
+          size={size}
+          spellCheck={false}
+          focusStyle={undefined}
           {...rest}
         />
-        {extension && (
-          <Stack py={sharedStyles.py} px={sharedStyles.px}>
+      </Group.Item>
+      {extension && (
+        <Group.Item>
+          <Stack
+            p="$3"
+            pt="$2"
+            borderWidth={sharedStyles.borderWidth}
+            bg={sharedStyles.backgroundColor}
+            borderTopWidth={0}
+            borderColor={sharedStyles.borderColor}
+          >
             {extension}
           </Stack>
-        )}
-      </YStack>
-    </YStack>
+        </Group.Item>
+      )}
+    </Group>
   );
 }
 
