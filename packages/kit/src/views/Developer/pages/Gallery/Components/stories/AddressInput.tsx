@@ -42,6 +42,9 @@ const TestComponent = () => {
           rules={{
             required: 'required',
             validate: (value: IAddressInputValue) => {
+              if (value.pending) {
+                return;
+              }
               if (!value.resolved) {
                 return intl.formatMessage({ id: 'form__address_invalid' });
               }
