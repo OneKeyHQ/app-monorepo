@@ -5,6 +5,7 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
+import { useSharedPress } from '../../primitives/Button/useEvent';
 import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
@@ -56,6 +57,8 @@ export const IconButton = (props: IIconButtonProps) => {
     variant,
   });
 
+  const { onPress, onLongPress } = useSharedPress(rest);
+
   const renderIconButton = () => (
     <ButtonFrame
       p={p}
@@ -72,6 +75,8 @@ export const IconButton = (props: IIconButtonProps) => {
       })}
       {...sharedFrameStyles}
       {...rest}
+      onPress={onPress}
+      onLongPress={onLongPress}
     >
       {loading ? (
         <Stack
