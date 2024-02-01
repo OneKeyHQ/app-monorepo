@@ -79,7 +79,7 @@ export const { target: settingsTimeNowAtom, use: useSettingsTimeNowAtom } =
   });
 
 export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
-  globalAtomComputed((get) => {
+  globalAtomComputed<boolean>((get) => {
     const settings = get(settingsPersistAtom.atom());
     const timeNow = get(settingsTimeNowAtom.atom());
     return (

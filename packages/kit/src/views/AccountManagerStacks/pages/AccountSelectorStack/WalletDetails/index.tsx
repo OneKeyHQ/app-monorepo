@@ -124,11 +124,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       [selectedAccount?.focusedWallet, serviceAccount],
       {
         checkIsFocused: false,
+        // debounced: 100,
       },
     );
 
   useEffect(() => {
     const fn = async () => {
+      // await wait(300);
       await reloadFocusedWalletInfo();
     };
     // TODO sync device features to DB and reload data
@@ -431,63 +433,6 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           </ListItem>
         )}
       />
-
-      {selectedAccount?.focusedWallet &&
-        !focusedWalletInfo?.wallet?.passphraseState &&
-        accountUtils.isHwWallet({
-          walletId: selectedAccount?.focusedWallet,
-        }) && (
-          <>
-            <ListItem
-              onPress={async () => {
-                if (!focusedWalletInfo) {
-                  return;
-                }
-                // features is not sync from device
-                // if (
-                //   !focusedWalletInfo.device?.featuresInfo?.passphrase_protection
-                // ) {
-                //   alert('硬件没有开启 passphrase');
-                //   return;
-                // }
-                await actions.current.createHWHiddenWallet({
-                  walletId: focusedWalletInfo?.wallet?.id,
-                });
-                await reloadAccounts();
-                console.log(
-                  'add hidden wallet from device: ',
-                  focusedWalletInfo,
-                );
-              }}
-            >
-              <Stack
-                bg="$bgStrong"
-                borderRadius="$2"
-                p="$2"
-                style={{
-                  borderCurve: 'continuous',
-                }}
-              >
-                <Icon name="PlusSmallOutline" />
-              </Stack>
-              {/* Add account */}
-              <ListItem.Text
-                userSelect="none"
-                primary="Add Hidden Wallet"
-                primaryTextProps={{
-                  size: '$bodyLg',
-                }}
-              />
-            </ListItem>
-            <Button
-              onPress={() => {
-                void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
-              }}
-            >
-              在硬件输入passphrase
-            </Button>
-          </>
-        )}
     </Stack>
   );
 }

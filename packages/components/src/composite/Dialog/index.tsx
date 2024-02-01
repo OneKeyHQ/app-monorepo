@@ -1,5 +1,6 @@
 import type { ForwardedRef } from 'react';
 import {
+  cloneElement,
   createRef,
   forwardRef,
   useCallback,
@@ -38,6 +39,14 @@ import type {
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
+
+export * from './hooks';
+export type {
+  IDialogCancelProps,
+  IDialogConfirmProps,
+  IDialogInstance,
+  IDialogShowProps,
+} from './type';
 
 // Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
@@ -357,32 +366,45 @@ function BaseDialogContainer(
   );
 }
 
-const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
-  BaseDialogContainer,
-);
+export const DialogContainer = forwardRef<
+  IDialogInstance,
+  IDialogContainerProps
+>(BaseDialogContainer);
 
-function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
+function dialogShow({
+  onClose,
+  dialogContainer,
+  ...props
+}: IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance> | undefined;
+  }) => JSX.Element;
+}): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
+
   let portalRef:
     | {
         current: IPortalManager;
       }
     | undefined;
-  const handleClose = () =>
-    new Promise<void>((resolve) => {
-      setTimeout(() => {
-        if (instanceRef) {
-          instanceRef = undefined;
-        }
-        if (portalRef) {
-          portalRef.current.destroy();
-          portalRef = undefined;
-        }
-        void onClose?.();
-        resolve();
-      }, 300);
-    });
+
+  const buildForwardOnClose =
+    (options: { onClose?: () => void | Promise<void> }) => () =>
+      new Promise<void>((resolve) => {
+        // Remove the React node after the animation has finished.
+        setTimeout(() => {
+          if (instanceRef) {
+            instanceRef = undefined;
+          }
+          if (portalRef) {
+            portalRef.current.destroy();
+            portalRef = undefined;
+          }
+          void options.onClose?.();
+          resolve();
+        }, 300);
+      });
 
   if (platformEnv.isDev) {
     const {
@@ -425,11 +447,31 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
       );
     }
   }
+
+  const element = (() => {
+    if (dialogContainer) {
+      const e = dialogContainer({ ref: instanceRef });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // const newOnClose = buildForwardOnClose({ onClose: e.props.onClose });
+      const newOnClose = buildForwardOnClose({ onClose });
+      const newProps = {
+        ...props,
+        ...e.props,
+        onClose: newOnClose,
+      };
+      return cloneElement(e, newProps);
+    }
+    return (
+      <DialogContainer
+        ref={instanceRef}
+        {...props}
+        onClose={buildForwardOnClose({ onClose })}
+      />
+    );
+  })();
+
   portalRef = {
-    current: Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
-    ),
+    current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async () => instanceRef?.current?.close(),
@@ -437,14 +479,14 @@ function DialogShow({ onClose, ...props }: IDialogShowProps): IDialogInstance {
   };
 }
 
-const DialogConfirm = (props: IDialogConfirmProps) =>
-  DialogShow({
+const dialogConfirm = (props: IDialogConfirmProps) =>
+  dialogShow({
     ...props,
     showCancelButton: false,
   });
 
-const DialogCancel = (props: IDialogCancelProps) =>
-  DialogShow({
+const dialogCancel = (props: IDialogCancelProps) =>
+  dialogShow({
     ...props,
     showConfirmButton: false,
   });
@@ -452,17 +494,8 @@ const DialogCancel = (props: IDialogCancelProps) =>
 export const Dialog = {
   Form: DialogForm,
   FormField: Form.Field,
-  show: DialogShow,
-  confirm: DialogConfirm,
-  cancel: DialogCancel,
   Footer: FooterAction,
+  show: dialogShow,
+  confirm: dialogConfirm,
+  cancel: dialogCancel,
 };
-
-export * from './hooks';
-
-export type {
-  IDialogShowProps,
-  IDialogConfirmProps,
-  IDialogCancelProps,
-  IDialogInstance,
-} from './type';

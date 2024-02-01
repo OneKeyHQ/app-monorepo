@@ -34,7 +34,7 @@ declare global {
   var $$appDispatch: any;
   var $$appSelector: any;
   var $$appStorage: any;
-  var $$allAtoms: any;
+  var $$allAtoms: any; // jotai global atoms
   var $$platformEnv: any;
   var $$debugLogger: any;
   var $$localforage: any;
