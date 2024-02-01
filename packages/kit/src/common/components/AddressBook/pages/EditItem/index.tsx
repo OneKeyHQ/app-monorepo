@@ -29,7 +29,7 @@ const EditItemPage = () => {
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
-      await backgroundApiProxy.serviceAddressBook.editAddressBookItem(item);
+      await backgroundApiProxy.serviceAddressBook.updateItem(item);
       Toast.success({ title: 'Save Successful' });
       navigation.pop();
     },
@@ -46,9 +46,7 @@ const EditItemPage = () => {
         tone: 'destructive',
         onConfirm: async () => {
           if (item.id) {
-            await backgroundApiProxy.serviceAddressBook.removeAddressBookItem(
-              item.id,
-            );
+            await backgroundApiProxy.serviceAddressBook.removeItem(item.id);
             Toast.success({ title: 'Delete Successful' });
             navigation.pop();
           }

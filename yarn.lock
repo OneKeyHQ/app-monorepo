@@ -5096,6 +5096,7 @@ __metadata:
   dependencies:
     "@types/webextension-polyfill": "npm:^0.8.2"
     async-mutex: "npm:^0.3.2"
+    fast-safe-stringify: "npm:^2.1.1"
     flatted: "npm:^3.2.7"
     folderslint: "npm:^1.2.0"
     js-base64: "npm:3.7.5"

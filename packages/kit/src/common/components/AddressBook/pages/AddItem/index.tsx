@@ -22,7 +22,7 @@ const AddItemPage = () => {
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       try {
-        await backgroundApiProxy.serviceAddressBook.addAddressBookItem(item);
+        await backgroundApiProxy.serviceAddressBook.addItem(item);
         appNavigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });

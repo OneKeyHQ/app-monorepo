@@ -102,6 +102,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="name"
             rules={{
               required: true,
+              maxLength: 24,
               validate: async (text) => {
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({

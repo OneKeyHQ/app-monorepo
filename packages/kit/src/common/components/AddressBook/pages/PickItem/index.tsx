@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import { Page, Spinner, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -29,9 +30,12 @@ const PickItemPage = () => {
   const navigation = useAppNavigation();
 
   const onPressItem = useCallback(
-    (item: IAddressItem) => {
-      onPick?.(item);
-      navigation.pop();
+    async (item: IAddressItem) => {
+      const isOk = await backgroundApiProxy.serviceAddressBook.verifyHash();
+      if (isOk) {
+        onPick?.(item);
+        navigation.pop();
+      }
     },
     [onPick, navigation],
   );

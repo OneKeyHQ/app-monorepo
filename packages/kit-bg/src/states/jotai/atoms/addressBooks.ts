@@ -2,7 +2,8 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export type IAddressBookPersistAtom = {
-  encoded?: string;
+  updateTimestamp?: number;
+  visited?: boolean;
 };
 
 export const {

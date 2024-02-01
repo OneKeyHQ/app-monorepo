@@ -1,17 +1,29 @@
-import {
-  decodeSensitiveText,
-  encodeSensitiveText,
-} from '@onekeyhq/core/src/secret';
-import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
+import { sha256 } from '@onekeyhq/core/src/secret/hash';
+import type {
+  IAddressItem,
+  ISectionItem,
+} from '@onekeyhq/kit/src/common/components/AddressBook/type';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 
 import ServiceBase from './ServiceBase';
+
+function getSectionItemScore(item: ISectionItem): number {
+  if (item.title === 'btc') {
+    return -10;
+  }
+  if (item.title === 'evm') {
+    return -9;
+  }
+  return 0;
+}
 
 @backgroundClass()
 class ServiceAddressBook extends ServiceBase {
@@ -21,133 +33,121 @@ class ServiceAddressBook extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private async getItemsAndPassword(): Promise<{
-    items: IAddressItem[];
-    password: string;
-    encoded?: string;
-  }> {
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      throw new Error('Password not found');
-    }
-    const data = await addressBookPersistAtom.get();
-    let items: IAddressItem[] = [];
-    if (data.encoded) {
-      const text = decodeSensitiveText({
-        encodedText: data.encoded,
-        key: password,
-      });
-      items = JSON.parse(text) as IAddressItem[];
-    }
-    return { items, password, encoded: data.encoded };
+  private computeItemsHash(items: IAddressItem[], password: string): string {
+    const itemString = stableStringify(items);
+    return bufferUtils.bytesToHex(
+      sha256(bufferUtils.toBuffer(`${itemString}${password}`)),
+    );
+  }
+
+  private async setItems(
+    items: IAddressItem[],
+    password: string,
+  ): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const hash = this.computeItemsHash(items, password);
+    await addressBookPersistAtom.set((prev) => ({
+      ...prev,
+      updateTimestamp: Date.now(),
+    }));
+    await simpleDb.addressBook.updateItemsAndHash({ items, hash });
   }
 
   @backgroundMethod()
-  public async addAddressBookItem(newObj: IAddressItem) {
-    const isValid =
-      await this.backgroundApi.serviceAccountProfile.validateAddress({
-        networkId: newObj.networkId,
-        address: newObj.address,
-      });
+  async getItems(): Promise<IAddressItem[]> {
+    const { simpleDb } = this.backgroundApi;
+    const { items } = await simpleDb.addressBook.getItemsAndHash();
+    return items;
+  }
+
+  @backgroundMethod()
+  async groupItems({ networkId }: { networkId?: string }) {
+    let items = await this.getItems();
+    if (networkId) {
+      items = items.filter((item) => item.networkId === networkId);
+    }
+    const data = items.reduce((result, item) => {
+      const [impl] = item.networkId.split('--');
+      if (!result[impl]) {
+        result[impl] = [];
+      }
+      result[impl].push(item);
+      return result;
+    }, {} as Record<string, IAddressItem[]>);
+    return (
+      Object.entries(data)
+        .map((o) => ({ title: o[0], data: o[1] }))
+        // order by btc/evm/other coin
+        .sort((a, b) => getSectionItemScore(a) - getSectionItemScore(b))
+    );
+  }
+
+  private async validateItem(item: IAddressItem) {
+    const { serviceAccountProfile } = this.backgroundApi;
+    if (item.name.length > 24) {
+      return new Error('Name is too long');
+    }
+    let result = await this.findItem({ address: item.address });
+    if (result && (!item.id || result.id !== item.id)) {
+      throw new Error('Address already exist');
+    }
+    result = await this.findItem({ name: item.name });
+    if (result && (!item.id || result.id !== item.id)) {
+      throw new Error('Name already exist');
+    }
+    const isValid = await serviceAccountProfile.validateAddress({
+      networkId: item.networkId,
+      address: item.address,
+    });
     if (!isValid) {
       throw new Error('Invalid address');
     }
-    const { items, password } = await this.getItemsAndPassword();
-    const addressExist = await this.findItem({ address: newObj.address });
-    if (addressExist) {
-      throw new Error('Address already exist');
-    }
-    const nameExist = await this.findItem({ name: newObj.name });
-    if (nameExist) {
-      throw new Error('Name already exist');
-    }
-    newObj.id = generateUUID();
-    items.push(newObj);
-    const text = encodeSensitiveText({
-      text: JSON.stringify(items),
-      key: password,
-    });
-    await addressBookPersistAtom.set({ encoded: text });
   }
 
   @backgroundMethod()
-  public async editAddressBookItem(obj: IAddressItem) {
+  public async addItem(newObj: IAddressItem) {
+    const { servicePassword } = this.backgroundApi;
+    await this.validateItem(newObj);
+    await this.verifyHash();
+    const items = await this.getItems();
+    newObj.id = generateUUID();
+    newObj.createdAt = Date.now();
+    newObj.updatedAt = Date.now();
+    items.push(newObj);
+    const { password } = await servicePassword.promptPasswordVerify();
+    await this.setItems(items, password);
+  }
+
+  @backgroundMethod()
+  public async updateItem(obj: IAddressItem) {
     if (!obj.id) {
       throw new Error('Missing id');
     }
-    const { items, password } = await this.getItemsAndPassword();
-    const addressExist = await this.findItem({ address: obj.address });
-    if (addressExist && addressExist.id !== obj.id) {
-      throw new Error('Address already exist');
-    }
-    const nameExist = await this.findItem({ name: obj.name });
-    if (nameExist && nameExist.id !== obj.id) {
-      throw new Error('Name already exist');
-    }
+    await this.validateItem(obj);
+    await this.verifyHash();
+    const { servicePassword } = this.backgroundApi;
+    const items = await this.getItems();
     const dataIndex = items.findIndex((i) => i.id === obj.id);
     if (dataIndex >= 0) {
       const data = items[dataIndex];
       const newObj = { ...data, ...obj };
+      newObj.updatedAt = Date.now();
       items[dataIndex] = newObj;
-      const text = encodeSensitiveText({
-        text: JSON.stringify(items),
-        key: password,
-      });
-      await addressBookPersistAtom.set({ encoded: text });
+      const { password } = await servicePassword.promptPasswordVerify();
+      await this.setItems(items, password);
     } else {
-      throw new Error('Address Book Item not found');
+      throw new Error(`Failed to find item with id = ${obj.id}`);
     }
   }
 
   @backgroundMethod()
-  public async removeAddressBookItem(id: string) {
-    const { items, password } = await this.getItemsAndPassword();
+  public async removeItem(id: string) {
+    await this.verifyHash();
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify();
+    const items = await this.getItems();
     const data = items.filter((i) => i.id !== id);
-    const text = encodeSensitiveText({
-      text: JSON.stringify(data),
-      key: password,
-    });
-    await addressBookPersistAtom.set({ encoded: text });
-  }
-
-  @backgroundMethod()
-  public async getAddressBookItems(): Promise<IAddressItem[]> {
-    const { items } = await this.getItemsAndPassword();
-    return items;
-  }
-
-  public async startAddressBookUpdate(
-    oldPassword: string,
-    newPassword: string,
-  ) {
-    const data = await addressBookPersistAtom.get();
-    let items: IAddressItem[] = [];
-    if (data.encoded) {
-      const text = decodeSensitiveText({
-        encodedText: data.encoded,
-        key: oldPassword,
-      });
-      items = JSON.parse(text) as IAddressItem[];
-    }
-    const text = encodeSensitiveText({
-      text: JSON.stringify(items),
-      key: newPassword,
-    });
-    await addressBookPersistAtom.set({ encoded: text });
-    this.rollbackData = data.encoded;
-  }
-
-  public async finishAddressBookUpdate() {
-    this.rollbackData = undefined;
-  }
-
-  public async rollbackAddressBook() {
-    if (this.rollbackData) {
-      await addressBookPersistAtom.set({ encoded: this.rollbackData });
-    } else {
-      throw new Error('No rollback data');
-    }
+    await this.setItems(data, password);
   }
 
   @backgroundMethod()
@@ -156,25 +156,70 @@ class ServiceAddressBook extends ServiceBase {
     address?: string;
     name?: string;
   }): Promise<IAddressItem | undefined> {
-    if (!params.address && !params.name) {
+    const { address, name, networkId } = params;
+    if (!address && !name && !networkId) {
       return undefined;
     }
-    const { items } = await this.getItemsAndPassword();
+    const items = await this.getItems();
     const item = items.find((i) => {
       let match = true;
-      if (params.networkId) {
-        match = i.networkId === params.networkId;
+      if (networkId) {
+        match = i.networkId === networkId;
       }
-      if (params.address) {
-        match =
-          match && i.address.toLowerCase() === params.address.toLowerCase();
+      if (address) {
+        match = match && i.address.toLowerCase() === address.toLowerCase();
       }
-      if (params.name) {
-        match = match && i.name.toLowerCase() === params.name.toLowerCase();
+      if (name) {
+        match = match && i.name.toLowerCase() === name.toLowerCase();
       }
       return match;
     });
     return item;
+  }
+
+  public async updateHash(newPassword: string) {
+    const { simpleDb } = this.backgroundApi;
+    const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
+    // save backup hash
+    await simpleDb.addressBook.setBackupHash(hash);
+    // save items with new password
+    await this.setItems(items, newPassword);
+  }
+
+  public async finishUpdateHash() {
+    const { simpleDb } = this.backgroundApi;
+    await simpleDb.addressBook.clearBackupHash();
+  }
+
+  public async rollback(oldPassword: string) {
+    const { simpleDb } = this.backgroundApi;
+    const items = await this.getItems();
+    await this.setItems(items, oldPassword);
+    await simpleDb.addressBook.clearBackupHash();
+  }
+
+  @backgroundMethod()
+  public async verifyHash(): Promise<boolean> {
+    const { simpleDb, servicePassword } = this.backgroundApi;
+    const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
+    if (items.length === 0) {
+      return true;
+    }
+    const { password } = await servicePassword.promptPasswordVerify();
+    const currentHash = this.computeItemsHash(items, password);
+    if (currentHash === hash) {
+      return true;
+    }
+    const backupHash = await simpleDb.addressBook.getBackupHash();
+    if (currentHash === backupHash) {
+      return true;
+    }
+    throw new Error('address book items is incorrect');
+  }
+
+  @backgroundMethod()
+  public async setVisited() {
+    await addressBookPersistAtom.set((prev) => ({ ...prev, visited: true }));
   }
 }
 
