@@ -5,6 +5,7 @@ import { shuffle } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -72,9 +73,12 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
   const focusNextInput = useCallback(async () => {
     await InteractionManager.runAfterInteractions();
     const key = `phrase${selectInputIndex + 2}`;
-    setTimeout(() => {
-      form.setFocus(key);
-    }, 300);
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        form.setFocus(key);
+        resolve();
+      }, 300);
+    });
   }, [form, selectInputIndex]);
 
   const updateInputValue = useCallback(
@@ -123,6 +127,13 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       resetSuggestions();
       if (word.length > 0) {
         await focusNextInput();
+        setTimeout(
+          () => {
+            updateByPressLock.current = false;
+          },
+          platformEnv.isNative ? 300 : 0,
+        );
+      } else {
         updateByPressLock.current = false;
       }
     },
@@ -138,13 +149,15 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
   });
 
   const checkIsValid = useCallback(
-    async (index: number) => {
-      const value = getFormValueByIndex(index);
-      const result = isValidWord(value);
-      if (!result) {
-        await updateInputValueWithLock('');
-        openStatusRef.current = false;
-      }
+    (index: number) => {
+      setTimeout(async () => {
+        const value = getFormValueByIndex(index);
+        const result = isValidWord(value);
+        if (!result) {
+          await updateInputValueWithLock('');
+          openStatusRef.current = false;
+        }
+      });
     },
     [getFormValueByIndex, isValidWord, updateInputValueWithLock],
   );
@@ -152,7 +165,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
   const onInputFocus = useCallback(
     (index: number) => {
       if (openStatusRef.current && index !== selectInputIndex) {
-        void checkIsValid(index);
+        checkIsValid(index - 1);
       }
       setSelectInputIndex(index);
     },
@@ -165,7 +178,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
         return;
       }
       if (index === selectInputIndex) {
-        void checkIsValid(index);
+        checkIsValid(index);
         setSelectInputIndex(-1);
       }
       openStatusRef.current = false;
