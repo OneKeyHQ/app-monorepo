@@ -36,7 +36,7 @@ function SendConfirmContainer() {
   const renderSendConfirmView = useCallback(() => {
     if (tableLayout) {
       return (
-        <Page.Body flexDirection="row">
+        <Page.Body>
           <XStack h="100%" px="$5">
             <Container.Box
               blockProps={{ width: '236px', height: '100%' }}
@@ -83,7 +83,7 @@ function SendConfirmContainer() {
   }, [accountId, networkId, onFail, onSuccess, tableLayout]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled={!tableLayout}>
       <Page.Header
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
