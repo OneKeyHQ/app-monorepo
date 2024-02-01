@@ -99,7 +99,7 @@ function ChainSelector({ num }: { num: number }) {
       />
       <Page.Body>
         <ListNetworkView
-          searchText={searchText}
+          searchText={searchText.trim()}
           isEditMode={isEditMode}
           topNetworks={topNetworks}
           allNetworks={networks}

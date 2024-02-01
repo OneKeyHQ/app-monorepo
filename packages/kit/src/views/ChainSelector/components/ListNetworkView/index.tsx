@@ -2,10 +2,10 @@ import { type FC, useCallback, useMemo } from 'react';
 import { createContext, useContext } from 'react';
 
 import { Empty, SectionList, SortableListView } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-
-import { filterNetworks, groupNetworks } from '../../utils';
 
 type IListNetworkContext = {
   isEditMode?: boolean;
@@ -45,7 +45,7 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
         src: item.logoURI,
         size: '$8',
       }}
-      {...{ onPress: !isEditMode ? () => onPressItem?.(item) : undefined }}
+      onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
       {!isEditMode && selectNetworkId === item.id ? (
         <ListItem.CheckMark
@@ -92,9 +92,16 @@ const ListTopNetworks = () => {
     searchText,
     onPressItem,
   } = useContext(ListNetworkContext);
-  const networks = useMemo(
-    () => filterNetworks(topNetworks, searchText ?? ''),
+  const { result: networks } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.filterNetworks({
+        networks: topNetworks,
+        searchKey: searchText ?? '',
+      }),
     [topNetworks, searchText],
+    {
+      initResult: [],
+    },
   );
   if (isEditMode && searchText) {
     return null;
@@ -116,7 +123,7 @@ const ListTopNetworks = () => {
             size: '$8',
           }}
           title={item.name}
-          {...{ onPress: !isEditMode ? () => onPressItem?.(item) : undefined }}
+          onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
         >
           {isEditMode ? (
             <ListItem.IconButton
@@ -171,9 +178,19 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
   isEditMode,
   searchText,
 }) => {
-  const sections = useMemo(
-    () => groupNetworks(filterNetworks(allNetworks, searchText ?? '')),
+  const { result: sections } = usePromiseResult(
+    async () => {
+      const networks = await backgroundApiProxy.serviceNetwork.filterNetworks({
+        networks: allNetworks,
+        searchKey: searchText ?? '',
+      });
+      const result = await backgroundApiProxy.serviceNetwork.groupNetworks(
+        networks,
+      );
+      return result;
+    },
     [allNetworks, searchText],
+    { initResult: [] },
   );
   const ctx = useMemo<IListNetworkContext>(
     () => ({
