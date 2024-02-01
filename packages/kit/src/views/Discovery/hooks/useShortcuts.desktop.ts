@@ -90,6 +90,10 @@ export const useShortcuts = () => {
         window.desktopApi.quitApp();
       } else if (data === EBrowserShortcutEvents.Refresh) {
         window.desktopApi.reload();
+      } else if (data === EBrowserShortcutEvents.Search) {
+        navigation.pushModal(EModalRoutes.DiscoveryModal, {
+          screen: EDiscoveryModalRoutes.SearchModal,
+        });
       }
     };
     window.desktopApi.addIpcEventListener(

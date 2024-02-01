@@ -613,10 +613,13 @@ module.exports = [
   'sym', // WalletConnect uri params
   'upsert',
   'nostr',
+  'swiper',
   'Numberish',
   'qrcode',
   'Tarask',
   'Hira',
   'Latn',
   'Cyrl',
+  'Viewable',
+  'viewability',
 ];

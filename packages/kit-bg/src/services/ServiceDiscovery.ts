@@ -1,6 +1,5 @@
 import { isNumber } from 'lodash';
 
-import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IBrowserBookmark,
   IBrowserHistory,
@@ -10,6 +9,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   ICategory,
@@ -63,7 +63,7 @@ class ServiceDiscovery extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: getTimeDurationMs({ seconds: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
@@ -140,7 +140,7 @@ class ServiceDiscovery extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
     },
   );
 

@@ -25,7 +25,7 @@ function MobileTabListPinnedItem({
       maxWidth="$40"
       borderRadius="$4"
       borderWidth={4}
-      borderColor={isActive ? '$focusRing' : '$transparent'}
+      borderColor={isActive ? '$brand6' : '$transparent'}
       marginHorizontal={2}
       onPress={() => {
         onSelectedItem(id);

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 
-import { wait } from '../utils/helper';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useIsMounted } from './useIsMounted';
 
@@ -69,6 +69,7 @@ export function usePromiseResult<T>(
     ...options,
   };
   const isDepsChangedOnBlur = useRef(false);
+  const nonceRef = useRef(0);
 
   const run = useMemo(
     () => {
@@ -98,6 +99,14 @@ export function usePromiseResult<T>(
         return flag;
       };
 
+      const methodWithNonce = async ({ nonce }: { nonce: number }) => {
+        const r = await methodRef?.current?.();
+        return {
+          r,
+          nonce,
+        };
+      };
+
       const runner = async (config?: IRunnerConfig) => {
         if (config?.triggerByDeps && !isFocusedRef.current) {
           isDepsChangedOnBlur.current = true;
@@ -105,8 +114,12 @@ export function usePromiseResult<T>(
         try {
           if (shouldSetState()) {
             setLoadingTrue();
-            const r = await methodRef?.current?.();
-            if (shouldSetState()) {
+            nonceRef.current += 1;
+            const requestNonce = nonceRef.current;
+            const { r, nonce } = await methodWithNonce({
+              nonce: requestNonce,
+            });
+            if (shouldSetState() && nonceRef.current === nonce) {
               setResult(r);
             }
           }
@@ -118,13 +131,13 @@ export function usePromiseResult<T>(
           }
         } finally {
           if (loadingDelay && watchLoading) {
-            await wait(loadingDelay);
+            await timerUtils.wait(loadingDelay);
           }
           if (shouldSetState()) {
             setLoadingFalse();
           }
           if (pollingInterval) {
-            await wait(pollingInterval);
+            await timerUtils.wait(pollingInterval);
             if (shouldSetState()) {
               void run({ triggerByDeps: true });
             } else {
@@ -153,8 +166,11 @@ export function usePromiseResult<T>(
     [],
   );
 
+  const runRef = useRef(run);
+  runRef.current = run;
+
   useEffect(() => {
-    void run({ triggerByDeps: true });
+    void runRef.current({ triggerByDeps: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
@@ -165,9 +181,9 @@ export function usePromiseResult<T>(
       isDepsChangedOnBlur.current
     ) {
       isDepsChangedOnBlur.current = false;
-      void run();
+      void runRef.current();
     }
-  }, [isFocused, run]);
+  }, [isFocused]);
 
   return { result, isLoading, run };
 }

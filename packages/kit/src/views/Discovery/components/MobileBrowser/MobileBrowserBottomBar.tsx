@@ -117,7 +117,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     } catch (e) {
       console.error(e);
     }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
       screen: EDiscoveryModalRoutes.SearchModal,
     });
   }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot, intl]);
