@@ -602,10 +602,13 @@ module.exports = [
   'gt2xl',
   'calc',
   '100vw',
+  'swiper',
   'Numberish',
   'qrcode',
   'Tarask',
   'Hira',
   'Latn',
   'Cyrl',
+  'Viewable',
+  'viewability',
 ];
