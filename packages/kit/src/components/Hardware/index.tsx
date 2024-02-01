@@ -31,6 +31,9 @@ export const confirmOnClassic = async () => {
 
   const toast = Toast.show({
     children: <ConfirmOnClassic />,
+    onClose: () => {
+      console.log('close ConfirmOnClassic');
+    },
   });
   setTimeout(async () => {
     event.confirm();
@@ -44,8 +47,10 @@ export const confirmPinOnDevice = async () => {
   const dialog = Dialog.show({
     title: 'Enter PIN on Device',
     showFooter: false,
+    dismissOnOverlayPress: false,
     renderContent: <EnterPinOnDevice />,
-    onCancel: () => {
+    onClose: () => {
+      console.log('close confirmPinOnDevice');
       event.cancel();
     },
   });
@@ -61,6 +66,7 @@ export const confirmByPin = async () => {
   const dialog = Dialog.show({
     title: 'Enter PIN',
     showFooter: false,
+    dismissOnOverlayPress: false,
     renderContent: (
       <EnterPin
         onConfirm={async () => {
@@ -73,7 +79,8 @@ export const confirmByPin = async () => {
         }}
       />
     ),
-    onDismiss: () => {
+    onClose: () => {
+      console.log('close confirmByPin');
       event.cancel();
     },
   });
@@ -85,8 +92,10 @@ export const confirmPhraseOnDevice = async () => {
   Dialog.show({
     title: 'Enter Passphrase on Device',
     showFooter: false,
+    dismissOnOverlayPress: false,
     renderContent: <EnterPassphraseOnDevice />,
-    onCancel: () => {
+    onClose: () => {
+      console.log('close EnterPassphraseOnDevice');
       event.cancel();
     },
   });
@@ -98,6 +107,7 @@ export const confirmPhrase = async () => {
   const dialog = Dialog.show({
     title: 'Enter Passphrase',
     showFooter: false,
+    dismissOnOverlayPress: false,
     renderContent: (
       <EnterPhase
         onConfirm={async () => {
@@ -110,7 +120,8 @@ export const confirmPhrase = async () => {
         }}
       />
     ),
-    onCancel: () => {
+    onClose: () => {
+      console.log('close EnterPhase');
       event.cancel();
     },
   });
@@ -122,6 +133,7 @@ export const confirmPassphrase = async () => {
   const dialog = Dialog.show({
     title: 'Confirm Passphrase',
     showFooter: false,
+    dismissOnOverlayPress: false,
     renderContent: (
       <ConfirmPassphrase
         onConfirm={async () => {
@@ -134,7 +146,8 @@ export const confirmPassphrase = async () => {
         }}
       />
     ),
-    onCancel: () => {
+    onClose: () => {
+      console.log('close ConfirmPassphrase');
       event.cancel();
     },
   });
