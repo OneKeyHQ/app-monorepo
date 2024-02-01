@@ -8,7 +8,10 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/kit-bg/src/dbs/local/consts';
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { EAccountSelectorSceneName } from '../../types';
 import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
@@ -46,6 +49,14 @@ function isHdWallet({ walletId }: { walletId: string | undefined }) {
 
 function isHwWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HW}-`));
+}
+
+function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
+  return (
+    wallet &&
+    isHwWallet({ walletId: wallet.id }) &&
+    Boolean(wallet.passphraseState)
+  );
 }
 
 function isImportedWallet({ walletId }: { walletId: string | undefined }) {
@@ -253,6 +264,7 @@ export default {
   buildHdWalletId,
   isHdWallet,
   isHwWallet,
+  isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,
   isExternalWallet,
