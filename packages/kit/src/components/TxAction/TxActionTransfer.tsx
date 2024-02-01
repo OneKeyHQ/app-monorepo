@@ -60,10 +60,10 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
-    from,
-    to,
+    from: from.toLowerCase(),
+    to: to.toLowerCase(),
     label: label ?? '',
-    transferTarget,
+    transferTarget: transferTarget.toLowerCase(),
     sendNFTIcon: sendsWithNFT[0]?.icon,
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
@@ -177,6 +177,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = sendNFTIcon || sendTokenIcon;
+    title = intl.formatMessage({ id: 'action__send' });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
       changeSymbol: '+',
@@ -187,6 +188,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     description.prefix = intl.formatMessage({ id: 'content__from' });
     avatar.src = receiveNFTIcon || receiveTokenIcon;
+    title = intl.formatMessage({ id: 'action__receive' });
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
       changeSymbol: '-',

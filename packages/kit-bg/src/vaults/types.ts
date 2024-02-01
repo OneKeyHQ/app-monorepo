@@ -11,6 +11,7 @@ import type {
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
+  IAccountHistoryTx,
   IOnChainHistoryTx,
   IOnChainHistoryTxAsset,
 } from '@onekeyhq/shared/types/history';
@@ -310,6 +311,7 @@ export interface IBuildHistoryTxParams {
   networkId: string;
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxAsset>;
+  localHistoryPendingTxs?: IAccountHistoryTx[];
 }
 
 export type IGetPrivateKeyFromImportedParams = {

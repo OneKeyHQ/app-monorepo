@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
@@ -42,6 +42,7 @@ type IProps = {
 function TxFeeContainer(props: IProps) {
   const { accountId, networkId } = props;
   const intl = useIntl();
+  const txFeeInit = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -108,6 +109,7 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
+        txFeeInit.current = true;
         return r;
       } catch (e) {
         updateSendFeeStatus({
@@ -295,11 +297,14 @@ function TxFeeContainer(props: IProps) {
   }, [selectedFee, updateSendSelectedFeeInfo]);
 
   useEffect(() => {
+    if (!txFeeInit.current) return;
     updateSendTxStatus({
       isLoadingNativeBalance,
-      isInsufficientNativeBalance: new BigNumber(nativeTokenTransferAmount ?? 0)
-        .plus(selectedFee?.totalNative ?? 0)
-        .gt(nativeToken?.[0].balanceParsed ?? 0),
+      isInsufficientNativeBalance: isLoadingNativeBalance
+        ? false
+        : new BigNumber(nativeTokenTransferAmount ?? 0)
+            .plus(selectedFee?.totalNative ?? 0)
+            .gt(nativeToken?.[0].balanceParsed ?? 0),
     });
 
     return () =>

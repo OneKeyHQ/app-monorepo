@@ -71,7 +71,7 @@ export function TokenDetails() {
           accountId: account.id,
           accountAddress: account.address,
           networkId,
-          tokenAddress: tokenInfo.address,
+          tokenIdOnNetwork: tokenInfo.address,
         }),
         backgroundApiProxy.serviceToken.fetchTokensDetails({
           networkId,

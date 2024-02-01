@@ -12,6 +12,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
@@ -43,6 +44,7 @@ function TxHistoryListEmpty() {
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
+  const intl = useIntl();
   const { data, showHeader, onPressHistory, tableLayout, onContentSizeChange } =
     props;
 
@@ -50,8 +52,31 @@ function TxHistoryListView(props: IProps) {
 
   const renderListItem = useCallback(
     (tx: IAccountHistoryTx, index: number) => {
-      let nextDate = '';
+      const prevTx = data[index - 1];
       const nextTx = data[index + 1];
+      if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
+        return (
+          <>
+            {prevTx ? null : (
+              <SectionList.SectionHeader
+                title={intl.formatMessage({ id: 'transaction__pending' })}
+              />
+            )}
+            <TxHistoryListItem
+              historyTx={tx}
+              onPress={onPressHistory}
+              tableLayout={tableLayout}
+            />
+            {nextTx.decodedTx.status === EDecodedTxStatus.Pending &&
+              tableLayout && <Divider mx="$5" />}
+            {nextTx.decodedTx.status !== EDecodedTxStatus.Pending && (
+              <Stack mb="$5" />
+            )}
+          </>
+        );
+      }
+
+      let nextDate = '';
       const date = formatDate(
         new Date(tx.decodedTx.updatedAt ?? tx.decodedTx.createdAt ?? 0),
         {
@@ -98,7 +123,7 @@ function TxHistoryListView(props: IProps) {
         </>
       );
     },
-    [data, onPressHistory, tableLayout],
+    [data, intl, onPressHistory, tableLayout],
   );
 
   return (
