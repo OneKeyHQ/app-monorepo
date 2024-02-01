@@ -1,5 +1,5 @@
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -41,7 +41,7 @@ class ContextJotaiActionsDemo extends ContextJotaiActionsBase {
     const profile = get(demoProfileAtom());
     const message2 = get(demoComputedAtom());
     console.log('sayHello', message, message2, profile);
-    await wait(1000);
+    await timerUtils.wait(1000);
     set(demoProfileAtom(), { ...profile, name: 'LazyUpdate' });
     this.updateProfile.call(set, profile);
     return message;

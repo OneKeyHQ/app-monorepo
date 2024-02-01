@@ -1,8 +1,6 @@
-import type {
-  IDBAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -11,7 +9,7 @@ import { usePromiseResult } from './usePromiseResult';
 import type { IPromiseResultOptions } from './usePromiseResult';
 
 type IUseAccountDataResult = {
-  account: IDBAccount | undefined;
+  account: INetworkAccount | undefined;
   network: IServerNetwork | undefined;
   wallet: IDBWallet | undefined;
 };

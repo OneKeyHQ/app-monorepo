@@ -25,14 +25,14 @@ function HomeAccountSelectorInfoDemo() {
       <AccountSelectorActiveAccountLegacy num={0} />
       <Button
         onPress={() => {
-          void backgroundApiProxy.serviceHardware.inputPinOnDevice();
+          // void backgroundApiProxy.serviceHardware.showEnterPinOnDeviceDialog();
         }}
       >
         硬件输入 PIN
       </Button>
       <Button
         onPress={() => {
-          void backgroundApiProxy.serviceHardware.inputPassphraseOnDevice();
+          void backgroundApiProxy.serviceHardware.showEnterPassphraseOnDeviceDialog();
         }}
       >
         硬件输入 Passphrase

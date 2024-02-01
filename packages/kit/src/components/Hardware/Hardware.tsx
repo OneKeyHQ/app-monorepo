@@ -1,22 +1,23 @@
+import { useMemo, useState } from 'react';
+
 import { useForm } from 'react-hook-form';
 import { StyleSheet } from 'react-native';
 import { useMedia } from 'tamagui';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
-  Dialog,
   Form,
   IconButton,
   Input,
   LottieView,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
-  useDialogInstance,
 } from '@onekeyhq/components';
-import type { IButtonProps } from '@onekeyhq/components';
 
 export function ConfirmOnClassic() {
   return (
@@ -53,13 +54,66 @@ export function ConfirmOnClassic() {
   );
 }
 
+export function ConfirmOnDevice() {
+  return (
+    // height must be specified on Sheet View.
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      <LottieView
+        width="100%"
+        height="100%"
+        source={require('../../../assets/animations/confirm-on-classic.json')}
+      />
+    </Stack>
+  );
+}
+
+export function CommonDeviceLoading({ children }: { children?: any }) {
+  return (
+    <Stack
+      borderRadius="$3"
+      p="$5"
+      bg="$bgSubdued"
+      style={{ borderCurve: 'continuous' }}
+    >
+      <Spinner size="large" />
+      {children}
+    </Stack>
+  );
+}
+
+export function EnterPinOnDevice() {
+  return (
+    // height must be specified on Sheet View.
+    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
+      <LottieView
+        width="100%"
+        height="100%"
+        source={require('../../../assets/animations/enter-pin-on-classic.json')}
+      />
+    </Stack>
+  );
+}
+
 export function EnterPin({
   onConfirm,
   switchOnDevice,
 }: {
-  onConfirm: () => void;
+  onConfirm: (value: string) => void;
   switchOnDevice: () => void;
 }) {
+  const [val, setVal] = useState('');
+  const varMask = useMemo(
+    () =>
+      val
+        .split('')
+        .map((v) => (v ? '•' : ''))
+        .join(''),
+    [val],
+  );
+  const keyboardMap = useMemo(
+    () => ['7', '8', '9', /**/ '4', '5', '6', /**/ '1', '2', '3'],
+    [],
+  );
   return (
     <Stack>
       <Stack
@@ -79,13 +133,25 @@ export function EnterPin({
           borderColor="$borderSubdued"
           bg="$bgSubdued"
         >
-          <SizableText pl="$6" textAlign="center" flex={1} size="$heading4xl">
-            ••••••
+          <SizableText
+            selectable={false}
+            pl="$6"
+            textAlign="center"
+            flex={1}
+            size="$heading4xl"
+          >
+            {varMask}
           </SizableText>
-          <IconButton variant="tertiary" icon="XBackspaceOutline" />
+          <IconButton
+            variant="tertiary"
+            icon="XBackspaceOutline"
+            onPress={() => {
+              setVal((v) => v.slice(0, -1));
+            }}
+          />
         </XStack>
         <XStack flexWrap="wrap">
-          {Array.from({ length: 9 }).map((_, index) => (
+          {keyboardMap.map((num, index) => (
             <Stack
               key={index}
               flexBasis="33.3333%"
@@ -114,6 +180,7 @@ export function EnterPin({
                 outlineWidth: 2,
                 outlineStyle: 'solid',
               }}
+              onPress={() => setVal((v) => v + num)}
             >
               <Stack w="$2.5" h="$2.5" borderRadius="$full" bg="$text" />
             </Stack>
@@ -130,10 +197,7 @@ export function EnterPin({
         }
         variant="primary"
         onPress={() => {
-          Toast.error({
-            title: 'Wrong PIN',
-          });
-          onConfirm();
+          onConfirm(val);
         }}
       >
         Confirm
@@ -147,23 +211,12 @@ export function EnterPin({
           } as IButtonProps
         }
         variant="tertiary"
-        onPress={switchOnDevice}
+        onPress={() => {
+          switchOnDevice();
+        }}
       >
         Enter on Device
       </Button>
-    </Stack>
-  );
-}
-
-export function EnterPinOnDevice() {
-  return (
-    // height must be specified on Sheet View.
-    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      <LottieView
-        width="100%"
-        height="100%"
-        source={require('../../../assets/animations/enter-pin-on-classic.json')}
-      />
     </Stack>
   );
 }
@@ -172,12 +225,14 @@ export function EnterPhase({
   onConfirm,
   switchOnDevice,
 }: {
-  onConfirm: () => void;
+  onConfirm: (p: { passphrase: string; save: boolean }) => void;
   switchOnDevice: () => void;
 }) {
-  const form = useForm();
+  const form = useForm<{
+    passphrase: string;
+    confirmPassphrase: string;
+  }>();
   const media = useMedia();
-  const dialog = useDialogInstance();
   return (
     <Stack>
       <Stack pb="$5">
@@ -189,6 +244,7 @@ export function EnterPhase({
       <Form form={form}>
         <Form.Field name="passphrase" label="Passphrase">
           <Input
+            secureTextEntry
             placeholder="Enter passphrase"
             {...(media.md && {
               size: 'large',
@@ -197,6 +253,7 @@ export function EnterPhase({
         </Form.Field>
         <Form.Field name="confirmPassphrase" label="Confirm Passphrase">
           <Input
+            secureTextEntry
             placeholder="Re-enter your passphrase"
             {...(media.md && {
               size: 'large',
@@ -214,22 +271,32 @@ export function EnterPhase({
         }
         variant="primary"
         onPress={async () => {
-          await dialog.close();
-          Dialog.show({
-            icon: 'CheckboxSolid',
-            title: 'Keep Your Wallet Accessible?',
-            description:
-              'Save this wallet to your device to maintain access after the app is closed. Unsaved wallets will be removed automatically.',
-            onConfirm: () => {
-              onConfirm();
-            },
-            onConfirmText: 'Save Wallet',
-            confirmButtonProps: {
-              variant: 'secondary',
-            },
-            onCancel: () => console.log('canceled'),
-            onCancelText: "Don't Save",
-          });
+          const values = form.getValues();
+          if (values.passphrase !== values.confirmPassphrase) {
+            Toast.error({
+              title: 'passphrase not matched',
+            });
+            return;
+          }
+          onConfirm({ passphrase: values.passphrase, save: true });
+
+          // Dialog.show({
+          //   icon: 'CheckboxSolid',
+          //   title: 'Keep Your Wallet Accessible?',
+          //   description:
+          //     'Save this wallet to your device to maintain access after the app is closed. Unsaved wallets will be removed automatically.',
+          //   onConfirm: () => {
+          //     onConfirm({ passphrase: values.passphrase, save: true });
+          //   },
+          //   onConfirmText: 'Save Wallet',
+          //   confirmButtonProps: {
+          //     variant: 'secondary',
+          //   },
+          //   onCancel: () => {
+          //     onConfirm({ passphrase: values.passphrase, save: false });
+          //   },
+          //   onCancelText: "Don't Save",
+          // });
         }}
       >
         Confirm

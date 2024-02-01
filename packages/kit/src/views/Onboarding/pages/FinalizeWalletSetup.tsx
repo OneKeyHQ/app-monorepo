@@ -99,10 +99,9 @@ function FinalizeWalletSetupPage({
         </Stack>
         <AnimatePresence exitBeforeEnter>
           {steps.map((item, index) => (
-            <>
+            <Stack key={item}>
               {currentStep === index && (
                 <Heading
-                  key={item}
                   mt="$5"
                   size="$headingMd"
                   animation="quick"
@@ -114,7 +113,7 @@ function FinalizeWalletSetupPage({
                   {steps[currentStep]}
                 </Heading>
               )}
-            </>
+            </Stack>
           ))}
         </AnimatePresence>
       </Page.Body>

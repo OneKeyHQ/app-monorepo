@@ -5,6 +5,7 @@ import { Button, Stack } from '@onekeyhq/components';
 import {
   confirmByPin,
   confirmOnClassic,
+  confirmOnDevice,
   confirmPassphrase,
   confirmPhrase,
   confirmPhraseOnDevice,
@@ -25,10 +26,18 @@ const HardwareGallery = () => (
           <Stack space="$4">
             <Button
               onPress={() => {
-                void confirmOnClassic();
+                void confirmOnDevice();
               }}
             >
               Confirm On Device
+            </Button>
+
+            <Button
+              onPress={() => {
+                void confirmOnClassic();
+              }}
+            >
+              Confirm On Device(legacy)
             </Button>
 
             <Button

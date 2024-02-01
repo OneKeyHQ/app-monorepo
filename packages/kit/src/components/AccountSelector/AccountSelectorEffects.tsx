@@ -22,6 +22,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 

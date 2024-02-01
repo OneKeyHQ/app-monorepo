@@ -1,7 +1,8 @@
 import { SizableText, Stack, useMedia } from '@onekeyhq/components';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { StackProps } from 'tamagui';
 
@@ -30,7 +31,7 @@ export function WalletListItem({
       style={{
         borderCurve: 'continuous',
         // add opacity to hidden wallet
-        opacity: wallet?.passphraseState ? 0.6 : 1,
+        opacity: accountUtils.isHwHiddenWallet({ wallet }) ? 0.6 : 1,
       }}
       {...(selected
         ? {

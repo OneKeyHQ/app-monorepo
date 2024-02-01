@@ -1,4 +1,4 @@
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { getNetworkIdsMap } from '../config/networkIds';
 
@@ -229,7 +229,7 @@ export {
 // switch network default rpc to onekey rpc node
 export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.21.0';
 
-export const PRICE_EXPIRED_TIME = getTimeDurationMs({ minute: 15 });
+export const PRICE_EXPIRED_TIME = timerUtils.getTimeDurationMs({ minute: 15 });
 
 export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '4.0.0';
 export const FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION = '4.2.0';

@@ -3,8 +3,8 @@ import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
@@ -219,7 +219,7 @@ export abstract class KeyringBase extends VaultContext {
           break;
         }
         // blockbook API rate limit.
-        await wait(200);
+        await timerUtils.wait(200);
       }
 
       idx += 1;

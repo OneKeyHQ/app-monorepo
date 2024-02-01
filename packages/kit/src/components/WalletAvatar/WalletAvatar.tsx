@@ -2,20 +2,23 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import type { IWalletProps } from '../../views/AccountManagerStacks/router/types';
 import type { SizeTokens } from 'tamagui';
 
-export interface IWalletAvatarProps {
-  status?: IWalletProps['status'];
+export type IWalletAvatarBaseProps = {
   size?: SizeTokens;
-  img?: IAllWalletAvatarImageNames;
+  img?: IAllWalletAvatarImageNames; // use img for WalletAvatarEdit
   wallet: IDBWallet | undefined;
+};
+export type IWalletAvatarProps = IWalletAvatarBaseProps & {
+  status?: IWalletProps['status'];
   icon?: IKeyOfIcons;
   onIconPress?: () => void;
-}
+};
 
 export function WalletAvatarBase({
   size,
@@ -23,20 +26,28 @@ export function WalletAvatarBase({
   wallet,
 }: {
   size?: SizeTokens;
-  img?: IAllWalletAvatarImageNames;
+  img?: IAllWalletAvatarImageNames; // use img for WalletAvatarEdit
   wallet: IDBWallet | undefined;
 }) {
   const theImg = img || wallet?.avatarInfo?.img;
   if (!theImg) {
     return null;
   }
+  const isHidden = accountUtils.isHwHiddenWallet({
+    wallet,
+  });
   return (
     <Image size={size}>
-      <Image.Source
-        source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
-      />
+      {isHidden ? (
+        <Icon size="$9" name="LockOutline" />
+      ) : (
+        <Image.Source
+          source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
+        />
+      )}
+
       <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
-        <SizableText>{wallet?.avatarInfo?.emoji ?? '😀'}</SizableText>
+        <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>
       </Image.Fallback>
     </Image>
   );
@@ -45,8 +56,8 @@ export function WalletAvatarBase({
 export function WalletAvatar({
   size = '$10',
   status,
-  wallet,
   img,
+  wallet,
   icon,
   onIconPress,
 }: IWalletAvatarProps) {

@@ -81,6 +81,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
             selectedAccount,
           });
+
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
           activeAccount,

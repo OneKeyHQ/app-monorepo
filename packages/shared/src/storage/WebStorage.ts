@@ -1,5 +1,4 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
-import { Semaphore } from 'async-mutex';
 import localforage from 'localforage';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
@@ -20,8 +19,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 class WebStorage implements AsyncStorageStatic {
-  mutex = new Semaphore(1);
-
   isMigrated = false;
 
   async clear(callback: Callback | undefined): Promise<void> {

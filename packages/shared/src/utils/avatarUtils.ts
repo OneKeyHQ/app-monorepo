@@ -22,7 +22,7 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
-export const HwWalletAvatarImages: Record<IDeviceType | 'classic1s', any> = {
+export const HwWalletAvatarImages: Record<IDeviceType, any> = {
   classic: require('../assets/wallet/avatar/Classic.png'),
   classic1s: require('../assets/wallet/avatar/Classic.png'),
   mini: require('../assets/wallet/avatar/Mini.png'),

@@ -4,6 +4,7 @@ import { AccountSelectorRootProvidersAutoMount } from '../../components/AccountS
 
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
+import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
@@ -15,6 +16,7 @@ export function Container() {
         <KeyboardContainer />
         <NavigationContainer>
           <AccountSelectorRootProvidersAutoMount />
+          <HardwareUiStateContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
         </NavigationContainer>

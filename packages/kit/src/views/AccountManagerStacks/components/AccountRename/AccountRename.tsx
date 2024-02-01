@@ -31,12 +31,12 @@ export function AccountRenameButton({
                   if (indexedAccount?.id && newName) {
                     await serviceAccount.setAccountName({
                       indexedAccountId: indexedAccount?.id,
-                      name,
+                      name: newName,
                     });
                   } else if (account?.id && newName) {
                     await serviceAccount.setAccountName({
                       accountId: account.id,
-                      name,
+                      name: newName,
                     });
                   }
                 },
