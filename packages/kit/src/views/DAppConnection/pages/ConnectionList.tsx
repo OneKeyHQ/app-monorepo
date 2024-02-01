@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 
-import { Button, Empty, ListView, Page } from '@onekeyhq/components';
+import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
 import type { IStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
+
+const ItemSeparatorComponent = () => <Divider />;
 
 function ConnectionListEmpty() {
   return (
@@ -73,6 +75,7 @@ function ConnectionList() {
               handleDisconnect={handleDAppDisconnect}
             />
           )}
+          ItemSeparatorComponent={ItemSeparatorComponent}
         />
       </Page.Body>
     </Page>
