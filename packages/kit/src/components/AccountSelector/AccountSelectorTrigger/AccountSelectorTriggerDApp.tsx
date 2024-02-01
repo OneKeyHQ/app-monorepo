@@ -6,7 +6,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  usePopoverContext,
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -115,14 +114,12 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
     activeAccount: { account },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
-  const { closePopover } = usePopoverContext();
 
   const media = useMedia();
 
   const handlePress = useCallback(async () => {
-    await closePopover?.();
     showAccountSelector();
-  }, [closePopover, showAccountSelector]);
+  }, [showAccountSelector]);
 
   return (
     <XStack

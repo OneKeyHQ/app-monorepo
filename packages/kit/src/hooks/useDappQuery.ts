@@ -6,7 +6,6 @@ interface IBaseQueryInfo {
   $sourceInfo?: IDappSourceInfo;
 }
 
-// TODO: Add T Type
 function useDappQuery<T = unknown>() {
   const route = useRoute();
   const query = (route.params as { query: string })?.query ?? '';
