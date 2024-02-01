@@ -17,6 +17,7 @@ export type IModalSendParamList = {
     networkId: string;
     accountId: string;
     tokens?: ITokenData;
+    networkName?: string;
   };
   [EModalSendRoutes.SendDataInput]: {
     networkId: string;

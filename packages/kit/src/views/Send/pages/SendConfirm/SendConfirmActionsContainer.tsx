@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,18 +20,17 @@ type IProps = {
   networkId: string;
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
+  tableLayout?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
-  const { accountId, networkId, onSuccess, onFail } = props;
-  const media = useMedia();
+  const { accountId, networkId, onSuccess, onFail, tableLayout } = props;
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  const tableLayout = media.gtLg;
 
   const handleOnConfirm = useCallback(async () => {
     const newUnsignedTxs = [];

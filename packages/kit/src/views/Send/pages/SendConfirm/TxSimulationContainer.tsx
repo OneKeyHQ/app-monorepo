@@ -1,13 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import {
-  Icon,
-  Image,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
@@ -60,9 +53,7 @@ function SimulationItem(item: ITxSimulationItem) {
   );
 }
 
-function TxSimulationContainer() {
-  const tableLayout = useMedia().gtLg;
-
+function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (
       <YStack space="$1">

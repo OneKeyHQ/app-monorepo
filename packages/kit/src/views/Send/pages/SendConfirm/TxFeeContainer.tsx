@@ -5,7 +5,7 @@ import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { SizableText, YStack, useMedia } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -37,12 +37,12 @@ import type { IModalSendParamList } from '../../router';
 type IProps = {
   accountId: string;
   networkId: string;
+  tableLayout?: boolean;
 };
 
 function TxFeeContainer(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, tableLayout } = props;
   const intl = useIntl();
-  const tableLayout = useMedia().gtLg;
   const txFeeInit = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();

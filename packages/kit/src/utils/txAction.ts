@@ -16,9 +16,7 @@ export function buildTxActionDirection({
   const fixedFrom = from?.toLowerCase() ?? '';
   const fixedTo = to.toLowerCase();
   const fixedAccountAddress = accountAddress.toLowerCase();
-  if (fixedFrom === fixedTo && fixedFrom === fixedAccountAddress) {
-    return EDecodedTxDirection.SELF;
-  }
+
   // out first for internal send
   if (fixedFrom && fixedFrom === fixedAccountAddress) {
     return EDecodedTxDirection.OUT;

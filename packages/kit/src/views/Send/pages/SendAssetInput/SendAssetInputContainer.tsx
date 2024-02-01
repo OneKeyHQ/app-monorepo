@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
+import { Page, SearchBar, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,6 +21,7 @@ import type { IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendAssetInputContainer() {
+  const intl = useIntl();
   const { refreshTokenList, refreshTokenListMap } =
     useTokenListActions().current;
 
@@ -29,21 +31,19 @@ function SendAssetInputContainer() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { networkId, accountId, tokens } = route.params;
+  const { networkId, accountId, tokens, networkName } = route.params;
 
   usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccountOfWallet({
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
-      indexedAccountId: '',
       networkId,
-      deriveType: 'default',
     });
+
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
       networkId,
       accountAddress: account.address,
       mergeTokens: true,
     });
-
     refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
     refreshTokenListMap(r.tokens.map);
   }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
@@ -68,9 +68,11 @@ function SendAssetInputContainer() {
   }, [refreshTokenList, refreshTokenListMap, tokens]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
+      <Page.Header title={intl.formatMessage({ id: 'action__select_token' })} />
       <Page.Body>
-        <TokenListView onPressToken={handleTokenOnPress} />
+        {networkName && <SectionList.SectionHeader title={networkName} />}
+        <TokenListView onPressToken={handleTokenOnPress} withName />
       </Page.Body>
     </Page>
   );

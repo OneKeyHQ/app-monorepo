@@ -40,6 +40,7 @@ function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
       params: {
         networkId: network.id,
         accountId: account.id,
+        networkName: network.name,
         tokens,
       },
     });

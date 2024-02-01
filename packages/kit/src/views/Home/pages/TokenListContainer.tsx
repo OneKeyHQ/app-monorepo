@@ -125,6 +125,7 @@ function TokenListContainer(props: IProps) {
       <TokenListView
         withHeader
         withFooter
+        withPrice
         isLoading={promise.isLoading}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}

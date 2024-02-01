@@ -96,7 +96,7 @@ function TxHistoryListView(props: IProps) {
         );
       }
 
-      if (date !== currentDate.current) {
+      if (!prevTx || !currentDate.current || date !== currentDate.current) {
         currentDate.current = date;
         return (
           <>

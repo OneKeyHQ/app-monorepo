@@ -76,7 +76,10 @@ function TokenList() {
     <Page>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
-        <TokenListView onPressToken={onPressToken ?? handleOnPressToken} />
+        <TokenListView
+          onPressToken={onPressToken ?? handleOnPressToken}
+          withPrice
+        />
       </Page.Body>
     </Page>
   );

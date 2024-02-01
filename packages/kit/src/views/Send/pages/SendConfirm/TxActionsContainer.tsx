@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { YStack, useMedia } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -16,11 +16,11 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 type IProps = {
   accountId: string;
   networkId: string;
+  tableLayout?: boolean;
 };
 
 function TxActionsContainer(props: IProps) {
-  const { accountId, networkId } = props;
-  const tableLayout = useMedia().gtLg;
+  const { accountId, networkId, tableLayout } = props;
   const { updateNativeTokenTransferAmount } = useSendConfirmActions().current;
   const [unsignedTxs] = useUnsignedTxsAtom();
 

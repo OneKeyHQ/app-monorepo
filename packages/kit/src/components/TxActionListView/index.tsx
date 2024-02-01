@@ -27,7 +27,13 @@ function TxActionsListView(props: IProps) {
 
   const TxActionComponent = components[componentType];
 
-  return <TxActionComponent action={action} tableLayout={tableLayout} />;
+  return (
+    <TxActionComponent
+      action={action}
+      tableLayout={tableLayout}
+      networkId={decodedTx.networkId}
+    />
+  );
 }
 
 export { TxActionsListView };
