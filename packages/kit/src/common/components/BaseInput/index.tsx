@@ -1,4 +1,4 @@
-import { type ComponentProps, useCallback, useRef } from 'react';
+import { type ComponentProps, useCallback, useRef, useState } from 'react';
 
 import { Group, Stack, TextArea } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
@@ -8,6 +8,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const useAutoSize = (onChangeText?: (text: string) => void) => {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
   const initHeightRef = useRef(0);
 
   const numberOfLines = 2;
@@ -34,11 +35,15 @@ const useAutoSize = (onChangeText?: (text: string) => void) => {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     if (!initHeightRef.current) {
       initHeightRef.current = e.nativeEvent.layout.height;
+      if (platformEnv.isNativeIOS) {
+        setMinHeight(initHeightRef.current * 2);
+      }
     }
   }, []);
 
   return {
-    onLayout: platformEnv.isNative ? undefined : handleLayout,
+    minHeight,
+    onLayout: handleLayout,
     textAreaRef,
     onChangeText: platformEnv.isNative ? onChangeText : handleTextChange,
     numberOfLines,
@@ -60,6 +65,7 @@ function BaseInput(props: IBaseInputProps) {
   });
 
   const {
+    minHeight,
     textAreaRef,
     numberOfLines,
     onLayout,
@@ -82,6 +88,7 @@ function BaseInput(props: IBaseInputProps) {
           size={size}
           spellCheck={false}
           focusStyle={undefined}
+          minHeight={minHeight}
           {...rest}
         />
       </Group.Item>
