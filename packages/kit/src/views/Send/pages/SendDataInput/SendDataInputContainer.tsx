@@ -58,7 +58,7 @@ function SendDataInputContainer() {
   const nft = nfts?.[0];
 
   const {
-    result: [network, tokenDetails, nftDetails] = [],
+    result: [tokenDetails, nftDetails] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -99,7 +99,7 @@ function SendDataInputContainer() {
         });
       }
 
-      return [r[1], tokenResp?.[0], nftResp?.[0]];
+      return [tokenResp?.[0], nftResp?.[0]];
     },
     [
       accountId,
@@ -261,14 +261,13 @@ function SendDataInputContainer() {
   ]);
   const handleValidateTokenAmount = useCallback(
     (value: string) => {
-      const tokenInfo = tokenDetails;
       const amountBN = new BigNumber(value ?? 0);
       let isInsufficientBalance = false;
       if (isUseFiat) {
-        if (amountBN.isGreaterThan(tokenInfo?.fiatValue ?? 0)) {
+        if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
           isInsufficientBalance = true;
         }
-      } else if (amountBN.isGreaterThan(tokenInfo?.balanceParsed ?? 0)) {
+      } else if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
         isInsufficientBalance = true;
       }
 
@@ -300,9 +299,26 @@ function SendDataInputContainer() {
     toPending,
   ]);
 
-  const renderTokenDataInputForm = useCallback(() => {
-    const tokenInfo = tokenDetails;
-    return (
+  const maxAmount = useMemo(
+    () =>
+      isUseFiat
+        ? `${currencySymbol}${
+            getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0
+          }`
+        : `${
+            getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0
+          } ${tokenSymbol}`,
+    [
+      currencySymbol,
+      isUseFiat,
+      tokenDetails?.balanceParsed,
+      tokenDetails?.fiatValue,
+      tokenSymbol,
+    ],
+  );
+
+  const renderTokenDataInputForm = useCallback(
+    () => (
       <Form.Field
         name="amount"
         label={intl.formatMessage({ id: 'form__amount' })}
@@ -321,10 +337,10 @@ function SendDataInputContainer() {
               return;
             }
             const dp = valueBN.decimalPlaces();
-            if (!isUseFiat && dp && dp > (tokenInfo?.info.decimals ?? 0)) {
+            if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
               form.setValue(
                 'amount',
-                valueBN.toFixed(tokenInfo?.info.decimals ?? 0),
+                valueBN.toFixed(tokenDetails?.info.decimals ?? 0),
               );
             }
           },
@@ -341,14 +357,15 @@ function SendDataInputContainer() {
             { id: 'content__balance_str' },
             {
               0: isUseFiat
-                ? `${currencySymbol}${tokenInfo?.fiatValue ?? 0}`
-                : `${tokenInfo?.balanceParsed ?? 0} ${tokenSymbol}`,
+                ? `${currencySymbol}${tokenDetails?.fiatValue ?? 0}`
+                : `${tokenDetails?.balanceParsed ?? 0} ${tokenSymbol}`,
             },
           )}
         </SizableText> */}
 
         <AmountInput
           isUseFiat={isUseFiat}
+          maxAmount={maxAmount}
           linkedAmount={linkedAmount}
           tokenSymbol={tokenSymbol}
           currencySymbol={currencySymbol}
@@ -356,19 +373,21 @@ function SendDataInputContainer() {
           onChangeAmountMode={handleOnChangeAmountMode}
         />
       </Form.Field>
-    );
-  }, [
-    currencySymbol,
-    form,
-    handleOnChangeAmountMode,
-    handleOnChangeAmountPercent,
-    handleValidateTokenAmount,
-    intl,
-    isUseFiat,
-    linkedAmount,
-    tokenDetails,
-    tokenSymbol,
-  ]);
+    ),
+    [
+      currencySymbol,
+      form,
+      handleOnChangeAmountMode,
+      handleOnChangeAmountPercent,
+      handleValidateTokenAmount,
+      intl,
+      isUseFiat,
+      linkedAmount,
+      maxAmount,
+      tokenDetails?.info.decimals,
+      tokenSymbol,
+    ],
+  );
   const renderNFTDataInputForm = useCallback(() => {
     if (nft?.collectionType === ENFTType.ERC1155) {
       return (
@@ -421,8 +440,6 @@ function SendDataInputContainer() {
               mx="$0"
               borderWidth={1}
               borderColor="$border"
-              // title={isNFT ? nft?.metadata?.name : token?.name}
-              // subtitle={network?.name}
               onPress={isNFT ? undefined : handleOnSelectToken}
               borderRadius="$2"
             >

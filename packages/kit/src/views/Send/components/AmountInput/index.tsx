@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { BaseInput } from '@onekeyhq/kit/src/common/components/BaseInput';
+import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 
 import type { IntlShape } from 'react-intl';
 
@@ -20,6 +21,7 @@ type IAmountInputProps = {
   tokenSymbol: string;
   currencySymbol: string;
   percent?: number[];
+  maxAmount?: string;
   onChangePercent?: (percent: number) => void;
   onChangeAmountMode?: () => void;
 } & ComponentProps<typeof BaseInput>;
@@ -37,6 +39,7 @@ function AmountInput(props: IAmountInputProps) {
     value: amount,
     placeholder,
     percent,
+    maxAmount = '0',
     isUseFiat,
     linkedAmount,
     tokenSymbol,
@@ -45,6 +48,7 @@ function AmountInput(props: IAmountInputProps) {
     onChangeAmountMode,
     ...rest
   } = props;
+
   const percentFromProps = uniq(filter(percent, isNumber));
 
   const inputPercent = isEmpty(percentFromProps)
@@ -122,6 +126,7 @@ function AmountInput(props: IAmountInputProps) {
               bg: '$bgActive',
             }}
             borderRadius="$2"
+            onPress={() => onChangePercent?.(1)}
           >
             <SizableText
               size="$bodyMd"
@@ -129,10 +134,13 @@ function AmountInput(props: IAmountInputProps) {
               pl="$0.5"
               pr="$1.5"
             >
-              Balance: 81
+              {intl.formatMessage(
+                { id: 'content__balance_str' },
+                { 0: maxAmount },
+              )}
             </SizableText>
             <Badge badgeSize="sm" badgeType="info">
-              Max
+              {intl.formatMessage({ id: 'action__max' })}
             </Badge>
           </XStack>
         </XStack>
