@@ -21,6 +21,7 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import TimerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
@@ -46,6 +47,12 @@ import type { IPasswordRes } from './types';
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
+
+  private cachedPasswordActivityTimeStep = 0;
+
+  private cachedPasswordTTL: number = TimerUtils.getTimeDurationMs({
+    hour: 2,
+  });
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -112,14 +119,21 @@ export default class ServicePassword extends ServiceBase {
   async setCachedPassword(password: string): Promise<string> {
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
+    this.cachedPasswordActivityTimeStep = Date.now();
     return password;
   }
 
   @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
-    if (!this.cachedPassword) {
+    const now = Date.now();
+    if (
+      !this.cachedPassword ||
+      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL
+    ) {
+      await this.clearCachedPassword();
       return undefined;
     }
+    this.cachedPasswordActivityTimeStep = now;
     return this.cachedPassword;
   }
 
