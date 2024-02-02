@@ -51,7 +51,7 @@ function SignMessageModal() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout

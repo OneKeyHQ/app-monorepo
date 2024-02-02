@@ -47,6 +47,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       space="$2"
       bg="$bgApp"
       alignItems="center"
+      userSelect="none"
       hoverStyle={
         disabled
           ? undefined
@@ -71,13 +72,16 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
               outlineStyle: 'solid',
             }
       }
+      style={{
+        borderCurve: 'continuous',
+      }}
       onPress={handlePress}
       disabled={disabled}
       {...rest}
     >
       {account?.address ? (
         <AccountAvatar
-          size="$6"
+          size="small"
           borderRadius="$1"
           account={account}
           networkId={network?.id}
@@ -146,7 +150,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }}
       onPress={handlePress}
     >
-      <AccountAvatar size="$6" account={account} />
+      <AccountAvatar size="small" account={account} />
       {media.gtMd ? (
         <>
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>

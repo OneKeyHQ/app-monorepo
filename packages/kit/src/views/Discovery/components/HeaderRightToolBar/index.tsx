@@ -4,6 +4,7 @@ import {
   Popover,
   SizableText,
   Spinner,
+  Stack,
   XStack,
   YStack,
   usePopoverContext,
@@ -64,8 +65,8 @@ function SingleAccountAndNetworkSelectorTrigger({
   });
   return (
     <>
-      <AccountSelectorTriggerBrowserSingle num={num} />
       <NetworkSelectorTriggerBrowserSingle num={num} />
+      <AccountSelectorTriggerBrowserSingle num={num} />
     </>
   );
 }
@@ -89,14 +90,15 @@ function AvatarStackTrigger({
   return (
     <XStack role="button" testID="multi-avatar">
       {accounts?.slice(0, 2).map((account, index) => (
-        <AccountAvatar
-          key={account?.account.id}
-          account={account.account}
-          size="$6"
-          ml="$-1"
-          zIndex={-index}
-          networkId={account?.networkId}
-        />
+        <Stack borderWidth={2} borderColor="$bgApp" ml="$-0.5">
+          <AccountAvatar
+            key={account?.account.id}
+            account={account.account}
+            size="small"
+            zIndex={-index}
+            networkId={account?.networkId}
+          />
+        </Stack>
       ))}
       {accountsInfo.length > 2 && (
         <XStack
@@ -238,14 +240,14 @@ function HeaderRightToolBar() {
               }}
               enabledNum={[accountInfo.num]}
             >
-              <HeaderButtonGroup>
+              <XStack mr="$-1.5">
                 <SingleAccountAndNetworkSelectorTrigger
                   origin={origin}
                   num={accountInfo.num}
                   account={accountInfo}
                   afterChangeAccount={afterChangeAccount}
                 />
-              </HeaderButtonGroup>
+              </XStack>
             </AccountSelectorProviderMirror>
           ))}
         </>

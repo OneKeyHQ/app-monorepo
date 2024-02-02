@@ -106,7 +106,7 @@ function ConnectionModal() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout

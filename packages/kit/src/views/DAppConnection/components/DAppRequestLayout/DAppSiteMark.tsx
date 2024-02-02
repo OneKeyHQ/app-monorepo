@@ -87,6 +87,9 @@ function DAppSiteMark({
       borderRadius="$2"
       alignItems="center"
       alignSelf="flex-start"
+      style={{
+        borderCurve: 'continuous',
+      }}
     >
       <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
         <Image.Source source={{ uri: faviconUri }} />
@@ -94,12 +97,7 @@ function DAppSiteMark({
           <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>
       </Image>
-      <SizableText
-        p="$1"
-        size="$bodyLgMedium"
-        color={riskyStyle.textColor}
-        textAlign="center"
-      >
+      <SizableText size="$bodyLgMedium" color={riskyStyle.textColor} px="$1">
         {content}
       </SizableText>
       {riskyStyle.iconName && riskyStyle.iconColor ? (
