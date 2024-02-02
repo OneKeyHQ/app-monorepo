@@ -4,9 +4,11 @@ import { buildApprovedNamespaces } from '@walletconnect/utils';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
+import {
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerDappConnection,
+  NetworkSelectorTriggerDappConnection,
+} from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -147,16 +149,8 @@ function SessionProposalModal({
   return (
     <Page>
       <Page.Header title="Wallet Connect Session Proposal" />
-      <AccountSelectorTriggerHome
-        sceneName={EAccountSelectorSceneName.discover}
-        sceneUrl={origin}
-        num={num}
-      />
-      <NetworkSelectorTriggerHome
-        sceneName={EAccountSelectorSceneName.discover}
-        sceneUrl={origin}
-        num={num}
-      />
+      <AccountSelectorTriggerDappConnection num={num} />
+      <NetworkSelectorTriggerDappConnection num={num} />
       <Page.Body>
         <Stack space="$3">
           <SizableText>WalletConnect 授权账户</SizableText>
@@ -207,7 +201,7 @@ function SessionProposalModalProvider() {
     backgroundApiProxy.serviceDApp
       .getAccountSelectorNum({
         origin,
-        scope: 'walletconnect',
+        scope: 'ethereum',
         options: {
           networkImpl: IMPL_EVM,
         },

@@ -12,7 +12,7 @@ export type IDappSourceInfo = {
   id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
   hostname: string;
-  scope: IInjectedProviderNamesStrings;
+  scope: IInjectedProviderNamesStrings | undefined;
   data: IJsonRpcRequest;
 };
 
