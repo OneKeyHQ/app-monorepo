@@ -21,7 +21,7 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import TimerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
@@ -50,7 +50,7 @@ export default class ServicePassword extends ServiceBase {
 
   private cachedPasswordActivityTimeStep = 0;
 
-  private cachedPasswordTTL: number = TimerUtils.getTimeDurationMs({
+  private cachedPasswordTTL: number = timerUtils.getTimeDurationMs({
     hour: 2,
   });
 
