@@ -178,7 +178,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="Bookmarks"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.BookmarkListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.BookmarkListModal,
+                });
               }}
             />
             <XStack>
@@ -232,7 +234,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="History"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.HistoryListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.HistoryListModal,
+                });
               }}
             />
             {historyData?.map((item, index) => (
