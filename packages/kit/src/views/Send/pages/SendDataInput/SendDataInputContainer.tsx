@@ -413,15 +413,31 @@ function SendDataInputContainer() {
             <ListItem
               avatarProps={{
                 src: isNFT ? nft?.metadata?.image : token?.logoURI,
+                borderRadius: '$full',
+                cornerImageProps: {
+                  src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                },
               }}
               mx="$0"
               borderWidth={1}
               borderColor="$border"
-              title={isNFT ? nft?.metadata?.name : token?.name}
-              subtitle={network?.name}
+              // title={isNFT ? nft?.metadata?.name : token?.name}
+              // subtitle={network?.name}
               onPress={isNFT ? undefined : handleOnSelectToken}
+              borderRadius="$2"
             >
-              {!isNFT && <Icon name="SwitchHorOutline" color="$iconSubdued" />}
+              <ListItem.Text
+                flex={1}
+                primary={isNFT ? nft?.metadata?.name : token?.symbol}
+                secondary={
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {token?.name}
+                  </SizableText>
+                }
+              />
+              {!isNFT && (
+                <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" />
+              )}
             </ListItem>
           </Form.Field>
           <Form.Field
@@ -443,9 +459,6 @@ function SendDataInputContainer() {
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
-        <SizableText size="$bodyMdMedium" mt="$5">
-          Please ensure that the selected network and address are correct
-        </SizableText>
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}

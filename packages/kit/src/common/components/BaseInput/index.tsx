@@ -48,8 +48,8 @@ function BaseInput(props: IBaseInputProps) {
       {extension && (
         <Group.Item>
           <Stack
-            p="$3"
-            pt="$2"
+            px={sharedStyles.px}
+            py={size === 'large' ? '$3.5' : '$2.5'}
             borderWidth={sharedStyles.borderWidth}
             bg={sharedStyles.backgroundColor}
             borderTopWidth={0}

@@ -31,7 +31,7 @@ function BaseTextArea(
       ref={ref}
       fontSize={getFontSize('$bodyLg')}
       px={sharedStyles.px}
-      py={sharedStyles.py}
+      py={size === 'large' ? '$3.5' : '$2.5'}
       numberOfLines={3}
       bg={sharedStyles.backgroundColor}
       color={sharedStyles.color}

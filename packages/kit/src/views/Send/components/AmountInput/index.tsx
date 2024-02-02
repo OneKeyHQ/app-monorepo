@@ -74,8 +74,8 @@ function AmountInput(props: IAmountInputProps) {
 
   const LinkedAmountSwitch = useMemo(
     () => (
-      <XStack pt="$1.5" alignItems="center">
-        <SizableText size="$bodyLg" color="$textSubdued" pr="$1">
+      <XStack alignItems="center">
+        <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
           ≈
           {isUseFiat
             ? `${linkedAmount} ${tokenSymbol}`
@@ -85,9 +85,7 @@ function AmountInput(props: IAmountInputProps) {
           title={isUseFiat ? 'Enter amount as token' : 'Enter amount as fiat'}
           icon="SwitchVerOutline"
           size="small"
-          iconProps={{
-            size: '$4',
-          }}
+          variant="tertiary"
           onPress={onChangeAmountMode}
         />
       </XStack>
@@ -97,13 +95,18 @@ function AmountInput(props: IAmountInputProps) {
 
   return (
     <BaseInput
+      numberOfLines={1}
       placeholder={
         placeholder ?? intl.formatMessage({ id: 'action__enter_amount' })
       }
       extension={
         <XStack justifyContent="space-between" alignItems="center">
           {LinkedAmountSwitch}
-          {AmountInputPercent}
+          <XStack>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Balance: 81 DAI
+            </SizableText>
+          </XStack>
         </XStack>
       }
       value={amount}
