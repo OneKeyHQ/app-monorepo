@@ -255,7 +255,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
     const accountNumbers = connectionItem.networkImplMap[networkImpl];
     if (accountNumbers && accountNumbers.length > 0) {
-      return Math.max(...accountNumbers) + 1;
+      return Math.max(...accountNumbers);
     }
     return generateAccountSelectorNumber(
       connectionItem.connectionMap,

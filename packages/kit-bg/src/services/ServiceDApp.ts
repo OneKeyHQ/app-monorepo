@@ -19,7 +19,10 @@ import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  type IDappSourceInfo,
+} from '@onekeyhq/shared/types';
 import type {
   IConnectionAccountInfo,
   IGetDAppAccountInfoParams,
@@ -436,13 +439,50 @@ class ServiceDApp extends ServiceBase {
       return;
     }
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
-    // TODO: buildActiveAccount, upsert accountselector simpledb, emit event bus
+    const accountSelectorNum =
+      await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
+        params.origin,
+        networkImpl,
+        storageType,
+      );
+    console.log('====> accountSelectorNum: ', accountSelectorNum);
+    const selectedAccount =
+      await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: params.origin,
+        num: accountSelectorNum,
+      });
+    if (selectedAccount) {
+      const { selectedAccount: newSelectedAccount } =
+        await this.backgroundApi.serviceAccount.buildActiveAccountInfoFromSelectedAccount(
+          {
+            selectedAccount: { ...selectedAccount, networkId: newNetworkId },
+          },
+        );
+      await this.backgroundApi.simpleDb.accountSelector.saveSelectedAccount({
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: params.origin,
+        num: 0,
+        selectedAccount: { ...selectedAccount, networkId: newNetworkId },
+      });
+      console.log('===>newSelectedAccount: ', newSelectedAccount);
+    }
+
     await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
       params.origin,
       networkImpl,
       newNetworkId,
       storageType,
     );
+
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.DAppNetworkUpdate, {
+        networkId: newNetworkId,
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: params.origin,
+        num: accountSelectorNum,
+      });
+    }, 200);
   }
 
   @backgroundMethod()

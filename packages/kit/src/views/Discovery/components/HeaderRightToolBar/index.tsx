@@ -199,11 +199,17 @@ function HeaderRightToolBar() {
     const fn = () => {
       setTimeout(() => afterChangeAccount(), 200);
     };
+    const updateNetwork = () => {
+      console.log('-=====>re runnnnnn');
+      void run();
+    };
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
+    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
       appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
+      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };
-  }, [afterChangeAccount]);
+  }, [afterChangeAccount, run]);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
