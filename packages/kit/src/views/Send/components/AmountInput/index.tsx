@@ -11,7 +11,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { BaseInput } from '@onekeyhq/kit/src/common/components/BaseInput';
-import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 
 import type { IntlShape } from 'react-intl';
 

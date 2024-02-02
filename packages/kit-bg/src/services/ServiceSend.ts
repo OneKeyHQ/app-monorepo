@@ -21,7 +21,6 @@ import type {
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
-  ISignAndSendTransactionParams,
   ISignTransactionParamsBase,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -253,7 +252,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async signAndSendTransaction(
-    params: ISendTxBaseParams & ISignAndSendTransactionParams,
+    params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
     const { networkId, accountId, unsignedTx } = params;
     const signedTx = await this.signTransaction({
@@ -261,7 +260,8 @@ class ServiceSend extends ServiceBase {
       accountId,
       unsignedTx,
     });
-    return this.broadcastTransaction({ networkId, signedTx });
+    const txid = await this.broadcastTransaction({ networkId, signedTx });
+    return { ...signedTx, txid };
   }
 
   @backgroundMethod()

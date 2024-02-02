@@ -1,6 +1,8 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -13,7 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
-import { EModalSendRoutes, type IModalSendParamList } from '../../router';
+import { type IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;
@@ -25,6 +27,8 @@ type IProps = {
 
 function SendConfirmActionsContainer(props: IProps) {
   const { accountId, networkId, onSuccess, onFail, tableLayout } = props;
+  const intl = useIntl();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
@@ -33,29 +37,69 @@ function SendConfirmActionsContainer(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
 
   const handleOnConfirm = useCallback(async () => {
-    const newUnsignedTxs = [];
-    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      const unsignedTx = unsignedTxs[i];
-      const newUnsignedTx =
-        await backgroundApiProxy.serviceSend.updateUnsignedTx({
-          accountId,
-          networkId,
-          unsignedTx,
-          feeInfo: sendSelectedFeeInfo?.feeInfo,
-        });
+    setIsSubmitting(true);
 
-      newUnsignedTxs.push(newUnsignedTx);
+    try {
+      const newUnsignedTxs = [];
+      for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+        const unsignedTx = unsignedTxs[i];
+        const newUnsignedTx =
+          await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            accountId,
+            networkId,
+            unsignedTx,
+            feeInfo: sendSelectedFeeInfo?.feeInfo,
+          });
+
+        newUnsignedTxs.push(newUnsignedTx);
+      }
+
+      const signedTxs: ISignedTxPro[] = [];
+
+      for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
+        const unsignedTx = newUnsignedTxs[i];
+        const signedTx =
+          await backgroundApiProxy.serviceSend.signAndSendTransaction({
+            networkId,
+            accountId,
+            unsignedTx,
+          });
+
+        signedTxs.push(signedTx);
+
+        if (signedTx) {
+          await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+            networkId,
+            accountId,
+            data: {
+              signedTx,
+              decodedTx: await backgroundApiProxy.serviceSend.buildDecodedTx({
+                networkId,
+                accountId,
+                unsignedTx,
+              }),
+            },
+          });
+        }
+      }
+
+      onSuccess?.(signedTxs);
+      setIsSubmitting(false);
+      Toast.success({
+        title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
+      });
+      navigation.popStack();
+    } catch (e: any) {
+      setIsSubmitting(false);
+      Toast.error({
+        title: (e as Error).message,
+      });
+      onFail?.(e as Error);
+      throw e;
     }
-
-    navigation.push(EModalSendRoutes.SendProgress, {
-      networkId,
-      accountId,
-      unsignedTxs: newUnsignedTxs,
-      onSuccess,
-      onFail,
-    });
   }, [
     accountId,
+    intl,
     navigation,
     networkId,
     onFail,
@@ -65,6 +109,7 @@ function SendConfirmActionsContainer(props: IProps) {
   ]);
 
   const isSubmitDisabled = useMemo(() => {
+    if (isSubmitting) return true;
     if (
       sendTxStatus.isLoadingNativeBalance ||
       sendTxStatus.isInsufficientNativeBalance
@@ -74,6 +119,7 @@ function SendConfirmActionsContainer(props: IProps) {
     if (!sendSelectedFeeInfo || sendFeeStatus.status === ESendFeeStatus.Error)
       return true;
   }, [
+    isSubmitting,
     sendTxStatus.isLoadingNativeBalance,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
@@ -87,10 +133,12 @@ function SendConfirmActionsContainer(props: IProps) {
           size: 'medium',
           flex: 0,
           disabled: isSubmitDisabled,
+          loading: isSubmitting,
         }}
         cancelButtonProps={{
           size: 'medium',
           flex: 0,
+          disabled: isSubmitting,
         }}
         onConfirmText="Sign and Broadcast"
         onConfirm={handleOnConfirm}
@@ -105,10 +153,12 @@ function SendConfirmActionsContainer(props: IProps) {
         size: 'large',
         flex: 2,
         disabled: isSubmitDisabled,
+        loading: isSubmitting,
       }}
       cancelButtonProps={{
         size: 'large',
         flex: 1,
+        disabled: isSubmitting,
       }}
       onConfirmText="Sign and Broadcast"
       onConfirm={handleOnConfirm}
