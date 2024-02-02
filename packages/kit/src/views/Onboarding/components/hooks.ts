@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
-import { InteractionManager } from 'react-native';
+import { InteractionManager, Keyboard } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -75,7 +75,11 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     const key = `phrase${selectInputIndex + 2}`;
     await new Promise<void>((resolve) => {
       setTimeout(() => {
-        form.setFocus(key);
+        if (platformEnv.isNative && selectInputIndex === 11) {
+          Keyboard.dismiss();
+        } else {
+          form.setFocus(key);
+        }
         resolve();
       }, 300);
     });

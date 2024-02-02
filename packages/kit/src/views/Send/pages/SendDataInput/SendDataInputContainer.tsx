@@ -402,7 +402,7 @@ function SendDataInputContainer() {
   }, [intl, nft?.collectionType]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Send" />
       <Page.Body px="$5">
         <Form form={form}>
