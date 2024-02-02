@@ -18,7 +18,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   beforeShowTrigger?: () => Promise<void>;
 }>(({ num, compressionUiMode, disabled, beforeShowTrigger, ...rest }) => {
   const {
-    activeAccount: { account },
+    activeAccount: { account, network },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
@@ -76,7 +76,12 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       {...rest}
     >
       {account?.address ? (
-        <AccountAvatar size="$6" borderRadius="$1" account={account} />
+        <AccountAvatar
+          size="$6"
+          borderRadius="$1"
+          account={account}
+          networkId={network?.id}
+        />
       ) : null}
       {isCompressionUiMode ? (
         <YStack flex={1}>

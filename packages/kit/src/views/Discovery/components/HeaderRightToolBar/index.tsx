@@ -81,7 +81,7 @@ function AvatarStackTrigger({
         accountId: accountInfo.accountId,
         networkId: accountInfo.networkId,
       });
-      return account;
+      return { account, networkId: accountInfo.networkId };
     });
     return Promise.all(promises);
   }, [accountsInfo]);
@@ -90,11 +90,12 @@ function AvatarStackTrigger({
     <XStack role="button" testID="multi-avatar">
       {accounts?.slice(0, 2).map((account, index) => (
         <AccountAvatar
-          key={account?.id}
-          account={account}
+          key={account?.account.id}
+          account={account.account}
           size="$6"
           ml="$-1"
           zIndex={-index}
+          networkId={account?.networkId}
         />
       ))}
       {accountsInfo.length > 2 && (
