@@ -55,6 +55,7 @@ import type {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
+import type { IQouterExtraData } from './socket';
 import type { AxiosResponse } from 'axios';
 
 type TransactionOrder = {
@@ -143,6 +144,7 @@ type FetchQuoteHttpResult = {
   estimatedPriceImpact?: string;
   onChainSatsPerVbyte?: string;
   notImpactBySlippage?: boolean;
+  quoterExtraData?: IQouterExtraData;
 };
 
 type FetchQuoteHttpLimit = {
@@ -387,6 +389,7 @@ export class SwapQuoter {
         estimatedPriceImpact: fetchQuote.estimatedPriceImpact,
         onChainSatsPerVbyte: fetchQuote.onChainSatsPerVbyte,
         notImpactBySlippage: fetchQuote.notImpactBySlippage,
+        quoteExtraData: fetchQuote.quoterExtraData,
       };
 
       if (data.allowanceTarget && spendersAllowance) {

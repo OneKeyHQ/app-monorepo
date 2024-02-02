@@ -137,7 +137,7 @@ export const SwapContent = () => {
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
-
+  const quote = useAppSelector((s) => s.swap.quote);
   const isDisabled = !wallet || !network || swapMaintain;
 
   const onSelectInput = useCallback(() => {
@@ -219,6 +219,7 @@ export const SwapContent = () => {
             onChange={onChangeOutput}
             onPress={onSelectOutput}
             containerProps={containerProps.lower}
+            extraData={quote?.quoteExtraData}
           />
         </Box>
         {isDisabled ? (

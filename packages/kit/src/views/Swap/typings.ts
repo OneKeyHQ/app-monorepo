@@ -4,6 +4,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import type { SendConfirmPayloadBase } from '../Send/types';
+import type { IQouterExtraData } from './quoter/socket';
 
 export enum SwapRoutes {
   Swap = 'Swap',
@@ -197,6 +198,7 @@ export type QuoteData = {
   estimatedPriceImpact?: string;
   onChainSatsPerVbyte?: string;
   notImpactBySlippage?: boolean;
+  quoteExtraData?: IQouterExtraData;
 };
 
 type WrapperTransactionType = 'Withdraw' | 'Deposite';
