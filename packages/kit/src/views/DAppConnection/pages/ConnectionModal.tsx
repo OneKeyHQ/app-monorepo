@@ -132,6 +132,7 @@ function ConnectionModal() {
             disabled: confirmDisabled,
           }}
           showContinueOperateCheckbox={riskLevel !== 'security'}
+          riskLevel={riskLevel}
         />
       </Page.Footer>
     </Page>

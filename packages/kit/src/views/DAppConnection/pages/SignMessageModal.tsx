@@ -75,6 +75,7 @@ function SignMessageModal() {
             disabled: !canContinueOperate,
           }}
           showContinueOperateCheckbox={riskLevel !== 'security'}
+          riskLevel={riskLevel}
         />
       </Page.Footer>
     </Page>
