@@ -68,9 +68,10 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   return (
     <Container.Box
       contentProps={{
-        px: tableLayout ? '0' : '$5',
-        borderWidth: tableLayout ? 0 : 1,
-        bg: tableLayout ? '$transparent' : '$bgSubdued',
+        mt: '$4',
+        // px: tableLayout ? '0' : '$5',
+        // borderWidth: tableLayout ? 0 : 1,
+        // bg: tableLayout ? '$transparent' : '$bgSubdued',
       }}
       hasDivider={!tableLayout}
     >

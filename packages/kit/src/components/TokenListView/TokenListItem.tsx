@@ -72,11 +72,6 @@ function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
             numberOfLines={1}
             symbol={token.symbol}
           />
-          {token.isNative && (
-            <SizableText size="$bodyLgMedium" color="$textSuccess" pl="$2">
-              3.77% APR
-            </SizableText>
-          )}
         </XStack>
 
         {withPrice && (

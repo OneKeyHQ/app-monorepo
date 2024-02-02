@@ -312,7 +312,8 @@ function AddressInput(props: IAddressInputProps) {
       onChangeText={onChangeText}
       placeholder={
         placeholder ??
-        intl.formatMessage({ id: 'form__address_and_domain_placeholder' })
+        // intl.formatMessage({ id: 'form__address_and_domain_placeholder' })
+        'Enter address or domain name'
       }
       extension={AddressInputExtension}
       {...rest}

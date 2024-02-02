@@ -107,9 +107,7 @@ function AmountInput(props: IAmountInputProps) {
   return (
     <BaseInput
       numberOfLines={2}
-      placeholder={
-        placeholder ?? intl.formatMessage({ id: 'action__enter_amount' })
-      }
+      placeholder={placeholder ?? 'Enter amount'}
       extension={
         <XStack justifyContent="space-between" alignItems="center">
           {LinkedAmountSwitch}

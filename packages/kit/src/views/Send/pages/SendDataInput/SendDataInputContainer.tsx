@@ -305,15 +305,12 @@ function SendDataInputContainer() {
         ? `${currencySymbol}${
             getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0
           }`
-        : `${
-            getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0
-          } ${tokenSymbol}`,
+        : `${getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}`,
     [
       currencySymbol,
       isUseFiat,
       tokenDetails?.balanceParsed,
       tokenDetails?.fiatValue,
-      tokenSymbol,
     ],
   );
 
@@ -434,7 +431,7 @@ function SendDataInputContainer() {
                 src: isNFT ? nft?.metadata?.image : token?.logoURI,
                 borderRadius: '$full',
                 cornerImageProps: {
-                  src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+                  src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
                 },
               }}
               mx="$0"

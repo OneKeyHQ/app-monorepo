@@ -75,12 +75,10 @@ function SendConfirmContainer() {
 
     return (
       <>
-        <Page.Body>
-          <YStack space="$4" px="$5">
-            <TxActionsContainer accountId={accountId} networkId={networkId} />
-            <TxFeeContainer accountId={accountId} networkId={networkId} />
-            <TxSimulationContainer />
-          </YStack>
+        <Page.Body px="$5">
+          <TxActionsContainer accountId={accountId} networkId={networkId} />
+          <TxFeeContainer accountId={accountId} networkId={networkId} />
+          <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
           accountId={accountId}

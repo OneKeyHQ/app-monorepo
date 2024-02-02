@@ -1,9 +1,9 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Divider,
+  Group,
   Icon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -32,8 +32,8 @@ function ContainerItem(props: IProps) {
     hasDivider,
   } = props;
   return (
-    <Stack>
-      <YStack width="100%" py="$3" space="$0.5">
+    <Group.Item>
+      <YStack px="$4" py="$3" space="$0.5">
         <XStack alignItems="center" space="$1">
           {typeof title === 'string' ? (
             <SizableText
@@ -92,8 +92,11 @@ function ContainerItem(props: IProps) {
           </XStack>
         )}
       </YStack>
-      {hasDivider && <Divider />}
-    </Stack>
+    </Group.Item>
+    // <Stack>
+
+    //   {hasDivider && <Divider />}
+    // </Stack>
   );
 }
 

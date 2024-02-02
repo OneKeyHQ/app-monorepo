@@ -353,17 +353,19 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       return (
         <Container.Box
-          contentProps={{
-            borderWidth: tableLayout ? 0 : 1,
-            bg: tableLayout ? '$transparent' : '$bgSubdued',
-          }}
-          hasDivider={!tableLayout}
+          contentProps={
+            {
+              // borderWidth: tableLayout ? 0 : 1,
+              // bg: '$bg',
+            }
+          }
+          hasDivider={false}
         >
           {transferElements}
         </Container.Box>
       );
     },
-    [from, intl, network?.logoURI, network?.name, tableLayout],
+    [from, intl, network?.logoURI, network?.name],
   );
 
   return (

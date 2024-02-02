@@ -150,14 +150,10 @@ function SendConfirmActionsContainer(props: IProps) {
   return (
     <Page.Footer
       confirmButtonProps={{
-        size: 'large',
-        flex: 2,
         disabled: isSubmitDisabled,
         loading: isSubmitting,
       }}
       cancelButtonProps={{
-        size: 'large',
-        flex: 1,
         disabled: isSubmitting,
       }}
       onConfirmText="Sign and Broadcast"

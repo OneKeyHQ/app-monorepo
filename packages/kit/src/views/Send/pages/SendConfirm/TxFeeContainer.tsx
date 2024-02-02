@@ -322,8 +322,9 @@ function TxFeeContainer(props: IProps) {
   return (
     <Container.Box
       contentProps={{
-        borderWidth: tableLayout ? 0 : 1,
-        bg: tableLayout ? '$transparent' : '$bgSubdued',
+        mt: '$4',
+        // borderWidth: tableLayout ? 0 : 1,
+        // bg: tableLayout ? '$transparent' : '$bgSubdued',
       }}
     >
       <Container.Item
