@@ -330,7 +330,7 @@ function SendDataInputContainer() {
           },
         }}
       >
-        <SizableText
+        {/* <SizableText
           size="$bodyMd"
           color="$textSubdued"
           position="absolute"
@@ -345,7 +345,7 @@ function SendDataInputContainer() {
                 : `${tokenInfo?.balanceParsed ?? 0} ${tokenSymbol}`,
             },
           )}
-        </SizableText>
+        </SizableText> */}
 
         <AmountInput
           isUseFiat={isUseFiat}

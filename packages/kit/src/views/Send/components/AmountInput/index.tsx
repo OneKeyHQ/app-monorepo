@@ -3,7 +3,13 @@ import { type ComponentProps, memo, useMemo } from 'react';
 import { filter, isEmpty, isNumber, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, IconButton, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Button,
+  IconButton,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { BaseInput } from '@onekeyhq/kit/src/common/components/BaseInput';
 
 import type { IntlShape } from 'react-intl';
@@ -84,8 +90,10 @@ function AmountInput(props: IAmountInputProps) {
         <IconButton
           title={isUseFiat ? 'Enter amount as token' : 'Enter amount as fiat'}
           icon="SwitchVerOutline"
+          iconProps={{
+            size: '$3.5',
+          }}
           size="small"
-          variant="tertiary"
           onPress={onChangeAmountMode}
         />
       </XStack>
@@ -95,17 +103,37 @@ function AmountInput(props: IAmountInputProps) {
 
   return (
     <BaseInput
-      numberOfLines={1}
+      numberOfLines={2}
       placeholder={
         placeholder ?? intl.formatMessage({ id: 'action__enter_amount' })
       }
       extension={
         <XStack justifyContent="space-between" alignItems="center">
           {LinkedAmountSwitch}
-          <XStack>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              Balance: 81 DAI
+          <XStack
+            alignItems="center"
+            userSelect="none"
+            p="$1"
+            m="$-1"
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+            borderRadius="$2"
+          >
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              pl="$0.5"
+              pr="$1.5"
+            >
+              Balance: 81
             </SizableText>
+            <Badge badgeSize="sm" badgeType="info">
+              Max
+            </Badge>
           </XStack>
         </XStack>
       }

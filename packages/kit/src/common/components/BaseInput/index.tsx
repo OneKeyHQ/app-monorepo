@@ -88,7 +88,7 @@ function BaseInput(props: IBaseInputProps) {
           disabled={disabled}
           size={size}
           spellCheck={false}
-          focusStyle={undefined}
+          // focusStyle={undefined}
           minHeight={minHeight}
           {...rest}
         />
