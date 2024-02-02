@@ -13,7 +13,7 @@ export type ITxSimulationItem = {
 // for now just UI demo
 const mockSimulationDataIn: ITxSimulationItem[] = [
   {
-    label: '+2355.355 MATIC',
+    label: '+2,355.355 MATIC',
     icon: 'https://assets.coingecko.com/coins/images/4713/standard/polygon.png?1698233745',
   },
 ];

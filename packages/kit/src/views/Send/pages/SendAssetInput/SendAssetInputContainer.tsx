@@ -69,7 +69,12 @@ function SendAssetInputContainer() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title={intl.formatMessage({ id: 'action__select_token' })} />
+      <Page.Header
+        title={intl.formatMessage({ id: 'action__select_token' })}
+        headerSearchBarOptions={{
+          placeholder: 'Search symbol or contract address',
+        }}
+      />
       <Page.Body>
         {networkName && <SectionList.SectionHeader title={networkName} />}
         <TokenListView onPressToken={handleTokenOnPress} withName />
