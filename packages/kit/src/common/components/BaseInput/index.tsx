@@ -1,4 +1,10 @@
-import { type ComponentProps, useCallback, useRef, useState } from 'react';
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { Group, Stack, TextArea } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
@@ -6,38 +12,35 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const useAutoSize = (onChangeText?: (text: string) => void) => {
+const useAutoSize = (value?: string) => {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [minHeight, setMinHeight] = useState<number | undefined>(undefined);
   const initHeightRef = useRef(0);
 
   const numberOfLines = 2;
 
-  const resizeTextArea = useCallback(() => {
+  useEffect(() => {
     const element = textAreaRef.current;
-    if (element) {
-      const height = element.scrollHeight;
-      element.style.height = 'auto';
-      element.style.height = `${
-        height < initHeightRef.current ? initHeightRef.current : height
-      }px`;
-    }
-  }, []);
+    if (!platformEnv.isNative && element) {
+      // We need to reset the height momentarily to get the correct scrollHeight for the textArea
+      element.style.height = '0px';
 
-  const handleTextChange = useCallback(
-    (value: string) => {
-      resizeTextArea();
-      onChangeText?.(value);
-    },
-    [onChangeText, resizeTextArea],
-  );
+      // We then set the height directly, outside of the render loop
+      // Trying to set this with state or a ref will product an incorrect value.
+      element.style.height = `${Math.max(
+        element.scrollHeight,
+        initHeightRef.current,
+      )}px`;
+    }
+  }, [textAreaRef, value]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     if (!initHeightRef.current) {
       initHeightRef.current = e.nativeEvent.layout.height;
-      // fix missing numberOfLines on iOS.
-      if (platformEnv.isNativeIOS) {
-        setMinHeight(initHeightRef.current * 2);
+      // fix missing numberOfLines on iOS & Web.
+      if (!platformEnv.isNativeAndroid) {
+        initHeightRef.current *= numberOfLines;
+        setMinHeight(initHeightRef.current);
       }
     }
   }, []);
@@ -46,7 +49,6 @@ const useAutoSize = (onChangeText?: (text: string) => void) => {
     minHeight,
     onLayout: platformEnv.isNativeAndroid ? undefined : handleLayout,
     textAreaRef,
-    onChangeText: platformEnv.isNative ? onChangeText : handleTextChange,
     numberOfLines,
   };
 };
@@ -55,8 +57,7 @@ export type IBaseInputProps = {
   extension?: React.ReactNode;
 } & ComponentProps<typeof TextArea>;
 function BaseInput(props: IBaseInputProps) {
-  const { disabled, error, editable, size, extension, onChangeText, ...rest } =
-    props;
+  const { disabled, error, editable, size, extension, value, ...rest } = props;
 
   const sharedStyles = getSharedInputStyles({
     disabled,
@@ -65,21 +66,16 @@ function BaseInput(props: IBaseInputProps) {
     size,
   });
 
-  const {
-    minHeight,
-    textAreaRef,
-    numberOfLines,
-    onLayout,
-    onChangeText: handleChangeText,
-  } = useAutoSize(onChangeText);
+  const { minHeight, textAreaRef, numberOfLines, onLayout } =
+    useAutoSize(value);
 
   return (
     <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
       <Group.Item>
         <TextArea
           ref={textAreaRef}
+          value={value}
           onLayout={onLayout}
-          onChangeText={handleChangeText}
           borderBottomWidth={0}
           error={error}
           numberOfLines={numberOfLines}
