@@ -24,7 +24,6 @@ function useDappApproveAction({
   // TODO ignore multiple times reject/resolve
   const reject = useCallback(
     ({ close, error }: { close?: () => void; error?: Error } = {}) => {
-      // eslint-disable-next-line no-param-reassign
       const newError =
         error || rejectError || web3Errors.provider.userRejectedRequest();
       void backgroundApiProxy.servicePromise.rejectCallback({
