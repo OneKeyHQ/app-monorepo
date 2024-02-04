@@ -9,6 +9,7 @@ import {
   TextArea,
   useForm,
 } from '@onekeyhq/components';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
@@ -23,7 +24,6 @@ import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
   const navigation =

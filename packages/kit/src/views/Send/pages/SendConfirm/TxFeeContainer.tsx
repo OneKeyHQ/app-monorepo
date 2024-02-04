@@ -263,8 +263,8 @@ function TxFeeContainer(props: IProps) {
           screen: EModalSendRoutes.SendCustomFee,
           params: {
             networkId,
-            accountId: '',
-            customFee: customFee ?? selectedFee?.feeInfo,
+            accountId,
+            customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
             onApply: (feeInfo: IFeeInfoUnit) => {
               updateCustomFee(feeInfo);
               updateSendSelectedFee({
@@ -282,6 +282,7 @@ function TxFeeContainer(props: IProps) {
       }
     },
     [
+      accountId,
       customFee,
       navigation,
       networkId,
