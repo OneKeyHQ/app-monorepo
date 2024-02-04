@@ -2,8 +2,7 @@
 
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
 import type { IDeviceResponse } from '@onekeyhq/shared/types/device';
 
@@ -47,42 +46,33 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       coinName: string | undefined;
       showOnOnekeyFn: (index: number) => boolean | undefined;
     }) => IDeviceResponse<Array<T>>;
-  }) {
+  }): Promise<T[]> {
     const { deriveInfo, deviceParams } = params;
     const { dbDevice, confirmOnDevice } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
-    let response;
-    try {
-      const showOnOnekeyFn = (arrIndex: number) =>
-        !confirmOnDevice
-          ? false
-          : // confirm on last index account create
-            arrIndex === usedIndexes[usedIndexes.length - 1];
+    const showOnOnekeyFn = (arrIndex: number) =>
+      !confirmOnDevice
+        ? false
+        : // confirm on last index account create
+          arrIndex === usedIndexes[usedIndexes.length - 1];
 
-      response = await sdkGetPublicKeysFn({
+    const result = await convertDeviceResponse(async () =>
+      sdkGetPublicKeysFn({
         connectId,
         deviceId,
         pathPrefix,
         pathSuffix,
         coinName,
         showOnOnekeyFn,
-      });
-    } catch (error: any) {
-      console.error(error);
-      throw new OneKeyHardwareError(error as Error);
-    }
+      }),
+    );
 
-    if (!response.success) {
-      console.error(response.payload);
-      throw convertDeviceError(response.payload);
-    }
-
-    if (!response.payload || response.payload.length !== usedIndexes.length) {
+    if (!result || result.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
-    return response.payload;
+    return result;
   }
 }

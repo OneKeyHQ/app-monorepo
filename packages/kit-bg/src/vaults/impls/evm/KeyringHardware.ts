@@ -12,12 +12,11 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
-  IDeviceResponseSync,
+  IDeviceResponseResult,
   IDeviceSharedCallParams,
 } from '@onekeyhq/shared/types/device';
 
@@ -51,7 +50,7 @@ async function hardwareEvmSignTransaction({
   const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
   const { connectId = '', deviceId } = dbDevice;
 
-  let response: IDeviceResponseSync<EVMSignedTx> | undefined;
+  let response: IDeviceResponseResult<EVMSignedTx> | undefined;
   const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
 
   const isEip1559 = encodedTx.maxFeePerGas || encodedTx.maxPriorityFeePerGas;
@@ -102,33 +101,27 @@ async function hardwareEvmSignTransaction({
     tx.maxPriorityFeePerGas = txToSign?.maxPriorityFeePerGas ?? undefined;
   }
 
-  try {
-    response = await sdk.evmSignTransaction(connectId, deviceId, {
+  const result = await convertDeviceResponse(async () =>
+    sdk.evmSignTransaction(connectId, deviceId, {
       path,
       transaction: txToSign,
       ...deviceCommonParams,
-    });
-  } catch (error: any) {
-    console.error(error);
-    throw new OneKeyHardwareError(error as Error);
-  }
+    }),
+  );
 
-  if (response.success) {
-    const { v, r, s } = response.payload;
-    /**
-     * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
-     * splitSignature auto convert v to recoveryParam
-     */
-    const signature = splitSignature({
-      v: Number(v),
-      r,
-      s,
-    });
-    const rawTx = serialize(tx, signature);
-    const txid = keccak256(rawTx);
-    return { txid, rawTx, encodedTx };
-  }
-  throw convertDeviceError(response.payload);
+  const { v, r, s } = result;
+  /**
+   * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
+   * splitSignature auto convert v to recoveryParam
+   */
+  const signature = splitSignature({
+    v: Number(v),
+    r,
+    s,
+  });
+  const rawTx = serialize(tx, signature);
+  const txid = keccak256(rawTx);
+  return { txid, rawTx, encodedTx };
 }
 
 export class KeyringHardware extends KeyringHardwareBase {

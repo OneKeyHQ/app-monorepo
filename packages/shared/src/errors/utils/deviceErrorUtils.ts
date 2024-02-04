@@ -4,6 +4,7 @@ import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import { ECustomOneKeyHardwareError } from '../types/errorTypes';
 
+import type { IDeviceResponseResult } from '../../../types/device';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
@@ -164,6 +165,18 @@ export function convertDeviceError(
   }
 }
 
-export function convertDeviceResponse() {
-  // TODO
+export async function convertDeviceResponse<T>(
+  fn: () => Promise<IDeviceResponseResult<T>>,
+): Promise<T> {
+  try {
+    const response = await fn();
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload;
+  } catch (e) {
+    const error: Error | undefined = e as Error;
+    console.error(error);
+    throw new HardwareErrors.OneKeyHardwareError(error);
+  }
 }
