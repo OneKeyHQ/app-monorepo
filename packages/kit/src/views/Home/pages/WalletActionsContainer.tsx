@@ -10,18 +10,20 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ITokenData } from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { NetworkSelectorTriggerLegacy } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EAssetSelectorRoutes } from '../../AssetSelector/router/types';
 import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
   const navigation =
@@ -35,13 +37,25 @@ function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendAssetInput,
+    navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+      screen: EAssetSelectorRoutes.TokenSelector,
       params: {
         networkId: network.id,
         accountId: account.id,
         networkName: network.name,
         tokens,
+        onSelect: async (token: IToken) => {
+          await timerUtils.wait(600);
+          navigation.pushModal(EModalRoutes.SendModal, {
+            screen: EModalSendRoutes.SendDataInput,
+            params: {
+              accountId: account.id,
+              networkId: network.id,
+              isNFT: false,
+              token,
+            },
+          });
+        },
       },
     });
   }, [account, tokens, navigation, network]);

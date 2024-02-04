@@ -41,3 +41,23 @@ export function getMergedTokenData({
     },
   };
 }
+
+export function getEmptyTokenData() {
+  return {
+    tokens: {
+      data: [],
+      keys: '',
+      map: {},
+    },
+    riskTokens: {
+      data: [],
+      keys: '',
+      map: {},
+    },
+    smallBalanceTokens: {
+      data: [],
+      keys: '',
+      map: {},
+    },
+  };
+}

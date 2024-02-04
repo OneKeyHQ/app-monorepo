@@ -22,6 +22,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -30,6 +31,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
 import AmountInput from '../../components/AmountInput';
 import { EModalSendRoutes } from '../../router';
 
@@ -56,9 +58,10 @@ function SendDataInputContainer() {
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
+  const [tokenInfo, setTokenInfo] = useState(token);
 
   const {
-    result: [tokenDetails, nftDetails] = [],
+    result: [network, tokenDetails, nftDetails] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -91,15 +94,15 @@ function SendDataInputContainer() {
             },
           ],
         });
-      } else if (!isNFT && token) {
+      } else if (!isNFT && tokenInfo) {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: r[0].address,
-          contractList: [token.address],
+          contractList: [tokenInfo.address],
         });
       }
 
-      return [tokenResp?.[0], nftResp?.[0]];
+      return [r[1], tokenResp?.[0], nftResp?.[0]];
     },
     [
       accountId,
@@ -111,6 +114,7 @@ function SendDataInputContainer() {
       serviceNetwork,
       serviceToken,
       token,
+      tokenInfo,
     ],
     { watchLoading: true },
   );
@@ -154,7 +158,20 @@ function SendDataInputContainer() {
     setIsUseFiat((prev) => !prev);
     form.setValue('amount', linkedAmount);
   }, [form, linkedAmount]);
-  const handleOnSelectToken = useCallback(() => navigation.pop(), [navigation]);
+  const handleOnSelectToken = useCallback(
+    () =>
+      navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+        screen: EAssetSelectorRoutes.TokenSelector,
+        params: {
+          networkId,
+          accountId,
+          onSelect: (data: IToken) => {
+            setTokenInfo(data);
+          },
+        },
+      }),
+    [accountId, navigation, networkId],
+  );
   const handleOnChangeAmountPercent = useCallback(
     (percent: number) => {
       form.setValue(
@@ -343,23 +360,6 @@ function SendDataInputContainer() {
           },
         }}
       >
-        {/* <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          position="absolute"
-          right="$0"
-          top="$0"
-        >
-          {intl.formatMessage(
-            { id: 'content__balance_str' },
-            {
-              0: isUseFiat
-                ? `${currencySymbol}${tokenDetails?.fiatValue ?? 0}`
-                : `${tokenDetails?.balanceParsed ?? 0} ${tokenSymbol}`,
-            },
-          )}
-        </SizableText> */}
-
         <AmountInput
           isUseFiat={isUseFiat}
           maxAmount={maxAmount}
@@ -428,10 +428,10 @@ function SendDataInputContainer() {
           >
             <ListItem
               avatarProps={{
-                src: isNFT ? nft?.metadata?.image : token?.logoURI,
+                src: isNFT ? nft?.metadata?.image : tokenInfo?.logoURI,
                 borderRadius: '$full',
                 cornerImageProps: {
-                  src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/matic.png',
+                  src: network?.logoURI,
                 },
               }}
               mx="$0"
@@ -442,10 +442,10 @@ function SendDataInputContainer() {
             >
               <ListItem.Text
                 flex={1}
-                primary={isNFT ? nft?.metadata?.name : token?.symbol}
+                primary={isNFT ? nft?.metadata?.name : tokenInfo?.symbol}
                 secondary={
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    {token?.name}
+                    {tokenInfo?.name}
                   </SizableText>
                 }
               />

@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Page, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
@@ -13,25 +12,34 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { EModalSendRoutes } from '../../router';
-
-import type { IModalSendParamList } from '../../router';
+import type {
+  EAssetSelectorRoutes,
+  IAssetSelectorParamList,
+} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
-function SendAssetInputContainer() {
+function TokenSelector() {
   const intl = useIntl();
   const { refreshTokenList, refreshTokenListMap } =
     useTokenListActions().current;
 
   const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendAssetInput>>();
+    useRoute<
+      RouteProp<IAssetSelectorParamList, EAssetSelectorRoutes.TokenSelector>
+    >();
 
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  const navigation = useAppNavigation();
 
-  const { networkId, accountId, tokens, networkName } = route.params;
+  const {
+    networkId,
+    accountId,
+    tokens,
+    networkName,
+    closeAfterSelect = true,
+    onSelect,
+  } = route.params;
 
   usePromiseResult(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -39,7 +47,7 @@ function SendAssetInputContainer() {
       networkId,
     });
 
-    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+    const r = await backgroundApiProxy.serviceToken.fetchAccountTokensWithMemo({
       networkId,
       accountAddress: account.address,
       mergeTokens: true,
@@ -49,15 +57,13 @@ function SendAssetInputContainer() {
   }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
 
   const handleTokenOnPress = useCallback(
-    (token: IAccountToken) => {
-      navigation.push(EModalSendRoutes.SendDataInput, {
-        networkId,
-        accountId,
-        isNFT: false,
-        token,
-      });
+    (token: IToken) => {
+      if (closeAfterSelect) {
+        navigation.pop();
+      }
+      onSelect?.(token);
     },
-    [accountId, navigation, networkId],
+    [closeAfterSelect, navigation, onSelect],
   );
 
   useEffect(() => {
@@ -83,8 +89,6 @@ function SendAssetInputContainer() {
   );
 }
 
-const SendAssetInputContainerWithProvider = memo(
-  withTokenListProvider(SendAssetInputContainer),
-);
+const TokenSelectorWithProvider = memo(withTokenListProvider(TokenSelector));
 
-export { SendAssetInputContainer, SendAssetInputContainerWithProvider };
+export default TokenSelectorWithProvider;

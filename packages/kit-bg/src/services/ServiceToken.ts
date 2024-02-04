@@ -2,7 +2,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  getEmptyTokenData,
+  getMergedTokenData,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -39,6 +44,29 @@ class ServiceToken extends ServiceBase {
 
     return resp.data.data;
   }
+
+  @backgroundMethod()
+  public async fetchAccountTokensWithMemo(
+    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
+  ) {
+    try {
+      const tokens = await this._fetchAccountTokensWithMemo(params);
+      return tokens;
+    } catch {
+      return getEmptyTokenData();
+    }
+  }
+
+  _fetchAccountTokensWithMemo = memoizee(
+    async (params: IFetchAccountTokensParams & { mergeTokens?: boolean }) =>
+      this.fetchAccountTokens(params),
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {

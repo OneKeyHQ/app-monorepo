@@ -1,6 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import {
-  SendAddressInputWithProvider,
   SendConfirmWithProvider,
   SendCustomFee,
   SendDataInput,
@@ -13,10 +12,6 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
 >[] = [
-  {
-    name: EModalSendRoutes.SendAssetInput,
-    component: SendAddressInputWithProvider,
-  },
   {
     name: EModalSendRoutes.SendDataInput,
     component: SendDataInput,
