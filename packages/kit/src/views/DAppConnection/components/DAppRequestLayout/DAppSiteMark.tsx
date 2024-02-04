@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -18,18 +19,10 @@ function DAppSiteMark({
   urlSecurityInfo?: IHostSecurity;
 }) {
   const content = useMemo(() => origin, [origin]);
-  const [faviconUri, setFaviconUri] = useState<string>('');
-  useEffect(() => {
-    backgroundApiProxy.serviceDiscovery
-      .getWebsiteIcon(origin)
-      .then((uri) => {
-        setFaviconUri(uri);
-      })
-      .catch(() => {
-        // ignore
-      });
-  }, [origin]);
-
+  const { result: faviconUri } = usePromiseResult(
+    async () => backgroundApiProxy.serviceDiscovery.getWebsiteIcon(origin),
+    [origin],
+  );
   const riskyStyle = useMemo<{
     bg: string;
     borderColor: string;
