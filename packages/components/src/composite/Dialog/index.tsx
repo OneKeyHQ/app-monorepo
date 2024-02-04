@@ -105,10 +105,12 @@ function DialogFrame({
 
   const { bottom } = useSafeAreaInsets();
 
-  const handleCancelButtonPress = useCallback(() => {
+  const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.();
-    void onClose();
+    cancel?.(onClose);
+    if (!onCancel?.length) {
+      await onClose();
+    }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const getColors = (): {
