@@ -1,370 +1,628 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/components';
+import {
+  ECustomOneKeyHardwareError,
+  EOneKeyErrorClassNames,
+} from '../types/errorTypes';
+import { normalizeErrorProps } from '../utils/errorUtils';
 
 import { OneKeyError } from './baseErrors';
 
-import type { IOneKeyErrorInfo } from '../types/errorTypes';
-
-export enum EOneKeyErrorClassNames {
-  // eslint-disable-next-line @typescript-eslint/no-shadow
-  OneKeyError = 'OneKeyError',
-  OneKeyHardwareError = 'OneKeyHardwareError',
-  OneKeyValidatorError = 'OneKeyValidatorError',
-  OneKeyValidatorTip = 'OneKeyValidatorTip',
-  OneKeyAbortError = 'OneKeyAbortError',
-  OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
-  OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
-  OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
-}
-
-export enum ECustomOneKeyHardwareError {
-  NeedOneKeyBridge = 3030,
-  // TODO: remove this error code
-  NeedFirmwareUpgrade = 4030,
-}
-
-export type IOneKeyHardwareErrorData = {
-  reconnect?: boolean | undefined;
-  connectId?: string;
-  deviceId?: string;
-};
-
-export type IOneKeyHardwareErrorPayload = {
-  code?: number;
-  error?: string;
-  message?: string;
-  params?: any;
-  connectId?: string;
-  deviceId?: string;
-};
+import type {
+  IOneKeyError,
+  IOneKeyErrorI18nInfo,
+  IOneKeyJsError,
+} from '../types/errorTypes';
 
 export class OneKeyHardwareError<
-  T extends IOneKeyHardwareErrorData = IOneKeyHardwareErrorData,
-> extends OneKeyError<T> {
+  I18nInfoT = IOneKeyErrorI18nInfo | any,
+  DataT = IOneKeyJsError | any,
+> extends OneKeyError<I18nInfoT, DataT> {
   override className = EOneKeyErrorClassNames.OneKeyHardwareError;
 
-  codeHardware?: string;
-
-  override key: ILocaleIds = 'msg__hardware_default_error';
-
-  static handleErrorParams(
-    params?: any,
-    errorParams?: Record<string | number, string>,
-  ): IOneKeyErrorInfo {
-    const info: IOneKeyErrorInfo = {};
-    Object.keys(errorParams || {}).forEach((key) => {
-      const valueKey = errorParams?.[key];
-      if (valueKey) {
-        const value = get(params, valueKey, '');
-        info[key] = value;
-      }
-    });
-
-    return info;
-  }
-
-  /**
-   * create OneKeyHardwareError from OneKeyHardware error payload
-   * @param errorPayload Hardware error payload
-   * @param errorParams Hardware Error params, key is i18n placeholder, value is error payload key
-   */
-  constructor(
-    errorPayload?: IOneKeyHardwareErrorPayload,
-    errorParams?: Record<string | number, string>,
-    data?: T,
-  ) {
-    super({
-      message:
-        errorPayload?.error ??
-        errorPayload?.message ??
-        'Unknown hardware error',
-      info: (OneKeyHardwareError.handleErrorParams(
-        errorPayload?.params,
-        errorParams,
-      ) || {}) as unknown as T,
-    });
-    const { code, deviceId, connectId } = errorPayload || {};
-    this.codeHardware = code?.toString();
-    this.data = {
-      deviceId,
-      connectId,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      reconnect: this.data?.reconnect,
-      ...data,
-    } as T;
-  }
+  reconnect: boolean | undefined; // TODO move to $$config
 }
 
 export class InvalidPIN extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'HardwareInvalidPIN',
+        defaultKey: 'msg__hardware_invalid_pin_error',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.PinInvalid;
 
-  override key: ILocaleIds = 'msg__hardware_invalid_pin_error';
+  // override key: ILocaleIds = 'msg__hardware_invalid_pin_error';
 }
 
 export class InvalidPassphrase extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'InvalidPassphrase',
+        defaultKey: 'msg__hardware_device_passphrase_state_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_device_passphrase_state_error';
+  override code = HardwareErrorCode.DeviceCheckPassphraseStateError;
 }
 
 export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotOpenedPassphrase',
+        defaultKey: 'msg__hardware_not_opened_passphrase',
+        defaultAutoToast: true,
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_not_opened_passphrase';
+  override code = HardwareErrorCode.DeviceNotOpenedPassphrase;
 }
 
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceOpenedPassphrase;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceOpenedPassphrase',
+        defaultKey: 'msg__hardware_opened_passphrase',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_opened_passphrase';
+  override code = HardwareErrorCode.DeviceOpenedPassphrase;
 }
 
 export class UserCancel extends OneKeyHardwareError {
-  override code = HardwareErrorCode.ActionCancelled;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UserCancel',
+        defaultKey: 'msg__hardware_user_cancel_error',
+        // defaultAutoToast: true,
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_user_cancel_error';
+  override code = HardwareErrorCode.ActionCancelled;
 }
 
 export class UserCancelFromOutside extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceInterruptedFromOutside;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UserCancelFromOutside',
+        defaultKey: 'msg__hardware_user_cancel_error',
+        // defaultAutoToast: true,
+      }),
+    );
+  }
 
-  // Don't remind
-  override key: ILocaleIds = 'msg__hardware_user_cancel_error';
+  override code = HardwareErrorCode.DeviceInterruptedFromOutside;
 }
 
 export class UnknownMethod extends OneKeyHardwareError {
-  override code = HardwareErrorCode.RuntimeError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UnknownMethod',
+        defaultKey: 'msg__hardware_unknown_message_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_unknown_message_error';
+  override code = HardwareErrorCode.RuntimeError;
 }
 
 export class ConnectTimeout extends OneKeyHardwareError {
-  override key: ILocaleIds = 'msg__hardware_connect_timeout_error';
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConnectTimeout',
+        defaultKey: 'msg__hardware_connect_timeout_error',
+      }),
+    );
+  }
 }
 
 export class NeedOneKeyBridge extends OneKeyHardwareError {
-  override code = ECustomOneKeyHardwareError.NeedOneKeyBridge;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NeedOneKeyBridge',
+        defaultKey: 'modal__need_install_onekey_bridge',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'modal__need_install_onekey_bridge';
+  override code = ECustomOneKeyHardwareError.NeedOneKeyBridge;
 }
 
 export class BridgeNetworkError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BridgeNetworkError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BridgeNetworkError',
+        defaultKey: 'msg__hardware_bridge_network_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bridge_network_error';
+  override code = HardwareErrorCode.BridgeNetworkError;
 }
 
 export class BridgeTimeoutError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BridgeTimeoutError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BridgeTimeoutError',
+        defaultKey: 'msg__hardware_bridge_timeout',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bridge_timeout';
+  override code = HardwareErrorCode.BridgeTimeoutError;
 }
 
 export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BridgeTimeoutError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BridgeTimeoutErrorForDesktop',
+        defaultKey: 'msg__hardware_bridge_timeout_for_desktop',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bridge_timeout_for_desktop';
+  override code = HardwareErrorCode.BridgeTimeoutError;
 }
 
 export class ConnectTimeoutError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.PollingTimeout;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConnectTimeoutError',
+        defaultKey: 'msg__hardware_polling_connect_timeout_error',
+        // defaultAutoToast: true,
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_polling_connect_timeout_error';
+  override code = HardwareErrorCode.PollingTimeout;
 }
 
 export class ConnectPollingStopError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.PollingStop;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ConnectPollingStopError',
+        defaultKey: 'msg__hardware_polling_connect_timeout_error',
+        // defaultAutoToast: true,
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_polling_connect_timeout_error';
+  override code = HardwareErrorCode.PollingStop;
 }
 
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleDeviceNotBonded;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotBonded',
+        defaultKey: 'msg__hardware_bluetooth_not_paired_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bluetooth_not_paired_error';
+  override code = HardwareErrorCode.BleDeviceNotBonded;
 }
 
 // 设备配对失败
 export class DeviceBondError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleDeviceBondError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceBondError',
+        defaultKey: 'msg__hardware_bluetooth_pairing_failed',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bluetooth_pairing_failed';
+  override code = HardwareErrorCode.BleDeviceBondError;
 }
 
 // 设备没有打开蓝牙
 export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BlePermissionError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NeedBluetoothTurnedOn',
+        defaultKey: 'msg__hardware_bluetooth_need_turned_on_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_bluetooth_need_turned_on_error';
+  override code = HardwareErrorCode.BlePermissionError;
 }
 
 // 没有使用蓝牙的权限
 export class NeedBluetoothPermissions extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleLocationError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NeedBluetoothPermissions',
+        defaultKey: 'msg__hardware_bluetooth_requires_permission_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds =
-    'msg__hardware_bluetooth_requires_permission_error';
+  override code = HardwareErrorCode.BleLocationError;
 }
 
 export class BleLocationServiceError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleLocationServicesDisabled;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleLocationServiceError',
+        defaultKey: 'msg__hardware_device_ble_location_disabled',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_device_ble_location_disabled';
+  override code = HardwareErrorCode.BleLocationServicesDisabled;
 }
 
 export class BleWriteCharacteristicError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleWriteCharacteristicError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleWriteCharacteristicError',
+        defaultKey: 'msg__hardware_device_need_restart',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_device_need_restart';
+  override code = HardwareErrorCode.BleWriteCharacteristicError;
 }
 
 export class BleScanError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleScanError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleScanError',
+        defaultKey: 'msg__hardware_device_ble_scan_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_device_ble_scan_error';
+  override code = HardwareErrorCode.BleScanError;
 }
 
 export class BleAlreadyConnectedError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BleAlreadyConnected;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BleAlreadyConnectedError',
+        defaultKey: 'msg__hardware_device_ble_already_connected',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_device_ble_already_connected';
+  override code = HardwareErrorCode.BleAlreadyConnected;
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
-  override code = HardwareErrorCode.BlindSignDisabled;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OpenBlindSign',
+        defaultKey: 'msg__hardware_open_blind_sign_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_open_blind_sign_error';
+  override code = HardwareErrorCode.BlindSignDisabled;
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
-  override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
-
-  constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
-    super(errorPayload, { 0: 'require' });
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareVersionTooLow',
+        defaultKey: 'msg__hardware_version_need_upgrade_error',
+      }),
+    );
   }
 
-  override key: ILocaleIds = 'msg__hardware_version_need_upgrade_error';
+  override code = HardwareErrorCode.CallMethodNeedUpgradeFirmware;
+
+  // constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
+  //   super(errorPayload, { 0: 'require' });
+  // }
 }
 
 export class NotInBootLoaderMode extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NotInBootLoaderMode',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.DeviceUnexpectedBootloaderMode;
 }
 
 export class FirmwareDownloadFailed extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareDownloadFailed',
+        defaultKey: 'msg__hardware_firmware_download_error',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.FirmwareUpdateDownloadFailed;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'msg__hardware_firmware_download_error';
+  // override data = { reconnect: true };
 }
 
 export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateManuallyEnterBoot',
+        defaultKey: 'msg__hardware_manually_enter_boot',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.FirmwareUpdateManuallyEnterBoot;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'msg__hardware_manually_enter_boot';
+  // override data = { reconnect: true };
 }
 
 export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateAutoEnterBootFailure',
+        defaultKey: 'msg__hardware_enter_boot_failure',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'msg__hardware_enter_boot_failure';
+  // override data = { reconnect: true };
 }
 
 export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateLimitOneDevice',
+        defaultKey: 'modal__only_one_device_can_be_connected_desc',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.FirmwareUpdateLimitOneDevice;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'modal__only_one_device_can_be_connected_desc';
+  // TODO
+  // override data = { reconnect: true };
 }
 
 export class NewFirmwareUnRelease extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NewFirmwareUnRelease',
+        defaultKey: 'msg__str_not_supported_by_hardware_wallets',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.NewFirmwareUnRelease;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'msg__str_not_supported_by_hardware_wallets';
+  // TODO
+  // override data = { reconnect: true };
 }
 
 export class NewFirmwareForceUpdate extends OneKeyHardwareError {
-  override code = HardwareErrorCode.NewFirmwareForceUpdate;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NewFirmwareForceUpdate',
+        defaultKey: 'msg__need_force_upgrade_firmware',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__need_force_upgrade_firmware';
+  override code = HardwareErrorCode.NewFirmwareForceUpdate;
 }
 
 export class DeviceNotSame extends OneKeyHardwareError {
-  override code = HardwareErrorCode.DeviceCheckDeviceIdError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotSame',
+        defaultKey:
+          'msg__device_information_is_inconsistent_it_may_caused_by_device_reset',
+      }),
+    );
+  }
 
-  override key: ILocaleIds =
-    'msg__device_information_is_inconsistent_it_may_caused_by_device_reset';
+  override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 }
 
-export class DeviceNotFind extends OneKeyHardwareError {
+export class DeviceNotFound extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    // props?.message
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotFound',
+        defaultKey: 'msg__hardware_device_not_find_error',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.DeviceNotFound;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'msg__hardware_device_not_find_error';
+  // TODO remove? convertDeviceError should update data by payload
+  // override data = { reconnect: true };
 }
 
 export class InitIframeLoadFail extends OneKeyHardwareError {
-  override code = HardwareErrorCode.IFrameLoadFail;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'InitIframeLoadFail',
+        defaultKey: 'msg__hardware_init_iframe_load_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_init_iframe_load_error';
+  override code = HardwareErrorCode.IFrameLoadFail;
 }
 
 export class InitIframeTimeout extends OneKeyHardwareError {
-  override code = HardwareErrorCode.IframeTimeout;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'InitIframeTimeout',
+        defaultKey: 'msg__hardware_init_iframe_load_error',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__hardware_init_iframe_load_error';
+  override code = HardwareErrorCode.IframeTimeout;
 }
 
 export class NetworkError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NetworkError',
+        defaultKey: 'title__no_connection_desc',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.NetworkError;
 
-  override data = { reconnect: true };
-
-  override key: ILocaleIds = 'title__no_connection_desc';
+  // TODO { reconnect: true };
+  // override data = { reconnect: true };
 }
 
 export class NotSupportPassphraseError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NotSupportPassphraseError',
+        defaultKey: 'msg__not_support_passphrase_need_upgrade',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.DeviceNotSupportPassphrase;
 
-  override key: ILocaleIds = 'msg__not_support_passphrase_need_upgrade';
-
-  constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
-    super(errorPayload, { 0: 'require' });
-  }
+  // TODO use Passphrase, need to upgrade firmware to {0} or later.
+  // constructor(errorPayload?: IOneKeyHardwareErrorPayload) {
+  //   super(errorPayload, { 0: 'require' });
+  // }
 }
 
 export class FileAlreadyExistError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.FileAlreadyExists;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FileAlreadyExistError',
+        defaultKey: 'msg__file_already_exists',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__file_already_exists';
+  override code = HardwareErrorCode.FileAlreadyExists;
 }
 
 export class IncompleteFileError extends OneKeyHardwareError {
-  override code = HardwareErrorCode.CheckDownloadFileError;
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'IncompleteFileError',
+        defaultKey: 'msg__incomplete_file',
+      }),
+    );
+  }
 
-  override key: ILocaleIds = 'msg__incomplete_file';
+  override code = HardwareErrorCode.CheckDownloadFileError;
 }
 
 export class NotInSigningModeError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NotInSigningModeError',
+        defaultKey: 'msg__transaction_signing_error_not_in_signing_mode',
+      }),
+    );
+  }
+
   override code = HardwareErrorCode.NotInSigningMode;
-
-  override key: ILocaleIds =
-    'msg__transaction_signing_error_not_in_signing_mode';
 }
 
-// 未知错误
+// UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
-  override data = { reconnect: true };
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.UnknownHardwareError;
+
+  constructor(props?: IOneKeyError) {
+    const message = [
+      props?.payload?.error,
+      props?.payload?.message,
+      props?.message,
+      props?.payload?.code,
+    ]
+      .filter(Boolean)
+      .join(' : ');
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: message || 'Unknown Hardware Error',
+        defaultKey: 'msg__hardware_default_error',
+        alwaysAppendDefaultMessage: true,
+        // defaultAutoToast: true,
+      }),
+    );
+  }
 }
+
+// TODO
+// super(errorPayload, { 0: 'require' });
+// override data = { reconnect: true }; // TODO merge with autoToast to config={ autoToast, reconnect }
+
+// export class OneKeyAlreadyExistWalletError extends OneKeyHardwareError<
+//   {
+//     walletId: string;
+//     walletName: string | undefined;
+//   } & OneKeyHardwareErrorData
+// > {
+//   override className = OneKeyErrorClassNames.OneKeyAlreadyExistWalletError;
+
+//   override key: LocaleIds = 'msg__wallet_already_exist';
+
+//   constructor(walletId: string, walletName: string | undefined) {
+//     super(undefined, undefined, { walletId, walletName });
+//   }
+// }

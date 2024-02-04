@@ -72,15 +72,15 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       });
     } catch (error: any) {
       console.error(error);
-      throw new OneKeyHardwareError(error);
+      throw new OneKeyHardwareError(error as Error);
     }
 
-    if (!response.success || !response.payload) {
+    if (!response.success) {
       console.error(response.payload);
       throw convertDeviceError(response.payload);
     }
 
-    if (response.payload.length !== usedIndexes.length) {
+    if (!response.payload || response.payload.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
     return response.payload;

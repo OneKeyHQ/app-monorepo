@@ -1,8 +1,15 @@
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
+export enum ECustomOneKeyHardwareError {
+  NeedOneKeyBridge = 3030,
+  // TODO: remove this error code
+  NeedFirmwareUpgrade = 4030,
+}
+
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyHardwareError = 'OneKeyHardwareError',
+  UnknownHardwareError = 'UnknownHardwareError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
@@ -11,13 +18,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
 }
 
-export type IOneKeyErrorInfo = Record<string | number, string | number>;
-
-export type IOneKeyHardwareErrorData = {
-  reconnect?: boolean | undefined;
-  connectId?: string;
-  deviceId?: string;
-};
+export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;
 
 // @ts-ignore
 export interface IOneKeyJsError extends Error {
@@ -30,28 +31,37 @@ export interface IOneKeyJsError extends Error {
 }
 
 export interface IOneKeyError<
-  InfoT = IOneKeyErrorInfo | any,
+  InfoT = IOneKeyErrorI18nInfo | any,
   DataT = IOneKeyJsError | any,
 > extends IOneKeyJsError {
-  // Web3RpcError props
+  // ---- Web3RpcError props
   code?: number;
   data?: DataT;
-  // OneKeyError props
+  // ---- OneKeyError props
   className?: EOneKeyErrorClassNames;
-  info?: InfoT;
-  key?: ILocaleIds;
+  key?: ILocaleIds; // i18n key
+  info?: InfoT; // i18n params
   constructorName?: string;
-  autoToast?: boolean;
+  autoToast?: boolean; // TODO move to $$config: { autoToast, reconnect }
+  // ---- hardwareError props
+  payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
 }
 
 export type IOneKeyHardwareErrorPayload = {
-  code?: number;
+  code?: number | string;
   error?: string;
   message?: string;
   params?: any;
   connectId?: string;
   deviceId?: string;
 };
+
+export type IOneKeyHardwareErrorData = {
+  reconnect?: boolean | undefined;
+  connectId?: string;
+  deviceId?: string;
+};
+
 export type IOneKeyErrorMeta = {
   defaultMessage?: string;
 };

@@ -16,7 +16,10 @@ import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors/errors/hardware
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceResponseSync,
+  IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -27,6 +30,7 @@ import type {
 } from '../../types';
 import type {
   CoreApi,
+  EVMSignedTx,
   EVMTransaction,
   EVMTransactionEIP1559,
 } from '@onekeyfe/hd-core';
@@ -47,7 +51,7 @@ async function hardwareEvmSignTransaction({
   const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
   const { connectId = '', deviceId } = dbDevice;
 
-  let response;
+  let response: IDeviceResponseSync<EVMSignedTx> | undefined;
   const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
 
   const isEip1559 = encodedTx.maxFeePerGas || encodedTx.maxPriorityFeePerGas;
@@ -106,7 +110,7 @@ async function hardwareEvmSignTransaction({
     });
   } catch (error: any) {
     console.error(error);
-    throw new OneKeyHardwareError(error);
+    throw new OneKeyHardwareError(error as Error);
   }
 
   if (response.success) {

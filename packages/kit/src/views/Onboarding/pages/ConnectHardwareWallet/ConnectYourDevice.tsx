@@ -33,6 +33,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -208,7 +209,7 @@ export function ConnectYourDevicePage() {
     uiDeviceUtils.startDeviceScan(
       (response) => {
         if (!response.success) {
-          const error = uiDeviceUtils.convertDeviceError(response.payload);
+          const error = convertDeviceError(response.payload);
           if (platformEnv.isNative) {
             if (
               !(error instanceof NeedBluetoothTurnedOn) &&
