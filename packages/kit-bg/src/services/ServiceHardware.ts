@@ -10,10 +10,7 @@ import {
   InitIframeTimeout,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import {
-  convertDeviceError,
-  convertDeviceResponse,
-} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   CoreSDKLoader,
   generateConnectSrc,
@@ -142,6 +139,8 @@ class ServiceHardware extends ServiceBase {
     return Promise.resolve(true);
   }
 
+  // startDeviceScan
+  // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
@@ -306,16 +305,19 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkBridge() {
+  async checkBridge(): Promise<boolean | BridgeTimeoutError> {
     if (!this._hasUseBridge()) {
       return Promise.resolve(true);
     }
 
     const hardwareSDK = await this.getSDKInstance();
-    const bridgeStatus = await hardwareSDK?.checkBridgeStatus();
 
-    if (!bridgeStatus.success) {
-      const error = convertDeviceError(bridgeStatus.payload);
+    try {
+      const bridgeStatus = await convertDeviceResponse(() =>
+        hardwareSDK?.checkBridgeStatus(),
+      );
+      return bridgeStatus;
+    } catch (error) {
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
@@ -327,13 +329,12 @@ class ServiceHardware extends ServiceBase {
        * it does not mean that the user does not have bridge installed
        */
       if (error instanceof BridgeTimeoutError) {
+        // TODO resolve error not reject error?
         return Promise.resolve(error);
       }
 
       return Promise.resolve(false);
     }
-
-    return Promise.resolve(bridgeStatus.payload);
   }
 
   _hasUseBridge() {

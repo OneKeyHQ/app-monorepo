@@ -217,9 +217,7 @@ export function ConnectYourDevicePage() {
               !(error instanceof BleLocationServiceError)
             ) {
               Toast.error({
-                title: intl.formatMessage({
-                  id: error.key,
-                }),
+                title: error.message || 'DeviceScanError',
               });
             } else {
               uiDeviceUtils.stopScan();
@@ -229,9 +227,7 @@ export function ConnectYourDevicePage() {
             error instanceof InitIframeTimeout
           ) {
             Toast.error({
-              title: intl.formatMessage({
-                id: error.key,
-              }),
+              title: error.message || 'DeviceScanError',
             });
             uiDeviceUtils.stopScan();
           }

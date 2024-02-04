@@ -374,7 +374,7 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
 
   override code = HardwareErrorCode.FirmwareUpdateDownloadFailed;
 
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
@@ -389,7 +389,7 @@ export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
 
   override code = HardwareErrorCode.FirmwareUpdateManuallyEnterBoot;
 
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
@@ -404,7 +404,7 @@ export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
 
   override code = HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure;
 
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
@@ -420,7 +420,7 @@ export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
   override code = HardwareErrorCode.FirmwareUpdateLimitOneDevice;
 
   // TODO
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class NewFirmwareUnRelease extends OneKeyHardwareError {
@@ -436,7 +436,7 @@ export class NewFirmwareUnRelease extends OneKeyHardwareError {
   override code = HardwareErrorCode.NewFirmwareUnRelease;
 
   // TODO
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class NewFirmwareForceUpdate extends OneKeyHardwareError {
@@ -481,7 +481,7 @@ export class DeviceNotFound extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceNotFound;
 
   // TODO remove? convertDeviceError should update data by payload
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class InitIframeLoadFail extends OneKeyHardwareError {
@@ -522,8 +522,7 @@ export class NetworkError extends OneKeyHardwareError {
 
   override code = HardwareErrorCode.NetworkError;
 
-  // TODO { reconnect: true };
-  // override data = { reconnect: true };
+  override reconnect = true;
 }
 
 export class NotSupportPassphraseError extends OneKeyHardwareError {

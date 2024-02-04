@@ -45,6 +45,7 @@ export interface IOneKeyError<
   autoToast?: boolean; // TODO move to $$config: { autoToast, reconnect }
   // ---- hardwareError props
   payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
+  reconnect?: boolean;
 }
 
 export type IOneKeyHardwareErrorPayload = {
