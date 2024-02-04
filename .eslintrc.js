@@ -285,7 +285,7 @@ module.exports = {
       },
     },
     {
-      files: ['packages/kit-bg/src/**/*.tsx'],
+      files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
       rules: {
         'no-restricted-imports': [
           'error',
