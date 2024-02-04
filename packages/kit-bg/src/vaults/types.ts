@@ -312,6 +312,7 @@ export interface IBuildHistoryTxParams {
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxAsset>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
+  index?: number;
 }
 
 export type IGetPrivateKeyFromImportedParams = {

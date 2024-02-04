@@ -165,12 +165,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     signedTx,
     isSigner,
     isLocalCreated,
+    index,
   }: {
     historyTxToMerge?: IAccountHistoryTx;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
     isSigner?: boolean;
     isLocalCreated?: boolean;
+    index?: number;
   }): Promise<IAccountHistoryTx> {
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
@@ -184,7 +186,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
 
     // must include accountId here, so that two account wont share same tx history
-    const historyId = `${this.networkId}_${txid}_${this.accountId}`;
+    const historyId = `${this.networkId}_${txid}_${this.accountId}_${
+      index ?? ''
+    }`;
     const historyTx: IAccountHistoryTx = {
       id: historyId,
 
@@ -200,7 +204,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildOnChainHistoryTx(
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
-    const { accountId, networkId, onChainHistoryTx, tokens } = params;
+    const { accountId, networkId, onChainHistoryTx, tokens, index } = params;
 
     try {
       const action = await this.buildHistoryTxAction({
@@ -236,6 +240,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
       return await this.buildHistoryTx({
         decodedTx,
+        index,
       });
     } catch (e) {
       console.log(e);

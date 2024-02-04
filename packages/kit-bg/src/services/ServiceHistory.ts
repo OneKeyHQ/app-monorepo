@@ -58,12 +58,13 @@ class ServiceHistory extends ServiceBase {
 
     const txs = (
       await Promise.all(
-        onChainHistoryTxs.map((tx) =>
+        onChainHistoryTxs.map((tx, index) =>
           vault.buildOnChainHistoryTx({
             accountId,
             networkId,
             onChainHistoryTx: tx,
             tokens,
+            index,
           }),
         ),
       )
