@@ -113,6 +113,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 return 'The name already exists.';
               },
             }}
+            testID="address-form-name-field"
           >
             <Input placeholder="Required" testID="address-form-name" />
           </Form.Field>
@@ -144,6 +145,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 </XStack>
               ) : null
             }
+            testID="address-form-address-field"
           >
             <AddressInput
               networkId={networkId}
