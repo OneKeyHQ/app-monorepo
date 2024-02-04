@@ -21,7 +21,6 @@ import type { RouteProp } from '@react-navigation/core';
 function SendConfirmContainer() {
   const intl = useIntl();
   const tableLayout = false;
-  // const tableLayout = useMedia().gtLg;
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs } = useSendConfirmActions().current;
