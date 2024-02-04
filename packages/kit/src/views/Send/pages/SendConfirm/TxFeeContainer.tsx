@@ -41,7 +41,7 @@ type IProps = {
 };
 
 function TxFeeContainer(props: IProps) {
-  const { accountId, networkId, tableLayout } = props;
+  const { accountId, networkId } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();

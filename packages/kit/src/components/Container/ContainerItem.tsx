@@ -4,6 +4,7 @@ import {
   Group,
   Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -92,11 +93,8 @@ function ContainerItem(props: IProps) {
           </XStack>
         )}
       </YStack>
+      <Stack>{hasDivider && <Divider />}</Stack>
     </Group.Item>
-    // <Stack>
-
-    //   {hasDivider && <Divider />}
-    // </Stack>
   );
 }
 

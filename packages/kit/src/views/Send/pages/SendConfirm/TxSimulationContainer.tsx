@@ -69,11 +69,7 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
     <Container.Box
       contentProps={{
         mt: '$4',
-        // px: tableLayout ? '0' : '$5',
-        // borderWidth: tableLayout ? 0 : 1,
-        // bg: tableLayout ? '$transparent' : '$bgSubdued',
       }}
-      hasDivider={!tableLayout}
     >
       <Container.Item
         title="Total out"

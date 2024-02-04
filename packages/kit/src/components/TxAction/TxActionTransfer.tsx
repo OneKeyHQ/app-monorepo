@@ -253,7 +253,7 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout, networkId } = props;
+  const { networkId } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
@@ -351,19 +351,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         />,
       );
 
-      return (
-        <Container.Box
-          contentProps={
-            {
-              // borderWidth: tableLayout ? 0 : 1,
-              // bg: '$bg',
-            }
-          }
-          hasDivider={false}
-        >
-          {transferElements}
-        </Container.Box>
-      );
+      return <Container.Box>{transferElements}</Container.Box>;
     },
     [from, intl, network?.logoURI, network?.name],
   );

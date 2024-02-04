@@ -26,14 +26,8 @@ type IProps = {
 };
 
 function ContainerBox(props: IProps) {
-  const {
-    title,
-    titleProps,
-    contentProps,
-    blockProps,
-    children,
-    hasDivider = true,
-  } = props;
+  const { title, titleProps, contentProps, blockProps, children, hasDivider } =
+    props;
   return (
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
