@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
+import {
+  EHostSecurityLevel,
+  type IHostSecurity,
+} from '@onekeyhq/shared/types/discovery';
 
 function useRiskDetection({ origin }: { origin: string }) {
   const [continueOperate, setContinueOperate] = useState(false);
@@ -13,7 +16,8 @@ function useRiskDetection({ origin }: { origin: string }) {
   }, [origin]);
 
   const canContinueOperate = useMemo(
-    () => urlSecurityInfo?.level === 'security' || continueOperate,
+    () =>
+      urlSecurityInfo?.level === EHostSecurityLevel.Security || continueOperate,
     [continueOperate, urlSecurityInfo?.level],
   );
 
@@ -22,7 +26,7 @@ function useRiskDetection({ origin }: { origin: string }) {
     setContinueOperate,
     canContinueOperate,
     urlSecurityInfo,
-    riskLevel: urlSecurityInfo?.level ?? 'unknown',
+    riskLevel: urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,
   };
 }
 

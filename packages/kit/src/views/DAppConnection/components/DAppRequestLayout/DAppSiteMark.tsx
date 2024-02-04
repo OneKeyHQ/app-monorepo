@@ -5,7 +5,10 @@ import { StyleSheet } from 'react-native';
 import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
+import {
+  EHostSecurityLevel,
+  type IHostSecurity,
+} from '@onekeyhq/shared/types/discovery';
 
 function DAppSiteMark({
   origin,
@@ -45,7 +48,7 @@ function DAppSiteMark({
       return defaultStyle;
     }
     switch (urlSecurityInfo?.level) {
-      case 'security': {
+      case EHostSecurityLevel.Security: {
         return {
           bg: '$bgSubdued',
           borderColor: '$border',
@@ -54,7 +57,7 @@ function DAppSiteMark({
           iconColor: '$iconSuccess',
         };
       }
-      case 'high': {
+      case EHostSecurityLevel.High: {
         return {
           bg: '$bgCriticalSubdued',
           borderColor: '$borderCritical',
@@ -63,7 +66,7 @@ function DAppSiteMark({
           iconColor: '$iconCritical',
         };
       }
-      case 'medium': {
+      case EHostSecurityLevel.Medium: {
         return {
           bg: '$bgCautionSubdued',
           borderColor: '$borderCaution',

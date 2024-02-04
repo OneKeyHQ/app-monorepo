@@ -1,7 +1,7 @@
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Page, useMedia } from '@onekeyhq/components';
 import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
-import type { IHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 function DAppRequestFooter({
   continueOperate,
@@ -18,7 +18,7 @@ function DAppRequestFooter({
   onConfirm: IFooterActionsProps['onConfirm'];
   onCancel: IFooterActionsProps['onCancel'];
   confirmButtonProps?: IFooterActionsProps['confirmButtonProps'];
-  riskLevel: IHostSecurityLevel;
+  riskLevel: EHostSecurityLevel;
 }) {
   const media = useMedia();
   return (
@@ -32,7 +32,8 @@ function DAppRequestFooter({
       onConfirm={onConfirm}
       onCancel={onCancel}
       confirmButtonProps={{
-        variant: riskLevel === 'high' ? 'destructive' : 'primary',
+        variant:
+          riskLevel === EHostSecurityLevel.High ? 'destructive' : 'primary',
         ...confirmButtonProps,
       }}
       cancelButtonProps={{

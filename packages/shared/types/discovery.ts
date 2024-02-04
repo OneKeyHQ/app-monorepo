@@ -45,7 +45,12 @@ export interface IDiscoveryListParams {
   network?: string;
 }
 
-export type IHostSecurityLevel = 'medium' | 'high' | 'security' | 'unknown';
+export enum EHostSecurityLevel {
+  High = 'high',
+  Medium = 'medium',
+  Security = 'security',
+  Unknown = 'unknown',
+}
 export interface IAttackType {
   name: string;
   description: string;
@@ -53,7 +58,7 @@ export interface IAttackType {
 
 export interface IHostSecurity {
   host: string;
-  level: IHostSecurityLevel;
+  level: EHostSecurityLevel;
   attackTypes: IAttackType[];
   phishingSite: boolean;
   alert: string;

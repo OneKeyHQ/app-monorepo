@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -51,11 +52,7 @@ function ConnectionModal() {
     if (!canContinueOperate) {
       return true;
     }
-    if (
-      !selectedAccount ||
-      !selectedAccount.account ||
-      !selectedAccount.account.address
-    ) {
+    if (!selectedAccount?.account?.address) {
       return true;
     }
     return false;
@@ -131,7 +128,9 @@ function ConnectionModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={
+            riskLevel !== EHostSecurityLevel.Security
+          }
           riskLevel={riskLevel}
         />
       </Page.Footer>

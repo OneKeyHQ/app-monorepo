@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 
 import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
-import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
+import {
+  EHostSecurityLevel,
+  type IHostSecurity,
+} from '@onekeyhq/shared/types/discovery';
 
 function DAppRiskyAlert({
   origin,
@@ -10,7 +13,7 @@ function DAppRiskyAlert({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
 }) {
-  const isScamLevel = urlSecurityInfo?.level === 'high';
+  const isScamLevel = urlSecurityInfo?.level === EHostSecurityLevel.High;
   const riskStyle = useMemo(() => {
     const defaultStyle = {
       titleTextColor: '$text',
@@ -19,13 +22,13 @@ function DAppRiskyAlert({
     if (!urlSecurityInfo?.level) {
       return defaultStyle;
     }
-    if (urlSecurityInfo?.level === 'high') {
+    if (urlSecurityInfo?.level === EHostSecurityLevel.High) {
       return {
         titleTextColor: '$textCritical',
         descTextColor: '$textCriticalStrong',
       };
     }
-    if (urlSecurityInfo?.level === 'medium') {
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Medium) {
       return {
         titleTextColor: '$textCaution',
         descTextColor: '$textCautionStrong',
