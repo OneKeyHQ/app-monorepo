@@ -4,6 +4,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -11,6 +13,7 @@ import {
   type ISendTxBaseParams,
 } from '@onekeyhq/shared/types/tx';
 
+import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -266,26 +269,61 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async getNextNonce({
+    accountId,
     networkId,
     accountAddress,
   }: {
+    accountId: string;
     networkId: string;
     accountAddress: string;
   }) {
-    const { nonce } =
+    const { nonce: onChainNextNonce } =
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
         withNonce: true,
       });
 
-    if (isNil(nonce)) {
+    if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
     }
 
-    // TODO: fix nonce with local pending txs
+    const maxPendingNonce = await simpleDb.localHistory.getMaxPendingNonce({
+      accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.localHistory.getPendingNonceList({
+      accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNextNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNextNonce;
+    }
+    if (nextNonce > onChainNextNonce) {
+      for (let i = onChainNextNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
 
-    return nonce;
+    if (nextNonce < onChainNextNonce) {
+      nextNonce = onChainNextNonce;
+    }
+
+    if (
+      nextNonce - onChainNextNonce >=
+      HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH
+    ) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 
   @backgroundMethod()
