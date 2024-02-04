@@ -91,6 +91,51 @@ class ServiceNetwork extends ServiceBase {
     const settings = await getVaultSettings({ networkId });
     return settings;
   }
+
+  @backgroundMethod()
+  async groupNetworks({
+    networks,
+    searchKey,
+  }: {
+    networks: IServerNetwork[];
+    searchKey?: string;
+  }) {
+    let input = networks;
+    if (searchKey) {
+      input = await this.filterNetworks({ networks, searchKey });
+    }
+    const data = input.reduce((result, item) => {
+      const firstLetter = item.name[0].toUpperCase();
+      if (!result[firstLetter]) {
+        result[firstLetter] = [];
+      }
+      result[firstLetter].push(item);
+
+      return result;
+    }, {} as Record<string, IServerNetwork[]>);
+    return Object.entries(data)
+      .map(([key, items]) => ({ title: key, data: items }))
+      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
+  }
+
+  @backgroundMethod()
+  async filterNetworks({
+    networks,
+    searchKey,
+  }: {
+    networks: IServerNetwork[];
+    searchKey: string;
+  }) {
+    const key = searchKey.toLowerCase();
+    if (key) {
+      return networks.filter(
+        (o) =>
+          o.name.toLowerCase().includes(key) ||
+          o.shortname.toLowerCase().includes(key),
+      );
+    }
+    return networks;
+  }
 }
 
 export default ServiceNetwork;
