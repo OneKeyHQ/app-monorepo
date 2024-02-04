@@ -14,15 +14,7 @@ import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import type { INamespaceUnion } from '@onekeyhq/shared/src/walletConnect/chainsData';
-import {
-  getChainData,
-  getNetworkImplByNamespace,
-} from '@onekeyhq/shared/src/walletConnect/chainsData';
-import {
-  EIP155_EVENTS,
-  EIP155_SIGNING_METHODS,
-} from '@onekeyhq/shared/src/walletConnect/EIP155Data';
+import type { INamespaceUnion } from '@onekeyhq/shared/src/walletConnect/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 

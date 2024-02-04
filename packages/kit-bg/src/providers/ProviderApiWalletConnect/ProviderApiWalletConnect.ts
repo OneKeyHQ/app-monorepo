@@ -8,12 +8,6 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  checkMethodSupport,
-  getChainData,
-  getNetworkImplByNamespace,
-  getNotSupportedChains,
-} from '@onekeyhq/shared/src/walletConnect/chainsData';
-import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
@@ -92,9 +86,12 @@ class ProviderApiWalletConnect {
   }
 
   async onSessionProposal(proposal: Web3WalletTypes.SessionProposal) {
-    console.log('onSessionProposal: ', proposal);
+    console.log('onSessionProposal: ', JSON.stringify(proposal));
     // check if all required networks are supported
-    const notSupportedChains = getNotSupportedChains(proposal);
+    const notSupportedChains =
+      await this.backgroundApi.serviceWalletConnect.getNotSupportedChains(
+        proposal,
+      );
     if (notSupportedChains.length > 0) {
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
@@ -139,9 +136,12 @@ class ProviderApiWalletConnect {
   async onSessionRequest(request: Web3WalletTypes.SessionRequest) {
     console.log('onSessionRequest: ', request);
     const { topic, id } = request;
+    const { serviceWalletConnect } = this.backgroundApi;
 
     // check request method is supported
-    const chain = getChainData(request.params.chainId);
+    const chain = await serviceWalletConnect.getChainData(
+      request.params.chainId,
+    );
     if (!chain) {
       await this.web3Wallet?.respondSessionRequest({
         topic,
@@ -154,7 +154,12 @@ class ProviderApiWalletConnect {
       return;
     }
 
-    if (!checkMethodSupport(chain.namespace, request.params.request.method)) {
+    if (
+      !(await serviceWalletConnect.checkMethodSupport(
+        chain.namespace,
+        request.params.request.method,
+      ))
+    ) {
       await this.web3Wallet?.respondSessionRequest({
         topic,
         response: {
@@ -167,7 +172,9 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const networkImpl = getNetworkImplByNamespace(chain.namespace);
+      const networkImpl = await serviceWalletConnect.getNetworkImplByNamespace(
+        chain.namespace,
+      );
       const requestProxy = this.getRequestProxy({ networkImpl });
       const ret = await requestProxy.request(
         { sessionRequest: request },
