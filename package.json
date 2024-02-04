@@ -47,7 +47,7 @@
     "lint": "ultra lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
-    "test": "yarn jest ./tests/unit/  --runInBand --detectOpenHandles --forceExit"
+    "test": "yarn jest"
   },
   "dependencies": {
     "@onekeyfe/cross-inpage-provider-core": "1.1.42",

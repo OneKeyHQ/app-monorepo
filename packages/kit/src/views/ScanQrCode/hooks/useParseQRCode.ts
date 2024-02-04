@@ -8,20 +8,14 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 // import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 // import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 
-import * as handlers from '../utils/parseQRCodeHandler';
-import * as deeplinkHandler from '../utils/parseQRCodeHandler/deeplink';
-import { EQRCodeHandlerType } from '../utils/parseQRCodeHandler/type';
-import * as urlHandler from '../utils/parseQRCodeHandler/url';
+import { parseQRCode } from '../utils/parseQRCode';
+import { EQRCodeHandlerType } from '../utils/parseQRCode/type';
 
 import type {
   IAnimationValue,
   IBaseValue,
-  IQRCodeHandler,
   IQRCodeHandlerParse,
-  IQRCodeHandlerParseResult,
-} from '../utils/parseQRCodeHandler/type';
-
-const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
+} from '../utils/parseQRCode/type';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -32,34 +26,7 @@ const useParseQRCode = () => {
   // } = useActiveAccount({ num: 0 });
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     (value, options) => {
-      let result: IQRCodeHandlerParseResult<IBaseValue> | undefined;
-      const urlResult = urlHandler.url(value);
-      const deeplinkResult = deeplinkHandler.deeplink(value, { urlResult });
-      for (const handler of Object.values(handlerList)) {
-        try {
-          const itemResult = handler(value, {
-            ...options,
-            urlResult,
-            deeplinkResult,
-          });
-          if (itemResult) {
-            result = {
-              type: itemResult.type,
-              data: itemResult.data,
-              raw: value,
-            };
-            break;
-          }
-        } catch (e) {
-          console.log(e);
-        }
-      }
-      if (!result) {
-        const itemResult = deeplinkResult ??
-          urlResult ?? { type: EQRCodeHandlerType.UNKNOWN, data: value };
-        result = { ...itemResult, raw: value };
-      }
-
+      const result = parseQRCode(value, options);
       if (
         result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
         (result.data as IAnimationValue).fullData

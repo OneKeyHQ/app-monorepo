@@ -1,6 +1,6 @@
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from '../type';
 
-import type { IQRCodeHandler, IWalletConnectValue } from './type';
+import type { IQRCodeHandler, IWalletConnectValue } from '../type';
 
 // eslint-disable-next-line spellcheck/spell-checker
 /* 

@@ -1,9 +1,9 @@
 import bech32 from 'bech32';
 
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from '../type';
 import { url as urlHandler } from './url';
 
-import type { ILightningNetworkValue, IQRCodeHandler } from './type';
+import type { ILightningNetworkValue, IQRCodeHandler } from '../type';
 
 // LNURL11dp68gurn8ghj7nzwwdjhyanfvdj425jv8a6xzeeawa5hg6rywfshw5n9w96k2um5ye4nz02nw3exjmn8yekkjmjhd96xserjv9mkzcnvv57566tvd354xct5daeks6fxd4shs4mfw35xgunpwaskymr984xkjmrvd9fkzar0wd5xjfnyv4nxzatvw3zx2umrwf5hqarfdahr65m5wf5kueexvdskcmrzv93kk02nw3exjmn8drqgxn
 export const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = (

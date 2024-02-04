@@ -1,6 +1,6 @@
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from '../type';
 
-import type { IMigrateValue, IQRCodeHandler } from './type';
+import type { IMigrateValue, IQRCodeHandler } from '../type';
 
 // onekey://migrate/192.168.1.2
 // onekey-wallet://migrate/192.168.1.2

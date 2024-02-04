@@ -37,18 +37,9 @@ module.exports = async () => {
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
         '<rootDir>/__mocks__/fileMock.js',
-      '\\.(css|less)$': '<rootDir>/tests/__mocks__/styleMock.ts',
-      '^react$': '<rootDir>/tests/__mocks__/reactMock.ts',
-      '^react-intl$': '<rootDir>/tests/__mocks__/reactIntlMock.ts',
+      '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
       '@onekeyhq/kit/src/background/instance/backgroundApiProxy':
-        '<rootDir>/tests/__mocks__/backgroundApiProxyMock.ts',
-      '@onekeyhq/kit/src/states/jotai/contexts/accountSelector':
-        '<rootDir>/tests/__mocks__/accountSelectorMock.ts',
-
-      '@onekeyhq/kit/src/hooks/useAppNavigation':
-        '<rootDir>/tests/__mocks__/useAppNavigationMock.ts',
-      '@onekeyhq/components': '<rootDir>/tests/__mocks__/componentsMock.ts',
-
+        '<rootDir>/__mocks__/backgroundApiProxyMock.js',
       '@emurgo/cardano-serialization-lib-browser':
         '@emurgo/cardano-serialization-lib-nodejs',
       '@emurgo/cardano-message-signing-browser':

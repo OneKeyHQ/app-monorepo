@@ -14,15 +14,22 @@ export enum EQRCodeHandlerType {
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;
+  paramList?: { [key: string]: string };
+}
+export interface IBitcoinValue extends IChainValue {
   amount?: number;
   // Label for that address (e.g. name of receiver)
   label?: string;
   // message that describes the transaction to the user
   message?: string;
-  paramList?: { [key: string]: string };
 }
-export type IBitcoinValue = IChainValue;
 export interface IEthereumValue extends IChainValue {
+  amount?: number;
+  // Label for that address (e.g. name of receiver)
+  label?: string;
+  // message that describes the transaction to the user
+  message?: string;
+
   // eip 155 compliant chain_id, used for sanity check
   id: number;
   // gas price

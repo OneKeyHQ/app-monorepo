@@ -1,6 +1,6 @@
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from '../type';
 
-import type { IAnimationValue, IQRCodeHandler } from './type';
+import type { IAnimationValue, IQRCodeHandler } from '../type';
 
 let CACHE_ANIMATION_DATA_LIST: (string | undefined)[];
 

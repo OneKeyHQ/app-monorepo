@@ -1,10 +1,8 @@
 import bech32 from 'bech32';
-
-import useParseQRCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useParseQRCode';
-import { EQRCodeHandlerType } from '@onekeyhq/kit/src/views/ScanQrCode/utils/parseQRCodeHandler/type';
+import { EQRCodeHandlerType } from './type';
+import { parseQRCode as parse } from '.';
 
 describe('useParseQRCode', () => {
-  const { parse } = useParseQRCode();
   it('should parse as migrate', () => {
     expect(parse('onekey://migrate/192.168.1.2')).toEqual(
       expect.objectContaining({
@@ -248,122 +246,36 @@ describe('useParseQRCode', () => {
   });
   it('should parse as eth', () => {
     expect(
-      parse('ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61'),
+      parse('ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
         data: expect.objectContaining({
           address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
+        }),
+      }),
+    );
+    expect(
+      parse('ethereum:0x178e3e6c9f547A00E33150F7104427ea02cfc747@1?value=1e8'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          id: 1,
         }),
       }),
     );
     expect(
       parse(
-        'ethereum://0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?label=DontPanic',
+        'ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e8',
       ),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
         data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          label: 'DontPanic',
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=20.3&label=DontPanic',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          amount: 20.3,
-          label: 'DontPanic',
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=20.3&gas=21000&label=DontPanic',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          label: 'DontPanic',
-          gas: 21000,
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=50&label=DontPanic&message=Purchase%20token%20for%20project%20xyz%20ICO',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          amount: 50,
-          label: 'DontPanic',
-          message: 'Purchase token for project xyz ICO',
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=50&code=0x2066726f6d204a656666204761727a696b20666f7220746f6b656e206d696e74',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          amount: 50,
-          code: '0x2066726f6d204a656666204761727a696b20666f7220746f6b656e206d696e74',
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          paramList: expect.objectContaining({
-            'req-somethingyoudontunderstand': '50',
-            'req-somethingelseyoudontget': '999',
-          }),
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?somethingyoudontunderstand=50&somethingelseyoudontget=999',
-      ),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
-          id: 61,
-          paramList: expect.objectContaining({
-            'somethingyoudontunderstand': '50',
-            'somethingelseyoudontget': '999',
-          }),
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          id: 1,
         }),
       }),
     );

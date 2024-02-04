@@ -4990,6 +4990,7 @@ __metadata:
     dequal: "npm:^2.0.3"
     dotbit: "npm:^0.4.1"
     eth-chains: "npm:^1.0.0"
+    eth-url-parser: "npm:^1.0.4"
     expo-application: "npm:~5.3.1"
     expo-barcode-scanner: "npm:12.7.0"
     expo-camera: "npm:13.2.1"
@@ -10517,6 +10518,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bignumber.js@npm:^7.2.1":
+  version: 7.2.1
+  resolution: "bignumber.js@npm:7.2.1"
+  checksum: 9bfd02d93cba7d61607b9d52ffb3176844af5712f7f6a0530350daf7852894215fbaa8e6090a9fc841b297b39d475abb90451d3533bc939d1e96a4bfe293e226
+  languageName: node
+  linkType: hard
+
 "bignumber.js@npm:^9.0.0, bignumber.js@npm:^9.0.1, bignumber.js@npm:^9.0.2":
   version: 9.1.2
   resolution: "bignumber.js@npm:9.1.2"
@@ -15014,6 +15022,16 @@ __metadata:
   dependencies:
     fast-safe-stringify: "npm:^2.0.6"
   checksum: 47ce14170eabaee51ab1cc7e643bb3ef96ee6b15c6404806aedcd51750e00ae0b1a12c37785b180679b8d452b6dd44a0240bb018d01fa73efc85fcfa808b35a7
+  languageName: node
+  linkType: hard
+
+"eth-url-parser@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "eth-url-parser@npm:1.0.4"
+  dependencies:
+    bignumber.js: "npm:^7.2.1"
+    qs: "npm:^6.5.2"
+  checksum: 47f1bdf8e6fe3b01f5702abf433ac6174d6f67c8cba7c0be16a4c4a7799c5ce9a8d26fef8465220e021952eaca796fcfa3c23659b0b460e9bb0f8dd831e3439c
   languageName: node
   linkType: hard
 
@@ -23477,7 +23495,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qs@npm:^6.11.0, qs@npm:^6.11.2, qs@npm:^6.9.4":
+"qs@npm:^6.11.0, qs@npm:^6.11.2, qs@npm:^6.5.2, qs@npm:^6.9.4":
   version: 6.11.2
   resolution: "qs@npm:6.11.2"
   dependencies:

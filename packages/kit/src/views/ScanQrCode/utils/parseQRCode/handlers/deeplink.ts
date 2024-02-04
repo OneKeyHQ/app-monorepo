@@ -1,6 +1,6 @@
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from '../type';
 
-import type { IQRCodeHandler, IUrlValue } from './type';
+import type { IQRCodeHandler, IUrlValue } from '../type';
 
 // onekey://search/list?q=onekey
 // onekey-wallet://search/list?q=onekey
