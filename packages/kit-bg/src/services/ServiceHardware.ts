@@ -25,6 +25,7 @@ import type {
   EOnekeyDomain,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import {
   EHardwareUiStateAction,
