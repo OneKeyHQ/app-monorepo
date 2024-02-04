@@ -237,5 +237,73 @@ module.exports = {
         '@typescript-eslint/no-unsafe-call': 'off',
       },
     },
+    {
+      files: [
+        'packages/components/src/**/*.ts',
+        'packages/components/src/**/*.tsx',
+      ],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'packages/shared/src/**/*.ts',
+        'packages/shared/src/**/*.tsx',
+        'packages/core/src/**/*.ts',
+        'packages/core/src/**/*.tsx',
+      ],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/kit-bg/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/kit-bg/src/**/*.tsx'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 };
