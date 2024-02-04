@@ -1,11 +1,12 @@
 import { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+
 import { getTokenValue } from '../../hooks';
 import { Button, Stack, XStack } from '../../primitives';
 
 import type { IButtonProps, IStackProps } from '../../primitives';
-import { useNavigation } from '@react-navigation/core';
-import { IPageNavigationProp } from '../Navigation';
+import type { IPageNavigationProp } from '../Navigation';
 
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
@@ -22,8 +23,7 @@ export type IFooterActionsProps = {
   buttonContainerProps?: IStackProps;
 } & IStackProps;
 
-
-const useAppNavigation = () => {
+const usePageNavigation = () => {
   const navigation = useNavigation<IPageNavigationProp<any>>();
   const popStack = useCallback(() => {
     navigation.getParent()?.goBack?.();
@@ -43,7 +43,6 @@ const useAppNavigation = () => {
   };
 };
 
-
 export function FooterActions({
   onCancel,
   onCancelText,
@@ -53,7 +52,7 @@ export function FooterActions({
   cancelButtonProps,
   buttonContainerProps,
 }: IFooterActionsProps) {
-  const { pop, popStack } = useAppNavigation();
+  const { pop, popStack } = usePageNavigation();
   const handleCancel = useCallback(async () => {
     await onCancel?.(pop, popStack);
     if (!onCancel?.length) {
