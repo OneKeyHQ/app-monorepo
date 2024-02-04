@@ -52,17 +52,17 @@ function TxHistoryListView(props: IProps) {
 
   const renderListItem = useCallback(
     (tx: IAccountHistoryTx, index: number) => {
-      const prevTx = data[index - 1];
       const nextTx = data[index + 1];
       if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
         return (
           <>
-            {prevTx ? null : (
+            {index === 0 ? (
               <SectionList.SectionHeader
                 title={intl.formatMessage({ id: 'transaction__pending' })}
               />
-            )}
+            ) : null}
             <TxHistoryListItem
+              key={index}
               historyTx={tx}
               onPress={onPressHistory}
               tableLayout={tableLayout}
@@ -96,12 +96,13 @@ function TxHistoryListView(props: IProps) {
         );
       }
 
-      if (!prevTx || !currentDate.current || date !== currentDate.current) {
+      if (index === 0 || !currentDate.current || date !== currentDate.current) {
         currentDate.current = date;
         return (
           <>
             <SectionList.SectionHeader title={date} />
             <TxHistoryListItem
+              key={index}
               historyTx={tx}
               onPress={onPressHistory}
               tableLayout={tableLayout}
@@ -114,6 +115,7 @@ function TxHistoryListView(props: IProps) {
       return (
         <>
           <TxHistoryListItem
+            key={index}
             historyTx={tx}
             onPress={onPressHistory}
             tableLayout={tableLayout}

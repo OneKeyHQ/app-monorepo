@@ -8,6 +8,8 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useNativeTokenInfoAtom,
+  useNativeTokenTransferAmountToUpdateAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
@@ -35,6 +37,9 @@ function SendConfirmActionsContainer(props: IProps) {
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
+  const [nativeTokenTransferAmountToUpdate] =
+    useNativeTokenTransferAmountToUpdateAtom();
 
   const handleOnConfirm = useCallback(async () => {
     setIsSubmitting(true);
@@ -49,6 +54,9 @@ function SendConfirmActionsContainer(props: IProps) {
             networkId,
             unsignedTx,
             feeInfo: sendSelectedFeeInfo?.feeInfo,
+            maxSendInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+              ? { amount: nativeTokenTransferAmountToUpdate.amountToUpdate }
+              : undefined,
           });
 
         newUnsignedTxs.push(newUnsignedTx);
@@ -100,6 +108,8 @@ function SendConfirmActionsContainer(props: IProps) {
   }, [
     accountId,
     intl,
+    nativeTokenTransferAmountToUpdate.amountToUpdate,
+    nativeTokenTransferAmountToUpdate.isMaxSend,
     navigation,
     networkId,
     onFail,
@@ -110,17 +120,14 @@ function SendConfirmActionsContainer(props: IProps) {
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting) return true;
-    if (
-      sendTxStatus.isLoadingNativeBalance ||
-      sendTxStatus.isInsufficientNativeBalance
-    )
+    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.status === ESendFeeStatus.Error)
       return true;
   }, [
     isSubmitting,
-    sendTxStatus.isLoadingNativeBalance,
+    nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
     sendFeeStatus.status,

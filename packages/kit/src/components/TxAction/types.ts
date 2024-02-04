@@ -4,8 +4,9 @@ import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 export type ITxActionProps = {
   action: IDecodedTxAction;
-  tableLayout?: boolean;
   networkId: string;
+  tableLayout?: boolean;
+  nativeTokenTransferAmountToUpdate?: string;
 };
 
 export type ITxActionComponents = {

@@ -283,7 +283,6 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         withNonce: true,
       });
-
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
     }

@@ -8,6 +8,7 @@ type IProps = {
   decodedTx: IDecodedTx;
   componentType?: ETxActionComponentType;
   tableLayout?: boolean;
+  nativeTokenTransferAmountToUpdate?: string;
 };
 
 function TxActionsListView(props: IProps) {
@@ -15,6 +16,7 @@ function TxActionsListView(props: IProps) {
     decodedTx,
     componentType = ETxActionComponentType.ListView,
     tableLayout,
+    nativeTokenTransferAmountToUpdate,
   } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
@@ -32,6 +34,7 @@ function TxActionsListView(props: IProps) {
       action={action}
       tableLayout={tableLayout}
       networkId={decodedTx.networkId}
+      nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
     />
   );
 }

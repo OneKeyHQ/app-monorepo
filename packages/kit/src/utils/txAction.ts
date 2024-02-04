@@ -71,3 +71,10 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
     Boolean,
   ) as IDecodedTxAction[];
 }
+
+export function isSendNativeToken(action: IDecodedTxAction) {
+  return (
+    action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+    action.assetTransfer?.sends.every((send) => send.tokenIdOnNetwork === '')
+  );
+}

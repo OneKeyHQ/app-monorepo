@@ -55,6 +55,7 @@ function useSendConfirm(params: IParams) {
           networkId,
         });
         const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
+          accountId,
           networkId,
           accountAddress: account.address,
         });

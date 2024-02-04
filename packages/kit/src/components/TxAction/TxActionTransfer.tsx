@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
+import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -253,7 +253,7 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { networkId } = props;
+  const { networkId, nativeTokenTransferAmountToUpdate } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
@@ -303,7 +303,13 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
-                } ${transfer.amount} ${transfer.symbol}`}</SizableText>
+                } ${
+                  !isNil(nativeTokenTransferAmountToUpdate) &&
+                  transfer.tokenIdOnNetwork === '' &&
+                  direction === EDecodedTxDirection.OUT
+                    ? nativeTokenTransferAmountToUpdate
+                    : transfer.amount
+                } ${transfer.symbol}`}</SizableText>
               </XStack>
             ))}
           </YStack>
@@ -353,7 +359,13 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       return <Container.Box>{transferElements}</Container.Box>;
     },
-    [from, intl, network?.logoURI, network?.name],
+    [
+      from,
+      intl,
+      nativeTokenTransferAmountToUpdate,
+      network?.logoURI,
+      network?.name,
+    ],
   );
 
   return (

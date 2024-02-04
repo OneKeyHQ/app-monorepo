@@ -288,7 +288,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo, nonceInfo } = params;
+    const { unsignedTx, feeInfo, nonceInfo, maxSendInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
 
     if (feeInfo) {
@@ -304,6 +304,13 @@ export default class Vault extends VaultBase {
         nonceInfo,
       });
       unsignedTx.nonce = nonceInfo.nonce;
+    }
+
+    if (maxSendInfo) {
+      encodedTxNew = await this._updateNativeTokenAmount({
+        encodedTx: encodedTxNew,
+        maxSendInfo,
+      });
     }
 
     unsignedTx.encodedTx = encodedTxNew;
@@ -553,6 +560,32 @@ export default class Vault extends VaultBase {
       nonce: String(nonceInfo.nonce),
     };
 
+    return Promise.resolve(tx);
+  }
+
+  async _updateNativeTokenAmount(params: {
+    encodedTx: IEncodedTxEvm;
+    maxSendInfo: { amount: string };
+  }) {
+    const { encodedTx, maxSendInfo } = params;
+    const amountBN = new BigNumber(maxSendInfo.amount);
+    const network = await this.getNetwork();
+    const newValue = toBigIntHex(
+      amountBN
+        .dp(
+          BigNumber.min(
+            (amountBN.decimalPlaces() ?? network.decimals) - 2,
+            network.decimals - 2,
+          ).toNumber(),
+          BigNumber.ROUND_FLOOR,
+        )
+        .shiftedBy(network.decimals),
+    );
+
+    const tx = {
+      ...encodedTx,
+      value: newValue,
+    };
     return Promise.resolve(tx);
   }
 

@@ -71,7 +71,6 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     tokenIdOnNetwork?: string;
   }) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
-
     const pendingTxs = (await this.getRawData())?.pendingTxs || [];
     let accountPendingTxs = this._getAccountLocalHistoryPendingTxs({
       pendingTxs,

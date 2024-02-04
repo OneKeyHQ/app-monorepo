@@ -236,6 +236,7 @@ function SendDataInputContainer() {
 
       if (isNonceRequired) {
         const nonce = await serviceSend.getNextNonce({
+          accountId,
           networkId,
           accountAddress: account.address,
         });
