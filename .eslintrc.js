@@ -243,11 +243,12 @@ module.exports = {
         'packages/components/src/**/*.tsx',
       ],
       rules: {
-        'no-restricted-imports': [
+        '@typescript-eslint/no-restricted-imports': [
           'error',
           {
             patterns: [
               {
+                allowTypeImports: true,
                 group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
@@ -265,11 +266,12 @@ module.exports = {
         'packages/core/src/**/*.tsx',
       ],
       rules: {
-        'no-restricted-imports': [
+        '@typescript-eslint/no-restricted-imports': [
           'error',
           {
             patterns: [
               {
+                allowTypeImports: true,
                 group: [
                   '@onekeyhq/kit/*',
                   '@onekeyhq/kit-bg/*',
@@ -287,11 +289,12 @@ module.exports = {
     {
       files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
       rules: {
-        'no-restricted-imports': [
+        '@typescript-eslint/no-restricted-imports': [
           'error',
           {
             patterns: [
               {
+                allowTypeImports: true,
                 group: [
                   '@onekeyhq/kit/*',
                   '@onekeyhq/components',
