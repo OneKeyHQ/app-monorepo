@@ -29,8 +29,10 @@ import {
   verify,
 } from '../../secret';
 import {
+  EMessageTypesBtc,
+} from '@onekeyhq/shared/types/message';
+import {
   EAddressEncodings,
-  
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressQueryPublicKey,
@@ -48,7 +50,6 @@ import {
   type IUnsignedMessageBtc,
 } from '../../types';
 import { slicePathTemplate } from '../../utils';
-
 
 import {
   getBitcoinBip32,
@@ -70,7 +71,6 @@ import type {
   IBtcForkTransactionMixin,
   IEncodedTxBtc,
 } from './types';
-import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
@@ -998,15 +998,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const unsignedMsg = payload.unsignedMsg as IUnsignedMessageBtc;
     const network = getBtcForkNetwork(networkChainCode);
 
-    const signers = await this.buildSignersMap({ payload: {...payload, btcExtraInfo: {
-      pathToAddresses: {
-        [`${account.path}/${account.relPaths[0]}`]: {
-          address: account.address,
-          relPath: account.relPaths[0],
-        }
-      }
-    }}
-   });
+    const signers = await this.buildSignersMap({ payload });
 
     if (unsignedMsg.type === EMessageTypesBtc.BIP322_SIMPLE) {
       const buffer = await this.signBip322MessageSimple({
