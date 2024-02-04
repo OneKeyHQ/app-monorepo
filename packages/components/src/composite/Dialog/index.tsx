@@ -482,13 +482,17 @@ function dialogShow({
 const dialogConfirm = (props: IDialogConfirmProps) =>
   dialogShow({
     ...props,
+    showFooter: true,
+    showConfirmButton: true,
     showCancelButton: false,
   });
 
 const dialogCancel = (props: IDialogCancelProps) =>
   dialogShow({
     ...props,
+    showFooter: true,
     showConfirmButton: false,
+    showCancelButton: true,
   });
 
 export const Dialog = {
