@@ -408,7 +408,7 @@ function dialogShow({
 
   if (platformEnv.isDev) {
     const {
-      showFooter,
+      showFooter = true,
       onCancel,
       onCancelText,
       cancelButtonProps,
