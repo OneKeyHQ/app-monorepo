@@ -1,10 +1,6 @@
 import { EQRCodeHandlerType } from './type';
 
-import type {
-  IAnimationValue,
-  IQRCodeHandler,
-  IQRCodeHandlerResult,
-} from './type';
+import type { IAnimationValue, IQRCodeHandler } from './type';
 
 let CACHE_ANIMATION_DATA_LIST: (string | undefined)[];
 
@@ -13,7 +9,6 @@ let CACHE_ANIMATION_DATA_LIST: (string | undefined)[];
 // ur://bytes/3-3/3ABC
 export const animation: IQRCodeHandler<IAnimationValue> = (value, options) => {
   const urlValue = options?.urlResult;
-  let result: IQRCodeHandlerResult<IAnimationValue> = null;
   if (urlValue) {
     if (['ur'].findIndex((item) => item === urlValue.data.urlSchema) !== -1) {
       const pathList = urlValue.data.urlPathList;
@@ -41,11 +36,11 @@ export const animation: IQRCodeHandler<IAnimationValue> = (value, options) => {
         partData,
         fullData,
       };
-      result = {
+      return {
         type: EQRCodeHandlerType.ANIMATION_CODE,
         data: animationData,
       };
     }
   }
-  return result;
+  return null;
 };

@@ -1,10 +1,6 @@
 import { EQRCodeHandlerType } from './type';
 
-import type {
-  IQRCodeHandler,
-  IQRCodeHandlerResult,
-  IWalletConnectValue,
-} from './type';
+import type { IQRCodeHandler, IWalletConnectValue } from './type';
 
 // eslint-disable-next-line spellcheck/spell-checker
 /* 
@@ -22,7 +18,6 @@ export const walletConnect: IQRCodeHandler<IWalletConnectValue> = (
   options,
 ) => {
   const urlValue = options?.urlResult;
-  let result: IQRCodeHandlerResult<IWalletConnectValue> = null;
   if (urlValue) {
     if (['wc'].findIndex((item) => item === urlValue.data.urlSchema) !== -1) {
       const pathList = urlValue.data.urlPathList?.[0].split('@');
@@ -34,11 +29,11 @@ export const walletConnect: IQRCodeHandler<IWalletConnectValue> = (
         symKey: urlValue.data.urlParamList.symKey,
         relayProtocol: urlValue.data.urlParamList['relay-protocol'],
       };
-      result = {
+      return {
         type: EQRCodeHandlerType.WALLET_CONNECT,
         data: walletConnectValue,
       };
     }
   }
-  return result;
+  return null;
 };

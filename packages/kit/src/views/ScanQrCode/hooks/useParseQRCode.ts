@@ -51,7 +51,7 @@ const useParseQRCode = () => {
             break;
           }
         } catch (e) {
-          console.error(e);
+          console.log(e);
         }
       }
       if (!result) {

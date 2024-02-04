@@ -14,112 +14,25 @@ export enum EQRCodeHandlerType {
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;
-  chain_id?: string;
-  network?: string;
-  protocol?: string;
-  signTransactionVersion?: string;
-  signAndSendTransactionVersion?: string;
+  amount?: number;
+  // Label for that address (e.g. name of receiver)
+  label?: string;
+  // message that describes the transaction to the user
+  message?: string;
+  paramList?: { [key: string]: string };
 }
-export interface IBitcoinValue extends IChainValue {
-  data?: {
-    address?: string;
-    signature?: string;
-    tx?: {
-      input?: {
-        txid?: string;
-        path?: string;
-        value?: number;
-        index?: number;
-        type?: string;
-        scriptPubKeyHex?: string;
-      }[];
-      outputs?: {
-        address?: string;
-        value?: number;
-      }[];
-    };
-  };
-}
+export type IBitcoinValue = IChainValue;
 export interface IEthereumValue extends IChainValue {
-  personalSignVersion?: string;
-  personalSignSignatureVersion?: string;
-  signTypedDataLegacyVersion?: string;
-  signTypedDataLegacySignatureVersion?: string;
-  signTypeDataVersion?: string;
-  signTypeDataSignatureVersion?: string;
-  signTypeDataV4Version?: string;
-  signTypeDataV4SignatureVersion?: string;
-  data?: {
-    address?: string;
-    signature?: string;
-    message?:
-      | string
-      | {
-          type?: string;
-          name?: string;
-          value?: string;
-        }[]
-      | {
-          types?: {
-            EIP712Domain?: {
-              name?: string;
-              type?: string;
-            }[];
-            Group?: {
-              name?: string;
-              type?: string;
-            }[];
-            Person?: {
-              name?: string;
-              type?: string;
-            }[];
-            Mail?: {
-              name?: string;
-              type?: string;
-            }[];
-          };
-          primaryType?: string;
-          domain?: {
-            name?: string;
-            version?: string;
-            chainId?: string;
-            verifyingContract?: string;
-          };
-          message?:
-            | {
-                sender?: {
-                  name?: string;
-                  wallet?: string;
-                };
-                recipient?: {
-                  name?: string;
-                  wallet?: string;
-                };
-                contents?: string;
-              }
-            | {
-                from?: {
-                  name?: string;
-                  wallet?: string[];
-                };
-                to?: {
-                  name?: string;
-                  wallet?: string[];
-                }[];
-                contents?: string;
-              };
-        };
-    from?: string;
-    gas?: string;
-    chainId?: string;
-    to?: string;
-    value?: string;
-    type?: string;
-    maxFeePerGas?: string;
-    maxPriorityFeePerGas?: string;
-    nonce?: string;
-    rawTransaction?: string;
-  };
+  // eip 155 compliant chain_id, used for sanity check
+  id: number;
+  // gas price
+  gas?: number;
+  // amount of gas transaction is not to exceed
+  glmt?: number;
+  // account nonce
+  n?: number;
+  // byte code data for transaction
+  code?: string;
 }
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
@@ -153,12 +66,15 @@ export type IQRCodeHandlerResult<T extends IBaseValue> = {
   data: T;
 } | null;
 
+export type IQRCodeHandlerOptions = {
+  urlResult?: IQRCodeHandlerResult<IUrlValue>;
+  deeplinkResult?: IQRCodeHandlerResult<IUrlValue>;
+  bitcoinUrlScheme?: string;
+};
+
 export type IQRCodeHandler<T extends IBaseValue> = (
   value: string,
-  options?: {
-    urlResult?: IQRCodeHandlerResult<IUrlValue>;
-    deeplinkResult?: IQRCodeHandlerResult<IUrlValue>;
-  },
+  options?: IQRCodeHandlerOptions,
 ) => IQRCodeHandlerResult<T>;
 
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
@@ -168,5 +84,5 @@ export type IQRCodeHandlerParse<T extends IBaseValue> = (
   value: string,
   options?: {
     autoHandleResult?: boolean;
-  },
+  } & IQRCodeHandlerOptions,
 ) => IQRCodeHandlerParseResult<T>;

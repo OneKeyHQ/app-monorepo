@@ -3,18 +3,13 @@ import bech32 from 'bech32';
 import { EQRCodeHandlerType } from './type';
 import { url as urlHandler } from './url';
 
-import type {
-  ILightningNetworkValue,
-  IQRCodeHandler,
-  IQRCodeHandlerResult,
-} from './type';
+import type { ILightningNetworkValue, IQRCodeHandler } from './type';
 
 // LNURL11dp68gurn8ghj7nzwwdjhyanfvdj425jv8a6xzeeawa5hg6rywfshw5n9w96k2um5ye4nz02nw3exjmn8yekkjmjhd96xserjv9mkzcnvv57566tvd354xct5daeks6fxd4shs4mfw35xgunpwaskymr984xkjmrvd9fkzar0wd5xjfnyv4nxzatvw3zx2umrwf5hqarfdahr65m5wf5kueexvdskcmrzv93kk02nw3exjmn8drqgxn
 export const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = (
   value,
   options,
 ) => {
-  let result: IQRCodeHandlerResult<ILightningNetworkValue> = null;
   if (/^LNURL1/i.test(value)) {
     const { words: data } = bech32.decode(value, 2000);
     const byteData = bech32.fromWords(data);
@@ -26,11 +21,11 @@ export const lightningNetwork: IQRCodeHandler<ILightningNetworkValue> = (
         tag: urlValue.data.urlParamList.tag,
         k1: urlValue.data.urlParamList.k1,
       };
-      result = {
+      return {
         type: EQRCodeHandlerType.LIGHTNING_NETWORK,
         data: lightningNetworkValue,
       };
     }
   }
-  return result;
+  return null;
 };

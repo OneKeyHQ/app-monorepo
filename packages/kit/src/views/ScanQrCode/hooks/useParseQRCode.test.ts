@@ -65,30 +65,306 @@ describe('useParseQRCode', () => {
     );
   });
   it('should parse as bitcoin', () => {
-    expect(parse('btc://5bccc')).toEqual(
+    expect(parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
-        data: { address: '5bccc' },
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+        }),
       }),
     );
-    expect(parse('bitcoin://5bccc')).toEqual(
+    expect(parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
-        data: { address: '5bccc' },
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+        }),
+      }),
+    );
+    expect(parse('bitcoin://1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?label=Luke-Jr'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          label: 'Luke-Jr',
+        }),
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 0,
+        }),
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 0,
+        }),
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1.00'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=two'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=NaN'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=Infinity'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.URL,
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 1,
+        }),
+      }),
+    );
+    expect(
+      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1.00'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 1,
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 20.3,
+          label: 'Luke-Jr',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 50,
+          label: 'Luke-Jr',
+          message: 'Donation for project xyz',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'BitCoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1&custom=foobar',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 1,
+          paramList: { custom: 'foobar' },
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'BITCOIN:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0.200000&r=https%3A%2F%2Fbitpay.com%2Fi%2Fxxxxxxxxxxxxxxxxxxxxxx',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+          amount: 0.2,
+          paramList: { r: 'https://bitpay.com/i/xxxxxxxxxxxxxxxxxxxxxx' },
+        }),
+      }),
+    );
+    expect(
+      parse('other:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH', {
+        bitcoinUrlScheme: 'other',
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.BITCOIN,
+        data: expect.objectContaining({
+          address: '1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH',
+        }),
       }),
     );
   });
   it('should parse as eth', () => {
-    expect(parse('eth://0x5bccc')).toEqual(
+    expect(
+      parse('ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61'),
+    ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
-        data: { address: '0x5bccc' },
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+        }),
       }),
     );
-    expect(parse('eth:0x5bccc')).toEqual(
+    expect(
+      parse(
+        'ethereum://0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?label=DontPanic',
+      ),
+    ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
-        data: { address: '0x5bccc' },
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          label: 'DontPanic',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=20.3&label=DontPanic',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          amount: 20.3,
+          label: 'DontPanic',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=20.3&gas=21000&label=DontPanic',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          label: 'DontPanic',
+          gas: 21000,
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=50&label=DontPanic&message=Purchase%20token%20for%20project%20xyz%20ICO',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          amount: 50,
+          label: 'DontPanic',
+          message: 'Purchase token for project xyz ICO',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=50&code=0x2066726f6d204a656666204761727a696b20666f7220746f6b656e206d696e74',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          amount: 50,
+          code: '0x2066726f6d204a656666204761727a696b20666f7220746f6b656e206d696e74',
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          paramList: expect.objectContaining({
+            'req-somethingyoudontunderstand': '50',
+            'req-somethingelseyoudontget': '999',
+          }),
+        }),
+      }),
+    );
+    expect(
+      parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?somethingyoudontunderstand=50&somethingelseyoudontget=999',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
+          id: 61,
+          paramList: expect.objectContaining({
+            'somethingyoudontunderstand': '50',
+            'somethingelseyoudontget': '999',
+          }),
+        }),
       }),
     );
   });

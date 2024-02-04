@@ -612,4 +612,5 @@ module.exports = [
   'sym',
   'Viewable',
   'viewability',
+  'glmt',
 ];

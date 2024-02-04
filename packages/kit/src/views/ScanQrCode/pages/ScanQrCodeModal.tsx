@@ -4,10 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 
-import { Page, ScanQrCode } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
 import type {

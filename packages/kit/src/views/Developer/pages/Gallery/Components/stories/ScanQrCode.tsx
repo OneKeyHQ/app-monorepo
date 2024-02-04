@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { Button, ScanQrCode, Stack } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
+import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 
 import { Layout } from './utils/Layout';
