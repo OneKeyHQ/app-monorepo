@@ -12,6 +12,7 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
 		96905EF65AED1B983A6B3ABC /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
@@ -52,6 +53,7 @@
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = OneKeyWallet/main.m; sourceTree = "<group>"; };
 		2DAB62C802804CA1BF90BB10 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "OneKeyWallet-Bridging-Header.h"; path = "OneKeyWallet/OneKeyWallet-Bridging-Header.h"; sourceTree = "<group>"; };
+		494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C2E3173556A471DD304B334 /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
@@ -87,6 +89,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		08FD8B616FD027548C6FC597 /* OneKeyWallet */ = {
+			isa = PBXGroup;
+			children = (
+				494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */,
+			);
+			name = OneKeyWallet;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
@@ -132,6 +142,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				D65327D7A22EEC0BE12398D9 /* Pods */,
+				E2ABB62F868BF0E9EED605CB /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -173,6 +184,14 @@
 				7A4D352CD337FB3A3BF06240 /* Pods-OneKeyWallet.release.xcconfig */,
 			);
 			path = Pods;
+			sourceTree = "<group>";
+		};
+		E2ABB62F868BF0E9EED605CB /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				08FD8B616FD027548C6FC597 /* OneKeyWallet */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -331,10 +350,12 @@
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/RCTI18nStrings.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RCTI18nStrings.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -410,6 +431,7 @@
 				C29B683A2B46F90E0084CE36 /* RCTBundleModule.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
+				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -453,7 +475,7 @@
 					"FB_SONARKIT_ENABLED=1",
 				);
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -491,7 +513,7 @@
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -561,7 +583,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -627,7 +649,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",

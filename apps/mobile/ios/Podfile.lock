@@ -5,6 +5,66 @@ PODS:
     - CocoaLumberjack/Core (= 3.8.1)
   - CocoaLumberjack/Core (3.8.1)
   - DoubleConversion (1.1.6)
+  - EXApplication (5.3.1):
+    - ExpoModulesCore
+  - EXAV (13.6.0):
+    - ExpoModulesCore
+    - ReactCommon/turbomodule/core
+  - EXBarCodeScanner (12.7.0):
+    - EXImageLoader
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
+  - EXCamera (13.2.1):
+    - ExpoModulesCore
+  - EXConstants (14.4.2):
+    - ExpoModulesCore
+  - EXFont (11.10.2):
+    - ExpoModulesCore
+  - EXImageLoader (4.4.0):
+    - ExpoModulesCore
+    - React-Core
+  - EXNotifications (0.20.1):
+    - ExpoModulesCore
+  - Expo (50.0.5):
+    - ExpoModulesCore
+  - ExpoBlur (12.3.2):
+    - ExpoModulesCore
+  - ExpoClipboard (4.5.0):
+    - ExpoModulesCore
+  - ExpoDevice (5.4.0):
+    - ExpoModulesCore
+  - ExpoFileSystem (16.0.5):
+    - ExpoModulesCore
+  - ExpoHaptics (12.6.0):
+    - ExpoModulesCore
+  - ExpoImageManipulator (11.5.0):
+    - EXImageLoader
+    - ExpoModulesCore
+  - ExpoImagePicker (14.5.0):
+    - ExpoModulesCore
+  - ExpoKeepAwake (12.0.1):
+    - ExpoModulesCore
+  - ExpoLinearGradient (12.1.2):
+    - ExpoModulesCore
+  - ExpoLocalAuthentication (13.6.0):
+    - ExpoModulesCore
+  - ExpoLocalization (14.5.0):
+    - ExpoModulesCore
+  - ExpoModulesCore (1.11.8):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
+    - React-NativeModulesApple
+    - React-RCTAppDelegate
+    - ReactCommon/turbomodule/core
+  - ExpoSecureStore (12.5.0):
+    - ExpoModulesCore
+  - EXSplashScreen (0.20.5):
+    - ExpoModulesCore
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - FBLazyVector (0.73.2)
   - FBReactNativeSpec (0.73.2):
     - RCT-Folly (= 2022.05.16.00)
@@ -1198,10 +1258,38 @@ PODS:
   - SocketRocket (0.6.1)
   - SSZipArchive (2.4.3)
   - Yoga (1.14.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
+  - EXApplication (from `../../../node_modules/expo-application/ios`)
+  - EXAV (from `../../../node_modules/expo-av/ios`)
+  - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
+  - EXCamera (from `../../../node_modules/expo-camera/ios`)
+  - EXConstants (from `../../../node_modules/expo-constants/ios`)
+  - EXFont (from `../../../node_modules/expo-font/ios`)
+  - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
+  - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
+  - Expo (from `../../../node_modules/expo`)
+  - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
+  - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
+  - ExpoDevice (from `../../../node_modules/expo-device/ios`)
+  - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
+  - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
+  - ExpoImageManipulator (from `../../../node_modules/expo-image-manipulator/ios`)
+  - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
+  - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
+  - ExpoLinearGradient (from `../../../node_modules/expo-linear-gradient/ios`)
+  - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
+  - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
+  - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
+  - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
+  - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
   - Flipper (= 0.201.0)
@@ -1323,12 +1411,59 @@ SPEC REPOS:
     - OpenSSL-Universal
     - SocketRocket
     - SSZipArchive
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
+  EXApplication:
+    :path: "../../../node_modules/expo-application/ios"
+  EXAV:
+    :path: "../../../node_modules/expo-av/ios"
+  EXBarCodeScanner:
+    :path: "../../../node_modules/expo-barcode-scanner/ios"
+  EXCamera:
+    :path: "../../../node_modules/expo-camera/ios"
+  EXConstants:
+    :path: "../../../node_modules/expo-constants/ios"
+  EXFont:
+    :path: "../../../node_modules/expo-font/ios"
+  EXImageLoader:
+    :path: "../../../node_modules/expo-image-loader/ios"
+  EXNotifications:
+    :path: "../../../node_modules/expo-notifications/ios"
+  Expo:
+    :path: "../../../node_modules/expo"
+  ExpoBlur:
+    :path: "../../../node_modules/expo-blur/ios"
+  ExpoClipboard:
+    :path: "../../../node_modules/expo-clipboard/ios"
+  ExpoDevice:
+    :path: "../../../node_modules/expo-device/ios"
+  ExpoFileSystem:
+    :path: "../../../node_modules/expo-file-system/ios"
+  ExpoHaptics:
+    :path: "../../../node_modules/expo-haptics/ios"
+  ExpoImageManipulator:
+    :path: "../../../node_modules/expo-image-manipulator/ios"
+  ExpoImagePicker:
+    :path: "../../../node_modules/expo-image-picker/ios"
+  ExpoKeepAwake:
+    :path: "../../../node_modules/expo-keep-awake/ios"
+  ExpoLinearGradient:
+    :path: "../../../node_modules/expo-linear-gradient/ios"
+  ExpoLocalAuthentication:
+    :path: "../../../node_modules/expo-local-authentication/ios"
+  ExpoLocalization:
+    :path: "../../../node_modules/expo-localization/ios"
+  ExpoModulesCore:
+    :path: "../../../node_modules/expo-modules-core"
+  ExpoSecureStore:
+    :path: "../../../node_modules/expo-secure-store/ios"
+  EXSplashScreen:
+    :path: "../../../node_modules/expo-splash-screen/ios"
   FBLazyVector:
     :path: "../../../node_modules/react-native/Libraries/FBLazyVector"
   FBReactNativeSpec:
@@ -1484,6 +1619,29 @@ SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
+  EXApplication: 042aa2e3f05258a16962ea1a9914bf288db9c9a1
+  EXAV: 523cd6969ca53b3b2762f18fb5450b76f84df44f
+  EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
+  EXCamera: a323a5942b5e7fc8349e17d728e91c18840ad561
+  EXConstants: ce5bbea779da8031ac818c36bea41b10e14d04e1
+  EXFont: 21b9c760abd593ce8f0d5386b558ced76018506f
+  EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
+  EXNotifications: 09394cbd7165f9a4a00a53328aa09bf874bae717
+  Expo: 49cded7844f2ec4ffb1cc3b86504853f26952935
+  ExpoBlur: 545dd91ddcf7f51207d6011a6c4d27db9c9ab95a
+  ExpoClipboard: d2f0e44d50e5ba07b02f5fb7bd280178b420e24e
+  ExpoDevice: 1c1b0c9cad96c292c1de73948649cfd654b2b3c0
+  ExpoFileSystem: 04795dd4d47e76eaf12e38c92091f77d794f9e7f
+  ExpoHaptics: 604aca02e942d1d43c139cae7cf397b26f85476f
+  ExpoImageManipulator: 6d37f811d47a89afb34c0ec2521c6a6ea5f5a5be
+  ExpoImagePicker: 9e5c745cb3e56ee00e1cfe5d6af59caab66ecf1a
+  ExpoKeepAwake: 69f5f627670d62318410392d03e0b5db0f85759a
+  ExpoLinearGradient: 8eaab76b7f55c612ed8348c8be8c2a18a9b4529f
+  ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
+  ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
+  ExpoModulesCore: 96d1751929ad10622773bb729ab28a8423f0dd0c
+  ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
+  EXSplashScreen: 256017df7abf5532637f009c4c51d0c3f69fedb4
   FBLazyVector: fbc4957d9aa695250b55d879c1d86f79d7e69ab4
   FBReactNativeSpec: 396bb4b383339b01795f676aa0192bd394ef6589
   Flipper: c7a0093234c4bdd456e363f2f19b2e4b27652d44
@@ -1575,6 +1733,7 @@ SPEC CHECKSUMS:
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
