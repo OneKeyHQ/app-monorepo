@@ -143,6 +143,7 @@
     "jest": "^29.7.0",
     "jest-expo": "~50.0.1",
     "jest-html-reporter": "^3.10.2",
+    "metro": "0.80.5",
     "node-notifier": "^10.0.1",
     "patch-package": "^7.0.0",
     "prettier": "^2.8.1",
