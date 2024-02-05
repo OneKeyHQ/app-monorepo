@@ -10,7 +10,9 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface IDappConnectionData {
   data: {
+    // Storage space for injected DApp connections.
     injectedProvider: Record<string, IConnectionItem>;
+    // Storage space for WalletConnect connections.
     walletConnect: Record<string, IConnectionItem>;
   };
 }
