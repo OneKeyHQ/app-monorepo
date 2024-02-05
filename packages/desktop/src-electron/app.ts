@@ -46,7 +46,7 @@ const disposeContextMenu = contextMenu({
   showSaveImageAs: true,
 });
 
-const APP_NAME = 'OneKey Wallet';
+const APP_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
