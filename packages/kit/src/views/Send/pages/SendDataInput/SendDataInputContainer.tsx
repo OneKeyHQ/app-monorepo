@@ -55,7 +55,7 @@ function SendDataInputContainer() {
     token,
     nfts,
     address,
-    amount: sendAmount,
+    amount: sendAmount = '',
   } = route.params;
   const nft = nfts?.[0];
 
