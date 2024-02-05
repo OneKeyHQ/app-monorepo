@@ -1,5 +1,9 @@
 PODS:
   - boost (1.83.0)
+  - Burnt (0.12.2):
+    - ExpoModulesCore
+    - SPAlert (~> 4.2)
+    - SPIndicator (~> 1.6)
   - CocoaAsyncSocket (7.6.5)
   - CocoaLumberjack (3.8.1):
     - CocoaLumberjack/Core (= 3.8.1)
@@ -1244,6 +1248,10 @@ PODS:
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
     - ReactCommon/turbomodule/core
+  - RNScreens (3.26.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - RNShare (9.4.1):
     - React-Core
   - RNSVG (13.14.0):
@@ -1256,6 +1264,8 @@ PODS:
     - React-Core
     - SSZipArchive (~> 2.2)
   - SocketRocket (0.6.1)
+  - SPAlert (4.2.0)
+  - SPIndicator (1.6.4)
   - SSZipArchive (2.4.3)
   - Yoga (1.14.0)
   - ZXingObjC/Core (3.6.9)
@@ -1266,6 +1276,7 @@ PODS:
 
 DEPENDENCIES:
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
+  - Burnt (from `../../../node_modules/burnt/ios`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXAV (from `../../../node_modules/expo-av/ios`)
@@ -1385,6 +1396,7 @@ DEPENDENCIES:
   - RNFS (from `../../../node_modules/react-native-fs`)
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
+  - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
   - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
@@ -1410,12 +1422,16 @@ SPEC REPOS:
     - MMKVCore
     - OpenSSL-Universal
     - SocketRocket
+    - SPAlert
+    - SPIndicator
     - SSZipArchive
     - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/boost.podspec"
+  Burnt:
+    :path: "../../../node_modules/burnt/ios"
   DoubleConversion:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
@@ -1605,6 +1621,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-gesture-handler"
   RNReanimated:
     :path: "../../../node_modules/react-native-reanimated"
+  RNScreens:
+    :path: "../../../node_modules/react-native-screens"
   RNShare:
     :path: "../../../node_modules/react-native-share"
   RNSVG:
@@ -1616,6 +1634,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
+  Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
@@ -1727,10 +1746,13 @@ SPEC CHECKSUMS:
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 9a0870018e0e6f71bcb7635366dcd4efcdbcb062
   RNReanimated: 18faeee6e1d8eb9a60f1a62488bb357354569051
+  RNScreens: b32ad9dd36f5aed07af816e1a119aeb8f15c270b
   RNShare: 32e97adc8d8c97d4a26bcdd3c45516882184f8b6
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
+  SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
+  SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
