@@ -130,8 +130,7 @@ function bindThis() {
 //    backgroundShowToast / backgroundToast / toastBackground / showToastFromBackground
 export function toastIfError() {
   return (
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    target: Object,
+    target: Record<any, any>,
     propertyKey: string,
     descriptor: TypedPropertyDescriptor<any>,
   ) => {

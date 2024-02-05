@@ -305,9 +305,9 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkBridge(): Promise<boolean | BridgeTimeoutError> {
+  async checkBridge(): Promise<{ status: boolean; timeout?: boolean }> {
     if (!this._hasUseBridge()) {
-      return Promise.resolve(true);
+      return Promise.resolve({ status: true });
     }
 
     const hardwareSDK = await this.getSDKInstance();
@@ -316,24 +316,23 @@ class ServiceHardware extends ServiceBase {
       const bridgeStatus = await convertDeviceResponse(() =>
         hardwareSDK?.checkBridgeStatus(),
       );
-      return bridgeStatus;
+      return { status: bridgeStatus };
     } catch (error) {
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
       ) {
-        return Promise.resolve(true);
+        return Promise.resolve({ status: true });
       }
       /**
        * Sometimes we need to capture the Bridge timeout error
        * it does not mean that the user does not have bridge installed
        */
       if (error instanceof BridgeTimeoutError) {
-        // TODO resolve error not reject error?
-        return Promise.resolve(error);
+        return Promise.resolve({ status: true, timeout: true });
       }
 
-      return Promise.resolve(false);
+      return Promise.resolve({ status: false });
     }
   }
 
