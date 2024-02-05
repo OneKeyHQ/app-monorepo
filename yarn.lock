@@ -5148,7 +5148,7 @@ __metadata:
     expo-image-picker: "npm:14.5.0"
     expo-intent-launcher: "npm:^10.5.2"
     expo-keep-awake: "npm:12.8.2"
-    expo-linear-gradient: "npm:12.1.2"
+    expo-linear-gradient: "npm:12.7.1"
     expo-linking: "npm:^5.0.2"
     expo-local-authentication: "npm:13.6.0"
     expo-localization: "npm:14.5.0"
@@ -15768,12 +15768,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-linear-gradient@npm:12.1.2":
-  version: 12.1.2
-  resolution: "expo-linear-gradient@npm:12.1.2"
+"expo-linear-gradient@npm:12.7.1":
+  version: 12.7.1
+  resolution: "expo-linear-gradient@npm:12.7.1"
   peerDependencies:
     expo: "*"
-  checksum: 525dc5e57fbde9783e76be407d3aa3ce711832b1b0c17b03ec041b1a3aaa0dedbc6c2e5bced6e9ffdad8f916e76b1a1df9897d96e569ab97dce7e9f35c2c5138
+  checksum: 7836acb751adea60de84982e394c3ca41c54110311dc5ed7ad656053a7bb5e1c5e97865cd90f0256dfbd5c700d4a80030f215adfa7d12b9dbb9c13662eacc3cd
   languageName: node
   linkType: hard
 
