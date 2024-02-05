@@ -94,6 +94,24 @@ function Demo1() {
       >
         调用 background 显示 toast
       </Button>
+
+      <Button
+        onPress={async () => {
+          const ctx = await backgroundApiProxy.serviceApp.demoError2();
+          console.log(ctx);
+        }}
+      >
+        调用 background 不显示 toast2
+      </Button>
+
+      <Button
+        onPress={async () => {
+          const ctx = await backgroundApiProxy.serviceApp.demoError3();
+          console.log(ctx);
+        }}
+      >
+        调用 background 显示 toast3
+      </Button>
     </Stack>
   );
 }
