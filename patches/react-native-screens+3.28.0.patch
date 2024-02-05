@@ -473,7 +473,7 @@ rename from node_modules/react-native-screens/src/index.tsx
 rename to node_modules/react-native-screens/src/index.tx
 index 9e4e264..728a286 100644
 --- a/node_modules/react-native-screens/src/index.tsx
-+++ b/node_modules/react-native-screens/src/index.tx
++++ b/node_modules/react-native-screens/src/index.tsx
 @@ -34,6 +34,8 @@ export function enableFreeze(shouldEnableReactFreeze = true): void {
  }
  
