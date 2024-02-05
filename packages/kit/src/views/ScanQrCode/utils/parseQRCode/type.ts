@@ -1,3 +1,5 @@
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+
 export enum EQRCodeHandlerType {
   UNKNOWN,
   BITCOIN,
@@ -14,24 +16,24 @@ export enum EQRCodeHandlerType {
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;
+  amount?: string;
+  getNetwork?: () => Promise<IServerNetwork | undefined> | undefined;
   paramList?: { [key: string]: string };
 }
 export interface IBitcoinValue extends IChainValue {
-  amount?: number;
   // Label for that address (e.g. name of receiver)
   label?: string;
   // message that describes the transaction to the user
   message?: string;
 }
 export interface IEthereumValue extends IChainValue {
-  amount?: number;
   // Label for that address (e.g. name of receiver)
   label?: string;
   // message that describes the transaction to the user
   message?: string;
 
   // eip 155 compliant chain_id, used for sanity check
-  id: number;
+  id: string;
   // gas price
   gas?: number;
   // amount of gas transaction is not to exceed
@@ -77,12 +79,16 @@ export type IQRCodeHandlerOptions = {
   urlResult?: IQRCodeHandlerResult<IUrlValue>;
   deeplinkResult?: IQRCodeHandlerResult<IUrlValue>;
   bitcoinUrlScheme?: string;
+  getNetwork?: (
+    networkImpls: string[],
+    chainId: string,
+  ) => Promise<IServerNetwork | undefined>;
 };
 
 export type IQRCodeHandler<T extends IBaseValue> = (
   value: string,
   options?: IQRCodeHandlerOptions,
-) => IQRCodeHandlerResult<T>;
+) => Promise<IQRCodeHandlerResult<T>>;
 
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
@@ -92,4 +98,4 @@ export type IQRCodeHandlerParse<T extends IBaseValue> = (
   options?: {
     autoHandleResult?: boolean;
   } & IQRCodeHandlerOptions,
-) => IQRCodeHandlerParseResult<T>;
+) => Promise<IQRCodeHandlerParseResult<T>>;

@@ -29,7 +29,7 @@ function SendAssetInputContainer() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, address, amount } = route.params;
 
   const promise = usePromiseResult(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccountOfWallet({
@@ -55,6 +55,8 @@ function SendAssetInputContainer() {
         accountId,
         isNFT: false,
         token,
+        address,
+        amount,
       });
     },
     [accountId, navigation, networkId],

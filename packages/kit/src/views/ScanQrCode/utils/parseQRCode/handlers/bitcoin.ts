@@ -1,11 +1,17 @@
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { EQRCodeHandlerType } from '../type';
 
 import type { IBitcoinValue, IQRCodeHandler } from '../type';
 
+// eslint-disable-next-line spellcheck/spell-checker
 // bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr
 
 // from https://github.com/bitcoinjs/bip21/blob/fb796720b56d4b22dff8ad543ef4153ef45a10ad/index.js#L7
-export const bitcoin: IQRCodeHandler<IBitcoinValue> = (value, options) => {
+export const bitcoin: IQRCodeHandler<IBitcoinValue> = async (
+  value,
+  options,
+) => {
   const urnScheme = options?.bitcoinUrlScheme || 'bitcoin';
   const urnSchemeActual = value.slice(0, urnScheme.length).toLowerCase();
   if (urnSchemeActual !== urnScheme || value.charAt(urnScheme.length) !== ':')
@@ -36,7 +42,14 @@ export const bitcoin: IQRCodeHandler<IBitcoinValue> = (value, options) => {
 
   const { amount, label, message, ...paramList } = queryList;
 
-  const bitcoinValue = { address, amount, label, message, paramList };
+  const bitcoinValue: IBitcoinValue = {
+    address,
+    amount,
+    label,
+    message,
+    paramList,
+    getNetwork: () => options?.getNetwork?.([IMPL_BTC], '0'),
+  };
   return {
     type: EQRCodeHandlerType.BITCOIN,
     data: bitcoinValue,

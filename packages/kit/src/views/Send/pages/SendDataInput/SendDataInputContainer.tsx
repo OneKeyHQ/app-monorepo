@@ -48,7 +48,15 @@ function SendDataInputContainer() {
   const { serviceNFT, serviceSend, serviceAccount, serviceToken } =
     backgroundApiProxy;
 
-  const { networkId, accountId, isNFT, token, nfts } = route.params;
+  const {
+    networkId,
+    accountId,
+    isNFT,
+    token,
+    nfts,
+    address,
+    amount: sendAmount,
+  } = route.params;
   const nft = nfts?.[0];
 
   const getAccount = useCallback(
@@ -108,8 +116,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
-      to: { raw: '' } as IAddressInputValue,
-      amount: '',
+      to: { raw: address } as IAddressInputValue,
+      amount: sendAmount,
       nftAmount: '',
     },
     mode: 'onChange',

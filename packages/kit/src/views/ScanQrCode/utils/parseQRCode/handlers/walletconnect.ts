@@ -13,7 +13,7 @@ wc:6b18a69c27df54b4c228e0ff60218ba460a4994aa5775963f6f0ee354b629afe@2?relay-prot
 version-1
 wc:7a2eabf0-a5ab-4df5-805c-1bf50da956c7@1?bridge=https%3A%2F%2Fx.bridge.walletconnect.org&key=a1bc7b3461fc0c017288c06bbfddd4d00fa187409821b3f909f2125b33277e0d
 */
-export const walletConnect: IQRCodeHandler<IWalletConnectValue> = (
+export const walletConnect: IQRCodeHandler<IWalletConnectValue> = async (
   value,
   options,
 ) => {

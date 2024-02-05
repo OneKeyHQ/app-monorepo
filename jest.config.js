@@ -39,7 +39,7 @@ module.exports = async () => {
         '<rootDir>/__mocks__/fileMock.js',
       '\\.(css|less)$': '<rootDir>/__mocks__/styleMock.js',
       '@onekeyhq/kit/src/background/instance/backgroundApiProxy':
-        '<rootDir>/__mocks__/backgroundApiProxyMock.js',
+        '<rootDir>/__mocks__/backgroundApiProxyMock.ts',
       '@emurgo/cardano-serialization-lib-browser':
         '@emurgo/cardano-serialization-lib-nodejs',
       '@emurgo/cardano-message-signing-browser':

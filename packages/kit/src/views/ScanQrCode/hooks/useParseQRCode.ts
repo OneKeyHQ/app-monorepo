@@ -3,10 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-// import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-// import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-// import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 
 import { parseQRCode } from '../utils/parseQRCode';
 import { EQRCodeHandlerType } from '../utils/parseQRCode/type';
@@ -14,6 +15,7 @@ import { EQRCodeHandlerType } from '../utils/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
+  IChainValue,
   IQRCodeHandlerParse,
 } from '../utils/parseQRCode/type';
 
@@ -21,12 +23,12 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
-  // const {
-  //   activeAccount: { account, network },
-  // } = useActiveAccount({ num: 0 });
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
-    (value, options) => {
-      const result = parseQRCode(value, options);
+    async (value, options) => {
+      const result = await parseQRCode(value, options);
       if (
         result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
         (result.data as IAnimationValue).fullData
@@ -38,19 +40,45 @@ const useParseQRCode = () => {
         return result;
       }
       switch (result.type) {
-        case (EQRCodeHandlerType.BITCOIN, EQRCodeHandlerType.ETHEREUM): {
-          // if (!account || !network) {
-          //   break;
-          // }
-          // navigation.pushModal(EModalRoutes.SendModal, {
-          //   screen: EModalSendRoutes.SendDataInput,
-          //   params: {
-          //     networkId: network.id,
-          //     accountId: account.id,
-          //     isNFT: false,
-          //     to: (result.data as IChainValue).address,
-          //   },
-          // });
+        case EQRCodeHandlerType.BITCOIN:
+        case EQRCodeHandlerType.ETHEREUM: {
+          if (!account) {
+            break;
+          }
+          const chainValue = result.data as IChainValue;
+          const network = await chainValue?.getNetwork?.();
+          if (!network) {
+            break;
+          }
+          // TODO: Check if it is a single token network by settings
+          const isSingleTokenNetwork = false;
+          const nativeToken =
+            await backgroundApiProxy.serviceToken.getNativeToken({
+              networkId: network.id,
+            });
+          if (isSingleTokenNetwork && nativeToken) {
+            navigation.pushModal(EModalRoutes.SendModal, {
+              screen: EModalSendRoutes.SendDataInput,
+              params: {
+                networkId: network.id,
+                accountId: account.id,
+                isNFT: false,
+                token: nativeToken,
+                address: chainValue?.address,
+                amount: chainValue?.amount,
+              },
+            });
+          } else {
+            navigation.pushModal(EModalRoutes.SendModal, {
+              screen: EModalSendRoutes.SendAssetInput,
+              params: {
+                networkId: network.id,
+                accountId: account.id,
+                address: chainValue?.address,
+                amount: chainValue?.amount,
+              },
+            });
+          }
           break;
         }
         default: {
@@ -73,7 +101,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [navigation, clipboard, intl],
+    [navigation, clipboard, intl, account],
   );
   return { parse };
 };

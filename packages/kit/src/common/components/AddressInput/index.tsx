@@ -26,6 +26,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
 import { useDebounce } from '../../../hooks/useDebounce';
 
 type IAddressPluginsOptions = {
@@ -67,6 +70,19 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
       icon="ScanSolid"
       onPress={onPress}
     />
+  );
+};
+
+const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <ScanPlugin onChange={onChange} />
+    </AccountSelectorProviderMirror>
   );
 };
 
@@ -331,7 +347,9 @@ function AddressInput(props: IAddressInputProps) {
             {plugins.clipboard ? (
               <ClipboardPlugin onChange={onChangeText} />
             ) : null}
-            {plugins.scan ? <ScanPlugin onChange={onChangeText} /> : null}
+            {plugins.scan ? (
+              <ScanPluginContainer onChange={onChangeText} />
+            ) : null}
             {plugins.contacts ? <ContactsPlugin /> : null}
           </XStack>
         </XStack>

@@ -16,6 +16,8 @@ export type IModalSendParamList = {
   [EModalSendRoutes.SendAssetInput]: {
     networkId: string;
     accountId: string;
+    address?: string;
+    amount?: string;
   };
   [EModalSendRoutes.SendDataInput]: {
     networkId: string;
@@ -23,6 +25,8 @@ export type IModalSendParamList = {
     isNFT: boolean;
     nfts?: IAccountNFT[];
     token?: IToken;
+    address?: string;
+    amount?: string;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;

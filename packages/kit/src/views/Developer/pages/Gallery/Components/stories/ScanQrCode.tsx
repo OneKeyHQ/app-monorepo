@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -51,4 +53,17 @@ const ScanQRCodeGallery = () => {
   );
 };
 
-export default ScanQRCodeGallery;
+function ScanQRCodeGalleryContainer() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <ScanQRCodeGallery />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default ScanQRCodeGalleryContainer;

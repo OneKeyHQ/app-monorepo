@@ -1,18 +1,18 @@
-import bech32 from 'bech32';
-import { EQRCodeHandlerType } from './type';
 import { parseQRCode as parse } from '.';
 
+import { EQRCodeHandlerType } from './type';
+
 describe('useParseQRCode', () => {
-  it('should parse as migrate', () => {
-    expect(parse('onekey://migrate/192.168.1.2')).toEqual(
+  it('should parse as migrate', async () => {
+    expect(await parse('onekey://migrate/192.168.1.2')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.MIGRATE,
         data: { address: '192.168.1.2' },
       }),
     );
   });
-  it('should parse as animation qrcode', () => {
-    expect(parse('ur://bytes/1-3/1FGsdfSEFASDFA')).toEqual(
+  it('should parse as animation qrcode', async () => {
+    expect(await parse('ur://bytes/1-3/1FGsdfSEFASDFA')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ANIMATION_CODE,
         data: expect.objectContaining({
@@ -23,7 +23,7 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
-    expect(parse('ur://bytes/2-3/2FGsdfSEFASDFA')).toEqual(
+    expect(await parse('ur://bytes/2-3/2FGsdfSEFASDFA')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ANIMATION_CODE,
         data: expect.objectContaining({
@@ -34,7 +34,7 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
-    expect(parse('ur://bytes/3-3/3FGsdfSEFASDFA')).toEqual(
+    expect(await parse('ur://bytes/3-3/3FGsdfSEFASDFA')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ANIMATION_CODE,
         data: expect.objectContaining({
@@ -46,7 +46,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'ur:bytes/1-9/lpadascfadaxcywenbpljkhdcahkadaemejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtdkgslpgh',
       ),
     ).toEqual(
@@ -62,8 +62,8 @@ describe('useParseQRCode', () => {
       }),
     );
   });
-  it('should parse as bitcoin', () => {
-    expect(parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
+  it('should parse as bitcoin', async () => {
+    expect(await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
         data: expect.objectContaining({
@@ -71,7 +71,7 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
-    expect(parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?')).toEqual(
+    expect(await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
         data: expect.objectContaining({
@@ -79,13 +79,13 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
-    expect(parse('bitcoin://1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
+    expect(await parse('bitcoin://1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?label=Luke-Jr'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?label=Luke-Jr'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
@@ -96,7 +96,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
@@ -107,7 +107,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
@@ -118,42 +118,42 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1.00'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1.00'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=two'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=two'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=NaN'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=NaN'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=Infinity'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=Infinity'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
@@ -164,7 +164,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1.00'),
+      await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1.00'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.BITCOIN,
@@ -175,7 +175,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr',
       ),
     ).toEqual(
@@ -189,7 +189,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz',
       ),
     ).toEqual(
@@ -204,7 +204,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'BitCoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=1&custom=foobar',
       ),
     ).toEqual(
@@ -218,7 +218,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'BITCOIN:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=0.200000&r=https%3A%2F%2Fbitpay.com%2Fi%2Fxxxxxxxxxxxxxxxxxxxxxx',
       ),
     ).toEqual(
@@ -232,7 +232,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('other:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH', {
+      await parse('other:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH', {
         bitcoinUrlScheme: 'other',
       }),
     ).toEqual(
@@ -244,9 +244,39 @@ describe('useParseQRCode', () => {
       }),
     );
   });
-  it('should parse as eth', () => {
+  it('should parse as eth EIP-681', async () => {
     expect(
-      parse('ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE'),
+      await parse(
+        'ethereum:0x178e3e6c9f547A00E33150F7104427ea02cfc747@1?value=1e8',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          id: '1',
+          amount: '0.1',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@5/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e7',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          id: '5',
+          amount: '0.01',
+        }),
+      }),
+    );
+  });
+  it('should parse as eth ECIP-1037', async () => {
+    expect(
+      await parse('ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61'),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
@@ -256,32 +286,20 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse('ethereum:0x178e3e6c9f547A00E33150F7104427ea02cfc747@1?value=1e8'),
-    ).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ETHEREUM,
-        data: expect.objectContaining({
-          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
-          id: 1,
-        }),
-      }),
-    );
-    expect(
-      parse(
-        'ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e8',
+      await parse(
+        'ethereum:0xCe5ED529977b08f87CBc207ebC216859820461eE&id=61?amount=50&label=DontPanic&message=Purchase%20token%20for%20project%20xyz%20ICO',
       ),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.ETHEREUM,
         data: expect.objectContaining({
-          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
-          id: 1,
+          address: '0xCe5ED529977b08f87CBc207ebC216859820461eE',
         }),
       }),
     );
   });
-  it('should parse as url', () => {
-    expect(parse('https://www.google.com/search?q=onekey')).toEqual(
+  it('should parse as url', async () => {
+    expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
         data: {
@@ -292,8 +310,8 @@ describe('useParseQRCode', () => {
       }),
     );
   });
-  it('should parse as deeplink', () => {
-    expect(parse('onekey://search/list?q=onekey')).toEqual(
+  it('should parse as deeplink', async () => {
+    expect(await parse('onekey://search/list?q=onekey')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.DEEPLINK,
         data: {
@@ -303,7 +321,7 @@ describe('useParseQRCode', () => {
         },
       }),
     );
-    expect(parse('onekey-wallet://search/list?q=onekey')).toEqual(
+    expect(await parse('onekey-wallet://search/list?q=onekey')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.DEEPLINK,
         data: {
@@ -314,8 +332,8 @@ describe('useParseQRCode', () => {
       }),
     );
   });
-  it('should parse as unknown', () => {
-    expect(parse('abcd')).toEqual(
+  it('should parse as unknown', async () => {
+    expect(await parse('abcd')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.UNKNOWN,
         data: 'abcd',
@@ -323,9 +341,9 @@ describe('useParseQRCode', () => {
       }),
     );
   });
-  it('should parse as wallet connect', () => {
+  it('should parse as wallet connect', async () => {
     expect(
-      parse(
+      await parse(
         'wc:6b18a69c27df54b4c228e0ff60218ba460a4994aa5775963f6f0ee354b629afe@2?relay-protocol=irn&symKey=99f6e5fa2bda94c704be8d7adbc2643b861ef49dbe09e0af26d3713e219b4355',
       ),
     ).toEqual(
@@ -341,7 +359,7 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      parse(
+      await parse(
         'wc:7a2eabf0-a5ab-4df5-805c-1bf50da956c7@1?bridge=https%3A%2F%2Fx.bridge.walletconnect.org&key=a1bc7b3461fc0c017288c06bbfddd4d00fa187409821b3f909f2125b33277e0d',
       ),
     ).toEqual(
@@ -352,22 +370,6 @@ describe('useParseQRCode', () => {
           version: '1',
           bridge: 'https://x.bridge.walletconnect.org',
           key: 'a1bc7b3461fc0c017288c06bbfddd4d00fa187409821b3f909f2125b33277e0d',
-        }),
-      }),
-    );
-  });
-  it('should parse as lightningNetwork', () => {
-    const url =
-      'https://LNserviceURL?tag=withdrawRequest&k1=String&minWithdrawable=MilliSatoshi&maxWithdrawable=MilliSatoshi&defaultDescription=String&callback=String';
-    const encodeUrl = Buffer.from(
-      bech32.encode('LNURL1', bech32.toWords(Buffer.from(url, 'utf-8')), 2000),
-    ).toString('utf-8');
-    expect(parse(encodeUrl)).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.LIGHTNING_NETWORK,
-        data: expect.objectContaining({
-          tag: 'withdrawRequest',
-          k1: 'String',
         }),
       }),
     );

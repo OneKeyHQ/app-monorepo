@@ -20,9 +20,9 @@ export default function useScanQrCode() {
         navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
-            callback: (value: string) => {
+            callback: async (value: string) => {
               if (value?.length > 0) {
-                const parseValue = parseQRCode.parse(value, {
+                const parseValue = await parseQRCode.parse(value, {
                   autoHandleResult,
                 });
                 resolve(parseValue);
