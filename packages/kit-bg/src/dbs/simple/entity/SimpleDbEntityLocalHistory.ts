@@ -14,7 +14,7 @@ export interface ILocalHistory {
 export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory> {
   entityName = 'localHistory';
 
-  override enableCache = true;
+  override enableCache = false;
 
   @backgroundMethod()
   public async saveLocalHistoryPendingTxs(txs: IAccountHistoryTx[]) {
