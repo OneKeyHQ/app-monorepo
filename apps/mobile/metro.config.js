@@ -70,6 +70,9 @@ config.cacheStores = ({ FileStore }) => [
 
 // https://github.com/facebook/metro/issues/1191
 // Lazy compilation is unstable and can easily lead to 'Reached heap limit Allocation failed.
+
+// @expo/metro-config/build/rewriteRequestUrl.js
+// metro includes rewriteExpoRequestUrl function which is used to rewrite the request url.
 const orignalRewriteRequestUrl = config.server.rewriteRequestUrl
   ? config.server.rewriteRequestUrl
   : (url) => url;
