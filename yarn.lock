@@ -5140,7 +5140,7 @@ __metadata:
     expo-av: "npm:13.6.0"
     expo-barcode-scanner: "npm:12.7.0"
     expo-blur: "npm:~12.3.0"
-    expo-camera: "npm:13.2.1"
+    expo-camera: "npm:13.4.0"
     expo-clipboard: "npm:4.5.0"
     expo-device: "npm:~5.4.0"
     expo-haptics: "npm:12.6.0"
@@ -15635,15 +15635,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-camera@npm:13.2.1":
-  version: 13.2.1
-  resolution: "expo-camera@npm:13.2.1"
+"expo-camera@npm:13.4.0":
+  version: 13.4.0
+  resolution: "expo-camera@npm:13.4.0"
   dependencies:
     "@koale/useworker": "npm:^4.0.2"
     invariant: "npm:^2.2.4"
   peerDependencies:
     expo: "*"
-  checksum: 1a9d5997908fee06dc53d08ffa6366f9cd261ee84dcbc6240a4ccca8cbe2d297b3edf1e0e32f1fc529f082394f7647ced5bc20ac01b2ade49726174b86f99f85
+  checksum: 1653958121fddbd8a53213216b606573be3eff90683a2f0351b481faa17b4bf03314d6cba8344a213826699ddfcf980e860ab0993c16616e900b8b52a340014e
   languageName: node
   linkType: hard
 
