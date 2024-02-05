@@ -5136,10 +5136,10 @@ __metadata:
     "@shopify/flash-list": "npm:^1.6.3"
     burnt: "npm:0.12.2"
     expo: "npm:50.0.5"
-    expo-application: "npm:~5.3.1"
+    expo-application: "npm:5.8.3"
     expo-av: "npm:13.6.0"
     expo-barcode-scanner: "npm:12.7.0"
-    expo-blur: "npm:~12.3.0"
+    expo-blur: "npm:12.9.1"
     expo-camera: "npm:13.4.0"
     expo-clipboard: "npm:4.5.0"
     expo-device: "npm:~5.4.0"
@@ -15583,7 +15583,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-application@npm:~5.3.0, expo-application@npm:~5.3.1":
+"expo-application@npm:5.8.3":
+  version: 5.8.3
+  resolution: "expo-application@npm:5.8.3"
+  peerDependencies:
+    expo: "*"
+  checksum: 5b7d8f3df4cf658a89e62fe25ce00b91c3217bc59115d3a43fd3c4bff38f3c5593568913f59027244196dedeb5766fce98dc58f12bdd30c12581b1b52e51d718
+  languageName: node
+  linkType: hard
+
+"expo-application@npm:~5.3.0":
   version: 5.3.1
   resolution: "expo-application@npm:5.3.1"
   peerDependencies:
@@ -15626,12 +15635,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-blur@npm:~12.3.0":
-  version: 12.3.2
-  resolution: "expo-blur@npm:12.3.2"
+"expo-blur@npm:12.9.1":
+  version: 12.9.1
+  resolution: "expo-blur@npm:12.9.1"
   peerDependencies:
     expo: "*"
-  checksum: 4200c7103b1c953fcf6a4ebed9924722e01e4358c6eb63c0399bd04a0d3fd3a50164e96bc60391ba4c8df4bda2d59eb9b908f7291b0010c736d86d88266f31b9
+  checksum: 4e34ebd0e08cb617abb4bb30ec5dfdd31a468cc3c039cc5dbfa646969ba91e3979e8e86c99b620c76ace07ee79dd49ed24b5e5d0ff0017d5e7e17f65cc80b864
   languageName: node
   linkType: hard
 
