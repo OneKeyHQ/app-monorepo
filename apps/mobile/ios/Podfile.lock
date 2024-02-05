@@ -9,7 +9,7 @@ PODS:
     - CocoaLumberjack/Core (= 3.8.1)
   - CocoaLumberjack/Core (3.8.1)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.3.1):
+  - EXApplication (5.8.3):
     - ExpoModulesCore
   - EXAV (13.6.0):
     - ExpoModulesCore
@@ -19,24 +19,26 @@ PODS:
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
-  - EXCamera (13.2.1):
-    - ExpoModulesCore
-  - EXConstants (14.4.2):
+  - EXConstants (15.4.5):
     - ExpoModulesCore
   - EXFont (11.10.2):
     - ExpoModulesCore
   - EXImageLoader (4.4.0):
     - ExpoModulesCore
     - React-Core
-  - EXNotifications (0.20.1):
+  - EXNotifications (0.27.6):
     - ExpoModulesCore
   - Expo (50.0.5):
     - ExpoModulesCore
-  - ExpoBlur (12.3.2):
+  - ExpoBlur (12.9.1):
     - ExpoModulesCore
-  - ExpoClipboard (4.5.0):
+  - ExpoCamera (14.0.3):
     - ExpoModulesCore
-  - ExpoDevice (5.4.0):
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
+  - ExpoClipboard (5.0.1):
+    - ExpoModulesCore
+  - ExpoDevice (5.9.3):
     - ExpoModulesCore
   - ExpoFileSystem (16.0.5):
     - ExpoModulesCore
@@ -47,9 +49,9 @@ PODS:
     - ExpoModulesCore
   - ExpoImagePicker (14.5.0):
     - ExpoModulesCore
-  - ExpoKeepAwake (12.0.1):
+  - ExpoKeepAwake (12.8.2):
     - ExpoModulesCore
-  - ExpoLinearGradient (12.1.2):
+  - ExpoLinearGradient (12.7.1):
     - ExpoModulesCore
   - ExpoLocalAuthentication (13.6.0):
     - ExpoModulesCore
@@ -64,7 +66,7 @@ PODS:
     - ReactCommon/turbomodule/core
   - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
-  - EXSplashScreen (0.20.5):
+  - EXSplashScreen (0.26.4):
     - ExpoModulesCore
     - glog
     - RCT-Folly (= 2022.05.16.00)
@@ -1239,7 +1241,7 @@ PODS:
     - React-Core
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.13.3):
+  - RNGestureHandler (2.14.1):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1248,7 +1250,7 @@ PODS:
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
     - ReactCommon/turbomodule/core
-  - RNScreens (3.26.0):
+  - RNScreens (3.28.0):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1281,13 +1283,13 @@ DEPENDENCIES:
   - EXApplication (from `../../../node_modules/expo-application/ios`)
   - EXAV (from `../../../node_modules/expo-av/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
-  - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
+  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
   - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
@@ -1440,8 +1442,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-av/ios"
   EXBarCodeScanner:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
-  EXCamera:
-    :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXFont:
@@ -1454,6 +1454,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
+  ExpoCamera:
+    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoDevice:
@@ -1638,29 +1640,29 @@ SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
-  EXApplication: 042aa2e3f05258a16962ea1a9914bf288db9c9a1
+  EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXAV: 523cd6969ca53b3b2762f18fb5450b76f84df44f
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
-  EXCamera: a323a5942b5e7fc8349e17d728e91c18840ad561
-  EXConstants: ce5bbea779da8031ac818c36bea41b10e14d04e1
+  EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
   EXFont: 21b9c760abd593ce8f0d5386b558ced76018506f
   EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
-  EXNotifications: 09394cbd7165f9a4a00a53328aa09bf874bae717
+  EXNotifications: e11f0e9a5b657c064a481a5d522f3bc5a07bf7cd
   Expo: 49cded7844f2ec4ffb1cc3b86504853f26952935
-  ExpoBlur: 545dd91ddcf7f51207d6011a6c4d27db9c9ab95a
-  ExpoClipboard: d2f0e44d50e5ba07b02f5fb7bd280178b420e24e
-  ExpoDevice: 1c1b0c9cad96c292c1de73948649cfd654b2b3c0
+  ExpoBlur: 2eb7f7ac50c0818ee7d596996e4c0112b3d225f6
+  ExpoCamera: c50a4c67431540e86406e953dc189b850263e522
+  ExpoClipboard: b597982124f067ff9f5b89093eb3d97898d5d877
+  ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
   ExpoFileSystem: 04795dd4d47e76eaf12e38c92091f77d794f9e7f
   ExpoHaptics: 604aca02e942d1d43c139cae7cf397b26f85476f
   ExpoImageManipulator: 6d37f811d47a89afb34c0ec2521c6a6ea5f5a5be
   ExpoImagePicker: 9e5c745cb3e56ee00e1cfe5d6af59caab66ecf1a
-  ExpoKeepAwake: 69f5f627670d62318410392d03e0b5db0f85759a
-  ExpoLinearGradient: 8eaab76b7f55c612ed8348c8be8c2a18a9b4529f
+  ExpoKeepAwake: 0f5cad99603a3268e50af9a6eb8b76d0d9ac956c
+  ExpoLinearGradient: d10226652f849e675528883aa45afd2358c2f92f
   ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 96d1751929ad10622773bb729ab28a8423f0dd0c
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
-  EXSplashScreen: 256017df7abf5532637f009c4c51d0c3f69fedb4
+  EXSplashScreen: 39244885abfb1b12765aae89edb90f8c88db6bbd
   FBLazyVector: fbc4957d9aa695250b55d879c1d86f79d7e69ab4
   FBReactNativeSpec: 396bb4b383339b01795f676aa0192bd394ef6589
   Flipper: c7a0093234c4bdd456e363f2f19b2e4b27652d44
@@ -1744,9 +1746,9 @@ SPEC CHECKSUMS:
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
   RNFlashList: 4b4b6b093afc0df60ae08f9cbf6ccd4c836c667a
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
-  RNGestureHandler: 9a0870018e0e6f71bcb7635366dcd4efcdbcb062
+  RNGestureHandler: 25b969a1ffc806b9f9ad2e170d4a3b049c6af85e
   RNReanimated: 18faeee6e1d8eb9a60f1a62488bb357354569051
-  RNScreens: b32ad9dd36f5aed07af816e1a119aeb8f15c270b
+  RNScreens: bd29ae9784385ead60785682dfd66cb6a1bc504d
   RNShare: 32e97adc8d8c97d4a26bcdd3c45516882184f8b6
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
