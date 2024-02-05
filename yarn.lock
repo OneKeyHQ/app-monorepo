@@ -4882,7 +4882,6 @@ __metadata:
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
-    redux-flipper: "npm:^2.0.2"
     rimraf: "npm:^5.0.5"
     stream-browserify: "npm:^3.0.0"
     style-loader: "npm:^3.3.3"
@@ -13015,13 +13014,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cycle@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "cycle@npm:1.0.3"
-  checksum: b9f131094fb832a8c4ba18c6d2dc9c87fc80d3242847a45f0a5f70911b2acab68abc1c25eb23e5155fcf2135a27d8fcc3635556745b03b488c4f360cfbc352df
-  languageName: node
-  linkType: hard
-
 "d@npm:1, d@npm:^1.0.1":
   version: 1.0.1
   resolution: "d@npm:1.0.1"
@@ -13096,7 +13088,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dayjs@npm:^1.8.15, dayjs@npm:^1.8.29":
+"dayjs@npm:^1.8.15":
   version: 1.11.10
   resolution: "dayjs@npm:1.11.10"
   checksum: 27e8f5bc01c0a76f36c656e62ab7f08c2e7b040b09e613cd4844abf03fb258e0350f0a83b02c887b84d771c1f11e092deda0beef8c6df2a1afbc3f6c1fade279
@@ -24844,20 +24836,6 @@ __metadata:
     react: ">= 15.2.1"
     react-native: ">= 0.30.0"
   checksum: 84c2fc1ee7d109e21ca30813f646a5d490a33fa789d1fb3f7f7854c191895de010109563ba1c67a35ec28340a872a039ceb6233a57053480098c48205fc147e9
-  languageName: node
-  linkType: hard
-
-"redux-flipper@npm:^2.0.2":
-  version: 2.0.2
-  resolution: "redux-flipper@npm:2.0.2"
-  dependencies:
-    cycle: "npm:^1.0.3"
-    dayjs: "npm:^1.8.29"
-  peerDependencies:
-    react-native: ">=0.63.0"
-    react-native-flipper: ">=0.100.0"
-    redux: ^4
-  checksum: d2d0f3db23864bd375e3a643160119677f955aed331c71619869c10318163be268be0ff84f7919047caf638fcd21c54ff447c2da6037f6364df81668e99121fb
   languageName: node
   linkType: hard
 
