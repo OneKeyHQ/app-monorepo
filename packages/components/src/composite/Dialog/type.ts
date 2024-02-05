@@ -53,7 +53,7 @@ interface IBasicDialogProps extends TMDialogProps {
   disableDrag?: boolean;
   testID?: string;
   onConfirm?: IOnDialogConfirm;
-  onCancel?: () => void;
+  onCancel?: (close: () => Promise<void>) => void;
 }
 
 export type IDialogProps = IBasicDialogProps &
