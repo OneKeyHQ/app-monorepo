@@ -622,4 +622,5 @@ module.exports = [
   'Cyrl',
   'Viewable',
   'viewability',
+  'caips',
 ];

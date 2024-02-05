@@ -274,6 +274,29 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async deleteExistSessionBeforeConnect({
+    origin,
+    storageType,
+  }: {
+    origin: string;
+    storageType: IStorageType;
+  }) {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    if (
+      storageType === 'walletConnect' &&
+      rawData?.data.injectedProvider?.[origin]
+    ) {
+      await this.disconnectWebsite({ origin, storageType: 'injectedProvider' });
+    } else if (
+      storageType === 'injectedProvider' &&
+      rawData?.data.walletConnect?.[origin]
+    ) {
+      await this.disconnectWebsite({ origin, storageType: 'walletConnect' });
+    }
+  }
+
+  @backgroundMethod()
   async saveConnectionSession({
     origin,
     accountsInfo,
@@ -283,13 +306,12 @@ class ServiceDApp extends ServiceBase {
     accountsInfo: IConnectionAccountInfo[];
     storageType: IStorageType;
   }) {
-    await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
+    const { simpleDb, serviceDiscovery } = this.backgroundApi;
+    await this.deleteExistSessionBeforeConnect({ origin, storageType });
+    await simpleDb.dappConnection.upsertConnection({
       origin,
       accountsInfo,
-      imageURL: await this.backgroundApi.serviceDiscovery.getWebsiteIcon(
-        origin,
-        128,
-      ),
+      imageURL: await serviceDiscovery.getWebsiteIcon(origin, 128),
       storageType,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);

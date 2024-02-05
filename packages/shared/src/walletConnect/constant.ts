@@ -1,9 +1,15 @@
 import { Platform } from 'react-native';
 
-import { IMPL_EVM } from '../engine/engineConsts';
+import {
+  IMPL_COSMOS,
+  IMPL_DOT,
+  IMPL_EVM,
+  IMPL_SOL,
+  IMPL_TRON,
+} from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
 
-import type { INamespaceUnion } from './types';
+import type { ICaipsInfo, INamespaceUnion } from './types';
 
 export const WALLET_CONNECT_V2_PROJECT_ID =
   process.env.WALLETCONNECT_PROJECT_ID;
@@ -47,12 +53,52 @@ export const WALLET_CONNECT_CLIENT_META = {
   ],
 };
 
-export const namespaceToImplsMap = {
+export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
   eip155: IMPL_EVM,
+  solana: IMPL_SOL,
+  cosmos: IMPL_COSMOS,
+  polkadot: IMPL_DOT,
+  tron: IMPL_TRON,
 };
 
 export const implToNamespaceMap = {
   [IMPL_EVM]: 'eip155',
+  [IMPL_SOL]: 'solana',
+  [IMPL_COSMOS]: 'cosmos',
+  [IMPL_DOT]: 'polkadot',
+  [IMPL_TRON]: 'tron',
+};
+
+// https://chainagnostic.org/
+export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
+  solana: [
+    {
+      caipsChainId: '4sGjMW1sUnHzSxGspuhpqLDx6wiyjNtZ',
+      networkId: 'sol--101',
+      impl: IMPL_SOL,
+      namespace: 'solana',
+    },
+    {
+      caipsChainId: '8E9rvCKLFQia2Y35HXjjpWzj8weVo44K',
+      networkId: 'sol--103',
+      impl: IMPL_SOL,
+      namespace: 'solana',
+    },
+  ],
+  polkadot: [
+    {
+      caipsChainId: '91b171bb158e2d3848fa23a9f1c25182',
+      networkId: 'dot--polkadot',
+      impl: IMPL_DOT,
+      namespace: 'polkadot',
+    },
+    {
+      caipsChainId: 'b0a8d493285c2df73290dfb7e61f870f',
+      networkId: 'dot--kusama',
+      impl: IMPL_DOT,
+      namespace: 'polkadot',
+    },
+  ],
 };
 
 /**
@@ -76,4 +122,10 @@ export const EIP155_EVENTS = {
 
 export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
   eip155: Object.values(EIP155_SIGNING_METHODS),
+  solana: [],
+  cosmos: [],
+  polkadot: [],
+  tron: [],
 };
+
+export const WalletConnectStartAccountSelectorNumber = 1000;

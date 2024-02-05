@@ -7,6 +7,7 @@ import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states
 
 export type IHandleAccountChanged = (
   activeAccount: IAccountSelectorActiveAccountInfo,
+  num?: number,
 ) => void;
 
 export function useHandleDiscoveryAccountChanged({
@@ -20,23 +21,25 @@ export function useHandleDiscoveryAccountChanged({
   // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
   const debouncedHandleAccountChanged = useRef(
     debounce(
-      (account: IAccountSelectorActiveAccountInfo) =>
-        handleAccountChanged?.(account),
+      (
+        account: IAccountSelectorActiveAccountInfo,
+        accountSelectorNum: number,
+      ) => handleAccountChanged?.(account, accountSelectorNum),
       200,
     ),
   );
   // Use `useEffect` to listen for changes to `handleAccountChanged` and reset the debounced function.
   useEffect(() => {
     debouncedHandleAccountChanged.current = debounce(
-      (a: IAccountSelectorActiveAccountInfo) => handleAccountChanged?.(a),
+      (a: IAccountSelectorActiveAccountInfo) => handleAccountChanged?.(a, num),
       200,
     );
     return () => {
       debouncedHandleAccountChanged.current.cancel();
     };
-  }, [handleAccountChanged]);
+  }, [handleAccountChanged, num]);
 
   useEffect(() => {
-    debouncedHandleAccountChanged.current(activeAccount);
-  }, [activeAccount, handleAccountChanged]);
+    debouncedHandleAccountChanged.current(activeAccount, num);
+  }, [activeAccount, handleAccountChanged, num]);
 }

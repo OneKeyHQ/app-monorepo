@@ -2,14 +2,18 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  WalletConnectStartAccountSelectorNumber,
+  caipsToNetworkMap,
+  implToNamespaceMap,
   namespaceToImplsMap,
   supportMethodsMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
+  ICaipsInfo,
   IChainInfo,
   INamespaceUnion,
 } from '@onekeyhq/shared/src/walletConnect/types';
@@ -52,18 +56,25 @@ class ServiceWalletConnect extends ServiceBase {
       const { serviceNetwork } = this.backgroundApi;
       let chainInfos: IChainInfo[] = [];
 
-      const supportImplsMap = {
-        [IMPL_EVM]: 'eip155',
-      };
-      for (const [networkImpl, namespace] of Object.entries(supportImplsMap)) {
+      for (const [networkImpl, namespace] of Object.entries(
+        implToNamespaceMap,
+      )) {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map((n) => ({
-          chainId: n.chainId,
-          namespace,
-          name: n.name,
-        }));
+        const infos = networks.map((n) => {
+          let caipsInfo: ICaipsInfo | undefined;
+          const caipsItem = caipsToNetworkMap.polkadot;
+          if (caipsItem) {
+            caipsInfo = caipsItem.find((caips) => caips.networkId === n.id);
+          }
+          return {
+            chainId: caipsInfo?.caipsChainId || n.chainId,
+            networkId: caipsInfo?.networkId || n.id,
+            namespace,
+            name: n.name,
+          };
+        });
         chainInfos = chainInfos.concat(infos as IChainInfo[]);
       }
 
@@ -111,6 +122,28 @@ class ServiceWalletConnect extends ServiceBase {
     return Promise.resolve(
       (supportMethodsMap[namespace] ?? []).includes(method),
     );
+  }
+
+  @backgroundMethod()
+  async getSessionApprovalAccountInfo(
+    proposal: Web3WalletTypes.SessionProposal,
+  ) {
+    const { requiredNamespaces } = proposal.params;
+    const promises = Object.keys(requiredNamespaces).map(
+      async (namespace, index) => {
+        const { chains } = requiredNamespaces[namespace];
+        const networkIds = (
+          await Promise.all(
+            (chains ?? []).map(async (chainId) => this.getChainData(chainId)),
+          )
+        ).map((n) => n?.networkId);
+        return {
+          accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+          networkIds: networkIds.filter(Boolean),
+        };
+      },
+    );
+    return Promise.all(promises);
   }
 }
 

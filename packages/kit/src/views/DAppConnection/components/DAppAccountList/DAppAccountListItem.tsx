@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type {
+  IAccountSelectorAvailableNetworks,
+  IAccountSelectorAvailableNetworksMap,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -26,12 +30,14 @@ function AccountListItem({
   num,
   handleAccountChanged,
   readonly,
+  networkReadonly,
   compressionUiMode,
   beforeShowTrigger,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
   readonly?: boolean;
+  networkReadonly?: boolean;
   compressionUiMode?: boolean;
   beforeShowTrigger?: () => Promise<void>;
 }) {
@@ -53,6 +59,7 @@ function AccountListItem({
         <NetworkSelectorTriggerDappConnection
           num={num}
           beforeShowTrigger={beforeShowTrigger}
+          disabled={networkReadonly || readonly}
         />
       </Group.Item>
       <Group.Item>
@@ -128,4 +135,62 @@ function DAppAccountListStandAloneItem({
   );
 }
 
-export { DAppAccountListStandAloneItem, AccountListItem };
+function WalletConnectAccountTriggerList({
+  sceneUrl,
+  sessionAccountsInfo,
+  handleAccountChanged,
+}: {
+  sceneUrl: string;
+  sessionAccountsInfo: {
+    accountSelectorNum: number;
+    networkIds: (string | undefined)[];
+  }[];
+  handleAccountChanged?: IHandleAccountChanged;
+}) {
+  const enabledNum = sessionAccountsInfo.map((i) => i.accountSelectorNum);
+  const availableNetworksMap = sessionAccountsInfo.reduce(
+    (acc, accountInfo) => {
+      const networkIds = accountInfo.networkIds.filter(Boolean) as string[];
+      acc[accountInfo.accountSelectorNum] = {
+        networkIds,
+        defaultNetworkId: networkIds[0],
+      };
+      return acc;
+    },
+    {} as IAccountSelectorAvailableNetworksMap,
+  );
+  return (
+    <YStack space="$2">
+      <SizableText size="$headingMd" color="$text">
+        Accounts
+      </SizableText>
+      {Array.isArray(sessionAccountsInfo) && sessionAccountsInfo.length ? (
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.discover,
+            sceneUrl,
+          }}
+          enabledNum={enabledNum}
+          availableNetworksMap={availableNetworksMap}
+        >
+          <YStack space="$2">
+            {sessionAccountsInfo.map((i) => (
+              <AccountListItem
+                key={i.accountSelectorNum}
+                num={i.accountSelectorNum}
+                handleAccountChanged={handleAccountChanged}
+                networkReadonly
+              />
+            ))}
+          </YStack>
+        </AccountSelectorProviderMirror>
+      ) : null}
+    </YStack>
+  );
+}
+
+export {
+  DAppAccountListStandAloneItem,
+  AccountListItem,
+  WalletConnectAccountTriggerList,
+};

@@ -1,5 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { WalletConnectStartAccountSelectorNumber } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
@@ -22,7 +23,10 @@ function generateAccountSelectorNumber(
   connectionMap: IConnectionItem['connectionMap'],
   storageType: IStorageType,
 ): number {
-  let accountSelectorNumber = storageType === 'injectedProvider' ? 0 : 1000;
+  let accountSelectorNumber =
+    storageType === 'injectedProvider'
+      ? 0
+      : WalletConnectStartAccountSelectorNumber;
   // Use a while loop to ensure finding an unused `accountSelectorNumber`
   while (connectionMap[accountSelectorNumber]) {
     accountSelectorNumber += 1;
