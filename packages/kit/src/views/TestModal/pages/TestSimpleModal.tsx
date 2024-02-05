@@ -107,7 +107,7 @@ export function TestSimpleModal() {
       ) : null}
       {showFooter ? (
         <Page.Footer
-          onConfirm={({ close }) => {
+          onConfirm={(close) => {
             alert('confirmed');
             close();
           }}
