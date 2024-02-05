@@ -1,11 +1,11 @@
 import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   BadAuthError,
   InvoiceExpiredError,
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -35,7 +35,7 @@ function error12() {
 }
 
 async function error20() {
-  await wait(1000);
+  await timerUtils.wait(1000);
   throw new InvoiceExpiredError({
     autoToast: true,
   });

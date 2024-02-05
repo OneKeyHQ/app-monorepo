@@ -1,5 +1,6 @@
 import type { ForwardedRef } from 'react';
 import {
+  cloneElement,
   createRef,
   forwardRef,
   useCallback,
@@ -38,6 +39,14 @@ import type {
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
+
+export * from './hooks';
+export type {
+  IDialogCancelProps,
+  IDialogConfirmProps,
+  IDialogInstance,
+  IDialogShowProps,
+} from './type';
 
 // Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
@@ -96,10 +105,12 @@ function DialogFrame({
 
   const { bottom } = useSafeAreaInsets();
 
-  const handleCancelButtonPress = useCallback(() => {
+  const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.();
-    void onClose();
+    cancel?.(onClose);
+    if (!onCancel?.length) {
+      await onClose();
+    }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
   const getColors = (): {
@@ -200,6 +211,8 @@ function DialogFrame({
         position={position}
         onPositionChange={setPosition}
         dismissOnSnapToBottom
+        // the native dismissOnOverlayPress used on native side,
+        //  so it needs to assign a value to onOpenChange.
         dismissOnOverlayPress={dismissOnOverlayPress}
         onOpenChange={handleOpenChange}
         snapPointsMode="fit"
@@ -232,7 +245,12 @@ function DialogFrame({
   }
 
   return (
-    <TMDialog open={open} onOpenChange={handleOpenChange}>
+    <TMDialog
+      open={open}
+      // the native dismissOnOverlayPress used on native side,
+      //  so it needs to assign a value to onOpenChange.
+      onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
+    >
       <AnimatePresence>
         {open ? (
           <Stack
@@ -350,43 +368,112 @@ function BaseDialogContainer(
   );
 }
 
-const DialogContainer = forwardRef<IDialogInstance, IDialogContainerProps>(
-  BaseDialogContainer,
-);
+export const DialogContainer = forwardRef<
+  IDialogInstance,
+  IDialogContainerProps
+>(BaseDialogContainer);
 
-function DialogShow({
+function dialogShow({
   onClose,
-  onDismiss,
+  dialogContainer,
   ...props
-}: IDialogShowProps): IDialogInstance {
+}: IDialogShowProps & {
+  dialogContainer?: (o: {
+    ref: React.RefObject<IDialogInstance> | undefined;
+  }) => JSX.Element;
+}): IDialogInstance {
   let instanceRef: React.RefObject<IDialogInstance> | undefined =
     createRef<IDialogInstance>();
+
   let portalRef:
     | {
         current: IPortalManager;
       }
     | undefined;
-  const handleClose = () =>
-    new Promise<void>((resolve) => {
-      void onClose?.();
-      // Remove the React node after the animation has finished.
-      setTimeout(() => {
-        if (instanceRef) {
-          instanceRef = undefined;
-        }
-        if (portalRef) {
-          portalRef.current.destroy();
-          portalRef = undefined;
-        }
-        void onDismiss?.();
-        resolve();
-      }, 300);
-    });
+
+  const buildForwardOnClose =
+    (options: { onClose?: () => void | Promise<void> }) => () =>
+      new Promise<void>((resolve) => {
+        // Remove the React node after the animation has finished.
+        setTimeout(() => {
+          if (instanceRef) {
+            instanceRef = undefined;
+          }
+          if (portalRef) {
+            portalRef.current.destroy();
+            portalRef = undefined;
+          }
+          void options.onClose?.();
+          resolve();
+        }, 300);
+      });
+
+  if (platformEnv.isDev) {
+    const {
+      showFooter = true,
+      onCancel,
+      onCancelText,
+      cancelButtonProps,
+      showConfirmButton,
+      showCancelButton,
+      onConfirm,
+      onConfirmText,
+      confirmButtonProps,
+    } = props;
+    if (
+      !showFooter &&
+      (onCancel ||
+        onCancelText ||
+        cancelButtonProps ||
+        onConfirm ||
+        onConfirmText ||
+        confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (
+      !showConfirmButton &&
+      (onConfirm || onConfirmText || confirmButtonProps)
+    ) {
+      throw new Error(
+        'When showConfirmButton is false, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
+      );
+    }
+
+    if (!showCancelButton && (onCancel || onCancelText || cancelButtonProps)) {
+      throw new Error(
+        'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
+      );
+    }
+  }
+
+  const element = (() => {
+    if (dialogContainer) {
+      const e = dialogContainer({ ref: instanceRef });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // const newOnClose = buildForwardOnClose({ onClose: e.props.onClose });
+      const newOnClose = buildForwardOnClose({ onClose });
+      const newProps = {
+        ...props,
+        ...e.props,
+        onClose: newOnClose,
+      };
+      return cloneElement(e, newProps);
+    }
+    return (
+      <DialogContainer
+        ref={instanceRef}
+        {...props}
+        onClose={buildForwardOnClose({ onClose })}
+      />
+    );
+  })();
+
   portalRef = {
-    current: Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      <DialogContainer ref={instanceRef} {...props} onClose={handleClose} />,
-    ),
+    current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async () => instanceRef?.current?.close(),
@@ -394,32 +481,27 @@ function DialogShow({
   };
 }
 
-const DialogConfirm = (props: IDialogConfirmProps) =>
-  DialogShow({
+const dialogConfirm = (props: IDialogConfirmProps) =>
+  dialogShow({
     ...props,
+    showFooter: true,
+    showConfirmButton: true,
     showCancelButton: false,
   });
 
-const DialogCancel = (props: IDialogCancelProps) =>
-  DialogShow({
+const dialogCancel = (props: IDialogCancelProps) =>
+  dialogShow({
     ...props,
+    showFooter: true,
     showConfirmButton: false,
+    showCancelButton: true,
   });
 
 export const Dialog = {
   Form: DialogForm,
   FormField: Form.Field,
-  show: DialogShow,
-  confirm: DialogConfirm,
-  cancel: DialogCancel,
   Footer: FooterAction,
+  show: dialogShow,
+  confirm: dialogConfirm,
+  cancel: dialogCancel,
 };
-
-export * from './hooks';
-
-export type {
-  IDialogShowProps,
-  IDialogConfirmProps,
-  IDialogCancelProps,
-  IDialogInstance,
-} from './type';

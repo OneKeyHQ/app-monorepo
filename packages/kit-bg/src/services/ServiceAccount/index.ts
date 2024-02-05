@@ -48,6 +48,7 @@ import type {
   IDBAccount,
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
+  IDBDevice,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
@@ -218,8 +219,8 @@ class ServiceAccount extends ServiceBase {
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
-    indexes?: Array<number>;
-    indexedAccountId: string | undefined;
+    indexes?: Array<number>; // multiple add by indexes
+    indexedAccountId: string | undefined; // single add by indexedAccountId
     deriveType: IAccountDeriveTypes;
     // names?: Array<string>;
     // purpose?: number;
@@ -279,7 +280,6 @@ class ServiceAccount extends ServiceBase {
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
-
     if (isHardware) {
       const hwParams: IPrepareHardwareAccountsParams = {
         deviceParams: {
@@ -304,20 +304,30 @@ class ServiceAccount extends ServiceBase {
       };
       prepareParams = hdParams;
     }
-    // TODO move to vault
-    const accounts = await vault.keyring.prepareAccounts(prepareParams);
-    await localDb.addAccountsToWallet({
-      walletId,
-      accounts,
-    });
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    return {
-      networkId,
-      walletId,
-      accounts,
-      indexes,
-      deriveType,
-    };
+
+    // addHDOrHWAccounts
+    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        // TODO move to vault
+        // TODO show hardware UI
+        const accounts = await vault.keyring.prepareAccounts(prepareParams);
+        await localDb.addAccountsToWallet({
+          walletId,
+          accounts,
+        });
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+        return {
+          networkId,
+          walletId,
+          accounts,
+          indexes,
+          deriveType,
+        };
+      },
+      {
+        deviceParams,
+      },
+    );
   }
 
   @backgroundMethod()
@@ -578,13 +588,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAccountsByIndexedAccount({
+    indexedAccountIds,
     networkId,
     deriveType,
-    indexedAccountIds,
   }: {
-    deriveType: IAccountDeriveTypes;
-    networkId: string;
     indexedAccountIds: string[];
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
@@ -643,7 +653,10 @@ class ServiceAccount extends ServiceBase {
         deriveType,
         indexedAccountIds: [indexedAccountId],
       });
-      return accounts[0];
+      if (accounts[0]) {
+        return accounts[0];
+      }
+      throw new Error(`indexedAccounts not found: ${indexedAccountId}`);
     }
     throw new OneKeyInternalError({
       message: 'accountId or indexedAccountId missing',
@@ -697,31 +710,53 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async createHWHiddenWallet({ walletId }: { walletId: string }) {
-    const device = await this.getWalletDevice({ walletId });
-    const { connectId } = device;
+    const dbDevice = await this.getWalletDevice({ walletId });
+    const { connectId } = dbDevice;
 
-    const passphraseState =
-      await this.backgroundApi.serviceHardware.getPassphraseState({
-        connectId,
-        forceInputPassphrase: true,
-      });
+    // createHWHiddenWallet
+    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const passphraseState =
+          await this.backgroundApi.serviceHardware.getPassphraseState({
+            connectId,
+            forceInputPassphrase: true,
+          });
 
-    if (!passphraseState) {
-      throw new DeviceNotOpenedPassphrase({
-        connectId,
-        deviceId: device.deviceId ?? undefined,
-      });
-    }
-    return this.createHWWalletBase({
-      device: deviceUtils.dbDeviceToSearchDevice(device),
-      features: device.featuresInfo || ({} as any),
-      passphraseState,
-    });
+        if (!passphraseState) {
+          throw new DeviceNotOpenedPassphrase({
+            connectId,
+            deviceId: dbDevice.deviceId ?? undefined,
+          });
+        }
+
+        // TODO save remember states
+
+        return this.createHWWalletBase({
+          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          features: dbDevice.featuresInfo || ({} as any),
+          passphraseState,
+        });
+      },
+      {
+        deviceParams: {
+          dbDevice,
+        },
+      },
+    );
   }
 
   @backgroundMethod()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
-    return this.createHWWalletBase(params);
+    // createHWWallet
+    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+      () => this.createHWWalletBase(params),
+      {
+        deviceParams: {
+          dbDevice: params.device as IDBDevice,
+        },
+        skipCancel: true,
+      },
+    );
   }
 
   @backgroundMethod()
@@ -879,9 +914,10 @@ class ServiceAccount extends ServiceBase {
     const isOthersWallet = Boolean(account && !indexedAccountId);
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
+      indexedAccount,
+      accountName: account?.name || indexedAccount?.name || '',
       wallet,
       network,
-      indexedAccount,
       deriveType,
       deriveInfo,
       deriveInfoItems: await this.getDeriveInfoItemsOfNetwork({ networkId }),

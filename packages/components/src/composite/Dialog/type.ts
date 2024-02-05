@@ -1,4 +1,4 @@
-import type { MutableRefObject, PropsWithChildren } from 'react';
+import type { MutableRefObject, PropsWithChildren, ReactNode } from 'react';
 
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
@@ -35,7 +35,6 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
-  // disabledOn: () => void;
 }
 
 interface IBasicDialogProps extends TMDialogProps {
@@ -46,7 +45,7 @@ interface IBasicDialogProps extends TMDialogProps {
   description?: string;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
-  renderContent?: React.ReactNode;
+  renderContent?: ReactNode;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   floatingPanelProps?: TMDialogContentProps;
@@ -54,7 +53,7 @@ interface IBasicDialogProps extends TMDialogProps {
   disableDrag?: boolean;
   testID?: string;
   onConfirm?: IOnDialogConfirm;
-  onCancel?: () => void;
+  onCancel?: (close: () => Promise<void>) => void;
 }
 
 export type IDialogProps = IBasicDialogProps &
@@ -74,9 +73,8 @@ export type IDialogContainerProps = PropsWithChildren<
 
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
-  onClose?: () => void | Promise<void>;
   /* Run it after dialog is closed  */
-  onDismiss?: () => void | Promise<void>;
+  onClose?: () => void | Promise<void>;
 }
 
 export type IDialogConfirmProps = Omit<

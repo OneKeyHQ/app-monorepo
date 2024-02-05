@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -60,7 +61,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }));
   });
 
-  reloadActiveAccountInfoNonce = 0;
+  mutex = new Semaphore(1);
 
   reloadActiveAccountInfo = contextAtomMethod(
     async (
@@ -70,38 +71,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         selectedAccount: IAccountSelectorSelectedAccount;
       },
-    ): Promise<IAccountSelectorActiveAccountInfo> => {
-      const { num, selectedAccount } = payload;
-      this.reloadActiveAccountInfoNonce += 1;
-      const nonce = this.reloadActiveAccountInfoNonce;
-      console.log('buildActiveAccountInfoFromSelectedAccount', {
-        selectedAccount,
-        nonce,
-      });
-      const { activeAccount, nonce: resultNonce } =
-        await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
+    ): Promise<IAccountSelectorActiveAccountInfo> =>
+      this.mutex.runExclusive(async () => {
+        const { num, selectedAccount } = payload;
+        console.log('buildActiveAccountInfoFromSelectedAccount', {
           selectedAccount,
-          nonce,
         });
+        const { activeAccount } =
+          await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
+            selectedAccount,
+          });
 
-      console.log('buildActiveAccountInfoFromSelectedAccount', {
-        selectedAccount,
-        activeAccount,
-        nonce,
-      });
-      if (resultNonce === this.reloadActiveAccountInfoNonce) {
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
           activeAccount,
-          nonce,
         });
         set(activeAccountsAtom(), (v) => ({
           ...v,
           [num]: activeAccount,
         }));
-      }
-      return activeAccount;
-    },
+        return activeAccount;
+      }),
   );
 
   updateSelectedAccount = contextAtomMethod(

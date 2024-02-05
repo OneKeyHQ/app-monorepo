@@ -1,22 +1,47 @@
 import { useCallback } from 'react';
 
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNavigation } from '@react-navigation/core';
 
 import { getTokenValue } from '../../hooks';
 import { Button, Stack, XStack } from '../../primitives';
 
 import type { IButtonProps, IStackProps } from '../../primitives';
+import type { IPageNavigationProp } from '../Navigation';
 
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: (params: { close: () => void }) => void;
-  onCancel?: () => void | Promise<void>;
+  onConfirm?: (close: () => void, closePageStack: () => void) => void;
+  onCancel?: (
+    close: () => void,
+    closePageStack: () => void,
+  ) => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
   cancelButtonProps?: IActionButtonProps;
+  buttonContainerProps?: IStackProps;
 } & IStackProps;
+
+const usePageNavigation = () => {
+  const navigation = useNavigation<IPageNavigationProp<any>>();
+  const popStack = useCallback(() => {
+    navigation.getParent()?.goBack?.();
+  }, [navigation]);
+
+  const pop = useCallback(() => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack?.();
+    } else {
+      popStack();
+    }
+  }, [navigation, popStack]);
+
+  return {
+    pop,
+    popStack,
+  };
+};
 
 export function FooterActions({
   onCancel,
@@ -25,16 +50,19 @@ export function FooterActions({
   onConfirmText,
   confirmButtonProps,
   cancelButtonProps,
+  buttonContainerProps,
 }: IFooterActionsProps) {
-  const { pop } = useAppNavigation();
+  const { pop, popStack } = usePageNavigation();
   const handleCancel = useCallback(async () => {
-    await onCancel?.();
-    pop();
-  }, [onCancel, pop]);
+    await onCancel?.(pop, popStack);
+    if (!onCancel?.length) {
+      pop();
+    }
+  }, [onCancel, pop, popStack]);
 
   const handleConfirm = useCallback(() => {
-    onConfirm?.({ close: pop });
-  }, [onConfirm, pop]);
+    onConfirm?.(pop, popStack);
+  }, [onConfirm, pop, popStack]);
   return (
     <Stack
       p="$5"
@@ -42,7 +70,7 @@ export function FooterActions({
       pb={getTokenValue('$size.5') as number}
       bg="$bgApp"
     >
-      <XStack justifyContent="flex-end">
+      <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
             $md={

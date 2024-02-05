@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -123,6 +123,15 @@ const AddressBookPickButton = () => {
   );
 };
 
+function TestRefreshCmp() {
+  const {
+    activeAccount: { accountName },
+  } = useActiveAccount({ num: 0 });
+  console.log('TestRefresh refresh', accountName);
+  return <Button>TestRefresh: {accountName}</Button>;
+}
+const TestRefresh = memo(TestRefreshCmp);
+
 const TabMe = () => {
   const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
@@ -175,10 +184,13 @@ const TabMe = () => {
           </Button>
           <Button
             onPress={() => {
-              void backgroundApiProxy.serviceSend.demoSend({
-                networkId: activeAccount.network?.id || '',
-                accountId: activeAccount.account?.id || '',
-              });
+              void backgroundApiProxy.serviceSend
+                .demoSend({
+                  networkId: activeAccount.network?.id || '',
+                  accountId: activeAccount.account?.id || '',
+                })
+                .then((r) => console.log('demoSend done:', r))
+                .catch((e) => console.error('demoSend error', e));
             }}
           >
             测试发送流程(使用首页的账户选择器)
@@ -186,6 +198,7 @@ const TabMe = () => {
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}
           </SizableText>
+          <TestRefresh />
         </YStack>
       </Page.Body>
     </Page>

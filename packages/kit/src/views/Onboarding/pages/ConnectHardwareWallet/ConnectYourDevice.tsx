@@ -22,11 +22,9 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   BleLocationServiceError,
@@ -337,30 +335,12 @@ export function ConnectYourDevicePage() {
 
   const handleHwWalletCreate = useCallback(
     async ({ device }: { device: SearchDevice }) => {
-      const checkingDeviceDialog = Dialog.show({
-        title: 'Checking Device',
-        renderContent: (
-          <Stack
-            borderRadius="$3"
-            p="$5"
-            bg="$bgSubdued"
-            style={{ borderCurve: 'continuous' }}
-          >
-            <Spinner size="large" />
-          </Stack>
-        ),
-        showFooter: false,
-      });
-
       await Promise.all([
         await actions.current.createHWWalletWithHidden({
           device,
           features: (device as KnownDevice).features,
         }),
-        await wait(1000),
       ]);
-
-      await checkingDeviceDialog.close();
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
     },
     [actions, navigation],
@@ -388,7 +368,14 @@ export function ConnectYourDevicePage() {
     }, 1000);
   }, [handleFirmwareAuthentication]);
 
-  const devicesData = useMemo(
+  const devicesData = useMemo<
+    {
+      title: string;
+      src: string;
+      onPress: () => void;
+      opacity?: number;
+    }[]
+  >(
     () => [
       /*
       navigation.replace(RootRoutes.Onboarding, {
@@ -409,6 +396,7 @@ export function ConnectYourDevicePage() {
         title: item.name,
         src: HwWalletAvatarImages[item.deviceType],
         onPress: () => handleHwWalletCreate({ device: item }),
+        opacity: 1,
       })),
       {
         title: 'OneKey Classic(Checking)',
@@ -483,6 +471,7 @@ export function ConnectYourDevicePage() {
           <Stack>
             {devicesData.map((item, index) => (
               <ListItem
+                opacity={item.opacity ?? 0.5}
                 avatarProps={{
                   src: item.src,
                 }}

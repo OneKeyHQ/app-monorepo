@@ -1,9 +1,7 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Page, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -11,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
+import { CustomHeaderTitle } from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserInfoBar from '../../components/MobileBrowser/MobileBrowserInfoBar';
@@ -23,7 +22,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { checkAndCreateFolder } from '../../utils/screenshot';
-import Dashboard from '../Dashboard';
+import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
@@ -31,10 +30,9 @@ import { withBrowserProvider } from './WithBrowserProvider';
 import type { IDiscoveryModalParamList } from '../../router/Routes';
 
 function MobileBrowser() {
-  const navigationCore = useNavigation();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { tab } = useWebTabDataById(activeTabId ?? '');
+  // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { handleScroll, toolbarAnimatedStyle } =
@@ -60,12 +58,8 @@ function MobileBrowser() {
   }, [tabs, navigation, setDisplayHomePage]);
 
   useEffect(() => {
-    navigationCore.setOptions({
-      headerShown: false,
-      animation: 'none',
-    });
     void checkAndCreateFolder();
-  }, [navigationCore]);
+  }, []);
 
   const content = useMemo(
     () =>
@@ -74,32 +68,41 @@ function MobileBrowser() {
       )),
     [tabs, handleScroll],
   );
-  const { top } = useSafeAreaInsets();
+
+  const handleSearchBarPress = useCallback(() => {
+    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.SearchModal,
+    });
+  }, [navigation]);
+  const headerTitle = useCallback(
+    () => <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />,
+    [handleSearchBarPress],
+  );
 
   return (
     <Page>
+      <Page.Header headerTitle={headerTitle} />
       <Page.Body>
-        <Stack flex={1} zIndex={3} pt={top}>
+        <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
           {displayHomePage ? (
             <Stack flex={1}>
-              <Dashboard />
+              <DashboardContent onScroll={handleScroll} />
             </Stack>
-          ) : (
-            <MobileBrowserInfoBar
-              id={activeTabId ?? ''}
-              url={tab?.url ?? ''}
-              onSearch={() => {
-                navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  screen: EDiscoveryModalRoutes.SearchModal,
-                  params: {
-                    useCurrentWindow: true,
-                    tabId: tab?.id,
-                  },
-                });
-              }}
-            />
-          )}
+          ) : // <MobileBrowserInfoBar
+          //   id={activeTabId ?? ''}
+          //   url={tab?.url ?? ''}
+          //   onSearch={() => {
+          //     navigation.pushModal(EModalRoutes.DiscoveryModal, {
+          //       screen: EDiscoveryModalRoutes.SearchModal,
+          //       params: {
+          //         useCurrentWindow: true,
+          //         tabId: tab?.id,
+          //       },
+          //     });
+          //   }}
+          // />
+          null}
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View

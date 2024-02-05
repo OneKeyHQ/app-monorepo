@@ -4,7 +4,7 @@ import { Divider, Empty, ListView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListAtom } from '../../states/jotai/contexts/token-list';
+import { useTokenListAtom } from '../../states/jotai/contexts/tokenList';
 
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';

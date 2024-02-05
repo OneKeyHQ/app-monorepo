@@ -146,6 +146,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
+  pending?: boolean;
 };
 
 type IAddressInputProps = Omit<
@@ -226,7 +227,7 @@ function AddressInput(props: IAddressInputProps) {
   useEffect(() => {
     textRef.current = inputText;
     if (isDirty.current) {
-      onChange?.({ raw: inputText });
+      onChange?.({ raw: inputText, pending: true });
     }
   }, [inputText, onChange]);
 
@@ -262,11 +263,15 @@ function AddressInput(props: IAddressInputProps) {
       onChange?.({
         raw: queryResult.input,
         resolved: queryResult.resolveAddress ?? queryResult.input,
+        pending: false,
       });
-    } else if (autoError) {
-      setError(name, {
-        message: intl.formatMessage({ id: 'form__address_invalid' }),
-      });
+    } else {
+      if (autoError) {
+        setError(name, {
+          message: intl.formatMessage({ id: 'form__address_invalid' }),
+        });
+      }
+      onChange?.({ raw: queryResult.input, pending: false });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange, autoError]);
 

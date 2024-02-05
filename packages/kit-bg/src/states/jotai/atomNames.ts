@@ -10,4 +10,5 @@ export enum EAtomNames {
   passwordPersistAtom = 'passwordPersistAtom',
   accountSelectorMapAtom = 'accountSelectorMapAtom',
   addressBookPersistAtom = 'addressBookPersistAtom',
+  hardwareUiStateAtom = 'hardwareUiStateAtom',
 }
