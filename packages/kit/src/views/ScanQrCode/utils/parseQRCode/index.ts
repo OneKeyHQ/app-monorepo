@@ -42,8 +42,7 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
       });
       if (itemResult) {
         result = {
-          type: itemResult.type,
-          data: itemResult.data,
+          ...itemResult,
           raw: value,
         };
         break;
