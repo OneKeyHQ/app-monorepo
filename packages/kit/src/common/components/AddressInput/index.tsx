@@ -180,6 +180,12 @@ const defaultAddressInputPlugins: IAddressPluginsOptions = {
   scan: true,
 };
 
+const allAddressInputPlugins: IAddressPluginsOptions = {
+  clipboard: true,
+  scan: true,
+  contacts: true,
+};
+
 function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
@@ -372,4 +378,4 @@ function AddressInput(props: IAddressInputProps) {
   );
 }
 
-export { AddressInput };
+export { AddressInput, allAddressInputPlugins };

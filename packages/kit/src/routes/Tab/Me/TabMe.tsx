@@ -12,15 +12,15 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAddressBookPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  useAddressBookList,
-  useAddressBookPick,
-} from '../../../common/hooks/useAddressBook';
+import { useAddressBookList } from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -51,16 +51,16 @@ const LockNowButton = () => {
 const AddressBookButton = () => {
   const intl = useIntl();
   const pick = useAddressBookList();
+  const [{ updateTimestamp }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
-    const password =
-      await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!password) {
+    if (!updateTimestamp) {
       Dialog.show({
         title: 'Encrypted storage',
         icon: 'PlaceholderOutline',
         description:
           'All your address book data is encrypted with your login password. ',
         tone: 'default',
+        showConfirmButton: true,
         showCancelButton: false,
         onConfirm: async (inst) => {
           await inst.close();
@@ -73,7 +73,7 @@ const AddressBookButton = () => {
     } else {
       await pick();
     }
-  }, [pick]);
+  }, [pick, updateTimestamp]);
   return (
     <Button onPress={onPress} testID="me-address-book">
       {intl.formatMessage({ id: 'title__address_book' })}
@@ -81,44 +81,13 @@ const AddressBookButton = () => {
   );
 };
 
-const AddressBookPickButton = () => {
-  const pick = useAddressBookPick();
+const AddressBookHashButton = () => {
   const onPress = useCallback(async () => {
-    const password =
-      await backgroundApiProxy.servicePassword.getCachedPassword();
-    if (!password) {
-      Dialog.show({
-        title: 'Encrypted storage',
-        icon: 'PlaceholderOutline',
-        description:
-          'All your address book data is encrypted with your login password. ',
-        tone: 'default',
-        showCancelButton: false,
-        onConfirm: async (inst) => {
-          await inst.close();
-          await pick({
-            networkId: 'evm--1',
-            onPick: (item) => {
-              console.log('item', item);
-            },
-          });
-        },
-        confirmButtonProps: {
-          testID: 'encrypted-storage-confirm',
-        },
-      });
-    } else {
-      await pick({
-        networkId: 'evm--1',
-        onPick: (item) => {
-          console.log('item', item);
-        },
-      });
-    }
-  }, [pick]);
+    void backgroundApiProxy.serviceAddressBook.__dangerTamperVerifyHashForTest();
+  }, []);
   return (
-    <Button onPress={onPress} testID="me-pick-address-book">
-      Pick Address Book
+    <Button onPress={onPress} testID="me-address-book">
+      Mock Address Book Verify Hash
     </Button>
   );
 };
@@ -168,7 +137,7 @@ const TabMe = () => {
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
           <AddressBookButton />
-          <AddressBookPickButton />
+          <AddressBookHashButton />
           <LockNowButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>

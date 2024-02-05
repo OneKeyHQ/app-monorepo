@@ -7,12 +7,15 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
 
-import type { IAddressItem, ISectionItem } from '../type';
+import type { IAddressItem } from '../type';
 
 export const useAddressBookItems = (networkId?: string) => {
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
-  return usePromiseResult<ISectionItem[]>(
-    async () => backgroundApiProxy.serviceAddressBook.groupItems({ networkId }),
+  return usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceAddressBook.groupItems({
+        networkId,
+      }),
     // eslint-disable-next-line
     [updateTimestamp, networkId],
     { watchLoading: true },

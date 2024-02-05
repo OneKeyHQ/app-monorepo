@@ -13,6 +13,7 @@ import {
   Toast,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
@@ -67,7 +68,8 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             {
               label: intl.formatMessage({ id: 'action__copy' }),
               icon: 'Copy1Outline',
-              onPress: () => {
+              onPress: async () => {
+                await backgroundApiProxy.serviceAddressBook.verifyHash();
                 copyText(item.address);
                 Toast.success({
                   title: intl.formatMessage({ id: 'msg__copied' }),

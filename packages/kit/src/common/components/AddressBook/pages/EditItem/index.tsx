@@ -29,9 +29,13 @@ const EditItemPage = () => {
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
-      await backgroundApiProxy.serviceAddressBook.updateItem(item);
-      Toast.success({ title: 'Save Successful' });
-      navigation.pop();
+      try {
+        await backgroundApiProxy.serviceAddressBook.updateItem(item);
+        Toast.success({ title: 'Save Successful' });
+        navigation.pop();
+      } catch (e) {
+        Toast.error({ title: (e as Error).message });
+      }
     },
     [navigation],
   );
@@ -44,11 +48,17 @@ const EditItemPage = () => {
         description:
           'Please confirm whether to delete this contact from the address book. Type "Confirm" to delete.',
         tone: 'destructive',
+        showConfirmButton: true,
+        showCancelButton: true,
         onConfirm: async () => {
           if (item.id) {
-            await backgroundApiProxy.serviceAddressBook.removeItem(item.id);
-            Toast.success({ title: 'Delete Successful' });
-            navigation.pop();
+            try {
+              await backgroundApiProxy.serviceAddressBook.removeItem(item.id);
+              Toast.success({ title: 'Delete Successful' });
+              navigation.pop();
+            } catch (e) {
+              Toast.error({ title: (e as Error).message });
+            }
           }
         },
         confirmButtonProps: {

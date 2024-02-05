@@ -3,7 +3,6 @@ import { globalAtom } from '../utils';
 
 export type IAddressBookPersistAtom = {
   updateTimestamp?: number;
-  visited?: boolean;
 };
 
 export const {

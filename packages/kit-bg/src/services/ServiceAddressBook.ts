@@ -1,4 +1,4 @@
-import { sha256 } from '@onekeyhq/core/src/secret/hash';
+import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
   IAddressItem,
   ISectionItem,
@@ -7,9 +7,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 
@@ -22,12 +24,13 @@ function getSectionItemScore(item: ISectionItem): number {
   if (item.title === 'evm') {
     return -9;
   }
-  return 0;
+  return item.data[0]?.createdAt ?? 0;
 }
 
 @backgroundClass()
 class ServiceAddressBook extends ServiceBase {
-  rollbackData?: string;
+  // if verifyHash successfully, update verifyHashTimestamp for cache result
+  verifyHashTimestamp?: number;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -36,8 +39,56 @@ class ServiceAddressBook extends ServiceBase {
   private computeItemsHash(items: IAddressItem[], password: string): string {
     const itemString = stableStringify(items);
     return bufferUtils.bytesToHex(
-      sha256(bufferUtils.toBuffer(`${itemString}${password}`)),
+      hash160(bufferUtils.toBuffer(`${itemString}${password}`)),
     );
+  }
+
+  private async _verifyHash(): Promise<boolean> {
+    const { simpleDb, servicePassword } = this.backgroundApi;
+    const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
+    if (items.length === 0) {
+      return true;
+    }
+    const { password } = await servicePassword.promptPasswordVerify();
+    const currentHash = this.computeItemsHash(items, password);
+    if (currentHash === hash) {
+      return true;
+    }
+    const backupHash = await simpleDb.addressBook.getBackupHash();
+    if (currentHash === backupHash) {
+      return true;
+    }
+    return false;
+  }
+
+  @backgroundMethod()
+  public async verifyHash(returnValue?: boolean): Promise<boolean> {
+    const now = Date.now();
+    const timestamp = this.verifyHashTimestamp;
+    if (
+      timestamp &&
+      now - timestamp < timerUtils.getTimeDurationMs({ minute: 30 })
+    ) {
+      return true;
+    }
+    const result = await this._verifyHash();
+    if (result) {
+      this.verifyHashTimestamp = now;
+      return true;
+    }
+    if (returnValue) {
+      return false;
+    }
+    throw new Error('address book failed to verify hash');
+  }
+
+  @backgroundMethod()
+  async __dangerTamperVerifyHashForTest() {
+    if (!platformEnv.isDev) {
+      return;
+    }
+    const items = await this.getItems();
+    await this.setItems(items, String(Date.now()));
   }
 
   private async setItems(
@@ -51,9 +102,9 @@ class ServiceAddressBook extends ServiceBase {
       updateTimestamp: Date.now(),
     }));
     await simpleDb.addressBook.updateItemsAndHash({ items, hash });
+    this.verifyHashTimestamp = undefined;
   }
 
-  @backgroundMethod()
   async getItems(): Promise<IAddressItem[]> {
     const { simpleDb } = this.backgroundApi;
     const { items } = await simpleDb.addressBook.getItemsAndHash();
@@ -64,7 +115,8 @@ class ServiceAddressBook extends ServiceBase {
   async groupItems({ networkId }: { networkId?: string }) {
     let items = await this.getItems();
     if (networkId) {
-      items = items.filter((item) => item.networkId === networkId);
+      const [impl] = networkId.split('--');
+      items = items.filter((item) => item.networkId.startsWith(`${impl}--`));
     }
     const data = items.reduce((result, item) => {
       const [impl] = item.networkId.split('--');
@@ -77,9 +129,20 @@ class ServiceAddressBook extends ServiceBase {
     return (
       Object.entries(data)
         .map((o) => ({ title: o[0], data: o[1] }))
-        // order by btc/evm/other coin
+        // pin up btc, evm to top, other impl sort by create time
         .sort((a, b) => getSectionItemScore(a) - getSectionItemScore(b))
     );
+  }
+
+  @backgroundMethod()
+  async resetItems() {
+    const verifyResult = await this.verifyHash();
+    if (verifyResult) {
+      throw new Error('failed to reset items when verify result is ok');
+    }
+    const { servicePassword } = this.backgroundApi;
+    const { password } = await servicePassword.promptPasswordVerify();
+    await this.setItems([], password);
   }
 
   private async validateItem(item: IAddressItem) {
@@ -196,30 +259,6 @@ class ServiceAddressBook extends ServiceBase {
     const items = await this.getItems();
     await this.setItems(items, oldPassword);
     await simpleDb.addressBook.clearBackupHash();
-  }
-
-  @backgroundMethod()
-  public async verifyHash(): Promise<boolean> {
-    const { simpleDb, servicePassword } = this.backgroundApi;
-    const { items, hash } = await simpleDb.addressBook.getItemsAndHash();
-    if (items.length === 0) {
-      return true;
-    }
-    const { password } = await servicePassword.promptPasswordVerify();
-    const currentHash = this.computeItemsHash(items, password);
-    if (currentHash === hash) {
-      return true;
-    }
-    const backupHash = await simpleDb.addressBook.getBackupHash();
-    if (currentHash === backupHash) {
-      return true;
-    }
-    throw new Error('address book items is incorrect');
-  }
-
-  @backgroundMethod()
-  public async setVisited() {
-    await addressBookPersistAtom.set((prev) => ({ ...prev, visited: true }));
   }
 }
 
