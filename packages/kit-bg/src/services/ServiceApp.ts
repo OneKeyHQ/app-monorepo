@@ -3,6 +3,7 @@ import RNRestart from 'react-native-restart';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import * as Errors from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -124,6 +125,17 @@ class ServiceApp extends ServiceBase {
         amount: '0.0001',
       },
     });
+  }
+
+  @backgroundMethod()
+  async demoError2() {
+    throw new Error('hello world: no error toast');
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async demoError3() {
+    throw new Error('hello world: error toast');
   }
 
   @backgroundMethod()
