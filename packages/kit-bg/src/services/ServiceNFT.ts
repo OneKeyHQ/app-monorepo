@@ -65,22 +65,16 @@ class ServiceNFT extends ServiceBase {
       nftId: string;
       collectionAddress: string;
     }) => {
-      try {
-        const nftDetails = await this.fetchNFTDetails({
-          networkId,
-          params: [
-            {
-              itemId: nftId,
-              collectionAddress,
-            },
-          ],
-        });
-        return nftDetails[0];
-      } catch (error) {
-        console.log('fetchNFTDetails ERROR:', error);
-      }
-
-      throw new Error('getNFT ERROR: nft not found.');
+      const nftDetails = await this.fetchNFTDetails({
+        networkId,
+        params: [
+          {
+            itemId: nftId,
+            collectionAddress,
+          },
+        ],
+      });
+      return nftDetails[0];
     },
     {
       promise: true,

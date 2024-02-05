@@ -50,6 +50,7 @@ import {
   type IBuildUnsignedTxParams,
   type IGetPrivateKeyFromImportedParams,
   type IGetPrivateKeyFromImportedResult,
+  type INativeAmountInfo,
   type ITransferInfo,
   type IUpdateUnsignedTxParams,
   type IVaultSettings,
@@ -288,7 +289,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo, nonceInfo, maxSendInfo } = params;
+    const { unsignedTx, feeInfo, nonceInfo, nativeAmountInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
 
     if (feeInfo) {
@@ -306,10 +307,10 @@ export default class Vault extends VaultBase {
       unsignedTx.nonce = nonceInfo.nonce;
     }
 
-    if (maxSendInfo) {
+    if (nativeAmountInfo) {
       encodedTxNew = await this._updateNativeTokenAmount({
         encodedTx: encodedTxNew,
-        maxSendInfo,
+        nativeAmountInfo,
       });
     }
 
@@ -342,21 +343,36 @@ export default class Vault extends VaultBase {
   }): Promise<IDecodedTx> {
     const { encodedTx, action, extraNativeTransferAction } = params;
     const accountAddress = await this.getAccountAddress();
+    const finalActions = mergeAssetTransferActions(
+      [action, extraNativeTransferAction].filter(Boolean) as IDecodedTxAction[],
+    );
+
+    let nativeAmount = '0';
+    let nativeAmountValue = '0';
+
+    finalActions.forEach((item) => {
+      if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
+        nativeAmount = new BigNumber(nativeAmount)
+          .plus(item.assetTransfer?.nativeAmount ?? 0)
+          .toFixed();
+        nativeAmountValue = new BigNumber(nativeAmountValue)
+          .plus(item.assetTransfer?.nativeAmountValue ?? 0)
+          .toFixed();
+      }
+    });
 
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
       nonce: Number(encodedTx.nonce) ?? 0,
-      actions: mergeAssetTransferActions(
-        [action, extraNativeTransferAction].filter(
-          Boolean,
-        ) as IDecodedTxAction[],
-      ),
+      actions: finalActions,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
+      nativeAmount,
+      nativeAmountValue,
       extraInfo: null,
     };
     return decodedTx;
@@ -406,7 +422,7 @@ export default class Vault extends VaultBase {
         }
 
         // native token transfer
-        if (tokenInfo.isNative || tokenInfo.address === '') {
+        if (tokenInfo.isNative) {
           return {
             from,
             to,
@@ -565,22 +581,26 @@ export default class Vault extends VaultBase {
 
   async _updateNativeTokenAmount(params: {
     encodedTx: IEncodedTxEvm;
-    maxSendInfo: { amount: string };
+    nativeAmountInfo: INativeAmountInfo;
   }) {
-    const { encodedTx, maxSendInfo } = params;
-    const amountBN = new BigNumber(maxSendInfo.amount);
+    const { encodedTx, nativeAmountInfo } = params;
     const network = await this.getNetwork();
-    const newValue = toBigIntHex(
-      amountBN
-        .dp(
-          BigNumber.min(
-            (amountBN.decimalPlaces() ?? network.decimals) - 2,
-            network.decimals - 2,
-          ).toNumber(),
-          BigNumber.ROUND_FLOOR,
-        )
-        .shiftedBy(network.decimals),
-    );
+
+    let newValue = encodedTx.value;
+
+    if (!isNil(nativeAmountInfo.maxSendAmount)) {
+      newValue = chainValueUtils.fixNativeTokenMaxSendAmount({
+        amount: nativeAmountInfo.maxSendAmount,
+        network,
+      });
+    } else if (!isNil(nativeAmountInfo.amount)) {
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.amount,
+          network,
+        }),
+      );
+    }
 
     const tx = {
       ...encodedTx,
@@ -601,7 +621,7 @@ export default class Vault extends VaultBase {
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
-      nonce: Number(tx.nonce),
+      nonce: isNil(tx.nonce) ? tx.nonce : new BigNumber(tx.nonce).toNumber(),
     });
   }
 
@@ -764,6 +784,7 @@ export default class Vault extends VaultBase {
         .shiftedBy(-nativeToken.decimals)
         .toFixed(),
       isNFT: false,
+      isNative: true,
     };
 
     const action = await this._buildTxTransferAssetAction({
@@ -781,7 +802,12 @@ export default class Vault extends VaultBase {
     transfers: IDecodedTxTransferInfo[];
   }): Promise<IDecodedTxAction> {
     const { from, to, transfers } = params;
-    const accountAddress = await this.getAccountAddress();
+    const [accountAddress, network] = await Promise.all([
+      this.getAccountAddress(),
+      this.getNetwork(),
+    ]);
+
+    let sendNativeTokenAmountBN = new BigNumber(0);
 
     const assetTransfer: IDecodedTxActionAssetTransfer = {
       from,
@@ -799,10 +825,23 @@ export default class Vault extends VaultBase {
         }) === EDecodedTxDirection.OUT
       ) {
         assetTransfer.sends.push(transfer);
+        if (transfer.isNative) {
+          sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
+            new BigNumber(transfer.amount),
+          );
+        }
       } else {
         assetTransfer.receives.push(transfer);
       }
     });
+
+    assetTransfer.nativeAmount = sendNativeTokenAmountBN.toFixed();
+    assetTransfer.nativeAmountValue = chainValueUtils.convertAmountToChainValue(
+      {
+        value: sendNativeTokenAmountBN,
+        network,
+      },
+    );
 
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,

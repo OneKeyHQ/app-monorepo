@@ -295,6 +295,8 @@ function TxFeeContainer(props: IProps) {
   useEffect(() => {
     if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
 
+    console.log(nativeTokenTransferAmountToUpdate);
+
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
         ? false

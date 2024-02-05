@@ -1,5 +1,6 @@
 import { isNil, random } from 'lodash';
 
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -21,6 +22,7 @@ import ServiceBase from './ServiceBase';
 import type ServiceNFT from './ServiceNFT';
 import type ServiceToken from './ServiceToken';
 import type {
+  IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
@@ -183,13 +185,20 @@ class ServiceSend extends ServiceBase {
   public async buildUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
-    const { networkId, accountId, encodedTx, transfersInfo, approveInfo } =
-      params;
+    const {
+      networkId,
+      accountId,
+      encodedTx,
+      transfersInfo,
+      approveInfo,
+      wrappedInfo,
+    } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
       encodedTx,
       transfersInfo,
       approveInfo,
+      wrappedInfo,
     });
   }
 
@@ -265,6 +274,58 @@ class ServiceSend extends ServiceBase {
     });
     const txid = await this.broadcastTransaction({ networkId, signedTx });
     return { ...signedTx, txid };
+  }
+
+  @backgroundMethod()
+  public async batchSignAndSendTransaction(
+    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
+  ) {
+    const { networkId, accountId, unsignedTxs, feeInfo, nativeAmountInfo } =
+      params;
+
+    const newUnsignedTxs = [];
+    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = unsignedTxs[i];
+      const newUnsignedTx = await this.updateUnsignedTx({
+        accountId,
+        networkId,
+        unsignedTx,
+        feeInfo,
+        nativeAmountInfo,
+      });
+
+      newUnsignedTxs.push(newUnsignedTx);
+    }
+
+    const signedTxs: ISignedTxPro[] = [];
+
+    for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
+      const unsignedTx = newUnsignedTxs[i];
+      const signedTx = await this.signAndSendTransaction({
+        networkId,
+        accountId,
+        unsignedTx,
+      });
+
+      signedTxs.push(signedTx);
+
+      if (signedTx) {
+        await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+          networkId,
+          accountId,
+          data: {
+            signedTx,
+            decodedTx: await this.buildDecodedTx({
+              networkId,
+              accountId,
+              unsignedTx,
+            }),
+          },
+        });
+      }
+    }
+
+    return signedTxs;
   }
 
   @backgroundMethod()
@@ -351,16 +412,47 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      wrappedInfo,
     } = params;
-    if (unsignedTx) return unsignedTx;
 
-    return this.buildUnsignedTx({
-      networkId,
-      accountId,
-      encodedTx,
-      approveInfo,
-      transfersInfo,
-    });
+    let newUnsignedTx = unsignedTx;
+
+    if (!newUnsignedTx) {
+      newUnsignedTx = await this.buildUnsignedTx({
+        networkId,
+        accountId,
+        encodedTx,
+        approveInfo,
+        transfersInfo,
+        wrappedInfo,
+      });
+    }
+
+    const isNonceRequired = (
+      await this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId,
+      })
+    ).nonceRequired;
+    if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const nonce = await this.backgroundApi.serviceSend.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: account.address,
+      });
+
+      newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({
+        accountId,
+        networkId,
+        unsignedTx: newUnsignedTx,
+        nonceInfo: { nonce },
+      });
+    }
+
+    return newUnsignedTx;
   }
 }
 

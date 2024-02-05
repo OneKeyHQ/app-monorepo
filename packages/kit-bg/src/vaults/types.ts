@@ -246,6 +246,11 @@ export type IWrappedInfo = {
   type: EWrappedType;
 };
 
+export type INativeAmountInfo = {
+  amount?: string;
+  maxSendAmount?: string;
+};
+
 // Send ------------
 export interface IBuildTxHelperParams {
   getToken: ({
@@ -278,13 +283,14 @@ export interface IBuildUnsignedTxParams {
   encodedTx?: IEncodedTx;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
+  wrappedInfo?: IWrappedInfo;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: { allowance: string };
-  maxSendInfo?: { amount: string };
+  nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
   networkId: string;
@@ -300,6 +306,12 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
   deviceParams: IDeviceSharedCallParams | undefined;
 };
+
+export interface IBatchSignTransactionParamsBase {
+  unsignedTxs: IUnsignedTxPro[];
+  feeInfo?: IFeeInfoUnit;
+  nativeAmountInfo?: INativeAmountInfo;
+}
 
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];

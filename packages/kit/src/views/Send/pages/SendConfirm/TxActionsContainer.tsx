@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { isSendNativeToken } from '@onekeyhq/kit/src/utils/txAction';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
-import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 type IProps = {
   accountId: string;
@@ -53,18 +52,12 @@ function TxActionsContainer(props: IProps) {
 
     let nativeTokenTransferBN = new BigNumber(0);
     decodedTxs.forEach((decodedTx) => {
-      decodedTx.actions.forEach((action) => {
-        if (action.type === EDecodedTxActionType.ASSET_TRANSFER) {
-          action.assetTransfer?.sends.forEach((send) => {
-            if (!send.isNFT && send.tokenIdOnNetwork === '') {
-              nativeTokenTransferBN = nativeTokenTransferBN.plus(
-                send.amount ?? 0,
-              );
-            }
-          });
-        }
-      });
+      nativeTokenTransferBN = nativeTokenTransferBN.plus(
+        decodedTx.nativeAmount ?? 0,
+      );
     });
+
+    console.log('sendSelectedFeeInfo', sendSelectedFeeInfo);
 
     if (
       !nativeTokenInfo.isLoading &&
@@ -74,8 +67,7 @@ function TxActionsContainer(props: IProps) {
     ) {
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
-
-      if (nativeTokenBalanceBN.plus(feeBN).gte(nativeTokenTransferBN)) {
+      if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
         const transferAmountBN = BigNumber.min(
           nativeTokenBalanceBN,
           nativeTokenTransferBN,
@@ -86,6 +78,11 @@ function TxActionsContainer(props: IProps) {
           updateNativeTokenTransferAmountToUpdate({
             isMaxSend: true,
             amountToUpdate: amountToUpdate.toFixed(),
+          });
+        } else {
+          updateNativeTokenTransferAmountToUpdate({
+            isMaxSend: false,
+            amountToUpdate: nativeTokenTransferBN.toFixed(),
           });
         }
       } else {
@@ -101,6 +98,7 @@ function TxActionsContainer(props: IProps) {
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
     r.result,
+    sendSelectedFeeInfo,
     sendSelectedFeeInfo?.totalNative,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,

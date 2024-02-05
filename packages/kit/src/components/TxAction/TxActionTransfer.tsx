@@ -13,8 +13,7 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useAccountData } from '../../hooks/useAccountData';
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 
@@ -259,10 +258,9 @@ function TxActionTransferDetailView(props: ITxActionProps) {
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
 
-  const network = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
-  ).result;
+  const { network } = useAccountData({
+    networkId,
+  });
 
   const renderTransferBlock = useCallback(
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
@@ -305,7 +303,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
                 } ${
                   !isNil(nativeTokenTransferAmountToUpdate) &&
-                  transfer.tokenIdOnNetwork === '' &&
+                  transfer.isNative &&
                   direction === EDecodedTxDirection.OUT
                     ? nativeTokenTransferAmountToUpdate
                     : transfer.amount

@@ -45,51 +45,18 @@ function SendConfirmActionsContainer(props: IProps) {
     setIsSubmitting(true);
 
     try {
-      const newUnsignedTxs = [];
-      for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-        const unsignedTx = unsignedTxs[i];
-        const newUnsignedTx =
-          await backgroundApiProxy.serviceSend.updateUnsignedTx({
-            accountId,
-            networkId,
-            unsignedTx,
-            feeInfo: sendSelectedFeeInfo?.feeInfo,
-            maxSendInfo: nativeTokenTransferAmountToUpdate.isMaxSend
-              ? { amount: nativeTokenTransferAmountToUpdate.amountToUpdate }
-              : undefined,
-          });
-
-        newUnsignedTxs.push(newUnsignedTx);
-      }
-
-      const signedTxs: ISignedTxPro[] = [];
-
-      for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
-        const unsignedTx = newUnsignedTxs[i];
-        const signedTx =
-          await backgroundApiProxy.serviceSend.signAndSendTransaction({
-            networkId,
-            accountId,
-            unsignedTx,
-          });
-
-        signedTxs.push(signedTx);
-
-        if (signedTx) {
-          await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
-            networkId,
-            accountId,
-            data: {
-              signedTx,
-              decodedTx: await backgroundApiProxy.serviceSend.buildDecodedTx({
-                networkId,
-                accountId,
-                unsignedTx,
-              }),
-            },
-          });
-        }
-      }
+      const signedTxs =
+        await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs,
+          feeInfo: sendSelectedFeeInfo?.feeInfo,
+          nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+            ? {
+                maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+              }
+            : undefined,
+        });
 
       onSuccess?.(signedTxs);
       setIsSubmitting(false);

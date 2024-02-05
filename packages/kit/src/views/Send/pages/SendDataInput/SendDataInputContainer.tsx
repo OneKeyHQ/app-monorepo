@@ -20,8 +20,10 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,9 +35,8 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
 import AmountInput from '../../components/AmountInput';
-import { EModalSendRoutes } from '../../router';
 
-import type { IModalSendParamList } from '../../router';
+import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
@@ -48,33 +49,23 @@ function SendDataInputContainer() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
-  const {
-    serviceNFT,
-    serviceSend,
-    serviceAccount,
-    serviceToken,
-    serviceNetwork,
-  } = backgroundApiProxy;
+  const { serviceNFT, serviceToken } = backgroundApiProxy;
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
+  const { account, network } = useAccountData({ accountId, networkId });
+  const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
-    result: [network, tokenDetails, nftDetails] = [],
+    result: [tokenDetails, nftDetails] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
+      if (!account || !network) return;
       if (!token && !nft) {
         throw new OneKeyInternalError('token and nft info are both missing.');
       }
-      const r = await Promise.all([
-        serviceAccount.getAccount({
-          accountId,
-          networkId,
-        }),
-        serviceNetwork.getNetwork({ networkId }),
-      ]);
 
       let nftResp: IAccountNFT[] | undefined;
       let tokenResp:
@@ -86,7 +77,7 @@ function SendDataInputContainer() {
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
           networkId,
-          accountAddress: r[0].address,
+          accountAddress: account.address,
           params: [
             {
               collectionAddress: nft.collectionAddress,
@@ -97,21 +88,20 @@ function SendDataInputContainer() {
       } else if (!isNFT && tokenInfo) {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress: r[0].address,
+          accountAddress: account.address,
           contractList: [tokenInfo.address],
         });
       }
 
-      return [r[1], tokenResp?.[0], nftResp?.[0]];
+      return [tokenResp?.[0], nftResp?.[0]];
     },
     [
-      accountId,
+      account,
       isNFT,
+      network,
       networkId,
       nft,
-      serviceAccount,
       serviceNFT,
-      serviceNetwork,
       serviceToken,
       token,
       tokenInfo,
@@ -189,6 +179,7 @@ function SendDataInputContainer() {
   );
   const handleOnConfirm = useCallback(async () => {
     try {
+      if (!account) return;
       const toAddress = form.getValues('to').resolved;
       if (!toAddress) return;
 
@@ -203,8 +194,6 @@ function SendDataInputContainer() {
           realAmount = linkedAmount;
         }
       }
-
-      const account = await serviceAccount.getAccount({ networkId, accountId });
 
       const transfersInfo: ITransferInfo[] = [
         {
@@ -222,38 +211,11 @@ function SendDataInputContainer() {
           tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
         },
       ];
-      let unsignedTx = await serviceSend.buildUnsignedTx({
-        networkId,
-        accountId,
+      await sendConfirm.navigationToSendConfirm({
         transfersInfo,
+        sameModal: true,
       });
-
-      const isNonceRequired = (
-        await serviceNetwork.getVaultSettings({
-          networkId,
-        })
-      ).nonceRequired;
-
-      if (isNonceRequired) {
-        const nonce = await serviceSend.getNextNonce({
-          accountId,
-          networkId,
-          accountAddress: account.address,
-        });
-        unsignedTx = await serviceSend.updateUnsignedTx({
-          networkId,
-          accountId,
-          unsignedTx,
-          nonceInfo: { nonce },
-        });
-      }
       setIsSubmitting(false);
-
-      navigation.push(EModalSendRoutes.SendConfirm, {
-        accountId,
-        networkId,
-        unsignedTxs: [unsignedTx],
-      });
     } catch (e: any) {
       setIsSubmitting(false);
 
@@ -263,18 +225,14 @@ function SendDataInputContainer() {
       });
     }
   }, [
-    accountId,
+    account,
     amount,
     form,
     isNFT,
     isUseFiat,
     linkedAmount,
-    navigation,
-    networkId,
     nftDetails,
-    serviceAccount,
-    serviceNetwork,
-    serviceSend,
+    sendConfirm,
     tokenDetails,
   ]);
   const handleValidateTokenAmount = useCallback(

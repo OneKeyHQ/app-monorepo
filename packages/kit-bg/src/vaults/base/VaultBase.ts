@@ -186,9 +186,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
 
     // must include accountId here, so that two account wont share same tx history
-    const historyId = `${this.networkId}_${txid}_${this.accountId}_${
-      index ?? ''
-    }`;
+    const historyId = accountUtils.buildLocalHistoryId({
+      networkId: this.networkId,
+      txid,
+      accountId: this.accountId,
+      index,
+    });
     const historyTx: IAccountHistoryTx = {
       id: historyId,
 
@@ -338,7 +341,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
-    const { icon, symbol, isNFT } = getOnChainHistoryTxAssetInfo({
+    const { icon, symbol, isNFT, isNative } = getOnChainHistoryTxAssetInfo({
       tokenAddress: transfer.token,
       tokens,
     });
@@ -352,6 +355,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       icon,
       symbol,
       isNFT,
+      isNative,
     };
   }
 

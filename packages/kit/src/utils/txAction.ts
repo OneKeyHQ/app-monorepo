@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
@@ -57,6 +59,19 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
             ...mergedAssetTransferAction.assetTransfer.receives,
             ...action.assetTransfer.receives,
           ];
+
+          mergedAssetTransferAction.assetTransfer.nativeAmount = new BigNumber(
+            mergedAssetTransferAction.assetTransfer.nativeAmount ?? 0,
+          )
+            .plus(action.assetTransfer.nativeAmount ?? 0)
+            .toFixed();
+
+          mergedAssetTransferAction.assetTransfer.nativeAmountValue =
+            new BigNumber(
+              mergedAssetTransferAction.assetTransfer.nativeAmountValue ?? 0,
+            )
+              .plus(action.assetTransfer.nativeAmountValue ?? 0)
+              .toFixed();
         } else {
           otherActions.push(action);
         }
@@ -75,6 +90,6 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
 export function isSendNativeToken(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&
-    action.assetTransfer?.sends.every((send) => send.tokenIdOnNetwork === '')
+    action.assetTransfer?.sends.every((send) => send.isNative)
   );
 }

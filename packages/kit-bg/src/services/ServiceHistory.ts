@@ -30,12 +30,11 @@ class ServiceHistory extends ServiceBase {
 
     await simpleDb.localHistory.updateLocalHistoryPendingTxs(onChainHistoryTxs);
 
-    const localHistoryPendingTxs =
-      await simpleDb.localHistory.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountId,
-        tokenIdOnNetwork,
-      });
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountId,
+      tokenIdOnNetwork,
+    });
 
     return [...localHistoryPendingTxs, ...onChainHistoryTxs];
   }
@@ -109,7 +108,6 @@ class ServiceHistory extends ServiceBase {
     pendingTxs: IAccountHistoryTx[];
   }) {
     const { pendingTxs } = params;
-    if (!pendingTxs || !pendingTxs.length) return;
 
     return simpleDb.localHistory.saveLocalHistoryPendingTxs(pendingTxs);
   }

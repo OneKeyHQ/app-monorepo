@@ -1,4 +1,4 @@
-import { uniqBy } from 'lodash';
+import { isNil, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -28,7 +28,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     );
 
     return this.setRawData({
-      ...rawData?.pendingTxs,
+      ...rawData,
       pendingTxs,
     });
   }
@@ -84,7 +84,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
     );
 
-    if (tokenIdOnNetwork || tokenIdOnNetwork === '') {
+    if (!isNil(tokenIdOnNetwork)) {
       accountPendingTxs = accountPendingTxs.filter(
         (tx) =>
           ([] as IDecodedTxAction[])

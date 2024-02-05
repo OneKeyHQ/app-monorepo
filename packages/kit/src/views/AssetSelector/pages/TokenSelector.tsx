@@ -7,7 +7,6 @@ import { Page, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useTokenListActions,
   withTokenListProvider,
@@ -41,7 +40,17 @@ function TokenSelector() {
     onSelect,
   } = route.params;
 
-  usePromiseResult(async () => {
+  const handleTokenOnPress = useCallback(
+    (token: IToken) => {
+      if (closeAfterSelect) {
+        navigation.pop();
+      }
+      onSelect?.(token);
+    },
+    [closeAfterSelect, navigation, onSelect],
+  );
+
+  const fetchAccountTokens = useCallback(async () => {
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -56,22 +65,13 @@ function TokenSelector() {
     refreshTokenListMap(r.tokens.map);
   }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
 
-  const handleTokenOnPress = useCallback(
-    (token: IToken) => {
-      if (closeAfterSelect) {
-        navigation.pop();
-      }
-      onSelect?.(token);
-    },
-    [closeAfterSelect, navigation, onSelect],
-  );
-
   useEffect(() => {
     if (tokens) {
       refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
       refreshTokenListMap(tokens.map);
     }
-  }, [refreshTokenList, refreshTokenListMap, tokens]);
+    void fetchAccountTokens();
+  }, [fetchAccountTokens, refreshTokenList, refreshTokenListMap, tokens]);
 
   return (
     <Page scrollEnabled>

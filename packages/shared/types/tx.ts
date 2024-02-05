@@ -91,6 +91,8 @@ export type IDecodedTx = {
   payload?: any;
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
+  nativeAmount?: string;
+  nativeAmountValue?: string;
 };
 
 export type IDecodedTxActionBase = {
@@ -110,6 +112,7 @@ export type IDecodedTxTransferInfo = {
   icon: string;
   symbol: string;
   tokenIdOnNetwork: string;
+  isNative?: boolean;
   isNFT?: boolean;
   label?: string;
 };

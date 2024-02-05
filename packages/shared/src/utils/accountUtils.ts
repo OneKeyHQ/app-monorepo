@@ -188,6 +188,17 @@ function buildLocalTokenId({
   return `${networkId}__${tokenIdOnNetwork}`;
 }
 
+function buildLocalHistoryId(params: {
+  networkId: string;
+  txid: string;
+  accountId: string;
+  index?: number;
+}) {
+  const { networkId, txid, accountId, index } = params;
+  const historyId = `${networkId}_${txid}_${accountId}_${index ?? ''}`;
+  return historyId;
+}
+
 function isAccountCompatibleWithNetwork({
   account,
   networkId,
@@ -261,6 +272,7 @@ function isOthersWallet({ walletId }: { walletId: string }) {
 
 export default {
   buildLocalTokenId,
+  buildLocalHistoryId,
   buildHdWalletId,
   isHdWallet,
   isHwWallet,
