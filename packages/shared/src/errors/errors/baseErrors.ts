@@ -8,7 +8,8 @@ import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import type {
   EOneKeyErrorClassNames,
   IOneKeyError,
-  IOneKeyErrorInfo,
+  IOneKeyErrorI18nInfo,
+  IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
 
@@ -17,11 +18,11 @@ import type {
 export class OneKeyWeb3RpcError<T = IOneKeyJsError> extends Web3RpcError<T> {}
 
 export class OneKeyError<
-    InfoT = IOneKeyErrorInfo | any,
+    I18nInfoT = IOneKeyErrorI18nInfo | any,
     DataT = IOneKeyJsError | any,
   >
   extends OneKeyWeb3RpcError<DataT>
-  implements IOneKeyError<InfoT, DataT>
+  implements IOneKeyError<I18nInfoT, DataT>
 {
   className?: EOneKeyErrorClassNames;
 
@@ -29,16 +30,23 @@ export class OneKeyError<
   readonly key?: ILocaleIds = 'onekey_error' as ILocaleIds;
 
   // i18n params
-  readonly info?: InfoT;
+  readonly info?: I18nInfoT;
+
+  // raw payload from hardware sdk error response
+  payload: IOneKeyHardwareErrorPayload | undefined;
 
   autoToast?: boolean | undefined;
 
-  constructor(errorProps?: IOneKeyError<InfoT, DataT> | string, info?: InfoT) {
+  constructor(
+    errorProps?: IOneKeyError<I18nInfoT, DataT> | string,
+    info?: I18nInfoT,
+  ) {
     let msg;
     let code;
     let data;
     let key;
-    let infoData: InfoT | undefined;
+    let infoData: I18nInfoT | undefined;
+    let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
     if (!isString(errorProps) && errorProps && isPlainObject(errorProps)) {
       ({
@@ -48,6 +56,7 @@ export class OneKeyError<
         info: infoData,
         key,
         autoToast,
+        payload: hardwareErrorPayload,
       } = errorProps);
     } else {
       msg = isString(errorProps) ? errorProps : '';
@@ -68,6 +77,9 @@ export class OneKeyError<
     }
     if (infoData) {
       this.info = infoData;
+    }
+    if (hardwareErrorPayload) {
+      this.payload = hardwareErrorPayload;
     }
     this.autoToast = autoToast;
   }

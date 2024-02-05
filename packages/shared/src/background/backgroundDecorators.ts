@@ -4,6 +4,8 @@ import {
   warningIfNotRunInBackground,
 } from './backgroundUtils';
 
+import type { OneKeyError } from '../errors';
+
 const INTERNAL_METHOD_PREFIX = 'INTERNAL_';
 const PROVIDER_API_METHOD_PREFIX = 'PROVIDER_API_';
 
@@ -121,6 +123,34 @@ function bindThis() {
         return bound;
       },
     };
+  };
+}
+
+// TODO implement call toast from background methods:
+//    backgroundShowToast / backgroundToast / toastBackground / showToastFromBackground
+export function toastIfError() {
+  return (
+    target: Record<any, any>,
+    propertyKey: string,
+    descriptor: TypedPropertyDescriptor<any>,
+  ) => {
+    const originalMethod = descriptor.value as (...args: any[]) => Promise<any>;
+
+    descriptor.value = async function (...args: any[]) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+        return await originalMethod.apply(this, args);
+      } catch (error: unknown) {
+        const e = error as OneKeyError | undefined;
+        if (e) {
+          // handle autoToast error by BackgroundApiProxyBase
+          e.autoToast = true;
+        }
+        throw error;
+      }
+    };
+
+    return descriptor;
   };
 }
 

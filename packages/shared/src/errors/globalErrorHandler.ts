@@ -15,12 +15,14 @@ interface IGlobalErrorListenerInfo {
 }
 
 function logErrorDetail(error: any) {
-  console.warn('globalErrorHandler Error log: \n', toPlainErrorObject(error));
+  const plainError = toPlainErrorObject(error);
+  console.warn('globalErrorHandler Error log: \n', plainError);
 }
 
 class GlobalErrorHandler {
   listenersMap = new Map<any, IGlobalErrorListenerInfo>();
 
+  // handle autoToast error here by BackgroundApiProxyBase
   addListener(listener: (error: IOneKeyError) => void) {
     const map: IGlobalErrorListenerInfo = {
       nativeErrorListener: (error: Error) => {

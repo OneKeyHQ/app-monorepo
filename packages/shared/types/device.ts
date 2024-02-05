@@ -12,6 +12,9 @@ import type {
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;
 export type IDeviceResponse<T> = Response<T>;
+export type IDeviceResponseResult<T> =
+  | IDeviceResponseUnsuccessful
+  | IDeviceResponseSuccess<T>;
 export type IDevicePassphraseParams = {
   passphraseState: string | undefined;
   useEmptyPassphrase: boolean | undefined;

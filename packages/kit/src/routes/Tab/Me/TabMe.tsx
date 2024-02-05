@@ -96,14 +96,12 @@ const TabMe = () => {
             清空缓存密码
           </Button>
           <Button
-            onPress={() => {
-              void backgroundApiProxy.serviceSend
-                .demoSend({
-                  networkId: activeAccount.network?.id || '',
-                  accountId: activeAccount.account?.id || '',
-                })
-                .then((r) => console.log('demoSend done:', r))
-                .catch((e) => console.error('demoSend error', e));
+            onPress={async () => {
+              const r = await backgroundApiProxy.serviceSend.demoSend({
+                networkId: activeAccount.network?.id || '',
+                accountId: activeAccount.account?.id || '',
+              });
+              console.log('demoSend done:', r);
             }}
           >
             测试发送流程(使用首页的账户选择器)

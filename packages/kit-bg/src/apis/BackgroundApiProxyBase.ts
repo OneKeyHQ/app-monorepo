@@ -64,7 +64,7 @@ export class BackgroundApiProxyBase
     );
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
-      if (error && error.autoToast) {
+      if (error && error?.autoToast) {
         Toast.error({
           title: error?.message ?? 'Error',
         });
