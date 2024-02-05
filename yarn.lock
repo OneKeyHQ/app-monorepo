@@ -4949,7 +4949,7 @@ __metadata:
     react-native: "npm:0.73.2"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
-    react-native-reanimated: "npm:3.5.4"
+    react-native-reanimated: "npm:3.6.1"
     react-native-screens: "npm:3.26.0"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
@@ -5177,6 +5177,7 @@ __metadata:
     react-native-metrix: "npm:^0.6.3"
     react-native-mmkv: "npm:2.10.2"
     react-native-randombytes: "npm:^3.6.1"
+    react-native-reanimated: "npm:3.6.1"
     react-native-restart: "npm:0.0.27"
     react-native-safe-area-context: "npm:4.7.2"
     react-native-share: "npm:^9.4.1"
@@ -24290,9 +24291,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:3.5.4":
-  version: 3.5.4
-  resolution: "react-native-reanimated@npm:3.5.4"
+"react-native-reanimated@npm:3.6.1":
+  version: 3.6.1
+  resolution: "react-native-reanimated@npm:3.6.1"
   dependencies:
     "@babel/plugin-transform-object-assign": "npm:^7.16.7"
     "@babel/preset-typescript": "npm:^7.16.7"
@@ -24307,7 +24308,7 @@ __metadata:
     "@babel/plugin-transform-template-literals": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: 9a083f5d764137dcb6cb0cfc4f403675a2c99f7154f5afb7949d1076534963e96cf456e956f219efc887d8ea0d97c1c64cca2edde3069798ed2972c04af524ee
+  checksum: 594a4ace054fdafa02ea2f126aeeda474f32306698b1d7c15ec8495b606b80e9e10a69eef2653d4b7f9cb743d0007ada1ab27e5f3064af1bfcc95291d70bb824
   languageName: node
   linkType: hard
 
