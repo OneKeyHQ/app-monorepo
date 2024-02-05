@@ -1,18 +1,9 @@
 import { type ComponentProps, memo, useMemo } from 'react';
 
-import { filter, isEmpty, isNumber, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Button,
-  IconButton,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
+import { Badge, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import { BaseInput } from '@onekeyhq/kit/src/common/components/BaseInput';
-
-import type { IntlShape } from 'react-intl';
 
 type IAmountInputProps = {
   isUseFiat: boolean;
@@ -24,13 +15,6 @@ type IAmountInputProps = {
   onChangePercent?: (percent: number) => void;
   onChangeAmountMode?: () => void;
 } & ComponentProps<typeof BaseInput>;
-
-const DEFAULT_INPUT_PERCENT = [0.25, 0.5, 1];
-
-function getPercentText(percent: number, intl: IntlShape) {
-  if (percent === 1) return intl.formatMessage({ id: 'action__max' });
-  return `${percent * 100}%`;
-}
 
 function AmountInput(props: IAmountInputProps) {
   const intl = useIntl();
@@ -47,39 +31,6 @@ function AmountInput(props: IAmountInputProps) {
     onChangeAmountMode,
     ...rest
   } = props;
-
-  const percentFromProps = uniq(filter(percent, isNumber));
-
-  const inputPercent = isEmpty(percentFromProps)
-    ? DEFAULT_INPUT_PERCENT
-    : percentFromProps;
-
-  const AmountInputPercent = useMemo(
-    () => (
-      <XStack space="$2" alignItems="center" justifyContent="space-between">
-        <XStack
-          space="$1"
-          alignItems="center"
-          justifyContent="flex-end"
-          flex={1}
-        >
-          {inputPercent.map((item, index) => (
-            <Button
-              key={index}
-              size="small"
-              circular
-              px={6}
-              py={4}
-              onPress={() => onChangePercent?.(item)}
-            >
-              {getPercentText(item, intl)}
-            </Button>
-          ))}
-        </XStack>
-      </XStack>
-    ),
-    [inputPercent, intl, onChangePercent],
-  );
 
   const LinkedAmountSwitch = useMemo(
     () => (
