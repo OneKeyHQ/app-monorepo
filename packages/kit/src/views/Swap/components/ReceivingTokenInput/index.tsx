@@ -403,40 +403,44 @@ const TokenInput: FC<TokenInputProps> = ({
   const loading = useAppSelector((s) => s.swap.loading);
   const independentField = useAppSelector((s) => s.swap.independentField);
   const extraDataContent = useMemo(() => {
-    if (!extraData?.socketBridgeExtraData?.arbRebateData) return null;
-    const { arbRebateData } = extraData.socketBridgeExtraData;
-    const {
-      amountInUsd,
-      amount,
-      asset: { decimals, logoURI },
-    } = arbRebateData;
-    const amountParsed = new BigNumber(amount)
-      .shiftedBy(-decimals)
-      .decimalPlaces(4, BigNumber.ROUND_DOWN)
-      .toFixed();
-    return (
-      <>
-        <Typography.Body2
-          textAlign="center"
-          bold
-        >{`+${amountParsed}`}</Typography.Body2>
-        <Box
-          justifyContent="center"
-          alignItems="center"
-          size={4}
-          mx="2px"
-          borderRadius="full"
-          backgroundColor="black"
-        >
-          <Image source={{ uri: logoURI }} size={3} />
-        </Box>
-        <Typography.Body2 textAlign="center">{`($${amountInUsd.toFixed(
-          2,
-        )})${intl.formatMessage({
-          id: 'title__reward',
-        })}`}</Typography.Body2>
-      </>
-    );
+    if (extraData?.socketBridgeExtraData?.rewards?.length) {
+      const { rewards } = extraData.socketBridgeExtraData;
+      const arbReward = rewards.find((item) => item.chainId === 42161);
+      if (!arbReward) return null;
+      const {
+        amountInUsd,
+        amount,
+        asset: { decimals, logoURI },
+      } = arbReward;
+      const amountParsed = new BigNumber(amount)
+        .shiftedBy(-decimals)
+        .decimalPlaces(4, BigNumber.ROUND_DOWN)
+        .toFixed();
+      return (
+        <>
+          <Typography.Body2
+            textAlign="center"
+            bold
+          >{`+${amountParsed}`}</Typography.Body2>
+          <Box
+            justifyContent="center"
+            alignItems="center"
+            size={4}
+            mx="2px"
+            borderRadius="full"
+            backgroundColor="black"
+          >
+            <Image source={{ uri: logoURI }} size={3} />
+          </Box>
+          <Typography.Body2 textAlign="center">{`($${amountInUsd.toFixed(
+            2,
+          )})${intl.formatMessage({
+            id: 'title__reward',
+          })}`}</Typography.Body2>
+        </>
+      );
+    }
+    return null;
   }, [extraData?.socketBridgeExtraData, intl]);
   return (
     <Box {...containerProps} position="relative">

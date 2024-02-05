@@ -23,14 +23,15 @@ export interface SocketAsset {
   symbol: string;
 }
 
-export interface ISocketArbRebateData {
+export interface ISocketReward {
   amount: string;
   amountInUsd: number;
   asset: SocketAsset;
+  chainId: number;
 }
 
 interface ISocketExtraData {
-  arbRebateData: ISocketArbRebateData;
+  rewards: ISocketReward[];
 }
 
 export interface IQouterExtraData {
