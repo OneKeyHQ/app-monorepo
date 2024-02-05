@@ -3,6 +3,7 @@ import { isNil, random } from 'lodash';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   EDecodedTxActionType,
@@ -35,6 +36,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async demoSend({
     networkId,
     accountId,
@@ -225,6 +227,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async signTransaction(
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
