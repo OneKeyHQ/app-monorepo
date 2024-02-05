@@ -288,10 +288,7 @@ class ServiceDApp extends ServiceBase {
       rawData?.data.injectedProvider?.[origin]
     ) {
       await this.disconnectWebsite({ origin, storageType: 'injectedProvider' });
-    } else if (
-      storageType === 'injectedProvider' &&
-      rawData?.data.walletConnect?.[origin]
-    ) {
+    } else if (rawData?.data.walletConnect?.[origin]) {
       await this.disconnectWebsite({ origin, storageType: 'walletConnect' });
     }
   }

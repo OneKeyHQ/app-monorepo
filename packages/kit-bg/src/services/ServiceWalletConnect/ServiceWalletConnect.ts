@@ -10,6 +10,7 @@ import {
   caipsToNetworkMap,
   implToNamespaceMap,
   namespaceToImplsMap,
+  supportEventsMap,
   supportMethodsMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
@@ -17,6 +18,7 @@ import type {
   IChainInfo,
   INamespaceUnion,
 } from '@onekeyhq/shared/src/walletConnect/types';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import ServiceBase from '../ServiceBase';
 
@@ -144,6 +146,41 @@ class ServiceWalletConnect extends ServiceBase {
       },
     );
     return Promise.all(promises);
+  }
+
+  @backgroundMethod()
+  async buildWalletConnectNamespace({
+    proposal,
+    accountsInfo,
+  }: {
+    proposal: Web3WalletTypes.SessionProposal;
+    accountsInfo: IConnectionAccountInfo[];
+  }) {
+    const supportedNamespaces: Record<
+      string,
+      {
+        chains: string[];
+        methods: string[];
+        events: string[];
+        accounts: string[];
+      }
+    > = {};
+    Object.entries(proposal.params.requiredNamespaces).forEach(
+      ([key, value]) => {
+        const namespace = key as INamespaceUnion;
+        const { chains } = value;
+        const impl = namespaceToImplsMap[namespace];
+        const account = accountsInfo.find((a) => a.networkImpl === impl);
+        supportedNamespaces[namespace] = {
+          chains: chains ?? [],
+          methods: supportMethodsMap[namespace] ?? [],
+          events: supportEventsMap[namespace],
+          accounts: (chains ?? []).map((c) => `${c}:${account?.address ?? ''}`),
+        };
+      },
+    );
+    console.log('supportedNamespaces: ', supportedNamespaces);
+    return supportedNamespaces;
   }
 }
 

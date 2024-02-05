@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, YStack } from '@onekeyhq/components';
+import { Page, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
@@ -87,9 +87,14 @@ function SessionProposalModal() {
         accountsInfo,
         storageType: 'walletConnect',
       });
+      const supportedNamespaces =
+        await serviceWalletConnect.buildWalletConnectNamespace({
+          proposal,
+          accountsInfo,
+        });
       await dappApprove.resolve({
         close,
-        result: accountsInfo,
+        result: { accountsInfo, supportedNamespaces },
       });
       Toast.success({
         title: intl.formatMessage({
@@ -104,6 +109,8 @@ function SessionProposalModal() {
       origin,
       selectedAccountsMap,
       sessionAccountsInfo,
+      serviceWalletConnect,
+      proposal,
     ],
   );
 

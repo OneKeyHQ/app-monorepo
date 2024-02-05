@@ -120,8 +120,24 @@ export const EIP155_EVENTS = {
   CHAIN_CHANGED: 'chainChanged',
 };
 
+/**
+ * cosmos
+ */
+export const COSMOS_SIGNING_METHODS = {
+  COSMOS_SIGN_DIRECT: 'cosmos_signDirect',
+  COSMOS_SIGN_AMINO: 'cosmos_signAmino',
+};
+
 export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
   eip155: Object.values(EIP155_SIGNING_METHODS),
+  solana: [],
+  cosmos: Object.values(COSMOS_SIGNING_METHODS),
+  polkadot: [],
+  tron: [],
+};
+
+export const supportEventsMap: Record<INamespaceUnion, string[]> = {
+  eip155: ['accountsChanged', 'chainChanged'],
   solana: [],
   cosmos: [],
   polkadot: [],
