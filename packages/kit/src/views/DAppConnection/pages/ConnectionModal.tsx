@@ -59,7 +59,7 @@ function ConnectionModal() {
   }, [selectedAccount, canContinueOperate]);
 
   const onApproval = useCallback(
-    async ({ close }: { close: () => void }) => {
+    async (close: () => void) => {
       if (!$sourceInfo?.scope) {
         Toast.error({ title: 'no injected scope' });
         return;

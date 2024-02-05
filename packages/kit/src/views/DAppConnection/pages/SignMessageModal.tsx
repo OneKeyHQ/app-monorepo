@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -36,7 +37,7 @@ function SignMessageModal() {
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const handleSignMessage = useCallback(
-    async ({ close }: { close?: () => void }) => {
+    async (close: () => void) => {
       const result = await backgroundApiProxy.serviceDApp.signMessage({
         unsignedMessage,
         networkId,
@@ -69,7 +70,7 @@ function SignMessageModal() {
           setContinueOperate={(checked) => {
             setContinueOperate(!!checked);
           }}
-          onConfirm={handleSignMessage}
+          onConfirm={(params) => handleSignMessage(params)}
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
             disabled: !canContinueOperate,
