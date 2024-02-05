@@ -10,7 +10,7 @@ import {
   InitIframeTimeout,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   CoreSDKLoader,
   generateConnectSrc,
@@ -37,8 +37,11 @@ import type {
   CoreApi,
   DeviceSettingsParams,
   DeviceUploadResourceParams,
+  DeviceVerifySignature,
+  Features,
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
+import type { Success } from '@onekeyfe/hd-transport';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -136,6 +139,8 @@ class ServiceHardware extends ServiceBase {
     return Promise.resolve(true);
   }
 
+  // startDeviceScan
+  // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
@@ -155,10 +160,9 @@ class ServiceHardware extends ServiceBase {
         const result = await this.getFeatures(connectId);
         return result !== null;
       } catch (e: any) {
-        const { data } = e || {};
-        const { reconnect } = data || {};
-        if (e instanceof OneKeyHardwareError && !reconnect) {
-          return Promise.reject(e);
+        const error: OneKeyHardwareError | undefined = e as OneKeyHardwareError;
+        if (error instanceof OneKeyHardwareError && !error?.reconnect) {
+          return Promise.reject(error);
         }
       }
     } else {
@@ -170,15 +174,10 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeatures(connectId: string) {
+  async getFeatures(connectId: string): Promise<Features> {
     const hardwareSDK = await this.getSDKInstance();
-    const response = await hardwareSDK?.getFeatures(connectId);
 
-    if (response.success) {
-      return response.payload;
-    }
-    const deviceError = convertDeviceError(response.payload);
-    return Promise.reject(deviceError);
+    return convertDeviceResponse(() => hardwareSDK?.getFeatures(connectId));
   }
 
   @backgroundMethod()
@@ -211,21 +210,16 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
-  }) {
+  }): Promise<string | undefined> {
     const hardwareSDK = await this.getSDKInstance();
-    const response = await hardwareSDK?.getPassphraseState(connectId, {
-      initSession: forceInputPassphrase, // always re-input passphrase on device
-      useEmptyPassphrase,
-      // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
-    });
 
-    if (response.success) {
-      return response.payload ?? undefined;
-    }
-
-    const deviceError = convertDeviceError(response.payload);
-
-    return Promise.reject(deviceError);
+    return convertDeviceResponse(() =>
+      hardwareSDK?.getPassphraseState(connectId, {
+        initSession: forceInputPassphrase, // always re-input passphrase on device
+        useEmptyPassphrase,
+        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -255,108 +249,91 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async rebootToBootloader(connectId: string) {
+  async rebootToBootloader(connectId: string): Promise<boolean> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceUpdateReboot(connectId).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response;
-    });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUpdateReboot(connectId),
+    );
   }
 
   @backgroundMethod()
-  async rebootToBoardloader(connectId: string) {
+  async rebootToBoardloader(connectId: string): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceRebootToBoardloader(connectId)
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceRebootToBoardloader(connectId),
+    );
   }
 
   @backgroundMethod()
-  async getDeviceCertWithSig(connectId: string, dataHex: string) {
+  async getDeviceCertWithSig(
+    connectId: string,
+    dataHex: string,
+  ): Promise<DeviceVerifySignature> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceVerify(connectId, { dataHex })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceVerify(connectId, { dataHex }),
+    );
   }
 
   @backgroundMethod()
-  async changePin(connectId: string, remove = false) {
+  async changePin(connectId: string, remove = false): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceChangePin(connectId, {
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceChangePin(connectId, {
         remove,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+      }),
+    );
   }
 
   @backgroundMethod()
   async applySettings(connectId: string, settings: DeviceSettingsParams) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceSettings(connectId, settings).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response;
-    });
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceSettings(connectId, settings),
+    );
   }
 
   @backgroundMethod()
   async getDeviceSupportFeatures(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceSupportFeatures(connectId).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response.payload;
-    });
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceSupportFeatures(connectId),
+    );
   }
 
   @backgroundMethod()
-  async checkBridge() {
+  async checkBridge(): Promise<{ status: boolean; timeout?: boolean }> {
     if (!this._hasUseBridge()) {
-      return Promise.resolve(true);
+      return Promise.resolve({ status: true });
     }
 
     const hardwareSDK = await this.getSDKInstance();
-    const bridgeStatus = await hardwareSDK?.checkBridgeStatus();
 
-    if (!bridgeStatus.success) {
-      const error = convertDeviceError(bridgeStatus.payload);
+    try {
+      const bridgeStatus = await convertDeviceResponse(() =>
+        hardwareSDK?.checkBridgeStatus(),
+      );
+      return { status: bridgeStatus };
+    } catch (error) {
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
       ) {
-        return Promise.resolve(true);
+        return Promise.resolve({ status: true });
       }
       /**
        * Sometimes we need to capture the Bridge timeout error
        * it does not mean that the user does not have bridge installed
        */
       if (error instanceof BridgeTimeoutError) {
-        return Promise.resolve(error);
+        return Promise.resolve({ status: true, timeout: true });
       }
 
-      return Promise.resolve(false);
+      return Promise.resolve({ status: false });
     }
-
-    return Promise.resolve(bridgeStatus.payload);
   }
 
   _hasUseBridge() {
@@ -368,14 +345,9 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceUploadResource(connectId, params)
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUploadResource(connectId, params),
+    );
   }
 
   @backgroundMethod()
@@ -384,16 +356,14 @@ class ServiceHardware extends ServiceBase {
     willUpdateFirmwareVersion: string,
   ) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.checkBootloaderRelease(platformEnv.isNative ? connectId : undefined, {
-        willUpdateFirmwareVersion,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.checkBootloaderRelease(
+        platformEnv.isNative ? connectId : undefined,
+        {
+          willUpdateFirmwareVersion,
+        },
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -427,16 +397,14 @@ class ServiceHardware extends ServiceBase {
     willUpdateFirmwareVersion: string,
   ) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.checkBridgeRelease(platformEnv.isNative ? connectId : undefined, {
-        willUpdateFirmwareVersion,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.checkBridgeRelease(
+        platformEnv.isNative ? connectId : undefined,
+        {
+          willUpdateFirmwareVersion,
+        },
+      ),
+    );
   }
 
   @backgroundMethod()

@@ -11,8 +11,11 @@ import type { IPageNavigationProp } from '../Navigation';
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: (params: { close: () => void }) => void;
-  onCancel?: () => void | Promise<void>;
+  onConfirm?: (close: () => void, closePageStack: () => void) => void;
+  onCancel?: (
+    close: () => void,
+    closePageStack: () => void,
+  ) => void | Promise<void>;
   onConfirmText?: string;
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
@@ -20,7 +23,7 @@ export type IFooterActionsProps = {
   buttonContainerProps?: IStackProps;
 } & IStackProps;
 
-const useAppNavigation = () => {
+const usePageNavigation = () => {
   const navigation = useNavigation<IPageNavigationProp<any>>();
   const popStack = useCallback(() => {
     navigation.getParent()?.goBack?.();
@@ -49,15 +52,17 @@ export function FooterActions({
   cancelButtonProps,
   buttonContainerProps,
 }: IFooterActionsProps) {
-  const { pop } = useAppNavigation();
+  const { pop, popStack } = usePageNavigation();
   const handleCancel = useCallback(async () => {
-    await onCancel?.();
-    pop();
-  }, [onCancel, pop]);
+    await onCancel?.(pop, popStack);
+    if (!onCancel?.length) {
+      pop();
+    }
+  }, [onCancel, pop, popStack]);
 
   const handleConfirm = useCallback(() => {
-    onConfirm?.({ close: pop });
-  }, [onConfirm, pop]);
+    onConfirm?.(pop, popStack);
+  }, [onConfirm, pop, popStack]);
   return (
     <Stack
       p="$5"
