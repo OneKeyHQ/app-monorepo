@@ -58,6 +58,8 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
               ? 'form__expand_view'
               : 'action__go_to_settings',
           }),
+          showCancelButton: true,
+          showConfirmButton: true,
           onConfirm: () => {
             if (isExtensionUiPopup) {
               extUtils
