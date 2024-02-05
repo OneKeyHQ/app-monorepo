@@ -130,7 +130,7 @@ index 74f1804..aebed6e 100644
  {
    BOOL canReceiveTouchEvents = ([self isUserInteractionEnabled] && ![self isHidden]);
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1ed4914..0e1703f 100644
+index 4b24cff..b978114 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -2,6 +2,7 @@
@@ -467,13 +467,30 @@ index 2799d7c..e9cff6f 100644
    render() {
      let {
        active,
-diff --git a/node_modules/react-native-screens/src/index.tsx b/node_modules/react-native-screens/src/index.tx
-similarity index 96%
-rename from node_modules/react-native-screens/src/index.tsx
-rename to node_modules/react-native-screens/src/index.tx
-index 9e4e264..728a286 100644
+diff --git a/node_modules/react-native-screens/src/index.tsx b/node_modules/react-native-screens/src/index.tsx
+index 9e4e264..a731526 100644
 --- a/node_modules/react-native-screens/src/index.tsx
 +++ b/node_modules/react-native-screens/src/index.tsx
+@@ -7,15 +7,15 @@ import {
+   ScreenStackHeaderConfigProps,
+   HeaderSubviewTypes,
+   SearchBarProps,
+-} from './types';
++} from 'react-native-screens/src/types';
+ 
+-export * from './types';
+-export { default as useTransitionProgress } from './useTransitionProgress';
++export * from 'react-native-screens/src/types';
++export { default as useTransitionProgress } from 'react-native-screens/src/useTransitionProgress';
+ export {
+   isSearchBarAvailableForCurrentPlatform,
+   isNewBackTitleImplementation,
+   executeNativeBackPress,
+-} from './utils';
++} from 'react-native-screens/src/utils';
+ 
+ let ENABLE_SCREENS = true;
+ 
 @@ -34,6 +34,8 @@ export function enableFreeze(shouldEnableReactFreeze = true): void {
  }
  
