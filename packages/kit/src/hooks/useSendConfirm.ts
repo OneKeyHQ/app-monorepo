@@ -44,7 +44,7 @@ function useSendConfirm(params: IParams) {
         });
 
       const isNonceRequired = (
-        await backgroundApiProxy.serviceNetwork.getNetworkSettings({
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
           networkId,
         })
       ).nonceRequired;

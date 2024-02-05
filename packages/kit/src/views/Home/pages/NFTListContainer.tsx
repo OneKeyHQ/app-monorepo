@@ -19,11 +19,9 @@ function NFTListContainer(props: IProps) {
 
   const isNFTEnabled = usePromiseResult(async () => {
     if (!network) return Promise.resolve(false);
-    const settings = await backgroundApiProxy.serviceNetwork.getNetworkSettings(
-      {
-        networkId: network.id,
-      },
-    );
+    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: network.id,
+    });
     return settings.NFTEnabled;
   }, [network]).result;
 

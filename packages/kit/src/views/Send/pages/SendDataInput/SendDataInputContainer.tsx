@@ -229,7 +229,7 @@ function SendDataInputContainer() {
       });
 
       const isNonceRequired = (
-        await serviceNetwork.getNetworkSettings({
+        await serviceNetwork.getVaultSettings({
           networkId,
         })
       ).nonceRequired;

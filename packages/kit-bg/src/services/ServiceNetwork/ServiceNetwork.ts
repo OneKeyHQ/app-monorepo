@@ -87,7 +87,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNetworkSettings({ networkId }: { networkId: string }) {
+  async getVaultSettings({ networkId }: { networkId: string }) {
     const settings = await getVaultSettings({ networkId });
     return settings;
   }
