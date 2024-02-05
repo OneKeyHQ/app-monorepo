@@ -68,6 +68,14 @@ config.cacheStores = ({ FileStore }) => [
   }),
 ];
 
+// https://github.com/facebook/metro/issues/1191
+// Lazy compilation is unstable and can easily lead to 'Reached heap limit Allocation failed.
+const orignalRewriteRequestUrl = config.server.rewriteRequestUrl
+  ? config.server.rewriteRequestUrl
+  : (url) => url;
+config.server.rewriteRequestUrl = (url) =>
+  orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+
 const splitCodePlugin = require('./plugins');
 
 module.exports = splitCodePlugin(config, projectRoot);
