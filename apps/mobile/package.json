@@ -50,7 +50,7 @@
     "expo-image-manipulator": "11.5.0",
     "expo-image-picker": "14.5.0",
     "expo-intent-launcher": "^10.5.2",
-    "expo-keep-awake": "12.0.1",
+    "expo-keep-awake": "12.8.2",
     "expo-linear-gradient": "12.1.2",
     "expo-linking": "^5.0.2",
     "expo-local-authentication": "13.6.0",

@@ -5147,7 +5147,7 @@ __metadata:
     expo-image-manipulator: "npm:11.5.0"
     expo-image-picker: "npm:14.5.0"
     expo-intent-launcher: "npm:^10.5.2"
-    expo-keep-awake: "npm:12.0.1"
+    expo-keep-awake: "npm:12.8.2"
     expo-linear-gradient: "npm:12.1.2"
     expo-linking: "npm:^5.0.2"
     expo-local-authentication: "npm:13.6.0"
@@ -15759,16 +15759,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-keep-awake@npm:12.0.1":
-  version: 12.0.1
-  resolution: "expo-keep-awake@npm:12.0.1"
-  peerDependencies:
-    expo: "*"
-  checksum: 950113bd69e00caf72f60a2ac3243c82b4ff4e379fb9aca8eb9556a9ef68198748329200315edd8ed5255a5154f21c176900627dc576ad0905bc8bc13bac92c0
-  languageName: node
-  linkType: hard
-
-"expo-keep-awake@npm:~12.8.2":
+"expo-keep-awake@npm:12.8.2, expo-keep-awake@npm:~12.8.2":
   version: 12.8.2
   resolution: "expo-keep-awake@npm:12.8.2"
   peerDependencies:
