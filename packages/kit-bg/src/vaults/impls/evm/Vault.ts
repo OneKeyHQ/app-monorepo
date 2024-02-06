@@ -875,13 +875,20 @@ export default class Vault extends VaultBase {
       nftId,
     });
 
+    let nftAmount = amount;
+
     if (!nft) return;
+
+    // For NFT ERC721, the amount is always 1
+    if (txDesc.name === EErc721TxDescriptionName.SafeTransferFrom) {
+      nftAmount = isNil(amount) ? '1' : amount;
+    }
 
     const transfer: IDecodedTxTransferInfo = {
       from,
       to,
       tokenIdOnNetwork: nftId,
-      amount: isNil(amount) ? '1' : amount,
+      amount: nftAmount,
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',
       isNFT: true,

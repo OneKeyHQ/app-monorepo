@@ -64,7 +64,7 @@ function TxFeeContainer(props: IProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const { result: [isEditFeeEnabled, network] = [] } =
+  const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -74,7 +74,7 @@ function TxFeeContainer(props: IProps) {
       if (!account) return;
 
       return Promise.all([
-        backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
       ]);
     }, [accountId, networkId]);
@@ -154,7 +154,7 @@ function TxFeeContainer(props: IProps) {
         });
       }
 
-      if (isEditFeeEnabled) {
+      if (vaultSettings?.editFeeEnabled) {
         const customFeeInfo: IFeeInfoUnit = {
           common: gasFee.common,
         };
@@ -210,7 +210,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.gasEIP1559,
     gasFee,
     intl,
-    isEditFeeEnabled,
+    vaultSettings?.editFeeEnabled,
   ]);
 
   const { selectedFee, feeSelectorValue } = useMemo(() => {
