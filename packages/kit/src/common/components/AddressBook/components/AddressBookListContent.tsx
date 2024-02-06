@@ -73,7 +73,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
               },
-              testID: `address-menu-copy-${item.id ?? ''}`,
+              testID: `address-menu-copy-${item.address ?? ''}`,
             },
             {
               label: intl.formatMessage({ id: 'action__edit' }),
@@ -88,7 +88,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   });
                 }
               },
-              testID: `address-menu-edit-${item.id ?? ''}`,
+              testID: `address-menu-edit-${item.address ?? ''}`,
             },
           ]}
           renderTrigger={
