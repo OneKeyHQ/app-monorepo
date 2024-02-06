@@ -1,6 +1,3 @@
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
 import * as handlers from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
@@ -15,16 +12,6 @@ import type {
 
 const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
 
-const getNetworkFromImplListAndChainId = memoizee(
-  async (implList: string[], chainId: string) => {
-    const { networks } =
-      await backgroundApiProxy.serviceNetwork.getNetworksByImpls({
-        impls: implList,
-      });
-    return networks.find((n) => n.chainId === chainId);
-  },
-);
-
 export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   value,
   options,
@@ -38,7 +25,6 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
         ...options,
         urlResult,
         deeplinkResult,
-        getNetwork: getNetworkFromImplListAndChainId,
       });
       if (itemResult) {
         result = {

@@ -1,6 +1,11 @@
-import { parseQRCode as parse } from '.';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { EQRCodeHandlerType } from './type';
+import { EQRCodeHandlerType } from './parseQRCode/type';
+
+const {
+  serviceUrlParse: { parse },
+} = backgroundApiProxy;
 
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
