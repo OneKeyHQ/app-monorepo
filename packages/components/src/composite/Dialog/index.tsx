@@ -80,14 +80,17 @@ function DialogFrame({
 }: IDialogProps) {
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const handleBackdropPress = useMemo(
+  const onBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
   );
+  const handleBackdropPress = useCallback(() => {
+    void onBackdropPress?.(true);
+  }, [onBackdropPress]);
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
-        void onClose();
+        void onClose(true);
       }
     },
     [onClose],
@@ -107,9 +110,9 @@ function DialogFrame({
 
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(onClose);
+    cancel?.(() => onClose(true));
     if (!onCancel?.length) {
-      await onClose();
+      await onClose(true);
     }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
@@ -321,16 +324,24 @@ function BaseDialogContainer(
 ) {
   const [isOpen, changeIsOpen] = useState(true);
   const formRef = useRef();
-  const handleClose = useCallback(() => {
-    changeIsOpen(false);
-    return onClose();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose]);
+  const handleClose = useCallback(
+    (isTriggeredByUser: boolean) => {
+      changeIsOpen(false);
+      return onClose(isTriggeredByUser);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [onClose],
+  );
+
+  const handleContainerClose = useCallback(
+    () => handleClose(true),
+    [handleClose],
+  );
 
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: handleClose,
+        close: handleContainerClose,
         ref: formRef,
       },
       footerRef: {
@@ -338,7 +349,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleClose],
+    [handleContainerClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -346,13 +357,18 @@ function BaseDialogContainer(
     onOpen?.();
   }, [onOpen]);
 
+  const handleImperativeClose = useCallback(
+    () => handleClose(false),
+    [handleClose],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
-      close: handleClose,
+      close: handleImperativeClose,
       getForm: () => formRef.current,
     }),
-    [handleClose],
+    [handleImperativeClose],
   );
   return (
     <DialogContext.Provider value={contextValue}>
@@ -361,7 +377,7 @@ function BaseDialogContainer(
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
-        onClose={handleClose}
+        onClose={handleContainerClose}
         {...props}
       />
     </DialogContext.Provider>
@@ -392,7 +408,10 @@ function dialogShow({
     | undefined;
 
   const buildForwardOnClose =
-    (options: { onClose?: () => void | Promise<void> }) => () =>
+    (options: {
+      onClose?: (isTriggeredByUser: boolean) => void | Promise<void>;
+    }) =>
+    () =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -403,7 +422,7 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void options.onClose?.();
+          void options.onClose?.(false);
           resolve();
         }, 300);
       });
