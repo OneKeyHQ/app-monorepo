@@ -1,3 +1,5 @@
+// TODO: move consts to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppAutoLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

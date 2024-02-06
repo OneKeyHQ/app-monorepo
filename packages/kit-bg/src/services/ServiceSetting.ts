@@ -1,8 +1,10 @@
 import { isFunction, merge } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
+// TODO: move locale to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { LOCALES } from '@onekeyhq/components';
-import { type ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,

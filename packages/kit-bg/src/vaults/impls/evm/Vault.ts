@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+// TODO: should fix circular references
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   buildTxActionDirection,
   mergeAssetTransferActions,
