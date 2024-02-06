@@ -685,6 +685,30 @@ const DialogGallery = () => (
         title: 'Test Visibility in Navigator',
         element: <DialogNavigatorDemo />,
       },
+      {
+        title: 'isTriggeredByUser flag',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                const dialog = Dialog.show({
+                  title: 'show',
+                  onConfirm: () => {},
+                  onClose: (isTriggeredByUser) => {
+                    console.log('isTriggeredByUser:', isTriggeredByUser);
+                  },
+                  renderContent: <SizableText>isTriggeredByUser</SizableText>,
+                });
+                setTimeout(() => {
+                  void dialog.close();
+                }, 3000);
+              }}
+            >
+              isTriggeredByUser
+            </Button>
+          </YStack>
+        ),
+      },
     ]}
   />
 );
