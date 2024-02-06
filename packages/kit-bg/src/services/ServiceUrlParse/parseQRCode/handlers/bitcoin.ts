@@ -48,7 +48,7 @@ export const bitcoin: IQRCodeHandler<IBitcoinValue> = async (
     label,
     message,
     paramList,
-    getNetwork: () => options?.getNetwork?.([IMPL_BTC], '0'),
+    network: await options?.getNetwork?.([IMPL_BTC], '0'),
   };
   return {
     type: EQRCodeHandlerType.BITCOIN,

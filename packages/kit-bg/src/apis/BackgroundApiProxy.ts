@@ -24,6 +24,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceUrlParse from '../services/ServiceUrlParse';
 import type ServiceValidator from '../services/ServiceValidator';
 
 class BackgroundApiProxy
@@ -63,6 +64,10 @@ class BackgroundApiProxy
   serviceValidator = this._createProxyService(
     'serviceValidator',
   ) as ServiceValidator;
+
+  serviceUrlParse = this._createProxyService(
+    'serviceUrlParse',
+  ) as ServiceUrlParse;
 
   serviceNameResolver = this._createProxyService(
     'serviceNameResolver',

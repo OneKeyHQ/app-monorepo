@@ -17,7 +17,7 @@ export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;
   amount?: string;
-  getNetwork?: () => Promise<IServerNetwork | undefined> | undefined;
+  network?: IServerNetwork;
   paramList?: { [key: string]: string };
 }
 export interface IBitcoinValue extends IChainValue {
@@ -93,9 +93,11 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
+export type IQRCodeHandlerParseOptions = {
+  autoHandleResult?: boolean;
+} & IQRCodeHandlerOptions;
+
 export type IQRCodeHandlerParse<T extends IBaseValue> = (
   value: string,
-  options?: {
-    autoHandleResult?: boolean;
-  } & IQRCodeHandlerOptions,
+  options?: IQRCodeHandlerParseOptions,
 ) => Promise<IQRCodeHandlerParseResult<T>>;

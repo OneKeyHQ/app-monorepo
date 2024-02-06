@@ -1,3 +1,5 @@
+import { WALLET_CONNECT_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/urlProtocolConsts';
+
 import { EQRCodeHandlerType } from '../type';
 
 import type { IQRCodeHandler, IWalletConnectValue } from '../type';
@@ -19,7 +21,11 @@ export const walletConnect: IQRCodeHandler<IWalletConnectValue> = async (
 ) => {
   const urlValue = options?.urlResult;
   if (urlValue) {
-    if (['wc'].findIndex((item) => item === urlValue.data.urlSchema) !== -1) {
+    if (
+      [WALLET_CONNECT_DEEP_LINK_NAME].findIndex(
+        (item) => item === urlValue.data.urlSchema,
+      ) !== -1
+    ) {
       const pathList = urlValue.data.urlPathList?.[0].split('@');
       const walletConnectValue = {
         topic: pathList?.[0],

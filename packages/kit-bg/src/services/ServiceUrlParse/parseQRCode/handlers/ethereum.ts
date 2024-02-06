@@ -19,6 +19,9 @@ export const ethereum: IQRCodeHandler<IEthereumValue> = async (
   value,
   options,
 ) => {
+  if (!/^ethereum:/i.test(value)) {
+    return null;
+  }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const parseValue = ethParser(value);
   const {
@@ -46,7 +49,7 @@ export const ethereum: IQRCodeHandler<IEthereumValue> = async (
     const ethereumValue: IEthereumValue = {
       address: sendAddress,
       id: chainId,
-      getNetwork: () => Promise.resolve(network),
+      network,
     };
     if (nativeAmount && network) {
       ethereumValue.amount = chainValueUtils.convertGweiToAmount({

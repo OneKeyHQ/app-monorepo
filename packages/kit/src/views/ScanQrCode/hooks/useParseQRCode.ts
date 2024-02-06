@@ -8,16 +8,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
-
-import { parseQRCode } from '../utils/parseQRCode';
-import { EQRCodeHandlerType } from '../utils/parseQRCode/type';
-
+import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceUrlParse/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
-} from '../utils/parseQRCode/type';
+} from '@onekeyhq/kit-bg/src/services/ServiceUrlParse/parseQRCode/type';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -28,7 +25,10 @@ const useParseQRCode = () => {
   } = useActiveAccount({ num: 0 });
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
-      const result = await parseQRCode(value, options);
+      const result = await backgroundApiProxy.serviceUrlParse.parse(
+        value,
+        options,
+      );
       if (
         result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
         (result.data as IAnimationValue).fullData
@@ -46,7 +46,7 @@ const useParseQRCode = () => {
             break;
           }
           const chainValue = result.data as IChainValue;
-          const network = await chainValue?.getNetwork?.();
+          const network = chainValue?.network;
           if (!network) {
             break;
           }

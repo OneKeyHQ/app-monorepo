@@ -1,15 +1,15 @@
 import { useCallback } from 'react';
 
+import type {
+  IBaseValue,
+  IQRCodeHandlerParseResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceUrlParse/parseQRCode/type';
+
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { EScanQrCodeModalPages } from '../router/type';
 
 import useParseQRCode from './useParseQRCode';
-
-import type {
-  IBaseValue,
-  IQRCodeHandlerParseResult,
-} from '../utils/parseQRCode/type';
 
 export default function useScanQrCode() {
   const navigation = useAppNavigation();

@@ -4,7 +4,7 @@ import { EQRCodeHandlerType } from './type';
 
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
-    expect(await parse('onekey://migrate/192.168.1.2')).toEqual(
+    expect(await parse('onekey-wallet://migrate/192.168.1.2')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.MIGRATE,
         data: { address: '192.168.1.2' },
@@ -311,16 +311,6 @@ describe('useParseQRCode', () => {
     );
   });
   it('should parse as deeplink', async () => {
-    expect(await parse('onekey://search/list?q=onekey')).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.DEEPLINK,
-        data: {
-          urlSchema: 'onekey',
-          urlPathList: ['search', 'list'],
-          urlParamList: { 'q': 'onekey' },
-        },
-      }),
-    );
     expect(await parse('onekey-wallet://search/list?q=onekey')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.DEEPLINK,
