@@ -25,7 +25,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
-import type ServiceUrlParse from '../services/ServiceUrlParse';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceValidator from '../services/ServiceValidator';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -94,5 +94,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
   serviceOnboarding: ServiceOnboarding;
-  serviceUrlParse: ServiceUrlParse;
+  serviceScanQRCode: ServiceScanQRCode;
 }

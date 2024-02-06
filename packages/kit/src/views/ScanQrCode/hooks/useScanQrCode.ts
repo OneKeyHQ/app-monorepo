@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import type {
   IBaseValue,
   IQRCodeHandlerParseResult,
-} from '@onekeyhq/kit-bg/src/services/ServiceUrlParse/parseQRCode/type';
+} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/parseQRCode/type';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';

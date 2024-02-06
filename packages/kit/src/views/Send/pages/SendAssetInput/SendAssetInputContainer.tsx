@@ -59,7 +59,7 @@ function SendAssetInputContainer() {
         amount,
       });
     },
-    [accountId, navigation, networkId],
+    [accountId, navigation, networkId, address, amount],
   );
 
   return (

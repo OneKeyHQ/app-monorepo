@@ -152,13 +152,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceUrlParse() {
-    const ServiceUrlParse =
-      require('../services/ServiceUrlParse') as typeof import('../services/ServiceUrlParse');
-    const value = new ServiceUrlParse.default({
+  get serviceScanQRCode() {
+    const ServiceScanQRCode =
+      require('../services/ServiceScanQRCode') as typeof import('../services/ServiceScanQRCode');
+    const value = new ServiceScanQRCode.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'serviceUrlParse', { value });
+    Object.defineProperty(this, 'serviceScanQRCode', { value });
     return value;
   }
 

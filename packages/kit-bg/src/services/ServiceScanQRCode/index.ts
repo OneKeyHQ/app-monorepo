@@ -11,7 +11,7 @@ import { parseQRCode } from './parseQRCode';
 import type { IQRCodeHandlerParseOptions } from './parseQRCode/type';
 
 @backgroundClass()
-class ServiceUrlParse extends ServiceBase {
+class ServiceScanQRCode extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -34,4 +34,4 @@ class ServiceUrlParse extends ServiceBase {
   }
 }
 
-export default ServiceUrlParse;
+export default ServiceScanQRCode;

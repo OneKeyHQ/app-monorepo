@@ -4,7 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EQRCodeHandlerType } from './parseQRCode/type';
 
 const {
-  serviceUrlParse: { parse },
+  serviceScanQRCode: { parse },
 } = backgroundApiProxy;
 
 describe('useParseQRCode', () => {
