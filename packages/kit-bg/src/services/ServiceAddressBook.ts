@@ -1,3 +1,7 @@
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
   IAddressItem,
@@ -18,10 +22,10 @@ import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import ServiceBase from './ServiceBase';
 
 function getSectionItemScore(item: ISectionItem): number {
-  if (item.title === 'btc') {
+  if (item.title.toLowerCase() === 'bitcoin') {
     return -10;
   }
-  if (item.title === 'evm') {
+  if (item.title.toLowerCase() === 'evm') {
     return -9;
   }
   return item.data[0]?.createdAt ?? 0;
@@ -37,10 +41,31 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   private computeItemsHash(items: IAddressItem[], password: string): string {
+    const salt = decodeSensitiveText({ encodedText: password });
     const itemString = stableStringify(items);
     return bufferUtils.bytesToHex(
-      hash160(bufferUtils.toBuffer(`${itemString}${password}`)),
+      hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
     );
+  }
+
+  private async setItems(
+    items: IAddressItem[],
+    password: string,
+  ): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const hash = this.computeItemsHash(items, password);
+    await simpleDb.addressBook.updateItemsAndHash({ items, hash });
+    this.verifyHashTimestamp = undefined;
+    await addressBookPersistAtom.set((prev) => ({
+      ...prev,
+      updateTimestamp: Date.now(),
+    }));
+  }
+
+  private async getItems(): Promise<IAddressItem[]> {
+    const { simpleDb } = this.backgroundApi;
+    const { items } = await simpleDb.addressBook.getItemsAndHash();
+    return items;
   }
 
   private async _verifyHash(): Promise<boolean> {
@@ -61,7 +86,7 @@ class ServiceAddressBook extends ServiceBase {
     return false;
   }
 
-  @backgroundMethod()
+  // verify hash with cache
   public async verifyHash(returnValue?: boolean): Promise<boolean> {
     const now = Date.now();
     const timestamp = this.verifyHashTimestamp;
@@ -82,48 +107,25 @@ class ServiceAddressBook extends ServiceBase {
     throw new Error('address book failed to verify hash');
   }
 
-  @backgroundMethod()
-  async __dangerTamperVerifyHashForTest() {
-    if (!platformEnv.isDev) {
-      return;
-    }
-    const items = await this.getItems();
-    await this.setItems(items, String(Date.now()));
-  }
-
-  private async setItems(
-    items: IAddressItem[],
-    password: string,
-  ): Promise<void> {
-    const { simpleDb } = this.backgroundApi;
-    const hash = this.computeItemsHash(items, password);
-    await addressBookPersistAtom.set((prev) => ({
-      ...prev,
-      updateTimestamp: Date.now(),
-    }));
-    await simpleDb.addressBook.updateItemsAndHash({ items, hash });
-    this.verifyHashTimestamp = undefined;
-  }
-
-  async getItems(): Promise<IAddressItem[]> {
-    const { simpleDb } = this.backgroundApi;
-    const { items } = await simpleDb.addressBook.getItemsAndHash();
-    return items;
+  getItemGroupName(item: IAddressItem, names: Record<string, string>) {
+    return item.networkId.startsWith('evm--') ? 'EVM' : names[item.networkId];
   }
 
   @backgroundMethod()
   async groupItems({ networkId }: { networkId?: string }) {
+    const { serviceNetwork } = this.backgroundApi;
     let items = await this.getItems();
+    const names = await serviceNetwork.getNetworkNames();
     if (networkId) {
       const [impl] = networkId.split('--');
       items = items.filter((item) => item.networkId.startsWith(`${impl}--`));
     }
     const data = items.reduce((result, item) => {
-      const [impl] = item.networkId.split('--');
-      if (!result[impl]) {
-        result[impl] = [];
+      const title = this.getItemGroupName(item, names);
+      if (!result[title]) {
+        result[title] = [];
       }
-      result[impl].push(item);
+      result[title].push(item);
       return result;
     }, {} as Record<string, IAddressItem[]>);
     return (
@@ -135,8 +137,27 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getSafeItems({ networkId }: { networkId?: string }) {
+    const groupItems = await this.groupItems({ networkId });
+    const isSafe = await this.verifyHash(true);
+    return { isSafe, items: isSafe ? groupItems : [] };
+  }
+
+  @backgroundMethod()
+  async __dangerTamperVerifyHashForTest() {
+    if (!platformEnv.isDev) {
+      return;
+    }
+    const items = await this.getItems();
+    await this.setItems(
+      items,
+      encodeSensitiveText({ text: String(Date.now()) }),
+    );
+  }
+
+  @backgroundMethod()
   async resetItems() {
-    const verifyResult = await this.verifyHash();
+    const verifyResult = await this.verifyHash(true);
     if (verifyResult) {
       throw new Error('failed to reset items when verify result is ok');
     }
@@ -238,6 +259,22 @@ class ServiceAddressBook extends ServiceBase {
       return match;
     });
     return item;
+  }
+
+  @backgroundMethod()
+  public async stringifyItems() {
+    const { serviceNetwork } = this.backgroundApi;
+    const items = await this.getItems();
+    const names = await serviceNetwork.getNetworkNames();
+    const result: string[] = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      const text = `${this.getItemGroupName(item, names)} ${item.name} ${
+        item.address
+      }`;
+      result.push(text);
+    }
+    return result.join('\n');
   }
 
   public async updateHash(newPassword: string) {

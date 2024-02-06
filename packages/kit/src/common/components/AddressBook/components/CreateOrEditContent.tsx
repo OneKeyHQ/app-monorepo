@@ -69,6 +69,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   );
 
   const networkId = form.watch('networkId');
+  const pending = form.watch('address.pending');
 
   const onSave = useCallback(
     (values: IFormValues) =>
@@ -123,6 +124,9 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="address"
             rules={{
               validate: async (output: IAddressInputValue) => {
+                if (output.pending) {
+                  return;
+                }
                 if (!output.resolved) {
                   return 'Invalid address';
                 }
@@ -162,7 +166,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           <Button
             variant="primary"
             loading={form.formState.isSubmitting}
-            disabled={!form.formState.isValid}
+            disabled={!form.formState.isValid || pending}
             onPress={form.handleSubmit(onSave)}
             testID="address-form-save"
           >

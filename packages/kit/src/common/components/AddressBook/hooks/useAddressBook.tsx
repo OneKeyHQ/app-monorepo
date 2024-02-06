@@ -13,7 +13,7 @@ export const useAddressBookItems = (networkId?: string) => {
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
   return usePromiseResult(
     async () =>
-      backgroundApiProxy.serviceAddressBook.groupItems({
+      backgroundApiProxy.serviceAddressBook.getSafeItems({
         networkId,
       }),
     // eslint-disable-next-line
@@ -29,6 +29,7 @@ export const useAddressBookPick = () => {
       onPick?: (item: IAddressItem) => void;
       networkId?: string;
     }) => {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       navigation.pushModal(EModalRoutes.AddressBookModal, {
         screen: EModalAddressBookRoutes.PickItemModal,
         params,
@@ -41,6 +42,7 @@ export const useAddressBookPick = () => {
 export const useAddressBookList = () => {
   const navigation = useAppNavigation();
   return useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.pushModal(EModalRoutes.AddressBookModal, {
       screen: EModalAddressBookRoutes.ListItemModal,
     });

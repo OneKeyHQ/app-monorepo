@@ -61,7 +61,7 @@ const AddressBookButton = () => {
           'All your address book data is encrypted with your login password. ',
         tone: 'default',
         showConfirmButton: true,
-        showCancelButton: false,
+        showCancelButton: true,
         onConfirm: async (inst) => {
           await inst.close();
           await pick();
@@ -86,8 +86,8 @@ const AddressBookHashButton = () => {
     void backgroundApiProxy.serviceAddressBook.__dangerTamperVerifyHashForTest();
   }, []);
   return (
-    <Button onPress={onPress} testID="me-address-book">
-      Mock Address Book Verify Hash
+    <Button onPress={onPress} testID="temper-address-book">
+      Tamper Address Book
     </Button>
   );
 };

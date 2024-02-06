@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { Page, Spinner, Stack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Page } from '@onekeyhq/components';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -11,12 +11,15 @@ import type {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
+import { PageLoading } from '../../components/PageLoading';
+import { UnsafeContent } from '../../components/UnsafeContent';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
 import type { IAddressItem } from '../../type';
 import type { RouteProp } from '@react-navigation/core';
 
 const PickItemPage = () => {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
@@ -31,37 +34,35 @@ const PickItemPage = () => {
 
   const onPressItem = useCallback(
     async (item: IAddressItem) => {
-      const isOk = await backgroundApiProxy.serviceAddressBook.verifyHash();
-      if (isOk) {
-        onPick?.(item);
-        navigation.pop();
-      }
+      onPick?.(item);
+      navigation.pop();
     },
     [onPick, navigation],
   );
+
+  if (isLoading) {
+    return <PageLoading />;
+  }
+  if (!result?.isSafe) {
+    return <UnsafeContent />;
+  }
   return (
     <Page>
       <Page.Header
         title="Select Address"
         headerSearchBarOptions={{
-          placeholder: 'Search',
+          placeholder: intl.formatMessage({ id: 'form__search' }),
           onChangeText(e) {
             setSearchKey(e.nativeEvent.text);
           },
         }}
       />
       <Page.Body px="$4">
-        {isLoading ? (
-          <Stack h="$10" justifyContent="center" alignItems="center">
-            <Spinner />
-          </Stack>
-        ) : (
-          <AddressBookListContent
-            onPressItem={onPressItem}
-            sections={result ?? []}
-            searchKey={searchKey.trim()}
-          />
-        )}
+        <AddressBookListContent
+          onPressItem={onPressItem}
+          sections={result?.items ?? []}
+          searchKey={searchKey.trim()}
+        />
       </Page.Body>
     </Page>
   );

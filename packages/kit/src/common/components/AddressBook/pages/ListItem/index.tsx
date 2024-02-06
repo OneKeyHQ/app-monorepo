@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Page, Spinner, Stack } from '@onekeyhq/components';
+import { IconButton, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
+import { PageLoading } from '../../components/PageLoading';
+import { UnsafeContent } from '../../components/UnsafeContent';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 import { EModalAddressBookRoutes } from '../../router/types';
 
@@ -28,28 +30,28 @@ function ListPage() {
   const intl = useIntl();
   const [searchText, setSearchText] = useState<string>('');
   const { isLoading, result } = useAddressBookItems();
+  if (isLoading) {
+    return <PageLoading />;
+  }
+  if (!result?.isSafe) {
+    return <UnsafeContent />;
+  }
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: 'title__address_book' })}
         headerRight={HeaderRightComponent}
         headerSearchBarOptions={{
-          placeholder: 'Search',
+          placeholder: intl.formatMessage({ id: 'form__search' }),
           onChangeText: (e) => setSearchText(e.nativeEvent.text),
         }}
       />
       <Page.Body>
-        {isLoading ? (
-          <Stack h="$10" justifyContent="center" alignItems="center">
-            <Spinner />
-          </Stack>
-        ) : (
-          <AddressBookListContent
-            sections={result ?? []}
-            showActions
-            searchKey={searchText.trim()}
-          />
-        )}
+        <AddressBookListContent
+          sections={result?.items ?? []}
+          showActions
+          searchKey={searchText.trim()}
+        />
       </Page.Body>
     </Page>
   );
