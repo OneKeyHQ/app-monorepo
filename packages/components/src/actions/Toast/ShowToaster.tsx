@@ -11,6 +11,7 @@ import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { Toast, ToastViewport } from '@tamagui/toast';
 import { getTokenValue } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -63,6 +64,10 @@ function BasicShowToaster(
     [handleClose],
   );
 
+  const handleSwipeEnd = useDebouncedCallback(() => {
+    void handleContainerClose();
+  }, 50);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -107,6 +112,7 @@ function BasicShowToaster(
       <Toast
         unstyled
         width="100%"
+        onSwipeEnd={handleSwipeEnd}
         $md={{
           width: platformEnv.isRuntimeBrowser
             ? `calc(100vw - ${mdPaddingValue * 2}px)`
