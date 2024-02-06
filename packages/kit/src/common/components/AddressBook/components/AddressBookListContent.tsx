@@ -94,7 +94,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
           renderTrigger={
             <ListItem.IconButton
               icon="DotVerSolid"
-              testID={`address-item-menu-${item.address || ''}`}
+              testID={`address-menu-${item.address || ''}`}
             />
           }
         />
