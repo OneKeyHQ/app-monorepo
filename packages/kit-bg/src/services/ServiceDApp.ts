@@ -1,5 +1,3 @@
-import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { getSdkError } from '@walletconnect/utils';
 import { debounce } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -41,7 +39,6 @@ import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import type { SessionTypes } from '@walletconnect/types';
 
 function buildModalRouteParams({
   screens = [],
@@ -237,31 +234,6 @@ class ServiceDApp extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  async getWalletConnectActiveSessions() {
-    await this.backgroundApi.walletConnect.initialize();
-    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
-  }
-
-  @backgroundMethod()
-  async walletConnectDisconnect(topic: string) {
-    return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
-      topic,
-      reason: getSdkError('USER_DISCONNECTED'),
-    });
-  }
-
-  @backgroundMethod()
-  async updateWalletConnectSession(
-    topic: string,
-    namespaces: SessionTypes.Namespaces,
-  ) {
-    return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
-      topic,
-      namespaces,
-    });
-  }
-
   // connection allowance
   @backgroundMethod()
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
@@ -298,11 +270,16 @@ class ServiceDApp extends ServiceBase {
     origin,
     accountsInfo,
     storageType,
+    walletConnectTopic,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IStorageType;
+    walletConnectTopic?: string;
   }) {
+    if (storageType === 'walletConnect' && !walletConnectTopic) {
+      throw new Error('walletConnectTopic is required');
+    }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
     await simpleDb.dappConnection.upsertConnection({
@@ -310,6 +287,7 @@ class ServiceDApp extends ServiceBase {
       accountsInfo,
       imageURL: await serviceDiscovery.getWebsiteIcon(origin, 128),
       storageType,
+      walletConnectTopic,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
@@ -344,15 +322,17 @@ class ServiceDApp extends ServiceBase {
     origin: string;
     storageType: IStorageType;
   }) {
-    return this.backgroundApi.simpleDb.dappConnection.deleteConnection(
+    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
       origin,
       storageType,
     );
+    appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   @backgroundMethod()
   async disconnectAllWebsites() {
-    return this.backgroundApi.simpleDb.dappConnection.clearRawData();
+    await this.backgroundApi.simpleDb.dappConnection.clearRawData();
+    appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   async getConnectedAccountsInfo({

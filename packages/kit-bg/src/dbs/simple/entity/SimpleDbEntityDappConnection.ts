@@ -75,12 +75,14 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     imageURL,
     replaceExistAccount = true,
     storageType,
+    walletConnectTopic,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IStorageType;
     imageURL?: string;
     replaceExistAccount?: boolean;
+    walletConnectTopic?: string;
   }) {
     await this.setRawData(({ rawData }) => {
       let data: IDappConnectionData['data'] = {
@@ -105,6 +107,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           connectionMap: {},
           networkImplMap: {},
           addressMap: {},
+          walletConnectTopic,
         };
       } else {
         // If one already exists, create a new copy to maintain immutability.
@@ -114,6 +117,8 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           connectionMap: { ...connectionItem.connectionMap },
           networkImplMap: { ...connectionItem.networkImplMap },
           addressMap: { ...connectionItem.addressMap },
+          walletConnectTopic:
+            walletConnectTopic || connectionItem.walletConnectTopic,
         };
       }
 

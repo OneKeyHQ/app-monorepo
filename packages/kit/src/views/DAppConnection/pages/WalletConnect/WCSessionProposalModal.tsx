@@ -82,11 +82,6 @@ function SessionProposalModal() {
         };
         accountsInfo.push(accountInfo);
       }
-      await serviceDApp.saveConnectionSession({
-        origin,
-        accountsInfo,
-        storageType: 'walletConnect',
-      });
       const supportedNamespaces =
         await serviceWalletConnect.buildWalletConnectNamespace({
           proposal,
@@ -105,8 +100,6 @@ function SessionProposalModal() {
     [
       intl,
       dappApprove,
-      serviceDApp,
-      origin,
       selectedAccountsMap,
       sessionAccountsInfo,
       serviceWalletConnect,

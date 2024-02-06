@@ -1,8 +1,9 @@
+import { getSdkError } from '@walletconnect/utils';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -22,6 +23,7 @@ import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnecti
 
 import ServiceBase from '../ServiceBase';
 
+import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 @backgroundClass()
@@ -90,12 +92,14 @@ class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
   async getNotSupportedChains(
     proposal: Web3WalletTypes.SessionProposal,
+    isOptionalNamespace?: boolean,
   ): Promise<string[]> {
     // Find the supported chains must
     const required = []; // [eip155:5]
-    for (const [key, values] of Object.entries(
-      proposal.params.requiredNamespaces,
-    )) {
+    const namespaces = isOptionalNamespace
+      ? proposal.params.optionalNamespaces
+      : proposal.params.requiredNamespaces;
+    for (const [key, values] of Object.entries(namespaces)) {
       const chains = key.includes(':') ? [key] : values.chains ?? [];
       required.push(...chains);
     }
@@ -165,22 +169,89 @@ class ServiceWalletConnect extends ServiceBase {
         accounts: string[];
       }
     > = {};
-    Object.entries(proposal.params.requiredNamespaces).forEach(
-      ([key, value]) => {
+
+    // Utility function to process namespaces
+    const processNamespaces = async (
+      namespaces: ProposalTypes.RequiredNamespaces,
+      notSupportedChains: string[] = [],
+    ) => {
+      for (const [key, value] of Object.entries(namespaces)) {
         const namespace = key as INamespaceUnion;
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
         const account = accountsInfo.find((a) => a.networkImpl === impl);
         supportedNamespaces[namespace] = {
-          chains: chains ?? [],
+          chains:
+            chains?.filter((chain) => !notSupportedChains.includes(chain)) ??
+            [],
           methods: supportMethodsMap[namespace] ?? [],
           events: supportEventsMap[namespace],
-          accounts: (chains ?? []).map((c) => `${c}:${account?.address ?? ''}`),
+          accounts:
+            chains
+              ?.filter((chain) => !notSupportedChains.includes(chain))
+              .map((c) => `${c}:${account?.address ?? ''}`) ?? [],
         };
-      },
-    );
+      }
+    };
+    // Process required namespaces
+    await processNamespaces(proposal.params.requiredNamespaces);
+
+    // Retrieve list of unsupported chains
+    const notSupportedChains = await this.getNotSupportedChains(proposal, true);
+
+    // Process optional namespaces, considering unsupported chains
+    if (proposal.params.optionalNamespaces) {
+      const filteredOptionalNamespaces = Object.entries(
+        proposal.params.optionalNamespaces,
+      )
+        .filter(([key]) => key in proposal.params.requiredNamespaces)
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+      await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
+    }
+
     console.log('supportedNamespaces: ', supportedNamespaces);
     return supportedNamespaces;
+  }
+
+  @backgroundMethod()
+  async getActiveSessions() {
+    await this.backgroundApi.walletConnect.initialize();
+    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+  }
+
+  @backgroundMethod()
+  async walletConnectDisconnect(topic: string) {
+    return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
+      topic,
+      reason: getSdkError('USER_DISCONNECTED'),
+    });
+  }
+
+  @backgroundMethod()
+  async updateWalletConnectSession(
+    topic: string,
+    namespaces: SessionTypes.Namespaces,
+  ) {
+    return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
+      topic,
+      namespaces,
+    });
+  }
+
+  @backgroundMethod()
+  async handleSessionDelete(topic: string) {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    if (rawData?.data?.walletConnect) {
+      for (const [key, value] of Object.entries(rawData.data.walletConnect)) {
+        if (value.walletConnectTopic === topic) {
+          await this.backgroundApi.serviceDApp.disconnectWebsite({
+            origin: key,
+            storageType: 'walletConnect',
+          });
+        }
+      }
+    }
   }
 }
 

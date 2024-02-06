@@ -11,6 +11,7 @@ import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
@@ -19,6 +20,7 @@ import type {
   WalletConnectRequestProxy,
 } from './WalletConnectRequestProxy';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { SessionTypes } from '@walletconnect/types';
 import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
 
 class ProviderApiWalletConnect {
@@ -101,9 +103,9 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const result = await this.backgroundApi.serviceDApp.openModal({
+      const result = (await this.backgroundApi.serviceDApp.openModal({
         request: {
-          scope: '$walletConnect',
+          scope: '$walletConnect'
         },
         screens: [
           EModalRoutes.DAppConnectionModal,
@@ -112,12 +114,19 @@ class ProviderApiWalletConnect {
         params: {
           proposal,
         },
-      });
-      console.log('=====>>>>result: ', result);
-      await this.web3Wallet?.approveSession({
+      })) as {
+        accountsInfo: IConnectionAccountInfo[];
+        supportedNamespaces: Record<string, SessionTypes.BaseNamespace>;
+      };
+      const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        namespaces: (result as any).supportedNamespaces,
+        namespaces: result.supportedNamespaces,
+      });
+      await this.backgroundApi.serviceDApp.saveConnectionSession({
+        origin: new URL(proposal.params.proposer.metadata.url).origin,
+        accountsInfo: result.accountsInfo,
+        storageType: 'walletConnect',
+        walletConnectTopic: newSession?.topic,
       });
     } catch {
       await this.web3Wallet?.rejectSession({
@@ -198,6 +207,10 @@ class ProviderApiWalletConnect {
 
   onSessionDelete(args: Web3WalletTypes.SessionDelete) {
     console.log('onSessionDelete: ', args);
+    console.log(this.web3Wallet?.getActiveSessions());
+    void this.backgroundApi.serviceWalletConnect.handleSessionDelete(
+      args.topic,
+    );
   }
 
   onAuthRequest(args: Web3WalletTypes.AuthRequest) {

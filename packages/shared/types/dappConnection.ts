@@ -23,6 +23,7 @@ export interface IConnectionItem {
   addressMap: {
     [address in string]: number[];
   };
+  walletConnectTopic?: string;
 }
 
 export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
