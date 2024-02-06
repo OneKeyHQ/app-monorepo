@@ -411,7 +411,7 @@ function dialogShow({
     (options: {
       onClose?: (isTriggeredByUser: boolean) => void | Promise<void>;
     }) =>
-    () =>
+    (isTriggeredByUser: boolean) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -422,7 +422,7 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void options.onClose?.(false);
+          void options.onClose?.(isTriggeredByUser);
           resolve();
         }, 300);
       });
@@ -433,8 +433,8 @@ function dialogShow({
       onCancel,
       onCancelText,
       cancelButtonProps,
-      showConfirmButton,
-      showCancelButton,
+      showConfirmButton = true,
+      showCancelButton = true,
       onConfirm,
       onConfirmText,
       confirmButtonProps,
