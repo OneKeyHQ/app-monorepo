@@ -21,20 +21,28 @@ function ConnectionListEmpty() {
 }
 
 function ConnectionList() {
+  const { serviceDApp, serviceWalletConnect } = backgroundApiProxy;
   const { result, run } = usePromiseResult(
-    async () => backgroundApiProxy.serviceDApp.getAllConnectedList(),
-    [],
+    async () => serviceDApp.getAllConnectedList(),
+    [serviceDApp],
   );
 
   const handleDAppDisconnect = useCallback(
-    async (origin: string, storageType: IStorageType) => {
-      await backgroundApiProxy.serviceDApp.disconnectWebsite({
+    async (
+      origin: string,
+      storageType: IStorageType,
+      walletConnectTopic?: string,
+    ) => {
+      if (storageType === 'walletConnect' && walletConnectTopic) {
+        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+      }
+      await serviceDApp.disconnectWebsite({
         origin,
         storageType,
       });
       void run();
     },
-    [run],
+    [run, serviceDApp, serviceWalletConnect],
   );
 
   const renderHeaderRight = useCallback(
@@ -43,14 +51,14 @@ function ConnectionList() {
         variant="tertiary"
         size="medium"
         onPress={async () => {
-          await backgroundApiProxy.serviceDApp.disconnectAllWebsites();
+          await serviceDApp.disconnectAllWebsites();
           void run();
         }}
       >
         Remove All
       </Button>
     ),
-    [run],
+    [run, serviceDApp],
   );
 
   return (

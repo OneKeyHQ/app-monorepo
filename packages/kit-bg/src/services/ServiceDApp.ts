@@ -29,6 +29,7 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
+  IConnectionItemWithStorageType,
   IGetDAppAccountInfoParams,
   IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
@@ -331,6 +332,7 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async disconnectAllWebsites() {
+    await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
     await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
@@ -409,13 +411,50 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedList() {
+  async getAllConnectedList(): Promise<IConnectionItemWithStorageType[]> {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    if (!rawData || !rawData.data || !rawData.data.injectedProvider) {
-      return [];
+    const injectedProviders = rawData?.data?.injectedProvider
+      ? Object.values(rawData.data.injectedProvider).map((i) => ({
+          ...i,
+          storageType: 'injectedProvider',
+        }))
+      : [];
+
+    let walletConnects: IConnectionItemWithStorageType[] = [];
+    const activeSessions =
+      await this.backgroundApi.serviceWalletConnect.getActiveSessions();
+    const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
+    const disconnectPromises = [];
+    if (rawData?.data?.walletConnect) {
+      const walletConnectEntries = Object.entries(rawData.data.walletConnect);
+      // Collect all required asynchronous disconnect operations
+      for (const [key, value] of walletConnectEntries) {
+        if (
+          value.walletConnectTopic &&
+          !activeSessionTopics.has(value.walletConnectTopic)
+        ) {
+          disconnectPromises.push(
+            this.disconnectWebsite({
+              origin: key,
+              storageType: 'walletConnect',
+            }),
+          );
+        }
+      }
+
+      await Promise.all(disconnectPromises);
+
+      // Re-filter walletConnects to only retain active sessions
+      walletConnects = walletConnectEntries
+        .filter(([, value]) =>
+          activeSessionTopics.has(value.walletConnectTopic ?? ''),
+        )
+        .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
-    return Object.values(rawData.data.injectedProvider);
+    const allConnections = [...injectedProviders, ...walletConnects];
+
+    return allConnections as IConnectionItemWithStorageType[];
   }
 
   @backgroundMethod()

@@ -215,8 +215,15 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   async getActiveSessions() {
-    await this.backgroundApi.walletConnect.initialize();
     return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
+  }
+
+  @backgroundMethod()
+  async disconnectAllSessions() {
+    const activeSessions = await this.getActiveSessions();
+    for (const session of Object.values(activeSessions ?? {})) {
+      await this.walletConnectDisconnect(session.topic);
+    }
   }
 
   @backgroundMethod()

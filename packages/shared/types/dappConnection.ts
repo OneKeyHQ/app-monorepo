@@ -30,6 +30,10 @@ export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
   num: number;
 };
 
+export type IConnectionItemWithStorageType = IConnectionItem & {
+  storageType: IStorageType;
+};
+
 export type IStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
