@@ -15,7 +15,6 @@ import {
   type ISendTxBaseParams,
 } from '@onekeyhq/shared/types/tx';
 
-import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -351,14 +350,16 @@ class ServiceSend extends ServiceBase {
       throw new Error('Get on-chain nonce failed.');
     }
 
-    const maxPendingNonce = await simpleDb.localHistory.getMaxPendingNonce({
-      accountId,
-      networkId,
-    });
-    const pendingNonceList = await simpleDb.localHistory.getPendingNonceList({
-      accountId,
-      networkId,
-    });
+    const maxPendingNonce =
+      await this.backgroundApi.simpleDb.localHistory.getMaxPendingNonce({
+        accountId,
+        networkId,
+      });
+    const pendingNonceList =
+      await this.backgroundApi.simpleDb.localHistory.getPendingNonceList({
+        accountId,
+        networkId,
+      });
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
       onChainNextNonce,

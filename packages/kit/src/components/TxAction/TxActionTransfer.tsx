@@ -61,10 +61,10 @@ function getTxActionTransferInfo(props: ITxActionProps) {
   return {
     sends,
     receives,
-    from: from.toLowerCase(),
-    to: to.toLowerCase(),
+    from,
+    to,
     label: label ?? '',
-    transferTarget: transferTarget.toLowerCase(),
+    transferTarget,
     sendNFTIcon: sendsWithNFT[0]?.icon,
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,

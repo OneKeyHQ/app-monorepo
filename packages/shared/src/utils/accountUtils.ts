@@ -194,10 +194,9 @@ function buildLocalHistoryId(params: {
   networkId: string;
   txid: string;
   accountId: string;
-  index?: number;
 }) {
-  const { networkId, txid, accountId, index } = params;
-  const historyId = `${networkId}_${txid}_${accountId}_${index ?? ''}`;
+  const { networkId, txid, accountId } = params;
+  const historyId = `${networkId}_${txid}_${accountId}`;
   return historyId;
 }
 

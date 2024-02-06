@@ -16,8 +16,6 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import simpleDb from '../dbs/simple/simpleDb';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -88,7 +86,7 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     tokens: IToken[];
   }) {
-    return simpleDb.localTokens.updateTokens({
+    return this.backgroundApi.simpleDb.localTokens.updateTokens({
       networkId,
       tokens,
     });
@@ -106,7 +104,7 @@ class ServiceToken extends ServiceBase {
   }) {
     const { networkId, tokenIdOnNetwork } = params;
 
-    const localToken = await simpleDb.localTokens.getToken({
+    const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
     });

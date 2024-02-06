@@ -165,14 +165,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     signedTx,
     isSigner,
     isLocalCreated,
-    index,
   }: {
     historyTxToMerge?: IAccountHistoryTx;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
     isSigner?: boolean;
     isLocalCreated?: boolean;
-    index?: number;
   }): Promise<IAccountHistoryTx> {
     const txid: string = signedTx?.txid || decodedTx?.txid || '';
     if (!txid) {
@@ -190,7 +188,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       networkId: this.networkId,
       txid,
       accountId: this.accountId,
-      index,
     });
     const historyTx: IAccountHistoryTx = {
       id: historyId,
@@ -243,7 +240,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
       return await this.buildHistoryTx({
         decodedTx,
-        index,
       });
     } catch (e) {
       console.log(e);

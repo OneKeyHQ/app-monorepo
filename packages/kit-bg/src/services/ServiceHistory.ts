@@ -12,7 +12,6 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
@@ -28,7 +27,9 @@ class ServiceHistory extends ServiceBase {
     const { accountId, networkId, tokenIdOnNetwork } = params;
     const onChainHistoryTxs = await this.fetchAccountOnChainHistory(params);
 
-    await simpleDb.localHistory.updateLocalHistoryPendingTxs(onChainHistoryTxs);
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
+      onChainHistoryTxs,
+    );
 
     const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
       networkId,
@@ -94,11 +95,13 @@ class ServiceHistory extends ServiceBase {
   }) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
     const localHistoryPendingTxs =
-      await simpleDb.localHistory.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountId,
-        tokenIdOnNetwork,
-      });
+      await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryPendingTxs(
+        {
+          networkId,
+          accountId,
+          tokenIdOnNetwork,
+        },
+      );
 
     return localHistoryPendingTxs;
   }
@@ -109,7 +112,9 @@ class ServiceHistory extends ServiceBase {
   }) {
     const { pendingTxs } = params;
 
-    return simpleDb.localHistory.saveLocalHistoryPendingTxs(pendingTxs);
+    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
+      pendingTxs,
+    );
   }
 
   @backgroundMethod()
