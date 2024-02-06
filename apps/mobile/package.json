@@ -10,7 +10,7 @@
     "android:google": "ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
-    "native-bundle": "react-native start",
+    "native-bundle": "react-native start --experimental-debugger",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
