@@ -19,7 +19,7 @@ import { Stack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
 export type IShowToasterProps = PropsWithChildren<{
-  onClose?: () => Promise<void> | void;
+  onClose?: (isTriggeredByUser: boolean) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
   duration?: number;
   disableSwipeGesture?: boolean;
@@ -46,23 +46,36 @@ function BasicShowToaster(
   ref: ForwardedRef<IShowToasterInstance>,
 ) {
   const [isOpen, setIsOpen] = useState(true);
-  const handleClose = useCallback(() => {
-    setIsOpen(false);
-    return onClose?.();
-  }, [onClose]);
+  const handleClose = useCallback(
+    (isTriggeredByUser: boolean) => {
+      setIsOpen(false);
+      return onClose?.(isTriggeredByUser);
+    },
+    [onClose],
+  );
+  const handleImperativeClose = useCallback(
+    () => handleClose(false),
+    [handleClose],
+  );
+
+  const handleContainerClose = useCallback(
+    () => handleClose(true),
+    [handleClose],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
-      close: handleClose,
+      close: handleImperativeClose,
     }),
-    [handleClose],
+    [handleImperativeClose],
   );
-  console.log(isOpen);
+
   const value = useMemo(
     () => ({
-      close: handleClose,
+      close: handleContainerClose,
     }),
-    [handleClose],
+    [handleContainerClose],
   );
   const { top } = useSafeAreaInsets();
   const mdPadding = '$10';
@@ -89,7 +102,7 @@ function BasicShowToaster(
         flex={1}
         pointerEvents={dismissOnOverlayPress ? 'auto' : 'none'}
         position="absolute"
-        onPress={handleClose}
+        onPress={handleContainerClose}
       />
       <Toast
         unstyled
