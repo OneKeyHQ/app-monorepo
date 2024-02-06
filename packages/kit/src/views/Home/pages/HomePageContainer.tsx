@@ -101,27 +101,6 @@ function HomePage() {
 }
 
 function HomePageContainer() {
-  console.log('HomePageContainer render');
-
-  const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    result: { networkIds },
-  } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
-        impls: [
-          IMPL_BTC,
-          IMPL_TBTC,
-          // IMPL_EVM,
-        ],
-      }),
-    [],
-    {
-      initResult: {
-        networkIds: [],
-      },
-    },
-  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -129,12 +108,6 @@ function HomePageContainer() {
         sceneUrl: '',
       }}
       enabledNum={[0]}
-      // availableNetworksMap={{
-      //   0: {
-      //     networkIds, // support available networks
-      //     defaultNetworkId: getNetworkIdsMap().tbtc, // default selected networkId
-      //   },
-      // }}
     >
       <HomePage />
       <OnboardingOnMount />
