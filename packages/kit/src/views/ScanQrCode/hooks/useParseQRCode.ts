@@ -8,13 +8,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
-import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/parseQRCode/type';
+import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
-} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/parseQRCode/type';
+} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();

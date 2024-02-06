@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { EQRCodeHandlerType } from './parseQRCode/type';
+import { EQRCodeHandlerType } from './utils/parseQRCode/type';
 
 const {
   serviceScanQRCode: { parse },

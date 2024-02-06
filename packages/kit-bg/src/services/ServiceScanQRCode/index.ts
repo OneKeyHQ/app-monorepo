@@ -6,9 +6,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from '../ServiceBase';
 
-import { parseQRCode } from './parseQRCode';
+import { parseQRCode } from './utils/parseQRCode';
 
-import type { IQRCodeHandlerParseOptions } from './parseQRCode/type';
+import type { IQRCodeHandlerParseOptions } from './utils/parseQRCode/type';
 
 @backgroundClass()
 class ServiceScanQRCode extends ServiceBase {
