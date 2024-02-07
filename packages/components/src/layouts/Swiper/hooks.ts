@@ -162,7 +162,7 @@ export const useScrollEvent = ({
 
   useEffect(() => {
     startTimer();
-  });
+  }, []);
 
   const handleScrollToIndexFailed = useCallback(
     (info: {
