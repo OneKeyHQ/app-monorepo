@@ -85,12 +85,12 @@ function DialogFrame({
     [dismissOnOverlayPress, onClose],
   );
   const handleBackdropPress = useCallback(() => {
-    void onBackdropPress?.(true);
+    void onBackdropPress?.();
   }, [onBackdropPress]);
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
-        void onClose(true);
+        void onClose();
       }
     },
     [onClose],
@@ -110,9 +110,9 @@ function DialogFrame({
 
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(() => onClose(true));
+    cancel?.(() => onClose());
     if (!onCancel?.length) {
-      await onClose(true);
+      await onClose();
     }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
@@ -405,8 +405,8 @@ function dialogShow({
     | undefined;
 
   const buildForwardOnClose =
-    (options: { onClose?: (closeFlag: string) => void | Promise<void> }) =>
-    (closeFlag: string) =>
+    (options: { onClose?: (closeFlag?: string) => void | Promise<void> }) =>
+    (closeFlag?: string) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -490,7 +490,7 @@ function dialogShow({
     current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
-    close: async (closeFlag: string) => instanceRef?.current?.close(closeFlag),
+    close: async (closeFlag?: string) => instanceRef?.current?.close(closeFlag),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
