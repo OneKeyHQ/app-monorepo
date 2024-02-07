@@ -1,11 +1,4 @@
-import {
-  Divider,
-  Icon,
-  Image,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {

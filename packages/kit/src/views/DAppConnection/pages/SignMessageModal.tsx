@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
-import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

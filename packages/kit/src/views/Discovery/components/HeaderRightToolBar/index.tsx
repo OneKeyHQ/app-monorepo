@@ -9,7 +9,6 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import {
