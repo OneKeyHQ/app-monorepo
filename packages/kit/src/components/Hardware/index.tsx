@@ -32,14 +32,14 @@ export const confirmOnClassic = async () => {
 
   const toast = Toast.show({
     children: <ConfirmOnClassic />,
-    onClose: (closeFlag) => {
-      console.log('isTriggeredByUser:', closeFlag);
+    onClose: (extra) => {
+      console.log('isTriggeredByUser:', extra?.flag);
       console.log('close ConfirmOnClassic');
     },
   });
   setTimeout(async () => {
     event.confirm();
-    await toast.close('confirmOnClassic closeFlag');
+    await toast.close({ flag: 'confirmOnClassic closeFlag' });
   }, 3500);
   await event.run();
 };

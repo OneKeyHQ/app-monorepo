@@ -694,13 +694,13 @@ const DialogGallery = () => (
                 const dialog = Dialog.show({
                   title: 'show',
                   onConfirm: () => {},
-                  onClose: (closeFlag) => {
-                    console.log('closeFlag:', closeFlag);
+                  onClose: (extra) => {
+                    console.log('closeFlag:', extra);
                   },
                   renderContent: <SizableText>closeFlag</SizableText>,
                 });
                 setTimeout(() => {
-                  void dialog.close('closeFlag');
+                  void dialog.close({ flag: 'closeFlag' });
                 }, 3000);
               }}
             >

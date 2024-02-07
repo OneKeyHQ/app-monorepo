@@ -20,14 +20,14 @@ import { Stack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
 export type IShowToasterProps = PropsWithChildren<{
-  onClose?: (closeFlag?: string) => Promise<void> | void;
+  onClose?: (extra?: { flag?: string }) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
   duration?: number;
   disableSwipeGesture?: boolean;
 }>;
 
 export interface IShowToasterInstance {
-  close: (closeFlag?: string) => Promise<void> | void;
+  close: (extra?: { flag?: string }) => Promise<void> | void;
 }
 
 export type IContextType = {
@@ -48,14 +48,14 @@ function BasicShowToaster(
 ) {
   const [isOpen, setIsOpen] = useState(true);
   const handleClose = useCallback(
-    (closeFlag?: string) => {
+    (extra?: { flag?: string }) => {
       setIsOpen(false);
-      return onClose?.(closeFlag);
+      return onClose?.(extra);
     },
     [onClose],
   );
   const handleImperativeClose = useCallback(
-    (closeFlag?: string) => handleClose(closeFlag),
+    (extra?: { flag?: string }) => handleClose(extra),
     [handleClose],
   );
 

@@ -325,9 +325,9 @@ function BaseDialogContainer(
   const [isOpen, changeIsOpen] = useState(true);
   const formRef = useRef();
   const handleClose = useCallback(
-    (closeFlag?: string) => {
+    (extra?: { flag?: string }) => {
       changeIsOpen(false);
-      return onClose(closeFlag);
+      return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [onClose],
@@ -355,7 +355,7 @@ function BaseDialogContainer(
   }, [onOpen]);
 
   const handleImperativeClose = useCallback(
-    (closeFlag?: string) => handleClose(closeFlag),
+    (extra?: { flag?: string }) => handleClose(extra),
     [handleClose],
   );
 
@@ -405,8 +405,10 @@ function dialogShow({
     | undefined;
 
   const buildForwardOnClose =
-    (options: { onClose?: (closeFlag?: string) => void | Promise<void> }) =>
-    (closeFlag?: string) =>
+    (options: {
+      onClose?: (extra?: { flag?: string }) => void | Promise<void>;
+    }) =>
+    (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -417,7 +419,7 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void options.onClose?.(closeFlag);
+          void options.onClose?.(extra);
           resolve();
         }, 300);
       });
@@ -490,7 +492,8 @@ function dialogShow({
     current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
-    close: async (closeFlag?: string) => instanceRef?.current?.close(closeFlag),
+    close: async (extra?: { flag?: string }) =>
+      instanceRef?.current?.close(extra),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
