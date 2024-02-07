@@ -325,18 +325,15 @@ function BaseDialogContainer(
   const [isOpen, changeIsOpen] = useState(true);
   const formRef = useRef();
   const handleClose = useCallback(
-    (isTriggeredByUser: boolean) => {
+    (closeFlag?: string) => {
       changeIsOpen(false);
-      return onClose(isTriggeredByUser);
+      return onClose(closeFlag);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [onClose],
   );
 
-  const handleContainerClose = useCallback(
-    () => handleClose(true),
-    [handleClose],
-  );
+  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
 
   const contextValue = useMemo(
     () => ({
@@ -358,7 +355,7 @@ function BaseDialogContainer(
   }, [onOpen]);
 
   const handleImperativeClose = useCallback(
-    () => handleClose(false),
+    (closeFlag?: string) => handleClose(closeFlag),
     [handleClose],
   );
 
@@ -408,10 +405,8 @@ function dialogShow({
     | undefined;
 
   const buildForwardOnClose =
-    (options: {
-      onClose?: (isTriggeredByUser: boolean) => void | Promise<void>;
-    }) =>
-    (isTriggeredByUser: boolean) =>
+    (options: { onClose?: (closeFlag: string) => void | Promise<void> }) =>
+    (closeFlag: string) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -422,7 +417,7 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void options.onClose?.(isTriggeredByUser);
+          void options.onClose?.(closeFlag);
           resolve();
         }, 300);
       });
@@ -495,7 +490,7 @@ function dialogShow({
     current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
-    close: async () => instanceRef?.current?.close(),
+    close: async (closeFlag: string) => instanceRef?.current?.close(closeFlag),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }

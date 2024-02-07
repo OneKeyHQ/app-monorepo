@@ -686,7 +686,7 @@ const DialogGallery = () => (
         element: <DialogNavigatorDemo />,
       },
       {
-        title: 'isTriggeredByUser flag',
+        title: 'closeFlag',
         element: (
           <YStack>
             <Button
@@ -694,17 +694,17 @@ const DialogGallery = () => (
                 const dialog = Dialog.show({
                   title: 'show',
                   onConfirm: () => {},
-                  onClose: (isTriggeredByUser) => {
-                    console.log('isTriggeredByUser:', isTriggeredByUser);
+                  onClose: (closeFlag) => {
+                    console.log('closeFlag:', closeFlag);
                   },
-                  renderContent: <SizableText>isTriggeredByUser</SizableText>,
+                  renderContent: <SizableText>closeFlag</SizableText>,
                 });
                 setTimeout(() => {
-                  void dialog.close();
+                  void dialog.close('closeFlag');
                 }, 3000);
               }}
             >
-              isTriggeredByUser
+              closeFlag
             </Button>
           </YStack>
         ),
