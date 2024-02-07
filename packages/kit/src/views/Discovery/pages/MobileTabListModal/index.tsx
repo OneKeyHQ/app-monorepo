@@ -145,11 +145,9 @@ function MobileTabListModal() {
       }, 30);
       return;
     }
-    void InteractionManager.runAfterInteractions(() => {
-      listViewRef.current?.scrollToIndex({
-        index,
-        animated: true,
-      });
+    listViewRef.current?.scrollToIndex({
+      index,
+      animated: true,
     });
   }, []);
 
