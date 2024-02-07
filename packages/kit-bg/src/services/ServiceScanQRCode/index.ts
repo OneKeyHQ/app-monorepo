@@ -19,11 +19,7 @@ class ServiceScanQRCode extends ServiceBase {
   public parse(value: string, options?: IQRCodeHandlerParseOptions) {
     return parseQRCode(value, {
       ...options,
-      getNetwork: (implsList, chainId) =>
-        this.backgroundApi.serviceNetwork.getNetworkByImplListAndChainId(
-          implsList,
-          chainId,
-        ),
+      backgroundApi: this.backgroundApi,
     });
   }
 }

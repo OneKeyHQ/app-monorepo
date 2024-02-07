@@ -1,4 +1,4 @@
-import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
 import { EQRCodeHandlerType } from '../type';
 
@@ -48,7 +48,9 @@ export const bitcoin: IQRCodeHandler<IBitcoinValue> = async (
     label,
     message,
     paramList,
-    network: await options?.getNetwork?.([IMPL_BTC], '0'),
+    network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
+      networkId: getNetworkIdsMap().btc,
+    }),
   };
   return {
     type: EQRCodeHandlerType.BITCOIN,

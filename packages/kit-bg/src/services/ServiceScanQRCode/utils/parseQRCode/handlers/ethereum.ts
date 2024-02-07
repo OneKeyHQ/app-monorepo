@@ -45,7 +45,11 @@ export const ethereum: IQRCodeHandler<IEthereumValue> = async (
     sendAddress = targetAddress;
   }
   if (sendAddress) {
-    const network = await options?.getNetwork?.([IMPL_EVM], chainId);
+    const networkList =
+      await options?.backgroundApi?.serviceNetwork?.getNetworksByImpls?.({
+        impls: [IMPL_EVM],
+      });
+    const network = networkList?.networks?.find?.((n) => n.chainId === chainId);
     const ethereumValue: IEthereumValue = {
       address: sendAddress,
       id: chainId,

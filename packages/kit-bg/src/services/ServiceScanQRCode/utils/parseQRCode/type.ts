@@ -1,3 +1,4 @@
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 export enum EQRCodeHandlerType {
@@ -79,10 +80,7 @@ export type IQRCodeHandlerOptions = {
   urlResult?: IQRCodeHandlerResult<IUrlValue>;
   deeplinkResult?: IQRCodeHandlerResult<IUrlValue>;
   bitcoinUrlScheme?: string;
-  getNetwork?: (
-    networkImpls: string[],
-    chainId: string,
-  ) => Promise<IServerNetwork | undefined>;
+  backgroundApi?: IBackgroundApi;
 };
 
 export type IQRCodeHandler<T extends IBaseValue> = (
