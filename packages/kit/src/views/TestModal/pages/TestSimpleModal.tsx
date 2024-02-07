@@ -30,7 +30,7 @@ export function TestSimpleModal() {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
 
-  const [val, setVal] = useState('');
+  const [, setVal] = useState('');
 
   useEffect(() => {
     setVal('11');
