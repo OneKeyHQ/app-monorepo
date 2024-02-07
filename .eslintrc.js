@@ -15,6 +15,7 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
     'warn',
     {
@@ -114,7 +115,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path'],
+  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
