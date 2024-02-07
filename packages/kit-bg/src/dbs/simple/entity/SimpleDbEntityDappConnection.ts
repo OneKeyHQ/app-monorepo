@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
@@ -23,12 +24,7 @@ function generateAccountSelectorNumber(
 ): number {
   let accountSelectorNumber = storageType === 'injectedProvider' ? 0 : 1000;
   // Use a while loop to ensure finding an unused `accountSelectorNumber`
-  while (
-    Object.prototype.hasOwnProperty.call(
-      connectionMap,
-      accountSelectorNumber.toString(),
-    )
-  ) {
+  while (connectionMap[accountSelectorNumber]) {
     accountSelectorNumber += 1;
   }
   return accountSelectorNumber;
@@ -152,10 +148,12 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       storage[origin] = connectionItem;
 
       const newData = { ...data, [storageType]: storage };
-      console.log(
-        'simpledb upsertConnection: ',
-        JSON.stringify(newData, null, 2),
-      );
+      if (platformEnv.isDev) {
+        console.log(
+          'simpledb upsertConnection: ',
+          JSON.stringify(newData, null, 2),
+        );
+      }
       return {
         data: newData,
       };
@@ -184,16 +182,17 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         };
       }
 
-      console.log(
-        'simpledb beforeUpdate rawData: ',
-        JSON.stringify(rawData.data, null, 2),
-      );
-
-      console.log(
-        'simpledb updateConnectionAccountInfo: ',
-        JSON.stringify(updatedAccountInfo, null, 2),
-        accountSelectorNum,
-      );
+      if (platformEnv.isDev) {
+        console.log(
+          'simpledb beforeUpdate rawData: ',
+          JSON.stringify(rawData.data, null, 2),
+        );
+        console.log(
+          'simpledb updateConnectionAccountInfo: ',
+          JSON.stringify(updatedAccountInfo, null, 2),
+          accountSelectorNum,
+        );
+      }
 
       const storage = rawData.data[storageType];
       const connectionItem = storage[origin];
@@ -220,10 +219,12 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         [origin]: updatedConnectionItem,
       };
 
-      console.log(
-        'simpledb updateConnectionAccountInfo: ',
-        JSON.stringify(updatedStorage, null, 2),
-      );
+      if (platformEnv.isDev) {
+        console.log(
+          'simpledb updateConnectionAccountInfo: ',
+          JSON.stringify(updatedStorage, null, 2),
+        );
+      }
 
       return {
         data: {

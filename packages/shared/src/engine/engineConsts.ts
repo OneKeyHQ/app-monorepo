@@ -241,11 +241,3 @@ export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
   [IMPL_EVM]: ['USDC', 'USDT'],
 };
-
-export const isLightningNetwork = (coinType: string) =>
-  coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET;
-export const isLightningNetworkByImpl = (impl?: string) =>
-  impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
-export const isLightningNetworkByNetworkId = (networkId?: string) =>
-  networkId === getNetworkIdsMap().lightning ||
-  networkId === getNetworkIdsMap().tlightning;

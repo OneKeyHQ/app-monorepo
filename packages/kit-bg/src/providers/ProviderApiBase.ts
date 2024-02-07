@@ -57,6 +57,10 @@ abstract class ProviderApiBase {
         methodName,
       );
     }
+    if (!payload.origin) {
+      throw web3Errors.provider.unauthorized('origin is required');
+    }
+
     if (methodFunc) {
       return methodFunc.call(this, payload, ...paramsArr);
     }
@@ -66,24 +70,6 @@ abstract class ProviderApiBase {
     //  exists methods
     //  RPC methods
     //  throwMethodNotFound
-  }
-
-  async getConnectedAccountsInfo(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw web3Errors.provider.unauthorized('origin is required');
-    }
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.getConnectedAccounts({
-        origin: request.origin ?? '',
-        scope: request.scope ?? this.providerName,
-      });
-    if (
-      !accountsInfo ||
-      (Array.isArray(accountsInfo) && !accountsInfo.length)
-    ) {
-      return null;
-    }
-    return accountsInfo;
   }
 }
 

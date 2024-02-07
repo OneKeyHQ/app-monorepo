@@ -6,11 +6,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
-import {
-  ENetworkTypeEnum,
-  NETWORK_TYPES,
-} from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ISignMessageParams,
   ISwitchNetworkParams,
@@ -20,18 +16,6 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-
-export const isBTCNetwork = (networkId?: string) =>
-  networkId === getNetworkIdsMap().btc || networkId === getNetworkIdsMap().tbtc;
-
-export function getNetworkName(network: IServerNetwork) {
-  if (network && isBTCNetwork(network.id)) {
-    if (network.isTestnet) {
-      return Promise.resolve(NETWORK_TYPES[ENetworkTypeEnum.TESTNET].name);
-    }
-    return Promise.resolve(NETWORK_TYPES[ENetworkTypeEnum.MAINNET].name);
-  }
-}
 
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
@@ -86,7 +70,10 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   async getAccounts(request: IJsBridgeMessagePayload) {
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
@@ -95,24 +82,24 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getPublicKey(request: IJsBridgeMessagePayload) {
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       return Promise.resolve('');
     }
-    return Promise.resolve(accountsInfo[0].account.pub);
+    return Promise.resolve(accountsInfo[0]?.account?.pub);
   }
 
   @providerApiMethod()
   public async getNetwork(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
       origin: request.origin ?? '',
       scope: request.scope ?? this.providerName,
     });
     if (Array.isArray(networks) && networks.length) {
-      return getNetworkName(networks[0]);
+      return networkUtils.getBtcDappNetworkName(networks[0]);
     }
     return '';
   }
@@ -122,9 +109,6 @@ class ProviderApiBtc extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchNetworkParams,
   ) {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
     console.log('ProviderApiBtc.switchNetwork');
 
     const { network: networkName } = params;
@@ -141,7 +125,7 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
     await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-      origin: request.origin,
+      origin: request.origin ?? '',
       scope: request.scope ?? this.providerName,
       newNetworkId: networkId,
     });
@@ -153,18 +137,20 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     const { message, type } = params;
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       throw web3Errors.provider.custom({
         code: 4002,
         message: `Can not get current account`,
       });
     }
-    const {
-      accountInfo: { walletId, accountId, networkId },
-    } = accountsInfo[0];
+    const { accountInfo: { walletId, accountId, networkId } = {} } =
+      accountsInfo[0];
 
-    if (walletId.startsWith('hw')) {
+    if (walletId?.startsWith('hw')) {
       throw web3Errors.provider.custom({
         code: 4003,
         message: 'Sign message is not supported on hardware.',
@@ -177,8 +163,8 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
-      accountId,
-      networkId,
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
       unsignedMessage: {
         type,
         message,

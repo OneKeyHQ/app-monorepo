@@ -1,9 +1,14 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { getSdkError } from '@walletconnect/utils';
 import { debounce } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+// TODO: move to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
 import {
   backgroundClass,
@@ -23,6 +28,7 @@ import {
   EAccountSelectorSceneName,
   type IDappSourceInfo,
 } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
   IGetDAppAccountInfoParams,
@@ -100,8 +106,10 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
-    console.log('sampleMethod');
     return new Promise((resolve, reject) => {
+      if (!request.origin) {
+        throw new Error('origin is required');
+      }
       const id = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
@@ -113,8 +121,8 @@ class ServiceDApp extends ServiceBase {
       ];
       const $sourceInfo: IDappSourceInfo = {
         id,
-        origin: request.origin || '',
-        hostname: uriUtils.getHostNameFromUrl({ url: request.origin || '' }),
+        origin: request.origin,
+        hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
         scope: request.scope,
         data: request.data as any,
       };
@@ -211,6 +219,9 @@ class ServiceDApp extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    if (!accountId || !networkId) {
+      throw new Error('accountId and networkId required');
+    }
     return this.openModal({
       request,
       screens: [EModalRoutes.DAppConnectionModal, 'SignMessageModal'],
@@ -399,6 +410,30 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async dAppGetConnectedAccountsInfo(request: IJsBridgeMessagePayload): Promise<
+    | {
+        account: INetworkAccount;
+        accountInfo?: Partial<IConnectionAccountInfo>;
+      }[]
+    | null
+  > {
+    if (!request.origin) {
+      throw web3Errors.provider.unauthorized('origin is required');
+    }
+    const accountsInfo = await this.getConnectedAccounts({
+      origin: request.origin ?? '',
+      scope: request.scope,
+    });
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && !accountsInfo.length)
+    ) {
+      return null;
+    }
+    return accountsInfo;
+  }
+
+  @backgroundMethod()
   async getAllConnectedAccountsByOrigin(origin: string) {
     return this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
       origin,
@@ -416,9 +451,15 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getConnectedNetworks(params: IGetDAppAccountInfoParams) {
-    const accountsInfo = await this.getConnectedAccountsInfo(params);
-    if (!accountsInfo) return null;
+  async getConnectedNetworks(request: IJsBridgeMessagePayload) {
+    const accountsInfo = await this.getConnectedAccountsInfo({
+      origin: request.origin ?? '',
+      scope: request.scope,
+      isWalletConnectRequest: request.isWalletConnectRequest,
+    });
+    if (!accountsInfo) {
+      throw new Error('Network not found');
+    }
     const networkIds = accountsInfo.map((accountInfo) => accountInfo.networkId);
     const { networks } =
       await this.backgroundApi.serviceNetwork.getNetworksByIds({ networkIds });
@@ -426,16 +467,20 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async switchConnectedNetwork({
-    newNetworkId,
-    ...params
-  }: IGetDAppAccountInfoParams & {
-    newNetworkId: string;
-  }) {
-    const { networkIds } =
-      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
-    const included = networkIds.some((networkId) => networkId === newNetworkId);
-    if (!included) {
+  async switchConnectedNetwork(
+    params: IGetDAppAccountInfoParams & {
+      newNetworkId: string;
+    },
+  ) {
+    const { newNetworkId } = params;
+    const containsNetwork =
+      await this.backgroundApi.serviceNetwork.containsNetwork({
+        networkId: newNetworkId,
+      });
+    if (!containsNetwork) {
+      throw new Error('Network not found');
+    }
+    if (await this.shouldSwitchNetwork(params)) {
       return;
     }
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
@@ -483,6 +528,22 @@ class ServiceDApp extends ServiceBase {
         num: accountSelectorNum,
       });
     }, 200);
+  }
+
+  @backgroundMethod()
+  async shouldSwitchNetwork(
+    params: IGetDAppAccountInfoParams & {
+      newNetworkId: string;
+    },
+  ) {
+    const accountsInfo = await this.getConnectedAccountsInfo(params);
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && !accountsInfo.length)
+    ) {
+      return false;
+    }
+    return accountsInfo.some((a) => a.networkId !== params.newNetworkId);
   }
 
   @backgroundMethod()

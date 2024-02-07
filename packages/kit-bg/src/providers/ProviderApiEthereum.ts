@@ -1,14 +1,14 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
-import stringify from 'fast-json-stable-stringify';
 
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -86,47 +86,34 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_accounts(request: IJsBridgeMessagePayload): Promise<string[]> {
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(accountsInfo.map((i) => i.account.address));
+    return Promise.resolve(accountsInfo.map((i) => i.account?.address));
   }
 
   @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw new Error('origin is required');
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
+      request,
+    );
+    if (networks?.[0]?.chainId) {
+      return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-    });
-    if (Array.isArray(networks) && networks.length) {
-      const network = networks[0];
-      if (network.chainId) {
-        return `0x${Number(network.chainId).toString(16)}`;
-      }
-    }
-    throw new Error('chainId not found');
   }
 
   @providerApiMethod()
   async net_version(request: IJsBridgeMessagePayload) {
-    if (!request.origin) {
-      throw new Error('origin is required');
+    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
+      request,
+    );
+    if (networks?.[0]?.chainId) {
+      return networks?.[0]?.chainId;
     }
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-    });
-    if (Array.isArray(networks) && networks.length) {
-      const network = networks[0];
-      if (network.chainId) {
-        return network.chainId;
-      }
-    }
-    throw new Error('chainId not found');
   }
 
   @providerApiMethod()
@@ -146,13 +133,14 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       throw web3Errors.provider.unauthorized();
     }
-    const {
-      accountInfo: { accountId, networkId },
-    } = accountsInfo[0];
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -160,21 +148,22 @@ class ProviderApiEthereum extends ProviderApiBase {
         message: messages[1],
         payload: messages,
       },
-      accountId,
-      networkId,
+      accountId: accountId ?? '',
+      networkId: networkId ?? '',
     });
   }
 
   // Provider API
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    const accountsInfo = await this.getConnectedAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
     if (!accountsInfo) {
       throw web3Errors.provider.unauthorized();
     }
-    const {
-      accountInfo: { accountId, networkId },
-    } = accountsInfo[0];
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
     let message = messages[0] as string;
     const address = messages[1] as string;
@@ -188,8 +177,8 @@ class ProviderApiEthereum extends ProviderApiBase {
         message,
         payload: [message, address],
       },
-      networkId,
-      accountId,
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
     });
   }
 
@@ -214,23 +203,20 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) {
-    return this.switchEthereumChainMemo(request, params);
+    return this.switchEthereumChain(request, params);
   }
 
   switchEthereumChain = async (
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) => {
-    if (!request.origin) {
-      throw new Error('origin is required');
-    }
-    const { networkIds: evmNetworkIds } =
-      await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+    const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+    const containsNetwork =
+      await this.backgroundApi.serviceNetwork.containsNetwork({
         impls: [IMPL_EVM],
+        networkId: newNetworkId,
       });
-    const networkId = `evm--${parseInt(params.chainId)}`;
-    const included = evmNetworkIds.some((id) => id === networkId);
-    if (!included) {
+    if (!containsNetwork) {
       // https://uniswap-v3.scroll.io/#/swap required Error response
       throw web3Errors.provider.custom({
         code: 4902, // error code should be 4902 here
@@ -238,24 +224,12 @@ class ProviderApiEthereum extends ProviderApiBase {
       });
     }
     await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-      origin: request.origin,
+      origin: request.origin ?? '',
       scope: request.scope ?? this.providerName,
-      newNetworkId: networkId,
+      newNetworkId,
     });
     return null;
   };
-
-  switchEthereumChainMemo = memoizee(this.switchEthereumChain.bind(this), {
-    max: 1,
-    maxAge: 800,
-    normalizer([request, params]: [
-      IJsBridgeMessagePayload,
-      ISwitchEthereumChainParameter,
-    ]): string {
-      const p = request?.data ?? [params];
-      return stringify(p);
-    },
-  });
 }
 
 export default ProviderApiEthereum;

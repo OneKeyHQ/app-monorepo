@@ -13,6 +13,10 @@ const platformName = [
   .filter(Boolean)
   .join('-');
 
+if (!platformName) {
+  throw new Error('platformName is empty');
+}
+
 function getPlatformShortName() {
   if (platformEnv.isNativeAndroid) {
     return 'Android';
