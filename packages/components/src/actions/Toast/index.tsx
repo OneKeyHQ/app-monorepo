@@ -88,7 +88,7 @@ export const Toast = {
         }
       | undefined;
 
-    const handleClose = (isTriggeredByUser: boolean) =>
+    const handleClose = (closeFlag?: string) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -99,7 +99,7 @@ export const Toast = {
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void onClose?.(isTriggeredByUser);
+          void onClose?.(closeFlag);
           resolve();
         }, 300);
       });
@@ -112,7 +112,8 @@ export const Toast = {
       ),
     };
     return {
-      close: async () => instanceRef?.current?.close(),
+      close: async (closeFlag?: string) =>
+        instanceRef?.current?.close(closeFlag),
     };
   },
   Close: ShowToasterClose,
