@@ -94,6 +94,7 @@ function DAppAccountListStandAloneItem({
     const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
+      isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
     });
     const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
     const networkIds = impls
@@ -104,7 +105,13 @@ function DAppAccountListStandAloneItem({
       accountSelectorNum,
       networkIds,
     };
-  }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp, serviceNetwork]);
+  }, [
+    $sourceInfo?.origin,
+    $sourceInfo?.scope,
+    $sourceInfo?.isWalletConnectRequest,
+    serviceDApp,
+    serviceNetwork,
+  ]);
 
   return (
     <YStack space="$2">

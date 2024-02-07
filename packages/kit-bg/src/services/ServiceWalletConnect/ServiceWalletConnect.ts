@@ -235,10 +235,36 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateWalletConnectSession(
+  async updateNamespaceAndSession(
     topic: string,
-    namespaces: SessionTypes.Namespaces,
+    accountsInfo: IConnectionAccountInfo[],
   ) {
+    const activeSessions = await this.getActiveSessions();
+    const session = activeSessions?.[topic];
+    if (session) {
+      const updatedNamespaces = { ...session.namespaces };
+      for (const [namespace, value] of Object.entries(session.namespaces)) {
+        const matchAccount = accountsInfo.find(
+          (account) =>
+            account.networkImpl ===
+            namespaceToImplsMap[namespace as INamespaceUnion],
+        );
+        if (matchAccount) {
+          updatedNamespaces[namespace] = {
+            ...value,
+            accounts: (value.chains ?? []).map(
+              (chain) => `${chain}:${matchAccount.address}`,
+            ),
+          };
+        }
+      }
+      await this.updateSession(topic, updatedNamespaces);
+    }
+  }
+
+  @backgroundMethod()
+  async updateSession(topic: string, namespaces: SessionTypes.Namespaces) {
+    console.log('WalletConnect Update Session: ', namespaces);
     return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
       topic,
       namespaces,

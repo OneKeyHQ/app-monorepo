@@ -126,6 +126,7 @@ class ServiceDApp extends ServiceBase {
         hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
         scope: request.scope,
         data: request.data as any,
+        isWalletConnectRequest: !!request.isWalletConnectRequest,
       };
 
       const routeParams = {
@@ -294,17 +295,17 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateConnectionSession({
-    origin,
-    accountSelectorNum,
-    updatedAccountInfo,
-    storageType,
-  }: {
+  async updateConnectionSession(params: {
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
     storageType: IStorageType;
   }) {
+    const { origin, accountSelectorNum, updatedAccountInfo, storageType } =
+      params;
+    if (storageType === 'walletConnect') {
+      await this.updateWalletConnectSession(params);
+    }
     await this.backgroundApi.simpleDb.dappConnection.updateConnectionAccountInfo(
       {
         origin,
@@ -313,6 +314,33 @@ class ServiceDApp extends ServiceBase {
         storageType,
       },
     );
+  }
+
+  @backgroundMethod()
+  async updateWalletConnectSession({
+    origin,
+    accountSelectorNum,
+    updatedAccountInfo,
+  }: {
+    origin: string;
+    accountSelectorNum: number;
+    updatedAccountInfo: IConnectionAccountInfo;
+    storageType: IStorageType;
+  }) {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    const connectionItem = rawData?.data?.walletConnect?.[origin];
+    if (connectionItem && connectionItem.walletConnectTopic) {
+      const updatedConnectionMap = {
+        ...connectionItem.connectionMap,
+        [accountSelectorNum]: updatedAccountInfo,
+      };
+      console.log('===>updatedConnectionMap: ', updatedConnectionMap);
+      await this.backgroundApi.serviceWalletConnect.updateNamespaceAndSession(
+        connectionItem.walletConnectTopic,
+        Object.values(updatedConnectionMap),
+      );
+    }
   }
 
   @backgroundMethod()
