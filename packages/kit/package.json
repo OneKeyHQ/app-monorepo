@@ -12,7 +12,6 @@
     "dequal": "^2.0.3",
     "dotbit": "^0.4.1",
     "eth-chains": "^1.0.0",
-    "eth-url-parser": "^1.0.4",
     "expo-application": "~5.3.1",
     "expo-barcode-scanner": "12.7.0",
     "expo-camera": "13.2.1",

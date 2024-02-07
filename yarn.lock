@@ -4968,6 +4968,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
+    eth-url-parser: "npm:^1.0.4"
     folderslint: "npm:^1.2.0"
     idb: "npm:^7.1.1"
   languageName: unknown
@@ -4990,7 +4991,6 @@ __metadata:
     dequal: "npm:^2.0.3"
     dotbit: "npm:^0.4.1"
     eth-chains: "npm:^1.0.0"
-    eth-url-parser: "npm:^1.0.4"
     expo-application: "npm:~5.3.1"
     expo-barcode-scanner: "npm:12.7.0"
     expo-camera: "npm:13.2.1"

@@ -86,6 +86,17 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNetworkByImplListAndChainId(
+    implList: string[],
+    chainId: string,
+  ) {
+    const { networks } = await this.getNetworksByImpls({
+      impls: implList,
+    });
+    return networks.find((n) => n.chainId === chainId);
+  }
+
+  @backgroundMethod()
   async groupNetworks({
     networks,
     searchKey,
