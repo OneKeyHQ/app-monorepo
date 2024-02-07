@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -25,11 +25,20 @@ export function TestSimpleModal() {
   const [showFooter, changeFooterStatus] = useState(true);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
-
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const navigateToNextPage = useCallback(() => {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
+
+  const [val, setVal] = useState('');
+
+  useEffect(() => {
+    setVal('11');
+    console.log('useEffect-render-------', navigation);
+  }, [navigation]);
+
+  console.log('render-------');
+
   return (
     <Page>
       <Page.Header
