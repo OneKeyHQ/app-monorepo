@@ -1,6 +1,8 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+// TODO: move db consts to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
