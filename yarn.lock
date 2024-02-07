@@ -4802,6 +4802,7 @@ __metadata:
     eslint-plugin-react: "npm:^7.31.11"
     eslint-plugin-react-hooks: "npm:^4.6.0"
     eslint-plugin-spellcheck: "npm:^0.0.20"
+    eslint-plugin-use-effect-no-deps: "npm:^1.1.2"
     fake-indexeddb: "npm:^5.0.0"
     html-webpack-plugin: "npm:^5.5.3"
     ip: "npm:^1.1.8"
@@ -14822,6 +14823,15 @@ __metadata:
   peerDependencies:
     eslint: ">=0.8.0"
   checksum: 073102a28b25f81f9ea0f4334dd0bf9fe23d3585039bae0706b7b1d7848601c3cf8d003f56932d7948745ba5290e748f9f62f93b4fca2fe0cfdb9508dab3e835
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-use-effect-no-deps@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "eslint-plugin-use-effect-no-deps@npm:1.1.2"
+  dependencies:
+    requireindex: "npm:~1.2.0"
+  checksum: d64e02ffe075d818c827bb837ccaccba675df8dbc0f4d2d5adf11f40f291543feed267c7647816928d3f02c1073d25ccb12b616d4384c21c5c4b3b8ef76f09a0
   languageName: node
   linkType: hard
 
@@ -24984,6 +24994,13 @@ __metadata:
     rc: "npm:~1.2.7"
     resolve: "npm:~1.7.1"
   checksum: ae3c7759448a8348307ad99f7487f4571a8e5319c5fc5e0499a8791839d1504f3baf61ca846b70731e1973a9243d9d1ef3b54f6f674a5d67d427c92a0d78b072
+  languageName: node
+  linkType: hard
+
+"requireindex@npm:~1.2.0":
+  version: 1.2.0
+  resolution: "requireindex@npm:1.2.0"
+  checksum: 266d1cb31f6cbc4b6cf2e898f5bbc45581f7919bcf61bba5c45d0adb69b722b9ff5a13727be3350cde4520d7cd37f39df45d58a29854baaa4552cd6b05ae4a1a
   languageName: node
   linkType: hard
 
