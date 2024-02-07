@@ -73,7 +73,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   title: intl.formatMessage({ id: 'msg__copied' }),
                 });
               },
-              testID: `address-menu-copy-${item.id ?? ''}`,
+              testID: `address-menu-copy-${item.address ?? ''}`,
             },
             {
               label: intl.formatMessage({ id: 'action__edit' }),
@@ -88,13 +88,13 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
                   });
                 }
               },
-              testID: `address-menu-edit-${item.id ?? ''}`,
+              testID: `address-menu-edit-${item.address ?? ''}`,
             },
           ]}
           renderTrigger={
             <ListItem.IconButton
               icon="DotVerSolid"
-              testID={`address-item-menu-${item.address || ''}`}
+              testID={`address-menu-${item.address || ''}`}
             />
           }
         />
@@ -103,7 +103,13 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   );
 };
 
-const RenderEmptyAddressBook = () => {
+type IRenderEmptyAddressBookProps = {
+  hideAddItemButton?: boolean;
+};
+
+const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
+  hideAddItemButton,
+}) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   return (
@@ -111,13 +117,17 @@ const RenderEmptyAddressBook = () => {
       icon="SearchOutline"
       title={intl.formatMessage({ id: 'content__no_results' })}
       description="You haven't added any address yet"
-      buttonProps={{
-        children: intl.formatMessage({ id: 'action__add' }),
-        onPress: () => {
-          navigation.push(EModalAddressBookRoutes.AddItemModal);
-        },
-        testID: 'address-book-add-button',
-      }}
+      buttonProps={
+        hideAddItemButton
+          ? undefined
+          : {
+              children: intl.formatMessage({ id: 'action__add' }),
+              onPress: () => {
+                navigation.push(EModalAddressBookRoutes.AddItemModal);
+              },
+              testID: 'address-book-add-button',
+            }
+      }
     />
   );
 };
@@ -140,6 +150,7 @@ type IAddressBookListContentProps = {
   showActions?: boolean;
   onPressItem?: (item: IAddressItem) => void;
   searchKey: string;
+  hideEmptyAddButton?: boolean;
 };
 
 export const AddressBookListContent = ({
@@ -148,6 +159,7 @@ export const AddressBookListContent = ({
   showActions,
   onPressItem,
   searchKey,
+  hideEmptyAddButton,
 }: IAddressBookListContentProps) => {
   const [foldItems, setFoldItems] = useState<string[]>([]);
   const onToggle = useCallback(
@@ -235,7 +247,11 @@ export const AddressBookListContent = ({
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
       ListEmptyComponent={
-        sections.length ? RenderNoSearchResult : RenderEmptyAddressBook
+        sections.length ? (
+          RenderNoSearchResult
+        ) : (
+          <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />
+        )
       }
       keyExtractor={(item: unknown) => (item as IAddressItem).address}
     />

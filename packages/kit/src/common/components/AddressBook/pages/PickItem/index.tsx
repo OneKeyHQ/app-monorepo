@@ -62,6 +62,7 @@ const PickItemPage = () => {
           onPressItem={onPressItem}
           sections={result?.items ?? []}
           searchKey={searchKey.trim()}
+          hideEmptyAddButton
         />
       </Page.Body>
     </Page>
