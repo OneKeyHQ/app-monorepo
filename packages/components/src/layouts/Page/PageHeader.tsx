@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -42,7 +42,7 @@ const usePageHeaderReloadOptions = () => {
     },
     [intl, searchTextColor],
   );
-  return { reload };
+  return useMemo(() => ({ reload }), [reload]);
 };
 
 function HeaderRightContainerHOC(Component?: ComponentType) {
