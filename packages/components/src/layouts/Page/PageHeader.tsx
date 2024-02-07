@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import { useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -16,29 +16,32 @@ export type IPageHeaderProps = IStackNavigationOptions;
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
   const searchTextColor = useThemeValue('text');
-  const reload = (props: IPageHeaderProps) => {
-    if (!props) {
-      return props;
-    }
+  const reload = useCallback(
+    (props: IPageHeaderProps) => {
+      if (!props) {
+        return props;
+      }
 
-    const { headerSearchBarOptions, headerTransparent, headerStyle } = props;
-    return {
-      ...props,
-      ...(headerTransparent && {
-        headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
-      }),
-      ...(headerSearchBarOptions && {
-        headerSearchBarOptions: {
-          hideNavigationBar: false,
-          hideWhenScrolling: false,
-          cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
-          textColor: searchTextColor,
-          tintColor: searchTextColor,
-          ...headerSearchBarOptions,
-        },
-      }),
-    };
-  };
+      const { headerSearchBarOptions, headerTransparent, headerStyle } = props;
+      return {
+        ...props,
+        ...(headerTransparent && {
+          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
+        }),
+        ...(headerSearchBarOptions && {
+          headerSearchBarOptions: {
+            hideNavigationBar: false,
+            hideWhenScrolling: false,
+            cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
+            textColor: searchTextColor,
+            tintColor: searchTextColor,
+            ...headerSearchBarOptions,
+          },
+        }),
+      };
+    },
+    [intl, searchTextColor],
+  );
   return { reload };
 };
 
