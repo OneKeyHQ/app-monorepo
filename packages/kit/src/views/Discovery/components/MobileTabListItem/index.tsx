@@ -31,7 +31,8 @@ function MobileTabListItem({
   const isActive = activeTabId === id;
   return (
     <Stack
-      flexBasis="50%"
+      width="100%"
+      height={223}
       onPress={() => {
         onSelectedItem(id);
       }}

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-// TODO：需要替换为组件库中的 ListView
-import { FlatList, StyleSheet } from 'react-native';
+import { InteractionManager, StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import {
@@ -39,7 +38,7 @@ import {
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IWebTab } from '../../types';
-import type { View } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
 
@@ -132,22 +131,33 @@ function MobileTabListModal() {
     triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
-  const flatListRef = useRef<FlatList<IWebTab> | null>(null);
+  const listViewRef = useRef<IListViewRef<IWebTab> | null>(null);
   const pinnedListRef = useRef<IListViewRef<IWebTab> | null>(null);
 
-  useEffect(() => {
-    // wait for flatListRef.current to be ready
-    setTimeout(() => {
-      if (!flatListRef.current) return;
-      const index = data.findIndex((t) => t.id === activeTabId);
-      if (index === -1) return;
-      flatListRef.current.scrollToIndex({
-        index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
-        animated: false,
-        viewPosition: 0,
+  const isListViewVisible = useRef(false);
+  const scrollIntoIndex = useCallback((index: number, retryTimes = 0) => {
+    if (retryTimes > 20) {
+      return;
+    }
+    if (!listViewRef.current || !isListViewVisible.current) {
+      setTimeout(() => {
+        scrollIntoIndex(index, retryTimes + 1);
+      }, 30);
+      return;
+    }
+    void InteractionManager.runAfterInteractions(() => {
+      listViewRef.current?.scrollToIndex({
+        index,
+        animated: true,
       });
-    }, 500);
-  }, [activeTabId, data]);
+    });
+  }, []);
+
+  useEffect(() => {
+    const index = data.findIndex((t) => t.id === activeTabId);
+    if (index === -1) return;
+    scrollIntoIndex(index);
+  }, [activeTabId, data, scrollIntoIndex]);
 
   useEffect(() => {
     // wait for pinnedListRef.current to be ready
@@ -164,6 +174,13 @@ function MobileTabListModal() {
   }, [activeTabId, pinnedData]);
 
   const { handleShareUrl } = useBrowserOptionsAction();
+
+  const handleListViewLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height) {
+      isListViewVisible.current = true;
+    }
+  }, []);
 
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
@@ -361,8 +378,10 @@ function MobileTabListModal() {
         )}
       />
       <Page.Body>
-        <FlatList
-          ref={flatListRef}
+        <ListView
+          ref={listViewRef}
+          onLayout={handleListViewLayout}
+          estimatedItemSize={223}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
