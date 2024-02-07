@@ -32,7 +32,6 @@ function MobileTabListItem({
   return (
     <Stack
       width="100%"
-      height={223}
       onPress={() => {
         onSelectedItem(id);
       }}
