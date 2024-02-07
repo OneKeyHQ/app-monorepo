@@ -135,6 +135,7 @@
     "eslint-plugin-react": "^7.31.11",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-spellcheck": "^0.0.20",
+    "eslint-plugin-use-effect-no-deps": "^1.1.2",
     "fake-indexeddb": "^5.0.0",
     "html-webpack-plugin": "^5.5.3",
     "ip": "^1.1.8",
