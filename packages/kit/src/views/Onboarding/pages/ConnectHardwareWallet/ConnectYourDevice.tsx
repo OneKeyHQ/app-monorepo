@@ -439,7 +439,7 @@ export function ConnectYourDevicePage() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={
           platformEnv.isNative ? 'Looking for Devices' : 'Connect Your Device'

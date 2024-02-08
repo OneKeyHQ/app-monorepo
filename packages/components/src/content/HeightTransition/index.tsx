@@ -5,6 +5,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -42,25 +43,26 @@ function HeightTransition({
   const childStyle = useAnimatedStyle(
     () => ({
       opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
+      transform: [
+        {
+          translateY: withSequence(
+            withTiming(-measuredHeight.value, { duration: 0 }),
+            withTiming(hide ? -measuredHeight.value : 0, transition, () => {
+              if (onHeightDidAnimate) {
+                runOnJS(onHeightDidAnimate)(measuredHeight.value);
+              }
+            }),
+          ),
+        },
+      ],
     }),
-    [hide, measuredHeight],
-  );
-
-  const containerStyle = useAnimatedStyle(
-    () => ({
-      height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
-        if (onHeightDidAnimate) {
-          runOnJS(onHeightDidAnimate)(measuredHeight.value);
-        }
-      }),
-    }),
-    [hide, measuredHeight],
+    [],
   );
 
   return (
-    <Animated.View style={[styles.hidden, style, containerStyle]}>
+    <Animated.View style={[styles.hidden, style]}>
       <Animated.View
-        style={[StyleSheet.absoluteFill, styles.autoBottom, childStyle]}
+        style={childStyle}
         onLayout={({ nativeEvent }) => {
           measuredHeight.value = Math.ceil(nativeEvent.layout.height);
         }}
