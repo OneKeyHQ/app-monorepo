@@ -685,6 +685,30 @@ const DialogGallery = () => (
         title: 'Test Visibility in Navigator',
         element: <DialogNavigatorDemo />,
       },
+      {
+        title: 'closeFlag',
+        element: (
+          <YStack>
+            <Button
+              onPress={() => {
+                const dialog = Dialog.show({
+                  title: 'show',
+                  onConfirm: () => {},
+                  onClose: (extra) => {
+                    console.log('closeFlag:', extra);
+                  },
+                  renderContent: <SizableText>closeFlag</SizableText>,
+                });
+                setTimeout(() => {
+                  void dialog.close({ flag: 'closeFlag' });
+                }, 3000);
+              }}
+            >
+              closeFlag
+            </Button>
+          </YStack>
+        ),
+      },
     ]}
   />
 );
