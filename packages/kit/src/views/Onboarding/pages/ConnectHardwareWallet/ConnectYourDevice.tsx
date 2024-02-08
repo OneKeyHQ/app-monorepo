@@ -61,7 +61,7 @@ const FirmwareAuthenticationDialogContent = ({
         setResult('official');
       }, 3000);
     }, 3000);
-  });
+  }, []);
 
   return (
     <Stack>
