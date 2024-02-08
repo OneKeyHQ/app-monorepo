@@ -80,10 +80,13 @@ function DialogFrame({
 }: IDialogProps) {
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const handleBackdropPress = useMemo(
+  const onBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
   );
+  const handleBackdropPress = useCallback(() => {
+    void onBackdropPress?.();
+  }, [onBackdropPress]);
   const handleOpenChange = useCallback(
     (isOpen: boolean) => {
       if (!isOpen) {
@@ -107,7 +110,7 @@ function DialogFrame({
 
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
-    cancel?.(onClose);
+    cancel?.(() => onClose());
     if (!onCancel?.length) {
       await onClose();
     }
@@ -321,16 +324,21 @@ function BaseDialogContainer(
 ) {
   const [isOpen, changeIsOpen] = useState(true);
   const formRef = useRef();
-  const handleClose = useCallback(() => {
-    changeIsOpen(false);
-    return onClose();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onClose]);
+  const handleClose = useCallback(
+    (extra?: { flag?: string }) => {
+      changeIsOpen(false);
+      return onClose(extra);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [onClose],
+  );
+
+  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
 
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
-        close: handleClose,
+        close: handleContainerClose,
         ref: formRef,
       },
       footerRef: {
@@ -338,7 +346,7 @@ function BaseDialogContainer(
         props: undefined,
       },
     }),
-    [handleClose],
+    [handleContainerClose],
   );
 
   const handleOpen = useCallback(() => {
@@ -346,13 +354,18 @@ function BaseDialogContainer(
     onOpen?.();
   }, [onOpen]);
 
+  const handleImperativeClose = useCallback(
+    (extra?: { flag?: string }) => handleClose(extra),
+    [handleClose],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
-      close: handleClose,
+      close: handleImperativeClose,
       getForm: () => formRef.current,
     }),
-    [handleClose],
+    [handleImperativeClose],
   );
   return (
     <DialogContext.Provider value={contextValue}>
@@ -361,7 +374,7 @@ function BaseDialogContainer(
         open={isOpen}
         onOpen={handleOpen}
         renderContent={renderContent}
-        onClose={handleClose}
+        onClose={handleContainerClose}
         {...props}
       />
     </DialogContext.Provider>
@@ -392,7 +405,10 @@ function dialogShow({
     | undefined;
 
   const buildForwardOnClose =
-    (options: { onClose?: () => void | Promise<void> }) => () =>
+    (options: {
+      onClose?: (extra?: { flag?: string }) => void | Promise<void>;
+    }) =>
+    (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.
         setTimeout(() => {
@@ -403,7 +419,7 @@ function dialogShow({
             portalRef.current.destroy();
             portalRef = undefined;
           }
-          void options.onClose?.();
+          void options.onClose?.(extra);
           resolve();
         }, 300);
       });
@@ -414,8 +430,8 @@ function dialogShow({
       onCancel,
       onCancelText,
       cancelButtonProps,
-      showConfirmButton,
-      showCancelButton,
+      showConfirmButton = true,
+      showCancelButton = true,
       onConfirm,
       onConfirmText,
       confirmButtonProps,
@@ -476,7 +492,8 @@ function dialogShow({
     current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
-    close: async () => instanceRef?.current?.close(),
+    close: async (extra?: { flag?: string }) =>
+      instanceRef?.current?.close(extra),
     getForm: () => instanceRef?.current?.getForm(),
   };
 }
