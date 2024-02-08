@@ -33,6 +33,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -60,7 +61,7 @@ const FirmwareAuthenticationDialogContent = ({
         setResult('official');
       }, 3000);
     }, 3000);
-  });
+  }, []);
 
   return (
     <Stack>
@@ -208,7 +209,7 @@ export function ConnectYourDevicePage() {
     uiDeviceUtils.startDeviceScan(
       (response) => {
         if (!response.success) {
-          const error = uiDeviceUtils.convertDeviceError(response.payload);
+          const error = convertDeviceError(response.payload);
           if (platformEnv.isNative) {
             if (
               !(error instanceof NeedBluetoothTurnedOn) &&
@@ -216,9 +217,7 @@ export function ConnectYourDevicePage() {
               !(error instanceof BleLocationServiceError)
             ) {
               Toast.error({
-                title: intl.formatMessage({
-                  id: error.key,
-                }),
+                title: error.message || 'DeviceScanError',
               });
             } else {
               uiDeviceUtils.stopScan();
@@ -228,9 +227,7 @@ export function ConnectYourDevicePage() {
             error instanceof InitIframeTimeout
           ) {
             Toast.error({
-              title: intl.formatMessage({
-                id: error.key,
-              }),
+              title: error.message || 'DeviceScanError',
             });
             uiDeviceUtils.stopScan();
           }

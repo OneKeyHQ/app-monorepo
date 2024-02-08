@@ -7,6 +7,7 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -45,4 +46,8 @@ export class SimpleDbProxy
   localTokens = this._createProxyService(
     'localTokens',
   ) as SimpleDbEntityLocalTokens;
+
+  addressBook = this._createProxyService(
+    'addressBook',
+  ) as SimpleDbEntityAddressBook;
 }
