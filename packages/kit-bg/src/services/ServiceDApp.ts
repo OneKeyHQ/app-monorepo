@@ -110,6 +110,9 @@ class ServiceDApp extends ServiceBase {
       if (!request.origin) {
         throw new Error('origin is required');
       }
+      if (!request.scope) {
+        throw new Error('scope is required');
+      }
       const id = this.backgroundApi.servicePromise.createCallback({
         resolve,
         reject,
@@ -257,40 +260,6 @@ class ServiceDApp extends ServiceBase {
       topic,
       namespaces,
     });
-  }
-
-  @backgroundMethod()
-  async signMessage({
-    unsignedMessage,
-    networkId,
-    accountId,
-  }: {
-    unsignedMessage?: IUnsignedMessage;
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId,
-      accountId,
-    });
-
-    let validUnsignedMessage = unsignedMessage;
-    if (unsignedMessage) {
-      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
-    }
-
-    if (!validUnsignedMessage) {
-      throw new Error('Invalid unsigned message');
-    }
-
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
-    const [signedMessage] = await vault.keyring.signMessage({
-      messages: [validUnsignedMessage],
-      password,
-    });
-
-    return signedMessage;
   }
 
   // connection allowance

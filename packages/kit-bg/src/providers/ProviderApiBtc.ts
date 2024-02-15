@@ -147,15 +147,8 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Can not get current account`,
       });
     }
-    const { accountInfo: { walletId, accountId, networkId } = {} } =
+    const { accountInfo: { accountId, networkId } = {} } =
       accountsInfo[0];
-
-    if (walletId?.startsWith('hw')) {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message: 'Sign message is not supported on hardware.',
-      });
-    }
 
     if (type !== 'bip322-simple' && type !== 'ecdsa') {
       throw web3Errors.rpc.invalidParams('Invalid type');

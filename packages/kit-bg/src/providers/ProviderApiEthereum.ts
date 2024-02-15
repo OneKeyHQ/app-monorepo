@@ -2,6 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
+import { isNil } from 'lodash';
 
 import {
   backgroundClass,
@@ -101,7 +102,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
       request,
     );
-    if (networks?.[0]?.chainId) {
+    if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
   }
@@ -111,7 +112,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
       request,
     );
-    if (networks?.[0]?.chainId) {
+    if (!isNil(networks?.[0]?.chainId)) {
       return networks?.[0]?.chainId;
     }
   }

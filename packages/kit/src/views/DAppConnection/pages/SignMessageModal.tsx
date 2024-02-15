@@ -37,7 +37,7 @@ function SignMessageModal() {
 
   const handleSignMessage = useCallback(
     async (close: () => void) => {
-      const result = await backgroundApiProxy.serviceDApp.signMessage({
+      const result = await backgroundApiProxy.serviceSend.signMessage({
         unsignedMessage,
         networkId,
         accountId,
