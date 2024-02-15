@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
@@ -20,18 +20,23 @@ function useAppNavigation<
     | IModalNavigationProp<any> = IPageNavigationProp<any>,
 >() {
   const navigation = useNavigation<P>();
+  const navigationRef = useRef(navigation);
+
+  if (navigationRef.current !== navigation) {
+    navigationRef.current = navigation;
+  }
 
   const popStack = useCallback(() => {
-    navigation.getParent()?.goBack?.();
-  }, [navigation]);
+    navigationRef.current.getParent()?.goBack?.();
+  }, []);
 
   const pop = useCallback(() => {
-    if (navigation.canGoBack?.()) {
-      navigation.goBack?.();
+    if (navigationRef.current.canGoBack?.()) {
+      navigationRef.current.goBack?.();
     } else {
       popStack();
     }
-  }, [navigation, popStack]);
+  }, [popStack]);
 
   const switchTab = useCallback(
     <T extends ETabRoutes>(
@@ -41,12 +46,12 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
-      navigation.navigate(ERootRoutes.Main, {
+      navigationRef.current.navigate(ERootRoutes.Main, {
         screen: route,
         params,
       });
     },
-    [navigation],
+    [],
   );
 
   const pushModalPage = useCallback(
@@ -58,20 +63,22 @@ function useAppNavigation<
         params?: IModalParamList[T][keyof IModalParamList[T]];
       },
     ) => {
-      if (navigation.push) {
-        navigation.push(modalType, {
+      const navigationInstance = navigationRef.current;
+      // eslint-disable-next-line no-extra-boolean-cast
+      if (!!navigationInstance.push) {
+        navigationInstance.push(modalType, {
           screen: route,
           params,
         });
         return;
       }
       // If there is no stack route, use navigate to create a router stack.
-      navigation.navigate(modalType, {
+      navigationInstance.navigate(modalType, {
         screen: route,
         params,
       });
     },
-    [navigation],
+    [],
   );
 
   const pushModal = useCallback(
@@ -100,29 +107,63 @@ function useAppNavigation<
     [pushModalPage],
   );
 
-  const pageHeaderReload = Page.Header.usePageHeaderReloadOptions();
+  const { reload } = Page.Header.usePageHeaderReloadOptions();
   const setOptions = useCallback(
     (options: Partial<IStackNavigationOptions>) => {
-      const reloadOptions = pageHeaderReload.reload(options);
-      navigation.setOptions(reloadOptions);
+      const reloadOptions = reload(options);
+      navigationRef.current.setOptions(reloadOptions);
     },
-    [navigation, pageHeaderReload],
+    [reload],
   );
 
-  return {
-    navigation,
-    reset: navigation.reset,
-    dispatch: navigation.dispatch,
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    push: navigation.push,
-    navigate: navigation.navigate,
-    switchTab,
-    pushModal,
-    pushFullModal,
-    pop,
-    popStack,
-    setOptions,
-  };
+  const reset: typeof navigationRef.current.reset = useCallback((state) => {
+    navigationRef.current.reset(state);
+  }, []);
+
+  const dispatch: typeof navigationRef.current.dispatch = useCallback(
+    (action) => {
+      navigationRef.current.dispatch(action);
+    },
+    [],
+  );
+
+  const push: typeof navigationRef.current.push = useCallback((...args) => {
+    navigationRef.current.push(...args);
+  }, []);
+
+  const navigate: typeof navigationRef.current.navigate = useCallback(
+    (...args: any) => {
+      navigationRef.current.navigate(...args);
+    },
+    [],
+  );
+
+  return useMemo(
+    () => ({
+      dispatch,
+      navigate,
+      pop,
+      popStack,
+      push,
+      pushFullModal,
+      pushModal,
+      reset,
+      setOptions,
+      switchTab,
+    }),
+    [
+      dispatch,
+      navigate,
+      pop,
+      popStack,
+      push,
+      pushFullModal,
+      pushModal,
+      reset,
+      setOptions,
+      switchTab,
+    ],
+  );
 }
 
 export default useAppNavigation;
