@@ -32,16 +32,9 @@ class ServiceWalletConnect extends ServiceBase {
     super({ backgroundApi });
   }
 
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
-  }
-
-  // Example of chainId: eip155:1
+  // chainId: eip155:1, eip155:137
   @backgroundMethod()
   async getChainData(chainId?: string): Promise<IChainInfo | undefined> {
-    // ignore
     if (!chainId) return;
     const [namespace, reference] = chainId.toString().split(':');
     const allChainsData = await this.getAllChains();
@@ -159,16 +152,8 @@ class ServiceWalletConnect extends ServiceBase {
   }: {
     proposal: Web3WalletTypes.SessionProposal;
     accountsInfo: IConnectionAccountInfo[];
-  }) {
-    const supportedNamespaces: Record<
-      string,
-      {
-        chains: string[];
-        methods: string[];
-        events: string[];
-        accounts: string[];
-      }
-    > = {};
+  }): Promise<Record<string, SessionTypes.BaseNamespace>> {
+    const supportedNamespaces: Record<string, SessionTypes.BaseNamespace> = {};
 
     // Utility function to process namespaces
     const processNamespaces = async (
@@ -180,16 +165,15 @@ class ServiceWalletConnect extends ServiceBase {
         const { chains } = value;
         const impl = namespaceToImplsMap[namespace];
         const account = accountsInfo.find((a) => a.networkImpl === impl);
+
+        const filteredChains =
+          chains?.filter((chain) => !notSupportedChains.includes(chain)) ?? [];
         supportedNamespaces[namespace] = {
-          chains:
-            chains?.filter((chain) => !notSupportedChains.includes(chain)) ??
-            [],
+          chains: filteredChains,
           methods: supportMethodsMap[namespace] ?? [],
           events: supportEventsMap[namespace],
           accounts:
-            chains
-              ?.filter((chain) => !notSupportedChains.includes(chain))
-              .map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+            filteredChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
         };
       }
     };
@@ -201,11 +185,11 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const filteredOptionalNamespaces = Object.entries(
-        proposal.params.optionalNamespaces,
-      )
-        .filter(([key]) => key in proposal.params.requiredNamespaces)
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+      const filteredOptionalNamespaces = Object.fromEntries(
+        Object.entries(proposal.params.optionalNamespaces).filter(
+          ([key]) => key in proposal.params.requiredNamespaces,
+        ),
+      );
       await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
     }
 

@@ -40,7 +40,6 @@ export function useHandleDiscoveryAccountChanged({
   }, [handleAccountChanged, num]);
 
   useEffect(() => {
-    console.log('====>activeAccount, num:', activeAccount, num, Date.now());
     debouncedHandleAccountChanged.current(activeAccount, num);
   }, [activeAccount, handleAccountChanged, num]);
 }

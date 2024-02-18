@@ -30,6 +30,7 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
+  IConnectionItem,
   IConnectionItemWithStorageType,
   IGetDAppAccountInfoParams,
   IStorageType,
@@ -451,40 +452,54 @@ class ServiceDApp extends ServiceBase {
         }))
       : [];
 
-    let walletConnects: IConnectionItemWithStorageType[] = [];
     const activeSessions =
       await this.backgroundApi.serviceWalletConnect.getActiveSessions();
     const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
-    const disconnectPromises = [];
+
+    let walletConnects: IConnectionItemWithStorageType[] = [];
     if (rawData?.data?.walletConnect) {
-      const walletConnectEntries = Object.entries(rawData.data.walletConnect);
-      // Collect all required asynchronous disconnect operations
-      for (const [key, value] of walletConnectEntries) {
-        if (
-          value.walletConnectTopic &&
-          !activeSessionTopics.has(value.walletConnectTopic)
-        ) {
-          disconnectPromises.push(
-            this.disconnectWebsite({
-              origin: key,
-              storageType: 'walletConnect',
-            }),
-          );
-        }
-      }
-
-      await Promise.all(disconnectPromises);
-
+      await this.disconnectInactiveSessions(
+        rawData.data.walletConnect,
+        activeSessionTopics,
+      );
       // Re-filter walletConnects to only retain active sessions
-      walletConnects = walletConnectEntries
+      walletConnects = Object.entries(rawData.data.walletConnect)
         .filter(([, value]) =>
           activeSessionTopics.has(value.walletConnectTopic ?? ''),
         )
         .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
-    const allConnections = [...injectedProviders, ...walletConnects];
 
-    return allConnections as IConnectionItemWithStorageType[];
+    return [
+      ...injectedProviders,
+      ...walletConnects,
+    ] as IConnectionItemWithStorageType[];
+  }
+
+  async disconnectInactiveSessions(
+    walletConnectData: Record<string, IConnectionItem>,
+    activeSessionTopics: Set<string>,
+  ) {
+    const disconnectPromises = Object.entries(walletConnectData)
+      .filter(
+        ([, value]) =>
+          value.walletConnectTopic &&
+          !activeSessionTopics.has(value.walletConnectTopic),
+      )
+      .map(([key]) =>
+        this.disconnectWebsite({
+          origin: key,
+          storageType: 'walletConnect',
+        }).catch((error) =>
+          console.error(`Failed to disconnect ${key}:`, error),
+        ),
+      );
+
+    try {
+      await Promise.all(disconnectPromises);
+    } catch {
+      // Errors have been individually handled in each disconnect operation, no further action is required here.
+    }
   }
 
   @backgroundMethod()
