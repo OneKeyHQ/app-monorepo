@@ -1,9 +1,12 @@
 import { isNil, random } from 'lodash';
 
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -35,6 +38,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async demoSend({
     networkId,
     accountId,
@@ -232,6 +236,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async signTransaction(
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
@@ -241,12 +246,22 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
       });
-    const signedTx = await vault.signTransaction({
-      unsignedTx,
-      password,
-      deviceParams,
-    });
-    return signedTx;
+    // signTransaction
+    const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const signedTx = await vault.signTransaction({
+          unsignedTx,
+          password,
+          deviceParams,
+        });
+        console.log('signTx@vault.signTransaction', signedTx);
+        return signedTx;
+      },
+      { deviceParams },
+    );
+
+    console.log('signTx@serviceSend.signTransaction', tx);
+    return tx;
   }
 
   @backgroundMethod()
@@ -330,6 +345,40 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       wrappedInfo,
     });
+  }
+
+  @backgroundMethod()
+  async signMessage({
+    unsignedMessage,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage?: IUnsignedMessage;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+
+    let validUnsignedMessage = unsignedMessage;
+    if (unsignedMessage) {
+      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
+    }
+
+    if (!validUnsignedMessage) {
+      throw new Error('Invalid unsigned message');
+    }
+
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const [signedMessage] = await vault.keyring.signMessage({
+      messages: [validUnsignedMessage],
+      password,
+    });
+
+    return signedMessage;
   }
 }
 

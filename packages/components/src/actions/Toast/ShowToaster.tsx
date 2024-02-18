@@ -11,6 +11,7 @@ import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { Toast, ToastViewport } from '@tamagui/toast';
 import { getTokenValue } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,14 +20,14 @@ import { Stack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
 export type IShowToasterProps = PropsWithChildren<{
-  onClose?: () => Promise<void> | void;
+  onClose?: (extra?: { flag?: string }) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
   duration?: number;
   disableSwipeGesture?: boolean;
 }>;
 
 export interface IShowToasterInstance {
-  close: () => Promise<void> | void;
+  close: (extra?: { flag?: string }) => Promise<void> | void;
 }
 
 export type IContextType = {
@@ -46,23 +47,37 @@ function BasicShowToaster(
   ref: ForwardedRef<IShowToasterInstance>,
 ) {
   const [isOpen, setIsOpen] = useState(true);
-  const handleClose = useCallback(() => {
-    setIsOpen(false);
-    return onClose?.();
-  }, [onClose]);
+  const handleClose = useCallback(
+    (extra?: { flag?: string }) => {
+      setIsOpen(false);
+      return onClose?.(extra);
+    },
+    [onClose],
+  );
+  const handleImperativeClose = useCallback(
+    (extra?: { flag?: string }) => handleClose(extra),
+    [handleClose],
+  );
+
+  const handleContainerClose = useCallback(() => handleClose(), [handleClose]);
+
+  const handleSwipeEnd = useDebouncedCallback(() => {
+    void handleContainerClose();
+  }, 50);
+
   useImperativeHandle(
     ref,
     () => ({
-      close: handleClose,
+      close: handleImperativeClose,
     }),
-    [handleClose],
+    [handleImperativeClose],
   );
-  console.log(isOpen);
+
   const value = useMemo(
     () => ({
-      close: handleClose,
+      close: handleContainerClose,
     }),
-    [handleClose],
+    [handleContainerClose],
   );
   const { top } = useSafeAreaInsets();
   const mdPadding = '$10';
@@ -89,11 +104,12 @@ function BasicShowToaster(
         flex={1}
         pointerEvents={dismissOnOverlayPress ? 'auto' : 'none'}
         position="absolute"
-        onPress={handleClose}
+        onPress={handleContainerClose}
       />
       <Toast
         unstyled
         width="100%"
+        onSwipeEnd={handleSwipeEnd}
         $md={{
           width: platformEnv.isRuntimeBrowser
             ? `calc(100vw - ${mdPaddingValue * 2}px)`

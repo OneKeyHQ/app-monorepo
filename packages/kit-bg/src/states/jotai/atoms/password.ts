@@ -1,3 +1,5 @@
+// TODO: move consts to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ELockDuration } from '@onekeyhq/kit/src/views/Setting/pages/AppAutoLock/const';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -9,6 +11,7 @@ import { globalAtom, globalAtomComputed } from '../utils';
 import { settingsPersistAtom } from './settings';
 
 import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
+import type { AuthenticationType } from 'expo-local-authentication';
 
 export type IPasswordAtom = {
   unLock: boolean;
@@ -64,7 +67,7 @@ export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   });
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
-  globalAtomComputed(async (get) => {
+  globalAtomComputed<Promise<boolean | undefined>>(async (get) => {
     const platformSupport = platformEnv.isExtension || platformEnv.isDesktop;
     const { appLockDuration } = get(passwordPersistAtom.atom());
     return (
@@ -77,7 +80,12 @@ export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =
 export const {
   target: passwordWebAuthInfoAtom,
   use: usePasswordWebAuthInfoAtom,
-} = globalAtomComputed(async (get) => {
+} = globalAtomComputed<
+  Promise<{
+    isSupport: boolean;
+    isEnable: boolean;
+  }>
+>(async (get) => {
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
   const isSupport = await isSupportWebAuth();
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
@@ -87,7 +95,13 @@ export const {
 export const {
   target: passwordBiologyAuthInfoAtom,
   use: usePasswordBiologyAuthInfoAtom,
-} = globalAtomComputed(async (get) => {
+} = globalAtomComputed<
+  Promise<{
+    authType: AuthenticationType[];
+    isSupport: boolean;
+    isEnable: boolean;
+  }>
+>(async (get) => {
   const authType = await biologyAuth.getBiologyAuthType();
   const isSupport = await biologyAuth.isSupportBiologyAuth();
   const isEnable =
@@ -96,7 +110,7 @@ export const {
 });
 
 export const { target: appIsLocked, use: useAppIsLockedAtom } =
-  globalAtomComputed((get) => {
+  globalAtomComputed<boolean>((get) => {
     const { isPasswordSet, manualLocking, appLockDuration } = get(
       passwordPersistAtom.atom(),
     );

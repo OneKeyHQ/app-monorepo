@@ -1,10 +1,4 @@
-import {
-  type CoreApi,
-  type DeviceSettingsParams,
-  type DeviceUploadResourceParams,
-  UI_RESPONSE,
-  type UiResponseEvent,
-} from '@onekeyfe/hd-core';
+import { UI_RESPONSE } from '@onekeyfe/hd-core';
 
 import {
   backgroundClass,
@@ -16,21 +10,38 @@ import {
   InitIframeTimeout,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   CoreSDKLoader,
   generateConnectSrc,
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EOnekeyDomain,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
-import { settingsPersistAtom } from '../states/jotai/atoms';
+import {
+  EHardwareUiStateAction,
+  hardwareUiStateAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
+import type {
+  CoreApi,
+  DeviceSettingsParams,
+  DeviceUploadResourceParams,
+  DeviceVerifySignature,
+  Features,
+  UiResponseEvent,
+} from '@onekeyfe/hd-core';
+import type { Success } from '@onekeyfe/hd-transport';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -59,10 +70,42 @@ class ServiceHardware extends ServiceBase {
         // FIRMWARE,
         // FIRMWARE_EVENT,
         // UI_REQUEST,
+        supportInputPinOnSoftware,
       } = await CoreSDKLoader();
-      instance.on(UI_EVENT, (e) => {
+      instance.on(UI_EVENT, async (e) => {
         const { type, payload } = e;
         console.log('=>>>> UI_EVENT: ', type, payload);
+
+        const { device, type: eventType, passphraseState } = payload || {};
+        const { deviceType, connectId, deviceId, features } = device || {};
+        const { bootloader_mode: isBootloaderMode } = features || {};
+        const inputPinOnSoftware = supportInputPinOnSoftware(features);
+
+        const usedPayload: IHardwareUiPayload = {
+          uiRequestType: type,
+          eventType,
+          deviceType,
+          deviceId,
+          connectId,
+          isBootloaderMode: Boolean(isBootloaderMode),
+          passphraseState,
+          supportInputPinOnSoftware: inputPinOnSoftware.support,
+        };
+
+        // >>> mock hardware forceInputOnDevice
+        // if (usedPayload) {
+        //   usedPayload.supportInputPinOnSoftware = false;
+        // }
+
+        // skip ui-close_window event, which cause infinite loop
+        //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
+        if (type !== EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+          await hardwareUiStateAtom.set({
+            action: type,
+            connectId,
+            payload: usedPayload,
+          });
+        }
       });
       instance.on(DEVICE.FEATURES, (features: IOneKeyDeviceFeatures) => {
         if (!features || !features.device_id) return;
@@ -96,6 +139,8 @@ class ServiceHardware extends ServiceBase {
     return Promise.resolve(true);
   }
 
+  // startDeviceScan
+  // TODO use convertDeviceResponse()
   @backgroundMethod()
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
@@ -115,10 +160,9 @@ class ServiceHardware extends ServiceBase {
         const result = await this.getFeatures(connectId);
         return result !== null;
       } catch (e: any) {
-        const { data } = e || {};
-        const { reconnect } = data || {};
-        if (e instanceof OneKeyHardwareError && !reconnect) {
-          return Promise.reject(e);
+        const error: OneKeyHardwareError | undefined = e as OneKeyHardwareError;
+        if (error instanceof OneKeyHardwareError && !error?.reconnect) {
+          return Promise.reject(error);
         }
       }
     } else {
@@ -130,15 +174,10 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeatures(connectId?: string) {
+  async getFeatures(connectId: string): Promise<Features> {
     const hardwareSDK = await this.getSDKInstance();
-    const response = await hardwareSDK?.getFeatures(connectId);
 
-    if (response.success) {
-      return response.payload;
-    }
-    const deviceError = convertDeviceError(response.payload);
-    return Promise.reject(deviceError);
+    return convertDeviceResponse(() => hardwareSDK?.getFeatures(connectId));
   }
 
   @backgroundMethod()
@@ -171,46 +210,37 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     forceInputPassphrase: boolean; // not working?
     useEmptyPassphrase?: boolean;
-  }) {
+  }): Promise<string | undefined> {
     const hardwareSDK = await this.getSDKInstance();
-    const response = await hardwareSDK?.getPassphraseState(connectId, {
-      initSession: forceInputPassphrase, // always re-input passphrase on device
-      useEmptyPassphrase,
-      // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
-    });
 
-    if (response.success) {
-      return response.payload ?? undefined;
-    }
-
-    const deviceError = convertDeviceError(response.payload);
-
-    return Promise.reject(deviceError);
-  }
-
-  @backgroundMethod()
-  async inputPassphraseOnDevice() {
-    await this.sendUiResponse({
-      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
-      payload: {
-        value: '',
-        passphraseOnDevice: true,
-        save: false,
-      },
-    });
-  }
-
-  @backgroundMethod()
-  async inputPinOnDevice() {
-    await this.sendUiResponse({
-      type: UI_RESPONSE.RECEIVE_PIN,
-      payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
-    });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.getPassphraseState(connectId, {
+        initSession: forceInputPassphrase, // always re-input passphrase on device
+        useEmptyPassphrase,
+        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
+      }),
+    );
   }
 
   @backgroundMethod()
   async cancel(connectId: string) {
-    return (await this.getSDKInstance()).cancel(connectId);
+    if (!connectId) {
+      throw new Error('device cancel error: connectId is undefined');
+    }
+    const sdk = await this.getSDKInstance();
+    // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
+
+    // cancel the hardware process
+    // (cancel not working on enter pin on device mode, use getFeatures() later)
+    sdk.cancel(connectId);
+
+    // mute getFeatures error
+    try {
+      // force hardware drop process
+      await this.getFeatures(connectId); // TODO move to sdk.cancel()
+    } catch (e) {
+      //
+    }
   }
 
   @backgroundMethod()
@@ -219,108 +249,91 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async rebootToBootloader(connectId: string) {
+  async rebootToBootloader(connectId: string): Promise<boolean> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceUpdateReboot(connectId).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response;
-    });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUpdateReboot(connectId),
+    );
   }
 
   @backgroundMethod()
-  async rebootToBoardloader(connectId: string) {
+  async rebootToBoardloader(connectId: string): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceRebootToBoardloader(connectId)
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceRebootToBoardloader(connectId),
+    );
   }
 
   @backgroundMethod()
-  async getDeviceCertWithSig(connectId: string, dataHex: string) {
+  async getDeviceCertWithSig(
+    connectId: string,
+    dataHex: string,
+  ): Promise<DeviceVerifySignature> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceVerify(connectId, { dataHex })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceVerify(connectId, { dataHex }),
+    );
   }
 
   @backgroundMethod()
-  async changePin(connectId: string, remove = false) {
+  async changePin(connectId: string, remove = false): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceChangePin(connectId, {
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceChangePin(connectId, {
         remove,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+      }),
+    );
   }
 
   @backgroundMethod()
   async applySettings(connectId: string, settings: DeviceSettingsParams) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceSettings(connectId, settings).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response;
-    });
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceSettings(connectId, settings),
+    );
   }
 
   @backgroundMethod()
   async getDeviceSupportFeatures(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK?.deviceSupportFeatures(connectId).then((response) => {
-      if (!response.success) {
-        return Promise.reject(convertDeviceError(response.payload));
-      }
-      return response.payload;
-    });
+
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceSupportFeatures(connectId),
+    );
   }
 
   @backgroundMethod()
-  async checkBridge() {
+  async checkBridge(): Promise<{ status: boolean; timeout?: boolean }> {
     if (!this._hasUseBridge()) {
-      return Promise.resolve(true);
+      return Promise.resolve({ status: true });
     }
 
     const hardwareSDK = await this.getSDKInstance();
-    const bridgeStatus = await hardwareSDK?.checkBridgeStatus();
 
-    if (!bridgeStatus.success) {
-      const error = convertDeviceError(bridgeStatus.payload);
+    try {
+      const bridgeStatus = await convertDeviceResponse(() =>
+        hardwareSDK?.checkBridgeStatus(),
+      );
+      return { status: bridgeStatus };
+    } catch (error) {
       if (
         error instanceof InitIframeLoadFail ||
         error instanceof InitIframeTimeout
       ) {
-        return Promise.resolve(true);
+        return Promise.resolve({ status: true });
       }
       /**
        * Sometimes we need to capture the Bridge timeout error
        * it does not mean that the user does not have bridge installed
        */
       if (error instanceof BridgeTimeoutError) {
-        return Promise.resolve(error);
+        return Promise.resolve({ status: true, timeout: true });
       }
 
-      return Promise.resolve(false);
+      return Promise.resolve({ status: false });
     }
-
-    return Promise.resolve(bridgeStatus.payload);
   }
 
   _hasUseBridge() {
@@ -332,14 +345,9 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.deviceUploadResource(connectId, params)
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUploadResource(connectId, params),
+    );
   }
 
   @backgroundMethod()
@@ -348,16 +356,14 @@ class ServiceHardware extends ServiceBase {
     willUpdateFirmwareVersion: string,
   ) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.checkBootloaderRelease(platformEnv.isNative ? connectId : undefined, {
-        willUpdateFirmwareVersion,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.checkBootloaderRelease(
+        platformEnv.isNative ? connectId : undefined,
+        {
+          willUpdateFirmwareVersion,
+        },
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -391,16 +397,14 @@ class ServiceHardware extends ServiceBase {
     willUpdateFirmwareVersion: string,
   ) {
     const hardwareSDK = await this.getSDKInstance();
-    return hardwareSDK
-      ?.checkBridgeRelease(platformEnv.isNative ? connectId : undefined, {
-        willUpdateFirmwareVersion,
-      })
-      .then((response) => {
-        if (!response.success) {
-          return Promise.reject(convertDeviceError(response.payload));
-        }
-        return response.payload;
-      });
+    return convertDeviceResponse(() =>
+      hardwareSDK?.checkBridgeRelease(
+        platformEnv.isNative ? connectId : undefined,
+        {
+          willUpdateFirmwareVersion,
+        },
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -418,6 +422,142 @@ class ServiceHardware extends ServiceBase {
       }
     } catch (e) {
       console.log('Switch hardware connect src setting failed', e);
+    }
+  }
+
+  @backgroundMethod()
+  async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.DeviceChecking,
+      connectId,
+      payload: undefined,
+    });
+
+    // wait animation done
+    await timerUtils.wait(300);
+  }
+
+  @backgroundMethod()
+  async showDeviceProcessLoadingDialog({ connectId }: { connectId: string }) {
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId,
+      payload: undefined,
+    });
+    // wait animation done
+    await timerUtils.wait(300);
+  }
+
+  @backgroundMethod()
+  async showEnterPassphraseOnDeviceDialog() {
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: '',
+        passphraseOnDevice: true,
+        save: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async sendPassphraseToDevice({ passphrase }: { passphrase: string }) {
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: passphrase,
+        passphraseOnDevice: false,
+        save: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async showEnterPinOnDeviceDialog({ connectId }: { connectId: string }) {
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PIN,
+      payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+    });
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.EnterPinOnDevice,
+      connectId,
+      payload: undefined,
+    });
+  }
+
+  @backgroundMethod()
+  async sendPinToDevice({ pin }: { pin: string }) {
+    await this.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PIN,
+      payload: pin,
+    });
+  }
+
+  @backgroundMethod()
+  async closeHardwareUiStateDialog({
+    skipCancel,
+    delay,
+    connectId,
+    reason,
+  }: {
+    skipCancel?: boolean;
+    delay?: number;
+    connectId: string;
+    reason?: string;
+  }) {
+    try {
+      console.log(`closeHardwareUiStateDialog: ${reason || 'no reason'}`);
+      if (delay) {
+        await timerUtils.wait(delay);
+      }
+      await hardwareUiStateAtom.set(undefined);
+
+      if (!skipCancel) {
+        // do not wait cancel, may cause caller stuck
+        void this.cancel(connectId);
+      }
+    } catch (error) {
+      // closeHardwareUiStateDialog should be called safely, do not block caller
+    }
+  }
+
+  async withHardwareProcessing<T>(
+    fn: () => Promise<T>,
+    {
+      deviceParams,
+      skipCancel,
+    }: {
+      deviceParams: IDeviceSharedCallParams | undefined;
+      skipCancel?: boolean;
+    },
+  ): Promise<T> {
+    // >>> mock hardware connectId
+    // if (deviceParams?.dbDevice && deviceParams) {
+    //   deviceParams.dbDevice.connectId = '11111';
+    // }
+
+    const device = deviceParams?.dbDevice;
+    const connectId = device?.connectId;
+    if (connectId) {
+      await this.showCheckingDeviceDialog({
+        connectId,
+      });
+    }
+    try {
+      const r = await fn();
+      console.log('withHardwareProcessing done: ', r);
+      return r;
+    } catch (error) {
+      console.error('withHardwareProcessing ERROR: ', error);
+      throw error;
+    } finally {
+      if (connectId) {
+        await this.closeHardwareUiStateDialog({
+          delay: 300,
+          connectId,
+          skipCancel,
+        });
+      }
     }
   }
 }

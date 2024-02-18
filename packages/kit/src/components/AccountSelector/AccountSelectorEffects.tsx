@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import {
   EAppEventBusNames,
@@ -22,8 +22,14 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+
+  const sceneNameRef = useRef(sceneName);
+  sceneNameRef.current = sceneName;
+  const sceneUrlRef = useRef(sceneUrl);
+  sceneUrlRef.current = sceneUrl;
 
   useAccountAutoSelect({ num });
   useNetworkAutoSelect({ num });
@@ -63,12 +69,33 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
 
   useEffect(() => {
     const fn = reloadActiveAccountInfo;
+    const updateNetwork = (params: {
+      networkId: string;
+      sceneName: string;
+      sceneUrl: string;
+      num: number;
+    }) => {
+      if (
+        params.sceneName === sceneNameRef.current &&
+        params.sceneUrl === sceneUrlRef.current
+      ) {
+        actions.current.updateSelectedAccount({
+          num: params.num,
+          builder: (v) => ({
+            ...v,
+            networkId: params.networkId,
+          }),
+        });
+      }
+    };
     // const fn = () => null;
     appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };
-  }, [reloadActiveAccountInfo]);
+  }, [reloadActiveAccountInfo, actions]);
 
   return null;
 }

@@ -1,8 +1,14 @@
+import type {
+  IDecryptStringParams,
+  IEncryptStringParams,
+} from '@onekeyhq/core/src/secret';
 import {
   decodePassword,
   decodeSensitiveText,
   decrypt,
+  decryptString,
   encodeSensitiveText,
+  encryptString,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
@@ -15,6 +21,7 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyError from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { WALLET_TYPE_IMPORTED } from '../../dbs/local/consts';
@@ -40,6 +47,12 @@ import type { IPasswordRes } from './types';
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
   private cachedPassword?: string;
+
+  private cachedPasswordActivityTimeStep = 0;
+
+  private cachedPasswordTTL: number = timerUtils.getTimeDurationMs({
+    hour: 2,
+  });
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -74,6 +87,16 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async encryptString(params: IEncryptStringParams) {
+    return encryptString(params);
+  }
+
+  @backgroundMethod()
+  async decryptString(params: IDecryptStringParams) {
+    return decryptString(params);
+  }
+
+  @backgroundMethod()
   async decodeSensitiveText({
     encodedText,
   }: {
@@ -96,14 +119,21 @@ export default class ServicePassword extends ServiceBase {
   async setCachedPassword(password: string): Promise<string> {
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
+    this.cachedPasswordActivityTimeStep = Date.now();
     return password;
   }
 
   @backgroundMethod()
   async getCachedPassword(): Promise<string | undefined> {
-    if (!this.cachedPassword) {
+    const now = Date.now();
+    if (
+      !this.cachedPassword ||
+      now - this.cachedPasswordActivityTimeStep > this.cachedPasswordTTL
+    ) {
+      await this.clearCachedPassword();
       return undefined;
     }
+    this.cachedPasswordActivityTimeStep = now;
     return this.cachedPassword;
   }
 
@@ -358,7 +388,10 @@ export default class ServicePassword extends ServiceBase {
     if (data.password) {
       ensureSensitiveTextEncoded(data.password);
     }
-    this.backgroundApi.servicePromise.resolveCallback({ id: promiseId, data });
+    void this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data,
+    });
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
@@ -370,7 +403,10 @@ export default class ServicePassword extends ServiceBase {
     promiseId: number,
     error: { message: string },
   ) {
-    this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
+    void this.backgroundApi.servicePromise.rejectCallback({
+      id: promiseId,
+      error,
+    });
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,

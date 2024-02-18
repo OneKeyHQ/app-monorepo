@@ -6,6 +6,7 @@ import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync'
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
+import type { NavigationContainerRef } from '@react-navigation/native';
 import type { EnhancedStore } from '@reduxjs/toolkit';
 import type WebView from 'react-native-webview';
 
@@ -34,7 +35,7 @@ declare global {
   var $$appDispatch: any;
   var $$appSelector: any;
   var $$appStorage: any;
-  var $$allAtoms: any;
+  var $$allAtoms: any; // jotai global atoms
   var $$platformEnv: any;
   var $$debugLogger: any;
   var $$localforage: any;
@@ -54,6 +55,7 @@ declare global {
         }>;
       }
     | undefined;
+  var $navigationRef: React.RefObject<NavigationContainerRef<any>>;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api

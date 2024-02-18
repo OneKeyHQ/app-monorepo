@@ -1,6 +1,5 @@
 import { isNumber } from 'lodash';
 
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IBrowserBookmark,
   IBrowserHistory,
@@ -10,12 +9,14 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   ICategory,
   IDApp,
   IDiscoveryHomePageData,
   IDiscoveryListParams,
+  IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
 import { getEndpoints } from '../endpoints';
@@ -62,7 +63,7 @@ class ServiceDiscovery extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: getTimeDurationMs({ seconds: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
@@ -118,6 +119,30 @@ class ServiceDiscovery extends ServiceBase {
     const endpoints = await getEndpoints();
     return `${endpoints.http}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
   }
+
+  @backgroundMethod()
+  async checkUrlSecurity(url: string) {
+    return this._checkUrlSecurity(url);
+  }
+
+  _checkUrlSecurity = memoizee(
+    async (url: string) => {
+      const client = await this.getClient();
+      const res = await client.get<{ data: IHostSecurity }>(
+        '/utility/v1/discover/check-host',
+        {
+          params: {
+            url,
+          },
+        },
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
 
   @backgroundMethod()
   async getBookmarkData(

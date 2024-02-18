@@ -1,6 +1,8 @@
 import { locale as LocalizationLocale } from 'expo-localization';
 
 import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
+// TODO: move locale to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 

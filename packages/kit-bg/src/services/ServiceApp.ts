@@ -1,13 +1,14 @@
 import RNRestart from 'react-native-restart';
 
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import * as Errors from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { DB_MAIN_CONTEXT_ID } from '../dbs/local/consts';
 import localDb from '../dbs/local/localDbInstance';
@@ -116,7 +117,7 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async demoError(): Promise<string> {
-    await wait(600);
+    await timerUtils.wait(600);
     throw new Errors.MinimumTransferBalanceRequiredError({
       autoToast: true,
       info: {
@@ -124,6 +125,17 @@ class ServiceApp extends ServiceBase {
         amount: '0.0001',
       },
     });
+  }
+
+  @backgroundMethod()
+  async demoError2() {
+    throw new Error('hello world: no error toast');
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async demoError3() {
+    throw new Error('hello world: error toast');
   }
 
   @backgroundMethod()

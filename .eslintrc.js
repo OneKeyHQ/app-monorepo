@@ -15,6 +15,7 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
     'warn',
     {
@@ -114,7 +115,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path'],
+  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -235,6 +236,77 @@ module.exports = {
         '@typescript-eslint/no-use-before-define': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
         '@typescript-eslint/no-unsafe-call': 'off',
+      },
+    },
+    {
+      files: [
+        'packages/components/src/**/*.ts',
+        'packages/components/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'packages/shared/src/**/*.ts',
+        'packages/shared/src/**/*.tsx',
+        'packages/core/src/**/*.ts',
+        'packages/core/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/kit-bg/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
       },
     },
   ],

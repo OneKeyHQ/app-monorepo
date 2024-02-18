@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -40,6 +41,10 @@ export class SimpleDbProxy
   browserHistory = this._createProxyService(
     'browserHistory',
   ) as SimpleDbEntityBrowserHistory;
+
+  dappConnection = this._createProxyService(
+    'dappConnection',
+  ) as SimpleDbEntityDappConnection;
 
   accountSelector = this._createProxyService(
     'accountSelector',

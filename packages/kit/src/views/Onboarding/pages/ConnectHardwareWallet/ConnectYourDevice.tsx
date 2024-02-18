@@ -25,7 +25,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { wait } from '@onekeyhq/kit/src/utils/helper';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   BleLocationServiceError,
@@ -34,6 +33,7 @@ import {
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -61,7 +61,7 @@ const FirmwareAuthenticationDialogContent = ({
         setResult('official');
       }, 3000);
     }, 3000);
-  });
+  }, []);
 
   return (
     <Stack>
@@ -209,7 +209,7 @@ export function ConnectYourDevicePage() {
     uiDeviceUtils.startDeviceScan(
       (response) => {
         if (!response.success) {
-          const error = uiDeviceUtils.convertDeviceError(response.payload);
+          const error = convertDeviceError(response.payload);
           if (platformEnv.isNative) {
             if (
               !(error instanceof NeedBluetoothTurnedOn) &&
@@ -217,9 +217,7 @@ export function ConnectYourDevicePage() {
               !(error instanceof BleLocationServiceError)
             ) {
               Toast.error({
-                title: intl.formatMessage({
-                  id: error.key,
-                }),
+                title: error.message || 'DeviceScanError',
               });
             } else {
               uiDeviceUtils.stopScan();
@@ -229,9 +227,7 @@ export function ConnectYourDevicePage() {
             error instanceof InitIframeTimeout
           ) {
             Toast.error({
-              title: intl.formatMessage({
-                id: error.key,
-              }),
+              title: error.message || 'DeviceScanError',
             });
             uiDeviceUtils.stopScan();
           }
@@ -336,30 +332,12 @@ export function ConnectYourDevicePage() {
 
   const handleHwWalletCreate = useCallback(
     async ({ device }: { device: SearchDevice }) => {
-      const checkingDeviceDialog = Dialog.show({
-        title: 'Checking Device',
-        renderContent: (
-          <Stack
-            borderRadius="$3"
-            p="$5"
-            bg="$bgSubdued"
-            style={{ borderCurve: 'continuous' }}
-          >
-            <Spinner size="large" />
-          </Stack>
-        ),
-        showFooter: false,
-      });
-
       await Promise.all([
         await actions.current.createHWWalletWithHidden({
           device,
           features: (device as KnownDevice).features,
         }),
-        await wait(1000),
       ]);
-
-      await checkingDeviceDialog.close();
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
     },
     [actions, navigation],
@@ -387,7 +365,14 @@ export function ConnectYourDevicePage() {
     }, 1000);
   }, [handleFirmwareAuthentication]);
 
-  const devicesData = useMemo(
+  const devicesData = useMemo<
+    {
+      title: string;
+      src: string;
+      onPress: () => void;
+      opacity?: number;
+    }[]
+  >(
     () => [
       /*
       navigation.replace(RootRoutes.Onboarding, {
@@ -408,6 +393,7 @@ export function ConnectYourDevicePage() {
         title: item.name,
         src: HwWalletAvatarImages[item.deviceType],
         onPress: () => handleHwWalletCreate({ device: item }),
+        opacity: 1,
       })),
       {
         title: 'OneKey Classic(Checking)',
@@ -453,7 +439,7 @@ export function ConnectYourDevicePage() {
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={
           platformEnv.isNative ? 'Looking for Devices' : 'Connect Your Device'
@@ -482,6 +468,7 @@ export function ConnectYourDevicePage() {
           <Stack>
             {devicesData.map((item, index) => (
               <ListItem
+                opacity={item.opacity ?? 0.5}
                 avatarProps={{
                   src: item.src,
                 }}

@@ -10,6 +10,10 @@ import {
   type ITabNavigatorExtraConfig,
   useRouterEventsRef,
 } from '@onekeyhq/components';
+import {
+  ONEKEY_APP_DEEP_LINK,
+  WALLET_CONNECT_DEEP_LINK,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
@@ -69,7 +73,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const allowList = buildAllowList(screenHierarchyConfig);
   return {
     enabled: true,
-    prefixes: [routerPrefix],
+    prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
 
     /**
      * Only change url at whitelist routes, or return home page
