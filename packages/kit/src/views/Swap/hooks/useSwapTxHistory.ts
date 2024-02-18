@@ -22,7 +22,6 @@ import {
   useSwapTxHistoryAtom,
   useSwapTxHistoryPendingAtom,
 } from '../../../states/jotai/contexts/swap';
-import { getTimeStamp } from '../../../utils/helper';
 import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
 
 import type { ISwapTxHistory, ISwapTxInfo } from '../types';
@@ -153,8 +152,8 @@ export function useSwapTxHistoryActions() {
             receiver: swapTxInfo.receivingAddress,
           },
           date: {
-            created: getTimeStamp(),
-            updated: getTimeStamp(),
+            created: Date.now(),
+            updated: Date.now(),
           },
           swapInfo: {
             instantRate: swapTxInfo.swapBuildResData.result.instantRate,

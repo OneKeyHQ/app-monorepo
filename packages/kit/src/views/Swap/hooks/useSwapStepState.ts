@@ -4,6 +4,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteTokenMarketingRateWarningAtom,
@@ -22,6 +23,8 @@ export function useSwapStepState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapQuoteApproveAllowanceUnLimit] =
+    useSwapQuoteApproveAllowanceUnLimitAtom();
   const [rateWarning] = useSwapQuoteTokenMarketingRateWarningAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
@@ -30,6 +33,7 @@ export function useSwapStepState() {
     type: ESwapStepStateType.PRE,
     isLoading: quoteFetching,
     disabled: true,
+    approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isCrossChain,
     rateWarning,
   };

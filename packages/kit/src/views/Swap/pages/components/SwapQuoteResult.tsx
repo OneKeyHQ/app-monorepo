@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
-import { YStack } from '@onekeyhq/components';
+import { ISelectItem, YStack } from '@onekeyhq/components';
 import {
+  useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -11,6 +12,8 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
+import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
+import { ESwapApproveAllowanceType } from '../../types';
 
 interface ISwapQuoteResultProps {
   receivedAddress?: string;
@@ -25,13 +28,36 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const { quoteFetching } = useSwapQuote();
-
+  const [, setSwapQuoteApproveAllowanceUnLimit] =
+    useSwapQuoteApproveAllowanceUnLimitAtom();
   const protocolFee = useMemo<string | undefined>(
     () =>
       // TODO: calculate protocol fee fetch price api
       undefined,
     [],
   );
+
+  const approveAllowanceSelectItems = useMemo(() => {
+    if (quoteResult?.allowanceResult) {
+      return [
+        {
+          label: `${quoteResult.allowanceResult.amount} ${fromToken?.symbol}`,
+          value: ESwapApproveAllowanceType.PRECISION,
+        },
+        {
+          label: 'Unlimited',
+          value: ESwapApproveAllowanceType.UN_LIMIT,
+        },
+      ];
+    }
+    return [];
+  }, [quoteResult]);
+
+  const onSelectAllowanceValue = useCallback((value: string) => {
+    setSwapQuoteApproveAllowanceUnLimit(
+      value === ESwapApproveAllowanceType.UN_LIMIT,
+    );
+  }, []);
 
   return !quoteResult ? null : (
     <YStack
@@ -42,6 +68,12 @@ const SwapQuoteResult = ({
       borderColor="$bgPrimaryActive"
       borderWidth="$0.5"
     >
+      {quoteResult.allowanceResult && (
+        <SwapApproveAllowanceSelect
+          onSelectAllowanceValue={onSelectAllowanceValue}
+          selectItems={approveAllowanceSelectItems}
+        />
+      )}
       <SwapRateInfoItem
         rate={quoteResult.instantRate}
         isLoading={quoteFetching}

@@ -143,6 +143,11 @@ export enum ESwapStepStateType {
   BUILD_TX = 'build_tx', // build tx
 }
 
+export enum ESwapApproveAllowanceType {
+  UN_LIMIT = 'unLimit',
+  PRECISION = 'precision',
+}
+
 export interface ISwapStepState {
   type: ESwapStepStateType;
   isLoading: boolean;
@@ -152,6 +157,7 @@ export interface ISwapStepState {
   wrongMsg?: string;
   rateWarning?: string;
   shoutResetApprove?: boolean;
+  approveUnLimit?: boolean;
 }
 
 // build_tx

@@ -69,9 +69,13 @@ const SwapActionsState = ({
 
   const actionText = useMemo(() => {
     if (swapStepState.type === ESwapStepStateType.APPROVE) {
-      return `Approve  ${fromAmount} ${fromToken?.symbol ?? ''} to ${
-        selectCurrentProvider?.info.providerName ?? ''
-      }`;
+      return swapStepState.approveUnLimit
+        ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
+            selectCurrentProvider?.info.providerName ?? ''
+          }`
+        : `Approve  ${fromAmount} ${fromToken?.symbol ?? ''} to ${
+            selectCurrentProvider?.info.providerName ?? ''
+          }`;
     }
     if (
       swapStepState.type === ESwapStepStateType.BUILD_TX &&
@@ -99,30 +103,27 @@ const SwapActionsState = ({
     swapStepState,
   ]);
 
-  const handleApprove = useCallback(
-    (isUnLimit: boolean) => {
-      if (swapStepState.shoutResetApprove) {
-        Dialog.confirm({
-          onConfirmText: 'Continue',
-          onConfirm: () => {
-            onApprove(fromAmount, isUnLimit, true);
-          },
-          showCancelButton: true,
-          title: 'Need to Send 2 Transactions to Change Allowance',
-          description:
-            'Some tokens require multiple transactions to modify the allowance. You must first set the allowance to zero before establishing the new desired allowance value.',
-          icon: 'TxStatusWarningCircleIllus',
-        });
-      } else {
-        onApprove(fromAmount, isUnLimit);
-      }
-    },
-    [fromAmount, onApprove, swapStepState.shoutResetApprove],
-  );
+  const handleApprove = useCallback(() => {
+    if (swapStepState.shoutResetApprove) {
+      Dialog.confirm({
+        onConfirmText: 'Continue',
+        onConfirm: () => {
+          onApprove(fromAmount, swapStepState.approveUnLimit, true);
+        },
+        showCancelButton: true,
+        title: 'Need to Send 2 Transactions to Change Allowance',
+        description:
+          'Some tokens require multiple transactions to modify the allowance. You must first set the allowance to zero before establishing the new desired allowance value.',
+        icon: 'TxStatusWarningCircleIllus',
+      });
+    } else {
+      onApprove(fromAmount, swapStepState.approveUnLimit);
+    }
+  }, [fromAmount, onApprove, swapStepState.shoutResetApprove]);
 
   const onActionHandler = useCallback(() => {
     if (swapStepState.type === ESwapStepStateType.APPROVE) {
-      handleApprove(false);
+      handleApprove();
       return;
     }
     if (swapStepState.type === ESwapStepStateType.BUILD_TX) {
@@ -139,11 +140,6 @@ const SwapActionsState = ({
     swapStepState.isWrapped,
     swapStepState.type,
   ]);
-
-  // only approve step can trigger this action
-  const onAction2Handler = useCallback(() => {
-    handleApprove(true);
-  }, [handleApprove]);
 
   return (
     <YStack space="$4">
@@ -166,17 +162,6 @@ const SwapActionsState = ({
           <SizableText color="white">{actionText}</SizableText>
         </XStack>
       </Button>
-      {isApproveStepStatus ? (
-        <Button
-          onPress={onAction2Handler}
-          variant="primary"
-          disabled={swapStepState.disabled}
-        >
-          <SizableText>{`Approve Unlimited ${fromToken?.symbol ?? ''} to ${
-            selectCurrentProvider?.info.providerName ?? ''
-          }`}</SizableText>
-        </Button>
-      ) : null}
     </YStack>
   );
 };

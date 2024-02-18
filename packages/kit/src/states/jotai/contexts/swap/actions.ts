@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import { swapTokenCatchMapMaxCount } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
 import type {
   ISwapToken,
@@ -48,7 +47,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     async (get, set, key: string, tokens: ISwapToken[]) => {
       const swapTokenMap = get(swapTokenMapAtom());
       const catchTokens = swapTokenMap.tokenCatch?.[key];
-      const dateNow = getTimeStamp();
+      const dateNow = Date.now();
       let catchCount = 0;
       if (swapTokenMap.tokenCatch && catchTokens?.data) {
         // have catch
@@ -127,7 +126,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         (i) => i.txInfo.txId === item.txInfo.txId,
       );
       if (index !== -1) {
-        const updated = getTimeStamp();
+        const updated = Date.now();
         item.date = { ...item.date, updated };
         currentHistoryList[index] = item;
         set(swapTxHistoryAtom(), currentHistoryList);

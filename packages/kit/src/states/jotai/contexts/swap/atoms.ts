@@ -142,6 +142,11 @@ export const {
   );
 });
 
+export const {
+  atom: swapQuoteApproveAllowanceUnLimitAtom,
+  use: useSwapQuoteApproveAllowanceUnLimitAtom,
+} = contextAtom<boolean>(false);
+
 // swap build_tx
 export const {
   atom: swapSlippagePercentageAtom,
