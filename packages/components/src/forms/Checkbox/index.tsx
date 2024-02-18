@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -140,9 +140,7 @@ function CheckboxGroup({
   listStyle,
 }: ICheckboxGroupProps) {
   const innerValueRef = useRef(value);
-  useLayoutEffect(() => {
-    innerValueRef.current = value;
-  }, [value]);
+  innerValueRef.current = value;
 
   const isAll = useMemo(
     () => value.length === options.length && value.findIndex((v) => !v) === -1,
