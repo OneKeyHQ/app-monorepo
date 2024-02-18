@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, useClipboard } from '@onekeyhq/components';
+import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -33,7 +33,7 @@ const useParseQRCode = () => {
         result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
         (result.data as IAnimationValue).fullData
       ) {
-        navigation?.navigation?.getParent()?.getParent()?.goBack?.();
+        rootNavigationRef?.current?.goBack();
       }
 
       if (!options?.autoHandleResult) {
