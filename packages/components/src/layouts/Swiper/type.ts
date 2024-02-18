@@ -1,6 +1,6 @@
 import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 
-import type { IListViewProps } from '../ListView';
+import type { IListViewProps } from '../ListView/list';
 import type { ListRenderItem } from 'react-native';
 
 export type IScrollToIndexParams = { index: number; animated?: boolean }; // DUPLICATED

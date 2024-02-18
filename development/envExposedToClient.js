@@ -20,6 +20,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
     'STORYBOOK_ENABLED',
+    'WALLETCONNECT_PROJECT_ID',
   ];
 
   if (platform === developmentConsts.platforms.app) {
