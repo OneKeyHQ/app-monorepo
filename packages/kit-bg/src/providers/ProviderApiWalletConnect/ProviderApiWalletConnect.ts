@@ -103,9 +103,11 @@ class ProviderApiWalletConnect {
     }
 
     try {
+      const { origin } = new URL(proposal.params.proposer.metadata.url);
       const result = (await this.backgroundApi.serviceDApp.openModal({
         request: {
-          scope: '$walletConnect'
+          scope: '$walletConnect',
+          origin,
         },
         screens: [
           EModalRoutes.DAppConnectionModal,
@@ -123,12 +125,13 @@ class ProviderApiWalletConnect {
         namespaces: result.supportedNamespaces,
       });
       await this.backgroundApi.serviceDApp.saveConnectionSession({
-        origin: new URL(proposal.params.proposer.metadata.url).origin,
+        origin,
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,
       });
-    } catch {
+    } catch (e) {
+      console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
         reason: getSdkError('USER_REJECTED'),
