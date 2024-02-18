@@ -21,7 +21,7 @@ import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged'
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 function SessionProposalModal() {
-  const { serviceDApp, serviceWalletConnect } = backgroundApiProxy;
+  const { serviceWalletConnect } = backgroundApiProxy;
   const intl = useIntl();
   const { proposal, $sourceInfo } = useDappQuery<{
     proposal: Web3WalletTypes.SessionProposal;
@@ -55,7 +55,7 @@ function SessionProposalModal() {
   }, [canContinueOperate]);
 
   const onApproval = useCallback(
-    async ({ close }: { close: () => void }) => {
+    async (close: () => void) => {
       const accounts = Object.values(selectedAccountsMap);
       if (accounts.length !== sessionAccountsInfo?.length) {
         Toast.success({
