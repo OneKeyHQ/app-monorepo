@@ -7,10 +7,12 @@ import type {
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
@@ -70,16 +72,16 @@ export interface IBackgroundApiBridge {
   ): Promise<IJsonRpcResponse<T>>;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
-  // walletConnect: ProviderApiWalletConnect; // TODO move to IBackgroundApiBridge
-
   simpleDb: SimpleDb;
+
+  // **** WalletConnect
+  walletConnect: ProviderApiWalletConnect;
 
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
-  serviceDiscovery: ServiceDiscovery;
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
@@ -91,8 +93,11 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceValidator: ServiceValidator;
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;
+  serviceDiscovery: ServiceDiscovery;
+  serviceDApp: ServiceDApp;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
+
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
 }

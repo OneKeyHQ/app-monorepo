@@ -22,6 +22,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
   // vaultFactory = this.engine.vaultFactory;
 
+  get walletConnect() {
+    const ProviderApiWalletConnect =
+      require('../providers/ProviderApiWalletConnect/ProviderApiWalletConnect') as typeof import('../providers/ProviderApiWalletConnect/ProviderApiWalletConnect');
+    const value = new ProviderApiWalletConnect.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'walletConnect', { value });
+    return value;
+  }
+
   get servicePromise() {
     const Service =
       require('../services/ServicePromise') as typeof import('../services/ServicePromise');
@@ -49,16 +59,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'servicePassword', { value });
-    return value;
-  }
-
-  get serviceDiscovery() {
-    const ServiceDiscovery =
-      require('../services/ServiceDiscovery') as typeof import('../services/ServiceDiscovery');
-    const value = new ServiceDiscovery.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceDiscovery', { value });
     return value;
   }
 
@@ -189,6 +189,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceGas', { value });
+    return value;
+  }
+
+  get serviceDiscovery() {
+    const ServiceDiscovery =
+      require('../services/ServiceDiscovery') as typeof import('../services/ServiceDiscovery');
+    const value = new ServiceDiscovery.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDiscovery', { value });
+    return value;
+  }
+
+  get serviceDApp() {
+    const ServiceDApp =
+      require('../services/ServiceDApp') as typeof import('../services/ServiceDApp');
+    const value = new ServiceDApp.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDApp', { value });
     return value;
   }
 

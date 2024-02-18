@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useImperativeHandle } from 'react';
 import { YStack } from 'tamagui';
 
 import { Stack } from '../../primitives';
-import { ListView } from '../ListView';
+import { ListView } from '../ListView/list';
 
 import {
   useScrollEnabled,
