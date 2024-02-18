@@ -23,11 +23,9 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
     PermissionStatus.UNDETERMINED,
   );
   const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      scanned.current = false;
-    }
-  }, [isFocused]);
+  if (isFocused) {
+    scanned.current = false;
+  }
 
   const reloadHandleBarCodeScanned = useCallback(
     (data?: string | null) => {
