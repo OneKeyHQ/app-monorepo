@@ -1,4 +1,4 @@
-import { EMessageTypesEth } from '../../types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { hashMessage } from './message';
 

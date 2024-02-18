@@ -1,6 +1,13 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
+import { InteractionManager } from 'react-native';
 import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,6 +36,12 @@ export interface IPopoverProps extends TMPopoverProps {
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
 }
+
+interface IPopoverContext {
+  closePopover?: () => Promise<void>;
+}
+
+const PopoverContext = createContext({} as IPopoverContext);
 
 const usePopoverValue = (
   open?: boolean,
@@ -62,6 +75,13 @@ const usePopoverValue = (
           onOpenChange: setIsOpen,
         }),
     openPopover,
+    closePopover,
+  };
+};
+
+export const usePopoverContext = () => {
+  const { closePopover } = useContext(PopoverContext);
+  return {
     closePopover,
   };
 };
@@ -115,9 +135,20 @@ function RawPopover({
       transformOrigin = 'top right';
   }
 
-  const closePopover = useCallback(() => {
-    onOpenChange?.(false);
-  }, [onOpenChange]);
+  const closePopover = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        onOpenChange?.(false);
+        setTimeout(
+          () => {
+            resolve();
+          },
+          // Need to execute the callback after the sheet animation ends on the Native side
+          platformEnv.isNative ? 300 : 0,
+        );
+      }),
+    [onOpenChange],
+  );
 
   const openPopover = useCallback(() => {
     onOpenChange?.(true);
@@ -127,7 +158,7 @@ function RawPopover({
     if (!isOpen) {
       return false;
     }
-    closePopover();
+    void closePopover();
     return true;
   }, [closePopover, isOpen]);
 
@@ -135,11 +166,21 @@ function RawPopover({
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
-  const content = RenderContent
-    ? ((
-        <RenderContent isOpen={isOpen} closePopover={closePopover} />
-      ) as ReactElement)
-    : (renderContent as ReactElement);
+  const popoverContextValue = useMemo(
+    () => ({
+      closePopover,
+    }),
+    [closePopover],
+  );
+  const content = (
+    <PopoverContext.Provider value={popoverContextValue}>
+      {RenderContent
+        ? ((
+            <RenderContent isOpen={isOpen} closePopover={closePopover} />
+          ) as ReactElement)
+        : (renderContent as ReactElement)}
+    </PopoverContext.Provider>
+  );
   return (
     <TMPopover
       offset={8}

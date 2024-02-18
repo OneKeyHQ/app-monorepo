@@ -72,7 +72,7 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  rejectCallback({ id, error }: IPromiseContainerReject) {
+  async rejectCallback({ id, error }: IPromiseContainerReject) {
     this._processCallback({
       method: 'reject',
       id,
@@ -81,7 +81,7 @@ class ServicePromise extends ServiceBase {
   }
 
   @backgroundMethod()
-  resolveCallback({ id, data }: IPromiseContainerResolve) {
+  async resolveCallback({ id, data }: IPromiseContainerResolve) {
     this._processCallback({
       method: 'resolve',
       id,
@@ -147,7 +147,7 @@ class ServicePromise extends ServiceBase {
       if (callbackInfo && callbackInfo.created) {
         if (now - callbackInfo.created > this.callbacksExpireTimeout) {
           const error = web3Errors.provider.requestTimeout();
-          this.rejectCallback({ id, error });
+          void this.rejectCallback({ id, error });
         }
       }
     }

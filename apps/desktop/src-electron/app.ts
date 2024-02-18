@@ -21,6 +21,10 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import {
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { ipcMessageKeys } from './config';
@@ -29,9 +33,6 @@ import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
 
 import type { IPrefType } from './preload';
-
-const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
-const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({

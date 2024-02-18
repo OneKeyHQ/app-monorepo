@@ -226,7 +226,6 @@ const DesktopWebView = forwardRef(
           }
         },
       };
-
       jsBridgeHost.webviewWrapper = wrapper;
       return wrapper;
     });

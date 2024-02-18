@@ -23,7 +23,8 @@ function BasicDesktopOverlay() {
   ) : null;
 }
 
-export const dispatchOverlayEvent = (isOpen: boolean) => {
+// Add an overlay on top of the web content, which can handle Overlay events for Popover, ActionList, and Dialog.
+export const dispatchWebViewOverlayEvent = (isOpen: boolean) => {
   ref.statusChange?.(isOpen);
 };
 

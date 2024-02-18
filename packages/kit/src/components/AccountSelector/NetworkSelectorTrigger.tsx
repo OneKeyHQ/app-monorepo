@@ -110,6 +110,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
 
   return (
     <XStack
+      role="button"
       alignItems="center"
       onPress={handleChainPress}
       p="$1"

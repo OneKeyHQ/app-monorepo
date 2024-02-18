@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-// TODO：需要替换为组件库中的 ListView
-import { FlatList, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import type { IListViewRef } from '@onekeyhq/components';
 import {
@@ -14,6 +13,7 @@ import {
   Page,
   Stack,
   Toast,
+  useSafelyScrollIntoIndex,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -132,42 +132,44 @@ function MobileTabListModal() {
     triggerCloseTab.current = false;
   }, [tabs, setDisplayHomePage, navigation]);
 
-  const flatListRef = useRef<FlatList<IWebTab> | null>(null);
+  // tabListView scrollIntoIndex
+  const tabListViewRef = useRef<IListViewRef<IWebTab> | null>(null);
+  const {
+    scrollIntoIndex: scrollTabListIntoIndex,
+    onLayout: onListViewLayout,
+  } = useSafelyScrollIntoIndex(tabListViewRef);
+
+  // pinnedListView scrollIntoIndex
   const pinnedListRef = useRef<IListViewRef<IWebTab> | null>(null);
+  const {
+    scrollIntoIndex: scrollPinnedListIntoIndex,
+    onLayout: onPinnedListLayout,
+  } = useSafelyScrollIntoIndex(pinnedListRef);
 
   useEffect(() => {
-    // wait for flatListRef.current to be ready
-    setTimeout(
-      () => {
-        if (!flatListRef.current) return;
-        const index = data.findIndex((t) => t.id === activeTabId);
-        if (index === -1) return;
-        flatListRef.current.scrollToIndex({
-          index: Math.floor(index / TAB_LIST_CELL_COUNT_PER_ROW),
-          animated: false,
-          viewPosition: 0,
-        });
-      },
-      data.length > 10 ? 300 : 200,
-    );
-  }, [activeTabId, data]);
+    const tabIndex = data.findIndex((t) => t.id === activeTabId);
+    if (tabIndex > -1) {
+      scrollTabListIntoIndex({
+        index: tabIndex,
+        animated: false,
+      });
+      return;
+    }
 
-  useEffect(() => {
-    // wait for pinnedListRef.current to be ready
-    setTimeout(
-      () => {
-        if (!pinnedListRef.current) return;
-        const index = pinnedData.findIndex((t) => t.id === activeTabId);
-        if (index === -1) return;
-        pinnedListRef.current.scrollToIndex({
-          index,
-          animated: false,
-          viewPosition: 0,
-        });
-      },
-      pinnedData.length > 10 ? 300 : 200,
-    );
-  }, [activeTabId, pinnedData]);
+    const pinnedItemIndex = pinnedData.findIndex((t) => t.id === activeTabId);
+    if (pinnedItemIndex > -1) {
+      scrollPinnedListIntoIndex({
+        index: pinnedItemIndex,
+        animated: false,
+      });
+    }
+  }, [
+    activeTabId,
+    data,
+    pinnedData,
+    scrollPinnedListIntoIndex,
+    scrollTabListIntoIndex,
+  ]);
 
   const { handleShareUrl } = useBrowserOptionsAction();
 
@@ -347,6 +349,7 @@ function MobileTabListModal() {
             p: '$1',
           }}
           ref={pinnedListRef}
+          onLayout={onPinnedListLayout}
           horizontal
           data={pinnedData}
           showsHorizontalScrollIndicator={false}
@@ -356,7 +359,7 @@ function MobileTabListModal() {
         />
       </BlurView>
     );
-  }, [pinnedData, renderPinnedItem]);
+  }, [onPinnedListLayout, pinnedData, renderPinnedItem]);
 
   return (
     <Page>
@@ -367,8 +370,11 @@ function MobileTabListModal() {
         )}
       />
       <Page.Body>
-        <FlatList
-          ref={flatListRef}
+        <ListView
+          ref={tabListViewRef}
+          onLayout={onListViewLayout}
+          // estimated item min size
+          estimatedItemSize={223}
           data={data}
           renderItem={renderItem}
           keyExtractor={keyExtractor}

@@ -1,6 +1,6 @@
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EMessageTypesAptos } from '../../types';
+import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import CoreChainHd from './CoreChainHd';
 

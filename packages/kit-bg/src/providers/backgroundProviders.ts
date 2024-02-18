@@ -2,11 +2,11 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 // import ProviderAlgo from './ProviderAlgo';
 // import ProviderApiAptos from './ProviderApiAptos';
-// import ProviderApiBtc from './ProviderApiBtc';
+import ProviderApiBtc from './ProviderApiBtc';
 // import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
-// import ProviderApiEthereum from './ProviderApiEthereum';
+import ProviderApiEthereum from './ProviderApiEthereum';
 // import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
 // import ProviderApiPrivate from './ProviderApiPrivate';
@@ -31,9 +31,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.$private]: new ProviderApiPrivate({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.solana]: new ProviderApiSolana({
     //   backgroundApi,
     // }),
@@ -68,9 +68,9 @@ function createBackgroundProviders({
     //   backgroundApi,
     // }),
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
-    // [IInjectedProviderNames.btc]: new ProviderApiBtc({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.btc]: new ProviderApiBtc({
+      backgroundApi,
+    }),
     // near
     // eslint-disable-next-line spellcheck/spell-checker
     // sollet

@@ -10,10 +10,10 @@ import {
 import { withStaticProperties } from 'tamagui';
 
 import { SizableText, Stack, XStack } from '../../primitives';
-import { ListView } from '../ListView';
+import { ListView } from '../ListView/list';
 
 import type { ISizableTextProps, IStackProps } from '../../primitives';
-import type { IListViewProps, IListViewRef } from '../ListView';
+import type { IListViewProps, IListViewRef } from '../ListView/list';
 import type { ListRenderItem } from 'react-native';
 
 type ISectionRenderInfo = (info: {

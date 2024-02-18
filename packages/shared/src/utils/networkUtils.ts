@@ -1,6 +1,19 @@
-import { SEPERATOR } from '../engine/engineConsts';
+import {
+  BtcDappNetworkTypes,
+  EBtcDappNetworkTypeEnum,
+} from '../../types/ProviderApis/ProviderApiBtc.type';
+import { getNetworkIdsMap } from '../config/networkIds';
+import {
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+  IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+  SEPERATOR,
+} from '../engine/engineConsts';
 
 import numberUtils from './numberUtils';
+
+import type { IServerNetwork } from '../../types';
 
 function getNetworkChainId({
   networkId,
@@ -20,7 +33,50 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
   return impl;
 }
 
+function isLightningNetwork(coinType: string) {
+  return (
+    coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET
+  );
+}
+
+function isLightningNetworkByImpl(impl?: string) {
+  return impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
+}
+
+function isLightningNetworkByNetworkId(networkId?: string) {
+  const networkIdsMap = getNetworkIdsMap();
+  return (
+    networkId === networkIdsMap.lightning ||
+    networkId === networkIdsMap.tlightning
+  );
+}
+
+function isBTCNetwork(networkId?: string) {
+  return (
+    networkId === getNetworkIdsMap().btc ||
+    networkId === getNetworkIdsMap().tbtc
+  );
+}
+
+export function getBtcDappNetworkName(network: IServerNetwork) {
+  if (network && isBTCNetwork(network.id)) {
+    if (network.isTestnet) {
+      return Promise.resolve(
+        BtcDappNetworkTypes[EBtcDappNetworkTypeEnum.TESTNET].name,
+      );
+    }
+    return Promise.resolve(
+      BtcDappNetworkTypes[EBtcDappNetworkTypeEnum.MAINNET].name,
+    );
+  }
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  isLightningNetwork,
+  isLightningNetworkByImpl,
+  isLightningNetworkByNetworkId,
+  isBTCNetwork,
+  getBtcDappNetworkName,
 };

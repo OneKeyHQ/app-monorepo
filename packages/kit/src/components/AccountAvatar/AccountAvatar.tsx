@@ -135,7 +135,7 @@ function BasicAccountAvatar({
             borderCurve: 'continuous',
           } as ImageStyle
         }
-        {...(circular ? { circular: true } : { borderRadius: '$2' })}
+        borderRadius={size === 'small' ? '$1' : '$2'}
         {...restProps}
       >
         {content}

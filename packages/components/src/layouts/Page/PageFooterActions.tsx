@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -51,7 +52,9 @@ export function FooterActions({
   confirmButtonProps,
   cancelButtonProps,
   buttonContainerProps,
-}: IFooterActionsProps) {
+  children,
+  ...restProps
+}: PropsWithChildren<IFooterActionsProps>) {
   const { pop, popStack } = usePageNavigation();
   const handleCancel = useCallback(async () => {
     await onCancel?.(pop, popStack);
@@ -69,7 +72,9 @@ export function FooterActions({
       animation="fast"
       pb={getTokenValue('$size.5') as number}
       bg="$bgApp"
+      {...restProps}
     >
+      {children}
       <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
         {(!!cancelButtonProps || !!onCancel) && (
           <Button
