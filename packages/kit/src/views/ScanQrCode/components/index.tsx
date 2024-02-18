@@ -23,6 +23,10 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
     PermissionStatus.UNDETERMINED,
   );
   const isFocused = useIsFocused();
+  /*
+    useEffect has been removed for performance. 
+    If other hooks cause scanned to be refreshed to false, please add useEffect back.
+  */
   if (isFocused) {
     scanned.current = false;
   }
