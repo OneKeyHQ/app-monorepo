@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -12,30 +12,33 @@ export type IPageHeaderProps = IStackNavigationOptions;
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
   const searchTextColor = useThemeValue('text');
-  const reload = (props: IPageHeaderProps) => {
-    if (!props) {
-      return props;
-    }
+  const reload = useCallback(
+    (props: IPageHeaderProps) => {
+      if (!props) {
+        return props;
+      }
 
-    const { headerSearchBarOptions, headerTransparent, headerStyle } = props;
-    return {
-      ...props,
-      ...(headerTransparent && {
-        headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
-      }),
-      ...(headerSearchBarOptions && {
-        headerSearchBarOptions: {
-          hideNavigationBar: false,
-          hideWhenScrolling: false,
-          cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
-          textColor: searchTextColor,
-          tintColor: searchTextColor,
-          ...headerSearchBarOptions,
-        },
-      }),
-    };
-  };
-  return { reload };
+      const { headerSearchBarOptions, headerTransparent, headerStyle } = props;
+      return {
+        ...props,
+        ...(headerTransparent && {
+          headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
+        }),
+        ...(headerSearchBarOptions && {
+          headerSearchBarOptions: {
+            hideNavigationBar: false,
+            hideWhenScrolling: false,
+            cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
+            textColor: searchTextColor,
+            tintColor: searchTextColor,
+            ...headerSearchBarOptions,
+          },
+        }),
+      };
+    },
+    [intl, searchTextColor],
+  );
+  return useMemo(() => ({ reload }), [reload]);
 };
 
 const PageHeader = (props: IPageHeaderProps) => {
