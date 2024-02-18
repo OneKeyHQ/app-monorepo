@@ -262,15 +262,15 @@ class ProviderApiWalletConnect {
       });
       return;
     }
-    console.log('=====>>>>WC request networkId: ', chainInfo?.networkId);
-    if (accountsInfo[0].accountInfo.networkId !== chainInfo.networkId) {
-      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
-        newNetworkId: chainInfo.networkId,
-        origin,
-        scope: requestProxy.providerName,
-        isWalletConnectRequest: true,
-      });
+    if (accountsInfo[0].accountInfo.networkId === chainInfo.networkId) {
+      return;
     }
+    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+      newNetworkId: chainInfo.networkId,
+      origin,
+      scope: requestProxy.providerName,
+      isWalletConnectRequest: true,
+    });
   }
 
   @backgroundMethod()
