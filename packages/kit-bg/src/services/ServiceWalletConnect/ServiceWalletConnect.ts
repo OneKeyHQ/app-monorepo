@@ -68,7 +68,7 @@ class ServiceWalletConnect extends ServiceBase {
         });
         const infos = networks.map((n) => {
           let caipsInfo: ICaipsInfo | undefined;
-          const caipsItem = caipsToNetworkMap.polkadot;
+          const caipsItem = caipsToNetworkMap[namespace];
           if (caipsItem) {
             caipsInfo = caipsItem.find((caips) => caips.networkId === n.id);
           }

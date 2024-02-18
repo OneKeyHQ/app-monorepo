@@ -179,6 +179,12 @@ class ProviderApiWalletConnect {
         chain.namespace,
       );
       const requestProxy = this.getRequestProxy({ networkImpl });
+
+      // If the requested chainId does not match the one stored locally, switch the network.
+      await this.switchNetwork({
+        request,
+        requestProxy,
+      });
       const ret = await requestProxy.request(
         { sessionRequest: request },
         request.params.request,
@@ -219,6 +225,49 @@ class ProviderApiWalletConnect {
 
   onSessionPing() {
     console.log('ping');
+  }
+
+  @backgroundMethod()
+  async switchNetwork({
+    request,
+    requestProxy,
+  }: {
+    request: Web3WalletTypes.SessionRequest;
+    requestProxy: WalletConnectRequestProxy;
+  }) {
+    const { topic, id } = request;
+    const origin = this.getDAppOrigin({ sessionRequest: request });
+    // Find connected account
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin,
+        scope: requestProxy.providerName,
+        isWalletConnectRequest: true,
+      });
+    const chainInfo =
+      await this.backgroundApi.serviceWalletConnect.getChainData(
+        request.params.chainId,
+      );
+    if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: getSdkError('USER_REJECTED', 'No connected account'),
+        },
+      });
+      return;
+    }
+    console.log('=====>>>>WC request networkId: ', chainInfo?.networkId);
+    if (accountsInfo[0].accountInfo.networkId !== chainInfo.networkId) {
+      await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+        newNetworkId: chainInfo.networkId,
+        origin,
+        scope: requestProxy.providerName,
+        isWalletConnectRequest: true,
+      });
+    }
   }
 
   @backgroundMethod()
