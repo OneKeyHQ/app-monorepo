@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 
+import { wait } from '@onekeyfe/hd-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual } from 'lodash';
 
@@ -289,6 +290,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const { wallet, device } = await this.createHWWallet.call(set, params);
       // add hidden wallet if device passphrase enabled
       if (device && device.featuresInfo?.passphrase_protection) {
+        // wait previous action done, wait device ready
+        await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
+          connectId: device.connectId,
+        });
+        await wait(3000);
         await this.createHWHiddenWallet.call(set, {
           walletId: wallet.id,
         });
@@ -315,13 +321,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const { wallets } = await serviceAccount.getHDAndHWWallets();
         const firstWallet: IDBWallet | undefined = wallets[0];
         let firstAccount: IDBIndexedAccount | undefined;
-        if (firstWallet) {
-          const { accounts } = await serviceAccount.getAccountsOfWalletLegacy({
+        if (
+          firstWallet &&
+          (accountUtils.isHdWallet({ walletId: firstWallet.id }) ||
+            accountUtils.isHwWallet({ walletId: firstWallet.id }))
+        ) {
+          const { accounts } = await serviceAccount.getIndexedAccounts({
             walletId: firstWallet?.id,
           });
           // eslint-disable-next-line prefer-destructuring
           firstAccount = accounts[0];
         }
+
+        // TODO singleton wallet auto change account, use autoSelectAccount() instead?
 
         this.updateSelectedAccount.call(set, {
           num: 0,

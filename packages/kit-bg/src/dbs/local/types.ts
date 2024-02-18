@@ -17,6 +17,7 @@ import type {
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAccountDerivation';
+import type { RealmSchemaAddress } from './realm/schemas/RealmSchemaAddress';
 import type { RealmSchemaContext } from './realm/schemas/RealmSchemaContext';
 import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredential';
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
@@ -35,6 +36,7 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
+  nextWalletNo: number;
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string;
@@ -109,8 +111,10 @@ export type IDBWallet = IDBBaseObjectWithName & {
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   deviceType?: string;
-  hidden?: boolean;
+  isTemp?: boolean;
   passphraseState?: string;
+  walletNo: number;
+  walletOrder?: number;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
@@ -123,6 +127,7 @@ export type IDBCreateHWWalletParamsBase = {
   name?: string;
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
+  isFirmwareVerified?: boolean;
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
@@ -217,18 +222,25 @@ export type IDBDevicePayload = {
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
   featuresInfo?: IOneKeyDeviceFeatures; // readonly field
-  connectId: string; // alias mac
+  connectId: string; // alias mac\sn, never changed
   name: string;
   uuid: string;
-  deviceId: string;
+  deviceId: string; // deviceId changed after device reset
   deviceType: string;
   payloadJson: string;
   payloadJsonInfo?: any;
   createdAt: number;
   updatedAt: number;
+  isFirmwareVerified?: boolean;
 };
 export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
   payload: IDBDevicePayload;
+};
+
+// ---------------------------------------------- address
+export type IDBAddress = IDBBaseObject & {
+  // id: networkId--address, impl--address
+  wallets: Record<string, string>; // walletId -> indexedAccountId/accountId
 };
 
 // DB SCHEMA map ----------------------------------------------
@@ -240,6 +252,7 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.AccountDerivation]: IDBAccountDerivation;
   [ELocalDBStoreNames.IndexedAccount]: IDBIndexedAccount;
   [ELocalDBStoreNames.Device]: IDBDevice;
+  [ELocalDBStoreNames.Address]: IDBAddress;
 }
 
 export interface IRealmDBSchemaMap {
@@ -250,6 +263,7 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.AccountDerivation]: RealmSchemaAccountDerivation;
   [ELocalDBStoreNames.IndexedAccount]: RealmSchemaIndexedAccount;
   [ELocalDBStoreNames.Device]: RealmSchemaDevice;
+  [ELocalDBStoreNames.Address]: RealmSchemaAddress;
 }
 
 export interface IIndexedDBSchemaMap extends DBSchema {
@@ -281,6 +295,10 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.Wallet]: {
     key: string;
     value: IDBWallet;
+  };
+  [ELocalDBStoreNames.Address]: {
+    key: string;
+    value: IDBAddress;
   };
 }
 
@@ -325,6 +343,12 @@ export type ILocalDBTransactionStores = {
     IIndexedDBSchemaMap,
     ELocalDBStoreNames.Device[],
     ELocalDBStoreNames.Device,
+    'readwrite'
+  >;
+  [ELocalDBStoreNames.Address]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.Address[],
+    ELocalDBStoreNames.Address,
     'readwrite'
   >;
 };

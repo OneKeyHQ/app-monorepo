@@ -1,14 +1,6 @@
 import { useCallback } from 'react';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  ScrollView,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -20,8 +12,6 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { AccountAvatar } from '../AccountAvatar';
 
-import { AccountSelectorDialog } from './AccountSelectorDialog';
-import { AccountSelectorProviderMirror } from './AccountSelectorProvider';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
@@ -98,22 +88,8 @@ export function AccountSelectorTriggerLegacy({
   const { config } = contextData;
   const title = `${config?.sceneName || ''} 账户选择器 🔗  ${num}`;
   const showAccountSelector = useCallback(() => {
-    Dialog.show({
-      title,
-      estimatedContentHeight: 490,
-      renderContent: (
-        <AccountSelectorProviderMirror
-          enabledNum={[num]}
-          config={checkIsDefined(config)}
-        >
-          <ScrollView h="$100">
-            <AccountSelectorDialog num={num} />
-          </ScrollView>
-        </AccountSelectorProviderMirror>
-      ),
-      showFooter: false,
-    });
-  }, [config, num, title]);
+    throw new Error('showAccountSelector legacy not implemented');
+  }, []);
   return (
     <>
       <Button onPress={showAccountSelector}>{title}</Button>

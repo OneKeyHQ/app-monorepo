@@ -124,6 +124,8 @@ export type IVaultFactoryOptions = {
   networkId: string;
   accountId: string;
   walletId?: IDBWalletId;
+  isChainOnly?: boolean;
+  isWalletOnly?: boolean;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   backgroundApi: IBackgroundApi;

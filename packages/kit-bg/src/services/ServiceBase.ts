@@ -1,5 +1,4 @@
 import axios from 'axios';
-import memoizee from 'memoizee';
 
 import {
   backgroundClass,
@@ -7,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 

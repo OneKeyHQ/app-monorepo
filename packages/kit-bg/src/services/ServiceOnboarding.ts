@@ -31,7 +31,11 @@ class ServiceOnboarding extends ServiceBase {
       indexedAccountsCount,
       walletsCount,
       isOnboardingDone:
-        accountsCount > 0 || indexedAccountsCount > 0 || walletsCount > 3,
+        accountsCount > 0 ||
+        indexedAccountsCount > 0 ||
+        // watching\imported\external 3 wallets created in default
+        // TODO lazy _addSingletonWalletRecord
+        walletsCount > 3,
     };
   }
 }

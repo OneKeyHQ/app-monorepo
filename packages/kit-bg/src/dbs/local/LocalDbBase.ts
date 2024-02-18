@@ -22,7 +22,9 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import {
   DB_MAIN_CONTEXT_ID,
@@ -35,50 +37,56 @@ import {
   WALLET_TYPE_WATCHING,
 } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
-import {
-  type IDBAccount,
-  type IDBAccountDerivation,
-  type IDBAddAccountDerivationParams,
-  type IDBApiGetContextOptions,
-  type IDBContext,
-  type IDBCreateHDWalletParams,
-  type IDBCreateHWWalletParams,
-  type IDBCredentialBase,
-  type IDBDevice,
-  type IDBDevicePayload,
-  type IDBIndexedAccount,
-  type IDBRemoveWalletParams,
-  type IDBSetAccountNameParams,
-  type IDBSetAccountTemplateParams,
-  type IDBSetWalletNameAndAvatarParams,
-  type IDBStoredPrivateKeyCredential,
-  type IDBStoredSeedCredential,
-  type IDBWallet,
-  type IDBWalletId,
-  type IDBWalletIdSingleton,
-  type ILocalDBAgent,
-  type ILocalDBGetAllRecordsParams,
-  type ILocalDBGetAllRecordsResult,
-  type ILocalDBGetRecordByIdParams,
-  type ILocalDBGetRecordByIdResult,
-  type ILocalDBGetRecordsCountParams,
-  type ILocalDBGetRecordsCountResult,
-  type ILocalDBRecordUpdater,
-  type ILocalDBTransaction,
-  type ILocalDBTxAddRecordsParams,
-  type ILocalDBTxAddRecordsResult,
-  type ILocalDBTxGetAllRecordsParams,
-  type ILocalDBTxGetAllRecordsResult,
-  type ILocalDBTxGetRecordByIdParams,
-  type ILocalDBTxGetRecordByIdResult,
-  type ILocalDBTxGetRecordsCountParams,
-  type ILocalDBTxRemoveRecordsParams,
-  type ILocalDBTxUpdateRecordsParams,
-  type ILocalDBWithTransactionTask,
+
+import type {
+  IDBAccount,
+  IDBAccountDerivation,
+  IDBAddAccountDerivationParams,
+  IDBAddress,
+  IDBApiGetContextOptions,
+  IDBContext,
+  IDBCreateHDWalletParams,
+  IDBCreateHWWalletParams,
+  IDBCredentialBase,
+  IDBDevice,
+  IDBDevicePayload,
+  IDBIndexedAccount,
+  IDBRemoveWalletParams,
+  IDBSetAccountNameParams,
+  IDBSetAccountTemplateParams,
+  IDBSetWalletNameAndAvatarParams,
+  IDBStoredPrivateKeyCredential,
+  IDBStoredSeedCredential,
+  IDBWallet,
+  IDBWalletId,
+  IDBWalletIdSingleton,
+  ILocalDBAgent,
+  ILocalDBGetAllRecordsParams,
+  ILocalDBGetAllRecordsResult,
+  ILocalDBGetRecordByIdParams,
+  ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsCountParams,
+  ILocalDBGetRecordsCountResult,
+  ILocalDBRecordUpdater,
+  ILocalDBTransaction,
+  ILocalDBTxAddRecordsParams,
+  ILocalDBTxAddRecordsResult,
+  ILocalDBTxGetAllRecordsParams,
+  ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordByIdParams,
+  ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsCountParams,
+  ILocalDBTxRemoveRecordsParams,
+  ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionTask,
 } from './types';
 
 export abstract class LocalDbBase implements ILocalDBAgent {
   protected abstract readyDb: Promise<ILocalDBAgent>;
+
+  tempWallets: {
+    [walletId: string]: boolean;
+  } = {};
 
   async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
     throw new Error(
@@ -446,14 +454,26 @@ ssphrase wallet
       | undefined,
   ): Promise<{ wallets: IDBWallet[] }> {
     const db = await this.readyDb;
+
     // get all wallets for account selector
-    const { records } = await db.getAllRecords({
+    let { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.Wallet,
     });
+    records = records.filter((wallet) => {
+      if (this.isTempWalletRemoved({ wallet })) {
+        return false;
+      }
+      return true;
+    });
+    records = await Promise.all(
+      records.map((w) => this.refillWalletInfo({ wallet: w })),
+    );
+    records = records.sort(
+      (a, b) => (a.walletOrder ?? 0) - (b.walletOrder ?? 0),
+    );
+
     return {
-      wallets: records
-        .map((w) => this.refillWalletInfo({ wallet: w }))
-        .sort((a, b) => natsort({ insensitive: true })(a.name, b.name)),
+      wallets: records,
     };
   }
 
@@ -466,13 +486,25 @@ ssphrase wallet
     return this.refillWalletInfo({ wallet });
   }
 
-  refillWalletInfo({ wallet }: { wallet: IDBWallet }) {
+  async refillWalletInfo({ wallet }: { wallet: IDBWallet }) {
+    const db = await this.readyDb;
     let avatarInfo: IAvatarInfo | undefined;
     const parsedAvatar: IAvatarInfo = JSON.parse(wallet.avatar || '{}');
     if (Object.keys(parsedAvatar).length > 0) {
       avatarInfo = parsedAvatar;
     }
     wallet.avatarInfo = avatarInfo;
+    wallet.walletOrder = wallet.walletNo;
+    if (accountUtils.isHwHiddenWallet({ wallet })) {
+      const parentWalletId = accountUtils.buildHwWalletId({
+        dbDeviceId: wallet.associatedDevice || '',
+      });
+      const parentWallet = await db.getRecordById({
+        name: ELocalDBStoreNames.Wallet,
+        id: parentWalletId,
+      });
+      wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
+    }
     return wallet;
   }
 
@@ -520,7 +552,8 @@ ssphrase wallet
     }
     return {
       accounts: accounts.sort((a, b) =>
-        natsort({ insensitive: true })(a.name, b.name),
+        // indexedAccount sort by index
+        natsort({ insensitive: true })(a.index, b.index),
       ),
     };
   }
@@ -740,6 +773,7 @@ ssphrase wallet
             nextAccountIds: {},
             accounts: [],
             nextIndex: firstAccountIndex,
+            walletNo: context.nextWalletNo,
           },
         ],
       });
@@ -773,6 +807,7 @@ ssphrase wallet
         tx,
         updater: (ctx) => {
           ctx.nextHD += 1;
+          ctx.nextWalletNo += 1;
           return ctx;
         },
       });
@@ -784,15 +819,18 @@ ssphrase wallet
     });
   }
 
+  // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
-    const { name, device, features, passphraseState } = params;
+    const { name, device, features, passphraseState, isFirmwareVerified } =
+      params;
     const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
     const { connectId } = device;
+    const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     const deviceType = device.deviceType || getDeviceType(features);
     const deviceUUID = device.uuid || getDeviceUUID(features);
-    const deviceId = device.deviceId || features.device_id || '';
+    const rawDeviceId = device.deviceId || features.device_id || '';
     let walletName =
       name ??
       features.label ??
@@ -806,15 +844,15 @@ ssphrase wallet
       img: deviceType,
     };
     const existingDevice = await this.getExistingDevice({
-      deviceId,
+      rawDeviceId,
       uuid: deviceUUID,
     });
     const dbDeviceId = existingDevice?.id || generateUUID();
-    // TODO move to accountUtils
-    let dbWalletId = `hw-${dbDeviceId}`;
-    if (passphraseState) {
-      dbWalletId = `hw-${dbDeviceId}-${passphraseState}`;
-    }
+
+    const dbWalletId = accountUtils.buildHwWalletId({
+      dbDeviceId,
+      passphraseState,
+    });
     const featuresStr = JSON.stringify(features);
 
     const firstAccountIndex = 0;
@@ -834,7 +872,7 @@ ssphrase wallet
             name: walletName,
             connectId: connectId || '',
             uuid: deviceUUID,
-            deviceId,
+            deviceId: rawDeviceId,
             deviceType,
             features: featuresStr,
             payloadJson: `{}`,
@@ -844,6 +882,7 @@ ssphrase wallet
         ],
       });
 
+      // update exists db device
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -851,6 +890,9 @@ ssphrase wallet
         updater: (item) => {
           item.features = featuresStr;
           item.updatedAt = now;
+          if (isFirmwareVerified) {
+            item.isFirmwareVerified = isFirmwareVerified;
+          }
           return item;
         },
       });
@@ -869,12 +911,23 @@ ssphrase wallet
             backuped: true,
             associatedDevice: dbDeviceId,
             deviceType,
+            isTemp: false,
             passphraseState,
             nextIndex: firstAccountIndex,
             nextAccountIds: {},
             accounts: [],
+            walletNo: context.nextWalletNo,
           },
         ],
+      });
+
+      await this.txUpdateWallet({
+        tx,
+        walletId: dbWalletId,
+        updater: (item) => {
+          item.isTemp = false;
+          return item;
+        },
       });
 
       // add first indexed account
@@ -884,7 +937,21 @@ ssphrase wallet
         onlyAddFirst: true,
       });
       addedHdAccountIndex = nextIndex;
+
+      console.log('increase nextWalletNo');
+      // increase nextHD
+      await this.txUpdateContext({
+        tx,
+        updater: (ctx) => {
+          ctx.nextWalletNo += 1;
+          return ctx;
+        },
+      });
     });
+
+    if (passphraseState) {
+      this.tempWallets[dbWalletId] = true;
+    }
 
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
@@ -905,6 +972,7 @@ ssphrase wallet
       // call remove account & indexed account
       // remove credential
       // remove wallet
+      // remove address
 
       const [wallet] = await this.txGetWallet({
         tx,
@@ -931,6 +999,33 @@ ssphrase wallet
         name: ELocalDBStoreNames.Wallet,
         ids: [walletId],
       });
+    });
+
+    delete this.tempWallets[walletId];
+  }
+
+  isTempWalletRemoved({ wallet }: { wallet: IDBWallet }): boolean {
+    return Boolean(wallet.isTemp && !this.tempWallets[wallet.id]);
+  }
+
+  async setWalletTempStatus({
+    walletId,
+    isTemp,
+  }: {
+    walletId: IDBWalletId;
+    isTemp: boolean;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (item) => {
+          item.isTemp = isTemp;
+          return item;
+        },
+      });
+      this.tempWallets[walletId] = true;
     });
   }
 
@@ -1036,6 +1131,124 @@ ssphrase wallet
     }
   }
 
+  async getAccountNameFromAddress({
+    networkId,
+    address,
+    normalizedAddress,
+  }: {
+    networkId: string;
+    address: string;
+    normalizedAddress: string;
+  }): Promise<Array<{ walletName: string; accountName: string }>> {
+    try {
+      const db = await this.readyDb;
+      let info: IDBAddress | undefined;
+      try {
+        const id = `${networkId}--${address}`;
+        info = await this.getRecordById({
+          name: ELocalDBStoreNames.Address,
+          id,
+        });
+      } catch (error) {
+        const impl = networkUtils.getNetworkImpl({ networkId });
+        const id = `${impl}--${normalizedAddress}`;
+        info = await this.getRecordById({
+          name: ELocalDBStoreNames.Address,
+          id,
+        });
+      }
+
+      if (info) {
+        const result = [];
+        const items = Object.entries(info.wallets);
+        for (const item of items) {
+          const [walletId, accountId] = item;
+          try {
+            const wallet = await this.getWallet({ walletId });
+            let account: IDBIndexedAccount | IDBAccount | undefined;
+            try {
+              account = await this.getIndexedAccount({ id: accountId });
+            } catch (error) {
+              account = await this.getAccount({ accountId });
+            }
+            if (wallet && account) {
+              result.push({
+                walletName: wallet.name,
+                accountName: account.name,
+              });
+            }
+          } catch (error) {
+            //
+          }
+        }
+        return result;
+      }
+      return [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async saveAccountAddresses({
+    networkId,
+    account,
+  }: {
+    networkId: string;
+    account: INetworkAccount;
+  }) {
+    const accountId = account.id;
+    const { indexedAccountId, address, addressDetail, type } = account;
+    let id = `${networkId}--${address}`;
+    if (type === EDBAccountType.SIMPLE) {
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      id = `${impl}--${addressDetail.normalizedAddress}`;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId,
+    });
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      let recordPair:
+        | ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
+        | undefined;
+      try {
+        recordPair = await db.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.Address,
+          id,
+        });
+      } catch (error) {
+        //
+      }
+      const record = recordPair?.[0];
+      if (record && recordPair) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Address,
+          recordPairs: [recordPair],
+          updater: (r) => {
+            r.wallets = r.wallets || {};
+            r.wallets[walletId] = indexedAccountId ?? accountId;
+            return r;
+          },
+        });
+      } else {
+        await this.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Address,
+          records: [
+            {
+              id,
+              wallets: {
+                [walletId]: indexedAccountId ?? accountId,
+              },
+            },
+          ],
+        });
+      }
+    });
+  }
+
   async addAccountsToWallet({
     walletId,
     accounts,
@@ -1060,10 +1273,9 @@ ssphrase wallet
 
       // update singleton wallet.accounts & nextAccountId
       if (added > 0 && this.isSingletonWallet({ walletId })) {
-        await db.txUpdateRecords({
+        await this.txUpdateWallet({
           tx,
-          name: ELocalDBStoreNames.Wallet,
-          ids: [walletId],
+          walletId,
           updater: (w) => {
             w.nextAccountIds = w.nextAccountIds || {};
             w.nextAccountIds.global = (w.nextAccountIds.global ?? 1) + added;
@@ -1190,6 +1402,19 @@ ssphrase wallet
           },
         });
       }
+      if (params.accountId) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Account,
+          ids: [params.accountId],
+          updater: (r) => {
+            if (params.name) {
+              r.name = params.name || r.name;
+            }
+            return r;
+          },
+        });
+      }
     });
   }
 
@@ -1290,15 +1515,15 @@ ssphrase wallet
   }
 
   async getExistingDevice({
-    deviceId,
+    rawDeviceId,
     uuid,
   }: {
-    deviceId: string;
+    rawDeviceId: string;
     uuid: string;
   }): Promise<IDBDevice | undefined> {
     const devices = await this.getAllDevices();
     return devices.find(
-      (item) => item.deviceId === deviceId && item.uuid === uuid,
+      (item) => item.deviceId === rawDeviceId && item.uuid === uuid,
     );
   }
 
