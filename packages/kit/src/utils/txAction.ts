@@ -82,9 +82,7 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
       otherActions.push(action);
     }
   });
-  return [mergedAssetTransferAction, ...otherActions].filter(
-    Boolean,
-  ) as IDecodedTxAction[];
+  return [mergedAssetTransferAction, ...otherActions].filter(Boolean);
 }
 
 export function isSendNativeToken(action: IDecodedTxAction) {

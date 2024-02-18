@@ -346,7 +346,7 @@ export default class Vault extends VaultBase {
     const { encodedTx, action, extraNativeTransferAction } = params;
     const accountAddress = await this.getAccountAddress();
     const finalActions = mergeAssetTransferActions(
-      [action, extraNativeTransferAction].filter(Boolean) as IDecodedTxAction[],
+      [action, extraNativeTransferAction].filter(Boolean),
     );
 
     let nativeAmount = '0';

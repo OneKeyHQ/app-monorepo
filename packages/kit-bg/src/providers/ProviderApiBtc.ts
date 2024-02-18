@@ -147,8 +147,7 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Can not get current account`,
       });
     }
-    const { accountInfo: { accountId, networkId } = {} } =
-      accountsInfo[0];
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
     if (type !== 'bip322-simple' && type !== 'ecdsa') {
       throw web3Errors.rpc.invalidParams('Invalid type');

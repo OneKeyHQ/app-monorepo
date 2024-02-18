@@ -61,7 +61,7 @@ function SendConfirmContainer() {
   useEffect(
     () => () =>
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' }),
-    [],
+    [updateSendFeeStatus],
   );
 
   const renderSendConfirmView = useCallback(() => {

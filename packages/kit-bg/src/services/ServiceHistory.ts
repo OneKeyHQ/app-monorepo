@@ -68,7 +68,7 @@ class ServiceHistory extends ServiceBase {
           }),
         ),
       )
-    ).filter(Boolean) as IAccountHistoryTx[];
+    ).filter(Boolean);
 
     return txs;
   }
