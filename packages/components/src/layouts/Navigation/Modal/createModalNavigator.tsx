@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   StackRouter,
@@ -87,9 +87,9 @@ function ModalNavigator({
   }, [navigation, descriptor]);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
-  const currentRouteIndex = Math.max(
-    1,
-    rootNavigation?.getState?.().index ?? 0,
+  const currentRouteIndex = useMemo(
+    () => Math.max(1, rootNavigation?.getState?.().index ?? 0),
+    [rootNavigation],
   );
 
   useEffect(() => {
