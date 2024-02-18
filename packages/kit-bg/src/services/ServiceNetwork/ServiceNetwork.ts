@@ -136,6 +136,23 @@ class ServiceNetwork extends ServiceBase {
     }
     return networks;
   }
+
+  @backgroundMethod()
+  async containsNetwork({
+    impls,
+    networkId,
+  }: {
+    impls?: string[];
+    networkId: string;
+  }) {
+    let networkIds: string[];
+    if (impls) {
+      ({ networkIds } = await this.getNetworkIdsByImpls({ impls }));
+    } else {
+      ({ networkIds } = await this.getAllNetworkIds());
+    }
+    return networkIds.includes(networkId);
+  }
 }
 
 export default ServiceNetwork;

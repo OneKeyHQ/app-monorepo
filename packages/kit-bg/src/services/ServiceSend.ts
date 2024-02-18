@@ -1,6 +1,6 @@
 import { isNil, random } from 'lodash';
 
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -457,6 +458,40 @@ class ServiceSend extends ServiceBase {
     }
 
     return newUnsignedTx;
+  }
+
+  @backgroundMethod()
+  async signMessage({
+    unsignedMessage,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage?: IUnsignedMessage;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+
+    let validUnsignedMessage = unsignedMessage;
+    if (unsignedMessage) {
+      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
+    }
+
+    if (!validUnsignedMessage) {
+      throw new Error('Invalid unsigned message');
+    }
+
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify();
+    const [signedMessage] = await vault.keyring.signMessage({
+      messages: [validUnsignedMessage],
+      password,
+    });
+
+    return signedMessage;
   }
 }
 

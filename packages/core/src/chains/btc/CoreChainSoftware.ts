@@ -29,8 +29,10 @@ import {
   verify,
 } from '../../secret';
 import {
-  EAddressEncodings,
   EMessageTypesBtc,
+} from '@onekeyhq/shared/types/message';
+import {
+  EAddressEncodings,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressQueryPublicKey,

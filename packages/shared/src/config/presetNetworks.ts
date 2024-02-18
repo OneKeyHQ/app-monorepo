@@ -542,5 +542,5 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  return [eth, polygon, goerli, btc, tbtc, tatom, cosmoshub, osmosis];
+  return [eth, goerli, btc, tbtc, tatom, cosmoshub, osmosis, polygon];
 });
