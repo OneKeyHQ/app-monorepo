@@ -1,4 +1,4 @@
-import { WALLET_CONNECT_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/urlProtocolConsts';
+import { WALLET_CONNECT_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 
 import { EQRCodeHandlerType } from '../type';
 
