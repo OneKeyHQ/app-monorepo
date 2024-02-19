@@ -90,6 +90,7 @@ function Field({
   description,
   rules,
   children,
+  testID = '',
 }: IFieldProps) {
   const {
     control,
@@ -121,6 +122,7 @@ function Field({
           <HeightTransition>
             {error?.message && (
               <SizableText
+                testID={`${testID}-message`}
                 key={error?.message}
                 color="$textCritical"
                 size="$bodyMd"

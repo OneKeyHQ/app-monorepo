@@ -84,6 +84,7 @@ function SelectItem({
   leading,
   selectedValue,
   description,
+  testID = '',
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
@@ -109,6 +110,7 @@ function SelectItem({
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
+        testID={testID}
       >
         {leading ? (
           <Stack alignContent="center" justifyContent="center" pr="$4">
@@ -202,6 +204,7 @@ function SelectContent() {
         {...item}
         onSelect={handleSelect}
         selectedValue={(value as ISelectItem)?.value || (value as string)}
+        testID={`select-item-${item.value}`}
       />
     ),
     [handleSelect, value],
@@ -367,7 +370,7 @@ function BasicSelect<T extends string | ISelectItem>({
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
-    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
+    ({ label, value, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
         <Input
           value={label}
@@ -375,6 +378,7 @@ function BasicSelect<T extends string | ISelectItem>({
           placeholder={placeholder}
           readonly
           flex={1}
+          testID={`${props.testID || ''}-input`}
         />
         <Icon
           name="ChevronBottomSolid"

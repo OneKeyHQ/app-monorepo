@@ -13,6 +13,7 @@
   "dependencies": {
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
+    "fast-safe-stringify": "^2.1.1",
     "flatted": "^3.2.7",
     "js-base64": "3.7.5",
     "jsonschema": "^1.4.1",

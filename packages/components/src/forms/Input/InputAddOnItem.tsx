@@ -11,6 +11,7 @@ export interface IInputAddOnProps extends IXStackProps {
   addOnSize?: IInputProps['size'];
   loading?: boolean;
   isAddOnDisabled?: IInputProps['disabled'];
+  testID?: string;
 }
 
 export function InputAddOnItem({

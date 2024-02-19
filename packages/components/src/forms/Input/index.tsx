@@ -275,7 +275,10 @@ function BaseInput(
             disablePassBorderRadius="start"
           >
             {addOns.map(
-              ({ iconName, iconColor, label, onPress, loading }, index) => {
+              (
+                { iconName, iconColor, label, onPress, loading, testID = '' },
+                index,
+              ) => {
                 const getIconColor = () => {
                   if (disabled) {
                     return '$iconDisabled';
@@ -309,6 +312,7 @@ function BaseInput(
                       style={{
                         borderCurve: 'continuous',
                       }}
+                      testID={testID}
                     >
                       {loading ? (
                         <YStack {...(size !== 'small' && { p: '$0.5' })}>

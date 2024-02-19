@@ -50,7 +50,11 @@ export default function ScanQrCodeModal() {
   }, [overrideCallback]);
   const headerRightCall = useCallback(
     () => (
-      <HeaderIconButton onPress={pickImage} icon="ImageSquareMountainOutline" />
+      <HeaderIconButton
+        onPress={pickImage}
+        icon="ImageSquareMountainOutline"
+        testID="scan-open-photo"
+      />
     ),
     [pickImage],
   );
