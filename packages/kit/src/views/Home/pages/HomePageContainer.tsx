@@ -3,18 +3,18 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { Page, Tab } from '@onekeyhq/components';
+import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
+import HomeSelector from '../components/HomeSelector';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
@@ -25,6 +25,9 @@ function HomePage() {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
+  const {
+    activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
+  } = useActiveAccount({ num: 0 });
 
   const onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
@@ -73,31 +76,71 @@ function HomePage() {
     [],
   );
 
-  return useMemo(
-    () => (
-      <Page>
-        <Page.Header headerTitle={headerTitle} />
-        <Page.Body>
-          <Tab
-            data={tabs}
-            ListHeaderComponent={<HomeHeaderContainer />}
-            initialScrollIndex={0}
-            $md={{
-              width: '100%',
-            }}
-            $gtMd={{
-              width: screenWidth - sideBarWidth,
-            }}
-            refreshControl={
-              <RefreshControl refreshing={false} onRefresh={onRefresh} />
-            }
-            showsVerticalScrollIndicator={false}
-          />
-        </Page.Body>
-      </Page>
-    ),
-    [headerTitle, tabs, screenWidth, sideBarWidth, onRefresh],
-  );
+  const renderHomePage = useCallback(() => {
+    if (!ready) return null;
+    if (wallet) {
+      return (
+        <>
+          <Page.Header headerTitle={headerTitle} />
+          <Page.Body>
+            {account ? (
+              <Tab
+                data={tabs}
+                ListHeaderComponent={<HomeHeaderContainer />}
+                initialScrollIndex={0}
+                $md={{
+                  width: '100%',
+                }}
+                $gtMd={{
+                  width: screenWidth - sideBarWidth,
+                }}
+                refreshControl={
+                  <RefreshControl refreshing={false} onRefresh={onRefresh} />
+                }
+                showsVerticalScrollIndicator={false}
+              />
+            ) : (
+              <YStack height="100%">
+                <HomeSelector padding="$5" />
+                <Stack flex={1} justifyContent="center">
+                  <EmptyAccount
+                    name={accountName}
+                    chain={network?.name ?? ''}
+                    type={intl.formatMessage({
+                      id: deriveInfo?.labelKey,
+                    })}
+                  />
+                </Stack>
+              </YStack>
+            )}
+          </Page.Body>
+        </>
+      );
+    }
+
+    return (
+      <Page.Body>
+        <Stack h="100%" justifyContent="center">
+          <EmptyWallet />
+        </Stack>
+      </Page.Body>
+    );
+  }, [
+    account,
+    accountName,
+    deriveInfo?.labelKey,
+    headerTitle,
+    intl,
+    network?.name,
+    onRefresh,
+    ready,
+    screenWidth,
+    sideBarWidth,
+    tabs,
+    wallet,
+  ]);
+
+  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
 }
 
 function HomePageContainer() {

@@ -1,14 +1,10 @@
-import { Portal, Stack, XStack } from '@onekeyhq/components';
+import { Portal, Stack } from '@onekeyhq/components';
 
-import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
-import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
-import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
+import HomeSelector from '../components/HomeSelector';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 function HomeHeaderContainer() {
-  const num = 0;
-
   return (
     <Stack
       p="$5"
@@ -19,15 +15,8 @@ function HomeHeaderContainer() {
       }}
     >
       <Stack>
-        <XStack mb="$1" alignItems="center" space="$1">
-          <NetworkSelectorTriggerHome num={num} />
-          <AccountSelectorActiveAccountHome num={num} />
-          <DeriveTypeSelectorTrigger miniMode num={num} />
-        </XStack>
-
-        <Stack mt="$1">
-          <HomeOverviewContainer />
-        </Stack>
+        <HomeSelector mb="$2" />
+        <HomeOverviewContainer />
       </Stack>
       <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
     </Stack>

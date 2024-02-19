@@ -18,31 +18,32 @@ export type IEmptyBaseProps = {
 function EmptyBase(props: IEmptyBaseProps) {
   const { icon, iconProps, title, description, actions } = props;
   return (
-    <YStack space="$6">
+    <YStack space="$6" justifyContent="center" alignItems="center">
       {icon && (
-        <Icon color="$iconSubdued" name={icon} size={40} {...iconProps} />
+        <Icon color="$iconSubdued" name={icon} size="$10" {...iconProps} />
       )}
-      <YStack space="$2">
+      <YStack space="$2" alignItems="center">
         {title && <SizableText size="$headingXl">{title}</SizableText>}
         {description && (
-          <SizableText size="$bodyLg" color="$textSubdued">
+          <SizableText size="$bodyLg" color="$textSubdued" textAlign="center">
             {description}
           </SizableText>
         )}
-        <XStack>
-          {actions &&
-            actions.map((action, index) => (
-              <Button
-                key={index}
-                onPress={action.OnPress}
-                size="medium"
-                variant="primary"
-              >
-                {action.text}
-              </Button>
-            ))}
-        </XStack>
       </YStack>
+
+      <XStack>
+        {actions &&
+          actions.map((action, index) => (
+            <Button
+              key={index}
+              onPress={action.OnPress}
+              size="medium"
+              variant="primary"
+            >
+              {action.text}
+            </Button>
+          ))}
+      </XStack>
     </YStack>
   );
 }
