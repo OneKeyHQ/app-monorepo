@@ -177,6 +177,7 @@ export type IAddressQueryResult = {
   input?: string;
   isValid?: boolean;
   walletAccountName?: string;
+  addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   isFirstTransfer?: boolean;
@@ -294,6 +295,11 @@ function AddressInput(props: IAddressInputProps) {
                   {queryResult.walletAccountName}
                 </Badge>
               ) : null}
+              {queryResult.addressBookName ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {queryResult.addressBookName}
+                </Badge>
+              ) : null}
               {queryResult.resolveAddress ? (
                 <ResolvedAddress
                   value={queryResult.resolveAddress}
@@ -342,6 +348,7 @@ function AddressInput(props: IAddressInputProps) {
       queryResult.resolveAddress,
       queryResult.resolveOptions,
       queryResult.walletAccountName,
+      queryResult.addressBookName,
       setResolveAddress,
       networkId,
       rest.testID,
