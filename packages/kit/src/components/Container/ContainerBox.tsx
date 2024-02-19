@@ -1,7 +1,9 @@
 import type { ComponentProps, ReactElement } from 'react';
 import { cloneElement } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import { Group, SizableText, Stack } from '@onekeyhq/components';
 
 interface IContentItemProps {
   hasDivider?: boolean;
@@ -20,10 +22,12 @@ type IProps = {
     | boolean
     | null
     | undefined;
+  hasDivider?: boolean;
 };
 
 function ContainerBox(props: IProps) {
-  const { title, titleProps, contentProps, blockProps, children } = props;
+  const { title, titleProps, contentProps, blockProps, children, hasDivider } =
+    props;
   return (
     <Stack {...blockProps}>
       {typeof title === 'string' ? (
@@ -38,13 +42,11 @@ function ContainerBox(props: IProps) {
       ) : (
         title
       )}
-      <Stack
-        borderWidth={1}
-        borderRadius={12}
-        borderColor="$border"
+      <Group
         bg="$bgSubdued"
-        overflow="hidden"
-        px="$5"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius={12}
         {...contentProps}
       >
         {children &&
@@ -61,15 +63,17 @@ function ContainerBox(props: IProps) {
               return cloneElement(child, {
                 ...child.props,
                 key: index.toString(),
-                hasDivider:
-                  index !==
-                  (children instanceof Array ? children : [children]).length -
-                    1,
+                hasDivider: hasDivider
+                  ? index !==
+                    (children instanceof Array ? children : [children]).length -
+                      1
+                  : hasDivider,
+
                 children: childChildren,
               });
             },
           )}
-      </Stack>
+      </Group>
     </Stack>
   );
 }

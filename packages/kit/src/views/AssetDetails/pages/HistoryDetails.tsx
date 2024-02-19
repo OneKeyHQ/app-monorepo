@@ -48,7 +48,7 @@ function HistoryDetails() {
     () =>
       Promise.all([
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceAccount.getIsUTXOAccount({ networkId }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
           networkId,
           accountAddress,
@@ -60,7 +60,8 @@ function HistoryDetails() {
     { watchLoading: true },
   );
 
-  const [network, isUTXO, txDetailsResp, nativeToken] = resp.result ?? [];
+  const [network, vaultSettings, txDetailsResp, nativeToken] =
+    resp.result ?? [];
 
   const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
 
@@ -210,7 +211,7 @@ function HistoryDetails() {
         )}
         <TxDetails
           details={details}
-          isUTXO={isUTXO}
+          isUTXO={vaultSettings?.isUtxo}
           onViewUTXOsPress={handleOnViewUTXOsPress}
         />
       </Stack>
@@ -219,7 +220,7 @@ function HistoryDetails() {
     resp.isLoading,
     historyTx.decodedTx.status,
     details,
-    isUTXO,
+    vaultSettings?.isUtxo,
     handleOnViewUTXOsPress,
   ]);
 

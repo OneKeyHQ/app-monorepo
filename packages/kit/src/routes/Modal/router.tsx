@@ -3,6 +3,7 @@ import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
@@ -35,6 +36,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
+  },
+  {
+    name: EModalRoutes.AssetSelectorModal,
+    children: AssetSelectorRouter,
   },
   {
     name: EModalRoutes.ChainSelectorModal,
