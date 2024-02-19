@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { ISelectItem, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -8,11 +8,11 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
+import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
-import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
 import { ESwapApproveAllowanceType } from '../../types';
 
 interface ISwapQuoteResultProps {
@@ -41,7 +41,9 @@ const SwapQuoteResult = ({
     if (quoteResult?.allowanceResult) {
       return [
         {
-          label: `${quoteResult.allowanceResult.amount} ${fromToken?.symbol}`,
+          label: `${quoteResult.allowanceResult.amount} ${
+            fromToken?.symbol ?? ''
+          }`,
           value: ESwapApproveAllowanceType.PRECISION,
         },
         {
@@ -51,13 +53,16 @@ const SwapQuoteResult = ({
       ];
     }
     return [];
-  }, [quoteResult]);
+  }, [fromToken?.symbol, quoteResult?.allowanceResult]);
 
-  const onSelectAllowanceValue = useCallback((value: string) => {
-    setSwapQuoteApproveAllowanceUnLimit(
-      value === ESwapApproveAllowanceType.UN_LIMIT,
-    );
-  }, []);
+  const onSelectAllowanceValue = useCallback(
+    (value: string) => {
+      setSwapQuoteApproveAllowanceUnLimit(
+        value === ESwapApproveAllowanceType.UN_LIMIT,
+      );
+    },
+    [setSwapQuoteApproveAllowanceUnLimit],
+  );
 
   return !quoteResult ? null : (
     <YStack
@@ -72,6 +77,7 @@ const SwapQuoteResult = ({
         <SwapApproveAllowanceSelect
           onSelectAllowanceValue={onSelectAllowanceValue}
           selectItems={approveAllowanceSelectItems}
+          isLoading={quoteFetching}
         />
       )}
       <SwapRateInfoItem

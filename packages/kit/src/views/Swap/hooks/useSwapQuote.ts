@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -9,6 +9,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
+import { swapQuoteFetchInterval } from '../config/SwapProvider.constants';
 
 export function useSwapQuote() {
   const [quoteFetching, setQuoteFetching] = useSwapQuoteFetchingAtom();
@@ -17,7 +18,9 @@ export function useSwapQuote() {
   const [, setQuoteList] = useSwapQuoteListAtom();
   const [swapSlippage] = useSwapSlippagePercentageAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const quoteFetch = useCallback(
+  const intervalRef = useRef<NodeJS.Timeout>();
+
+  const runFetch = useCallback(
     async (fromAmount: number) => {
       if (
         fromToken &&
@@ -57,6 +60,19 @@ export function useSwapQuote() {
       toToken,
     ],
   );
+
+  const quoteFetch = useCallback(
+    async (fromAmount: number) => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      intervalRef.current = setInterval(() => {
+        void runFetch(fromAmount);
+      }, swapQuoteFetchInterval);
+    },
+    [runFetch],
+  );
+
   return {
     quoteFetching,
     quoteFetch,

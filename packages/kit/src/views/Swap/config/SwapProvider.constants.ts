@@ -1,3 +1,5 @@
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import { ESwapProviders, ESwapSlippageSegmentKey } from '../types';
 
 import type {
@@ -34,3 +36,7 @@ export const networkTransactionExplorerReplaceStr = '{transaction}';
 export const swapTokenCatchMapMaxCount = 30;
 
 export const swapApproveResetValue = '0';
+
+export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
+  seconds: 10,
+});

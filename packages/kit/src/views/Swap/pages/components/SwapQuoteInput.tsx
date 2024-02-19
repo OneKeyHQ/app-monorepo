@@ -41,6 +41,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeAccount1 } = useActiveAccount({ num: 1 });
+
   useEffect(() => {
     void quoteFetch(Number(fromInputAmount));
   }, [fromInputAmount, quoteFetch]);
