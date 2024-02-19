@@ -6,6 +6,8 @@ import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { useTheme } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
@@ -90,7 +92,9 @@ function HeaderView({
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
         style={
-          headerTransparent ? { position: 'absolute', right: 0, left: 0 } : {}
+          headerTransparent && !platformEnv.isNativeAndroid
+            ? { position: 'absolute', right: 0, left: 0 }
+            : {}
         }
         // borderBottomWidth={StyleSheet.hairlineWidth}
         // borderBottomColor="$borderSubdued"

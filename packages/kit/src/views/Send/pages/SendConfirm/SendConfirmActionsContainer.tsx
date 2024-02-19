@@ -1,11 +1,15 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useNativeTokenInfoAtom,
+  useNativeTokenTransferAmountToUpdateAtom,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
@@ -13,50 +17,66 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
-import { EModalSendRoutes, type IModalSendParamList } from '../../router';
+import { type IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;
   networkId: string;
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
+  tableLayout?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
-  const { accountId, networkId, onSuccess, onFail } = props;
-  const media = useMedia();
+  const { accountId, networkId, onSuccess, onFail, tableLayout } = props;
+  const intl = useIntl();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  const tableLayout = media.gtLg;
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
+  const [nativeTokenTransferAmountToUpdate] =
+    useNativeTokenTransferAmountToUpdateAtom();
 
   const handleOnConfirm = useCallback(async () => {
-    const newUnsignedTxs = [];
-    for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
-      const unsignedTx = unsignedTxs[i];
-      const newUnsignedTx =
-        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+    setIsSubmitting(true);
+
+    try {
+      const signedTxs =
+        await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
           networkId,
-          unsignedTx,
+          unsignedTxs,
           feeInfo: sendSelectedFeeInfo?.feeInfo,
+          nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
+            ? {
+                maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
+              }
+            : undefined,
         });
 
-      newUnsignedTxs.push(newUnsignedTx);
+      onSuccess?.(signedTxs);
+      setIsSubmitting(false);
+      Toast.success({
+        title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
+      });
+      navigation.popStack();
+    } catch (e: any) {
+      setIsSubmitting(false);
+      Toast.error({
+        title: (e as Error).message,
+      });
+      onFail?.(e as Error);
+      throw e;
     }
-
-    navigation.push(EModalSendRoutes.SendProgress, {
-      networkId,
-      accountId,
-      unsignedTxs: newUnsignedTxs,
-      onSuccess,
-      onFail,
-    });
   }, [
     accountId,
+    intl,
+    nativeTokenTransferAmountToUpdate.amountToUpdate,
+    nativeTokenTransferAmountToUpdate.isMaxSend,
     navigation,
     networkId,
     onFail,
@@ -66,31 +86,49 @@ function SendConfirmActionsContainer(props: IProps) {
   ]);
 
   const isSubmitDisabled = useMemo(() => {
-    if (
-      sendTxStatus.isLoadingNativeBalance ||
-      sendTxStatus.isInsufficientNativeBalance
-    )
+    if (isSubmitting) return true;
+    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.status === ESendFeeStatus.Error)
       return true;
   }, [
-    sendTxStatus.isLoadingNativeBalance,
+    isSubmitting,
+    nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
     sendFeeStatus.status,
   ]);
 
+  if (tableLayout) {
+    return (
+      <Page.FooterActions
+        confirmButtonProps={{
+          size: 'medium',
+          flex: 0,
+          disabled: isSubmitDisabled,
+          loading: isSubmitting,
+        }}
+        cancelButtonProps={{
+          size: 'medium',
+          flex: 0,
+          disabled: isSubmitting,
+        }}
+        onConfirmText="Sign and Broadcast"
+        onConfirm={handleOnConfirm}
+        onCancel={() => navigation.popStack()}
+      />
+    );
+  }
+
   return (
     <Page.Footer
       confirmButtonProps={{
-        size: tableLayout ? 'medium' : 'large',
-        flex: tableLayout ? 0 : 2,
         disabled: isSubmitDisabled,
+        loading: isSubmitting,
       }}
       cancelButtonProps={{
-        size: tableLayout ? 'medium' : 'large',
-        flex: tableLayout ? 0 : 1,
+        disabled: isSubmitting,
       }}
       onConfirmText="Sign and Broadcast"
       onConfirm={handleOnConfirm}

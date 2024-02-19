@@ -115,7 +115,7 @@ const EraseData = () => {
           }}
         >
           <Dialog.FormField name="text">
-            <Input autoFocus flex={1} />
+            <Input autoFocus flex={1} testID="erase-data-input" />
           </Dialog.FormField>
         </Dialog.Form>
       ),
@@ -128,6 +128,7 @@ const EraseData = () => {
           }
           return true;
         },
+        testID: 'erase-data-confirm',
       },
       onConfirm() {
         backgroundApiProxy.serviceApp.resetApp().catch(console.error);
@@ -142,6 +143,7 @@ const EraseData = () => {
       icon="DeleteOutline"
       title={intl.formatMessage({ id: 'action__erase_data' })}
       titleProps={{ color: '$textCritical' }}
+      testID="setting-erase-data"
     />
   );
 };

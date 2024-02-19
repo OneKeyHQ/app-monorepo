@@ -3,6 +3,7 @@ import {
   type FC,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -10,23 +11,24 @@ import {
 import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
+import type { TextArea } from '@onekeyhq/components';
 import {
   Badge,
   Icon,
   IconButton,
   Select,
   Spinner,
-  TextArea,
   XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useDebounce } from '../../../hooks/useDebounce';
+import { useAddressBookPick } from '../AddressBook/hooks/useAddressBook';
+import { BaseInput } from '../BaseInput';
 
 type IAddressPluginsOptions = {
   clipboard?: boolean;
@@ -36,9 +38,10 @@ type IAddressPluginsOptions = {
 
 type IAddressPluginProps = {
   onChange?: (text: string) => void;
+  testID?: string;
 };
 
-const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { getClipboard } = useClipboard();
   const onPress = useCallback(async () => {
     const text = await getClipboard();
@@ -46,15 +49,16 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   }, [onChange, getClipboard]);
   return (
     <IconButton
+      title="Paste"
       variant="tertiary"
-      size="small"
-      icon="Copy1Outline"
+      icon="ClipboardOutline"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
 
-const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
     // TODO: after QrCode final release, update callback result
@@ -63,25 +67,40 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
   }, [onChange, start]);
   return (
     <IconButton
+      title="Scan"
       variant="tertiary"
-      size="small"
       icon="ScanSolid"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
 
-const ContactsPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+type IContactsPluginProps = IAddressPluginProps & {
+  networkId?: string;
+};
+
+const ContactsPlugin: FC<IContactsPluginProps> = ({
+  onChange,
+  networkId,
+  testID,
+}) => {
+  const pick = useAddressBookPick();
   const onPress = useCallback(() => {
-    // TODO: navigation to address book
-    onChange?.('');
-  }, [onChange]);
+    void pick({
+      networkId,
+      onPick: (item: IAddressItem) => {
+        onChange?.(item.address);
+      },
+    });
+  }, [onChange, pick, networkId]);
   return (
     <IconButton
+      title="Contacts"
       onPress={onPress}
       variant="tertiary"
-      size="small"
       icon="BookOpenOutline"
+      testID={testID}
     />
   );
 };
@@ -99,7 +118,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
 }) => {
   if (options.length <= 1) {
     return (
-      <Badge badgeType="info" badgeSize="sm">
+      <Badge badgeSize="sm">
         <Badge.Text>
           {accountUtils.shortenAddress({
             address: value,
@@ -113,18 +132,21 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
       title="Choose an Address"
       placeholder="Choose an Address"
       renderTrigger={() => (
-        <Badge badgeType="info" badgeSize="sm">
+        <Badge badgeSize="sm" userSelect="none">
           <Badge.Text>
             {accountUtils.shortenAddress({
               address: value,
             })}
           </Badge.Text>
-          <Icon name="DotVerSolid" size="$3" />
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
         </Badge>
       )}
       items={options.map((o) => ({ label: o, value: o }))}
       value={value}
       onChange={onChange}
+      floatingPanelProps={{
+        width: '$80',
+      }}
     />
   );
 };
@@ -155,6 +177,7 @@ export type IAddressQueryResult = {
   input?: string;
   isValid?: boolean;
   walletAccountName?: string;
+  addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   isFirstTransfer?: boolean;
@@ -165,6 +188,12 @@ const defaultAddressInputPlugins: IAddressPluginsOptions = {
   scan: true,
 };
 
+const allAddressInputPlugins: IAddressPluginsOptions = {
+  clipboard: true,
+  scan: true,
+  contacts: true,
+};
+
 function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
@@ -172,11 +201,7 @@ function AddressInput(props: IAddressInputProps) {
     onChange,
     networkId,
     placeholder,
-    disabled,
-    error,
-    editable,
     autoError = true,
-    size,
     onBlur,
     plugins = defaultAddressInputPlugins,
     enableNameResolve = true,
@@ -184,12 +209,6 @@ function AddressInput(props: IAddressInputProps) {
     ...rest
   } = props;
   const intl = useIntl();
-  const sharedStyles = getSharedInputStyles({
-    disabled,
-    error,
-    editable,
-    size,
-  });
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -197,7 +216,6 @@ function AddressInput(props: IAddressInputProps) {
   const isDirty = useRef(false);
   const debounceText = useDebounce(inputText, 300, { trailing: true });
 
-  const [isFocus, setFocus] = useState<boolean>(false);
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
 
   const setResolveAddress = useCallback((text: string) => {
@@ -229,6 +247,7 @@ function AddressInput(props: IAddressInputProps) {
             networkId,
             address: debounceText,
             enableNameResolve,
+            enableAddressBook,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -238,7 +257,7 @@ function AddressInput(props: IAddressInputProps) {
       }
     }
     void main();
-  }, [debounceText, networkId, enableNameResolve]);
+  }, [debounceText, networkId, enableNameResolve, enableAddressBook]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -259,86 +278,96 @@ function AddressInput(props: IAddressInputProps) {
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange, autoError]);
 
-  return (
-    <YStack space="$2">
-      <YStack
-        space="$2"
-        borderWidth={sharedStyles.borderWidth}
-        borderColor={sharedStyles.borderColor}
-        borderRadius={sharedStyles.borderRadius}
-        outlineColor={
-          isFocus ? sharedStyles.focusStyle.outlineColor : undefined
-        }
-        outlineStyle={
-          isFocus ? sharedStyles.focusStyle.outlineStyle : undefined
-        }
-        outlineWidth={
-          isFocus ? sharedStyles.focusStyle.outlineWidth : undefined
-        }
+  const AddressInputExtension = useMemo(
+    () => (
+      <XStack
+        justifyContent="space-between"
+        flexWrap="wrap"
+        alignItems="center"
       >
-        <TextArea
-          w="full"
-          value={inputText}
-          onChangeText={onChangeText}
-          placeholder={
-            placeholder ??
-            intl.formatMessage({
-              id: 'form__address_and_domain_placeholder',
-            })
-          }
-          onFocus={() => setFocus(true)}
-          onBlur={(e) => {
-            setFocus(false);
-            onBlur?.(e);
-          }}
-          borderColor="$transparent"
-          hoverStyle={{ borderColor: '$transparent' }}
-          focusStyle={{ borderColor: '$transparent' }}
-          {...rest}
-        />
-        <XStack
-          justifyContent="space-between"
-          px={sharedStyles.px}
-          pb={sharedStyles.py}
-        >
-          <XStack space="$1">
-            {loading ? (
-              <XStack justifyContent="center" alignItems="center">
-                <Spinner />
-              </XStack>
-            ) : (
-              <XStack>
-                {queryResult.walletAccountName ? (
-                  <Badge badgeType="success" badgeSize="sm">
-                    {queryResult.walletAccountName}
-                  </Badge>
-                ) : null}
-                {queryResult.resolveAddress ? (
-                  <ResolvedAddress
-                    value={queryResult.resolveAddress}
-                    options={queryResult.resolveOptions ?? []}
-                    onChange={setResolveAddress}
-                  />
-                ) : null}
-                {queryResult.isFirstTransfer ? (
-                  <Badge badgeType="warning" badgeSize="sm">
-                    First Transfer
-                  </Badge>
-                ) : null}
-              </XStack>
-            )}
-          </XStack>
-          <XStack space="$2">
-            {plugins.clipboard ? (
-              <ClipboardPlugin onChange={onChangeText} />
-            ) : null}
-            {plugins.scan ? <ScanPlugin onChange={onChangeText} /> : null}
-            {plugins.contacts ? <ContactsPlugin /> : null}
-          </XStack>
+        <XStack space="$2">
+          {loading ? (
+            <Spinner />
+          ) : (
+            <>
+              {queryResult.walletAccountName ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {queryResult.walletAccountName}
+                </Badge>
+              ) : null}
+              {queryResult.addressBookName ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {queryResult.addressBookName}
+                </Badge>
+              ) : null}
+              {queryResult.resolveAddress ? (
+                <ResolvedAddress
+                  value={queryResult.resolveAddress}
+                  options={queryResult.resolveOptions ?? []}
+                  onChange={setResolveAddress}
+                />
+              ) : null}
+              {queryResult.isFirstTransfer ? (
+                <Badge badgeType="warning" badgeSize="sm">
+                  First Transfer
+                </Badge>
+              ) : null}
+            </>
+          )}
         </XStack>
-      </YStack>
-    </YStack>
+        <XStack space="$6">
+          {plugins.clipboard ? (
+            <ClipboardPlugin
+              onChange={onChangeText}
+              testID={`${rest.testID ?? ''}-clip`}
+            />
+          ) : null}
+          {plugins.scan ? (
+            <ScanPlugin
+              onChange={onChangeText}
+              testID={`${rest.testID ?? ''}-scan`}
+            />
+          ) : null}
+          {plugins.contacts ? (
+            <ContactsPlugin
+              onChange={onChangeText}
+              networkId={networkId}
+              testID={`${rest.testID ?? ''}-contacts`}
+            />
+          ) : null}
+        </XStack>
+      </XStack>
+    ),
+    [
+      loading,
+      onChangeText,
+      plugins.clipboard,
+      plugins.contacts,
+      plugins.scan,
+      queryResult.isFirstTransfer,
+      queryResult.resolveAddress,
+      queryResult.resolveOptions,
+      queryResult.walletAccountName,
+      queryResult.addressBookName,
+      setResolveAddress,
+      networkId,
+      rest.testID,
+    ],
+  );
+
+  return (
+    <BaseInput
+      value={inputText}
+      onChangeText={onChangeText}
+      placeholder={
+        placeholder ??
+        // intl.formatMessage({ id: 'form__address_and_domain_placeholder' })
+        'Enter address or domain name'
+      }
+      extension={AddressInputExtension}
+      {...rest}
+    />
   );
 }
 
-export { AddressInput };
+export { AddressInput, allAddressInputPlugins };
