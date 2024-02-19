@@ -537,7 +537,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
         'transaction': 'https://polygonscan.com/tx/{transaction}',
       },
     ],
-    'status': 'LISTED' as any,
+    'status': ENetworkStatus.LISTED,
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };

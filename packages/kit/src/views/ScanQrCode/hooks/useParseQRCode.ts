@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { EAssetSelectorRoutes } from '@onekeyhq/kit/src/views/AssetSelector/router/types';
 import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
@@ -15,6 +16,7 @@ import type {
   IChainValue,
   IQRCodeHandlerParse,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -50,35 +52,29 @@ const useParseQRCode = () => {
           if (!network) {
             break;
           }
-          // TODO: Check if it is a single token network by settings
-          const isSingleTokenNetwork = false;
-          const nativeToken =
-            await backgroundApiProxy.serviceToken.getNativeToken({
+          navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+            screen: EAssetSelectorRoutes.TokenSelector,
+            params: {
               networkId: network.id,
-            });
-          if (isSingleTokenNetwork && nativeToken) {
-            navigation.pushModal(EModalRoutes.SendModal, {
-              screen: EModalSendRoutes.SendDataInput,
-              params: {
-                networkId: network.id,
-                accountId: account.id,
-                isNFT: false,
-                token: nativeToken,
-                address: chainValue?.address,
-                amount: chainValue?.amount,
+              accountId: account.id,
+              networkName: network.name,
+              // tokens,
+              onSelect: async (token) => {
+                await timerUtils.wait(600);
+                navigation.pushModal(EModalRoutes.SendModal, {
+                  screen: EModalSendRoutes.SendDataInput,
+                  params: {
+                    accountId: account.id,
+                    networkId: network.id,
+                    isNFT: false,
+                    token,
+                    address: chainValue?.address,
+                    amount: chainValue?.amount,
+                  },
+                });
               },
-            });
-          } else {
-            navigation.pushModal(EModalRoutes.SendModal, {
-              screen: EModalSendRoutes.SendAssetInput,
-              params: {
-                networkId: network.id,
-                accountId: account.id,
-                address: chainValue?.address,
-                amount: chainValue?.amount,
-              },
-            });
-          }
+            },
+          });
           break;
         }
         default: {

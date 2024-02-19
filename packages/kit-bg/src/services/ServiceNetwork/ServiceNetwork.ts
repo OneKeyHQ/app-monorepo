@@ -5,6 +5,7 @@ import {
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 @backgroundClass()
@@ -94,6 +95,12 @@ class ServiceNetwork extends ServiceBase {
       impls: implList,
     });
     return networks.find((n) => n.chainId === chainId);
+  }
+
+  @backgroundMethod()
+  async getVaultSettings({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings;
   }
 
   @backgroundMethod()
