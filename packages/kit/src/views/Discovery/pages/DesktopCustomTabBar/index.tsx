@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
+import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import {
@@ -29,6 +30,8 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 function DesktopCustomTabBar() {
   // register desktop shortcuts for browser tab
   useShortcuts();
+  // register desktop new window event
+  useDesktopNewWindow();
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();

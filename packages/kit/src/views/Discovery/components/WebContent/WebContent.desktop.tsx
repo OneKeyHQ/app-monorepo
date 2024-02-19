@@ -106,14 +106,6 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     },
     [id, onNavigation],
   );
-  // const onNewWindow = useCallback(
-  //   ({ url: newWindowUrl }: NewWindowEvent) => {
-  //     if (newWindowUrl) {
-  //       onNavigation({ id, url: newWindowUrl, isNewWindow: true });
-  //     }
-  //   },
-  //   [id],
-  // );
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
     // @ts-expect-error
