@@ -94,7 +94,7 @@ export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
   accountAddress: string;
-  tokenAddress?: string;
+  tokenIdOnNetwork?: string;
 };
 
 export type IOnChainHistoryTxToken = {

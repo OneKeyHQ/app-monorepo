@@ -7,6 +7,7 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 
 export class SimpleDbProxy
@@ -50,4 +51,8 @@ export class SimpleDbProxy
   localTokens = this._createProxyService(
     'localTokens',
   ) as SimpleDbEntityLocalTokens;
+
+  localHistory = this._createProxyService(
+    'localHistory',
+  ) as SimpleDbEntityLocalHistory;
 }

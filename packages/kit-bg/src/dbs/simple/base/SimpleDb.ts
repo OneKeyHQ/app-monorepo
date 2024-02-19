@@ -3,6 +3,7 @@ import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserB
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 
 export class SimpleDb {
@@ -17,4 +18,6 @@ export class SimpleDb {
   accountSelector = new SimpleDbEntityAccountSelector();
 
   localTokens = new SimpleDbEntityLocalTokens();
+
+  localHistory = new SimpleDbEntityLocalHistory();
 }
