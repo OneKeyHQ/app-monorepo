@@ -16,6 +16,7 @@ import type {
   IDApp,
   IDiscoveryHomePageData,
   IDiscoveryListParams,
+  IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 
 import { getEndpoints } from '../endpoints';
@@ -118,6 +119,30 @@ class ServiceDiscovery extends ServiceBase {
     const endpoints = await getEndpoints();
     return `${endpoints.http}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
   }
+
+  @backgroundMethod()
+  async checkUrlSecurity(url: string) {
+    return this._checkUrlSecurity(url);
+  }
+
+  _checkUrlSecurity = memoizee(
+    async (url: string) => {
+      const client = await this.getClient();
+      const res = await client.get<{ data: IHostSecurity }>(
+        '/utility/v1/discover/check-host',
+        {
+          params: {
+            url,
+          },
+        },
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
 
   @backgroundMethod()
   async getBookmarkData(

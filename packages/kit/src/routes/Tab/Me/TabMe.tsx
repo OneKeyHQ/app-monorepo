@@ -24,6 +24,7 @@ import { useAddressBookList } from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EDAppConnectionModal } from '../../../views/DAppConnection/router';
 import { EOnboardingPages } from '../../../views/Onboarding/router/type';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
@@ -161,6 +162,15 @@ const TabMe = () => {
             }}
           >
             测试发送流程(使用首页的账户选择器)
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+                screen: EDAppConnectionModal.ConnectionList,
+              });
+            }}
+          >
+            DApp 连接管理
           </Button>
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}

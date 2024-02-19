@@ -392,7 +392,10 @@ export default class ServicePassword extends ServiceBase {
     if (data.password) {
       ensureSensitiveTextEncoded(data.password);
     }
-    this.backgroundApi.servicePromise.resolveCallback({ id: promiseId, data });
+    void this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data,
+    });
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
@@ -404,7 +407,10 @@ export default class ServicePassword extends ServiceBase {
     promiseId: number,
     error: { message: string },
   ) {
-    this.backgroundApi.servicePromise.rejectCallback({ id: promiseId, error });
+    void this.backgroundApi.servicePromise.rejectCallback({
+      id: promiseId,
+      error,
+    });
     await passwordPromptPromiseTriggerAtom.set((v) => ({
       ...v,
       passwordPromptPromiseTriggerData: undefined,
