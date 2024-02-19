@@ -112,6 +112,7 @@ const ListTopNetworks = () => {
   return (
     <SortableListView
       data={networks}
+      enabled={isEditMode}
       keyExtractor={(item) => `${item.id}`}
       getItemLayout={(_, index) => ({
         length: CELL_HEIGHT,
