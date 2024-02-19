@@ -412,7 +412,7 @@ const TokenInput: FC<TokenInputProps> = ({
     } = arbRebateData;
     const amountParsed = new BigNumber(amount)
       .shiftedBy(-decimals)
-      .decimalPlaces(4, BigNumber.ROUND_DOWN)
+      .decimalPlaces(2, BigNumber.ROUND_DOWN)
       .toFixed();
     return (
       <>
@@ -426,7 +426,7 @@ const TokenInput: FC<TokenInputProps> = ({
           size={4}
           mx="2px"
           borderRadius="full"
-          backgroundColor="black"
+          // backgroundColor="black"
         >
           <Image source={{ uri: logoURI }} size={3} />
         </Box>
@@ -495,7 +495,7 @@ const TokenInput: FC<TokenInputProps> = ({
                 <Box w="full" position="relative">
                   <Box position="absolute" bottom="26px" right={2}>
                     <Box pointerEvents="none">
-                      <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                      <Typography.Body2 color="text-subdued" numberOfLines={1}>
                         {extraDataContent}
                         <FormatCurrency
                           numbers={[price ?? 0, inputValue ?? 0]}
