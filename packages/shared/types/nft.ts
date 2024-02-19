@@ -1,6 +1,6 @@
 export enum ENFTType {
-  ERC721 = 'erc721',
-  ERC1155 = 'erc1155',
+  ERC721 = 'ERC-721',
+  ERC1155 = 'ERC-1155',
 }
 
 export type ITraits = {
@@ -40,10 +40,12 @@ export type IFetchAccountNFTsResp = {
 export type IFetchNFTDetailsParams = {
   networkId: string;
   accountAddress?: string;
-  itemId: string;
-  collectionAddress?: string;
+  params: {
+    itemId: string;
+    collectionAddress?: string;
+  }[];
 };
 
 export type IFetchNFTDetailsResp = {
-  data: IAccountNFT;
+  data: IAccountNFT[];
 };

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
@@ -13,7 +13,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useCustomFeeAtom,
-  useNativeTokenTransferAmountAtom,
+  useNativeTokenInfoAtom,
+  useNativeTokenTransferAmountToUpdateAtom,
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendSelectedFeeAtom,
@@ -37,18 +38,22 @@ import type { IModalSendParamList } from '../../router';
 type IProps = {
   accountId: string;
   networkId: string;
+  tableLayout?: boolean;
 };
 
 function TxFeeContainer(props: IProps) {
   const { accountId, networkId } = props;
   const intl = useIntl();
+  const txFeeInit = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendAlertStatus] = useSendTxStatusAtom();
-  const [nativeTokenTransferAmount] = useNativeTokenTransferAmountAtom();
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const [nativeTokenTransferAmountToUpdate] =
+    useNativeTokenTransferAmountToUpdateAtom();
   const {
     updateSendSelectedFee,
     updateCustomFee,
@@ -59,11 +64,8 @@ function TxFeeContainer(props: IProps) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const {
-    result: [isEditFeeEnabled, network, nativeToken] = [],
-    isLoading: isLoadingNativeBalance,
-  } = usePromiseResult(
-    async () => {
+  const { result: [vaultSettings, network] = [] } =
+    usePromiseResult(async () => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
         networkId,
@@ -72,18 +74,10 @@ function TxFeeContainer(props: IProps) {
       if (!account) return;
 
       return Promise.all([
-        backgroundApiProxy.serviceGas.getIsEditFeeEnabled({ networkId }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
         backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        backgroundApiProxy.serviceToken.fetchTokensDetails({
-          networkId,
-          accountAddress: account.address,
-          contractList: [''],
-        }),
       ]);
-    },
-    [accountId, networkId],
-    { watchLoading: true },
-  );
+    }, [accountId, networkId]);
 
   const { result: gasFee } = usePromiseResult(
     async () => {
@@ -95,6 +89,8 @@ function TxFeeContainer(props: IProps) {
           networkId,
           encodedTx: unsignedTxs[0].encodedTx,
         });
+
+        console.log('estimateFee', r);
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
@@ -108,6 +104,7 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
+        txFeeInit.current = true;
         return r;
       } catch (e) {
         updateSendFeeStatus({
@@ -157,7 +154,7 @@ function TxFeeContainer(props: IProps) {
         });
       }
 
-      if (isEditFeeEnabled) {
+      if (vaultSettings?.editFeeEnabled) {
         const customFeeInfo: IFeeInfoUnit = {
           common: gasFee.common,
         };
@@ -213,7 +210,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.gasEIP1559,
     gasFee,
     intl,
-    isEditFeeEnabled,
+    vaultSettings?.editFeeEnabled,
   ]);
 
   const { selectedFee, feeSelectorValue } = useMemo(() => {
@@ -260,8 +257,8 @@ function TxFeeContainer(props: IProps) {
           screen: EModalSendRoutes.SendCustomFee,
           params: {
             networkId,
-            accountId: '',
-            customFee: customFee ?? selectedFee?.feeInfo,
+            accountId,
+            customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
             onApply: (feeInfo: IFeeInfoUnit) => {
               updateCustomFee(feeInfo);
               updateSendSelectedFee({
@@ -279,6 +276,7 @@ function TxFeeContainer(props: IProps) {
       }
     },
     [
+      accountId,
       customFee,
       navigation,
       networkId,
@@ -295,26 +293,32 @@ function TxFeeContainer(props: IProps) {
   }, [selectedFee, updateSendSelectedFeeInfo]);
 
   useEffect(() => {
-    updateSendTxStatus({
-      isLoadingNativeBalance,
-      isInsufficientNativeBalance: new BigNumber(nativeTokenTransferAmount ?? 0)
-        .plus(selectedFee?.totalNative ?? 0)
-        .gt(nativeToken?.[0].balanceParsed ?? 0),
-    });
+    if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
 
-    return () =>
-      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
+    console.log(nativeTokenTransferAmountToUpdate);
+
+    updateSendTxStatus({
+      isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
+        ? false
+        : new BigNumber(nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0)
+            .plus(selectedFee?.totalNative ?? 0)
+            .gt(nativeTokenInfo.balance ?? 0),
+    });
   }, [
-    isLoadingNativeBalance,
-    nativeToken,
-    nativeTokenTransferAmount,
+    nativeTokenInfo.balance,
+    nativeTokenInfo.isLoading,
+    nativeTokenTransferAmountToUpdate,
     selectedFee?.totalNative,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
 
   return (
-    <Container.Box>
+    <Container.Box
+      contentProps={{
+        mt: '$4',
+      }}
+    >
       <Container.Item
         title="Fee Estimate"
         content={`${selectedFee?.totalNativeForDisplay ?? '0.00'} ${

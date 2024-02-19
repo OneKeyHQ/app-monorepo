@@ -50,6 +50,7 @@ function NFTListView(props: IProps) {
         screen: EModalAssetDetailRoutes.NFTDetails,
         params: {
           networkId: network.id,
+          accountId: account.id,
           accountAddress: account.address,
           collectionAddress: nft.collectionAddress,
           itemId: nft.itemId,

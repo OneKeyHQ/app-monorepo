@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { toBigIntHex } from './numberUtils';
+
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 
@@ -99,6 +101,26 @@ function convertTokenChainValueToAmount({
     .toFixed();
 }
 
+function fixNativeTokenMaxSendAmount({
+  amount,
+  network,
+}: {
+  amount: string | BigNumber;
+  network: IServerNetwork;
+}) {
+  const amountBN = new BigNumber(amount);
+  const fixedAmountBN = amountBN
+    .dp(
+      BigNumber.min(
+        (amountBN.decimalPlaces() ?? network.decimals) - 2,
+        network.decimals - 2,
+      ).toNumber(),
+      BigNumber.ROUND_FLOOR,
+    )
+    .shiftedBy(network.decimals);
+  return toBigIntHex(fixedAmountBN);
+}
+
 export default {
   convertAmountToChainValue,
   convertChainValueToAmount,
@@ -107,4 +129,5 @@ export default {
   convertGweiToAmount,
   convertAmountToGwei,
   convertTokenChainValueToAmount,
+  fixNativeTokenMaxSendAmount,
 };

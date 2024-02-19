@@ -3,9 +3,9 @@ import { useState } from 'react';
 import {
   Button,
   SizableText,
-  Toast,
   Tooltip,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -87,6 +87,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { serviceAccount } = backgroundApiProxy;
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
+  const { copyText } = useClipboard();
   const { account } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
@@ -100,15 +101,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         renderTrigger={
           <XStack
             alignItems="center"
-            onPress={() => {
-              Toast.success({
-                title: 'Copied',
-              });
-              console.log({
-                selectedAccount,
-                activeAccount,
-              });
-            }}
+            onPress={() => copyText(account.address)}
             p="$1"
             px="$2"
             my="$-1"

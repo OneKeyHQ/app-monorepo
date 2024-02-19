@@ -9,21 +9,23 @@ import {
   TextArea,
   useForm,
 } from '@onekeyhq/components';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { NetworkSelectorTriggerLegacy } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { EAssetSelectorRoutes } from '../../AssetSelector/router/types';
 import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
 import { WalletActions } from '../components/WalletActions';
 
 import type { IModalSendParamList } from '../../Send/router';
 
-function WalletActionsContainer() {
+function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -35,31 +37,28 @@ function WalletActionsContainer() {
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
-    // TODO: Check if it is a single token network by settings
-    const isSingleTokenNetwork = false;
-    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-      networkId: network.id,
+    navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+      screen: EAssetSelectorRoutes.TokenSelector,
+      params: {
+        networkId: network.id,
+        accountId: account.id,
+        networkName: network.name,
+        tokens,
+        onSelect: async (token: IToken) => {
+          await timerUtils.wait(600);
+          navigation.pushModal(EModalRoutes.SendModal, {
+            screen: EModalSendRoutes.SendDataInput,
+            params: {
+              accountId: account.id,
+              networkId: network.id,
+              isNFT: false,
+              token,
+            },
+          });
+        },
+      },
     });
-    if (isSingleTokenNetwork && nativeToken) {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendDataInput,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-          isNFT: false,
-          token: nativeToken,
-        },
-      });
-    } else {
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendAssetInput,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-        },
-      });
-    }
-  }, [account, navigation, network]);
+  }, [account, tokens, navigation, network]);
 
   const handleOnReceive = useCallback(() => {
     Dialog.confirm({

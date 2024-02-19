@@ -7,8 +7,6 @@ import type {
   IEstimateGasResp,
 } from '@onekeyhq/shared/types/fee';
 
-import { getVaultSettings } from '../vaults/settings';
-
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -39,12 +37,6 @@ class ServiceGas extends ServiceBase {
       gasEIP1559: gasFee.gasEIP1559,
       feeUTXO: gasFee.feeUTXO,
     };
-  }
-
-  @backgroundMethod()
-  async getIsEditFeeEnabled({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings.editFeeEnabled;
   }
 }
 

@@ -132,6 +132,7 @@ function SelectItem({
         {selectedValue === value ? (
           <Icon
             flexShrink={0}
+            ml="$2"
             name="CheckLargeOutline"
             size="$4"
             color="$iconActive"

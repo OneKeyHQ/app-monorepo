@@ -61,9 +61,9 @@ function ModalNavigator({
     navigation.goBack();
   }, [navigation]);
 
+  const descriptor = descriptors[state.routes?.[state.index].key];
+
   const handleBackPress = useCallback(() => {
-    const currentRoute = state.routes[state.index];
-    const descriptor = descriptors[currentRoute.key];
     const { disableClose }: { disableClose?: boolean } = descriptor.options;
 
     if (disableClose) {
@@ -71,11 +71,10 @@ function ModalNavigator({
     }
     if (navigation.isFocused()) goBackCall();
     return true;
-  }, [state.routes, state.index, descriptors, navigation, goBackCall]);
+  }, [descriptor, navigation, goBackCall]);
 
   useBackHandler(handleBackPress);
 
-  const descriptor = descriptors[state.routes?.[state.index].key];
   const handleBackdropClick = useCallback(() => {
     if (!descriptor.options.disableClose) {
       if (descriptor.options.shouldPopOnClickBackdrop) {
@@ -88,8 +87,15 @@ function ModalNavigator({
 
   const rootNavigation = navigation.getParent()?.getParent?.();
   const currentRouteIndex = Math.max(
+    rootNavigation?.getState?.()?.routes?.findIndex(
+      (rootRoute) =>
+        state.routes.findIndex(
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          (route) => route.name === rootRoute?.params?.params?.screen,
+        ) !== -1,
+    ) ?? 1,
     1,
-    rootNavigation?.getState?.().index ?? 0,
   );
 
   useEffect(() => {

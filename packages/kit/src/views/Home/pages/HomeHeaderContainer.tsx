@@ -1,11 +1,10 @@
-import { Stack, XStack } from '@onekeyhq/components';
+import { Portal, Stack, XStack } from '@onekeyhq/components';
 
 import { AccountSelectorActiveAccountHome } from '../../../components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '../../../components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '../../../components/AccountSelector/NetworkSelectorTrigger';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
-import { WalletActionsContainer } from './WalletActionsContainer';
 
 function HomeHeaderContainer() {
   const num = 0;
@@ -30,7 +29,7 @@ function HomeHeaderContainer() {
           <HomeOverviewContainer />
         </Stack>
       </Stack>
-      <WalletActionsContainer />
+      <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
     </Stack>
   );
 }

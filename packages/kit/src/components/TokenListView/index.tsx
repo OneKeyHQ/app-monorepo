@@ -18,6 +18,8 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   withHeader?: boolean;
   withFooter?: boolean;
+  withPrice?: boolean;
+  withName?: boolean;
 };
 
 function TokenListEmpty() {
@@ -43,6 +45,8 @@ function TokenListView(props: IProps) {
     tableLayout,
     withHeader,
     withFooter,
+    withName,
+    withPrice,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -64,6 +68,8 @@ function TokenListView(props: IProps) {
           key={item.$key}
           onPress={onPressToken}
           tableLayout={tableLayout}
+          withName={withName}
+          withPrice={withPrice}
         />
       )}
       ListFooterComponent={

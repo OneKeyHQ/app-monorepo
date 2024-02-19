@@ -52,6 +52,7 @@ import {
   type IBuildUnsignedTxParams,
   type IGetPrivateKeyFromImportedParams,
   type IGetPrivateKeyFromImportedResult,
+  type INativeAmountInfo,
   type ITransferInfo,
   type IUpdateUnsignedTxParams,
   type IVaultSettings,
@@ -290,7 +291,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo, nonceInfo } = params;
+    const { unsignedTx, feeInfo, nonceInfo, nativeAmountInfo } = params;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
 
     if (feeInfo) {
@@ -306,6 +307,13 @@ export default class Vault extends VaultBase {
         nonceInfo,
       });
       unsignedTx.nonce = nonceInfo.nonce;
+    }
+
+    if (nativeAmountInfo) {
+      encodedTxNew = await this._updateNativeTokenAmount({
+        encodedTx: encodedTxNew,
+        nativeAmountInfo,
+      });
     }
 
     unsignedTx.encodedTx = encodedTxNew;
@@ -337,21 +345,36 @@ export default class Vault extends VaultBase {
   }): Promise<IDecodedTx> {
     const { encodedTx, action, extraNativeTransferAction } = params;
     const accountAddress = await this.getAccountAddress();
+    const finalActions = mergeAssetTransferActions(
+      [action, extraNativeTransferAction].filter(Boolean),
+    );
+
+    let nativeAmount = '0';
+    let nativeAmountValue = '0';
+
+    finalActions.forEach((item) => {
+      if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
+        nativeAmount = new BigNumber(nativeAmount)
+          .plus(item.assetTransfer?.nativeAmount ?? 0)
+          .toFixed();
+        nativeAmountValue = new BigNumber(nativeAmountValue)
+          .plus(item.assetTransfer?.nativeAmountValue ?? 0)
+          .toFixed();
+      }
+    });
 
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
       nonce: Number(encodedTx.nonce) ?? 0,
-      actions: mergeAssetTransferActions(
-        [action, extraNativeTransferAction].filter(
-          Boolean,
-        ) as IDecodedTxAction[],
-      ),
+      actions: finalActions,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
+      nativeAmount,
+      nativeAmountValue,
       extraInfo: null,
     };
     return decodedTx;
@@ -375,7 +398,6 @@ export default class Vault extends VaultBase {
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
-
       if (nftInfo) {
         const { nftAddress, nftId, nftType } = nftInfo;
         const data = await this._buildEncodedDataFromTransferNFT({
@@ -402,7 +424,7 @@ export default class Vault extends VaultBase {
         }
 
         // native token transfer
-        if (tokenInfo.isNative || tokenInfo.address === '') {
+        if (tokenInfo.isNative) {
           return {
             from,
             to,
@@ -559,6 +581,36 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
+  async _updateNativeTokenAmount(params: {
+    encodedTx: IEncodedTxEvm;
+    nativeAmountInfo: INativeAmountInfo;
+  }) {
+    const { encodedTx, nativeAmountInfo } = params;
+    const network = await this.getNetwork();
+
+    let newValue = encodedTx.value;
+
+    if (!isNil(nativeAmountInfo.maxSendAmount)) {
+      newValue = chainValueUtils.fixNativeTokenMaxSendAmount({
+        amount: nativeAmountInfo.maxSendAmount,
+        network,
+      });
+    } else if (!isNil(nativeAmountInfo.amount)) {
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.amount,
+          network,
+        }),
+      );
+    }
+
+    const tx = {
+      ...encodedTx,
+      value: newValue,
+    };
+    return Promise.resolve(tx);
+  }
+
   async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
   ): Promise<IUnsignedTxPro> {
@@ -571,7 +623,7 @@ export default class Vault extends VaultBase {
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
-      nonce: Number(tx.nonce),
+      nonce: isNil(tx.nonce) ? tx.nonce : new BigNumber(tx.nonce).toNumber(),
     });
   }
 
@@ -669,7 +721,7 @@ export default class Vault extends VaultBase {
     const transfer: IDecodedTxTransferInfo = {
       from,
       to: recipient,
-      token: token.address,
+      tokenIdOnNetwork: token.address,
       icon: token.logoURI ?? '',
       symbol: token.symbol,
       amount,
@@ -704,6 +756,7 @@ export default class Vault extends VaultBase {
         amount,
         icon: token.logoURI ?? '',
         symbol: token.symbol,
+        tokenIdOnNetwork: token.address,
         isMax: amount === InfiniteAmountText,
       },
     };
@@ -726,13 +779,14 @@ export default class Vault extends VaultBase {
     const transfer: IDecodedTxTransferInfo = {
       from: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
-      token: nativeToken.address,
+      tokenIdOnNetwork: nativeToken.address,
       icon: nativeToken.logoURI ?? '',
       symbol: nativeToken.symbol,
       amount: new BigNumber(encodedTx.value)
         .shiftedBy(-nativeToken.decimals)
         .toFixed(),
       isNFT: false,
+      isNative: true,
     };
 
     const action = await this._buildTxTransferAssetAction({
@@ -750,7 +804,12 @@ export default class Vault extends VaultBase {
     transfers: IDecodedTxTransferInfo[];
   }): Promise<IDecodedTxAction> {
     const { from, to, transfers } = params;
-    const accountAddress = await this.getAccountAddress();
+    const [accountAddress, network] = await Promise.all([
+      this.getAccountAddress(),
+      this.getNetwork(),
+    ]);
+
+    let sendNativeTokenAmountBN = new BigNumber(0);
 
     const assetTransfer: IDecodedTxActionAssetTransfer = {
       from,
@@ -768,10 +827,23 @@ export default class Vault extends VaultBase {
         }) === EDecodedTxDirection.OUT
       ) {
         assetTransfer.sends.push(transfer);
+        if (transfer.isNative) {
+          sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
+            new BigNumber(transfer.amount),
+          );
+        }
       } else {
         assetTransfer.receives.push(transfer);
       }
     });
+
+    assetTransfer.nativeAmount = sendNativeTokenAmountBN.toFixed();
+    assetTransfer.nativeAmountValue = chainValueUtils.convertAmountToChainValue(
+      {
+        value: sendNativeTokenAmountBN,
+        network,
+      },
+    );
 
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -803,13 +875,20 @@ export default class Vault extends VaultBase {
       nftId,
     });
 
+    let nftAmount = amount;
+
     if (!nft) return;
+
+    // For NFT ERC721, the amount is always 1
+    if (txDesc.name === EErc721TxDescriptionName.SafeTransferFrom) {
+      nftAmount = isNil(amount) ? '1' : amount;
+    }
 
     const transfer: IDecodedTxTransferInfo = {
       from,
       to,
-      token: nftId,
-      amount,
+      tokenIdOnNetwork: nftId,
+      amount: nftAmount,
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',
       isNFT: true,

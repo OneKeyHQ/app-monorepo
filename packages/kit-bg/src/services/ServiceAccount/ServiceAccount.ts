@@ -39,10 +39,7 @@ import {
 } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
-import {
-  getVaultSettings,
-  getVaultSettingsAccountDeriveInfo,
-} from '../../vaults/settings';
+import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -178,7 +175,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getDeriveInfoMapOfNetwork({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
     // TODO remove ETC config
     return settings.accountDeriveInfo;
   }
@@ -600,7 +599,9 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
-    const settings = await getVaultSettings({ networkId });
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
     const deriveInfo = await getVaultSettingsAccountDeriveInfo({
       networkId,
       deriveType,
@@ -831,12 +832,6 @@ class ServiceAccount extends ServiceBase {
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
-  }
-
-  @backgroundMethod()
-  async getIsUTXOAccount({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings.isUtxo;
   }
 
   @backgroundMethod()

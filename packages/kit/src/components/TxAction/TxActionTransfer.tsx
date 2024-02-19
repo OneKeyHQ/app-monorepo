@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { forOwn, groupBy, isEmpty, map, uniq } from 'lodash';
+import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -13,6 +13,7 @@ import {
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import { useAccountData } from '../../hooks/useAccountData';
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 
@@ -177,6 +178,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = sendNFTIcon || sendTokenIcon;
+    title = intl.formatMessage({ id: 'action__send' });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
       changeSymbol: '+',
@@ -187,6 +189,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     description.prefix = intl.formatMessage({ id: 'content__from' });
     avatar.src = receiveNFTIcon || receiveTokenIcon;
+    title = intl.formatMessage({ id: 'action__receive' });
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
       changeSymbol: '-',
@@ -249,10 +252,15 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
+  const { networkId, nativeTokenTransferAmountToUpdate } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
+
+  const { network } = useAccountData({
+    networkId,
+  });
 
   const renderTransferBlock = useCallback(
     (transfersBlock: ITransferBlock[], direction: EDecodedTxDirection) => {
@@ -263,9 +271,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       transfersBlock.forEach((block, index) => {
         const { target, transfersInfo } = block;
         const transfersContent = (
-          <YStack space="$1">
+          <YStack space="$1" flex={1}>
             {transfersInfo.map((transfer) => (
-              <XStack alignItems="center" space="$1" key={transfer.token}>
+              <XStack
+                alignItems="center"
+                space="$1"
+                key={transfer.tokenIdOnNetwork}
+                overflow="hidden"
+              >
                 <ListItem.Avatar
                   src={transfer.icon}
                   size="$7"
@@ -286,9 +299,15 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                     ),
                   }}
                 />
-                <SizableText size="$headingLg">{`${
+                <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
-                } ${transfer.amount} ${transfer.symbol}`}</SizableText>
+                } ${
+                  !isNil(nativeTokenTransferAmountToUpdate) &&
+                  transfer.isNative &&
+                  direction === EDecodedTxDirection.OUT
+                    ? nativeTokenTransferAmountToUpdate
+                    : transfer.amount
+                } ${transfer.symbol}`}</SizableText>
               </XStack>
             ))}
           </YStack>
@@ -324,9 +343,27 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       }
 
+      transferElements.push(
+        <Container.Item
+          title={intl.formatMessage({ id: 'network__network' })}
+          content={
+            <XStack alignItems="center" space="$1">
+              <Image w="$5" h="$5" source={{ uri: network?.logoURI }} />
+              <SizableText size="$bodyMdMedium">{network?.name}</SizableText>
+            </XStack>
+          }
+        />,
+      );
+
       return <Container.Box>{transferElements}</Container.Box>;
     },
-    [from, intl],
+    [
+      from,
+      intl,
+      nativeTokenTransferAmountToUpdate,
+      network?.logoURI,
+      network?.name,
+    ],
   );
 
   return (

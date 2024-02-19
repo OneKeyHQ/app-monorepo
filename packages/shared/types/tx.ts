@@ -1,4 +1,6 @@
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
+
+import type { IFeeInfoUnit } from './fee';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -76,6 +78,7 @@ export type IDecodedTx = {
   networkId: string;
   accountId: string;
 
+  feeInfo?: IFeeInfoUnit;
   totalFeeInNative?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
@@ -88,6 +91,8 @@ export type IDecodedTx = {
   payload?: any;
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
+  nativeAmount?: string;
+  nativeAmountValue?: string;
 };
 
 export type IDecodedTxActionBase = {
@@ -103,10 +108,11 @@ export type IDecodedTxActionUnknown = IDecodedTxActionBase;
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
-  token: string;
   amount: string;
   icon: string;
   symbol: string;
+  tokenIdOnNetwork: string;
+  isNative?: boolean;
   isNFT?: boolean;
   label?: string;
 };
@@ -128,6 +134,7 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
   isMax: boolean;
+  tokenIdOnNetwork: string;
   label?: string;
 };
 
@@ -136,6 +143,7 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   decimals: number;
   name: string;
   symbol: string;
+  tokenIdOnNetwork: string;
   networkId: string;
 };
 
@@ -151,4 +159,9 @@ export type IDecodedTxAction = {
   functionCall?: IDecodedTxActionFunctionCall;
 
   unknownAction?: IDecodedTxActionUnknown;
+};
+
+export type ISendTxOnSuccessData = {
+  signedTx: ISignedTxPro;
+  decodedTx: IDecodedTx;
 };

@@ -56,13 +56,31 @@ export const { atom: sendFeeStatusAtom, use: useSendFeeStatusAtom } =
 export const {
   atom: nativeTokenTransferAmountAtom,
   use: useNativeTokenTransferAmountAtom,
-} = contextAtom<string | undefined>('0');
+} = contextAtom<string>('0');
+
+export const {
+  atom: nativeTokenTransferAmountToUpdateAtom,
+  use: useNativeTokenTransferAmountToUpdateAtom,
+} = contextAtom<{
+  isMaxSend: boolean;
+  amountToUpdate: string;
+}>({
+  isMaxSend: false,
+  amountToUpdate: '0',
+});
+
+export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
+  contextAtom<{
+    isLoading: boolean;
+    balance: string;
+  }>({
+    isLoading: false,
+    balance: '0',
+  });
 
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
   contextAtom<{
-    isLoadingNativeBalance?: boolean;
     isInsufficientNativeBalance?: boolean;
   }>({
-    isLoadingNativeBalance: false,
     isInsufficientNativeBalance: false,
   });
