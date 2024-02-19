@@ -14,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserAction,
   useBrowserBookmarkAction,
@@ -171,7 +172,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="Bookmarks"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.BookmarkListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.BookmarkListModal,
+                });
               }}
             />
             <XStack>
@@ -225,7 +228,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="History"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.HistoryListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.HistoryListModal,
+                });
               }}
             />
             {historyData?.map((item, index) => (

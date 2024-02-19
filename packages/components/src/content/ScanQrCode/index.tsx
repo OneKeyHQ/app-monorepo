@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { requestPermissionsAsync as requestCameraPermissionsAsync } from 'expo-barcode-scanner';
@@ -13,10 +13,26 @@ export type IScanQrCodeProps = {
 };
 
 export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
+  const scanned = useRef(false);
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
   const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) {
+      scanned.current = false;
+    }
+  }, [isFocused]);
+  const reloadHandleBarCodeScanned = useCallback(
+    (data?: string | null) => {
+      if (scanned.current || !data) {
+        return;
+      }
+      scanned.current = true;
+      handleBarCodeScanned?.(data);
+    },
+    [handleBarCodeScanned],
+  );
 
   useEffect(() => {
     void requestCameraPermissionsAsync().then(({ status }) =>
@@ -33,7 +49,7 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
         flex: 1,
       }}
       isActive={isFocused}
-      handleScanResult={handleBarCodeScanned}
+      handleScanResult={reloadHandleBarCodeScanned}
     >
       <YStack
         fullscreen

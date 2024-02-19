@@ -43,12 +43,11 @@ function TxHistoryListContainer(props: IProps) {
   const history = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+      return backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
       });
-      return r;
     },
     [account, network],
     {

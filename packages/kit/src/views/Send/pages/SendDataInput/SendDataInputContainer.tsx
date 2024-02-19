@@ -9,11 +9,9 @@ import { useIntl } from 'react-intl';
 import {
   Form,
   Icon,
-  IconButton,
   Input,
   Page,
   SizableText,
-  XStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -23,17 +21,23 @@ import {
   allAddressInputPlugins,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { EModalSendRoutes } from '../../router';
+import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
+import AmountInput from '../../components/AmountInput';
 
-import type { IModalSendParamList } from '../../router';
+import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {
@@ -46,61 +50,63 @@ function SendDataInputContainer() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
-  const { serviceNFT, serviceSend, serviceAccount, serviceToken } =
-    backgroundApiProxy;
+  const { serviceNFT, serviceToken } = backgroundApiProxy;
 
   const { networkId, accountId, isNFT, token, nfts } = route.params;
   const nft = nfts?.[0];
+  const [tokenInfo, setTokenInfo] = useState(token);
+  const { account, network } = useAccountData({ accountId, networkId });
+  const sendConfirm = useSendConfirm({ accountId, networkId });
 
-  const getAccount = useCallback(
-    async () =>
-      serviceAccount.getAccount({
-        accountId,
-        networkId,
-      }),
-    [accountId, networkId, serviceAccount],
-  );
-
-  const network = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-    [networkId],
-  ).result;
-
-  const { result: nftDetails, isLoading: isLoadingNFT } = usePromiseResult(
+  const {
+    result: [tokenDetails, nftDetails] = [],
+    isLoading: isLoadingAssets,
+  } = usePromiseResult(
     async () => {
-      if (!isNFT) return;
-      const account = await getAccount();
-      const r = await serviceNFT.fetchNFTDetails({
-        networkId,
-        accountAddress: account.address,
-        collectionAddress: nft?.collectionAddress ?? '',
-        itemId: nft?.itemId ?? '',
-      });
-      return r;
+      if (!account || !network) return;
+      if (!token && !nft) {
+        throw new OneKeyInternalError('token and nft info are both missing.');
+      }
+
+      let nftResp: IAccountNFT[] | undefined;
+      let tokenResp:
+        | ({
+            info: IToken;
+          } & ITokenFiat)[]
+        | undefined;
+
+      if (isNFT && nft) {
+        nftResp = await serviceNFT.fetchNFTDetails({
+          networkId,
+          accountAddress: account.address,
+          params: [
+            {
+              collectionAddress: nft.collectionAddress,
+              itemId: nft.itemId,
+            },
+          ],
+        });
+      } else if (!isNFT && tokenInfo) {
+        tokenResp = await serviceToken.fetchTokensDetails({
+          networkId,
+          accountAddress: account.address,
+          contractList: [tokenInfo.address],
+        });
+      }
+
+      return [tokenResp?.[0], nftResp?.[0]];
     },
     [
-      getAccount,
+      account,
       isNFT,
+      network,
       networkId,
-      nft?.collectionAddress,
-      nft?.itemId,
+      nft,
       serviceNFT,
+      serviceToken,
+      token,
+      tokenInfo,
     ],
-    { watchLoading: true },
-  );
-
-  const { result: tokenDetails, isLoading: isLoadingToken } = usePromiseResult(
-    async () => {
-      if (isNFT || !token) return;
-      const account = await getAccount();
-      const r = await serviceToken.fetchTokensDetails({
-        networkId,
-        accountAddress: account.address,
-        contractList: [token.address],
-      });
-      return r?.[0];
-    },
-    [getAccount, isNFT, networkId, serviceToken, token],
     { watchLoading: true },
   );
 
@@ -143,29 +149,58 @@ function SendDataInputContainer() {
     setIsUseFiat((prev) => !prev);
     form.setValue('amount', linkedAmount);
   }, [form, linkedAmount]);
-  const handleOnSelectToken = useCallback(() => navigation.pop(), [navigation]);
-  const handleOnSendMax = useCallback(() => {
-    if (isUseFiat) {
-      form.setValue('amount', tokenDetails?.fiatValue ?? '0');
-    } else {
-      form.setValue('amount', tokenDetails?.balanceParsed ?? '0');
-    }
-    void form.trigger('amount');
-  }, [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue]);
+  const handleOnSelectToken = useCallback(
+    () =>
+      navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+        screen: EAssetSelectorRoutes.TokenSelector,
+        params: {
+          networkId,
+          accountId,
+          onSelect: (data: IToken) => {
+            setTokenInfo(data);
+          },
+        },
+      }),
+    [accountId, navigation, networkId],
+  );
+  const handleOnChangeAmountPercent = useCallback(
+    (percent: number) => {
+      form.setValue(
+        'amount',
+        new BigNumber(
+          (isUseFiat ? tokenDetails?.fiatValue : tokenDetails?.balanceParsed) ??
+            0,
+        )
+          .times(percent)
+          .toFixed(),
+      );
+      void form.trigger('amount');
+    },
+    [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
+  );
   const handleOnConfirm = useCallback(async () => {
     try {
+      if (!account) return;
       const toAddress = form.getValues('to').resolved;
       if (!toAddress) return;
 
       setIsSubmitting(true);
 
-      const account = await getAccount();
+      let realAmount = amount;
+
+      if (isUseFiat) {
+        if (new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
+          realAmount = tokenDetails?.balanceParsed ?? '0';
+        } else {
+          realAmount = linkedAmount;
+        }
+      }
 
       const transfersInfo: ITransferInfo[] = [
         {
           from: account.address,
           to: toAddress,
-          amount,
+          amount: realAmount,
           nftInfo:
             isNFT && nftDetails
               ? {
@@ -177,35 +212,11 @@ function SendDataInputContainer() {
           tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
         },
       ];
-      let unsignedTx = await serviceSend.buildUnsignedTx({
-        networkId,
-        accountId,
+      await sendConfirm.navigationToSendConfirm({
         transfersInfo,
+        sameModal: true,
       });
-
-      const isNonceRequired = await serviceSend.getIsNonceRequired({
-        networkId,
-      });
-
-      if (isNonceRequired) {
-        const nonce = await serviceSend.getNextNonce({
-          networkId,
-          accountAddress: account.address,
-        });
-        unsignedTx = await serviceSend.updateUnsignedTx({
-          networkId,
-          accountId,
-          unsignedTx,
-          nonceInfo: { nonce },
-        });
-      }
       setIsSubmitting(false);
-
-      navigation.push(EModalSendRoutes.SendConfirm, {
-        accountId,
-        networkId,
-        unsignedTxs: [unsignedTx],
-      });
     } catch (e: any) {
       setIsSubmitting(false);
 
@@ -215,53 +226,73 @@ function SendDataInputContainer() {
       });
     }
   }, [
-    accountId,
+    account,
     amount,
     form,
-    getAccount,
     isNFT,
-    navigation,
-    networkId,
+    isUseFiat,
+    linkedAmount,
     nftDetails,
-    serviceSend,
+    sendConfirm,
     tokenDetails,
   ]);
   const handleValidateTokenAmount = useCallback(
     (value: string) => {
-      const tokenInfo = tokenDetails;
       const amountBN = new BigNumber(value ?? 0);
+      let isInsufficientBalance = false;
       if (isUseFiat) {
-        if (amountBN.isGreaterThan(tokenInfo?.fiatValue ?? 0)) {
-          return false;
+        if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
+          isInsufficientBalance = true;
         }
-      } else if (amountBN.isGreaterThan(tokenInfo?.balanceParsed ?? 0)) {
-        return false;
+      } else if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
+        isInsufficientBalance = true;
       }
+
+      if (isInsufficientBalance)
+        return intl.formatMessage({ id: 'msg__insufficient_balance' });
 
       return true;
     },
-    [isUseFiat, tokenDetails],
+    [intl, isUseFiat, tokenDetails],
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isLoadingToken || isLoadingNFT || isSubmitting || toPending)
-      return true;
+    if (isLoadingAssets || isSubmitting || toPending) return true;
 
-    if (!form.formState.isValid || !amount) {
+    if (!form.formState.isValid) {
+      return true;
+    }
+
+    if ((!isNFT || nft?.collectionType === ENFTType.ERC1155) && !amount) {
       return true;
     }
   }, [
     amount,
     form.formState.isValid,
-    isLoadingNFT,
-    isLoadingToken,
+    isLoadingAssets,
+    isNFT,
     isSubmitting,
+    nft?.collectionType,
     toPending,
   ]);
 
-  const renderTokenDataInputForm = useCallback(() => {
-    const tokenInfo = tokenDetails;
-    return (
+  const maxAmount = useMemo(
+    () =>
+      isUseFiat
+        ? `${currencySymbol}${
+            getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0
+          }`
+        : `${getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}`,
+    [
+      currencySymbol,
+      isUseFiat,
+      tokenDetails?.balanceParsed,
+      tokenDetails?.fiatValue,
+    ],
+  );
+
+  const renderTokenDataInputForm = useCallback(
+    () => (
       <Form.Field
         name="amount"
         label={intl.formatMessage({ id: 'form__amount' })}
@@ -280,78 +311,40 @@ function SendDataInputContainer() {
               return;
             }
             const dp = valueBN.decimalPlaces();
-            if (!isUseFiat && dp && dp > (tokenInfo?.info.decimals ?? 0)) {
+            if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
               form.setValue(
                 'amount',
-                valueBN.toFixed(tokenInfo?.info.decimals ?? 0),
+                valueBN.toFixed(tokenDetails?.info.decimals ?? 0),
               );
             }
           },
         }}
-        description={
-          <XStack pt="$1.5" alignItems="center">
-            <SizableText size="$bodyLg" color="$textSubdued" pr="$1">
-              ≈
-              {isUseFiat
-                ? `${linkedAmount} ${tokenSymbol}`
-                : `${currencySymbol}${linkedAmount}`}
-            </SizableText>
-            <IconButton
-              title={
-                isUseFiat ? 'Enter amount as token' : 'Enter amount as fiat'
-              }
-              icon="SwitchVerOutline"
-              size="small"
-              iconProps={{
-                size: '$4',
-              }}
-              onPress={handleOnChangeAmountMode}
-            />
-          </XStack>
-        }
       >
-        <SizableText
-          size="$bodyMd"
-          color="$textSubdued"
-          position="absolute"
-          right="$0"
-          top="$0"
-        >
-          {intl.formatMessage(
-            { id: 'content__balance_str' },
-            {
-              0: isUseFiat
-                ? `${currencySymbol}${tokenInfo?.fiatValue ?? 0}`
-                : `${tokenInfo?.balanceParsed ?? 0} ${tokenSymbol}`,
-            },
-          )}
-        </SizableText>
-
-        <Input
-          size="large"
-          inputMode="decimal"
-          placeholder={intl.formatMessage({ id: 'action__enter_amount' })}
-          addOns={[
-            {
-              label: intl.formatMessage({ id: 'action__max' }),
-              onPress: handleOnSendMax,
-            },
-          ]}
+        <AmountInput
+          isUseFiat={isUseFiat}
+          maxAmount={maxAmount}
+          linkedAmount={linkedAmount}
+          tokenSymbol={tokenSymbol}
+          currencySymbol={currencySymbol}
+          onChangePercent={handleOnChangeAmountPercent}
+          onChangeAmountMode={handleOnChangeAmountMode}
         />
       </Form.Field>
-    );
-  }, [
-    currencySymbol,
-    form,
-    handleOnChangeAmountMode,
-    handleOnSendMax,
-    handleValidateTokenAmount,
-    intl,
-    isUseFiat,
-    linkedAmount,
-    tokenDetails,
-    tokenSymbol,
-  ]);
+    ),
+    [
+      currencySymbol,
+      form,
+      handleOnChangeAmountMode,
+      handleOnChangeAmountPercent,
+      handleValidateTokenAmount,
+      intl,
+      isUseFiat,
+      linkedAmount,
+      maxAmount,
+      tokenDetails?.info.decimals,
+      tokenSymbol,
+    ],
+  );
   const renderNFTDataInputForm = useCallback(() => {
     if (nft?.collectionType === ENFTType.ERC1155) {
       return (
@@ -371,7 +364,6 @@ function SendDataInputContainer() {
           </SizableText>
           <Input
             size="large"
-            placeholder={intl.formatMessage({ id: 'action__enter_amount' })}
             addOns={[
               {
                 label: intl.formatMessage({ id: 'action__max' }),
@@ -386,7 +378,7 @@ function SendDataInputContainer() {
   }, [intl, nft?.collectionType]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Send" />
       <Page.Body px="$5">
         <Form form={form}>
@@ -396,20 +388,34 @@ function SendDataInputContainer() {
           >
             <ListItem
               avatarProps={{
-                src: isNFT ? nft?.metadata?.image : token?.logoURI,
+                src: isNFT ? nft?.metadata?.image : tokenInfo?.logoURI,
+                borderRadius: '$full',
+                cornerImageProps: {
+                  src: network?.logoURI,
+                },
               }}
               mx="$0"
               borderWidth={1}
               borderColor="$border"
-              title={isNFT ? nft?.metadata?.name : token?.name}
-              subtitle={network?.name}
               onPress={isNFT ? undefined : handleOnSelectToken}
+              borderRadius="$2"
             >
-              {!isNFT && <Icon name="SwitchHorOutline" color="$iconSubdued" />}
+              <ListItem.Text
+                flex={1}
+                primary={isNFT ? nft?.metadata?.name : tokenInfo?.symbol}
+                secondary={
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {tokenInfo?.name}
+                  </SizableText>
+                }
+              />
+              {!isNFT && (
+                <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" />
+              )}
             </ListItem>
           </Form.Field>
           <Form.Field
-            label={intl.formatMessage({ id: 'form__to_uppercase' })}
+            label={intl.formatMessage({ id: 'content__to' })}
             name="to"
             rules={{
               required: true,
