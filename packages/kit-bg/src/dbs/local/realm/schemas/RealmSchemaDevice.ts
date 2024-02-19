@@ -55,7 +55,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
    */
   public updatedAt!: number;
 
-  public isFirmwareVerified?: boolean;
+  public verifiedAtVersion?: string;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Device,
@@ -71,7 +71,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       payloadJson: 'string',
       createdAt: 'int',
       updatedAt: 'int',
-      isFirmwareVerified: 'bool?',
+      verifiedAtVersion: 'string?',
     },
   };
 
@@ -88,7 +88,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       payloadJson: this.payloadJson,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
-      isFirmwareVerified: this.isFirmwareVerified,
+      verifiedAtVersion: this.verifiedAtVersion,
     };
   }
 }

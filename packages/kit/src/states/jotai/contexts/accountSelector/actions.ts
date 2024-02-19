@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 
-import { wait } from '@onekeyfe/hd-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual } from 'lodash';
 
@@ -22,6 +21,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -294,7 +294,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
           connectId: device.connectId,
         });
-        await wait(3000);
+        await timerUtils.wait(3000);
         await this.createHWHiddenWallet.call(set, {
           walletId: wallet.id,
         });

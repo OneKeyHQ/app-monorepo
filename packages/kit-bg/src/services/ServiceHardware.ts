@@ -23,6 +23,7 @@ import {
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -295,8 +296,8 @@ class ServiceHardware extends ServiceBase {
       rawDeviceId: device.deviceId || '',
       uuid: device.uuid,
     });
-    // return true;
-    return !dbDevice?.isFirmwareVerified;
+    const versionText = deviceUtils.getDeviceVersionStr(device);
+    return dbDevice?.verifiedAtVersion !== versionText;
   }
 
   @backgroundMethod()

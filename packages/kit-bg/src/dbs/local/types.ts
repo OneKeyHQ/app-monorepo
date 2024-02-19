@@ -231,7 +231,7 @@ export type IDBDevice = IDBBaseObjectWithName & {
   payloadJsonInfo?: any;
   createdAt: number;
   updatedAt: number;
-  isFirmwareVerified?: boolean;
+  verifiedAtVersion?: string;
 };
 export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
   payload: IDBDevicePayload;

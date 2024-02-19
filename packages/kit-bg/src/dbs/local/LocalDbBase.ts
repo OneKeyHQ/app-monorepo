@@ -20,6 +20,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -891,7 +892,8 @@ ssphrase wallet
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            item.isFirmwareVerified = isFirmwareVerified;
+            const versionText = deviceUtils.getDeviceVersionStr(device);
+            item.verifiedAtVersion = versionText;
           }
           return item;
         },
