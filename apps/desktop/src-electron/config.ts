@@ -77,4 +77,7 @@ export const ipcMessageKeys = {
   OPEN_DEEP_LINK_URL: 'deepLink/openUrl',
 
   SET_ONEKEY_DESKTOP_GLOBALS: 'onekey/setDesktopGlobals',
+
+  // webview
+  WEBVIEW_NEW_WINDOW: 'webview/newWindow',
 };

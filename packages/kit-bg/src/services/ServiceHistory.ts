@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IFetchAccountHistoryParams,
@@ -9,6 +10,7 @@ import type {
   IFetchHistoryTxDetailsParams,
   IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -22,6 +24,24 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const onChainHistoryTxs = await this.fetchAccountOnChainHistory(params);
+
+    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
+      onChainHistoryTxs,
+    );
+
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountId,
+      tokenIdOnNetwork,
+    });
+
+    return [...localHistoryPendingTxs, ...onChainHistoryTxs];
+  }
+
+  @backgroundMethod()
+  public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
@@ -36,18 +56,21 @@ class ServiceHistory extends ServiceBase {
 
     const { data: onChainHistoryTxs, tokens } = resp.data.data;
 
-    const txs = await Promise.all(
-      onChainHistoryTxs.map((tx) =>
-        vault.buildOnChainHistoryTx({
-          accountId,
-          networkId,
-          onChainHistoryTx: tx,
-          tokens,
-        }),
-      ),
-    );
+    const txs = (
+      await Promise.all(
+        onChainHistoryTxs.map((tx, index) =>
+          vault.buildOnChainHistoryTx({
+            accountId,
+            networkId,
+            onChainHistoryTx: tx,
+            tokens,
+            index,
+          }),
+        ),
+      )
+    ).filter(Boolean);
 
-    return txs.filter(Boolean) as IAccountHistoryTx[];
+    return txs;
   }
 
   @backgroundMethod()
@@ -60,6 +83,65 @@ class ServiceHistory extends ServiceBase {
       },
     );
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async getAccountLocalHistoryPendingTxs(params: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork?: string;
+    limit?: number;
+    isPending?: boolean;
+  }) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const localHistoryPendingTxs =
+      await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryPendingTxs(
+        {
+          networkId,
+          accountId,
+          tokenIdOnNetwork,
+        },
+      );
+
+    return localHistoryPendingTxs;
+  }
+
+  @backgroundMethod()
+  public async saveLocalHistoryPendingTxs(params: {
+    pendingTxs: IAccountHistoryTx[];
+  }) {
+    const { pendingTxs } = params;
+
+    return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
+      pendingTxs,
+    );
+  }
+
+  @backgroundMethod()
+  public async saveSendConfirmHistoryTxs(params: {
+    networkId: string;
+    accountId: string;
+    data: ISendTxOnSuccessData;
+    feeInfo?: IFeeInfoUnit | undefined;
+  }) {
+    const { networkId, accountId, feeInfo, data } = params;
+
+    if (!data || !data.decodedTx) {
+      return;
+    }
+
+    const { decodedTx, signedTx } = data;
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const newHistoryTx = await vault.buildHistoryTx({
+      decodedTx,
+      signedTx,
+      isSigner: true,
+      isLocalCreated: true,
+    });
+    newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
+
+    await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }
 

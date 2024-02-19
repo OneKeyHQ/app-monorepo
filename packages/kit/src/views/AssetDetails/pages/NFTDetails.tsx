@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { ActionList, Button, Page, Spinner, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -8,6 +9,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../routes/Modal/type';
 import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents';
 import { EModalSendRoutes } from '../../Send/router';
 
@@ -18,6 +20,7 @@ import type {
 import type { RouteProp } from '@react-navigation/core';
 
 export function NFTDetails() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const device = 'Touch';
 
@@ -25,7 +28,8 @@ export function NFTDetails() {
     useRoute<
       RouteProp<IModalAssetDetailsParamList, EModalAssetDetailRoutes.NFTDetails>
     >();
-  const { networkId, accountAddress, collectionAddress, itemId } = route.params;
+  const { networkId, accountId, accountAddress, collectionAddress, itemId } =
+    route.params;
 
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
 
@@ -34,11 +38,15 @@ export function NFTDetails() {
       const r = await backgroundApiProxy.serviceNFT.fetchNFTDetails({
         networkId,
         accountAddress,
-        collectionAddress,
-        itemId,
+        params: [
+          {
+            collectionAddress,
+            itemId,
+          },
+        ],
       });
 
-      return r;
+      return r[0];
     },
     [accountAddress, collectionAddress, itemId, networkId],
     {
@@ -62,15 +70,24 @@ export function NFTDetails() {
   );
 
   const handleSendPress = useCallback(() => {
-    navigation.push(EModalSendRoutes.SendDataInput, { isNFT: true });
-  }, [navigation]);
+    if (!nft) return;
+    navigation.pushModal(EModalRoutes.SendModal, {
+      screen: EModalSendRoutes.SendDataInput,
+      params: {
+        networkId,
+        accountId,
+        isNFT: true,
+        nfts: [nft],
+      },
+    });
+  }, [accountId, navigation, networkId, nft]);
 
   if (!nft)
     return (
       <Page>
         <Page.Body>
           {result.isLoading ? (
-            <Stack justifyContent="center" alignItems="center">
+            <Stack justifyContent="center" alignItems="center" h="100%">
               <Spinner />
             </Stack>
           ) : null}
@@ -101,7 +118,7 @@ export function NFTDetails() {
               </Stack>
             </Stack>
             <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
-              Send
+              {intl.formatMessage({ id: 'action__send' })}
             </Button>
           </Stack>
           <DetailContent networkId={networkId} nft={nft} />

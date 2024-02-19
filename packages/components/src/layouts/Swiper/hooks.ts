@@ -5,7 +5,7 @@ import { InteractionManager, type LayoutChangeEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IScrollToIndexParams, ISwiperProps } from './type';
-import type { IListViewRef } from '../ListView';
+import type { IListViewRef } from '../ListView/list';
 
 export const useSharedStyle = (props: ISwiperProps<any>) =>
   useMemo(() => {

@@ -5,6 +5,7 @@ import {
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 @backgroundClass()
@@ -86,6 +87,12 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getVaultSettings({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings;
+  }
+
+  @backgroundMethod()
   async groupNetworks({
     networks,
     searchKey,
@@ -128,6 +135,23 @@ class ServiceNetwork extends ServiceBase {
       );
     }
     return networks;
+  }
+
+  @backgroundMethod()
+  async containsNetwork({
+    impls,
+    networkId,
+  }: {
+    impls?: string[];
+    networkId: string;
+  }) {
+    let networkIds: string[];
+    if (impls) {
+      ({ networkIds } = await this.getNetworkIdsByImpls({ impls }));
+    } else {
+      ({ networkIds } = await this.getAllNetworkIds());
+    }
+    return networkIds.includes(networkId);
   }
 }
 

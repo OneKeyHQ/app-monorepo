@@ -2,6 +2,8 @@ import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSe
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 
 export class SimpleDb {
@@ -9,9 +11,13 @@ export class SimpleDb {
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
 
+  dappConnection = new SimpleDbEntityDappConnection();
+
   browserHistory = new SimpleDbEntityBrowserHistory();
 
   accountSelector = new SimpleDbEntityAccountSelector();
 
   localTokens = new SimpleDbEntityLocalTokens();
+
+  localHistory = new SimpleDbEntityLocalHistory();
 }

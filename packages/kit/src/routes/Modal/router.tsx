@@ -3,7 +3,9 @@ import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
+import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -36,6 +38,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: OnboardingRouter,
   },
   {
+    name: EModalRoutes.AssetSelectorModal,
+    children: AssetSelectorRouter,
+  },
+  {
     name: EModalRoutes.ChainSelectorModal,
     children: ChainSelectorRouter,
   },
@@ -46,6 +52,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.ReceiveModal,
     children: ModalReceiveStack,
+  },
+  {
+    name: EModalRoutes.DAppConnectionModal,
+    children: DAppConnectionRouter,
   },
   {
     name: EModalRoutes.ScanQrCodeModal,

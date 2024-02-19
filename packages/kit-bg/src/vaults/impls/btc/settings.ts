@@ -69,6 +69,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   isUtxo: true,
+  isSingleToken: true,
   NFTEnabled: false,
   nonceRequired: false,
   editFeeEnabled: true,

@@ -454,5 +454,93 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  return [eth, goerli, btc, tbtc, tatom, cosmoshub, osmosis];
+  const polygon: IServerNetwork = {
+    'balance2FeeDecimals': 9,
+    'chainId': '137',
+    'code': 'polygon',
+    'decimals': 18,
+    'extensions': {
+      'defaultStableTokens': [
+        '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
+        '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
+        '0x9fb83c0635de2e815fd1c21b3a292277540c2e8d',
+        '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063',
+      ],
+      'position': 5,
+      'providerOptions': {
+        'EIP1559Enabled': true,
+        'preferMetamask': true,
+      },
+    },
+    'id': 'evm--137',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/polygon/polygon.png',
+    'name': 'Polygon',
+    'rpcURLs': [
+      {
+        'url': 'https://polygon-rpc.com',
+      },
+      {
+        'url': 'https://rpc-mainnet.matic.network',
+      },
+      {
+        'url': 'https://rpc-mainnet.maticvigil.com',
+      },
+      {
+        'url': 'https://rpc-mainnet.matic.quiknode.pro',
+      },
+      {
+        'url': 'https://matic-mainnet.chainstacklabs.com',
+      },
+      {
+        'url': 'https://matic-mainnet-full-rpc.bwarelabs.com',
+      },
+      {
+        'url': 'https://matic-mainnet-archive-rpc.bwarelabs.com',
+      },
+      {
+        'url': 'https://node.onekey.so/polygon',
+      },
+      {
+        'url': 'https://1rpc.io/matic',
+      },
+      {
+        'url': 'https://onekey-polygon.rpc.blxrbdn.com',
+      },
+    ],
+    'shortcode': 'polygon',
+    'shortname': 'Polygon',
+    'symbol': 'MATIC',
+    'feeMeta': {
+      'code': 'polygon',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'matic-network',
+        'platform': 'polygon-pos',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'MATIC',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://polygonscan.com/address/{address}',
+        'block': 'https://polygonscan.com/block/{block}',
+        'name': 'https://polygonscan.com/',
+        'transaction': 'https://polygonscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  return [eth, goerli, btc, tbtc, tatom, cosmoshub, osmosis, polygon];
 });

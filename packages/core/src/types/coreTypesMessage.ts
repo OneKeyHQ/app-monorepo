@@ -4,7 +4,8 @@ import type {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
-} from './coreEnums';
+} from '@onekeyhq/shared/types/message';
+
 import type { SignatureOptions } from 'bitcoinjs-message';
 
 export type IUnsignedMessageEth = {
