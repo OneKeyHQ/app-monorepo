@@ -1023,6 +1023,10 @@ PODS:
     - React-debug
   - react-native-ble-manager (10.1.5):
     - React-Core
+  - react-native-compat (2.11.1):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
   - react-native-lite-card (1.0.1):
@@ -1230,7 +1234,7 @@ PODS:
     - React-RCTText
   - RealmJS (12.3.0):
     - React
-  - RNCAsyncStorage (1.18.2):
+  - RNCAsyncStorage (1.22.0):
     - React-Core
   - RNDeviceInfo (10.11.0):
     - React-Core
@@ -1355,6 +1359,7 @@ DEPENDENCIES:
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
+  - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
@@ -1537,6 +1542,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon"
   react-native-ble-manager:
     :path: "../../../node_modules/react-native-ble-manager"
+  react-native-compat:
+    :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-lite-card:
@@ -1705,6 +1712,7 @@ SPEC CHECKSUMS:
   React-logger: 66b168e2b2bee57bd8ce9e69f739d805732a5570
   React-Mapbuffer: 9ee041e1d7be96da6d76a251f92e72b711c651d6
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
+  react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: fbd9da7a3e47081aaf201ce1e9640d9cf293de89
   react-native-metrix: b1aab1cb911f555b57812eed5d38c5942c6d99af
@@ -1741,7 +1749,7 @@ SPEC CHECKSUMS:
   ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
   RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
-  RNCAsyncStorage: ddc4ee162bfd41b0d2c68bf2d95acd81dd7f1f93
+  RNCAsyncStorage: c43e6d71e13bb4748503797784839e0fbbf89d56
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
   RNFlashList: 4b4b6b093afc0df60ae08f9cbf6ccd4c836c667a

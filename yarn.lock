@@ -4849,7 +4849,7 @@ __metadata:
     "@typescript-eslint/parser": "npm:^5.46.1"
     "@ungap/structured-clone": "npm:^1.2.0"
     "@vespaiach/axios-fetch-adapter": "npm:^0.3.1"
-    "@walletconnect/web3wallet": "npm:^1.10.0"
+    "@walletconnect/web3wallet": "npm:1.10.0"
     axios: "npm:^1.6.0"
     babel-loader: "npm:^9.1.3"
     babel-plugin-import: "npm:^1.13.5"
@@ -5104,10 +5104,11 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@react-native-async-storage/async-storage": "npm:1.18.2"
+    "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^9.4.1"
     "@react-native-community/slider": "npm:4.4.3"
     "@shopify/flash-list": "npm:^1.6.3"
+    "@walletconnect/react-native-compat": "npm:2.11.1"
     burnt: "npm:0.12.2"
     expo: "npm:50.0.5"
     expo-application: "npm:5.8.3"
@@ -5934,14 +5935,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-async-storage/async-storage@npm:1.18.2":
-  version: 1.18.2
-  resolution: "@react-native-async-storage/async-storage@npm:1.18.2"
+"@react-native-async-storage/async-storage@npm:1.22.0":
+  version: 1.22.0
+  resolution: "@react-native-async-storage/async-storage@npm:1.22.0"
   dependencies:
     merge-options: "npm:^3.0.4"
   peerDependencies:
-    react-native: ^0.0.0-0 || 0.60 - 0.72 || 1000.0.0
-  checksum: 3830828c608c9bdc36e147f7b8ff8632368eb8c97ee6f8dc30629a6ba802b99e5307202d86fe5ec37affcef225f82e331be6723921b91d500b935006da2e25ac
+    react-native: ^0.0.0-0 || >=0.60 <1.0
+  checksum: eadadbe1d6c59f5bd75fbe16fba7ec7ed2fd0d3786634fbe2af6d83b9a7371e79f42de3cd67129aa375b241a18f7538df9b026b5c0ad85cc6e1c6927543b1914
   languageName: node
   linkType: hard
 
@@ -9663,6 +9664,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@walletconnect/react-native-compat@npm:2.11.1":
+  version: 2.11.1
+  resolution: "@walletconnect/react-native-compat@npm:2.11.1"
+  dependencies:
+    events: "npm:3.3.0"
+    fast-text-encoding: "npm:^1.0.6"
+    react-native-url-polyfill: "npm:^2.0.0"
+  peerDependencies:
+    "@react-native-async-storage/async-storage": "*"
+    "@react-native-community/netinfo": "*"
+    expo-application: "*"
+    react-native-get-random-values: "*"
+  peerDependenciesMeta:
+    expo-application:
+      optional: true
+  checksum: bb5fef60098d032b6239ebb7961189631cc7895b7a00388c777796ebdad308499c545b4d4f7aa1a841ac86a6e01e13033178dc61ad325de2691cd90b8372c69a
+  languageName: node
+  linkType: hard
+
 "@walletconnect/relay-api@npm:^1.0.9":
   version: 1.0.9
   resolution: "@walletconnect/relay-api@npm:1.0.9"
@@ -9758,7 +9778,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/web3wallet@npm:^1.10.0":
+"@walletconnect/web3wallet@npm:1.10.0":
   version: 1.10.0
   resolution: "@walletconnect/web3wallet@npm:1.10.0"
   dependencies:
@@ -16173,7 +16193,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"events@npm:^3.2.0, events@npm:^3.3.0":
+"events@npm:3.3.0, events@npm:^3.2.0, events@npm:^3.3.0":
   version: 3.3.0
   resolution: "events@npm:3.3.0"
   checksum: a3d47e285e28d324d7180f1e493961a2bbb4cad6412090e4dec114f4db1f5b560c7696ee8e758f55e23913ede856e3689cd3aa9ae13c56b5d8314cd3b3ddd1be
@@ -16802,6 +16822,13 @@ __metadata:
   version: 1.0.0
   resolution: "fast-stable-stringify@npm:1.0.0"
   checksum: e4743ae52f621b42aa04ab4a44fec9e644dd30f476d37f9cf13e7dd95de3e427ecd1b20e6be7adaf0dea7252ed11ff72819066f939b1d491cec1e7e898524989
+  languageName: node
+  linkType: hard
+
+"fast-text-encoding@npm:^1.0.6":
+  version: 1.0.6
+  resolution: "fast-text-encoding@npm:1.0.6"
+  checksum: f7b9e2e7a21e4ae5f4b8d3729850be83fb45052b28c9c38c09b8366463a291d6dc5448359238bdaf87f6a9e907d5895a94319a2c5e0e9f0786859ad6312d1d06
   languageName: node
   linkType: hard
 
@@ -25396,6 +25423,17 @@ __metadata:
   peerDependencies:
     react-native: "*"
   checksum: e2dcfc11744ab16e841c44d037062dee971cf1387cfc20dd610f175e53eb8c203a1c9d9f0df3570605371560f3e64f6f078f31409846fa1c68dfd316b168df33
+  languageName: node
+  linkType: hard
+
+"react-native-url-polyfill@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "react-native-url-polyfill@npm:2.0.0"
+  dependencies:
+    whatwg-url-without-unicode: "npm:8.0.0-3"
+  peerDependencies:
+    react-native: "*"
+  checksum: 6a8d605eeb1b0ee9b0f47f1866acc2edfa2131a4a8fb1ea3839ceb507e225b894ed66f49a3bd826fc964f2c8005b3678c9d3b65d07eb0a3b979be830cb618686
   languageName: node
   linkType: hard
 
