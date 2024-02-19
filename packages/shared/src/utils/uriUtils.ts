@@ -1,5 +1,7 @@
 import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
 
+import type { IServerNetwork } from '../../types';
+
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
 
@@ -100,6 +102,22 @@ export function parseUrl(url: string) {
 }
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
+
+export function buildExplorerAddressUrl({
+  network,
+  address,
+}: {
+  network: IServerNetwork | undefined;
+  address: string | undefined;
+}) {
+  if (!network || !address) return '';
+
+  const addressUrl = network.explorers[0]?.address;
+
+  if (!addressUrl) return '';
+
+  return addressUrl.replace('{address}', address);
+}
 
 export default {
   getOriginFromUrl,

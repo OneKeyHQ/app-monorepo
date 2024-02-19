@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Dialog,
   Form,
@@ -7,9 +9,12 @@ import {
   Input,
   Stack,
   TextArea,
+  useClipboard,
   useForm,
 } from '@onekeyhq/components';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
 
@@ -26,6 +31,8 @@ import { WalletActions } from '../components/WalletActions';
 import type { IModalSendParamList } from '../../Send/router';
 
 function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -127,12 +134,45 @@ function WalletActionsContainer({ tokens }: { tokens?: ITokenData }) {
     });
   }, [form, navigation]);
   const handleOnSwap = useCallback(() => {}, []);
+  const handleOnBuy = useCallback(() => {}, []);
 
   return (
     <WalletActions
       onSend={handleOnSend}
       onReceive={handleOnReceive}
       onSwap={handleOnSwap}
+      onBuy={handleOnBuy}
+      extraActions={[
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: 'action__sell_crypto' }),
+              icon: 'MinusLargeOutline',
+              onPress: () => {},
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
+              icon: 'GlobusOutline',
+              onPress: () =>
+                openUrlExternal(
+                  buildExplorerAddressUrl({
+                    network,
+                    address: account?.address,
+                  }),
+                ),
+            },
+            {
+              label: intl.formatMessage({ id: 'action__copy_address' }),
+              icon: 'Copy1Outline',
+              onPress: () => copyText(account?.address || ''),
+            },
+          ],
+        },
+      ]}
     />
   );
 }
