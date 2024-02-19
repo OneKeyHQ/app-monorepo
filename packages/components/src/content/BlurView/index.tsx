@@ -24,7 +24,7 @@ export type IBlurViewPros = Omit<BlurViewProps, 'style' | 'intensity'> &
 
 function BasicBlurView(
   { contentStyle, ...props }: IBlurViewPros,
-  ref: ForwardedRef<IView>,
+  ref: ForwardedRef<any>,
 ) {
   const themeName = useThemeName();
   const [restProps, style] = usePropsAndStyle(props, {

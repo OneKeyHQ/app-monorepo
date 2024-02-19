@@ -62,6 +62,7 @@ export function getSharedInputStyles({
           outlineWidth: 2,
           outlineStyle: 'solid',
           outlineColor: error ? '$focusRingCritical' : '$focusRing',
+          outlineOffset: -2,
         },
   };
 }

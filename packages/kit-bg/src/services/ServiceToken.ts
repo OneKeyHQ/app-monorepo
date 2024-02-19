@@ -2,6 +2,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import {
+  getEmptyTokenData,
+  getMergedTokenData,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -9,8 +15,6 @@ import type {
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
-
-import simpleDb from '../dbs/simple/simpleDb';
 
 import ServiceBase from './ServiceBase';
 
@@ -33,41 +37,34 @@ class ServiceToken extends ServiceBase {
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
-      const mergedTokens = [
-        ...tokens.data,
-        ...smallBalanceTokens.data,
-        ...riskTokens.data,
-      ];
-
-      const mergedKeys = `${tokens.keys}_${smallBalanceTokens.keys}_${riskTokens.keys}`;
-
-      const mergedTokenMap = {
-        ...tokens.map,
-        ...smallBalanceTokens.map,
-        ...riskTokens.map,
-      };
-
-      return {
-        tokens: {
-          data: mergedTokens,
-          keys: mergedKeys,
-          map: mergedTokenMap,
-        },
-        riskTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-        smallBalanceTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-      };
+      return getMergedTokenData({ tokens, riskTokens, smallBalanceTokens });
     }
 
     return resp.data.data;
   }
+
+  @backgroundMethod()
+  public async fetchAccountTokensWithMemo(
+    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
+  ) {
+    try {
+      const tokens = await this._fetchAccountTokensWithMemo(params);
+      return tokens;
+    } catch {
+      return getEmptyTokenData();
+    }
+  }
+
+  _fetchAccountTokensWithMemo = memoizee(
+    async (params: IFetchAccountTokensParams & { mergeTokens?: boolean }) =>
+      this.fetchAccountTokens(params),
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {
@@ -89,7 +86,7 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     tokens: IToken[];
   }) {
-    return simpleDb.localTokens.updateTokens({
+    return this.backgroundApi.simpleDb.localTokens.updateTokens({
       networkId,
       tokens,
     });
@@ -107,7 +104,7 @@ class ServiceToken extends ServiceBase {
   }) {
     const { networkId, tokenIdOnNetwork } = params;
 
-    const localToken = await simpleDb.localTokens.getToken({
+    const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
     });

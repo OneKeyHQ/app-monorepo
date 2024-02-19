@@ -8,6 +8,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDApp from '../services/ServiceDApp';
@@ -100,6 +101,10 @@ class BackgroundApiProxy
   serviceHardware = this._createProxyService(
     'serviceHardware',
   ) as ServiceHardware;
+
+  serviceAddressBook = this._createProxyService(
+    'serviceAddressBook',
+  ) as ServiceAddressBook;
 }
 
 export default BackgroundApiProxy;

@@ -1,7 +1,3 @@
-diff --git a/node_modules/metro/.DS_Store b/node_modules/metro/.DS_Store
-new file mode 100644
-index 0000000..5172429
-Binary files /dev/null and b/node_modules/metro/.DS_Store differ
 diff --git a/node_modules/metro/src/Bundler.js b/node_modules/metro/src/Bundler.js
 index eeca6ef..5c930a6 100644
 --- a/node_modules/metro/src/Bundler.js

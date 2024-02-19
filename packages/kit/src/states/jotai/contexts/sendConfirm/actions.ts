@@ -13,7 +13,9 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   contextAtomMethod,
   customFeeAtom,
+  nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
+  nativeTokenTransferAmountToUpdateAtom,
   sendFeeStatusAtom,
   sendSelectedFeeAtom,
   sendSelectedFeeInfoAtom,
@@ -73,12 +75,30 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
     },
   );
 
+  updateNativeTokenTransferAmountToUpdate = contextAtomMethod(
+    (get, set, payload: { isMaxSend: boolean; amountToUpdate: string }) => {
+      set(nativeTokenTransferAmountToUpdateAtom(), payload);
+    },
+  );
+
+  updateNativeTokenInfo = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        balance: string;
+        isLoading: boolean;
+      },
+    ) => {
+      set(nativeTokenInfoAtom(), payload);
+    },
+  );
+
   updateSendTxStatus = contextAtomMethod(
     (
       get,
       set,
       status: {
-        isLoadingNativeBalance?: boolean;
         isInsufficientNativeBalance?: boolean;
       },
     ) => {
@@ -101,7 +121,10 @@ export function useSendConfirmActions() {
   const updateSendFeeStatus = actions.updateSendFeeStatus.use();
   const updateNativeTokenTransferAmount =
     actions.updateNativeTokenTransferAmount.use();
+  const updateNativeTokenTransferAmountToUpdate =
+    actions.updateNativeTokenTransferAmountToUpdate.use();
   const updateSendTxStatus = actions.updateSendTxStatus.use();
+  const updateNativeTokenInfo = actions.updateNativeTokenInfo.use();
 
   return useRef({
     updateUnsignedTxs,
@@ -110,6 +133,8 @@ export function useSendConfirmActions() {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
     updateNativeTokenTransferAmount,
+    updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
+    updateNativeTokenInfo,
   });
 }

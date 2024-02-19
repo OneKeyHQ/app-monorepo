@@ -623,4 +623,5 @@ module.exports = [
   'Viewable',
   'viewability',
   'caips',
+  'walletconnect',
 ];

@@ -56,10 +56,7 @@ function TokenList() {
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId,
         networkId,
-        tokenAddress: token.address,
-        tokenSymbol: token.symbol,
-        tokenLogoURI: token.logoURI,
-        isNative: token.isNative,
+        tokenInfo: token,
       });
     },
     [accountId, navigation, networkId],
@@ -79,7 +76,10 @@ function TokenList() {
     <Page>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
-        <TokenListView onPressToken={onPressToken ?? handleOnPressToken} />
+        <TokenListView
+          onPressToken={onPressToken ?? handleOnPressToken}
+          withPrice
+        />
       </Page.Body>
     </Page>
   );

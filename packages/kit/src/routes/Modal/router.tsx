@@ -2,7 +2,9 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ModalAddressBookRouter } from '../../common/components/AddressBook/router';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
@@ -37,6 +39,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: OnboardingRouter,
   },
   {
+    name: EModalRoutes.AssetSelectorModal,
+    children: AssetSelectorRouter,
+  },
+  {
     name: EModalRoutes.ChainSelectorModal,
     children: ChainSelectorRouter,
   },
@@ -55,6 +61,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.ScanQrCodeModal,
     children: ScanQrCodeModalRouter,
+  },
+  {
+    name: EModalRoutes.AddressBookModal,
+    children: ModalAddressBookRouter,
   },
 ];
 
