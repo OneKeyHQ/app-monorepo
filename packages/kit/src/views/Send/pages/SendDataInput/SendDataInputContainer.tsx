@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   AddressInput,
   type IAddressInputValue,
+  allAddressInputPlugins,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -428,7 +429,11 @@ function SendDataInputContainer() {
               },
             }}
           >
-            <AddressInput networkId={networkId} />
+            <AddressInput
+              networkId={networkId}
+              enableAddressBook
+              plugins={allAddressInputPlugins}
+            />
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
