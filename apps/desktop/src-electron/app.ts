@@ -435,7 +435,13 @@ function createMainWindow() {
   // Prevents clicking on links to open new Windows
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
-      contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.setWindowOpenHandler((handleDetails) => {
+        mainWindow?.webContents.send(
+          ipcMessageKeys.WEBVIEW_NEW_WINDOW,
+          handleDetails,
+        );
+        return { action: 'deny' };
+      });
       contents.on('will-frame-navigate', (e) => {
         const { url } = e;
         const { action } = uriUtils.parseDappRedirect(url);
