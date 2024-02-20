@@ -17,6 +17,8 @@ export type IModalSendParamList = {
     isNFT: boolean;
     nfts?: IAccountNFT[];
     token?: IToken;
+    address?: string;
+    amount?: string;
   };
   [EModalSendRoutes.SendConfirm]: {
     networkId: string;

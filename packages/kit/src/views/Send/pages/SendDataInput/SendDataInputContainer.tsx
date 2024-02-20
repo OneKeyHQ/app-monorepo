@@ -52,7 +52,15 @@ function SendDataInputContainer() {
 
   const { serviceNFT, serviceToken } = backgroundApiProxy;
 
-  const { networkId, accountId, isNFT, token, nfts } = route.params;
+  const {
+    networkId,
+    accountId,
+    isNFT,
+    token,
+    nfts,
+    address,
+    amount: sendAmount = '',
+  } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
   const { account, network } = useAccountData({ accountId, networkId });
@@ -115,8 +123,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
-      to: { raw: '' } as IAddressInputValue,
-      amount: '',
+      to: { raw: address } as IAddressInputValue,
+      amount: sendAmount,
       nftAmount: '',
     },
     mode: 'onChange',
