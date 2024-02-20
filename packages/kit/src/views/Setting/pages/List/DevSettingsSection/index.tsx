@@ -9,6 +9,8 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 
 import { Section } from '../Section';
 
+import { SectionItem } from './SectionItem';
+
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -16,6 +18,11 @@ export const DevSettingsSection = () => {
   const handleDevModeOnChange = useCallback((isOpen: boolean) => {
     void backgroundApiProxy.serviceDevSetting.switchDevMode(isOpen);
   }, []);
+
+  if (!settings.enabled) {
+    return null;
+  }
+
   return (
     <Section
       title={intl.formatMessage({ id: 'form__dev_mode' })}
@@ -28,18 +35,13 @@ export const DevSettingsSection = () => {
           onChange={handleDevModeOnChange}
         />
       </ListItem>
-      <ListItem
+      <SectionItem
+        name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
         titleProps={{ color: '$textCritical' }}
       >
-        {/* <Switch
-          size="small"
-          value={settings.enableTestEndpoint}
-          onChange={(value) =>
-            handleDevModeOnChange({ enableTestEndpoint: value })
-          }
-        /> */}
-      </ListItem>
+        <Switch size="small" />
+      </SectionItem>
     </Section>
   );
 };

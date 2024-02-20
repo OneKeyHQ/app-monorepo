@@ -2,14 +2,15 @@
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
-interface IDevSetting {
-  enabled: boolean;
-  data: Record<string, unknown>;
+export interface IDevSettings {
+  enableTestEndpoint?: boolean;
 }
+
+export type IDevSettingsKeys = keyof IDevSettings;
 
 export type IDevSettingsPersistAtom = {
   enabled?: boolean;
-  settings?: IDevSetting[];
+  settings?: IDevSettings;
 };
 export const {
   target: devSettingsPersistAtom,
