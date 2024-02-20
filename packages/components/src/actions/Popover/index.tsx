@@ -25,12 +25,13 @@ import { SizableText, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import { PopoverContent } from './PopoverContent';
+
 import type {
   PopoverContentTypeProps,
   SheetProps,
   PopoverProps as TMPopoverProps,
 } from 'tamagui';
-import { PopoverContent } from './PopoverContent';
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string;
@@ -321,21 +322,27 @@ const Popover = ({
     open,
     onOpenChangeFunc,
   );
+  const memoPopover = useMemo(
+    () => (
+      <RawPopover
+        open={isOpen}
+        onOpenChange={onOpenChange}
+        openPopover={openPopover}
+        closePopover={closePopover}
+        renderTrigger={undefined}
+        {...rest}
+        sheetProps={sheetProps}
+      />
+    ),
+    [closePopover, isOpen, onOpenChange, openPopover, rest, sheetProps],
+  );
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
       <>
         <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
         <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-          <RawPopover
-            open={isOpen}
-            onOpenChange={onOpenChange}
-            openPopover={openPopover}
-            closePopover={closePopover}
-            renderTrigger={undefined}
-            {...rest}
-            sheetProps={sheetProps}
-          />
+          {memoPopover}
         </Portal.Body>
       </>
     );

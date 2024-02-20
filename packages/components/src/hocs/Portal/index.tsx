@@ -77,22 +77,26 @@ function PortalRender(props: {
   const { children, container } = props;
 
   if (platformEnv.isDev) {
-    const { _owner } = children as any as {
-      _owner: { child: { elementType: { $$typeof: symbol } } };
-    };
-
-    console.log(
-      '_owner.child.elementType.$$typeof.toString()',
-      _owner.child,
-      'Symbol(react.memo)',
-    );
-    if (_owner.child.elementType.$$typeof.toString() !== 'Symbol(react.memo)') {
-      console.log('_owner.child.eleme', children, container)
-      // throw new Error(
-      //   `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
-      //     container || ''
-      //   }`,
-      // );
+    if (children) {
+      const isReactMemoElement = (child?: {
+        elementType?: { $$typeof?: symbol };
+      }) => child?.elementType?.$$typeof?.toString() !== 'Symbol(react.memo)';
+      const { _owner } = children as any as {
+        _owner?: {
+          child?: any;
+          sibling?: any;
+        };
+      };
+      if (
+        !isReactMemoElement(_owner?.child) &&
+        !isReactMemoElement(_owner?.sibling)
+      ) {
+        throw new Error(
+          `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
+            container || ''
+          }`,
+        );
+      }
     }
   }
 
