@@ -146,6 +146,12 @@ function AccountSelectorPopoverContent({
         sceneUrl: origin,
       }}
       enabledNum={accountsInfo.map((account) => account.num)}
+      availableNetworksMap={accountsInfo.reduce((acc, account) => {
+        if (Array.isArray(account.networkIds)) {
+          acc[account.num] = { networkIds: account.networkIds };
+        }
+        return acc;
+      }, {} as Record<number, { networkIds: string[] }>)}
     >
       <YStack p="$5" space="$2">
         {accountsInfo.map((account) => (
@@ -188,8 +194,20 @@ function HeaderRightToolBar() {
       await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
         origin,
       );
+
+    if (!connectedAccount) return;
+
     console.log('====>>>connectedAccount: ', connectedAccount);
-    return connectedAccount;
+    const connectedAccountWithNetworkIds = await Promise.all(
+      connectedAccount.map(async (accountInfo) => {
+        const { networkIds } =
+          await backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        return { ...accountInfo, networkIds };
+      }),
+    );
+    return connectedAccountWithNetworkIds;
   }, [origin]);
 
   const afterChangeAccount = useCallback(() => {
@@ -238,6 +256,9 @@ function HeaderRightToolBar() {
                 sceneUrl: origin ?? '',
               }}
               enabledNum={[accountInfo.num]}
+              availableNetworksMap={{
+                [accountInfo.num]: { networkIds: accountInfo.networkIds },
+              }}
             >
               <XStack mr="$-1.5">
                 <SingleAccountAndNetworkSelectorTrigger

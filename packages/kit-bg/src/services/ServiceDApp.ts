@@ -449,7 +449,7 @@ class ServiceDApp extends ServiceBase {
     if (!containsNetwork) {
       throw new Error('Network not found');
     }
-    if (await this.shouldSwitchNetwork(params)) {
+    if (!(await this.shouldSwitchNetwork(params))) {
       return;
     }
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
