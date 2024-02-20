@@ -23,10 +23,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -89,6 +88,9 @@ const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
   </AccountSelectorProviderMirror>
 );
 
+type IContactsPluginProps = IAddressPluginProps & {
+  networkId?: string;
+};
 const ContactsPlugin: FC<IContactsPluginProps> = ({
   onChange,
   networkId,
