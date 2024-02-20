@@ -4843,6 +4843,7 @@ __metadata:
     "@types/jest": "npm:^29.5.6"
     "@types/lodash": "npm:^4.14.200"
     "@types/memoizee": "npm:^0.4.10"
+    "@types/mixpanel-browser": "npm:^2.47.5"
     "@types/react": "npm:^18.2.29"
     "@types/react-dom": "npm:~18.0.10"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
@@ -4892,6 +4893,7 @@ __metadata:
     jotai: "npm:^2.5.0"
     memoizee: "npm:^0.4.15"
     metro: "npm:0.80.5"
+    mixpanel-browser: "npm:2.49.0"
     natsort: "npm:^2.0.3"
     node-notifier: "npm:^10.0.1"
     patch-package: "npm:^7.0.0"
@@ -5136,6 +5138,7 @@ __metadata:
     https-browserify: "npm:^1.0.0"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:6.3.1"
+    mixpanel-react-native: "npm:2.4.0"
     path-browserify: "npm:^1.0.1"
     react: "npm:18.2.0"
     react-native: "npm:0.73.2"
@@ -8962,6 +8965,13 @@ __metadata:
   version: 5.1.2
   resolution: "@types/minimatch@npm:5.1.2"
   checksum: 94db5060d20df2b80d77b74dd384df3115f01889b5b6c40fa2dfa27cfc03a68fb0ff7c1f2a0366070263eb2e9d6bfd8c87111d4bc3ae93c3f291297c1bf56c85
+  languageName: node
+  linkType: hard
+
+"@types/mixpanel-browser@npm:^2.47.5":
+  version: 2.49.0
+  resolution: "@types/mixpanel-browser@npm:2.49.0"
+  checksum: 8aa9f114098cd9e2b06314586d73934aa83a8116b7de61bd41208728aebd47daa30134a98c4af3d65c4e755fbbdb6c450058a34ad2204305587fbe8e27f844b3
   languageName: node
   linkType: hard
 
@@ -22237,6 +22247,20 @@ __metadata:
   version: 3.0.1
   resolution: "mitt@npm:3.0.1"
   checksum: 287c70d8e73ffc25624261a4989c783768aed95ecb60900f051d180cf83e311e3e59865bfd6e9d029cdb149dc20ba2f128a805e9429c5c4ce33b1416c65bbd14
+  languageName: node
+  linkType: hard
+
+"mixpanel-browser@npm:2.49.0":
+  version: 2.49.0
+  resolution: "mixpanel-browser@npm:2.49.0"
+  checksum: 46b738792153caa35c083f3e23b208d48fac0f040074d2f36dc95bac49e86729676ffb599b4b50d814231c4ae8170110419e748a1cbe0d5432ea415f0fe8adc4
+  languageName: node
+  linkType: hard
+
+"mixpanel-react-native@npm:2.4.0":
+  version: 2.4.0
+  resolution: "mixpanel-react-native@npm:2.4.0"
+  checksum: 4f7a2499d10251b5bccdf47ba1bbe3eea62c88b58df2342a6cbaa06a0bec615594248b4e5d0cdff4f074c33809fc9af1cd260a2302d2185d147ed4c81d7ab355
   languageName: node
   linkType: hard
 
