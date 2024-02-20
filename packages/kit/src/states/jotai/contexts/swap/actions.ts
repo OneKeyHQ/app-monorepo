@@ -1,7 +1,10 @@
 import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { swapTokenCatchMapMaxCount } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
+import {
+  swapQuoteFetchInterval,
+  swapTokenCatchMapMaxCount,
+} from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
 import type {
   ISwapToken,
   ISwapTxHistory,
@@ -10,7 +13,6 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
-import { activeAccountsAtom } from '../accountSelector';
 
 import {
   contextAtomMethod,
@@ -28,6 +30,8 @@ import {
 } from './atoms';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
+  private quoteInterval: NodeJS.Timeout | undefined;
+
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());
     const sortNetworks = moveNetworkToFirst(networks, netWorkId);
@@ -151,32 +155,81 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     await this.syncSwapHistorySimpleDb.call(set);
   });
 
-  runQuote = contextAtomMethod(async (get, set) => {
+  runQuote = contextAtomMethod(
+    async (
+      get,
+      set,
+      fromToken: ISwapToken,
+      toToken: ISwapToken,
+      fromTokenAmount: string,
+      slippagePercentage: number,
+      address?: string,
+    ) => {
+      try {
+        set(swapQuoteFetchingAtom(), true);
+        const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          userAddress: address,
+          slippagePercentage,
+        });
+        set(swapQuoteListAtom(), res);
+        set(swapQuoteFetchingAtom(), false);
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.message !== 'cancel') {
+          set(swapQuoteFetchingAtom(), false);
+        }
+      }
+    },
+  );
+
+  quoteAction = contextAtomMethod(async (get, set, address?: string) => {
+    if (this.quoteInterval) {
+      clearInterval(this.quoteInterval);
+    }
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());
-    const activeAccount = get(activeAccountsAtom());
     const swapSlippage = get(swapSlippagePercentageAtom());
-    console.log('runRoute-activeAccount-', activeAccount);
-    if (!fromToken || !toToken) return;
-    try {
-      set(swapQuoteFetchingAtom(), true);
-      const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
+    const fromTokenAmountNumber = Number(fromTokenAmount);
+    if (
+      fromToken &&
+      toToken &&
+      !Number.isNaN(fromTokenAmountNumber) &&
+      fromTokenAmountNumber > 0
+    ) {
+      void this.runQuote.call(
+        set,
         fromToken,
         toToken,
         fromTokenAmount,
-        userAddress: activeAccount?.[0]?.account?.address,
-        slippagePercentage: swapSlippage.value,
-      });
-      set(swapQuoteListAtom(), res);
+        swapSlippage.value,
+        address,
+      );
+      this.quoteInterval = setInterval(() => {
+        void this.runQuote.call(
+          set,
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          swapSlippage.value,
+          address,
+        );
+      }, swapQuoteFetchInterval);
+    } else {
+      await backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
       set(swapQuoteFetchingAtom(), false);
-    } catch (e: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (e?.message !== 'cancel') {
-        set(swapQuoteFetchingAtom(), false);
-      }
+      set(swapQuoteListAtom(), []);
     }
   });
+
+  cleanQuoteInterval = () => {
+    if (this.quoteInterval) {
+      clearInterval(this.quoteInterval);
+    }
+  };
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -191,10 +244,11 @@ export const useSwapActions = () => {
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
-  const runQuote = actions.runQuote.use();
+  const quoteAction = actions.quoteAction.use();
+  const { cleanQuoteInterval } = actions;
   return useRef({
     selectFromToken,
-    runQuote,
+    quoteAction,
     selectToToken,
     alternationToken,
     cleanSwapHistoryItems,
@@ -202,5 +256,6 @@ export const useSwapActions = () => {
     updateSwapHistoryItem,
     addSwapHistoryItem,
     catchSwapTokensMap,
+    cleanQuoteInterval,
   });
 };

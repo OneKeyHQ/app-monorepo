@@ -1,70 +1,48 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { ETabRoutes } from '../../../routes/Tab/type';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapQuoteFetchingAtom,
-  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
-import { swapQuoteFetchInterval } from '../config/SwapProvider.constants';
 
 export function useSwapQuote() {
-  const [, setQuoteFetching] = useSwapQuoteFetchingAtom();
+  const { quoteAction, cleanQuoteInterval } = useSwapActions().current;
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [, setQuoteList] = useSwapQuoteListAtom();
-  const intervalRef = useRef<NodeJS.Timeout>();
-  const { runQuote } = useSwapActions().current;
-  const [formTokenAmount] = useSwapFromTokenAmountAtom();
-  const formTokenAmountRef = useRef('');
-  if (formTokenAmountRef.current !== formTokenAmount) {
-    formTokenAmountRef.current = formTokenAmount;
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const activeAccountAddressRef = useRef<string | undefined>();
+  if (activeAccountAddressRef.current !== activeAccount?.account?.address) {
+    activeAccountAddressRef.current = activeAccount?.account?.address;
   }
-  const quoteFetch = useCallback(async () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (
-      fromToken &&
-      toToken &&
-      !Number.isNaN(Number(formTokenAmountRef.current)) &&
-      Number(formTokenAmountRef.current) > 0
-    ) {
-      void runQuote();
-      intervalRef.current = setInterval(() => {
-        void runQuote();
-      }, swapQuoteFetchInterval);
-    } else {
-      await backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
-      setQuoteFetching(false);
-      setQuoteList([]);
-    }
-  }, [fromToken, runQuote, setQuoteFetching, setQuoteList, toToken]);
 
   useEffect(() => {
-    void quoteFetch();
+    void quoteAction(activeAccountAddressRef.current);
     return () => {
-      clearInterval(intervalRef.current);
+      cleanQuoteInterval();
     };
-  }, [quoteFetch]);
+  }, [
+    cleanQuoteInterval,
+    quoteAction,
+    activeAccount,
+    fromToken,
+    toToken,
+    fromTokenAmount,
+  ]);
 
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (isFocus && !isHiddenModel) {
-        void quoteFetch();
+        void quoteAction(activeAccountAddressRef.current);
       } else {
-        clearInterval(intervalRef.current);
+        cleanQuoteInterval();
       }
     },
   );
-
-  return {
-    quoteFetch,
-  };
 }
