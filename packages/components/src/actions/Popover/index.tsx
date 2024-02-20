@@ -30,6 +30,8 @@ export interface IPopoverProps extends TMPopoverProps {
   title: string;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
+  openPopover?: () => void;
+  closePopover?: () => void;
   renderContent:
     | ReactElement
     | ComponentType<{ isOpen?: boolean; closePopover: () => void }>;
@@ -94,6 +96,8 @@ function RawPopover({
   floatingPanelProps,
   sheetProps,
   onOpenChange,
+  openPopover,
+  closePopover,
   usingSheet = true,
   ...props
 }: IPopoverProps) {
@@ -135,10 +139,10 @@ function RawPopover({
       transformOrigin = 'top right';
   }
 
-  const closePopover = useCallback(
+  const handleClosePopover = useCallback(
     () =>
       new Promise<void>((resolve) => {
-        onOpenChange?.(false);
+        closePopover?.();
         setTimeout(
           () => {
             resolve();
@@ -147,20 +151,16 @@ function RawPopover({
           platformEnv.isNative ? 300 : 0,
         );
       }),
-    [onOpenChange],
+    [closePopover],
   );
-
-  const openPopover = useCallback(() => {
-    onOpenChange?.(true);
-  }, [onOpenChange]);
 
   const handleBackPress = useCallback(() => {
     if (!isOpen) {
       return false;
     }
-    void closePopover();
+    void handleClosePopover();
     return true;
-  }, [closePopover, isOpen]);
+  }, [handleClosePopover, isOpen]);
 
   useBackHandler(handleBackPress);
 
@@ -168,15 +168,15 @@ function RawPopover({
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
     () => ({
-      closePopover,
+      closePopover: handleClosePopover,
     }),
-    [closePopover],
+    [handleClosePopover],
   );
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       {RenderContent
         ? ((
-            <RenderContent isOpen={isOpen} closePopover={closePopover} />
+            <RenderContent isOpen={isOpen} closePopover={handleClosePopover} />
           ) as ReactElement)
         : (renderContent as ReactElement)}
     </PopoverContext.Provider>
@@ -307,7 +307,7 @@ const Popover = ({
   sheetProps,
   ...rest
 }: IPopoverProps) => {
-  const { isOpen, onOpenChange, openPopover } = usePopoverValue(
+  const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
   );
@@ -333,7 +333,8 @@ const Popover = ({
   return (
     <RawPopover
       open={isOpen}
-      onOpenChange={onOpenChange}
+      openPopover={openPopover}
+      closePopover={closePopover}
       sheetProps={{ ...sheetProps, modal: true }}
       renderTrigger={renderTrigger}
       {...rest}
