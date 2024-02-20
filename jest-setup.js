@@ -27,6 +27,7 @@ class LocalStorageMock {
 
 global.localStorage = new LocalStorageMock();
 global.$$onekeyAppStorage = new LocalStorageMock();
+global.addEventListener = jest.fn;
 global.fetch = require('node-fetch');
 global.WebSocket = require('isomorphic-ws');
 
@@ -60,6 +61,10 @@ jest.mock('react-native-device-info', () => ({
   getSystemVersion: jest.fn(),
   getTotalMemorySync: jest.fn(),
   getUsedMemorySync: jest.fn(),
+}));
+
+jest.mock('expo-localization', () => ({
+  locale: '',
 }));
 
 // ** shim TextEncoder

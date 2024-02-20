@@ -152,6 +152,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceScanQRCode() {
+    const ServiceScanQRCode =
+      require('../services/ServiceScanQRCode') as typeof import('../services/ServiceScanQRCode');
+    const value = new ServiceScanQRCode.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceScanQRCode', { value });
+    return value;
+  }
+
   get serviceValidator() {
     const ServiceValidator =
       require('../services/ServiceValidator') as typeof import('../services/ServiceValidator');

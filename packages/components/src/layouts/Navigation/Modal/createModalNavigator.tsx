@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import {
   StackRouter,
@@ -86,16 +86,20 @@ function ModalNavigator({
   }, [navigation, descriptor]);
 
   const rootNavigation = navigation.getParent()?.getParent?.();
-  const currentRouteIndex = Math.max(
-    rootNavigation?.getState?.()?.routes?.findIndex(
-      (rootRoute) =>
-        state.routes.findIndex(
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (route) => route.name === rootRoute?.params?.params?.screen,
-        ) !== -1,
-    ) ?? 1,
-    1,
+  const currentRouteIndex = useMemo(
+    () =>
+      Math.max(
+        rootNavigation?.getState?.()?.routes?.findIndex(
+          (rootRoute) =>
+            state.routes.findIndex(
+              // @ts-expect-error
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (route) => route.name === rootRoute?.params?.params?.screen,
+            ) !== -1,
+        ) ?? 1,
+        1,
+      ),
+    [rootNavigation, state.routes],
   );
 
   useEffect(() => {

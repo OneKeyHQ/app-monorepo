@@ -622,7 +622,9 @@ module.exports = [
   'Hira',
   'Latn',
   'Cyrl',
+  'sym',
   'Viewable',
   'viewability',
+  'glmt',
   'walletconnect',
 ];

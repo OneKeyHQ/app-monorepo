@@ -23,8 +23,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
 import { useAddressBookPick } from '../AddressBook/hooks/useAddressBook';
@@ -61,9 +63,8 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
 const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
-    // TODO: after QrCode final release, update callback result
-    const address = await start();
-    onChange?.(address);
+    const address = await start(false);
+    onChange?.(address?.raw);
   }, [onChange, start]);
   return (
     <IconButton
@@ -76,10 +77,20 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   );
 };
 
+const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
+  <AccountSelectorProviderMirror
+    config={{
+      sceneName: EAccountSelectorSceneName.home,
+    }}
+    enabledNum={[0]}
+  >
+    <ScanPlugin onChange={onChange} />
+  </AccountSelectorProviderMirror>
+);
+
 type IContactsPluginProps = IAddressPluginProps & {
   networkId?: string;
 };
-
 const ContactsPlugin: FC<IContactsPluginProps> = ({
   onChange,
   networkId,
@@ -323,7 +334,7 @@ function AddressInput(props: IAddressInputProps) {
             />
           ) : null}
           {plugins.scan ? (
-            <ScanPlugin
+            <ScanPluginContainer
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-scan`}
             />
