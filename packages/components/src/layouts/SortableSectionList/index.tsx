@@ -62,6 +62,7 @@ export type ISortableSectionListProps = Omit<
       index: number,
     ) => { length: number; offset: number; index: number };
     onDragEnd: (info: { sections: ISectionType }) => void;
+    enabled?: boolean;
     contentContainerStyle?: StackStyleProps;
     ListHeaderComponent?: ReactNode;
     ListFooterComponent?: ReactNode;
@@ -88,6 +89,7 @@ function BaseSortableSectionList(
     renderSectionHeader,
     renderSectionFooter,
     stickySectionHeadersEnabled = false,
+    enabled = true,
     onDragEnd,
     ...props
   }: ISortableSectionListProps,
@@ -156,7 +158,7 @@ function BaseSortableSectionList(
         <NestableDraggableFlatList
           keyExtractor={keyExtractor}
           data={section.data}
-          activationDistance={100}
+          activationDistance={enabled ? 1 : 100000}
           onDragEnd={(result) => {
             sections[index].data = result.data;
             onDragEnd({ sections: [...sections] });
@@ -190,6 +192,7 @@ function BaseSortableSectionList(
     );
     return childList;
   }, [
+    enabled,
     ListHeaderComponent,
     ListFooterComponent,
     SectionSeparatorComponent,

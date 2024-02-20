@@ -131,6 +131,7 @@ function BookmarkListModal() {
       <Page.Body>
         <SortableListView
           data={dataSource}
+          enabled={isEditing}
           keyExtractor={(item) => `${item.url}`}
           getItemLayout={(_, index) => ({
             length: CELL_HEIGHT,
