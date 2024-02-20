@@ -1,9 +1,11 @@
-
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export interface IDevSettings {
+  // enable test endpoint
   enableTestEndpoint?: boolean;
+  // show copy/paste button in onboarding page
+  enableCopyPasteInOnboardingPage?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

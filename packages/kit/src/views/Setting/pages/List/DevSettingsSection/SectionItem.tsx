@@ -1,24 +1,23 @@
 import { Children, cloneElement, useCallback } from 'react';
 import type { PropsWithChildren, ReactElement } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-
 interface ISectionItem extends PropsWithChildren {
   name: IDevSettingsKeys;
   title: IListItemProps['title'];
-  titleProps: IListItemProps['titleProps'];
+  titleProps?: IListItemProps['titleProps'];
 }
 
 export function SectionItem({
   name,
   title,
-  titleProps,
   children,
+  titleProps = { color: '$textCritical' },
 }: ISectionItem) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;

@@ -38,7 +38,12 @@ export const DevSettingsSection = () => {
       <SectionItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
-        titleProps={{ color: '$textCritical' }}
+      >
+        <Switch size="small" />
+      </SectionItem>
+      <SectionItem
+        name="enableCopyPasteInOnboardingPage"
+        title="Show Copy/Paste In Onboarding Page"
       >
         <Switch size="small" />
       </SectionItem>
