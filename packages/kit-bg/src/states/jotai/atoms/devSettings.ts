@@ -11,7 +11,7 @@ export interface IDevSettings {
 export type IDevSettingsKeys = keyof IDevSettings;
 
 export type IDevSettingsPersistAtom = {
-  enabled?: boolean;
+  enabled: boolean;
   settings?: IDevSettings;
 };
 export const {
