@@ -320,11 +320,13 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
           primaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...titleProps,
+            testID: `list-item-title-${rest.testID || ''}`,
           },
           secondary: subtitle,
           secondaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...subtitleProps,
+            testID: `list-item-subtitle-${rest.testID || ''}`,
           },
         },
         renderItemText,

@@ -1,3 +1,4 @@
+import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -22,7 +23,13 @@ type IAddressFormValues = {
   address: IAddressInputValue;
 };
 
-const TestComponent = () => {
+const pluginsOptions = { 'clipboard': true, 'contacts': true, 'scan': true };
+
+type IAddressInputTestComponentProps = {
+  plugins?: ComponentProps<typeof AddressInput>['plugins'];
+};
+
+const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: { name: '', address: { raw: '', resolved: undefined } },
@@ -52,7 +59,11 @@ const TestComponent = () => {
             },
           }}
         >
-          <AddressInput networkId="evm--1" />
+          <AddressInput
+            networkId="evm--1"
+            enableAddressBook
+            plugins={plugins}
+          />
         </Form.Field>
       </Form>
       <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>
@@ -73,6 +84,14 @@ const AddressInputGallery = () => (
         element: (
           <Stack space="$4">
             <TestComponent />
+          </Stack>
+        ),
+      },
+      {
+        title: 'AddressInput With AddressBook',
+        element: (
+          <Stack space="$4">
+            <TestComponent plugins={pluginsOptions} />
           </Stack>
         ),
       },
