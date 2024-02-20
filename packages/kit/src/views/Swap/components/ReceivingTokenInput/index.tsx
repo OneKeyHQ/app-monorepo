@@ -29,6 +29,7 @@ import {
   setAllowAnotherRecipientAddress,
   setRecipient,
 } from '../../../../store/reducers/swap';
+import { isSVG } from '../../../../utils/uriUtils';
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -416,7 +417,7 @@ const TokenInput: FC<TokenInputProps> = ({
       .shiftedBy(-decimals)
       .decimalPlaces(2, BigNumber.ROUND_DOWN)
       .toFixed();
-    const isSvg = logoURI.toLowerCase().endsWith('.svg');
+    const isSvg = isSVG(logoURI);
     return (
       <>
         <Typography.Body2
