@@ -21,7 +21,7 @@ export class VaultContext {
       (this.accountId
         ? accountUtils.getWalletIdFromAccountId({ accountId: this.accountId })
         : '');
-    if (!this.walletId) {
+    if (!this.walletId && !this.options.isChainOnly) {
       throw new Error('can not get correct walletId');
     }
   }

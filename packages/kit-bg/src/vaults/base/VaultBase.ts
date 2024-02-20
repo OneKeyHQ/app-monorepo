@@ -130,7 +130,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async initKeyring(config: IVaultInitConfig) {
-    this.keyring = await config.keyringCreator(this);
+    if (!this.options.isChainOnly) {
+      this.keyring = await config.keyringCreator(this);
+    }
   }
 
   abstract buildAccountAddressDetail(
