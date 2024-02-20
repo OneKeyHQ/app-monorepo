@@ -1,7 +1,9 @@
 module.exports = [
   'changelog',
   'qrcode',
+  'tlightning',
   'Eip',
+  'passpharse',
   'uosmo',
   'uatom',
   'subtype',

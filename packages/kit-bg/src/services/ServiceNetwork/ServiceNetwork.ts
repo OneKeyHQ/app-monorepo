@@ -156,7 +156,7 @@ class ServiceNetwork extends ServiceBase {
       return acc;
     }, {} as Record<string, string>);
   }
-  
+
   async containsNetwork({
     impls,
     networkId,

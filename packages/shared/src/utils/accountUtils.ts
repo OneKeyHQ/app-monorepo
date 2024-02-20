@@ -271,6 +271,20 @@ function isOthersWallet({ walletId }: { walletId: string }) {
   );
 }
 
+function buildHwWalletId({
+  dbDeviceId,
+  passphraseState,
+}: {
+  dbDeviceId: string;
+  passphraseState?: string;
+}) {
+  let dbWalletId = `hw-${dbDeviceId}`;
+  if (passphraseState) {
+    dbWalletId = `hw-${dbDeviceId}-${passphraseState}`;
+  }
+  return dbWalletId;
+}
+
 export default {
   buildLocalTokenId,
   buildLocalHistoryId,
@@ -285,6 +299,7 @@ export default {
   isHwAccount,
   buildHDAccountId,
   buildIndexedAccountId,
+  buildHwWalletId,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
