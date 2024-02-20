@@ -104,7 +104,6 @@ function TokenListItem(props: IProps) {
             alignItems="center"
             {...(tableLayout && {
               w: '$52',
-              textAlign: 'left',
               $gtXl: {
                 w: '$72',
               },
@@ -118,7 +117,6 @@ function TokenListItem(props: IProps) {
               size="$bodyMd"
               {...(tableLayout && {
                 w: '$24',
-                textAlign: 'left',
               })}
             />
           </XStack>

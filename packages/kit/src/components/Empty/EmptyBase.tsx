@@ -20,7 +20,7 @@ function EmptyBase(props: IEmptyBaseProps) {
   return (
     <YStack space="$6" justifyContent="center" alignItems="center">
       {icon && (
-        <Icon color="$iconSubdued" name={icon} size="$10" {...iconProps} />
+        <Icon color="$iconSubdued" name={icon} size="$16" {...iconProps} />
       )}
       <YStack space="$2" alignItems="center">
         {title && <SizableText size="$headingXl">{title}</SizableText>}

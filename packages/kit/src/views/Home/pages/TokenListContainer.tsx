@@ -1,8 +1,8 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { useMedia } from 'tamagui';
+import { CanceledError } from 'axios';
 
-import { Portal } from '@onekeyhq/components';
+import { Portal, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
@@ -28,11 +28,13 @@ type IProps = {
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
   const [allTokens, setAllTokens] = useState<ITokenData>();
-  const initialized = useRef(false);
+  const [initialized, setInitialized] = useState(false);
 
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
+
+  const currentAccountId = useRef(account?.id);
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -48,49 +50,64 @@ function TokenListContainer(props: IProps) {
 
   const promise = usePromiseResult(
     async () => {
-      if (!account || !network) return;
-      const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        networkId: network.id,
-        accountAddress: account.address,
-        // for performance testing
-        limit: 300,
-      });
-      refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
-      refreshTokenListMap(r.tokens.map);
-      refreshRiskyTokenList({
-        keys: r.riskTokens.keys,
-        riskyTokens: r.riskTokens.data,
-      });
-      refreshRiskyTokenListMap(r.riskTokens.map);
-      refreshSmallBalanceTokenList({
-        keys: r.smallBalanceTokens.keys,
-        smallBalanceTokens: r.smallBalanceTokens.data,
-      });
-      refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
-      refreshSmallBalanceTokensFiatValue(r.smallBalanceTokens.fiatValue ?? '0');
-
-      const mergedTokenData = getMergedTokenData({
-        tokens: r.tokens,
-        smallBalanceTokens: r.smallBalanceTokens,
-        riskTokens: r.riskTokens,
-      });
-
-      setAllTokens(mergedTokenData.tokens);
-
-      const mergedTokens = mergedTokenData.tokens.data;
-
-      if (mergedTokens && mergedTokens.length) {
-        void backgroundApiProxy.serviceToken.updateLocalTokens({
+      try {
+        if (!account?.address || !network?.id) return;
+        if (currentAccountId.current !== account.id) {
+          currentAccountId.current = account.id;
+          setInitialized(false);
+        }
+        await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
+        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           networkId: network.id,
-          tokens: mergedTokens,
+          accountAddress: account.address,
+          // for performance testing
+          limit: 300,
         });
-      }
+        refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+        refreshTokenListMap(r.tokens.map);
+        refreshRiskyTokenList({
+          keys: r.riskTokens.keys,
+          riskyTokens: r.riskTokens.data,
+        });
+        refreshRiskyTokenListMap(r.riskTokens.map);
+        refreshSmallBalanceTokenList({
+          keys: r.smallBalanceTokens.keys,
+          smallBalanceTokens: r.smallBalanceTokens.data,
+        });
+        refreshSmallBalanceTokenListMap(r.smallBalanceTokens.map);
+        refreshSmallBalanceTokensFiatValue(
+          r.smallBalanceTokens.fiatValue ?? '0',
+        );
 
-      initialized.current = true;
+        const mergedTokenData = getMergedTokenData({
+          tokens: r.tokens,
+          smallBalanceTokens: r.smallBalanceTokens,
+          riskTokens: r.riskTokens,
+        });
+
+        setAllTokens(mergedTokenData.tokens);
+
+        const mergedTokens = mergedTokenData.tokens.data;
+
+        if (mergedTokens && mergedTokens.length) {
+          void backgroundApiProxy.serviceToken.updateLocalTokens({
+            networkId: network.id,
+            tokens: mergedTokens,
+          });
+        }
+        setInitialized(true);
+      } catch (e) {
+        if (e instanceof CanceledError) {
+          console.log('fetchAccountTokens canceled');
+        } else {
+          throw e;
+        }
+      }
     },
     [
-      account,
-      network,
+      account?.id,
+      account?.address,
+      network?.id,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
@@ -138,7 +155,7 @@ function TokenListContainer(props: IProps) {
         isLoading={promise.isLoading}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
-        initialized={initialized.current}
+        initialized={initialized}
         {...(media.gtLg && {
           tableLayout: true,
         })}

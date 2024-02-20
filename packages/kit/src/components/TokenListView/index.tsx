@@ -1,15 +1,14 @@
-import { useIntl } from 'react-intl';
-
-import { Empty, ListView, Spinner, Stack } from '@onekeyhq/components';
+import { ListView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenListAtom } from '../../states/jotai/contexts/tokenList';
+import { EmptyToken } from '../Empty/EmptyToken';
+import { ListLoading } from '../Loading';
 
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
-import { EmptyToken } from '../Empty/EmptyToken';
 
 type IProps = {
   tableLayout?: boolean;
@@ -39,21 +38,7 @@ function TokenListView(props: IProps) {
   const { tokens } = tokenList;
 
   if (!initialized && isLoading) {
-    return (
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        mt="$24"
-        onLayout={(event) =>
-          onContentSizeChange?.(
-            event.nativeEvent.layout.width,
-            event.nativeEvent.layout.height,
-          )
-        }
-      >
-        <Spinner size="large" />
-      </Stack>
-    );
+    return <ListLoading onContentSizeChange={onContentSizeChange} />;
   }
 
   return (

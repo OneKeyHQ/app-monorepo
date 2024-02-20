@@ -41,22 +41,22 @@ function HomePage() {
         }),
         page: memo(TokenListContainerWithProvider, () => true),
       },
-      {
-        title: intl.formatMessage({
-          id: 'asset__collectibles',
-        }),
-        page: memo(NFTListContainer, () => true),
-      },
+      // {
+      //   title: intl.formatMessage({
+      //     id: 'asset__collectibles',
+      //   }),
+      //   page: memo(NFTListContainer, () => true),
+      // },
       // {
       //   title: 'Defi',
       //   page: memo(DefiListContainer, () => true),
       // },
-      {
-        title: intl.formatMessage({
-          id: 'transaction__history',
-        }),
-        page: memo(TxHistoryListContainer, () => true),
-      },
+      // {
+      //   title: intl.formatMessage({
+      //     id: 'transaction__history',
+      //   }),
+      //   page: memo(TxHistoryListContainer, () => true),
+      // },
     ],
     [intl],
   );

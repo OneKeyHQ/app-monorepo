@@ -24,17 +24,32 @@ class ServiceToken extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchAccountTokensController: AbortController | null = null;
+
+  @backgroundMethod()
+  public async abortFetchAccountTokens() {
+    if (this._fetchAccountTokensController) {
+      this._fetchAccountTokensController.abort();
+      this._fetchAccountTokensController = null;
+    }
+  }
+
   @backgroundMethod()
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, ...rest } = params;
     const client = await this.getClient();
+    const controller = new AbortController();
+    this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
       '/wallet/v1/account/token/list',
       rest,
+      {
+        signal: controller.signal,
+      },
     );
-
+    this._fetchAccountTokensController = null;
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
       return getMergedTokenData({ tokens, riskTokens, smallBalanceTokens });

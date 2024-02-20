@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react';
+
 import { Empty, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -12,10 +14,13 @@ type IProps = {
 
 function NFTListContainer(props: IProps) {
   const { onContentSizeChange } = props;
+  const [initialized, setInitialized] = useState(false);
 
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
+
+  const currentAccountId = useRef(account?.id);
 
   const isNFTEnabled = usePromiseResult(async () => {
     if (!network) return Promise.resolve(false);
@@ -28,15 +33,22 @@ function NFTListContainer(props: IProps) {
   const nfts = usePromiseResult(
     async () => {
       if (!account || !network || !isNFTEnabled) return;
+      if (currentAccountId.current !== account.id) {
+        currentAccountId.current = account.id;
+        setInitialized(false);
+      }
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         networkId: network.id,
         accountAddress: account.address,
       });
 
+      setInitialized(true);
+
       return r.data;
     },
     [account, isNFTEnabled, network],
     {
+      watchLoading: true,
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
@@ -58,6 +70,7 @@ function NFTListContainer(props: IProps) {
       data={nfts.result ?? []}
       isLoading={nfts.isLoading}
       onContentSizeChange={onContentSizeChange}
+      initialized={initialized}
     />
   );
 }

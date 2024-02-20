@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Empty, Stack, XStack } from '@onekeyhq/components';
+import { Stack, XStack } from '@onekeyhq/components';
+import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
+import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -16,27 +16,13 @@ import { NFTListItem } from './NFTListItem';
 type IProps = {
   data: IAccountNFT[];
   isLoading?: boolean;
+  initialized?: boolean;
   onRefresh?: () => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-function NFTListEmpty() {
-  const intl = useIntl();
-
-  return (
-    <Stack height="100%" alignItems="center" justifyContent="center">
-      <Empty
-        title={intl.formatMessage({ id: 'empty__no_nfts' })}
-        description={intl.formatMessage({
-          id: 'content__you_dont_have_any_nft_in_your_wallet',
-        })}
-      />
-    </Stack>
-  );
-}
-
 function NFTListView(props: IProps) {
-  const { data } = props;
+  const { data, isLoading, initialized, onContentSizeChange } = props;
 
   const navigation = useAppNavigation();
   const {
@@ -60,7 +46,16 @@ function NFTListView(props: IProps) {
     [account, navigation, network],
   );
 
-  if (!data || data.length === 0) return <NFTListEmpty />;
+  if (!initialized && isLoading) {
+    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+  }
+
+  if (!data || data.length === 0)
+    return (
+      <Stack mt="$8">
+        <EmptyNFT />
+      </Stack>
+    );
 
   return (
     <Stack>
