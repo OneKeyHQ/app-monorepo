@@ -50,10 +50,13 @@ export function useSwapTxHistoryStateSyncInterval() {
   const [swapTxHistoryPending] = useSwapTxHistoryPendingAtom();
   const { updateSwapHistoryItem } = useSwapActions().current;
   const internalRef = useRef<Record<string, NodeJS.Timeout>>({});
-
+  const swapTxHistoryPendingRef = useRef<ISwapTxHistory[]>([]);
+  if (swapTxHistoryPendingRef.current !== swapTxHistoryPending) {
+    swapTxHistoryPendingRef.current = swapTxHistoryPending;
+  }
   const triggerSwapPendingHistoryInterval = useCallback(() => {
-    if (swapTxHistoryPending.length > 0) {
-      swapTxHistoryPending.forEach(async (swapTxHistory) => {
+    if (swapTxHistoryPendingRef.current.length > 0) {
+      swapTxHistoryPendingRef.current.forEach(async (swapTxHistory) => {
         if (!internalRef.current[swapTxHistory.txInfo.txId]) {
           const interval = setInterval(async () => {
             const txStatusRes =
@@ -82,7 +85,7 @@ export function useSwapTxHistoryStateSyncInterval() {
         }
       });
     }
-  }, [swapTxHistoryPending, updateSwapHistoryItem]);
+  }, [updateSwapHistoryItem]);
 
   const cleanupSwapPendingHistoryInterval = useCallback(() => {
     const currentInternalRef = internalRef.current;

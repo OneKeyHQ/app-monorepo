@@ -623,7 +623,7 @@ export function useAccountSelectorActions() {
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
   const confirmAccountSelect = actions.confirmAccountSelect.use();
-
+  const getActiveAccount = actions.getActiveAccount.use();
   return useRef({
     reloadActiveAccountInfo,
     refresh,
@@ -641,5 +641,6 @@ export function useAccountSelectorActions() {
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,
     confirmAccountSelect,
+    getActiveAccount,
   });
 }

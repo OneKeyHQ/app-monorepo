@@ -12,7 +12,6 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
   ISwapTxHistory,
-  ISwapTxInfo,
 } from '@onekeyhq/kit/src/views/Swap/types';
 import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 

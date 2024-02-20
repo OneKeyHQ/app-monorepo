@@ -10,13 +10,18 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
+import { activeAccountsAtom } from '../accountSelector';
 
 import {
   contextAtomMethod,
+  swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
+  swapQuoteFetchingAtom,
+  swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSlippagePercentageAtom,
   swapTokenMapAtom,
   swapTxHistoryAtom,
   swapTxHistoryStatusChangeAtom,
@@ -145,6 +150,33 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapTxHistoryAtom(), []);
     await this.syncSwapHistorySimpleDb.call(set);
   });
+
+  runQuote = contextAtomMethod(async (get, set) => {
+    const fromToken = get(swapSelectFromTokenAtom());
+    const toToken = get(swapSelectToTokenAtom());
+    const fromTokenAmount = get(swapFromTokenAmountAtom());
+    const activeAccount = get(activeAccountsAtom());
+    const swapSlippage = get(swapSlippagePercentageAtom());
+    console.log('runRoute-activeAccount-', activeAccount);
+    if (!fromToken || !toToken) return;
+    try {
+      set(swapQuoteFetchingAtom(), true);
+      const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
+        fromToken,
+        toToken,
+        fromTokenAmount,
+        userAddress: activeAccount?.[0]?.account?.address,
+        slippagePercentage: swapSlippage.value,
+      });
+      set(swapQuoteListAtom(), res);
+      set(swapQuoteFetchingAtom(), false);
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (e?.message !== 'cancel') {
+        set(swapQuoteFetchingAtom(), false);
+      }
+    }
+  });
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -159,8 +191,10 @@ export const useSwapActions = () => {
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
+  const runQuote = actions.runQuote.use();
   return useRef({
     selectFromToken,
+    runQuote,
     selectToToken,
     alternationToken,
     cleanSwapHistoryItems,
