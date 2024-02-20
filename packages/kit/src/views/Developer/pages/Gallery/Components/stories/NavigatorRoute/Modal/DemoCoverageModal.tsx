@@ -6,8 +6,8 @@ import {
   Button,
   Dialog,
   Popover,
+  SizableText,
   Stack,
-  Text,
   Toast,
 } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -74,10 +74,10 @@ const ControlledPopoverByButton = () => {
       renderTrigger={<Button onPress={() => setIsOpen(true)}>Open</Button>}
       renderContent={
         <Stack space="$4" p="$5">
-          <Text>
+          <SizableText>
             Non exercitation ea laborum cupidatat sunt amet aute exercitation
             occaecat minim incididunt non est est voluptate.
-          </Text>
+          </SizableText>
           <Button variant="primary" onPress={() => setIsOpen(false)}>
             Button
           </Button>
@@ -184,7 +184,6 @@ function DemoCoverageDialogModal() {
                     '通过 Api 打开的, 点击确定按钮会关闭 Dialog 打开一个 Modal',
                   onConfirm() {
                     navigation.pushModal(ERootModalRoutes.DemoLockedModal);
-                    return Promise.resolve(true);
                   },
                 })
               }

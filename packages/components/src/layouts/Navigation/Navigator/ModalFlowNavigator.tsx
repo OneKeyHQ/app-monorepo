@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createModalNavigator from '../Modal/createModalNavigator';
@@ -9,10 +10,9 @@ import { createStackNavigator } from '../StackNavigator';
 
 import { hasStackNavigatorModal } from './CommonConfig';
 
-import type { ICommonNavigatorConfig } from './types';
+import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
 import type { ILocaleIds } from '../../../locale';
 import type { IModalNavigationOptions } from '../ScreenProps';
-import type { RouteProp } from '@react-navigation/native';
 import type { ParamListBase } from '@react-navigation/routers';
 
 export interface IModalFlowNavigatorConfig<
@@ -22,6 +22,7 @@ export interface IModalFlowNavigatorConfig<
   translationId?: ILocaleIds | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
+  shouldPopOnClickBackdrop?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -38,13 +39,13 @@ const ModalStack = hasStackNavigatorModal
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
 }: IModalFlowNavigatorProps<RouteName, P>) {
-  const [bgColor, titleColor] = useThemeValue(['bg', 'text']);
+  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
 
   const makeScreenOptions = useCallback(
-    (navInfo: { route: RouteProp<any>; navigation: any }) => ({
+    (optionsInfo: IScreenOptionsInfo<any>) => ({
       ...makeModalStackNavigatorOptions({
-        navInfo,
+        optionsInfo,
         bgColor,
         titleColor,
       }),
@@ -63,23 +64,25 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
           translationId,
           allowDisableClose,
           disableClose,
+          shouldPopOnClickBackdrop,
         }) => {
           const customOptions: IModalNavigationOptions = {
             ...options,
             allowDisableClose,
             disableClose,
+            shouldPopOnClickBackdrop,
             title: translationId
               ? intl.formatMessage({
                   id: translationId as ILocaleIds,
                 })
               : '',
           };
-
+          const key = `Modal-Flow-${name as string}`;
           return (
             <ModalStack.Screen
-              key={`Modal-Flow-${name as string}`}
+              key={key}
               name={name}
-              component={component}
+              component={PageTypeHOC(key, EPageType.modal, component)}
               // @ts-expect-error
               options={customOptions}
             />

@@ -2,7 +2,8 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
-import type { IAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import type {
   EDBAccountType,
@@ -16,12 +17,13 @@ import type {
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAccountDerivation';
+import type { RealmSchemaAddress } from './realm/schemas/RealmSchemaAddress';
 import type { RealmSchemaContext } from './realm/schemas/RealmSchemaContext';
 import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredential';
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -34,6 +36,7 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
   nextHD: number;
+  nextWalletNo: number;
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string;
@@ -96,55 +99,72 @@ export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
   nextIndex: number; // TODO optional
-  accounts: Array<string>; // TODO remove
-  // TODO remove
+  // only for singleton wallet
+  accounts: Array<string>;
+  // only for singleton wallet
   nextAccountIds: {
     // 'global': 1, // imported, external, watching,
     // purpose + cointype => index
     [template: string]: number; // hd
   };
-  associatedDevice?: string; // alias to `deviceId`
+  associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
-  avatarInfo?: IAvatar; // readonly field
+  avatarInfo?: IAvatarInfo; // readonly field
   deviceType?: string;
-  hidden?: boolean;
+  isTemp?: boolean;
   passphraseState?: string;
+  walletNo: number;
+  walletOrder?: number;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
   rs: IBip39RevealableSeedEncryptHex;
   backuped: boolean;
   name?: string;
-  avatar?: IAvatar;
-  nextAccountIds?: Record<string, number>;
+  avatar?: IAvatarInfo;
 };
-export type IDBCreateHWWalletParams = {
-  id: string;
-  name: string;
-  avatar?: IDBAvatar;
-  connectId: string;
-  deviceId?: string;
-  deviceType: IDeviceType;
-  deviceUUID: string;
-  features: string;
+export type IDBCreateHWWalletParamsBase = {
+  name?: string;
+  device: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+  isFirmwareVerified?: boolean;
+};
+export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  walletId: IDBWalletId;
   name?: string;
-  avatar?: IDBAvatar;
+  avatar?: IAvatarInfo;
+};
+export type IDBRemoveWalletParams = {
+  walletId: string;
+  password: string;
+  isHardware: boolean;
+};
+export type IDBSetAccountNameParams = {
+  accountId?: string;
+  indexedAccountId?: string;
+  name: string;
 };
 
 // ---------------------------------------------- account
-export type IDBAvatar = string;
+export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;
 // export type IDBAvatar = {
 //   emoji: string | 'img'; // lazy load EmojiTypes
 //   bgColor: string;
 // };
 export type IDBBaseAccount = IDBBaseObjectWithName & {
-  type: EDBAccountType;
+  type: EDBAccountType | undefined;
   path: string;
+  pathIndex?: number;
+  relPath?: string;
+  indexedAccountId?: string;
   coinType: string;
+  impl: string; // single chain account belongs to network impl
+  networks?: string[]; // single chain account belongs to certain networks
+  createAtNetwork?: string;
   template?: string;
 };
 export type IDBSimpleAccount = IDBBaseAccount & {
@@ -170,7 +190,10 @@ export type IDBAccount = IDBSimpleAccount | IDBUtxoAccount | IDBVariantAccount;
 export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;
+  idHash: string;
+  associateAccount?: IDBAccount; // readonly
 };
+// TODO remove, use accountsMap instead, wallet->network->derivation(template)
 export type IDBAccountDerivation = IDBBaseObject & {
   walletId: string;
   accounts: string[];
@@ -198,17 +221,26 @@ export type IDBDevicePayload = {
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
-  mac: string;
+  featuresInfo?: IOneKeyDeviceFeatures; // readonly field
+  connectId: string; // alias mac\sn, never changed
   name: string;
   uuid: string;
-  deviceId: string;
+  deviceId: string; // deviceId changed after device reset
   deviceType: string;
   payloadJson: string;
+  payloadJsonInfo?: any;
   createdAt: number;
   updatedAt: number;
+  verifiedAtVersion?: string;
 };
 export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
   payload: IDBDevicePayload;
+};
+
+// ---------------------------------------------- address
+export type IDBAddress = IDBBaseObject & {
+  // id: networkId--address, impl--address
+  wallets: Record<string, string>; // walletId -> indexedAccountId/accountId
 };
 
 // DB SCHEMA map ----------------------------------------------
@@ -220,6 +252,7 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.AccountDerivation]: IDBAccountDerivation;
   [ELocalDBStoreNames.IndexedAccount]: IDBIndexedAccount;
   [ELocalDBStoreNames.Device]: IDBDevice;
+  [ELocalDBStoreNames.Address]: IDBAddress;
 }
 
 export interface IRealmDBSchemaMap {
@@ -230,6 +263,7 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.AccountDerivation]: RealmSchemaAccountDerivation;
   [ELocalDBStoreNames.IndexedAccount]: RealmSchemaIndexedAccount;
   [ELocalDBStoreNames.Device]: RealmSchemaDevice;
+  [ELocalDBStoreNames.Address]: RealmSchemaAddress;
 }
 
 export interface IIndexedDBSchemaMap extends DBSchema {
@@ -261,6 +295,10 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.Wallet]: {
     key: string;
     value: IDBWallet;
+  };
+  [ELocalDBStoreNames.Address]: {
+    key: string;
+    value: IDBAddress;
   };
 }
 
@@ -307,6 +345,12 @@ export type ILocalDBTransactionStores = {
     ELocalDBStoreNames.Device,
     'readwrite'
   >;
+  [ELocalDBStoreNames.Address]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.Address[],
+    ELocalDBStoreNames.Address,
+    'readwrite'
+  >;
 };
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
@@ -319,6 +363,19 @@ export type ILocalDBRecordPair<T extends ELocalDBStoreNames> = [
   IRealmDBSchemaMap[T] | null,
 ];
 
+// GetRecordsCount
+export interface ILocalDBGetRecordsCountParams<T extends ELocalDBStoreNames> {
+  name: T;
+}
+export interface ILocalDBTxGetRecordsCountParams<T extends ELocalDBStoreNames> {
+  tx: ILocalDBTransaction;
+  name: T;
+}
+export interface ILocalDBGetRecordsCountResult {
+  count: number;
+}
+
+// GetRecordById
 export interface ILocalDBTxGetRecordByIdParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
   name: T;
@@ -334,22 +391,27 @@ export interface ILocalDBGetRecordByIdParams<T extends ELocalDBStoreNames> {
 export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
   ILocalDBRecord<T>;
 
-export interface ILocalDBTxGetAllRecordsParams<T extends ELocalDBStoreNames> {
+// GetRecords
+export type ILocalDBGetRecordsQuery = {
+  ids?: string[];
+};
+export type ILocalDBTxGetAllRecordsParams<T extends ELocalDBStoreNames> = {
   tx: ILocalDBTransaction;
   name: T;
-}
+} & ILocalDBGetRecordsQuery;
 export interface ILocalDBTxGetAllRecordsResult<T extends ELocalDBStoreNames> {
   recordPairs: ILocalDBRecordPair<T>[];
   records: ILocalDBRecord<T>[];
 }
 
-export interface ILocalDBGetAllRecordsParams<T extends ELocalDBStoreNames> {
+export type ILocalDBGetAllRecordsParams<T extends ELocalDBStoreNames> = {
   name: T;
-}
+} & ILocalDBGetRecordsQuery;
 export interface ILocalDBGetAllRecordsResult<T extends ELocalDBStoreNames> {
   records: ILocalDBRecord<T>[];
 }
 
+// UpdateRecords
 export interface ILocalDBTxUpdateRecordsParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
   name: T;
@@ -358,12 +420,20 @@ export interface ILocalDBTxUpdateRecordsParams<T extends ELocalDBStoreNames> {
   updater: ILocalDBRecordUpdater<T>;
 }
 
+// AddRecords
 export interface ILocalDBTxAddRecordsParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
   name: T;
   records: ILocalDBRecord<T>[];
   skipIfExists?: boolean; // TODO skip
 }
+export interface ILocalDBTxAddRecordsResult {
+  added: number;
+  addedIds: string[];
+  skipped: number;
+}
+
+// RemoveRecords
 
 export interface ILocalDBTxRemoveRecordsParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
@@ -381,9 +451,19 @@ export type ILocalDBRecordUpdater<T extends ELocalDBStoreNames> = <
 export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
+export type ILocalDBWithTransactionOptions = {
+  readOnly?: boolean;
+};
 
 export interface ILocalDBAgent {
-  withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T>;
+  withTransaction<T>(
+    task: ILocalDBWithTransactionTask<T>,
+    options?: ILocalDBWithTransactionOptions,
+  ): Promise<T>;
+
+  getRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult>;
 
   // TODO get with query
   getAllRecords<T extends ELocalDBStoreNames>(
@@ -393,6 +473,10 @@ export interface ILocalDBAgent {
   getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>>;
+
+  txGetRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult>;
 
   txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
@@ -409,7 +493,7 @@ export interface ILocalDBAgent {
 
   txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
-  ): Promise<void>;
+  ): Promise<ILocalDBTxAddRecordsResult>;
 
   txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,

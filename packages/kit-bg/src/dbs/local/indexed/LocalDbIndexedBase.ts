@@ -106,6 +106,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       backuped: true,
       accounts: [],
       nextIndex: 0,
+      walletNo: 0,
       nextAccountIds: { 'global': 1 },
     });
   }
@@ -123,6 +124,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
       this._getOrAddRecord(contextStore, {
         id: DB_MAIN_CONTEXT_ID,
         nextHD: 1,
+        nextWalletNo: 1,
         verifyString: DEFAULT_VERIFY_STRING,
         backupUUID: generateUUID(),
       }),

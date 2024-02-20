@@ -3,20 +3,19 @@ import { Suspense, useCallback, useEffect } from 'react';
 import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  usePasswordAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+  EPasswordPromptType,
+  EPasswordResStatus,
+} from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
 const PasswordVerifyPromptMount = () => {
-  const [{ passwordPromptPromiseId }] = usePasswordAtom();
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const [{ passwordPromptPromiseTriggerData }] =
+    usePasswordPromptPromiseTriggerAtom();
   const onClose = useCallback((id: number) => {
     void backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(id, {
       status: EPasswordResStatus.CLOSE_STATUS,
@@ -42,7 +41,7 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                dialog.close();
+                void dialog.close();
               }}
             />
           </Suspense>
@@ -70,7 +69,7 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                dialog.close();
+                void dialog.close();
               }}
             />
           </Suspense>
@@ -81,16 +80,21 @@ const PasswordVerifyPromptMount = () => {
     [onClose],
   );
   useEffect(() => {
-    if (!isNil(passwordPromptPromiseId)) {
-      if (isPasswordSet) {
-        showPasswordVerifyPrompt(passwordPromptPromiseId);
+    if (
+      passwordPromptPromiseTriggerData &&
+      !isNil(passwordPromptPromiseTriggerData.idNumber)
+    ) {
+      if (
+        passwordPromptPromiseTriggerData.type ===
+        EPasswordPromptType.PASSWORD_VERIFY
+      ) {
+        showPasswordVerifyPrompt(passwordPromptPromiseTriggerData.idNumber);
       } else {
-        showPasswordSetupPrompt(passwordPromptPromiseId);
+        showPasswordSetupPrompt(passwordPromptPromiseTriggerData.idNumber);
       }
     }
   }, [
-    isPasswordSet,
-    passwordPromptPromiseId,
+    passwordPromptPromiseTriggerData,
     showPasswordSetupPrompt,
     showPasswordVerifyPrompt,
   ]);

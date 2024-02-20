@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
-import { Checkbox as TMCheckbox, withStaticProperties } from 'tamagui';
+import { withStaticProperties } from 'tamagui';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
@@ -35,25 +35,7 @@ function RawCheckbox({
   containerProps,
   ...checkboxProps
 }: ICheckboxProps) {
-  const id = useMemo(() => Math.random().toString(), []);
-
-  const Indicator = useMemo(() => {
-    if (value) {
-      return (
-        <Icon
-          name={
-            value === 'indeterminate'
-              ? 'CheckboxIndeterminateCustom'
-              : 'CheckboxCheckedCustom'
-          }
-          color="$iconInverse"
-          size="$4"
-        />
-      );
-    }
-    return null;
-  }, [value]);
-
+  const onPress = useCallback(() => onChange?.(!value), [value, onChange]);
   return (
     <XStack
       // alignItems="center"
@@ -61,10 +43,8 @@ function RawCheckbox({
       opacity={checkboxProps.disabled ? 0.5 : 1}
       {...containerProps}
     >
-      <TMCheckbox
-        id={id}
-        checked={value}
-        onCheckedChange={onChange}
+      <YStack
+        onPress={onPress}
         unstyled
         p="$0"
         my="$0.5"
@@ -83,23 +63,32 @@ function RawCheckbox({
         }}
         {...checkboxProps}
       >
-        {Indicator}
-      </TMCheckbox>
+        <Icon
+          name={
+            value === 'indeterminate'
+              ? 'CheckboxIndeterminateCustom'
+              : 'CheckboxCheckedCustom'
+          }
+          color="$iconInverse"
+          size="$4"
+        />
+      </YStack>
       {label && (
-        <Label
-          htmlFor={id}
-          variant="$bodyLgMedium"
-          pl="$2"
-          py="$2"
-          my="$-2"
-          {...labelProps}
-        >
+        <Label variant="$bodyLgMedium" pl="$2" py="$2" my="$-2" {...labelProps}>
           {label}
         </Label>
       )}
     </XStack>
   );
 }
+
+const MemoRawCheckbox = memo(
+  RawCheckbox,
+  (prev, next) =>
+    prev.value === next.value &&
+    prev.disabled === next.disabled &&
+    prev.label === next.label,
+);
 
 interface ICheckboxGroupProps {
   label?: string;
@@ -133,7 +122,7 @@ function CheckboxGroupItem({
     [index, onChange],
   );
   return (
-    <RawCheckbox
+    <MemoRawCheckbox
       label={label}
       value={value}
       disabled={disabled}
@@ -150,23 +139,47 @@ function CheckboxGroup({
   value,
   listStyle,
 }: ICheckboxGroupProps) {
-  const [isAll, setAll] = useState(
-    value.length === options.length && !value.find((v) => !v),
+  const innerValueRef = useRef(value);
+  innerValueRef.current = value;
+
+  const isAll = useMemo(
+    () => value.length === options.length && value.findIndex((v) => !v) === -1,
+    [value, options],
   );
   const handleSelectAll = useCallback(() => {
-    setAll(!isAll);
     onChange(options.map(() => !isAll));
-  }, [isAll, onChange, options]);
+  }, [onChange, isAll, options]);
+
   const onChangeHandler = useCallback(
     (index: number, v: ICheckedState) => {
-      value[index] = v;
-      onChange([...value]);
+      innerValueRef.current[index] = v;
+      onChange([...innerValueRef.current]);
     },
-    [onChange, value],
+    [onChange],
+  );
+
+  const renderItem = useCallback(
+    ({
+      item: { label: labelText, disabled: disabledElement },
+      index,
+    }: {
+      item: { label: string; disabled?: boolean };
+      index: number;
+    }) => (
+      <CheckboxGroupItem
+        key={label}
+        label={labelText}
+        value={value[index]}
+        index={index}
+        disabled={disabled || !!disabledElement}
+        onChange={onChangeHandler}
+      />
+    ),
+    [value, disabled, label, onChangeHandler],
   );
   return (
     <YStack>
-      <RawCheckbox
+      <MemoRawCheckbox
         disabled={disabled}
         label={label}
         value={isAll}
@@ -178,19 +191,7 @@ function CheckboxGroup({
         style={listStyle}
         data={options}
         estimatedItemSize="$10"
-        renderItem={({
-          item: { label: labelText, disabled: disabledElement },
-          index,
-        }) => (
-          <CheckboxGroupItem
-            key={label}
-            label={labelText}
-            value={value[index]}
-            index={index}
-            disabled={disabled || !!disabledElement}
-            onChange={onChangeHandler}
-          />
-        )}
+        renderItem={renderItem}
       />
     </YStack>
   );

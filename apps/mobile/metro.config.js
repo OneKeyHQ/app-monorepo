@@ -1,6 +1,8 @@
+/* eslint-disable spellcheck/spell-checker */
 // Learn more https://docs.expo.dev/guides/monorepos
 const { getDefaultConfig } = require('expo/metro-config');
-// const path = require('path');
+const path = require('path');
+const fs = require('fs-extra');
 
 // Find the project and workspace directories
 const projectRoot = __dirname;
@@ -46,4 +48,37 @@ config.resolver.extraNodeModules = {
 // 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
 // config.resolver.disableHierarchicalLookup = true;
 
-module.exports = config;
+const fileMapCacheDirectoryPath = path.resolve(
+  projectRoot,
+  'node_modules',
+  '.cache/file-map-cache',
+);
+fs.ensureDirSync(fileMapCacheDirectoryPath);
+const cacheStoreDirectoryPath = path.resolve(
+  projectRoot,
+  'node_modules',
+  '.cache/metro-cache',
+);
+fs.ensureDirSync(cacheStoreDirectoryPath);
+
+config.fileMapCacheDirectory = fileMapCacheDirectoryPath;
+config.cacheStores = ({ FileStore }) => [
+  new FileStore({
+    root: cacheStoreDirectoryPath,
+  }),
+];
+
+// https://github.com/facebook/metro/issues/1191
+// Lazy compilation is unstable and can easily lead to 'Reached heap limit Allocation failed.
+
+// @expo/metro-config/build/rewriteRequestUrl.js
+// metro includes rewriteExpoRequestUrl function which is used to rewrite the request url.
+const orignalRewriteRequestUrl = config.server.rewriteRequestUrl
+  ? config.server.rewriteRequestUrl
+  : (url) => url;
+config.server.rewriteRequestUrl = (url) =>
+  orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
+
+const splitCodePlugin = require('./plugins');
+
+module.exports = splitCodePlugin(config, projectRoot);

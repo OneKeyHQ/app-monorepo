@@ -48,6 +48,8 @@ export const ipcMessageKeys = {
   APP_TOGGLE_MAXIMIZE_WINDOW: 'app/toggleMaximizeWindow',
   APP_RELOAD_BRIDGE_PROCESS: 'app/reloadBridgeProcess',
   APP_SHORCUT: 'app/shortcut',
+  APP_IDLE: 'app/idle',
+  APP_SET_IDLE_TIME: 'app/setIdleTime',
 
   // Touch
   TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',
@@ -75,4 +77,7 @@ export const ipcMessageKeys = {
   OPEN_DEEP_LINK_URL: 'deepLink/openUrl',
 
   SET_ONEKEY_DESKTOP_GLOBALS: 'onekey/setDesktopGlobals',
+
+  // webview
+  WEBVIEW_NEW_WINDOW: 'webview/newWindow',
 };

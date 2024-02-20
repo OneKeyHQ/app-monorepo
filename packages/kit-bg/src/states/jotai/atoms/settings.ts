@@ -5,6 +5,8 @@ import { EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
+export type IEndpointType = 'prod' | 'test';
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: ILocaleSymbol;
@@ -16,14 +18,21 @@ export type ISettingsPersistAtom = {
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
   spendDustUTXO: boolean;
-  appLockDuration: number;
+
   hardwareConnectSrc: EOnekeyDomain;
+  currencyInfo: {
+    symbol: string;
+    id: string;
+  };
+  devMode: {
+    enable: boolean;
+    enableTestEndpoint: boolean;
+  };
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
     persist: true,
     name: EAtomNames.settingsPersistAtom,
-
     initialValue: {
       theme: 'system',
       lastLocale: 'system',
@@ -35,10 +44,31 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
-      appLockDuration: 240,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
+      currencyInfo: {
+        id: 'usd',
+        symbol: '$',
+      },
+      devMode: {
+        enable: false,
+        enableTestEndpoint: false,
+      },
     },
   });
+
+type ISettingsLastActivityPersistAtom = {
+  time: number;
+};
+
+export const {
+  target: settingsLastActivityAtom,
+  use: useSettingsLastActivityAtom,
+} = globalAtom<ISettingsLastActivityPersistAtom>({
+  name: EAtomNames.settingsLastActivityAtom,
+  initialValue: {
+    time: Date.now(),
+  },
+});
 
 // extract high frequency refresh data to another atom
 export type ISettingsTimeNowAtom = string;
@@ -49,7 +79,7 @@ export const { target: settingsTimeNowAtom, use: useSettingsTimeNowAtom } =
   });
 
 export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
-  globalAtomComputed((get) => {
+  globalAtomComputed<boolean>((get) => {
     const settings = get(settingsPersistAtom.atom());
     const timeNow = get(settingsTimeNowAtom.atom());
     return (

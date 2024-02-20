@@ -1,14 +1,19 @@
-import type { MutableRefObject, PropsWithChildren } from 'react';
+import type { MutableRefObject, PropsWithChildren, ReactNode } from 'react';
 
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
+  DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
   SheetProps as TMSheetProps,
 } from 'tamagui';
 
 export type IDialogContextType = {
   dialogInstance: IDialogInstanceRef;
+  footerRef: {
+    notifyUpdate?: () => void;
+    props?: IDialogFooterProps;
+  };
 };
 
 export interface IDialogContentProps extends PropsWithChildren {
@@ -20,7 +25,7 @@ type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
   disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
 };
 export interface IDialogFooterProps extends PropsWithChildren {
-  tone?: 'default' | 'destructive';
+  tone?: 'default' | 'destructive' | 'warning';
   showFooter?: boolean;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
@@ -28,35 +33,37 @@ export interface IDialogFooterProps extends PropsWithChildren {
   onCancelText?: string;
   confirmButtonProps?: IDialogButtonProps;
   cancelButtonProps?: IDialogButtonProps;
-  onConfirm?: () => void;
+  onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
-  // disabledOn: () => void;
 }
 
 interface IBasicDialogProps extends TMDialogProps {
   onOpen?: () => void;
-  onClose?: () => void;
+  onClose: (extra?: { flag?: string }) => Promise<void>;
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
-  renderContent?: React.ReactNode;
+  renderContent?: ReactNode;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
+  floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
   testID?: string;
   onConfirm?: IOnDialogConfirm;
-  onCancel?: () => void;
+  onCancel?: (close: () => Promise<void>) => void;
 }
 
 export type IDialogProps = IBasicDialogProps &
   Omit<IDialogFooterProps, 'onConfirm' | 'onCancel'>;
 
 export type IOnDialogConfirm = (
-  dialogInstance: IDialogInstance,
-) => void | Promise<boolean>;
+  dialogInstance: IDialogInstance & {
+    preventClose: () => void;
+  },
+) => void | Promise<void>;
 
 export type IDialogContainerProps = PropsWithChildren<
   Omit<IDialogProps, 'onConfirm'> & {
@@ -64,7 +71,11 @@ export type IDialogContainerProps = PropsWithChildren<
   }
 >;
 
-export type IDialogShowProps = Omit<IDialogContainerProps, 'name'>;
+export interface IDialogShowProps
+  extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
+  /* Run it after dialog is closed  */
+  onClose?: (extra?: { flag?: string }) => void | Promise<void>;
+}
 
 export type IDialogConfirmProps = Omit<
   IDialogShowProps,
@@ -79,12 +90,12 @@ export type IDialogCancelProps = Omit<
 type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
-  close: () => void;
+  close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
 }
 
 export interface IDialogInstance {
-  close: () => void;
+  close: (extra?: { flag?: string }) => Promise<void> | void;
   getForm: () => IDialogForm | undefined;
 }
 

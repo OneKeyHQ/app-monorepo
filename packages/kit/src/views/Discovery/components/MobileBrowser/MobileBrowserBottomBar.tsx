@@ -5,7 +5,7 @@ import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
-import { IconButton, Stack, Text, Toast } from '@onekeyhq/components';
+import { IconButton, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -117,8 +117,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     } catch (e) {
       console.error(e);
     }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.FakeSearchModal,
+    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.SearchModal,
     });
   }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot, intl]);
 
@@ -233,9 +233,9 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             alignItems="center"
             justifyContent="center"
           >
-            <Text variant="$bodySmMedium" color="$iconSubdued">
+            <SizableText size="$bodySmMedium" color="$iconSubdued">
               {tabCount}
-            </Text>
+            </SizableText>
           </Stack>
         </Stack>
       </Stack>

@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
-import { dispatchOverlayEvent } from '../WebView/DesktopOverlay';
+import { dispatchWebViewOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
   id,
@@ -26,9 +26,9 @@ function DesktopCustomTabBarItem({
 }) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [activeTabId, id]);
+  const isActive = activeTabId === id;
   const handleActionListOpenChange = useCallback((isOpen: boolean) => {
-    dispatchOverlayEvent(isOpen);
+    dispatchWebViewOverlayEvent(isOpen);
   }, []);
   return (
     <DesktopTabItem

@@ -1,1 +1,8 @@
-export { useForm } from 'react-hook-form';
+import { useForm as useFromFunc } from 'react-hook-form';
+
+export const useForm: typeof useFromFunc = (props) =>
+  useFromFunc({
+    ...props,
+    mode: props?.mode || 'onBlur',
+  });
+export { useFormState } from 'react-hook-form';

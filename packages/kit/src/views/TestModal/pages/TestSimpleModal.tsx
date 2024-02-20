@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Page,
+  SizableText,
   Switch,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -14,7 +14,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ETestModalPages } from '../router/type';
 
-import type { ITabHomeParamList } from '../../Home/type';
+import type { ITabHomeParamList } from '../../Home/router';
 
 export function TestSimpleModal() {
   const headerRightCall = useCallback(
@@ -25,13 +25,22 @@ export function TestSimpleModal() {
   const [showFooter, changeFooterStatus] = useState(true);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
-
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const navigateToNextPage = useCallback(() => {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
+
+  const [, setVal] = useState('');
+
+  useEffect(() => {
+    setVal('11');
+    console.log('useEffect-render-------', navigation);
+  }, [navigation]);
+
+  console.log('render-------');
+
   return (
-    <Page enableSafeArea>
+    <Page>
       <Page.Header
         title="test modal"
         headerShown={showHeader}
@@ -40,26 +49,32 @@ export function TestSimpleModal() {
       <Page.Body bg="burlywood">
         <XStack>
           <Switch value={showHeader} onChange={changeHeaderStatus} />
-          <Text>{showHeader ? 'Show Header' : 'Hide Header'}</Text>
+          <SizableText>
+            {showHeader ? 'Show Header' : 'Hide Header'}
+          </SizableText>
         </XStack>
         <XStack>
           <Switch value={showFooter} onChange={changeFooterStatus} />
-          <Text>{showFooter ? 'Show Footer' : 'Hide Fotter'}</Text>
+          <SizableText>
+            {showFooter ? 'Show Footer' : 'Hide Fotter'}
+          </SizableText>
         </XStack>
         <XStack>
           <Switch
             value={showCustomFooter}
             onChange={changeCustomFooterStatus}
           />
-          <Text>
+          <SizableText>
             {showCustomFooter ? 'Show Custom Footer' : 'Hide Custom Fotter'}
-          </Text>
+          </SizableText>
         </XStack>
         <XStack>
           <Switch value={showNewHeader} onChange={changeNewHeaderStatus} />
-          <Text>{showNewHeader ? 'Show New Header' : 'Hide New Header'}</Text>
+          <SizableText>
+            {showNewHeader ? 'Show New Header' : 'Hide New Header'}
+          </SizableText>
         </XStack>
-        <Text>这是一个普通的 Modal 测试</Text>
+        <SizableText>这是一个普通的 Modal 测试</SizableText>
         <YStack space="$4" m="$4">
           <Button onPress={navigateToNextPage}>Push to Next Page</Button>
           <Page.Close>
@@ -101,14 +116,22 @@ export function TestSimpleModal() {
       ) : null}
       {showFooter ? (
         <Page.Footer
-          onConfirm={() => alert('confirmed')}
+          onConfirm={(close) => {
+            alert('confirmed');
+            close();
+          }}
           onConfirmText="YES"
           confirmButtonProps={{
             w: '$40',
           }}
-          onCancel={() => {
-            alert('cancel');
-          }}
+          onCancel={() =>
+            new Promise((resolve) => {
+              alert('cancel');
+              setTimeout(() => {
+                resolve();
+              }, 1500);
+            })
+          }
           onCancelText="NO"
         >
           {showCustomFooter ? (
@@ -118,7 +141,7 @@ export function TestSimpleModal() {
               width="100%"
             >
               <Button>Close All</Button>
-              <Text>+</Text>
+              <SizableText>+</SizableText>
               <Button>Done</Button>
             </XStack>
           ) : null}

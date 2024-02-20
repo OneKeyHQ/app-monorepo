@@ -1,23 +1,16 @@
-import { useMemo } from 'react';
-
 import { StyleSheet } from 'react-native';
 
 import {
-  Avatar,
+  Divider,
+  Group,
   Icon,
   IconButton,
   Image,
+  SizableText,
   Stack,
-  Text,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 
-import {
-  TAB_LIST_CELL_WIDTH,
-  TAB_LIST_ITEM_SPACING,
-  THUMB_WIDTH,
-} from '../../config/TabList.constants';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
@@ -35,73 +28,85 @@ function MobileTabListItem({
   onLongPress: (id: string) => void;
 }) {
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
+  const isActive = activeTabId === id;
   return (
     <Stack
-      w={TAB_LIST_CELL_WIDTH}
+      width="100%"
       onPress={() => {
         onSelectedItem(id);
       }}
       onLongPress={() => {
         onLongPress(id);
       }}
-      p="$0.5"
-      mx={TAB_LIST_ITEM_SPACING / 2}
-      mb={TAB_LIST_ITEM_SPACING}
-      borderRadius="$4"
-      borderWidth="$1"
-      borderColor={isActive ? '$focusRing' : '$transparent'}
+      p="$1"
       animation="quick"
       pressStyle={{
         scale: 0.95,
       }}
       testID={`tab-modal-list-item-${id}`}
     >
-      <YStack
-        flex={1}
-        collapsable={false}
-        justifyContent="center"
-        alignItems="center"
-        borderRadius="$2.5"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        bg="$bgStrong"
-        zIndex={1}
-        overflow="hidden"
+      <Stack
+        borderRadius="$4"
+        borderWidth="$1"
+        borderColor={isActive ? '$brand6' : '$transparent'}
+        p="$0.5"
+        borderCurve="continuous"
       >
-        {/* Header */}
-        <XStack py="$2" pl="$2.5" pr="$2" alignItems="center">
-          <Avatar size="$4" borderRadius="$1">
-            <Avatar.Image src={tab?.favicon} />
-            <Avatar.Fallback>
-              <Icon name="GlobusOutline" size="$4" />
-            </Avatar.Fallback>
-          </Avatar>
-          <Text
-            flex={1}
-            variant="$bodySm"
-            textAlign="left"
-            numberOfLines={1}
-            mx="$2"
-          >
-            {tab?.title || ''}
-          </Text>
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="CrossedSmallOutline"
-            onPress={() => onCloseItem(id)}
-            testID={`tab-modal-header-close-${id}`}
-          />
-        </XStack>
-        {/* Body */}
-        <Image
-          bg="$bg"
-          w={THUMB_WIDTH}
-          h={THUMB_WIDTH}
-          source={{ uri: tab?.thumbnail }}
-        />
-      </YStack>
+        <Group
+          borderRadius="$2.5"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          separator={<Divider />}
+        >
+          <Group.Item>
+            <XStack
+              py="$2"
+              pl="$2.5"
+              pr="$2"
+              alignItems="center"
+              bg="$bgSubdued"
+              borderCurve="continuous"
+            >
+              <Image size="$4" borderRadius="$1">
+                <Image.Source src={tab?.favicon} />
+                <Image.Fallback>
+                  <Icon name="GlobusOutline" size="$4" />
+                </Image.Fallback>
+              </Image>
+              <SizableText
+                flex={1}
+                size="$bodySm"
+                textAlign="left"
+                numberOfLines={1}
+                mx="$2"
+              >
+                {tab?.title || ''}
+              </SizableText>
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="CrossedSmallOutline"
+                onPress={() => onCloseItem(id)}
+                testID={`tab-modal-header-close-${id}`}
+              />
+            </XStack>
+          </Group.Item>
+          <Group.Item>
+            <Stack pb="100%">
+              <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
+                <Image
+                  w="100%"
+                  h="100%"
+                  borderBottomLeftRadius={10}
+                  borderBottomRightRadius={10}
+                >
+                  <Image.Source source={{ uri: tab?.thumbnail }} />
+                </Image>
+              </Stack>
+            </Stack>
+          </Group.Item>
+        </Group>
+      </Stack>
     </Stack>
   );
 }

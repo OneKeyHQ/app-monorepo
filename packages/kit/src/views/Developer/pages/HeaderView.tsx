@@ -1,22 +1,45 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button, Text, YStack } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccount,
-  AccountSelectorProvider,
-  AccountSelectorTrigger,
+  AccountSelectorActiveAccountLegacy,
+  AccountSelectorProviderMirror,
+  AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EIOSFullScreenModalRoutes } from '../../../routes/iOSFullScreen/type';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { EIOSFullScreenTestModalPages } from '../../iOSFullScreenTestModal/router/type';
+import { EOnboardingPages } from '../../Onboarding/router/type';
 import { ETestModalPages } from '../../TestModal/router/type';
 import { ETabDeveloperRoutes } from '../type';
 
 import type { ITabDeveloperParamList } from '../type';
+
+function HomeAccountSelectorInfoDemo() {
+  return (
+    <YStack mx="$2" my="$4">
+      <AccountSelectorTriggerLegacy num={0} />
+      <AccountSelectorActiveAccountLegacy num={0} />
+      <Button
+        onPress={() => {
+          // void backgroundApiProxy.serviceHardware.showEnterPinOnDeviceDialog();
+        }}
+      >
+        硬件输入 PIN
+      </Button>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceHardware.showEnterPassphraseOnDeviceDialog();
+        }}
+      >
+        硬件输入 Passphrase
+      </Button>
+    </YStack>
+  );
+}
 
 export default function HomePageHeaderView() {
   const navigation =
@@ -41,33 +64,39 @@ export default function HomePageHeaderView() {
   }, [navigation]);
 
   const navigateFullScreenSimpleModal = useCallback(() => {
-    navigation.pushFullModal(EIOSFullScreenModalRoutes.iOSFullScreenTestModal, {
-      screen: EIOSFullScreenTestModalPages.TestFullSimpleModal,
+    navigation.pushFullModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
+    });
+  }, [navigation]);
+
+  const navigateOnboardingModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.GetStarted,
     });
   }, [navigation]);
 
   return useMemo(
     () => (
       <YStack alignItems="center" justifyContent="center" py="$4" space="$3">
-        <AccountSelectorProvider
+        <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.home,
             sceneUrl: '',
           }}
           enabledNum={[0]}
         >
-          <AccountSelectorTrigger num={0} />
-          <AccountSelectorActiveAccount num={0} />
-        </AccountSelectorProvider>
-        <Text>Header View Simple</Text>
-        <Text>{`Header Height ${headerHighMode.toString()}`}</Text>
-        {headerHighMode && <Text py="$10">Very high</Text>}
+          <HomeAccountSelectorInfoDemo />
+        </AccountSelectorProviderMirror>
+        <SizableText>Header View Simple</SizableText>
+        <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
+        {headerHighMode && <SizableText py="$10">Very high</SizableText>}
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>
         <Button onPress={navigateTestSimpleModal}>to TestSimpleModal</Button>
+        <Button onPress={navigateOnboardingModal}>Onboarding</Button>
         <Button onPress={navigateFullScreenSimpleModal}>
-          to TestFullScreenSimpleModal
+          to fullScreen Onboarding
         </Button>
       </YStack>
     ),
@@ -77,6 +106,7 @@ export default function HomePageHeaderView() {
       onNextPageCall,
       navigateTestSimpleModal,
       navigateFullScreenSimpleModal,
+      navigateOnboardingModal,
     ],
   );
 }

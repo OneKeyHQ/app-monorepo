@@ -66,7 +66,7 @@ export type IServerNetwork = {
   rpcURLs: INetworkRpcURL[];
   priceConfigs: INetworkPriceConfig[];
   explorers: INetworkExplorerConfig[];
-  extensions: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 };
@@ -83,3 +83,20 @@ export enum EAccountSelectorSceneName {
 }
 
 export type INotPromise<T> = T extends Promise<any> ? never : T;
+
+export enum EHomeTab {
+  TOKENS = 'tokens',
+  NFT = 'nft',
+  HISTORY = 'history',
+  TOOLS = 'tools',
+}
+
+export enum EAssetType {
+  Token = 'Token',
+  NFT = 'NFT',
+}
+
+export enum ETxActionComponentType {
+  ListView = 'ListView',
+  DetailView = 'DetailView',
+}

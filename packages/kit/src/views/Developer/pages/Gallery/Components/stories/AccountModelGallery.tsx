@@ -3,15 +3,13 @@ import { useState } from 'react';
 import * as crypto from 'crypto';
 
 import { Button, Input, Stack } from '@onekeyhq/components';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccount,
-  AccountSelectorProvider,
+  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTrigger,
-} from '../../../../../../components/AccountSelector';
+  AccountSelectorTriggerLegacy,
+} from '@onekeyhq/kit/src/components/AccountSelector';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -90,16 +88,17 @@ function Demo() {
       </Button>
 
       <AccountSelectorProviderMirror
+        enabledNum={[0, 1]}
         config={{
           sceneName: EAccountSelectorSceneName.swap,
           sceneUrl: '',
         }}
       >
-        <AccountSelectorTrigger num={0} />
-        <AccountSelectorActiveAccount num={0} />
+        <AccountSelectorTriggerLegacy num={0} />
+        <AccountSelectorActiveAccountLegacy num={0} />
 
-        <AccountSelectorTrigger num={1} />
-        <AccountSelectorActiveAccount num={1} />
+        <AccountSelectorTriggerLegacy num={1} />
+        <AccountSelectorActiveAccountLegacy num={1} />
       </AccountSelectorProviderMirror>
     </Stack>
   );
@@ -114,7 +113,7 @@ const AccountModelGallery = () => (
       {
         title: 'Account Model',
         element: (
-          <AccountSelectorProvider
+          <AccountSelectorProviderMirror
             config={{
               sceneName: EAccountSelectorSceneName.home,
               sceneUrl: '',
@@ -124,7 +123,7 @@ const AccountModelGallery = () => (
             <Stack space="$1">
               <Demo />
             </Stack>
-          </AccountSelectorProvider>
+          </AccountSelectorProviderMirror>
         ),
       },
     ]}

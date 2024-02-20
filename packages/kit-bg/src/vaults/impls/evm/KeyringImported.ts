@@ -1,11 +1,9 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
-import type { IDBSimpleAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
@@ -25,11 +23,8 @@ export class KeyringImported extends KeyringImportedBase {
 
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<IDBSimpleAccount>> {
-    return this.basePrepareAccountsImported(params, {
-      accountType: EDBAccountType.SIMPLE,
-      coinType: COINTYPE_ETH,
-    });
+  ): Promise<IDBAccount[]> {
+    return this.basePrepareAccountsImported(params);
   }
 
   override async signTransaction(

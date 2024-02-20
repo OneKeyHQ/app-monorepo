@@ -1,49 +1,103 @@
-import type { FC, PropsWithChildren } from 'react';
-
 import { styled } from '@tamagui/core';
+import { createStyledContext, withStaticProperties } from 'tamagui';
 
-import { Stack, Text } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 
-const BadgeFrame = styled(Stack, {
-  name: 'BadgeFrame',
-  paddingHorizontal: '$2',
-  paddingVertical: '$0.5',
-  backgroundColor: '$bgStrong',
-  borderRadius: '$1',
+export type IBadgeType =
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'default';
+
+const BadgeContext = createStyledContext<{
+  badgeSize: 'lg' | 'sm';
+  badgeType: IBadgeType;
+}>({
+  badgeSize: 'sm',
+  badgeType: 'default',
 });
 
-type IBadgeType = 'success' | 'info' | 'warning' | 'critical' | 'default';
+const BadgeFrame = styled(XStack, {
+  name: 'BadgeFrame',
+  context: BadgeContext,
+  alignItems: 'center',
+  paddingHorizontal: '$2',
+  paddingVertical: '$0.5',
+  borderRadius: '$1',
+  style: {
+    borderCurve: 'continuous',
+  },
+  variants: {
+    badgeType: {
+      success: {
+        bg: '$bgSuccess',
+      },
+      info: {
+        bg: '$bgInfo',
+      },
+      warning: {
+        bg: '$bgCaution',
+      },
+      critical: {
+        bg: '$bgCritical',
+      },
+      default: {
+        bg: '$bgStrong',
+      },
+    },
+    badgeSize: {
+      lg: {},
+      sm: {},
+    },
+  } as const,
+});
 
-const bgColors: Record<IBadgeType, string> = {
-  'success': '$bgSuccess',
-  'info': '$bgInfo',
-  'warning': '$bgCaution',
-  'critical': '$bgCritical',
-  'default': '$bgStrong',
-};
+const BadgeText = styled(SizableText, {
+  name: 'BadgeText',
+  context: BadgeContext,
+  variants: {
+    badgeSize: {
+      lg: {
+        size: '$bodyMdMedium',
+      },
+      sm: {
+        size: '$bodySmMedium',
+      },
+    },
+    badgeType: {
+      success: {
+        color: '$textSuccess',
+      },
+      info: {
+        color: '$textInfo',
+      },
+      warning: {
+        color: '$textCaution',
+      },
+      critical: {
+        color: '$textCritical',
+      },
+      default: {
+        color: '$textSubdued',
+      },
+    },
+  } as const,
+});
 
-const textColors: Record<IBadgeType, string> = {
-  'success': '$textSuccess',
-  'info': '$textInfo',
-  'warning': '$textCaution',
-  'critical': '$textCritical',
-  'default': '$textSubdued',
-};
+const BadgeComponent = BadgeFrame.styleable((props, ref) => {
+  const { children } = props;
 
-type IBadgeProps = PropsWithChildren<{
-  type: IBadgeType;
-  size: 'lg' | 'sm';
-}>;
+  const isString = typeof children === 'string';
 
-export const Badge: FC<IBadgeProps> = ({ children, type, size }) => {
-  const bgColor = bgColors[type];
-  const textColor = textColors[type];
-  const variant = size === 'sm' ? '$bodySmMedium' : '$bodyMdMedium';
   return (
-    <BadgeFrame backgroundColor={bgColor}>
-      <Text color={textColor} variant={variant}>
-        {children}
-      </Text>
+    <BadgeFrame ref={ref} {...props}>
+      {!isString ? children : <BadgeText>{children}</BadgeText>}
     </BadgeFrame>
   );
-};
+});
+
+export const Badge = withStaticProperties(BadgeComponent, {
+  props: BadgeContext.Provider,
+  Text: BadgeText,
+});

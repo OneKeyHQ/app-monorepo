@@ -3,26 +3,27 @@ import { Suspense } from 'react';
 import {
   Button,
   Dialog,
+  SizableText,
   Spinner,
-  Text,
   Toast,
   XStack,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import BiologyAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
+import WebAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/WebAuthSwitchContainer';
+import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
+import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
+import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
-
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import BiologyAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/BiologyAuthSwitchContainer';
-import WebAuthSwitchContainer from '../../../../../../components/BiologyAuthComponent/container/WebAuthSwitchContainer';
-import PasswordSetupContainer from '../../../../../../components/Password/container/PasswordSetupContainer';
-import PasswordUpdateContainer from '../../../../../../components/Password/container/PasswordUpdateContainer';
 
 import { Layout } from './utils/Layout';
 
 const PasswordDemoGallery = () => {
   const theme = useTheme();
   console.log(theme);
+  const { verifiedPasswordWebAuth } = useWebAuthActions();
   const handlePasswordVerify = async () => {
     const { status, password } =
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -45,7 +46,7 @@ const PasswordDemoGallery = () => {
               <Button
                 onPress={async () => {
                   const checkPasswordSet =
-                    await backgroundApiProxy.servicePassword.isPasswordSet();
+                    await backgroundApiProxy.servicePassword.checkPasswordSet();
                   if (checkPasswordSet) {
                     await handlePasswordVerify();
                   } else {
@@ -53,11 +54,12 @@ const PasswordDemoGallery = () => {
                       title: 'SetupPassword',
                       renderContent: (
                         <PasswordSetupContainer
-                          onSetupRes={(data) => {
+                          onSetupRes={async (data) => {
                             console.log('setup data', data);
                             if (data) {
+                              await dialog.close();
                               Toast.success({ title: '设置成功' });
-                              dialog.close();
+                              void dialog.close();
                             }
                           }}
                         />
@@ -77,11 +79,12 @@ const PasswordDemoGallery = () => {
                     estimatedContentHeight: 100,
                     renderContent: (
                       <PasswordUpdateContainer
-                        onUpdateRes={(data) => {
+                        onUpdateRes={async (data) => {
                           console.log('update data', data);
                           if (data) {
+                            await dialog.close();
                             Toast.success({ title: '修改成功' });
-                            dialog.close();
+                            void dialog.close();
                           }
                         }}
                       />
@@ -94,13 +97,13 @@ const PasswordDemoGallery = () => {
               </Button>
               <Button onPress={handlePasswordVerify}>密码验证弹窗</Button>
               <XStack justifyContent="space-between">
-                <Text>生物识别</Text>
+                <SizableText>生物识别</SizableText>
                 <Suspense fallback={<Spinner size="large" />}>
                   <BiologyAuthSwitchContainer />
                 </Suspense>
               </XStack>
               <XStack justifyContent="space-between">
-                <Text>Chrome生物识别</Text>
+                <SizableText>Chrome生物识别</SizableText>
                 <Suspense fallback={<Spinner size="large" />}>
                   <WebAuthSwitchContainer />
                 </Suspense>
@@ -108,14 +111,10 @@ const PasswordDemoGallery = () => {
               <Button
                 onPress={async () => {
                   try {
-                    const res =
-                      await backgroundApiProxy.servicePassword.verifyPassword({
-                        password: '',
-                        isWebAuth: true,
-                      });
+                    const res = await verifiedPasswordWebAuth();
                     Toast.success({ title: res ? '解锁成功' : '请输入密码' });
                   } catch (e) {
-                    console.log('e', e);
+                    Toast.error({ title: '请输入密码' });
                   }
                 }}
               >

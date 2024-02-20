@@ -1,7 +1,10 @@
-import { isFunction } from 'lodash';
+import { isFunction, merge } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
+// TODO: move locale to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { LOCALES } from '@onekeyhq/components';
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
@@ -10,9 +13,14 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
-import { settingsPersistAtom } from '../states/jotai/atoms/settings';
+import {
+  settingsLastActivityAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
+
+import type { ISettingsPersistAtom } from '../states/jotai/atoms/settings';
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -72,18 +80,40 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setAppLockDuration(value: number) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      appLockDuration: value,
-    }));
-  }
-
-  @backgroundMethod()
   public async setHardwareConnectSrc(value: EOnekeyDomain) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       hardwareConnectSrc: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async refreshLastActivity() {
+    await settingsLastActivityAtom.set((prev) => ({
+      ...prev,
+      time: Date.now(),
+    }));
+  }
+
+  @backgroundMethod()
+  public async getCurrencyList(): Promise<ICurrencyItem[]> {
+    const client = await this.getClient();
+    const res = await client.get<{ data: ICurrencyItem[] }>(
+      '/gateway/v1/currency/list',
+    );
+    return res.data.data;
+  }
+
+  @backgroundMethod()
+  public async setCurrency(currencyInfo: { id: string; symbol: string }) {
+    await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+  }
+
+  @backgroundMethod()
+  public async setDevMode(devMode: Partial<ISettingsPersistAtom['devMode']>) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      devMode: merge({}, prev.devMode, devMode),
     }));
   }
 }

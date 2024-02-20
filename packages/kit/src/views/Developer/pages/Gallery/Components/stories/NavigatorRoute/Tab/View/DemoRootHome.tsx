@@ -1,13 +1,13 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 
-import { Button, Stack, Text, YStack } from '@onekeyhq/components';
+import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import useCookie from '@onekeyhq/kit/src/hooks/useCookie';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import useCookie from '../../../../../../../../../hooks/useCookie';
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
@@ -66,11 +66,11 @@ const DemoRootHome = () => {
             justifyContent="center"
             alignItems="center"
           >
-            <Text variant="$bodyLgMedium">🦄</Text>
+            <SizableText size="$bodyLgMedium">🦄</SizableText>
           </Stack>
-          <Text ml="$2" variant="$bodyLgMedium" userSelect="none">
+          <SizableText ml="$2" size="$bodyLgMedium" userSelect="none">
             Wallet Name
-          </Text>
+          </SizableText>
         </Stack>
       </Stack>
     ),

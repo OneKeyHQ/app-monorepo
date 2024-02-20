@@ -1,5 +1,4 @@
 export * from './DesktopDragZoneBox';
-export * from './HeightTransition';
 export * from './ListView';
 export * from './Navigation';
 export * from './Page';
@@ -12,5 +11,6 @@ export * from './SortableSectionList';
 export * from './SortableCell';
 export * from './SwipeableCell';
 export * from './SpotlightTour';
+export * from './Swiper';
 export * from './TabView';
 export * from './UnorderedList';

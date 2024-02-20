@@ -3,7 +3,7 @@ import * as signUtil from '@metamask/eth-sig-util';
 import * as ethUtil from 'ethereumjs-util';
 import { isHexString } from 'ethjs-util';
 
-import { EMessageTypesEth } from '../../types';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import type { ToBufferInputTypes } from '@ethereumjs/util';
 

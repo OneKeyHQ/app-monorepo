@@ -1,8 +1,8 @@
 import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
+import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
 import { useProps, useStyle } from '@tamagui/core';
-import { PageHeaderView } from 'react-native-tab-page-view';
 
 import { useThemeValue } from '../../hooks';
 
@@ -37,15 +37,15 @@ const HeaderComponent = (
     contentContainerStyle = {},
     scrollContainerStyle = {},
     containerStyle = {},
-    itemContainerStyle = { px: '$3', mr: '$2' },
-    itemTitleStyle = { fontSize: 16 },
+    itemContainerStyle = { px: '$2.5', pb: 2, ml: '$2.5' },
+    itemTitleStyle = { fontSize: 16, fontWeight: '500' },
     itemTitleNormalStyle = { color: '$textSubdued' },
     itemTitleSelectedStyle = { color: '$text' },
     cursorStyle = {
-      left: '$3',
-      right: '$3',
+      left: '$2.5',
+      right: '$2.5',
       h: '$0.5',
-      bg: '$text',
+      bg: '$bgPrimary',
     },
     ...props
   }: IHeaderProps,
@@ -80,7 +80,7 @@ const HeaderComponent = (
     resolveValues: 'value',
   });
   const rawStyle = useStyle(
-    { ...{ h: '$14', bg: '$bgApp' }, ...style } as Record<string, unknown>,
+    { ...{ h: '$11', bg: '$bgApp' }, ...style } as Record<string, unknown>,
     {
       resolveValues: 'value',
     },

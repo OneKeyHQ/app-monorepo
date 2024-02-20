@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -14,7 +14,6 @@ import { LOCALES } from '../../locale';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
-import ScreenSizeProvider from './ScreenSizeProvider';
 import SidebarStateProvider from './SidebarStateProvider';
 
 import type { ILocaleSymbol } from '../../locale';
@@ -31,33 +30,19 @@ export type IUIProviderProps = PropsWithChildren<{
 
   waitFontLoaded?: boolean;
 }>;
-export type IFontProviderProps = {
-  children?: ReactNode;
-  waitFontLoaded?: boolean;
-};
+export type IFontProviderProps = PropsWithChildren;
 
 const MemoizedTamaguiProvider = memo(TamaguiProvider);
 
-function FontProvider({ children, waitFontLoaded = true }: IFontProviderProps) {
-  const [loaded] = useLoadCustomFonts();
-  if (loaded) return <>{children}</>;
-  if (
-    waitFontLoaded &&
-    (platformEnv.isNative || platformEnv.isRuntimeBrowser)
-  ) {
-    return null;
+function FontProvider({ children }: IFontProviderProps) {
+  const [loaded, error] = useLoadCustomFonts();
+  if (platformEnv.isNative || platformEnv.isRuntimeBrowser) {
+    return loaded || error ? children : null;
   }
-  // Web can render if font not loaded
-  // but Native will throw error: Unrecognized font family "PlusJakartaSans-Bold"
-  return <>{children}</>;
+  return children;
 }
 
-export function ConfigProvider({
-  children,
-  theme,
-  locale,
-  waitFontLoaded,
-}: IUIProviderProps) {
+export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
       theme,
@@ -72,18 +57,16 @@ export function ConfigProvider({
       locale={locale}
       messages={LOCALES[locale] as Record<string, string>}
     >
-      <FontProvider waitFontLoaded={waitFontLoaded}>
+      <FontProvider>
         <Context.Provider value={providerValue}>
-          <ScreenSizeProvider>
-            <SidebarStateProvider>
-              <SafeAreaProvider>
-                <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
-                  {children}
-                  <Toaster />
-                </MemoizedTamaguiProvider>
-              </SafeAreaProvider>
-            </SidebarStateProvider>
-          </ScreenSizeProvider>
+          <SidebarStateProvider>
+            <SafeAreaProvider>
+              <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
+                {children}
+                <Toaster />
+              </MemoizedTamaguiProvider>
+            </SafeAreaProvider>
+          </SidebarStateProvider>
         </Context.Provider>
       </FontProvider>
     </AppIntlProvider>

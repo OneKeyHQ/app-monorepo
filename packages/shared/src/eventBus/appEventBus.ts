@@ -4,9 +4,13 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import platformEnv from '../platformEnv';
 
 export enum EAppEventBusNames {
+  WalletUpdate = 'WalletUpdate',
+  AccountUpdate = 'AccountUpdate',
   NetworkChanged = 'NetworkChanged',
   AccountChanged = 'AccountChanged',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
+  DAppConnectUpdate = 'DAppConnectUpdate',
+  DAppNetworkUpdate = 'DAppNetworkUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -17,12 +21,21 @@ export enum EAppEventBusNames {
 }
 
 export interface IAppEventBusPayload {
+  [EAppEventBusNames.WalletUpdate]: undefined;
+  [EAppEventBusNames.AccountUpdate]: undefined;
   [EAppEventBusNames.AccountChanged]: {
     name: string;
     id: number;
   };
   [EAppEventBusNames.NetworkChanged]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
+  [EAppEventBusNames.DAppConnectUpdate]: undefined;
+  [EAppEventBusNames.DAppNetworkUpdate]: {
+    networkId: string;
+    sceneName: string;
+    sceneUrl: string;
+    num: number;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

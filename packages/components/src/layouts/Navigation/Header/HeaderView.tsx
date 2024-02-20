@@ -6,6 +6,8 @@ import { Header } from '@react-navigation/elements';
 import { get } from 'lodash';
 import { useTheme } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
@@ -43,6 +45,7 @@ function HeaderView({
     headerRight,
     headerTitle,
     headerTitleAlign,
+    headerTransparent = false,
     headerStyle,
     headerBackground,
     headerShown = true,
@@ -86,14 +89,21 @@ function HeaderView({
   return (
     <DesktopDragZoneBox disabled={isModelScreen}>
       <Stack
-        $gtMd={{
-          flexDirection: 'row',
-        }}
         alignItems="center"
-        backgroundColor="$bgApp"
+        bg={headerTransparent ? 'transparent' : '$bgApp'}
+        style={
+          headerTransparent && !platformEnv.isNativeAndroid
+            ? { position: 'absolute', right: 0, left: 0 }
+            : {}
+        }
         // borderBottomWidth={StyleSheet.hairlineWidth}
         // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
+        {...(!isModelScreen && {
+          $gtMd: {
+            flexDirection: 'row',
+          },
+        })}
       >
         <Stack
           alignSelf="stretch"
@@ -109,7 +119,7 @@ function HeaderView({
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => headerRight({ tintColor, canGoBack })
-                : headerRight
+                : (headerRight as any)
             }
             headerTitle={
               typeof headerTitle === 'function'
@@ -143,6 +153,7 @@ function HeaderView({
             onBlur={headerSearchBarOptions?.onBlur}
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
+            isModalScreen={isModelScreen}
           />
         )}
       </Stack>

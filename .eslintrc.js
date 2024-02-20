@@ -15,6 +15,7 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
     'warn',
     {
@@ -48,7 +49,7 @@ const tsRules = {
   // force awaited promise call, explicit add `void` if don't want await
   '@typescript-eslint/no-floating-promises': ['error'],
   '@typescript-eslint/naming-convention': [
-    'warn',
+    'error',
     {
       'selector': ['interface', 'typeAlias'],
       'format': ['PascalCase'],
@@ -114,7 +115,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck'],
+  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -168,6 +169,16 @@ module.exports = {
     worker: true,
   },
   rules: {
+    'import-path/parent-depth': ['error', 3],
+    'import-path/forbidden': [
+      'error',
+      [
+        {
+          'match': '/index$',
+          'message': 'Index on the end of path is redundant',
+        },
+      ],
+    ],
     'spellcheck/spell-checker': [
       1,
       {
@@ -182,6 +193,9 @@ module.exports = {
           /pbkdf2/i,
           /Secp256k1/i,
           /googleapis/i,
+          /Erc20/i,
+          /Erc721/i,
+          /Erc1155/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
         'minLength': 3,
@@ -222,6 +236,77 @@ module.exports = {
         '@typescript-eslint/no-use-before-define': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
         '@typescript-eslint/no-unsafe-call': 'off',
+      },
+    },
+    {
+      files: [
+        'packages/components/src/**/*.ts',
+        'packages/components/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'packages/shared/src/**/*.ts',
+        'packages/shared/src/**/*.tsx',
+        'packages/core/src/**/*.ts',
+        'packages/core/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/kit-bg/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/kit-bg/src/**/*.ts', 'packages/kit-bg/src/**/*.tsx'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: [
+                  '@onekeyhq/kit/*',
+                  '@onekeyhq/components',
+                  '@onekeyhq/components/*',
+                ],
+                message:
+                  'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
+              },
+            ],
+          },
+        ],
       },
     },
   ],

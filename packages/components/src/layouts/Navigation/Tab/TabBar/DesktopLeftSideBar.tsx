@@ -5,18 +5,18 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
+import type { IActionListSection } from '@onekeyhq/components/src/actions';
+import { Portal } from '@onekeyhq/components/src/hocs';
+import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { Icon, YStack } from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Portal } from '../../../../hocs';
-import useProviderSideBarValue from '../../../../hocs/Provider/hooks/useProviderSideBarValue';
-import { useSafeAreaInsets } from '../../../../hooks';
-import { Icon, YStack } from '../../../../primitives';
 import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
-import type { IActionListSection } from '../../../../actions';
-import type { IKeyOfIcons } from '../../../../primitives';
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
@@ -107,22 +107,7 @@ export function DesktopLeftSideBar({
 
         if (platformEnv.isDesktop && route.name === extraConfig?.name) {
           return (
-            <YStack
-              flex={1}
-              key={route.key}
-              onPress={() => {
-                // Avoid re-rendering by checking if it's the current route.
-                if (state.routeNames[state.index] !== extraConfig?.name) {
-                  navigation.dispatch({
-                    ...CommonActions.navigate({
-                      name: extraConfig.name,
-                      merge: true,
-                    }),
-                    target: state.key,
-                  });
-                }
-              }}
-            >
+            <YStack flex={1} key={route.key}>
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
             </YStack>
           );
@@ -143,7 +128,6 @@ export function DesktopLeftSideBar({
       routes,
       state.index,
       state.key,
-      state.routeNames,
       descriptors,
       extraConfig?.name,
       isCollapse,

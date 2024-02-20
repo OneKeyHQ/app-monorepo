@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { toBigIntHex } from './numberUtils';
+
 import type { IServerNetwork } from '../../types';
+import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
   throw new Error(message);
@@ -9,6 +12,11 @@ function nilError(message: string): number {
 export interface IChainValueConvertOptions {
   value: string | BigNumber;
   network: IServerNetwork;
+}
+
+export interface ITokenChainValueConvertOptions {
+  value: string | BigNumber;
+  token: IToken;
 }
 
 // onChainValue -> GWEI
@@ -79,6 +87,40 @@ function convertAmountToGwei(options: IChainValueConvertOptions) {
   });
 }
 
+function convertTokenChainValueToAmount({
+  value,
+  token,
+}: ITokenChainValueConvertOptions) {
+  return new BigNumber(value)
+    .shiftedBy(
+      -token.decimals ??
+        nilError(
+          'convertTokenChainValueToAmount ERROR: token.decimals missing',
+        ),
+    )
+    .toFixed();
+}
+
+function fixNativeTokenMaxSendAmount({
+  amount,
+  network,
+}: {
+  amount: string | BigNumber;
+  network: IServerNetwork;
+}) {
+  const amountBN = new BigNumber(amount);
+  const fixedAmountBN = amountBN
+    .dp(
+      BigNumber.min(
+        (amountBN.decimalPlaces() ?? network.decimals) - 2,
+        network.decimals - 2,
+      ).toNumber(),
+      BigNumber.ROUND_FLOOR,
+    )
+    .shiftedBy(network.decimals);
+  return toBigIntHex(fixedAmountBN);
+}
+
 export default {
   convertAmountToChainValue,
   convertChainValueToAmount,
@@ -86,4 +128,6 @@ export default {
   convertGweiToChainValue,
   convertGweiToAmount,
   convertAmountToGwei,
+  convertTokenChainValueToAmount,
+  fixNativeTokenMaxSendAmount,
 };

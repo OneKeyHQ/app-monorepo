@@ -36,9 +36,13 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Use NFC to read NDEF messages into the application.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
 		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
@@ -49,6 +53,10 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Use Camera to scan QR Code.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Use photo library to read QR images.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -73,5 +81,12 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>6f6e656b65792e6261636b757001</string>
+		<string>A000000151000000</string>
+		<string>D156000132834001</string>
+		<string>D1560001328300424C4400006E666301</string>
+	</array>
 </dict>
 </plist>

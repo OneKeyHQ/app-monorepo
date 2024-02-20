@@ -82,6 +82,9 @@ function encodePassword({
 }
 
 function encrypt(password: string, data: Buffer | string): Buffer {
+  if (!password) {
+    throw new IncorrectPassword();
+  }
   const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
@@ -95,16 +98,16 @@ function encrypt(password: string, data: Buffer | string): Buffer {
   ]);
 }
 
-// TODO merge with encrypt
+export type IEncryptStringParams = {
+  password: string;
+  data: string;
+  dataEncoding?: BufferEncoding;
+};
 function encryptString({
   password,
   data,
   dataEncoding = 'hex',
-}: {
-  password: string;
-  data: string;
-  dataEncoding?: BufferEncoding;
-}): string {
+}: IEncryptStringParams): string {
   const bytes = encrypt(password, bufferUtils.toBuffer(data, dataEncoding));
   return bufferUtils.bytesToHex(bytes);
 }
@@ -135,6 +138,9 @@ async function encryptAsync({
 }
 
 function decrypt(password: string, data: Buffer | string): Buffer {
+  if (!password) {
+    throw new IncorrectPassword();
+  }
   const dataBuffer = bufferUtils.toBuffer(data);
   // eslint-disable-next-line no-param-reassign
   const passwordDecoded = decodePassword({ password });
@@ -183,17 +189,18 @@ async function decryptAsync({
   return Promise.resolve(decrypt(passwordDecoded, data));
 }
 
+export type IDecryptStringParams = {
+  password: string;
+  data: string;
+  resultEncoding?: BufferEncoding;
+  dataEncoding?: BufferEncoding;
+};
 function decryptString({
   password,
   data,
   resultEncoding = 'hex',
   dataEncoding = 'hex',
-}: {
-  password: string;
-  data: string;
-  resultEncoding?: BufferEncoding;
-  dataEncoding?: BufferEncoding;
-}): string {
+}: IDecryptStringParams): string {
   const bytes = decrypt(password, bufferUtils.toBuffer(data, dataEncoding));
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);

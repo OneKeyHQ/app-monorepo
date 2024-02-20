@@ -1,40 +1,42 @@
-import { createRef, useRef } from 'react';
+import type { MutableRefObject } from 'react';
+import { createContext, createRef, useContext, useEffect } from 'react';
 
 import { NavigationContainer as RNNavigationContainer } from '@react-navigation/native';
 
-import { trackPage } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
-
-import type { useNavigationContainerRef } from '@react-navigation/native';
+import type { NavigationContainerRef } from '@react-navigation/native';
 import type { GetProps } from 'tamagui';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
-export const navigationRef =
-  createRef<ReturnType<typeof useNavigationContainerRef>>();
+export const rootNavigationRef = createRef<NavigationContainerRef<any>>();
+
+// for background open modal
+global.$navigationRef = rootNavigationRef;
+
+export type IRouterChangeEvent = INavigationContainerProps['onStateChange'];
+const RouterEventContext = createContext<
+  MutableRefObject<IRouterChangeEvent[]>
+>({
+  current: [],
+});
+
+export const useRouterEventsRef = () => useContext(RouterEventContext);
+export const RouterEventProvider = RouterEventContext.Provider;
+
+export const useOnRouterChange = (callback: IRouterChangeEvent) => {
+  const routerRef = useContext(RouterEventContext);
+  useEffect(() => {
+    routerRef.current.push(callback);
+    if (rootNavigationRef.current) {
+      callback?.(rootNavigationRef.current?.getState());
+    }
+    return () => {
+      routerRef.current = routerRef.current.filter((i) => i !== callback);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
-  const routeNameRef = useRef('');
-  return (
-    <RNNavigationContainer
-      {...props}
-      ref={navigationRef}
-      onReady={() => {
-        routeNameRef.current =
-          navigationRef.current?.getCurrentRoute()?.name || '';
-      }}
-      onStateChange={async () => {
-        const previousRouteName = routeNameRef.current;
-        const currentRouteName =
-          navigationRef.current?.getCurrentRoute()?.name || '';
-
-        if (previousRouteName !== currentRouteName) {
-          // Save the current route name for later comparison
-          routeNameRef.current = currentRouteName;
-
-          // Replace the line below to add the tracker from a mobile analytics SDK
-          trackPage(currentRouteName);
-        }
-      }}
-    />
-  );
+  return <RNNavigationContainer {...props} ref={rootNavigationRef} />;
 }

@@ -4,8 +4,8 @@ import { useRef, useState } from 'react';
 import {
   Button,
   LottieView,
+  SizableText,
   Switch,
-  Text,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -30,16 +30,16 @@ const LottieDemo = () => {
         {!!show && (
           <LottieView
             ref={ref}
-            width={100}
-            height={100}
+            width="100%"
+            height="$24"
             autoPlay={autoPlay}
             loop={loop}
-            source={require('../../../../../../../assets/animations/lottie_send_success_feedback.json')}
+            source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
           />
         )}
       </XStack>
       <XStack space="$5" alignItems="center">
-        <Text>loop: </Text>
+        <SizableText>loop: </SizableText>
         <Switch
           value={loop}
           onChange={(value) => {
@@ -50,7 +50,7 @@ const LottieDemo = () => {
         />
       </XStack>
       <XStack space="$5" alignItems="center">
-        <Text>autoPlay: </Text>
+        <SizableText>autoPlay: </SizableText>
         <Switch
           value={autoPlay}
           onChange={(value) => {

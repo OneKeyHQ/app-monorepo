@@ -5,7 +5,6 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 import type { RealmSchemaWallet } from './RealmSchemaWallet';
 import type {
   IDBAccount,
-  IDBSimpleAccount,
   IDBUtxoAccount,
   IDBVariantAccount,
 } from '../../types';
@@ -20,7 +19,19 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public path?: string;
 
+  public pathIndex?: number;
+
+  public relPath?: string;
+
+  public indexedAccountId?: string;
+
   public coinType!: string;
+
+  public impl!: string;
+
+  public networks?: string[];
+
+  public createAtNetwork?: string;
 
   public pub?: string;
 
@@ -46,7 +57,13 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       name: 'string',
       type: 'string',
       path: 'string?',
+      pathIndex: 'int?',
+      relPath: 'string?',
+      indexedAccountId: 'string?',
       coinType: 'string',
+      impl: 'string',
+      networks: 'string?[]',
+      createAtNetwork: 'string?',
       pub: 'string?',
       xpub: 'string?',
       xpubSegwit: 'string?',
@@ -67,17 +84,24 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
   };
 
   get record(): IDBAccount {
-    const ret = {
+    const ret: IDBAccount = {
       id: this.id,
       name: this.name,
       type: this.type,
       path: this.path || '',
+      pathIndex: this.pathIndex,
+      relPath: this.relPath,
+      indexedAccountId: this.indexedAccountId,
       coinType: this.coinType,
       address: this.address || '',
       template: this.template || '',
-    } as IDBAccount;
+      pub: '',
+      impl: this.impl,
+      networks: this.networks,
+      createAtNetwork: this.createAtNetwork,
+    };
     if (this.type === EDBAccountType.SIMPLE) {
-      (ret as IDBSimpleAccount).pub = this.pub || '';
+      ret.pub = this.pub || '';
     }
     if (this.type === EDBAccountType.VARIANT) {
       (ret as IDBVariantAccount).pub = this.pub || '';

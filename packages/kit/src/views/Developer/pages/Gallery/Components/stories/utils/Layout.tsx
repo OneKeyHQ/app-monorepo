@@ -1,20 +1,21 @@
+import type { ComponentType, ReactElement } from 'react';
+
 import {
   Button,
   Page,
   ScrollView,
+  SizableText,
   Stack,
-  Text,
   XStack,
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
-
-import backgroundApiProxy from '../../../../../../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 const FormattedText = ({ text }: { text: string | string[] }) => {
   if (typeof text === 'string') {
     return (
       <Stack>
-        <Text>{text}。 </Text>
+        <SizableText>{text}。 </SizableText>
       </Stack>
     );
   }
@@ -26,10 +27,10 @@ const FormattedText = ({ text }: { text: string | string[] }) => {
       <Stack space="$1">
         {text.map((item, index) => (
           <Stack key={index.toString()}>
-            <Text>
+            <SizableText>
               {index + 1}. {item}
               {index === text.length - 1 ? '。' : '；'}
-            </Text>
+            </SizableText>
           </Stack>
         ))}
       </Stack>
@@ -61,7 +62,7 @@ export function Layout({
   elements?: {
     title: string;
     description?: string;
-    element: React.ReactElement;
+    element: ComponentType | ReactElement;
   }[];
 }>) {
   const keyboardHeight = useKeyboardHeight();
@@ -102,7 +103,7 @@ export function Layout({
           {description && (
             <Stack space="$2">
               <Stack>
-                <Text variant="$headingXl">使用说明</Text>
+                <SizableText size="$headingXl">使用说明</SizableText>
               </Stack>
               <Stack>
                 <FormattedText text={description} />
@@ -112,7 +113,7 @@ export function Layout({
           {suggestions && (
             <Stack space="$2">
               <Stack>
-                <Text variant="$headingXl">使用建议</Text>
+                <SizableText size="$headingXl">使用建议</SizableText>
               </Stack>
               <FormattedText text={suggestions} />
             </Stack>
@@ -120,14 +121,14 @@ export function Layout({
           {boundaryConditions?.length > 0 && (
             <Stack space="$2">
               <Stack>
-                <Text variant="$headingXl">注意事项</Text>
+                <SizableText size="$headingXl">注意事项</SizableText>
               </Stack>
               <FormattedText text={boundaryConditions} />
             </Stack>
           )}
           <Stack space="$2">
             <Stack>
-              <Text variant="$headingXl">组件案例</Text>
+              <SizableText size="$headingXl">组件案例</SizableText>
             </Stack>
             <Stack>
               {elements?.map((item, index) => (
@@ -140,14 +141,20 @@ export function Layout({
                   borderBottomColor="$borderSubdued"
                 >
                   <Stack flexDirection="column">
-                    <Text variant="$headingLg">{item.title}</Text>
+                    <SizableText size="$headingLg">{item.title}</SizableText>
                     {item.description && (
                       <Stack paddingTop={1}>
-                        <Text>{item.description}。</Text>
+                        <SizableText>{item.description}。</SizableText>
                       </Stack>
                     )}
                   </Stack>
-                  <Stack>{item.element}</Stack>
+                  <Stack>
+                    {typeof item.element === 'function' ? (
+                      <item.element />
+                    ) : (
+                      item.element
+                    )}
+                  </Stack>
                 </Stack>
               ))}
             </Stack>

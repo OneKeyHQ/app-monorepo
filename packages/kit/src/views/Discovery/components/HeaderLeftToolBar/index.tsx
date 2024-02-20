@@ -1,8 +1,8 @@
 import {
   Icon,
   Input,
+  SizableText,
   Stack,
-  Text,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -59,9 +59,9 @@ function HeaderLeftToolBar({
         }}
       >
         <Icon size="$5" color="$iconSubdued" name="LockSolid" />
-        <Text variant="$textLg" flex={1} numberOfLines={1} ml="$2">
+        <SizableText size="$bodyLg" flex={1} numberOfLines={1} ml="$2">
           {url}
-        </Text>
+        </SizableText>
       </Stack>
     );
   }
@@ -91,6 +91,9 @@ function HeaderLeftToolBar({
         size="small"
         leftIconName="LockSolid"
         value={url}
+        onPress={() => {
+          onSearch?.();
+        }}
         addOns={[
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',

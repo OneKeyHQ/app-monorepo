@@ -4,10 +4,15 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "eth-url-parser": "^1.0.4",
     "idb": "^7.1.1"
   },
   "scripts": {
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
+  },
+  "devDependencies": {
+    "folderslint": "^1.2.0"
   }
 }

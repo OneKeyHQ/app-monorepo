@@ -7,13 +7,17 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsCountParams,
+  ILocalDBGetRecordsCountResult,
   ILocalDBRecordPair,
   ILocalDBTransaction,
   ILocalDBTxAddRecordsParams,
+  ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
   ILocalDBWithTransactionTask,
@@ -32,7 +36,9 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     name: T;
   }) {
     if (isNil(ids) && isNil(recordPairs)) {
-      throw new Error('dbUpdateRecord ERROR: id and recordPair both not found');
+      throw new Error(
+        'dbUpdateRecord ERROR: ids and recordPairs both not found',
+      );
     }
     let pairs: ILocalDBRecordPair<T>[] = [];
     if (!isNil(ids)) {
@@ -56,6 +62,10 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
 
   abstract withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T>;
 
+  abstract getRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult>;
+
   // TODO get with query
   abstract getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
@@ -64,6 +74,10 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
   abstract getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>>;
+
+  abstract txGetRecordsCount<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsCountParams<T>,
+  ): Promise<ILocalDBGetRecordsCountResult>;
 
   abstract txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
@@ -80,7 +94,7 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
 
   abstract txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
-  ): Promise<void>;
+  ): Promise<ILocalDBTxAddRecordsResult>;
 
   abstract txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,

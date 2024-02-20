@@ -41,6 +41,7 @@ export type ISortableListViewProps<T> = Omit<
       index: number,
     ) => { length: number; offset: number; index: number };
 
+    enabled?: boolean;
     containerStyle?: StackStyleProps;
     contentContainerStyle?: StackStyleProps;
     columnWrapperStyle?: StackStyleProps;
@@ -53,6 +54,7 @@ function BaseSortableListView<T>(
     data,
     keyExtractor,
     renderItem,
+    enabled = true,
     containerStyle = {},
     contentContainerStyle = {},
     columnWrapperStyle,
@@ -102,6 +104,7 @@ function BaseSortableListView<T>(
     <DraggableFlatList<T>
       ref={ref}
       style={style as StyleProp<ViewStyle>}
+      activationDistance={enabled ? 1 : 100000}
       containerStyle={[{ flex: 1 }, rawContainerStyle]}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}

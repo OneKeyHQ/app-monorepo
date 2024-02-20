@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { CKDPriv, CKDPub, revealableSeedFromMnemonic, verify } from './index';
+import { CKDPriv, CKDPub, revealableSeedFromMnemonic, verify } from '.';
 
 import BigNumber from 'bignumber.js';
 import elliptic from 'elliptic';
@@ -8,11 +8,14 @@ import {
   IncorrectPassword,
   InvalidMnemonic,
 } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { decrypt, encrypt } from './encryptors/aes256';
+import { sha256 } from './hash';
 
 import type { ICurveName } from '../types';
 
+// yarn jest packages/core/src/secret/index.test.ts
 const halfNs: Record<string, BigNumber> = {
   // eslint-disable-next-line new-cap
   secp256k1: new BigNumber(new elliptic.ec('secp256k1').nh.toString()),
@@ -651,4 +654,18 @@ test('Incorrect mnemonic', () => {
       'whatever password',
     );
   }).toThrow(InvalidMnemonic);
+});
+
+test('sha256', () => {
+  let hashBuffer = sha256(bufferUtils.toBuffer('hd-1--1', 'utf-8'));
+  let hash = bufferUtils.bytesToHex(hashBuffer);
+  expect(hash).toBe(
+    '8aaf059c0c662d850ba4be656a127a7e9e5412b1e472a2919962da3d321a4ea6',
+  );
+
+  hashBuffer = sha256(bufferUtils.toBuffer('hd-1--0', 'utf-8'));
+  hash = bufferUtils.bytesToHex(hashBuffer);
+  expect(hash).toBe(
+    'c804881858e8a43235e9f6ec4e8b50c611657397e75905471360ededa208e4b4',
+  );
 });

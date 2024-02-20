@@ -7,6 +7,8 @@ import type Realm from 'realm';
 class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
   public id!: string;
 
+  public idHash!: string;
+
   public walletId!: string;
 
   public name!: string;
@@ -18,6 +20,7 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
     primaryKey: 'id',
     properties: {
       id: 'string',
+      idHash: 'string',
       walletId: 'string',
       name: 'string',
       index: 'int',
@@ -27,6 +30,7 @@ class RealmSchemaIndexedAccount extends RealmObjectBase<IDBIndexedAccount> {
   get record(): IDBIndexedAccount {
     return {
       id: this.id,
+      idHash: this.idHash,
       walletId: this.walletId,
       name: this.name,
       index: this.index,

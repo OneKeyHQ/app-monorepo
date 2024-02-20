@@ -1,9 +1,23 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import FakeSearchModal from '@onekeyhq/kit/src/views/Discovery/container/Dashboard/Search';
-import MobileTabListModal from '@onekeyhq/kit/src/views/Discovery/container/MobileTabListModal';
-import SearchModal from '@onekeyhq/kit/src/views/Discovery/container/SearchModal';
 import type { IDiscoveryModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+
+const SearchModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/SearchModal'),
+);
+
+const MobileTabListModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/MobileTabListModal'),
+);
+
+const BookmarkListModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/BookmarkListModal'),
+);
+
+const HistoryListModal = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Discovery/pages/HistoryListModal'),
+);
 
 export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
   EDiscoveryModalRoutes,
@@ -17,8 +31,14 @@ export const ModalDiscoveryStack: IModalFlowNavigatorConfig<
     name: EDiscoveryModalRoutes.SearchModal,
     component: SearchModal,
   },
+
   {
-    name: EDiscoveryModalRoutes.FakeSearchModal,
-    component: FakeSearchModal,
+    name: EDiscoveryModalRoutes.BookmarkListModal,
+    component: BookmarkListModal,
+  },
+
+  {
+    name: EDiscoveryModalRoutes.HistoryListModal,
+    component: HistoryListModal,
   },
 ];

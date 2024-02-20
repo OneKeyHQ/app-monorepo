@@ -1,6 +1,4 @@
-import { useMemo } from 'react';
-
-import { Avatar, Icon, Stack, Text, XStack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -18,7 +16,7 @@ function MobileTabListPinnedItem({
   onLongPress: (id: string) => void;
 } & IWebTab) {
   const { tab } = useWebTabDataById(id);
-  const isActive = useMemo(() => activeTabId === id, [id, activeTabId]);
+  const isActive = activeTabId === id;
   return (
     <Stack
       flex={1}
@@ -27,7 +25,7 @@ function MobileTabListPinnedItem({
       maxWidth="$40"
       borderRadius="$4"
       borderWidth={4}
-      borderColor={isActive ? '$focusRing' : '$transparent'}
+      borderColor={isActive ? '$brand6' : '$transparent'}
       marginHorizontal={2}
       onPress={() => {
         onSelectedItem(id);
@@ -47,15 +45,15 @@ function MobileTabListPinnedItem({
         borderRadius="$2.5"
         testID={`tab-list-stack-pinned-${id}`}
       >
-        <Avatar size="$4" borderRadius="$1">
-          <Avatar.Image src={tab?.favicon} />
-          <Avatar.Fallback>
+        <Image size="$4" borderRadius="$1">
+          <Image.Source src={tab?.favicon} />
+          <Image.Fallback delayMs={100}>
             <Icon name="GlobusOutline" size="$4" />
-          </Avatar.Fallback>
-        </Avatar>
-        <Text flex={1} variant="$bodySm" numberOfLines={1} ml="$2">
+          </Image.Fallback>
+        </Image>
+        <SizableText flex={1} size="$bodySm" numberOfLines={1} ml="$2">
           {tab?.title || ''}
-        </Text>
+        </SizableText>
       </XStack>
     </Stack>
   );

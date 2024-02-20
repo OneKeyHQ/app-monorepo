@@ -1,99 +1,102 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
 import type { ISelectItem, ISelectSection } from '@onekeyhq/components';
-import { Icon, Select, Stack, Text, XStack } from '@onekeyhq/components';
+import { Icon, Select, SizableText, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
 const items: ISelectItem[] = [
+  { label: 'Banana0', value: 'Banana' },
   {
-    label: 'Apple',
+    label: 'Apple1',
     value: 'Apple',
   },
 
   {
-    label: 'Pear',
+    label: 'Pear2',
     value: 'Pear',
   },
 
   {
-    label: 'Blackberry',
+    label: 'Blackberry3',
     value: 'Blackberry',
   },
 
   {
-    label: 'Peach',
+    label: 'Peach4',
     value: 'Peach',
   },
 
-  { label: 'Apricot', value: 'Apricot' },
+  { label: 'Apricot5', value: 'Apricot' },
 
-  { label: 'Melon', value: 'Melon' },
+  { label: 'Melon6', value: 'Melon' },
 
-  { label: 'Honeydew', value: 'Honeydew' },
+  { label: 'Honeydew7', value: 'Honeydew' },
 
-  { label: 'Starfruit', value: 'Starfruit' },
+  { label: 'Starfruit8', value: 'Starfruit' },
 
-  { label: 'Blueberry', value: 'Blueberry' },
+  { label: 'Blueberry9', value: 'Blueberry' },
 ];
 
 const SelectDefaultItem = () => {
-  const [val, setVal] = useState('Apple');
+  const [val, setVal] = useState(items[1].value);
 
   return (
-    <Select
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
-      title="Demo Title"
-    />
+    <Select items={items} value={val} onChange={setVal} title="Demo Title" />
   );
 };
 
-const SelectDefaultNativeItem = () => {
+const SelectLongListItem = () => {
   const [val, setVal] = useState('Apple');
 
   return (
     <Select
-      native
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
-      title="Demo Title"
-    />
-  );
-};
-
-const SelectCustomTriggerItem = () => {
-  const [val, setVal] = useState('Apple');
-
-  return (
-    <Select
-      items={items}
-      value={val}
-      onValueChange={setVal}
-      triggerProps={{
-        width: '100%',
-        padded: false,
-        backgroundColor: '$bgActive',
-        overflow: 'hidden',
-        borderRadius: '$2',
+      items={new Array(1000).fill(undefined).map((_, index) => ({
+        label: String(index),
+        value: String(index),
+      }))}
+      sheetProps={{
+        snapPointsMode: 'percent',
+        snapPoints: [80],
       }}
-      renderTrigger={(item) => (
-        <XStack w="100%" justifyContent="space-between">
-          <Text variant="$bodyMd">Fruit</Text>
-          <XStack space>
-            {item?.leading}
-            <Text variant="$bodySm">{item?.label ?? 'Fruit'}</Text>
-          </XStack>
-        </XStack>
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectDisabledItem = () => {
+  const [val, setVal] = useState('Apple');
+
+  return (
+    <Select
+      disabled
+      items={items}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectCustomItem = () => {
+  const [val, setVal] = useState('');
+
+  return (
+    <Select
+      placeholder="please select one"
+      renderTrigger={({ value, label, placeholder }) => (
+        <SizableText>
+          {value ? `label: ${label || ''}, value: ${value}` : placeholder}
+        </SizableText>
       )}
-      disablePreventBodyScroll
-      title="Custom Trigger"
+      items={items}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
     />
   );
 };
@@ -101,27 +104,27 @@ const SelectCustomTriggerItem = () => {
 const sections: ISelectSection[] = [
   {
     title: 'emoji Section',
-    items: [
+    data: [
       {
-        label: 'Apple',
+        label: 'Apple🍎',
         value: 'Apple',
-        leading: <Text variant="$bodyMdMedium">😀</Text>,
+        leading: <SizableText size="$bodyMdMedium">😀</SizableText>,
       },
 
       {
-        label: 'Pear',
+        label: 'Pear🌰',
         value: 'Pear',
-        leading: <Text variant="$bodyMdMedium">🚅</Text>,
+        leading: <SizableText size="$bodyMdMedium">🚅</SizableText>,
       },
 
       {
-        label: 'Blackberry',
+        label: 'Blackberry🫐',
         value: 'Blackberry',
-        leading: <Text variant="$bodyMdMedium">🚆</Text>,
+        leading: <SizableText size="$bodyMdMedium">🚆</SizableText>,
       },
 
       {
-        label: 'Peach',
+        label: 'Peach🍑',
         value: 'Peach',
         leading: <Icon name="AccessibilityEyeOutline" size="$5" />,
       },
@@ -129,16 +132,16 @@ const sections: ISelectSection[] = [
   },
   {
     title: 'plain Section',
-    items: [
-      { label: 'Apricot', value: 'Apricot' },
+    data: [
+      { label: 'Apricot1', value: 'Apricot1' },
 
-      { label: 'Melon', value: 'Melon' },
+      { label: 'Melon2', value: 'Melon2' },
 
-      { label: 'Honeydew', value: 'Honeydew' },
+      { label: 'Honeydew3', value: 'Honeydew3' },
 
-      { label: 'Starfruit', value: 'Starfruit' },
+      { label: 'Starfruit4', value: 'Starfruit4' },
 
-      { label: 'Blueberry', value: 'Blueberry' },
+      { label: 'Blueberry5', value: 'Blueberry5' },
     ],
   },
 ];
@@ -149,9 +152,19 @@ const SelectSectionsItemDemo = () => {
     <Select
       sections={sections}
       value={val}
-      onValueChange={setVal}
-      triggerProps={{ width: '100%' }}
-      disablePreventBodyScroll
+      onChange={setVal}
+      title="Demo Title"
+    />
+  );
+};
+
+const SelectDefaultValue = () => {
+  const [val, setVal] = useState('Apple');
+  return (
+    <Select
+      sections={sections}
+      value={val}
+      onChange={setVal}
       title="Demo Title"
     />
   );
@@ -172,18 +185,52 @@ const SelectGallery = () => (
         ),
       },
       {
-        title: '默认状态 native prop',
+        title: 'labelInValue',
+        element: () => {
+          const [val, setVal] = useState(items[3]);
+          const [sectionVal, setSectionVal] = useState(sections[1].data[2]);
+          return (
+            <Stack space="$1">
+              <Select
+                labelInValue
+                items={items}
+                value={val}
+                onChange={setVal}
+                title="Label In Value"
+              />
+
+              <Select
+                labelInValue
+                sections={sections}
+                value={sectionVal}
+                onChange={setSectionVal}
+                title="Label In Value"
+              />
+            </Stack>
+          );
+        },
+      },
+      {
+        title: 'Long List',
         element: (
           <Stack space="$1">
-            <SelectDefaultNativeItem />
+            <SelectLongListItem />
           </Stack>
         ),
       },
       {
-        title: '自定义renderTrigger',
+        title: 'Disabled',
         element: (
           <Stack space="$1">
-            <SelectCustomTriggerItem />
+            <SelectDisabledItem />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Custom Trigger',
+        element: (
+          <Stack space="$1">
+            <SelectCustomItem />
           </Stack>
         ),
       },
@@ -192,6 +239,14 @@ const SelectGallery = () => (
         element: (
           <Stack space="$1">
             <SelectSectionsItemDemo />
+          </Stack>
+        ),
+      },
+      {
+        title: 'default value with Label',
+        element: (
+          <Stack space="$1">
+            <SelectDefaultValue />
           </Stack>
         ),
       },

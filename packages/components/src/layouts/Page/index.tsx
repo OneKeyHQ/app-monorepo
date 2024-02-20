@@ -1,54 +1,49 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
-import { View } from '../../optimization';
-
-import { BasicPage } from './BasicPage';
-import { BasicPageFooter, PageContextFooter } from './BasicPageFooter';
 import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
+import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
+import { PageFooter } from './PageFooter';
+import { FooterActions } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 
-import type { IPageButtonGroupProps } from './PageButtonGroup';
+import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
+import type { IScrollViewRef } from '../ScrollView';
+import type { NativeScrollPoint } from 'react-native';
 
-export type { IPageProps } from './type';
-
-function PageContainer({ children, skipLoading, enableSafeArea }: IPageProps) {
-  const memoPageContainer = useMemo(
-    () => (
-      <BasicPage skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
-        <View style={{ flex: 1 }}>{children}</View>
-        <BasicPageFooter />
-      </BasicPage>
-    ),
-    [skipLoading, enableSafeArea, children],
-  );
-  return memoPageContainer;
-}
+export type { IPageProps, IPageFooterProps } from './type';
 
 function PageProvider({
   children,
   skipLoading = false,
-  enableSafeArea = false,
+  scrollEnabled = false,
+  scrollProps = { showsVerticalScrollIndicator: false },
+  safeAreaEnabled = true,
 }: IPageProps) {
-  const [options, setOptions] = useState<{
-    footerOptions: IPageButtonGroupProps;
-  }>();
+  const pageRef = useRef<IScrollViewRef>(null);
+  const pageOffsetRef = useRef<NativeScrollPoint>({
+    x: 0,
+    y: 0,
+  });
+  const footerRef = useRef<IPageFooterRef>({});
   const value = useMemo(
     () => ({
-      options,
-      setOptions,
+      scrollEnabled,
+      scrollProps,
+      safeAreaEnabled,
+      pageRef,
+      pageOffsetRef,
+      footerRef,
     }),
-    [options],
+    [safeAreaEnabled, scrollEnabled, scrollProps],
   );
   return (
     <PageContext.Provider value={value}>
-      <PageContainer skipLoading={skipLoading} enableSafeArea={enableSafeArea}>
-        {children}
-      </PageContainer>
+      <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
     </PageContext.Provider>
   );
 }
@@ -56,6 +51,9 @@ function PageProvider({
 export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
-  Footer: PageContextFooter,
+  Footer: PageFooter,
+  FooterActions,
   Close: PageClose,
 });
+
+export * from './hooks';

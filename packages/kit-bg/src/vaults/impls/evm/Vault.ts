@@ -1,15 +1,80 @@
+import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
-import { EthersJsonRpcProvider } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
+import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  EthersJsonRpcProvider,
+  ethers,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+// TODO: should fix circular references
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import {
+  buildTxActionDirection,
+  mergeAssetTransferActions,
+} from '@onekeyhq/kit/src/utils/txAction';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import numberUtils, {
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import type {
+  IAddressValidation,
+  INetworkAccountAddressDetail,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionAssetTransfer,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import {
+  EWrappedType,
+  type IApproveInfo,
+  type IBroadcastTransactionParams,
+  type IBuildAccountAddressDetailParams,
+  type IBuildDecodedTxParams,
+  type IBuildEncodedTxParams,
+  type IBuildTxHelperParams,
+  type IBuildUnsignedTxParams,
+  type IGetPrivateKeyFromImportedParams,
+  type IGetPrivateKeyFromImportedResult,
+  type INativeAmountInfo,
+  type ITransferInfo,
+  type IUpdateUnsignedTxParams,
+  type IVaultSettings,
+  type IWrappedInfo,
+} from '../../types';
 
+import { EVMContractDecoder } from './decoder';
+import {
+  EErc1155MethodSelectors,
+  EErc1155TxDescriptionName,
+  EErc20MethodSelectors,
+  EErc20TxDescriptionName,
+  EErc721MethodSelectors,
+  EErc721TxDescriptionName,
+  EWrapperTokenMethodSelectors,
+} from './decoder/abi';
+import {
+  InfiniteAmountText,
+  checkIsEvmNativeTransfer,
+  formatValue,
+  parseToNativeTx,
+} from './decoder/utils';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -18,51 +83,251 @@ import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
-import type {
-  IBroadcastTransactionParams,
-  ITransferInfo,
-  ITxUpdateFeeInfo,
-  IVaultSettings,
-} from '../../types';
 
+// evm vault
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
-  override async buildEncodedTx(options: {
-    transferInfo?: ITransferInfo | undefined;
-  }): Promise<IEncodedTxEvm> {
-    const { transferInfo } = options;
-    if (transferInfo) {
-      return this._buildEncodedTxFromTransfer(transferInfo);
+  override async buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail> {
+    const { account, networkId } = params;
+    // all evm chain shared same db account and same address, so we just validate db address only,
+    // do not need recalculate address for each sub chain
+    const { normalizedAddress, displayAddress } = await this.validateAddress(
+      account.address,
+    );
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+    };
+  }
+
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxEvm> {
+    const { transfersInfo, approveInfo, wrappedInfo } = params;
+
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      return this._buildEncodedTxFromTransfer(params);
     }
+
+    if (approveInfo) {
+      return this._buildEncodeTxFromApprove(params);
+    }
+
+    if (wrappedInfo) {
+      return this._buildEncodedTxFromWrapperToken(params);
+    }
+
     throw new OneKeyInternalError();
   }
 
-  override async buildUnsignedTx(options: {
-    encodedTx: IEncodedTxEvm;
-  }): Promise<IUnsignedTxPro> {
-    const { encodedTx } = options;
+  async _buildEncodedTxFromWrapperToken(params: IBuildEncodedTxParams) {
+    const { wrappedInfo } = params;
+    const { from, amount, contract, type } = wrappedInfo as IWrappedInfo;
+    const network = await this.getNetwork();
+    const methodID =
+      type === EWrappedType.DEPOSIT
+        ? EWrapperTokenMethodSelectors.deposit
+        : EWrapperTokenMethodSelectors.withdraw;
+
+    const amountHex = toBigIntHex(
+      new BigNumber(amount).shiftedBy(network.decimals),
+    );
+
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
+
+    if (type === EWrappedType.DEPOSIT) {
+      return {
+        from,
+        to: contract,
+        value: amountHex,
+        data,
+      };
+    }
+
+    return {
+      from,
+      to: contract,
+      value: '0x0',
+      data,
+    };
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx, getToken, getNFT } = params;
+
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
+
+    const [network, accountAddress, nativeTx] = await Promise.all([
+      this.getNetwork(),
+      this.getAccountAddress(),
+      parseToNativeTx({ encodedTx }),
+    ]);
+
+    let action: IDecodedTxAction | undefined = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.from ?? accountAddress,
+        to: encodedTx.to,
+        icon: network.logoURI ?? '',
+      },
+    };
+
+    let extraNativeTransferAction: IDecodedTxAction | undefined;
+    if (encodedTx.value) {
+      const valueBn = new BigNumber(encodedTx.value);
+      if (!valueBn.isNaN() && valueBn.gt(0)) {
+        extraNativeTransferAction =
+          await this._buildTxTransferNativeTokenAction({
+            encodedTx,
+            getNFT,
+            getToken,
+          });
+      }
+    }
+
+    if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+      const actionFromNativeTransfer =
+        await this._buildTxTransferNativeTokenAction({
+          encodedTx,
+          getNFT,
+          getToken,
+        });
+      if (actionFromNativeTransfer) {
+        action = actionFromNativeTransfer;
+      }
+      extraNativeTransferAction = undefined;
+    } else {
+      const actionFromContract = await this._buildTxActionFromContract({
+        encodedTx,
+        getToken,
+        getNFT,
+      });
+      if (actionFromContract) {
+        action = actionFromContract;
+      }
+    }
+
+    return this._buildDecodedTx({
+      encodedTx,
+      action,
+      extraNativeTransferAction,
+    });
+  }
+
+  async _buildTxActionFromContract(
+    params: { encodedTx: IEncodedTxEvm } & IBuildTxHelperParams,
+  ) {
+    let action: IDecodedTxAction | undefined;
+    const { encodedTx, getToken, getNFT } = params;
+    const nativeTx = await parseToNativeTx({
+      encodedTx,
+    });
+    const decoder = new EVMContractDecoder();
+    const erc20TxDesc = decoder.parseERC20(nativeTx);
+    if (erc20TxDesc) {
+      action = await this._buildTxTokenAction({
+        encodedTx,
+        txDesc: erc20TxDesc,
+        getNFT,
+        getToken,
+      });
+      if (action) return action;
+    }
+
+    const erc721TxDesc = decoder.parseERC721(nativeTx);
+    if (erc721TxDesc) {
+      action = await this._buildTxTransferNFTAction({
+        encodedTx,
+        txDesc: erc721TxDesc,
+        getToken,
+        getNFT,
+      });
+      if (action) return action;
+    }
+
+    const erc1155TxDesc = decoder.parseERC1155(nativeTx);
+    if (erc1155TxDesc) {
+      action = await this._buildTxTransferNFTAction({
+        encodedTx,
+        txDesc: erc1155TxDesc,
+        getToken,
+        getNFT,
+      });
+      if (action) return action;
+    }
+
+    if (erc20TxDesc || erc721TxDesc || erc1155TxDesc) {
+      action = await this._buildTxFunctionCallAction({
+        encodedTx,
+        txDesc: (erc20TxDesc ||
+          erc721TxDesc ||
+          erc1155TxDesc) as ethers.utils.TransactionDescription,
+      });
+    }
+
+    return action;
+  }
+
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx);
+      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxEvm);
     }
     throw new OneKeyInternalError();
   }
 
-  override async updateUnsignedTx(options: {
-    unsignedTx: IUnsignedTxPro;
-    feeInfo?: ITxUpdateFeeInfo | undefined;
-  }): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo } = options;
+  override async updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const { unsignedTx, feeInfo, nonceInfo, nativeAmountInfo } = params;
+    let encodedTxNew = unsignedTx.encodedTx as IEncodedTxEvm;
+
     if (feeInfo) {
-      const encodedTxNew = await this._attachFeeInfoToEncodedTx({
-        encodedTx: unsignedTx.encodedTx as IEncodedTxEvm,
+      encodedTxNew = await this._attachFeeInfoToEncodedTx({
+        encodedTx: encodedTxNew,
         feeInfo,
       });
-      unsignedTx.encodedTx = encodedTxNew;
-      return unsignedTx;
     }
 
-    throw new OneKeyInternalError();
+    if (nonceInfo) {
+      encodedTxNew = await this._attachNonceInfoToEncodedTx({
+        encodedTx: encodedTxNew,
+        nonceInfo,
+      });
+      unsignedTx.nonce = nonceInfo.nonce;
+    }
+
+    if (nativeAmountInfo) {
+      encodedTxNew = await this._updateNativeTokenAmount({
+        encodedTx: encodedTxNew,
+        nativeAmountInfo,
+      });
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+    return unsignedTx;
+  }
+
+  override async validateXpub(): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false, // EVM not support xpub
+    });
+  }
+
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    return validateEvmAddress(address);
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
@@ -73,36 +338,276 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
+  async _buildDecodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    action: IDecodedTxAction | undefined;
+    extraNativeTransferAction: IDecodedTxAction | undefined;
+  }): Promise<IDecodedTx> {
+    const { encodedTx, action, extraNativeTransferAction } = params;
+    const accountAddress = await this.getAccountAddress();
+    const finalActions = mergeAssetTransferActions(
+      [action, extraNativeTransferAction].filter(Boolean),
+    );
+
+    let nativeAmount = '0';
+    let nativeAmountValue = '0';
+
+    finalActions.forEach((item) => {
+      if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
+        nativeAmount = new BigNumber(nativeAmount)
+          .plus(item.assetTransfer?.nativeAmount ?? 0)
+          .toFixed();
+        nativeAmountValue = new BigNumber(nativeAmountValue)
+          .plus(item.assetTransfer?.nativeAmountValue ?? 0)
+          .toFixed();
+      }
+    });
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: accountAddress,
+      signer: encodedTx.from ?? accountAddress,
+      nonce: Number(encodedTx.nonce) ?? 0,
+      actions: finalActions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      nativeAmount,
+      nativeAmountValue,
+      extraInfo: null,
+    };
+    return decodedTx;
+  }
+
   async _buildEncodedTxFromTransfer(
-    transferInfo: ITransferInfo,
+    params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
+    const transfersInfo = params.transfersInfo as ITransferInfo[];
+    if (transfersInfo.length === 1) {
+      const transferInfo = transfersInfo[0];
+      const { from, to, amount, tokenInfo, nftInfo } = transferInfo;
+
+      if (!transferInfo.to) {
+        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      }
+
+      if (!tokenInfo && !nftInfo) {
+        throw new Error(
+          'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
+        );
+      }
+      if (nftInfo) {
+        const { nftAddress, nftId, nftType } = nftInfo;
+        const data = await this._buildEncodedDataFromTransferNFT({
+          from,
+          to,
+          id: nftId,
+          amount,
+          type: nftType,
+        });
+
+        return {
+          from,
+          to: nftAddress,
+          value: '0x0',
+          data,
+        };
+      }
+
+      if (tokenInfo) {
+        if (isNil(tokenInfo.decimals)) {
+          throw new Error(
+            'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals missing',
+          );
+        }
+
+        // native token transfer
+        if (tokenInfo.isNative) {
+          return {
+            from,
+            to,
+            value: numberUtils.numberToHex(
+              chainValueUtils.convertAmountToChainValue({
+                network,
+                value: amount,
+              }),
+            ),
+            data: '0x',
+          };
+        }
+
+        // token transfer
+        const data = await this._buildEncodedDataFromTransferToken({
+          to,
+          amount,
+          decimals: tokenInfo.decimals,
+        });
+        return {
+          from,
+          to: tokenInfo.address,
+          value: '0x0',
+          data,
+        };
+      }
+    }
+    return this._buildEncodedTxFromBatchTransfer(transfersInfo);
+  }
+
+  async _buildEncodeTxFromApprove(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxEvm> {
+    const { approveInfo } = params;
+
+    const { owner, spender, amount, tokenInfo } = approveInfo as IApproveInfo;
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(
+      amountBN.isNaN()
+        ? new BigNumber(2).pow(256).minus(1)
+        : amountBN.shiftedBy(tokenInfo.decimals),
+    );
+    const data = `${EErc20MethodSelectors.tokenApprove}${defaultAbiCoder
+      .encode(['address', 'uint256'], [spender, amountHex])
+      .slice(2)}`;
     return {
-      from: transferInfo.from,
-      to: transferInfo.to,
-      value: numberUtils.numberToHex(
-        chainValueUtils.convertAmountToChainValue({
-          network,
-          value: transferInfo.amount,
-        }),
-      ),
+      from: owner,
+      to: tokenInfo.address,
+      value: '0x0',
+      data,
+    };
+  }
+
+  async _buildEncodedDataFromTransferNFT(params: {
+    type: ENFTType;
+    from: string;
+    to: string;
+    id: string;
+    amount: string;
+  }) {
+    const { type, from, to, id, amount } = params;
+    if (type === ENFTType.ERC721) {
+      return `${EErc721MethodSelectors.safeTransferFrom}${defaultAbiCoder
+        .encode(['address', 'address', 'uint256'], [from, to, id])
+        .slice(2)}`;
+    }
+    return `${EErc1155MethodSelectors.safeTransferFrom}${defaultAbiCoder
+      .encode(
+        ['address', 'address', 'uint256', 'uint256', 'bytes'],
+        [from, to, id, amount, '0x00'],
+      )
+      .slice(2)}`;
+  }
+
+  async _buildEncodedDataFromTransferToken(params: {
+    to: string;
+    amount: string;
+    decimals: number;
+  }) {
+    const { to, amount, decimals } = params;
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(amountBN.shiftedBy(decimals));
+
+    const data = `${EErc20MethodSelectors.tokenTransfer}${defaultAbiCoder
+      .encode(['address', 'uint256'], [to, amountHex])
+      .slice(2)}`;
+
+    return data;
+  }
+
+  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
+    console.log(transfersInfo);
+    // TODO EVM batch transfer through contract
+    return {
+      from: '',
+      to: '',
+      value: '0',
       data: '0x',
     };
   }
 
   async _attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxEvm;
-    feeInfo: ITxUpdateFeeInfo;
+    feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxEvm> {
     const { encodedTx, feeInfo } = params;
     const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
+    const { feeDecimals } = feeInfo.common;
+
+    const encodedTxWithFee = { ...encodedTx };
+
+    if (!isNil(gasInfo?.gasLimit)) {
+      encodedTxWithFee.gas = gasInfo.gasLimit;
+      encodedTxWithFee.gasLimit = gasInfo.gasLimit;
+    }
+
+    if (feeInfo.gasEIP1559) {
+      encodedTxWithFee.maxFeePerGas = toBigIntHex(
+        new BigNumber(feeInfo.gasEIP1559.maxFeePerGas ?? 0).shiftedBy(
+          feeDecimals,
+        ),
+      );
+      encodedTxWithFee.maxPriorityFeePerGas = toBigIntHex(
+        new BigNumber(feeInfo.gasEIP1559.maxPriorityFeePerGas ?? 0).shiftedBy(
+          feeDecimals,
+        ),
+      );
+      delete encodedTxWithFee.gasPrice;
+    } else if (feeInfo.gas) {
+      encodedTxWithFee.gasPrice = toBigIntHex(
+        new BigNumber(feeInfo.gas.gasPrice).shiftedBy(feeDecimals),
+      );
+    }
+    return Promise.resolve(encodedTxWithFee);
+  }
+
+  async _attachNonceInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxEvm;
+    nonceInfo: { nonce: number };
+  }): Promise<IEncodedTxEvm> {
+    const { encodedTx, nonceInfo } = params;
     const tx = {
       ...encodedTx,
-      ...gasInfo,
+      nonce: String(nonceInfo.nonce),
     };
-    if (!isNil(feeInfo?.gas?.gasLimit)) {
-      tx.gas = feeInfo?.gas?.gasLimit;
+
+    return Promise.resolve(tx);
+  }
+
+  async _updateNativeTokenAmount(params: {
+    encodedTx: IEncodedTxEvm;
+    nativeAmountInfo: INativeAmountInfo;
+  }) {
+    const { encodedTx, nativeAmountInfo } = params;
+    const network = await this.getNetwork();
+
+    let newValue = encodedTx.value;
+
+    if (!isNil(nativeAmountInfo.maxSendAmount)) {
+      newValue = chainValueUtils.fixNativeTokenMaxSendAmount({
+        amount: nativeAmountInfo.maxSendAmount,
+        network,
+      });
+    } else if (!isNil(nativeAmountInfo.amount)) {
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.amount,
+          network,
+        }),
+      );
     }
+
+    const tx = {
+      ...encodedTx,
+      value: newValue,
+    };
     return Promise.resolve(tx);
   }
 
@@ -112,15 +617,287 @@ export default class Vault extends VaultBase {
     const tx = {
       ...encodedTx,
     };
-    const client = await this.getEthersClient();
     const chainIdHex = await this.getNetworkChainId({ hex: true });
     const chainIdNum = new BigNumber(chainIdHex).toNumber();
-    const nonce = await client.getTransactionCount(tx.from);
 
-    tx.nonce = numberUtils.numberToHex(nonce);
     tx.chainId = chainIdNum;
     return Promise.resolve({
       encodedTx: tx,
+      nonce: isNil(tx.nonce) ? tx.nonce : new BigNumber(tx.nonce).toNumber(),
+    });
+  }
+
+  async _buildTxFunctionCallAction(params: {
+    encodedTx: IEncodedTxEvm;
+    txDesc: ethers.utils.TransactionDescription;
+  }) {
+    const { encodedTx, txDesc } = params;
+
+    const [network, accountAddress] = await Promise.all([
+      this.getNetwork(),
+      this.getAccountAddress(),
+    ]);
+
+    const action: IDecodedTxAction = {
+      type: EDecodedTxActionType.FUNCTION_CALL,
+      functionCall: {
+        from: encodedTx.from ?? accountAddress,
+        to: encodedTx.to,
+        functionName: txDesc.name,
+        functionSignature: txDesc.signature,
+        args: txDesc.args.map((arg) => String(arg)),
+        icon: network.logoURI ?? '',
+      },
+    };
+
+    return action;
+  }
+
+  async _buildTxTokenAction(
+    params: {
+      encodedTx: IEncodedTxEvm;
+      txDesc: ethers.utils.TransactionDescription;
+    } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, txDesc, getToken } = params;
+
+    const token = await getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: encodedTx.to,
+    });
+
+    if (!token) return;
+
+    if (
+      txDesc.name === EErc20TxDescriptionName.TransferFrom ||
+      txDesc.name === EErc20TxDescriptionName.Transfer
+    ) {
+      return this._buildTxTransferTokenAction({
+        encodedTx,
+        txDesc,
+        token,
+      });
+    }
+
+    if (txDesc.name === EErc20TxDescriptionName.Approve) {
+      return this._buildTxApproveTokenAction({
+        encodedTx,
+        txDesc,
+        token,
+      });
+    }
+  }
+
+  async _buildTxTransferTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+    txDesc: ethers.utils.TransactionDescription;
+    token: IToken;
+  }) {
+    const { encodedTx, token, txDesc } = params;
+
+    let from = encodedTx.from.toLowerCase();
+    let recipient = encodedTx.to.toLowerCase();
+    let value = ethers.BigNumber.from(0);
+
+    // Function:  transfer(address _to, uint256 _value)
+    if (txDesc?.name === EErc20TxDescriptionName.Transfer) {
+      from = encodedTx.from.toLowerCase();
+      recipient = (txDesc.args[0] as string).toLowerCase();
+      value = txDesc.args[1] as ethers.BigNumber;
+    }
+
+    // Function:  transferFrom(address from, address to, uint256 value)
+    if (txDesc?.name === EErc20TxDescriptionName.TransferFrom) {
+      from = (txDesc?.args[0] as string).toLowerCase();
+      recipient = (txDesc?.args[1] as string).toLowerCase();
+      value = txDesc?.args[2] as ethers.BigNumber;
+    }
+
+    const amount = chainValueUtils.convertTokenChainValueToAmount({
+      value: value.toString(),
+      token,
+    });
+
+    const transfer: IDecodedTxTransferInfo = {
+      from,
+      to: recipient,
+      tokenIdOnNetwork: token.address,
+      icon: token.logoURI ?? '',
+      symbol: token.symbol,
+      amount,
+      isNFT: false,
+    };
+
+    const action = await this._buildTxTransferAssetAction({
+      from: encodedTx.from,
+      to: encodedTx.to,
+      transfers: [transfer],
+    });
+
+    return action;
+  }
+
+  async _buildTxApproveTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+    txDesc: ethers.utils.TransactionDescription;
+    token: IToken;
+  }): Promise<IDecodedTxAction> {
+    const { encodedTx, txDesc, token } = params;
+    const spender = (txDesc?.args[0] as string).toLowerCase();
+    const value = txDesc?.args[1] as ethers.BigNumber;
+    const amount = formatValue(value, token.decimals);
+    const accountAddress = await this.getAccountAddress();
+
+    const action: IDecodedTxAction = {
+      type: EDecodedTxActionType.TOKEN_APPROVE,
+      tokenApprove: {
+        from: encodedTx.from ?? accountAddress,
+        to: spender,
+        amount,
+        icon: token.logoURI ?? '',
+        symbol: token.symbol,
+        tokenIdOnNetwork: token.address,
+        isMax: amount === InfiniteAmountText,
+      },
+    };
+
+    return action;
+  }
+
+  async _buildTxTransferNativeTokenAction(
+    params: { encodedTx: IEncodedTxEvm } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, getToken } = params;
+    const accountAddress = await this.getAccountAddress();
+    const nativeToken = await getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
+
+    if (!nativeToken) return;
+
+    const transfer: IDecodedTxTransferInfo = {
+      from: encodedTx.from ?? accountAddress,
+      to: encodedTx.to,
+      tokenIdOnNetwork: nativeToken.address,
+      icon: nativeToken.logoURI ?? '',
+      symbol: nativeToken.symbol,
+      amount: new BigNumber(encodedTx.value)
+        .shiftedBy(-nativeToken.decimals)
+        .toFixed(),
+      isNFT: false,
+      isNative: true,
+    };
+
+    const action = await this._buildTxTransferAssetAction({
+      from: encodedTx.from ?? accountAddress,
+      to: encodedTx.to,
+      transfers: [transfer],
+    });
+
+    return action;
+  }
+
+  async _buildTxTransferAssetAction(params: {
+    from: string;
+    to: string;
+    transfers: IDecodedTxTransferInfo[];
+  }): Promise<IDecodedTxAction> {
+    const { from, to, transfers } = params;
+    const [accountAddress, network] = await Promise.all([
+      this.getAccountAddress(),
+      this.getNetwork(),
+    ]);
+
+    let sendNativeTokenAmountBN = new BigNumber(0);
+
+    const assetTransfer: IDecodedTxActionAssetTransfer = {
+      from,
+      to,
+      sends: [],
+      receives: [],
+    };
+
+    transfers.forEach((transfer) => {
+      if (
+        buildTxActionDirection({
+          from: transfer.from,
+          to: transfer.to,
+          accountAddress,
+        }) === EDecodedTxDirection.OUT
+      ) {
+        assetTransfer.sends.push(transfer);
+        if (transfer.isNative) {
+          sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
+            new BigNumber(transfer.amount),
+          );
+        }
+      } else {
+        assetTransfer.receives.push(transfer);
+      }
+    });
+
+    assetTransfer.nativeAmount = sendNativeTokenAmountBN.toFixed();
+    assetTransfer.nativeAmountValue = chainValueUtils.convertAmountToChainValue(
+      {
+        value: sendNativeTokenAmountBN,
+        network,
+      },
+    );
+
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer,
+    };
+  }
+
+  async _buildTxTransferNFTAction(
+    params: {
+      encodedTx: IEncodedTxEvm;
+      txDesc: ethers.utils.TransactionDescription;
+    } & IBuildTxHelperParams,
+  ) {
+    const { encodedTx, txDesc, getNFT } = params;
+    const accountAddress = await this.getAccountAddress();
+
+    if (
+      txDesc.name !== EErc721TxDescriptionName.SafeTransferFrom &&
+      txDesc.name !== EErc1155TxDescriptionName.SafeTransferFrom
+    )
+      return;
+
+    const [from, to, nftId, amount] =
+      txDesc?.args.map((arg) => String(arg)) || [];
+
+    const nft = await getNFT({
+      networkId: this.networkId,
+      collectionAddress: encodedTx.to,
+      nftId,
+    });
+
+    let nftAmount = amount;
+
+    if (!nft) return;
+
+    // For NFT ERC721, the amount is always 1
+    if (txDesc.name === EErc721TxDescriptionName.SafeTransferFrom) {
+      nftAmount = isNil(amount) ? '1' : amount;
+    }
+
+    const transfer: IDecodedTxTransferInfo = {
+      from,
+      to,
+      tokenIdOnNetwork: nftId,
+      amount: nftAmount,
+      icon: nft.metadata?.image ?? '',
+      symbol: nft.metadata?.name ?? '',
+      isNFT: true,
+    };
+
+    return this._buildTxTransferAssetAction({
+      from: encodedTx.from ?? accountAddress,
+      to: encodedTx.to,
+      transfers: [transfer],
     });
   }
 
@@ -143,5 +920,11 @@ export default class Vault extends VaultBase {
       txid: signedTx.txid,
       rawTx: signedTx.rawTx,
     };
+  }
+
+  override async getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    return super.baseGetPrivateKeyFromImported(params);
   }
 }

@@ -9,12 +9,12 @@ import {
 
 import { withStaticProperties } from 'tamagui';
 
-import { Stack, Text, XStack } from '../../primitives';
-import { ListView } from '../ListView';
+import { SizableText, Stack, XStack } from '../../primitives';
+import { ListView } from '../ListView/list';
 
-import type { IListViewProps, IListViewRef } from '../ListView';
+import type { ISizableTextProps, IStackProps } from '../../primitives';
+import type { IListViewProps, IListViewRef } from '../ListView/list';
 import type { ListRenderItem } from 'react-native';
-import type { GetProps } from 'tamagui';
 
 type ISectionRenderInfo = (info: {
   section: any;
@@ -63,6 +63,7 @@ type ISectionLayoutItem = {
   type: ESectionLayoutType;
   value: any;
   section?: any;
+  sectionIndex: number;
 };
 
 function BaseSectionList<T>(
@@ -73,6 +74,7 @@ function BaseSectionList<T>(
     renderSectionFooter,
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
+    keyExtractor,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -84,12 +86,14 @@ function BaseSectionList<T>(
         reloadSectionList.push({
           value: section,
           index: sectionIndex,
+          sectionIndex,
           type: ESectionLayoutType.SectionSeparator,
         });
       }
       reloadSectionList.push({
         value: section,
         index: sectionIndex,
+        sectionIndex,
         type: ESectionLayoutType.Header,
       });
       section?.data?.forEach?.((item, index) => {
@@ -97,12 +101,14 @@ function BaseSectionList<T>(
           value: item,
           section,
           index,
+          sectionIndex,
           type: ESectionLayoutType.Item,
         });
       });
       reloadSectionList.push({
         value: section,
         index: sectionIndex,
+        sectionIndex,
         type: ESectionLayoutType.Footer,
       });
     });
@@ -111,7 +117,7 @@ function BaseSectionList<T>(
 
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
-      return [];
+      return undefined;
     }
     return reloadSections
       .map((item, index) =>
@@ -184,6 +190,16 @@ function BaseSectionList<T>(
     (item: T) => (item as ISectionLayoutItem).type,
     [],
   );
+  const reloadKeyExtractor = useCallback(
+    (item: T, index: number) => {
+      const layoutItem = item as ISectionLayoutItem;
+      if (layoutItem.type === ESectionLayoutType.Item && keyExtractor) {
+        return keyExtractor(layoutItem.value, index);
+      }
+      return `${layoutItem.type}_${layoutItem.sectionIndex}_${layoutItem.index}`;
+    },
+    [keyExtractor],
+  );
   return (
     <ListView
       ref={ref}
@@ -191,6 +207,7 @@ function BaseSectionList<T>(
       renderItem={renderSectionAndItem as ListRenderItem<T>}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
+      keyExtractor={reloadKeyExtractor}
       {...restProps}
     />
   );
@@ -201,19 +218,19 @@ const SectionHeader = ({
   titleProps,
   children,
   ...restProps
-}: GetProps<typeof XStack> & {
+}: IStackProps & {
   title?: string;
-  titleProps?: GetProps<typeof Text>;
+  titleProps?: ISizableTextProps;
 }) => (
   <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
-    <Text
+    <SizableText
       numberOfLines={1}
-      variant="$headingSm"
+      size="$headingSm"
       color="$textSubdued"
       {...titleProps}
     >
       {title}
-    </Text>
+    </SizableText>
     {children}
   </XStack>
 );

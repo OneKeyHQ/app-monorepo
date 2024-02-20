@@ -1,8 +1,8 @@
 import { type GetProps } from 'tamagui';
 
-import { Icon, Text, YStack } from '../../../../primitives';
+import { Icon, SizableText, YStack } from '@onekeyhq/components/src/primitives';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 
-import type { IKeyOfIcons } from '../../../../primitives';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
 interface IMobileTabItemProps {
@@ -27,14 +27,14 @@ export function MobileTabItem(
         />
       )}
       {label && (
-        <Text
+        <SizableText
           numberOfLines={1}
           mt="$0.5"
-          variant="$headingXxs"
+          size="$headingXxs"
           color={selected ? '$text' : '$textSubdued'}
         >
           {label}
-        </Text>
+        </SizableText>
       )}
     </YStack>
   );

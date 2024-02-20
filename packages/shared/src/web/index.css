@@ -39,6 +39,7 @@ html {
 }
 
 body {
+  background: #0f0f0f;
   display: flex;
   /* Allows you to scroll below the viewport; default value is visible */
   overflow-y: auto;
@@ -89,6 +90,7 @@ input {
 
 button,
 input,
+[role='button'],
 /* `Select` and `Toggle` are typically wrapped by a `Group`, so we handle them consistently. */
 .is_GroupFrame {
   -webkit-app-region: no-drag;

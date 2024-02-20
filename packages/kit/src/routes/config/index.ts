@@ -4,11 +4,16 @@ import { useMemo } from 'react';
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { createURL } from 'expo-linking';
 
-import type {
-  ICommonNavigatorConfig,
-  INavigationContainerProps,
-  ITabNavigatorExtraConfig,
+import {
+  type ICommonNavigatorConfig,
+  type INavigationContainerProps,
+  type ITabNavigatorExtraConfig,
+  useRouterEventsRef,
 } from '@onekeyhq/components';
+import {
+  ONEKEY_APP_DEEP_LINK,
+  WALLET_CONNECT_DEEP_LINK,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
@@ -58,6 +63,8 @@ const resolveScreens = (routes: typeof rootRouter) =>
       }, {} as IScreenPathConfig)
     : undefined;
 
+const MODAL_PATH = `/${ERootRoutes.Modal}`;
+const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
 const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const screenHierarchyConfig = resolveScreens(routes);
   if (!screenHierarchyConfig) {
@@ -66,7 +73,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const allowList = buildAllowList(screenHierarchyConfig);
   return {
     enabled: true,
-    prefixes: [routerPrefix],
+    prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
 
     /**
      * Only change url at whitelist routes, or return home page
@@ -80,8 +87,17 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
         return extHtmlFileUrl;
       }
       const defaultPath = getPathFromStateDefault(state, options);
-      const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
+      const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
+        FULL_SCREEN_MODAL_PATH,
+        MODAL_PATH,
+      );
+
       const rule = allowList[defaultPathWithoutQuery];
+
+      if (!rule?.showUrl) {
+        return '/';
+      }
+
       const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
       // keep manifest v3 url with html file
       if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
@@ -92,6 +108,7 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
         */
         return `${extHtmlFileUrl}#${newPath}`;
       }
+
       return newPath;
     },
     config: {
@@ -105,8 +122,9 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   };
 };
 
-export const useRouterConfig = () =>
-  useMemo(() => {
+export const useRouterConfig = () => {
+  const routerRef = useRouterEventsRef();
+  return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
     return {
@@ -115,7 +133,11 @@ export const useRouterConfig = () =>
         documentTitle: {
           formatter: () => 'OneKey',
         },
+        onStateChange: (state) => {
+          routerRef.current.forEach((cb) => cb?.(state));
+        },
         linking: buildLinking(rootRouter),
       } as INavigationContainerProps,
     };
-  }, []);
+  }, [routerRef]);
+};

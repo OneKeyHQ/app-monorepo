@@ -1,19 +1,35 @@
 import type {
+  EAddressEncodings,
+  ICoreApiGetAddressItem,
+  ICoreImportedCredentialEncryptHex,
+  ICurveName,
   IEncodedTx,
   ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+  IOnChainHistoryTxAsset,
+} from '@onekeyhq/shared/types/history';
+import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type {
+  IAccountDeriveInfoMapBtc,
+  IAccountDeriveTypesBtc,
+} from './impls/btc/settings';
+import type { IAccountDeriveInfoMapCosmos } from './impls/cosmos/settings';
 import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_WATCHING,
-} from '../dbs/local/consts';
-import type { IDBWalletId } from '../dbs/local/types';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
@@ -24,6 +40,11 @@ export enum EVaultKeyringTypes {
 }
 
 // AccountNameInfo
+export type IAccountDeriveInfoItems = {
+  value: string;
+  label: string;
+  item: IAccountDeriveInfo;
+};
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
   idSuffix?: string; // hd-1--m/44'/60'/0'/0/0--LedgerLive
@@ -34,6 +55,8 @@ export interface IAccountDeriveInfo {
 
   template: string; // template with INDEX_PLACEHOLDER
   coinType: string;
+  coinName?: string;
+  addressEncoding?: EAddressEncodings;
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
@@ -61,24 +84,52 @@ export interface IAccountDeriveInfo {
 export type IAccountDeriveInfoMapBase = {
   default: IAccountDeriveInfo; // default is required
 };
-export type IAccountDeriveInfoMap = IAccountDeriveInfoMapEvm;
-export type IAccountDeriveTypes = 'default' | IAccountDeriveTypesEvm;
+export type IAccountDeriveInfoMap =
+  | IAccountDeriveInfoMapEvm
+  | IAccountDeriveInfoMapBtc
+  | IAccountDeriveInfoMapCosmos;
+export type IAccountDeriveTypes =
+  | 'default'
+  | IAccountDeriveTypesEvm
+  | IAccountDeriveTypesBtc;
 
+export type IVaultSettingsNetworkInfo = {
+  addressPrefix: string;
+  curve: ICurveName;
+};
 export type IVaultSettings = {
+  impl: string;
+  coinTypeDefault: string;
+
   importedAccountEnabled: boolean;
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
-  purposes: number[];
+
+  isUtxo: boolean;
+  isSingleToken: boolean;
+  NFTEnabled: boolean;
+  nonceRequired: boolean;
+  editFeeEnabled: boolean;
+
+  accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
+  networkInfo: {
+    default: IVaultSettingsNetworkInfo;
+    [networkId: string]: IVaultSettingsNetworkInfo;
+  };
 };
 
 export type IVaultFactoryOptions = {
   networkId: string;
   accountId: string;
   walletId?: IDBWalletId;
+  isChainOnly?: boolean;
+  isWalletOnly?: boolean;
 };
-export type IVaultOptions = IVaultFactoryOptions; // TODO remove
+export type IVaultOptions = IVaultFactoryOptions & {
+  backgroundApi: IBackgroundApi;
+};
 
 // PrepareAccounts ----------------------------------------------
 export type IGetPrivateKeysParams = {
@@ -89,33 +140,45 @@ export type IGetPrivateKeysResult = {
   [path: string]: Buffer;
 };
 export type IPrepareWatchingAccountsParams = {
-  target: string; // address, xpub
+  // target: string; // address, xpub TODO remove
+  address: string;
+  networks?: string[]; // watching account only available networkId
+  createAtNetwork: string;
+  pub?: string;
+  xpub?: string;
   name: string;
-  accountIdPrefix: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
-  template?: string;
+  template?: string; // TODO use deriveInfo, for BTC taproot address importing
 };
 export type IPrepareImportedAccountsParams = {
-  privateKey: Buffer;
-  name: string;
-  template?: string;
-};
-export type IPrepareHdAccountsParams = {
   password: string;
+  importedCredential: ICoreImportedCredentialEncryptHex;
+  createAtNetwork: string;
+  name: string;
+  template?: string; // TODO use deriveInfo
+  deriveInfo?: IAccountDeriveInfo;
+};
+export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
-  // purpose?: number; // TODO for what?
   names?: Array<string>; // custom names
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
 };
-export type IPrepareHardwareAccountsParams = {
-  // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
-  indexes: Array<number>;
-  purpose?: number;
-  names?: Array<string>;
-  coinType: string;
-  template: string;
-  skipCheckAccountExist?: boolean;
-  confirmOnDevice?: boolean;
+export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
+  password: string;
+};
+export type IPrepareHdAccountsOptions = {
+  addressEncoding?: EAddressEncodings;
+  checkIsAccountUsed?: (query: {
+    xpub: string;
+    xpubSegwit?: string;
+    address: string;
+  }) => Promise<{ isUsed: boolean }>;
+  buildAddressesInfo: (payload: {
+    usedIndexes: number[];
+  }) => Promise<ICoreApiGetAddressItem[]>;
+};
+export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
+  deviceParams: IDeviceSharedCallParams;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -145,52 +208,130 @@ export type IHardwareGetAddressParams = {
 
 export type IGetAddressParams = IHardwareGetAddressParams;
 
+export type IBuildAccountAddressDetailParams = {
+  networkId: string;
+  networkInfo: IVaultSettingsNetworkInfo;
+  account: IDBAccount;
+};
+
 // Internal txInfo ----------------------------------------------
 export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
-  token?: string; // tokenIdOnNetwork
+
+  tokenInfo?: IToken;
+
+  nftInfo?: {
+    nftId: string;
+    nftType: ENFTType;
+    nftAddress: string;
+  };
 };
 
-// Fee ----------------------------------------------
+export type IApproveInfo = {
+  owner: string;
+  spender: string;
+  amount: string;
+  tokenInfo?: IToken;
+};
 
-export interface ITxUpdateFeeInfo {
-  gas?: {
-    gasPrice?: string; // chainValue not GWEI
-    gasLimit?: string; // chainValue not GWEI
-    // gas?: string; // alias for gasLimit
-  };
-  gasEIP1559?: {
-    gasPrice?: string; // chainValue not GWEI
-    maxFeePerGas?: string; // chainValue not GWEI
-    maxPriorityFeePerGas?: string; // chainValue not GWEI
-  };
+export enum EWrappedType {
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
 }
+
+export type IWrappedInfo = {
+  from: string;
+  amount: string;
+  contract: string;
+  type: EWrappedType;
+};
+
+export type INativeAmountInfo = {
+  amount?: string;
+  maxSendAmount?: string;
+};
 
 // Send ------------
+export interface IBuildTxHelperParams {
+  getToken: ({
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    networkId: string;
+    tokenIdOnNetwork: string;
+  }) => Promise<IToken | undefined>;
+  getNFT: ({
+    networkId,
+    nftId,
+    collectionAddress,
+  }: {
+    networkId: string;
+    collectionAddress: string;
+    nftId: string;
+  }) => Promise<IAccountNFT | undefined>;
+}
 export interface IBuildEncodedTxParams {
-  transferInfo?: ITransferInfo;
-  // swapInfo
+  transfersInfo?: ITransferInfo[];
+  approveInfo?: IApproveInfo;
+  wrappedInfo?: IWrappedInfo;
+}
+export interface IBuildDecodedTxParams {
+  unsignedTx: IUnsignedTxPro;
 }
 export interface IBuildUnsignedTxParams {
-  encodedTx: IEncodedTx;
+  unsignedTx?: IUnsignedTxPro;
+  encodedTx?: IEncodedTx;
+  transfersInfo?: ITransferInfo[];
+  approveInfo?: IApproveInfo;
+  wrappedInfo?: IWrappedInfo;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
-  feeInfo?: ITxUpdateFeeInfo;
-  // tokenApproveInfo
-  // nonceInfo
+  feeInfo?: IFeeInfoUnit;
+  nonceInfo?: { nonce: number };
+  tokenApproveInfo?: { allowance: string };
+  nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
+  networkId: string;
   signedTx: ISignedTxPro;
 }
-export interface ISignTransactionParams {
+
+export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
-  password: string;
 }
+
 export type ISignAndSendTransactionParams = ISignTransactionParams;
+export type ISignTransactionParams = ISignTransactionParamsBase & {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
+
+export interface IBatchSignTransactionParamsBase {
+  unsignedTxs: IUnsignedTxPro[];
+  feeInfo?: IFeeInfoUnit;
+  nativeAmountInfo?: INativeAmountInfo;
+}
+
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
 }
+
+export interface IBuildHistoryTxParams {
+  accountId: string;
+  networkId: string;
+  onChainHistoryTx: IOnChainHistoryTx;
+  tokens: Record<string, IOnChainHistoryTxAsset>;
+  localHistoryPendingTxs?: IAccountHistoryTx[];
+  index?: number;
+}
+
+export type IGetPrivateKeyFromImportedParams = {
+  input: string;
+};
+export type IGetPrivateKeyFromImportedResult = {
+  privateKey: string;
+};

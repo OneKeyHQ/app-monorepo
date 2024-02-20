@@ -13,9 +13,9 @@ import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-
+import BigNumber from 'bignumber.js';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
@@ -29,8 +29,10 @@ import {
   verify,
 } from '../../secret';
 import {
-  EAddressEncodings,
   EMessageTypesBtc,
+} from '@onekeyhq/shared/types/message';
+import {
+  EAddressEncodings,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressQueryPublicKey,
@@ -67,7 +69,7 @@ import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type {
   IBtcForkNetwork,
   IBtcForkTransactionMixin,
-  IBtcForkUTXO,
+  IEncodedTxBtc,
 } from './types';
 
 const curveName: ICurveName = 'secp256k1';
@@ -108,15 +110,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    const { networkInfo, publicKey } = query;
+    const { networkInfo, publicKey, addressEncoding } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
 
-    const result = this.getAddressFromXpub({
+    const result = await this.getAddressFromXpub({
       network,
       xpub,
       relativePaths: ['0/0'],
+      addressEncoding,
     });
     return {
       address: result['0/0'],
@@ -209,7 +212,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return payment;
   }
 
-  public getAddressFromXpub({
+  public async getAddressFromXpub({
     network,
     xpub,
     relativePaths,
@@ -219,18 +222,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     xpub: string;
     relativePaths: Array<string>;
     addressEncoding?: EAddressEncodings;
-  }): Record<string, string> {
+  }): Promise<Record<string, string>> {
     // Only used to generate addresses locally.
     const decodedXpub = bs58check.decode(xpub);
     const versionBytes = parseInt(
       bufferUtils.bytesToHex(decodedXpub.slice(0, 4)),
       16,
     );
-    const encoding =
-      addressEncoding ??
-      this.getVersionBytesToEncodings({
+
+    let encoding = addressEncoding;
+    if (!encoding) {
+      const addressEncodingMap = this.getVersionBytesToEncodings({
         networkChainCode: network.networkChainCode,
-      }).public[versionBytes][0];
+      });
+      const supportEncodings = addressEncodingMap.public[versionBytes];
+      if (supportEncodings.length > 1) {
+        throw new Error(
+          'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
+        );
+      }
+      encoding = supportEncodings[0];
+    }
 
     const ret: Record<string, string> = {};
 
@@ -293,10 +305,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           'getSignersMap ERROR: address is required, is privateKeys including fullPath?',
         );
       }
-      signers[address] = await this.buildSignerBtc({
+      const signer = await this.buildSignerBtc({
         privateKey,
         password,
       });
+      signers[address] = signer;
     }
     return signers;
   }
@@ -329,6 +342,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // P2TR taproot
     if (input && input.tapInternalKey) {
       const privateKey = await signer.getPrvkey();
+      const privateKeyHex = await signer.getPrvkeyHex();
+      const publicKeyHex = await signer.getPubkeyHex();
       const tweakedSigner = tweakSigner(privateKey, publicKey, {
         network,
       });
@@ -357,12 +372,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload;
   }) {
     const { unsignedTx, btcExtraInfo } = payload;
-    const {
-      inputs,
-      outputs,
-      // @ts-expect-error
-      payload: { opReturn },
-    } = unsignedTx;
+    const { opReturn } = unsignedTx;
+    const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
 
     const inputAddressesEncodings = checkIsDefined(
       btcExtraInfo?.inputAddressesEncodings,
@@ -372,13 +383,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const psbt = this.getPsbt({ network });
 
     // eslint-disable-next-line no-plusplus
-    // @ts-expect-error
     for (let i = 0; i < inputs.length; ++i) {
-      // @ts-expect-error
       const input = inputs[i];
-      const utxo = input.utxo as IBtcForkUTXO;
-      check(utxo);
 
+      const inputValue: number = new BigNumber(input.value).toNumber();
       const encoding = inputAddressesEncodings[i];
       const mixin: IBtcForkTransactionMixin = {};
 
@@ -387,7 +395,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       switch (encoding) {
         case EAddressEncodings.P2PKH:
           mixin.nonWitnessUtxo = Buffer.from(
-            nonWitnessPrevTxs[utxo.txid],
+            nonWitnessPrevTxs[input.txid],
             'hex',
           );
           break;
@@ -400,7 +408,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
                 network,
               }),
             ).output as Buffer,
-            value: utxo.value.integerValue().toNumber(),
+            value: inputValue,
           };
           break;
         case EAddressEncodings.P2SH_P2WPKH:
@@ -414,7 +422,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
             );
             mixin.witnessUtxo = {
               script: payment.output as Buffer,
-              value: utxo.value.integerValue().toNumber(),
+              value: inputValue,
             };
             mixin.redeemScript = payment.redeem?.output as Buffer;
           }
@@ -430,7 +438,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
             );
             mixin.witnessUtxo = {
               script: payment.output as Buffer,
-              value: utxo.value.integerValue().toNumber(),
+              value: inputValue,
             };
             mixin.tapInternalKey = payment.internalPubkey;
           }
@@ -440,17 +448,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       }
 
       psbt.addInput({
-        hash: utxo.txid,
-        index: utxo.vout,
+        hash: input.txid,
+        index: input.vout,
         ...mixin,
       });
     }
 
-    // @ts-expect-error
     outputs.forEach((output) => {
+      const outputValue: number = new BigNumber(output.value).toNumber();
       psbt.addOutput({
         address: output.address,
-        value: output.value.integerValue().toNumber(),
+        value: outputValue,
       });
     });
 
@@ -704,18 +712,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       privateKeyRaw,
       networkInfo: { networkChainCode },
       template,
+      addressEncoding,
     } = query;
     // xPrivateKey but not single address privateKey
-    const privateKey = bufferUtils.toBuffer(privateKeyRaw);
+    const xprv = bufferUtils.toBuffer(privateKeyRaw);
 
     let xpub = '';
     let pubKey = '';
     const network = getBtcForkNetwork(networkChainCode);
 
-    const xprvVersionBytesNum = parseInt(
-      privateKey.slice(0, 4).toString('hex'),
-      16,
-    );
+    const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
     const versionByteOptions = [
       // ...Object.values(network.segwitVersionBytes || {}),
       ...Object.values(
@@ -726,7 +732,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     for (const versionBytes of versionByteOptions) {
       if (versionBytes.private === xprvVersionBytesNum) {
-        const privateKeySlice = privateKey.slice(46, 78);
+        const privateKeySlice = xprv.slice(46, 78);
         const publicKey = secp256k1.publicFromPrivate(privateKeySlice);
         const pubVersionBytes = Buffer.from(
           versionBytes.public.toString(16).padStart(8, '0'),
@@ -737,7 +743,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         // });
         try {
           xpub = bs58check.encode(
-            privateKey.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
+            xprv.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
           );
           // const publicKeyStr1 = keyPair.publicKey.toString('hex');
           const publicKeyStr2 = publicKey.toString('hex');
@@ -755,26 +761,26 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new OneKeyInternalError('Invalid X Private Key.');
     }
 
-    let addressEncoding;
+    let usedAddressEncoding = addressEncoding;
     let xpubSegwit = xpub;
-    if (template) {
+    if (template && !usedAddressEncoding) {
       if (template.startsWith(`m/44'/`)) {
-        addressEncoding = EAddressEncodings.P2PKH;
+        usedAddressEncoding = EAddressEncodings.P2PKH;
       } else if (template.startsWith(`m/86'/`)) {
-        addressEncoding = EAddressEncodings.P2TR;
+        usedAddressEncoding = EAddressEncodings.P2TR;
         // TODO if (isTaprootPath(pathPrefix)) {
         xpubSegwit = `tr(${xpub})`;
       } else {
-        addressEncoding = undefined;
+        usedAddressEncoding = undefined;
       }
     }
 
     const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
+    const { [firstAddressRelPath]: address } = await this.getAddressFromXpub({
       network,
       xpub,
       relativePaths: [firstAddressRelPath],
-      addressEncoding,
+      addressEncoding: usedAddressEncoding,
     });
     return Promise.resolve({
       publicKey: pubKey,
@@ -840,7 +846,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     ];
 
     const addresses = await Promise.all(
-      pubkeyInfos.map((info, index) => {
+      pubkeyInfos.map(async (info, index) => {
         const { path, parentFingerPrint, extendedKey } = info;
 
         const node = root.derivePath(`${path}/0/0`);
@@ -862,12 +868,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
         const firstAddressRelPath = '0/0';
         const relativePaths = [firstAddressRelPath];
-        const { [firstAddressRelPath]: address } = this.getAddressFromXpub({
-          network,
-          xpub,
-          relativePaths,
-          addressEncoding,
-        });
+        const { [firstAddressRelPath]: address } =
+          await this.getAddressFromXpub({
+            network,
+            xpub,
+            relativePaths,
+            addressEncoding,
+          });
 
         let xpubSegwit = xpub;
         if (isTaprootPath(pathPrefix)) {
@@ -889,6 +896,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           address,
           publicKey,
           path,
+          relPath: firstAddressRelPath,
           xpub,
           xpubSegwit,
           addresses: { [firstAddressRelPath]: address },
@@ -909,6 +917,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       account,
     } = payload;
     const { psbtHex, inputsToSign } = unsignedTx;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
 
     if (!account.relPaths?.length) {
       throw new Error('BTC sign transaction need relPaths');
@@ -941,10 +950,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     // eslint-disable-next-line no-plusplus
-    // @ts-expect-error
-    for (let i = 0; i < unsignedTx.inputs.length; ++i) {
-      // @ts-expect-error
-      const { address } = unsignedTx.inputs[i];
+    for (let i = 0; i < encodedTx.inputs.length; ++i) {
+      const { address } = encodedTx.inputs[i];
       const signer = this.pickSigner(signers, address);
       const psbtInput = psbt.data.inputs[0];
       const bitcoinSigner = await this.getBitcoinSignerPro({

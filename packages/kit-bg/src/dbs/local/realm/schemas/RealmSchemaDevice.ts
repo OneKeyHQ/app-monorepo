@@ -21,9 +21,9 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
   public features!: string;
 
   /**
-   * ble mac address
+   * ble connectId address (mac)
    */
-  public mac!: string;
+  public connectId!: string;
 
   /**
    * device uuid
@@ -55,13 +55,15 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
    */
   public updatedAt!: number;
 
+  public verifiedAtVersion?: string;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Device,
     primaryKey: 'id',
     properties: {
       id: 'string',
       name: 'string',
-      mac: 'string',
+      connectId: 'string',
       uuid: 'string',
       deviceId: 'string',
       deviceType: 'string',
@@ -69,6 +71,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       payloadJson: 'string',
       createdAt: 'int',
       updatedAt: 'int',
+      verifiedAtVersion: 'string?',
     },
   };
 
@@ -77,7 +80,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
     return {
       id: this.id,
       name: this.name,
-      mac: this.mac,
+      connectId: this.connectId,
       uuid: this.uuid,
       deviceId: this.deviceId,
       deviceType: this.deviceType,
@@ -85,6 +88,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       payloadJson: this.payloadJson,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      verifiedAtVersion: this.verifiedAtVersion,
     };
   }
 }

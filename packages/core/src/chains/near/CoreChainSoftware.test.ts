@@ -37,8 +37,6 @@ const {
   txSamples: [
     {
       unsignedTx: {
-        inputs: [],
-        outputs: [],
         payload: {
           nonce: 0,
           blockHash: '13MioQFyijJBe6hnr2MXb8UvgHPaDJbXmxaePoU4a3ut',

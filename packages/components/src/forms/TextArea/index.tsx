@@ -10,18 +10,19 @@ import type { TextAreaProps } from 'tamagui';
 
 export type ITextAreaProps = Pick<
   IInputProps,
-  'disabled' | 'editable' | 'error'
+  'disabled' | 'editable' | 'error' | 'size'
 > &
   Omit<TextAreaProps, 'size'>;
 
 function BaseTextArea(
-  { disabled, editable, error, ...props }: ITextAreaProps,
+  { disabled, editable, error, size, ...props }: ITextAreaProps,
   ref: Ref<any>,
 ) {
   const sharedStyles = getSharedInputStyles({
     disabled,
     editable,
     error,
+    size,
   });
 
   return (
@@ -29,18 +30,21 @@ function BaseTextArea(
       unstyled
       ref={ref}
       fontSize={getFontSize('$bodyLg')}
-      px="$3"
-      py="$1.5"
+      px={sharedStyles.px}
+      py={size === 'large' ? '$3.5' : '$2.5'}
       numberOfLines={3}
       bg={sharedStyles.backgroundColor}
       color={sharedStyles.color}
-      borderRadius="$2"
+      borderRadius={sharedStyles.borderRadius}
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       placeholderTextColor={sharedStyles.placeholderTextColor}
       focusStyle={sharedStyles.focusStyle}
       disabled={disabled}
       cursor={sharedStyles.cursor}
+      style={{
+        borderCurve: 'continuous',
+      }}
       {...props}
     />
   );

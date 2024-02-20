@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import WebView from './index';
+import WebView from '.';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

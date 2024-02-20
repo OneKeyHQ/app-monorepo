@@ -1,0 +1,15 @@
+{
+  "root": "src",
+  "rules": [
+    "apis/*",
+    "dbs/**",
+    "endpoints/*",
+    "mock/*",
+    "providers/*",
+    "services/*",
+    "services/*/utils/**",
+    "states/**",
+    "vaults/base/*",
+    "vaults/impls/**"
+   ]
+}

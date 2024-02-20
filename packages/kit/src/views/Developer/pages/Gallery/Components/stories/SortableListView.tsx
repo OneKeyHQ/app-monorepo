@@ -3,11 +3,10 @@ import { useCallback, useState } from 'react';
 import {
   Button,
   Page,
-  SortableCell,
   SortableListView,
   SwipeableCell,
-  Text,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 export const mapIndexToData = (_d: any, index: number, array: any[]) => {
   const getColor = (i: number, numItems = 25) => {
@@ -22,7 +21,7 @@ export const mapIndexToData = (_d: any, index: number, array: any[]) => {
   };
 };
 
-const CELL_HEIGHT = 100;
+const CELL_HEIGHT = 70;
 
 const SortableListViewGallery = () => {
   const [data, setData] = useState(new Array(15).fill({}).map(mapIndexToData));
@@ -55,8 +54,9 @@ const SortableListViewGallery = () => {
       <SortableListView
         bg="$bgApp"
         data={data}
+        enabled={isEditing}
         keyExtractor={(item) => `${item.index}`}
-        renderItem={({ item, getIndex, drag, isActive }) => (
+        renderItem={({ item, getIndex, drag }) => (
           <SwipeableCell
             swipeEnabled={!isEditing}
             rightItemList={[
@@ -71,20 +71,31 @@ const SortableListViewGallery = () => {
               },
             ]}
           >
-            <SortableCell
+            <ListItem
               h={CELL_HEIGHT}
-              isEditing={isEditing}
-              alignItems="center"
-              justifyContent="center"
-              bg={item.backgroundColor}
-              drag={drag}
-              isActive={isActive}
-              onDeletePress={() => {
-                deleteCell(getIndex);
+              avatarProps={{
+                src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+                size: '$8',
               }}
+              title={`${item.index}可左滑拖动删除`}
+              {...(!isEditing && {
+                onPress: () => console.log(`点击${item.index}`),
+              })}
             >
-              <Text color="white">{item.index}可左滑拖动删除</Text>
-            </SortableCell>
+              {isEditing && (
+                <ListItem.IconButton
+                  key="darg"
+                  animation="quick"
+                  enterStyle={{
+                    opacity: 0,
+                    scale: 0,
+                  }}
+                  cursor="move"
+                  icon="DragOutline"
+                  onPressIn={drag}
+                />
+              )}
+            </ListItem>
           </SwipeableCell>
         )}
         getItemLayout={(_, index) => ({

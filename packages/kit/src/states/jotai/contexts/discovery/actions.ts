@@ -2,6 +2,9 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -18,11 +21,10 @@ import {
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import {
   activeTabIdAtom,
@@ -69,9 +71,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   /**
    * Browser web tab action
    */
-  setDisplayHomePage = contextAtomMethod((get, set, payload: boolean) => {
-    const v = get(displayHomePageAtom());
-    console.log('displayHomePageAtom: ', v);
+  setDisplayHomePage = contextAtomMethod((_, set, payload: boolean) => {
     set(displayHomePageAtom(), payload);
   });
 
@@ -139,11 +139,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addWebTab = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
-    // 记录函数执行时间
     const startTime = performance.now();
     const { tabs } = get(webTabsAtom());
     if (!payload.id || payload.id === homeTab.id) {
-      // TODO: nanoid will crash on native, replace by nanoid
       payload.id = generateUUID();
     }
     payload.timestamp = Date.now();
@@ -178,15 +176,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             tabToModify.timestamp = Date.now();
             if (value === 'about:blank' && payload.id) {
               homeResettingFlags[payload.id] = tabToModify.timestamp;
-            }
-            if (!payload.favicon) {
-              try {
-                tabToModify.favicon = `${
-                  new URL(tabToModify.url ?? '').origin
-                }/favicon.ico`;
-              } catch {
-                // ignore
-              }
             }
           }
         }
@@ -286,27 +275,41 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const bookmark = await this.getBookmarkData.call(set);
-      const index = bookmark.findIndex((item) => item.url === payload.url);
-      if (index !== -1) {
-        bookmark.splice(index, 1);
-      }
-      bookmark.push({ url: payload.url, title: payload.title });
-      this.buildBookmarkData.call(set, bookmark);
-      console.log('===>set browserBookmarkAtom: ', bookmark);
+
+      const bookmarks = await this.getBookmarkData.call(set);
+
+      // Filter out any bookmarks that have the same URL as the new one
+      const filteredBookmarks = bookmarks.filter(
+        (bookmark) => bookmark.url !== payload.url,
+      );
+      const newBookmark = { url: payload.url, title: payload.title };
+      const updatedBookmarks = [...filteredBookmarks, newBookmark];
+      this.buildBookmarkData.call(set, updatedBookmarks);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
     },
   );
 
   removeBrowserBookmark = contextAtomMethod(async (_, set, payload: string) => {
-    const bookmark = await this.getBookmarkData.call(set);
-    const index = bookmark.findIndex((item) => item.url === payload);
-    if (index !== -1) {
-      bookmark.splice(index, 1);
-    }
-    this.buildBookmarkData.call(set, bookmark);
+    const bookmarks = await this.getBookmarkData.call(set);
+    const updatedBookmarks = bookmarks.filter(
+      (bookmark) => bookmark.url !== payload,
+    );
+    this.buildBookmarkData.call(set, updatedBookmarks);
     this.syncBookmark.call(set, { url: payload, isBookmark: false });
   });
+
+  modifyBrowserBookmark = contextAtomMethod(
+    async (_, set, payload: IBrowserBookmark) => {
+      if (!payload.url || payload.url === homeTab.url) {
+        return;
+      }
+      const bookmark = await this.getBookmarkData.call(set);
+      const updatedBookmark = bookmark.map((item) =>
+        item.url === payload.url ? { ...item, ...payload } : item,
+      );
+      this.buildBookmarkData.call(set, updatedBookmark);
+    },
+  );
 
   /**
    * History actions
@@ -328,28 +331,35 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBrowserHistory = contextAtomMethod(
-    async (_, set, payload: IBrowserHistory) => {
+    async (_, set, payload: Omit<IBrowserHistory, 'id' | 'createdAt'>) => {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
       const history = await this.getHistoryData.call(set);
-      const index = history.findIndex((item) => item.url === payload.url);
-      if (index !== -1) {
-        history.splice(index, 1);
-      }
-      history.unshift({ url: payload.url, title: payload.title });
-      this.buildHistoryData.call(set, history);
-      console.log('===>set browserHistoryAtom: ', history);
+
+      const updatedHistory = history.filter((item) => item.url !== payload.url);
+
+      const newHistoryEntry = {
+        id: generateUUID(),
+        url: payload.url,
+        title: payload.title,
+        createdAt: Date.now(),
+      };
+
+      this.buildHistoryData.call(set, [newHistoryEntry, ...updatedHistory]);
     },
   );
 
   removeBrowserHistory = contextAtomMethod(async (_, set, payload: string) => {
     const history = await this.getHistoryData.call(set);
-    const index = history.findIndex((item) => item.url === payload);
-    if (index !== -1) {
-      history.splice(index, 1);
-    }
-    this.buildHistoryData.call(set, history);
+
+    const updatedHistory = history.filter((item) => item.id !== payload);
+
+    this.buildHistoryData.call(set, updatedHistory);
+  });
+
+  removeAllBrowserHistory = contextAtomMethod(async (_, set) => {
+    this.buildHistoryData.call(set, []);
   });
 
   /**
@@ -382,7 +392,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         if (userTriggered) {
-          void this.addBrowserHistory.call(set, { url, title: title ?? '' });
+          void this.addBrowserHistory.call(set, {
+            url: validatedUrl,
+            title: title ?? '',
+          });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {
@@ -394,8 +407,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
         const isNewTab =
-          (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
-          browserTypeHandler === 'MultiTabBrowser';
+          typeof isNewWindow === 'boolean'
+            ? isNewWindow
+            : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
+              browserTypeHandler === 'MultiTabBrowser';
 
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
@@ -440,27 +455,69 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   openMatchDApp = contextAtomMethod(
-    (_, set, { dapp, webSite, isNewWindow }: IMatchDAppItemType) => {
+    async (
+      _,
+      set,
+      { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
+    ) => {
       if (webSite) {
         return this.gotoSite.call(set, {
+          id: tabId,
           url: webSite.url,
           title: webSite.title,
-          // TODO: get favicon from url
-          // @ts-expect-error
-          favicon: webSite.favicon,
+          favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
+            webSite.url,
+          ),
           isNewWindow,
           userTriggered: true,
         });
       }
-      if (dapp) {
+      if (dApp) {
         return this.gotoSite.call(set, {
-          url: dapp.url,
-          title: dapp.name,
-          dAppId: dapp._id,
-          favicon: dapp.logoURL,
+          id: tabId,
+          url: dApp.url,
+          title: dApp.name,
+          dAppId: dApp.dappId,
+          favicon: dApp.logo || dApp.originLogo,
           userTriggered: true,
           isNewWindow,
         });
+      }
+    },
+  );
+
+  handleOpenWebSite = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        useCurrentWindow,
+        tabId,
+        navigation,
+        webSite,
+        dApp,
+        shouldPopNavigation = true,
+      }: {
+        navigation: ReturnType<typeof useAppNavigation>;
+        useCurrentWindow?: boolean;
+        tabId?: string;
+        webSite?: IMatchDAppItemType['webSite'];
+        dApp?: IMatchDAppItemType['dApp'];
+        shouldPopNavigation?: boolean;
+      },
+    ) => {
+      const isNewWindow = !useCurrentWindow;
+      this.setDisplayHomePage.call(set, false);
+      void this.openMatchDApp.call(set, {
+        webSite,
+        dApp,
+        isNewWindow,
+        tabId,
+      });
+      if (platformEnv.isDesktop) {
+        navigation.switchTab(ETabRoutes.MultiTabBrowser);
+      } else if (shouldPopNavigation) {
+        navigation.pop();
       }
     },
   );
@@ -567,26 +624,34 @@ export function useBrowserTabActions() {
 export function useBrowserBookmarkAction() {
   const actions = createActions();
   const buildBookmarkData = actions.buildBookmarkData.use();
+  const getBookmarkData = actions.getBookmarkData.use();
   const addBrowserBookmark = actions.addBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
+  const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
 
   return useRef({
     buildBookmarkData,
+    getBookmarkData,
     addBrowserBookmark,
     removeBrowserBookmark,
+    modifyBrowserBookmark,
   });
 }
 
 export function useBrowserHistoryAction() {
   const actions = createActions();
   const buildHistoryData = actions.buildHistoryData.use();
+  const getHistoryData = actions.getHistoryData.use();
   const addBrowserHistory = actions.addBrowserHistory.use();
   const removeBrowserHistory = actions.removeBrowserHistory.use();
+  const removeAllBrowserHistory = actions.removeAllBrowserHistory.use();
 
   return useRef({
     buildHistoryData,
+    getHistoryData,
     addBrowserHistory,
     removeBrowserHistory,
+    removeAllBrowserHistory,
   });
 }
 
@@ -594,11 +659,13 @@ export function useBrowserAction() {
   const actions = createActions();
   const gotoSite = actions.gotoSite.use();
   const openMatchDApp = actions.openMatchDApp.use();
+  const handleOpenWebSite = actions.handleOpenWebSite.use();
   const onNavigation = actions.onNavigation.use();
 
   return useRef({
     gotoSite,
     openMatchDApp,
+    handleOpenWebSite,
     onNavigation,
   });
 }

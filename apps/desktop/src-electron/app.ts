@@ -9,6 +9,7 @@ import {
   Menu,
   app,
   ipcMain,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -20,17 +21,18 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import {
+  ONEKEY_APP_DEEP_LINK_NAME,
+  WALLET_CONNECT_DEEP_LINK_NAME,
+} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import initProcess, { restartBridge } from './process/index';
+import initProcess, { restartBridge } from './process';
 
 import type { IPrefType } from './preload';
-
-const ONEKEY_APP_DEEP_LINK_NAME = 'onekey-wallet';
-const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
@@ -56,6 +58,8 @@ const sdkConnectSrc = isDev
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+
+let systemIdleInterval: NodeJS.Timeout;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
@@ -175,6 +179,23 @@ function clearWebData() {
   return session.defaultSession.clearStorageData({
     storages: ['cookies'],
   });
+}
+
+function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
+  if (systemIdleInterval) {
+    clearInterval(systemIdleInterval);
+  }
+  if (setIdleTime <= 0) {
+    return;
+  }
+  systemIdleInterval = setInterval(() => {
+    const idleTime = powerMonitor.getSystemIdleTime();
+    const systemState = powerMonitor.getSystemIdleState(setIdleTime);
+    if (idleTime > setIdleTime || systemState === 'locked') {
+      event.reply(ipcMessageKeys.APP_IDLE);
+      clearInterval(systemIdleInterval);
+    }
+  }, 1000);
 }
 
 function createMainWindow() {
@@ -380,6 +401,10 @@ function createMainWindow() {
     void clearWebData();
   });
 
+  ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
+    systemIdleHandler(setIdleTime, event);
+  });
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
@@ -410,7 +435,13 @@ function createMainWindow() {
   // Prevents clicking on links to open new Windows
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
-      contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      contents.setWindowOpenHandler((handleDetails) => {
+        mainWindow?.webContents.send(
+          ipcMessageKeys.WEBVIEW_NEW_WINDOW,
+          handleDetails,
+        );
+        return { action: 'deny' };
+      });
       contents.on('will-frame-navigate', (e) => {
         const { url } = e;
         const { action } = uriUtils.parseDappRedirect(url);

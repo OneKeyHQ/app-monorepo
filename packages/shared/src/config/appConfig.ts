@@ -13,9 +13,11 @@ export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYCN =
   process.env.HARDWARE_SDK_CONNECT_SRC_ONEKEYCN || 'https://jssdk.onekeycn.com';
 
-export const HARDWARE_SDK_VERSION = '0.3.27';
+export const HARDWARE_SDK_VERSION = '0.3.36';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
 export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';
+export const CERTIFICATE_URL_PATH = '/verify';
+export const CERTIFICATE_URL_LOCAL_DEV_PROXY = 'https://certificate.onekey.so';

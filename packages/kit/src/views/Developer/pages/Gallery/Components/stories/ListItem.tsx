@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 import type { ISwitchProps } from '@onekeyhq/components';
-import { Icon, ListItem, Stack, Switch } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, Switch } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { Layout } from './utils/Layout';
 
@@ -75,7 +76,7 @@ export const NFTDATA = [
   },
   {
     src: '',
-    title: 'Critter Osar',
+    title: 'Critter Osa',
     subtitle: 'Magic Eden · 5/22/23, 1:33 PM',
     amount: '3.186 SOL',
     value: '$52.82',
@@ -122,7 +123,10 @@ const ListItemGallery = () => (
                   primary={item.price}
                   secondary={item.change}
                   secondaryTextProps={{
-                    tone: parseFloat(item.change) >= 0 ? 'success' : 'critical',
+                    color:
+                      parseFloat(item.change) >= 0
+                        ? '$textSuccess'
+                        : '$textCritical',
                   }}
                 />
               </ListItem>
@@ -183,9 +187,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
             <ListItem
@@ -199,9 +201,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
             <ListItem
@@ -215,9 +215,7 @@ const ListItemGallery = () => (
               <ListItem.Text
                 primary="Detail"
                 align="right"
-                primaryTextProps={{
-                  tone: 'subdued',
-                }}
+                primaryTextProps={{}}
               />
             </ListItem>
           </Stack>
@@ -276,6 +274,30 @@ const ListItemGallery = () => (
                   color: '$iconActive',
                 }}
               />
+            </ListItem>
+          </Stack>
+        ),
+      },
+      {
+        title: 'render Props',
+        element: (
+          <Stack mx="$-5">
+            <ListItem title="EVM#2" subtitle="OxadE9..A57b · 0.006448ETH">
+              <ListItem.IconButton
+                icon="StarSolid"
+                iconProps={{
+                  color: '$iconActive',
+                }}
+              />
+            </ListItem>
+            <ListItem
+              renderAvatar={<SizableText>avatar</SizableText>}
+              renderIcon={<SizableText>icon</SizableText>}
+              // renderItemText={<SizableText>ItemTet</SizableText>}
+              title="EVM#1"
+              subtitle="OxadE9..A57b · 0.006448ETH"
+            >
+              <ListItem.IconButton icon="StarOutline" />
             </ListItem>
           </Stack>
         ),

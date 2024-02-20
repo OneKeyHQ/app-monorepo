@@ -1,12 +1,17 @@
-import type { PropsWithChildren, ReactChildren, ReactElement } from 'react';
-import { Children, cloneElement, isValidElement, useCallback } from 'react';
+import type {
+  PropsWithChildren,
+  ReactChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
+import { Children, cloneElement, isValidElement } from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
-import { HeightTransition } from '../../layouts';
-import { Label, Text, YStack } from '../../primitives';
+import { HeightTransition } from '../../content';
+import { Label, SizableText, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -22,7 +27,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={noop}>
-        <YStack space="$6">{children}</YStack>
+        <YStack space="$5">{children}</YStack>
       </TMForm>
     </FormProvider>
   );
@@ -40,21 +45,12 @@ const composeEventHandlers =
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
-  validateField: () => void,
   error: Error,
 ) => {
-  const { onBlur, onChange, onChangeText } = child.props as {
-    onBlur?: () => void;
+  const { onChange, onChangeText } = child.props as {
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
   };
-  const handleBlur = () => {
-    if (onBlur) {
-      onBlur();
-    }
-    validateField();
-  };
-  field.onBlur = handleBlur;
   switch (child.type) {
     case Input:
     case TextArea: {
@@ -73,6 +69,7 @@ const getChildProps = (
         : field.onChange;
       return {
         ...field,
+        error,
         onChange: handleChange,
       };
     }
@@ -82,18 +79,23 @@ const getChildProps = (
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     label?: string;
-    description?: string;
+    description?: string | ReactNode;
+    optional?: boolean;
   }>;
 
-function Field({ name, label, description, rules, children }: IFieldProps) {
+function Field({
+  name,
+  label,
+  optional,
+  description,
+  rules,
+  children,
+  testID = '',
+}: IFieldProps) {
   const {
     control,
-    trigger,
     formState: { errors },
   } = useFormContext();
-  const validateField = useCallback(() => {
-    void trigger(name);
-  }, [name, trigger]);
   const error = errors[name] as unknown as Error;
   return (
     <Controller
@@ -103,24 +105,27 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
           {label && (
-            <Label htmlFor={name} mb="$1.5">
-              {label}
-            </Label>
+            <XStack mb="$1.5">
+              <Label htmlFor={name}>{label}</Label>
+              {optional && (
+                <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                  (Optional)
+                </SizableText>
+              )}
+            </XStack>
           )}
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
-              ? cloneElement(
-                  child,
-                  getChildProps(child, field, validateField, error),
-                )
+              ? cloneElement(child, getChildProps(child, field, error))
               : child,
           )}
           <HeightTransition>
             {error?.message && (
-              <Text
+              <SizableText
+                testID={`${testID}-message`}
                 key={error?.message}
                 color="$textCritical"
-                variant="$bodyMd"
+                size="$bodyMd"
                 pt="$1.5"
                 animation="quick"
                 enterStyle={{
@@ -133,14 +138,16 @@ function Field({ name, label, description, rules, children }: IFieldProps) {
                 }}
               >
                 {error.message}
-              </Text>
+              </SizableText>
             )}
           </HeightTransition>
-          {description ? (
-            <Text variant="$bodyMd" pt="$1.5" color="$textSubdued">
+          {typeof description === 'string' ? (
+            <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
               {description}
-            </Text>
-          ) : null}
+            </SizableText>
+          ) : (
+            description
+          )}
         </Fieldset>
       )}
     />

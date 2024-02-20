@@ -1,8 +1,11 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
+import '../utils/axiosInterceptor';
 
 import { Container } from './Container';
 import { SplashProvider } from './SplashProvider';
@@ -14,17 +17,25 @@ if (platformEnv.isRuntimeBrowser) {
   window._frameTimestamp = null;
 }
 
+const LastActivityTracker = LazyLoad(
+  () => import('../components/LastActivityTracker'),
+  3000,
+);
+
 const flexStyle = { flex: 1 };
 
 export function KitProvider() {
   return (
-    <ThemeProvider>
-      <SplashProvider>
-        <GestureHandlerRootView style={flexStyle}>
-          <Container />
-        </GestureHandlerRootView>
-      </SplashProvider>
-      <PasswordVerifyPromptMount />
-    </ThemeProvider>
+    <GlobalJotaiReady>
+      <ThemeProvider>
+        <SplashProvider>
+          <GestureHandlerRootView style={flexStyle}>
+            <Container />
+          </GestureHandlerRootView>
+        </SplashProvider>
+        <PasswordVerifyPromptMount />
+        <LastActivityTracker />
+      </ThemeProvider>
+    </GlobalJotaiReady>
   );
 }

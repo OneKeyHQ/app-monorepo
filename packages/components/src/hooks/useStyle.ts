@@ -26,7 +26,7 @@ const getValue = (
     platformEnv.isNative || isRawValue
       ? theme?.[key]?.val
       : (theme?.[key]?.get() as VariableVal);
-  return value || fallback || '';
+  return value || fallback || key;
 };
 
 export const getThemeTokens = coreGetTokens;

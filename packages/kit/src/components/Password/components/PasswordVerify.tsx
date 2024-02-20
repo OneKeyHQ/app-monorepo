@@ -12,6 +12,7 @@ import { AuthenticationType } from 'expo-local-authentication';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { AppStatusActiveListener } from '../../AppStatusActiveListener';
 import { PasswordRegex, getPasswordKeyboardType } from '../utils';
@@ -41,12 +42,15 @@ const PasswordVerify = ({
   onInputPasswordAuth,
 }: IPasswordVerifyProps) => {
   const form = useForm<IPasswordVerifyForm>({
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     defaultValues: { password: '' },
   });
 
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch('password');
+  const [{ manualLocking }] = usePasswordPersistAtom();
 
   const rightActions = useMemo(() => {
     const actions: {
@@ -99,11 +103,11 @@ const PasswordVerify = ({
   }, [form, status]);
 
   useLayoutEffect(() => {
-    if (isEnable && !passwordInput) {
+    if (isEnable && !passwordInput && !manualLocking) {
       void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnable]);
+  }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
@@ -135,6 +139,7 @@ const PasswordVerify = ({
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           secureTextEntry={secureEntry}
+          onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
         />
       </Form.Field>

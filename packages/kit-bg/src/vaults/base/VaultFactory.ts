@@ -1,12 +1,11 @@
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IMemoizeeOptions } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import { mockIsAccountCompatibleWithNetwork } from '../../mock';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { VaultBase, VaultBaseChainOnly } from './VaultBase';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBWalletId } from '../../dbs/local/types';
 import type { IVaultFactoryOptions, IVaultOptions } from '../types';
 
 export class VaultFactory {
@@ -19,29 +18,34 @@ export class VaultFactory {
     this.vaultCreator = vaultCreator;
   }
 
+  backgroundApi?: IBackgroundApi;
+
   vaultCacheOptions: IMemoizeeOptions = {
     promise: true,
     primitive: true,
     max: 1,
-    maxAge: getTimeDurationMs({ minute: 15 }),
+    maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
     dispose: async (vault: VaultBaseChainOnly) => {
       // release resources
       await vault.destroy();
     },
   };
 
+  setBackgroundApi(backgroundApi: IBackgroundApi) {
+    this.backgroundApi = backgroundApi;
+  }
+
   vaultCreator: (options: IVaultOptions) => Promise<VaultBase>;
 
-  getVaultWithoutCache = async ({
-    networkId,
-    accountId,
-    walletId,
-  }: IVaultFactoryOptions): Promise<VaultBase> => {
-    const options = {
-      networkId,
-      accountId,
-      walletId,
-      // TODO reCreate rpc client when rpcURL changed
+  getVaultWithoutCache = async (
+    opt: IVaultFactoryOptions,
+  ): Promise<VaultBase> => {
+    if (!this.backgroundApi) {
+      throw new Error('backgroundApi not set yet');
+    }
+    const options: IVaultOptions = {
+      ...opt,
+      backgroundApi: this.backgroundApi,
     };
     const vault: VaultBase = await this.vaultCreator(options);
     return vault;
@@ -51,22 +55,12 @@ export class VaultFactory {
     async ({
       networkId,
       accountId,
-    }: Omit<IVaultFactoryOptions, 'walletId'>): Promise<VaultBase> => {
-      if (
-        accountId &&
-        networkId &&
-        !mockIsAccountCompatibleWithNetwork({ accountId, networkId })
-      ) {
-        throw new OneKeyInternalError(
-          `NetworkId and AccountId are incompatible: accountId=${accountId}, networkId=${networkId}`,
-        );
-      }
-
-      return this.getVaultWithoutCache({
+    }: Omit<IVaultFactoryOptions, 'walletId'>): Promise<VaultBase> =>
+      // TODO check account and network compatibility
+      this.getVaultWithoutCache({
         networkId,
         accountId,
-      });
-    },
+      }),
     {
       ...this.vaultCacheOptions,
       max: 3,
@@ -76,7 +70,11 @@ export class VaultFactory {
   getChainOnlyVault = memoizee(
     ({ networkId }: { networkId: string }): Promise<VaultBaseChainOnly> =>
       // This in fact returns a watching vault.
-      this.getVaultWithoutCache({ networkId, accountId: '' }),
+      this.getVaultWithoutCache({
+        networkId,
+        accountId: '',
+        isChainOnly: true,
+      }),
     {
       ...this.vaultCacheOptions,
       max: 1,
@@ -89,13 +87,14 @@ export class VaultFactory {
       walletId,
     }: {
       networkId: string;
-      walletId: string;
+      walletId: IDBWalletId;
     }): Promise<VaultBase> =>
       // This in fact returns a watching vault.
       this.getVaultWithoutCache({
         networkId,
         walletId,
         accountId: '',
+        isWalletOnly: true,
       }),
     {
       ...this.vaultCacheOptions,

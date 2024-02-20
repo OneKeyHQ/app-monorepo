@@ -30,7 +30,12 @@ export function toPlainErrorObject(error: IOneKeyError) {
       autoToast: error.autoToast,
       data: error.data,
       info: error.info,
-      stack: error.stack,
+      payload: error.payload,
+      // Crash in native hermes engine (error.stack serialize fail, only if Web3Errors object)
+      stack: platformEnv.isNative
+        ? 'Access error.stack failed in native hermes engine: unable to serialize, circular reference is too complex to analyze'
+        : error.stack,
+      reconnect: error.reconnect,
       // TODO Crash in Android hermes engine (error.stack serialize fail, only if Web3Errors object)
       // 'Access error.stack failed in Android hermes engine: unable to serialize, circular reference is too complex to analyze'
     },
@@ -92,6 +97,7 @@ export function normalizeErrorProps(
     defaultMessage?: string;
     defaultKey?: ILocaleIds;
     defaultAutoToast?: boolean;
+    alwaysAppendDefaultMessage?: boolean;
   },
 ): IOneKeyError {
   let msg: string | undefined = isString(props) ? props : props?.message;
@@ -110,6 +116,12 @@ export function normalizeErrorProps(
     }
   }
   msg = msg || config?.defaultMessage || '';
+
+  if (config?.alwaysAppendDefaultMessage) {
+    if (config?.defaultMessage) {
+      msg = `${msg} > ${config?.defaultMessage}`;
+    }
+  }
 
   return {
     message: msg,

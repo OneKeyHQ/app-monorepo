@@ -1,0 +1,23 @@
+{
+  "root": "src",
+  "rules": [
+    "background/**",
+    "components/**",
+    "hooks",
+    "provider/Container/**",
+    "routes/config/**",
+    "routes/Modal/*",
+    "routes/Tab/*",
+    "states/**",
+    "utils/**",
+    "views/*/background",
+    "views/*/pages/**",
+    "views/*/config/*",
+    "views/*/components/*",
+    "views/*/hooks",
+    "views/*/router",
+    "views/*/utils/**",
+    "common/components/**",
+    "common/hooks/**"
+   ]
+}

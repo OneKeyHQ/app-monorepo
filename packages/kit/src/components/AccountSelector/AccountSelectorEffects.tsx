@@ -1,5 +1,11 @@
-import { useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
@@ -7,34 +13,49 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
-export function AccountSelectorEffects({
-  num,
-  children,
-}: {
-  num: number;
-  children?: any;
-}) {
+import { useAccountAutoSelect } from './hooks/useAccountAutoSelect';
+import { useDeriveTypeAutoSelect } from './hooks/useDeriveTypeAutoSelect';
+import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
+
+function AccountSelectorEffectsCmp({ num }: { num: number }) {
   // TODO multiple UI sync
   const actions = useAccountSelectorActions();
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+
   const [isReady] = useAccountSelectorStorageReadyAtom();
-  const { sceneName } = useAccountSelectorSceneInfo();
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
-  useEffect(() => {
-    void actions.current.initFromStorage({
-      sceneName,
+  const sceneNameRef = useRef(sceneName);
+  sceneNameRef.current = sceneName;
+  const sceneUrlRef = useRef(sceneUrl);
+  sceneUrlRef.current = sceneUrl;
+
+  useAccountAutoSelect({ num });
+  useNetworkAutoSelect({ num });
+  useDeriveTypeAutoSelect({ num });
+
+  const reloadActiveAccountInfo = useCallback(async () => {
+    if (!isReady) {
+      return;
+    }
+    const activeAccount = await actions.current.reloadActiveAccountInfo({
       num,
+      selectedAccount,
     });
-  }, [actions, num, sceneName]);
-
-  useEffect(() => {
-    void actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+    if (activeAccount.account && activeAccount.network?.id) {
+      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+        account: activeAccount.account,
+        networkId: activeAccount.network?.id,
+      });
+    }
+    // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({
         selectedAccount,
         sceneName,
+        sceneUrl,
         num,
       });
     } else {
@@ -42,11 +63,51 @@ export function AccountSelectorEffects({
         'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
       );
     }
-  }, [actions, isSelectedAccountDefaultValue, num, sceneName, selectedAccount]);
+  }, [
+    actions,
+    isReady,
+    isSelectedAccountDefaultValue,
+    num,
+    sceneName,
+    sceneUrl,
+    selectedAccount,
+  ]);
 
-  if (isReady) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return children;
-  }
+  useEffect(() => {
+    void reloadActiveAccountInfo();
+  }, [reloadActiveAccountInfo]);
+
+  useEffect(() => {
+    const fn = reloadActiveAccountInfo;
+    const updateNetwork = (params: {
+      networkId: string;
+      sceneName: string;
+      sceneUrl: string;
+      num: number;
+    }) => {
+      if (
+        params.sceneName === sceneNameRef.current &&
+        params.sceneUrl === sceneUrlRef.current
+      ) {
+        actions.current.updateSelectedAccount({
+          num: params.num,
+          builder: (v) => ({
+            ...v,
+            networkId: params.networkId,
+          }),
+        });
+      }
+    };
+    // const fn = () => null;
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
+    };
+  }, [reloadActiveAccountInfo, actions]);
+
   return null;
 }
+
+export const AccountSelectorEffects = memo(AccountSelectorEffectsCmp);

@@ -4,12 +4,19 @@ import { withStaticProperties } from 'tamagui';
 
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
-import { ButtonFrame, Icon, Text, YStack } from '../../primitives';
+import {
+  ButtonFrame,
+  Heading,
+  Icon,
+  SizableText,
+  YStack,
+} from '../../primitives';
 import { Popover } from '../Popover';
 import { Trigger } from '../Trigger';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
+import type { GestureResponderEvent } from 'react-native';
 
 interface IActionListItemProps {
   icon?: IKeyOfIcons;
@@ -33,12 +40,16 @@ export function ActionListItem({
 }: IActionListItemProps & {
   onClose?: () => void;
 }) {
-  const handlePress = useCallback(async () => {
-    const result = await onPress?.();
-    if (result || result === undefined) {
-      onClose?.();
-    }
-  }, [onClose, onPress]);
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      const result = await onPress?.();
+      if (result || result === undefined) {
+        onClose?.();
+      }
+    },
+    [onClose, onPress],
+  );
   return (
     <ButtonFrame
       justifyContent="flex-start"
@@ -50,6 +61,9 @@ export function ActionListItem({
       $md={{
         py: '$2.5',
         borderRadius: '$3',
+      }}
+      style={{
+        borderCurve: 'continuous',
       }}
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
@@ -76,13 +90,13 @@ export function ActionListItem({
           {...iconProps}
         />
       )}
-      <Text
-        variant="$bodyMd"
-        $md={{ variant: '$bodyLg' }}
+      <SizableText
+        size="$bodyMd"
+        $md={{ size: '$bodyLg' }}
         color={destructive ? '$textCritical' : '$text'}
       >
         {label}
-      </Text>
+      </SizableText>
     </ButtonFrame>
   );
 }
@@ -97,6 +111,7 @@ export interface IActionListProps
   items?: IActionListItemProps[];
   sections?: IActionListSection[];
   onOpenChange?: (isOpen: boolean) => void;
+  disabled?: boolean;
   defaultOpen?: boolean;
 }
 
@@ -105,6 +120,7 @@ function BasicActionList({
   sections,
   renderTrigger,
   onOpenChange,
+  disabled,
   defaultOpen = false,
   ...props
 }: IActionListProps) {
@@ -145,7 +161,6 @@ function BasicActionList({
     <Popover
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
-      onFocusOutside={handleActionListClose}
       renderContent={
         <YStack p="$1" $md={{ p: '$3' }}>
           {items?.map(renderActionListItem)}
@@ -154,15 +169,15 @@ function BasicActionList({
             <YStack key={sectionIdx}>
               {sectionIdx > 0 && <Divider mx="$2" my="$1" />}
               {section.title && (
-                <Text
-                  variant="$headingXs"
-                  $md={{ variant: '$headingSm', paddingVertical: '$2.5' }}
-                  paddingVertical="$1.5"
-                  paddingHorizontal="$2"
+                <Heading
+                  size="$headingXs"
+                  $md={{ size: '$headingSm', paddingVertical: '$2.5' }}
+                  py="$1.5"
+                  px="$2"
                   color="$textSubdued"
                 >
                   {section.title}
-                </Text>
+                </Heading>
               )}
               {section.items.map(renderActionListItem)}
             </YStack>
@@ -174,7 +189,9 @@ function BasicActionList({
       }}
       {...props}
       renderTrigger={
-        <Trigger onPress={handleActionListOpen}>{renderTrigger}</Trigger>
+        <Trigger onPress={handleActionListOpen} disabled={disabled}>
+          {renderTrigger}
+        </Trigger>
       }
     />
   );

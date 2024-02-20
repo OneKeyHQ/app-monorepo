@@ -7,8 +7,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { extAnimConfig } from './ExtAnimConfig';
 import { makeHeaderScreenOptions } from './Header';
 
+import type { IScreenOptionsInfo } from './Navigator/types';
 import type { RouteProp } from '@react-navigation/native';
+import type { ParamListBase } from '@react-navigation/routers';
 import type { StackNavigationOptions } from '@react-navigation/stack';
+import type { StackCardInterpolationProps } from '@react-navigation/stack/lib/typescript/src/types';
 import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
@@ -42,8 +45,9 @@ export function makeRootScreenOptions(options: {
   };
 }
 
-export function makeModalOpenAnimationOptions(options: {
+export function makeModalOpenAnimationOptions(info: {
   isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   if (platformEnv.isExtension) {
     return {
@@ -53,54 +57,86 @@ export function makeModalOpenAnimationOptions(options: {
     };
   }
 
-  if (options.isVerticalLayout) {
+  if (info.isVerticalLayout) {
     return {
       animationEnabled: true,
-      ...TransitionPresets.ModalSlideFromBottomIOS,
+      ...TransitionPresets.BottomSheetAndroid,
     };
   }
 
-  // fallback to platform defaults animation
-  return { animationEnabled: false };
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  const currentRouteIndex = info?.optionsInfo?.navigation
+    ?.getState?.()
+    ?.routes?.findIndex?.(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (route: any) => route?.key === info?.optionsInfo?.route?.key,
+    );
+  const animationConfig = TransitionPresets.ModalPresentationIOS;
+  function forModalPresentationIOS(config: StackCardInterpolationProps) {
+    const value = animationConfig.cardStyleInterpolator(config);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    value.overlayStyle.opacity = config?.current?.progress?.interpolate?.({
+      inputRange: [0, 1, 1.0001, 2],
+      outputRange: [0, 0.6, 1, 1],
+    });
+    if (currentRouteIndex > 1) {
+      value.overlayStyle = null;
+    }
+    return value;
+  }
+
+  return {
+    animationEnabled: true,
+    ...animationConfig,
+    cardStyleInterpolator: forModalPresentationIOS,
+  };
 }
 
 export function makeModalStackNavigatorOptions({
-  navInfo,
+  optionsInfo,
+  bgColor,
+  titleColor,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
-  navInfo?: {
-    route: RouteProp<any>;
-    navigation: any;
-  };
+  optionsInfo?: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,
+
     headerShown: platformEnv.isRuntimeBrowser,
+    animationEnabled: true,
+    ...TransitionPresets.SlideFromRightIOS,
+    ...makeHeaderScreenOptions({
+      navigation: optionsInfo?.navigation,
+      bgColor,
+      titleColor,
+      isModelScreen: true,
+    }),
+
     ...(platformEnv.isExtension
       ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
       : undefined),
-  };
+  } as any;
 
   // Disable modal first screen navigation.replace() animation
-  if (navInfo?.route?.params?._disabledAnimationOfNavigate) {
+  if (optionsInfo?.route?.params?._disabledAnimationOfNavigate) {
     options.animationEnabled = false;
   }
   return options;
 }
 
-export function makeModalScreenOptions({
-  isVerticalLayout,
-}: {
-  isVerticalLayout: boolean;
+export function makeModalScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,
     presentation: 'transparentModal',
     cardStyle: { backgroundColor: 'transparent' },
-    ...makeModalOpenAnimationOptions({ isVerticalLayout }),
+    ...makeModalOpenAnimationOptions(info),
   };
 }
 

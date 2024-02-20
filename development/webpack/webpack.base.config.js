@@ -6,7 +6,7 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
 const { createtResolveExtensions } = require('./utils');
-const { isDev, PUBLIC_URL, NODE_ENV } = require('./constant');
+const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -34,6 +34,7 @@ const basePlugins = [
     __DEV__: isDev,
     process: {
       env: {
+        ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
         TAMAGUI_TARGET: JSON.stringify('web'),
       },
@@ -68,8 +69,8 @@ module.exports = ({ platform, basePath, configName }) => ({
     path: path.join(basePath, 'web-build'),
     assetModuleFilename: 'static/media/[name].[hash][ext]',
     uniqueName: 'web',
-    filename: '[name].bundle.js',
-    chunkFilename: 'static/js/[name].chunk.js',
+    filename: '[name].[chunkhash:10].bundle.js',
+    chunkFilename: 'static/js/[name].[chunkhash:10].chunk.js',
   },
   plugins: [
     new HtmlWebpackPlugin({
@@ -234,6 +235,28 @@ module.exports = ({ platform, basePath, configName }) => ({
             resolve: { fullySpecified: false },
           },
           {
+            test: /(@?expo-*).*\.(ts|js)x?$/,
+            exclude: [/react-native-logs/, /react-native-modalize/],
+            use: {
+              loader: 'babel-loader',
+              options: {
+                babelrc: false,
+                configFile: true,
+                sourceType: 'unambiguous',
+                root: basePath,
+                compact: !isDev,
+                sourceMaps: isDev,
+                inputSourceMap: isDev,
+                cacheCompression: false,
+                cacheDirectory: path.resolve(
+                  basePath,
+                  'node_modules/.cache/babel-loader',
+                ),
+              },
+            },
+            resolve: { fullySpecified: false },
+          },
+          {
             test: /\.(css)$/,
             use: [
               'style-loader',
@@ -267,6 +290,12 @@ module.exports = ({ platform, basePath, configName }) => ({
       {
         test: /\.ejs$/i,
         use: ['html-loader', 'template-ejs-loader'],
+      },
+      {
+        test: /\.worker\.(js|ts)$/,
+        use: {
+          loader: 'worker-loader',
+        },
       },
     ],
   },

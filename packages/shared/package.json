@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "_folderslint": "yarn folderslint",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "author": "",
@@ -12,6 +13,7 @@
   "dependencies": {
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
+    "fast-safe-stringify": "^2.1.1",
     "flatted": "^3.2.7",
     "js-base64": "3.7.5",
     "jsonschema": "^1.4.1",
@@ -22,5 +24,8 @@
     "react-native-uuid": "^2.0.1",
     "redux-persist": "^6.0.0",
     "webextension-polyfill": "^0.8.0"
+  },
+  "devDependencies": {
+    "folderslint": "^1.2.0"
   }
 }

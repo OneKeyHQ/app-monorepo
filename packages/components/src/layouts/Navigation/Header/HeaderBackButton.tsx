@@ -1,8 +1,8 @@
 import { memo } from 'react';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useMedia } from 'tamagui';
 
-import { useIsVerticalLayout } from '../../../hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import HeaderButtonGroup from './HeaderButtonGroup';
 import HeaderCollapseButton from './HeaderCollapseButton';
@@ -18,7 +18,7 @@ function HeaderBackButton({
   disableClose,
   ...props
 }: IOnekeyStackHeaderProps & HeaderBackButtonProps) {
-  const isVerticalLayout = useIsVerticalLayout();
+  const isVerticalLayout = useMedia().md;
 
   const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
   const showCollapseButton = isRootScreen && !isVerticalLayout;
@@ -31,6 +31,7 @@ function HeaderBackButton({
           onPress={props.onPress}
           icon="ChevronLeftOutline"
           {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
+          testID="nav-header-back"
         />
       );
     }
@@ -38,8 +39,8 @@ function HeaderBackButton({
       return (
         <HeaderIconButton
           onPress={props.onPress}
-          testID="header-button-close"
           icon="CrossedLargeOutline"
+          testID="nav-header-close"
         />
       );
     }
