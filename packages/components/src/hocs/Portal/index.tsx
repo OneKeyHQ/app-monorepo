@@ -1,11 +1,13 @@
 // from https://github.com/magicismight/react-native-root-portal
 /* eslint-disable no-plusplus */
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 import { withStaticProperties } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
 
@@ -73,6 +75,27 @@ function PortalRender(props: {
   container?: EConstantName;
 }) {
   const { children, container } = props;
+
+  if (platformEnv.isDev) {
+    const { _owner } = children as any as {
+      _owner: { child: { elementType: { $$typeof: symbol } } };
+    };
+
+    console.log(
+      '_owner.child.elementType.$$typeof.toString()',
+      _owner.child,
+      'Symbol(react.memo)',
+    );
+    if (_owner.child.elementType.$$typeof.toString() !== 'Symbol(react.memo)') {
+      console.log('_owner.child.eleme', children, container)
+      // throw new Error(
+      //   `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
+      //     container || ''
+      //   }`,
+      // );
+    }
+  }
+
   const [retryTimes, updateRetryTimes] = useState(0);
 
   const managerController = useMemo(() => {
@@ -148,13 +171,14 @@ function PortalRender(props: {
   return null;
 }
 
+const MemoPortalRender = memo(PortalRender);
+
 function PortalContainer(props: {
   name: string;
   renderSibling?: (sibling: ReactNode) => ReactNode;
   children?: ReactNode;
 }) {
   const { name, renderSibling, children } = props;
-
   const sibling = useMemo(() => {
     const { Root, manager } = wrapRootComponent(ChildrenWrapper, renderSibling);
 
@@ -194,7 +218,7 @@ function PortalContainer(props: {
 
 export const Portal = withStaticProperties(PortalContainer, {
   Container: PortalContainer,
-  Body: PortalRender,
+  Body: MemoPortalRender,
   Render: renderToPortal,
   Constant: EConstantName,
 });

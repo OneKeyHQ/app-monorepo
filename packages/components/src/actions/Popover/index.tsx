@@ -311,32 +311,33 @@ const Popover = ({
     open,
     onOpenChangeFunc,
   );
-  // on web and WAP, we add the popover to the RNRootView
-  if (platformEnv.isRuntimeBrowser) {
+  if (platformEnv.isNative) {
+    // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
-      <RawPopover
-        open={isOpen}
-        onOpenChange={onOpenChange}
-        sheetProps={{ ...sheetProps, modal: true }}
-        renderTrigger={renderTrigger}
-        {...rest}
-      />
+      <>
+        <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+        <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+          <RawPopover
+            open={isOpen}
+            onOpenChange={onOpenChange}
+            renderTrigger={undefined}
+            {...rest}
+            sheetProps={sheetProps}
+          />
+        </Portal.Body>
+      </>
     );
   }
-  // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+
+  // on web and WAP, we add the popover to the RNRootView
   return (
-    <>
-      <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        <RawPopover
-          open={isOpen}
-          onOpenChange={onOpenChange}
-          renderTrigger={undefined}
-          {...rest}
-          sheetProps={sheetProps}
-        />
-      </Portal.Body>
-    </>
+    <RawPopover
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      sheetProps={{ ...sheetProps, modal: true }}
+      renderTrigger={renderTrigger}
+      {...rest}
+    />
   );
 };
 
