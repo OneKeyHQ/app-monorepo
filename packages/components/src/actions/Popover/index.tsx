@@ -330,6 +330,8 @@ const Popover = ({
           <RawPopover
             open={isOpen}
             onOpenChange={onOpenChange}
+            openPopover={openPopover}
+            closePopover={closePopover}
             renderTrigger={undefined}
             {...rest}
             sheetProps={sheetProps}
