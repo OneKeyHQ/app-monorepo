@@ -13,7 +13,6 @@ import { Layout } from './utils/Layout';
 
 const PopoverDemo = () => {
   const [isOpen, setIsOpen] = useState(false);
-  console.log('PopoverDemo---isOpen', isOpen);
   return (
     <Popover
       title="Popover Demo"
