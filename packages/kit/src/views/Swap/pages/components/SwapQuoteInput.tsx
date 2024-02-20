@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -8,6 +8,7 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -34,7 +35,7 @@ interface ISwapQuoteInputProps {
 const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { fetchLoading } = useSwapNetworkList();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const { quoteFetch, quoteFetching } = useSwapQuote();
+  const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
@@ -42,9 +43,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeAccount1 } = useActiveAccount({ num: 1 });
 
-  useEffect(() => {
-    void quoteFetch(Number(fromInputAmount));
-  }, [fromInputAmount, quoteFetch]);
+  useSwapQuote();
 
   const amountPrice = useMemo(() => {
     const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);

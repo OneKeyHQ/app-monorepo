@@ -4,6 +4,7 @@ import { YStack } from '@onekeyhq/components';
 import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -12,7 +13,6 @@ import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSel
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
-import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { ESwapApproveAllowanceType } from '../../types';
 
 interface ISwapQuoteResultProps {
@@ -27,7 +27,7 @@ const SwapQuoteResult = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
-  const { quoteFetching } = useSwapQuote();
+  const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [, setSwapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
   const protocolFee = useMemo<string | undefined>(
