@@ -24,6 +24,7 @@ export interface ISelectItem {
 export interface ISelectItemProps extends ISelectItem {
   onSelect: (item: ISelectItem) => void;
   selectedValue?: string | ISelectItem;
+  testID?: string;
 }
 
 export interface ISelectSection {
@@ -44,4 +45,5 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   sheetProps?: SheetProps;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
+  testID?: string;
 }>;

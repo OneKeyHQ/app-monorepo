@@ -1,13 +1,9 @@
-import type { ComponentType } from 'react';
 import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { useThemeValue } from '../../hooks';
-import { XStack } from '../../primitives';
 
 import type { IStackNavigationOptions } from '../Navigation';
 
@@ -45,38 +41,13 @@ const usePageHeaderReloadOptions = () => {
   return useMemo(() => ({ reload }), [reload]);
 };
 
-function HeaderRightContainerHOC(Component?: ComponentType) {
-  if (!Component) {
-    return null;
-  }
-  // eslint-disable-next-line react/no-unstable-nested-components
-  return function HeaderRightContainer(...props: any) {
-    return (
-      <XStack alignSelf="center">
-        <Component {...props} />
-      </XStack>
-    );
-  };
-}
-
-const useHeaderRightProps = (props: IPageHeaderProps) => {
-  if (platformEnv.isNativeIOS) {
-    return {
-      ...props,
-      headerRight: HeaderRightContainerHOC(props.headerRight as any),
-    };
-  }
-  return props;
-};
-
 const PageHeader = (props: IPageHeaderProps) => {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const reloadOptions = pageHeaderReload.reload(props);
-  const headerProps = useHeaderRightProps(reloadOptions);
   const navigation = useNavigation();
   useLayoutEffect(() => {
-    navigation.setOptions(headerProps);
-  }, [navigation, headerProps]);
+    navigation.setOptions(reloadOptions);
+  }, [navigation, reloadOptions]);
 
   return null;
 };

@@ -149,6 +149,14 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNetworkNames() {
+    const { networks: allNetworks } = await this.getAllNetworks();
+    return allNetworks.reduce((acc, item) => {
+      acc[item.id] = item.name;
+      return acc;
+    }, {} as Record<string, string>);
+  }
+  
   async containsNetwork({
     impls,
     networkId,

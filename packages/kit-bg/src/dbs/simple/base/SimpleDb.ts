@@ -1,4 +1,5 @@
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -19,5 +20,7 @@ export class SimpleDb {
 
   localTokens = new SimpleDbEntityLocalTokens();
 
+  addressBook = new SimpleDbEntityAddressBook();
+  
   localHistory = new SimpleDbEntityLocalHistory();
 }

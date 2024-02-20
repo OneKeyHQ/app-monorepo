@@ -22,6 +22,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAddressItem } from '@onekeyhq/kit/src/common/components/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -29,6 +30,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
+import { useAddressBookPick } from '../AddressBook/hooks/useAddressBook';
 import { BaseInput } from '../BaseInput';
 
 type IAddressPluginsOptions = {
@@ -39,9 +41,10 @@ type IAddressPluginsOptions = {
 
 type IAddressPluginProps = {
   onChange?: (text: string) => void;
+  testID?: string;
 };
 
-const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { getClipboard } = useClipboard();
   const onPress = useCallback(async () => {
     const text = await getClipboard();
@@ -53,11 +56,12 @@ const ClipboardPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
       variant="tertiary"
       icon="ClipboardOutline"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
 
-const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
     const address = await start(false);
@@ -69,34 +73,43 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
       variant="tertiary"
       icon="ScanSolid"
       onPress={onPress}
+      testID={testID}
     />
   );
 };
 
-const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[0]}
-    >
-      <ScanPlugin onChange={onChange} />
-    </AccountSelectorProviderMirror>
-  );
-};
+const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
+  <AccountSelectorProviderMirror
+    config={{
+      sceneName: EAccountSelectorSceneName.home,
+    }}
+    enabledNum={[0]}
+  >
+    <ScanPlugin onChange={onChange} />
+  </AccountSelectorProviderMirror>
+);
 
-const ContactsPlugin: FC<IAddressPluginProps> = ({ onChange }) => {
+const ContactsPlugin: FC<IContactsPluginProps> = ({
+  onChange,
+  networkId,
+  testID,
+}) => {
+  const pick = useAddressBookPick();
   const onPress = useCallback(() => {
-    // TODO: navigation to address book
-    onChange?.('');
-  }, [onChange]);
+    void pick({
+      networkId,
+      onPick: (item: IAddressItem) => {
+        onChange?.(item.address);
+      },
+    });
+  }, [onChange, pick, networkId]);
   return (
     <IconButton
       title="Contacts"
       onPress={onPress}
       variant="tertiary"
       icon="BookOpenOutline"
+      testID={testID}
     />
   );
 };
@@ -173,6 +186,7 @@ export type IAddressQueryResult = {
   input?: string;
   isValid?: boolean;
   walletAccountName?: string;
+  addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   isFirstTransfer?: boolean;
@@ -181,6 +195,12 @@ export type IAddressQueryResult = {
 const defaultAddressInputPlugins: IAddressPluginsOptions = {
   clipboard: true,
   scan: true,
+};
+
+const allAddressInputPlugins: IAddressPluginsOptions = {
+  clipboard: true,
+  scan: true,
+  contacts: true,
 };
 
 function AddressInput(props: IAddressInputProps) {
@@ -236,6 +256,7 @@ function AddressInput(props: IAddressInputProps) {
             networkId,
             address: debounceText,
             enableNameResolve,
+            enableAddressBook,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -245,7 +266,7 @@ function AddressInput(props: IAddressInputProps) {
       }
     }
     void main();
-  }, [debounceText, networkId, enableNameResolve]);
+  }, [debounceText, networkId, enableNameResolve, enableAddressBook]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -283,6 +304,11 @@ function AddressInput(props: IAddressInputProps) {
                   {queryResult.walletAccountName}
                 </Badge>
               ) : null}
+              {queryResult.addressBookName ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {queryResult.addressBookName}
+                </Badge>
+              ) : null}
               {queryResult.resolveAddress ? (
                 <ResolvedAddress
                   value={queryResult.resolveAddress}
@@ -300,12 +326,24 @@ function AddressInput(props: IAddressInputProps) {
         </XStack>
         <XStack space="$6">
           {plugins.clipboard ? (
-            <ClipboardPlugin onChange={onChangeText} />
+            <ClipboardPlugin
+              onChange={onChangeText}
+              testID={`${rest.testID ?? ''}-clip`}
+            />
           ) : null}
           {plugins.scan ? (
-            <ScanPluginContainer onChange={onChangeText} />
+            <ScanPluginContainer
+              onChange={onChangeText}
+              testID={`${rest.testID ?? ''}-scan`}
+            />
           ) : null}
-          {plugins.contacts ? <ContactsPlugin /> : null}
+          {plugins.contacts ? (
+            <ContactsPlugin
+              onChange={onChangeText}
+              networkId={networkId}
+              testID={`${rest.testID ?? ''}-contacts`}
+            />
+          ) : null}
         </XStack>
       </XStack>
     ),
@@ -319,7 +357,10 @@ function AddressInput(props: IAddressInputProps) {
       queryResult.resolveAddress,
       queryResult.resolveOptions,
       queryResult.walletAccountName,
+      queryResult.addressBookName,
       setResolveAddress,
+      networkId,
+      rest.testID,
     ],
   );
 
@@ -338,4 +379,4 @@ function AddressInput(props: IAddressInputProps) {
   );
 }
 
-export { AddressInput };
+export { AddressInput, allAddressInputPlugins };
