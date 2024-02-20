@@ -93,7 +93,7 @@
     "fast-json-stable-stringify": "^2.1.0",
     "html-webpack-plugin": "^5.5.3",
     "jotai": "^2.3.1",
-    "jsrsasign": "^11.0.0",
+    "jsrsasign": "^10.7.1",
     "memoizee": "^0.4.15",
     "mime-types": "^2.1.35",
     "path-browserify": "^1.0.1",

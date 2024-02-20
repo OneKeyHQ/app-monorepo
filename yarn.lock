@@ -6592,7 +6592,7 @@ __metadata:
     jest-html-reporter: ^3.7.0
     jotai: ^2.3.1
     json-stringify-safe: ^5.0.1
-    jsrsasign: ^11.0.0
+    jsrsasign: ^10.7.1
     lint-staged: ^11.2.6
     memoizee: ^0.4.15
     mime-types: ^2.1.35
@@ -24529,10 +24529,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsrsasign@npm:^11.0.0":
-  version: 11.0.0
-  resolution: "jsrsasign@npm:11.0.0"
-  checksum: 9bbcbb9d2609e279fb015eec259490053be0afd9a6a98743ce0bf42f825e8415b377bfb1aef1d988d3d9ece0bce34bec5bc64f71e99406d0743c37cbbb2f89a5
+"jsrsasign@npm:^10.7.1":
+  version: 10.9.0
+  resolution: "jsrsasign@npm:10.9.0"
+  checksum: 6ddb6943660a3ebe7c72f2089adf16d9644cd68fb775910fd7ca925d9191cad5a84f6975a0e7d337a8b1ea762309abfcffff0b8f4624c23f97921076c6bb9679
   languageName: node
   linkType: hard
 
