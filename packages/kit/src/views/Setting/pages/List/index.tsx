@@ -1,16 +1,16 @@
 import { Page, ScrollView, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
 import { AboutSection } from './AboutSection';
 import { CryptoCurrencySection } from './CryptoCurrencySection';
 import { DataSection } from './DataSection';
-import { DevModeSection } from './DevModeSection';
+import { DevSettingsSection } from './DevSettingsSection';
 import { HardwareBridgeSection } from './HardwareBridgeSection';
 import { PreferenceSection } from './PreferenceSection';
 import { SecuritySection } from './SecuritySection';
 
 export default function SettingListModal() {
-  const [settings] = useSettingsPersistAtom();
+  const [settings] = useDevSettingsPersistAtom();
 
   return (
     <Page>
@@ -22,7 +22,7 @@ export default function SettingListModal() {
           <CryptoCurrencySection />
           <HardwareBridgeSection />
           <AboutSection />
-          {settings.devMode.enable && <DevModeSection />}
+          {settings.enabled && <DevSettingsSection />}
         </Stack>
       </ScrollView>
     </Page>
