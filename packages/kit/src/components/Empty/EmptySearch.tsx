@@ -1,7 +1,15 @@
+import { useIntl } from 'react-intl';
+
 import { EmptyBase } from './EmptyBase';
 
 function EmptySearch() {
-  return <EmptyBase icon="SearchOutline" title="No results" />;
+  const intl = useIntl();
+  return (
+    <EmptyBase
+      icon="SearchOutline"
+      title={intl.formatMessage({ id: 'content__no_results' })}
+    />
+  );
 }
 
 export { EmptySearch };
