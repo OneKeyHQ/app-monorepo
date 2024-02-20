@@ -119,7 +119,12 @@ const SwapActionsState = ({
     } else {
       onApprove(fromAmount, swapStepState.approveUnLimit);
     }
-  }, [fromAmount, onApprove, swapStepState.shoutResetApprove]);
+  }, [
+    fromAmount,
+    onApprove,
+    swapStepState.approveUnLimit,
+    swapStepState.shoutResetApprove,
+  ]);
 
   const onActionHandler = useCallback(() => {
     if (swapStepState.type === ESwapStepStateType.APPROVE) {

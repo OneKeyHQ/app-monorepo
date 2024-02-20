@@ -11,6 +11,7 @@ import {
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
@@ -41,9 +42,11 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { activeAccount: activeAccount1 } = useActiveAccount({ num: 1 });
 
   useSwapQuote();
+  useSwapAccountNetworkSync({ fromToken, toToken });
 
   const amountPrice = useMemo(() => {
     const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
@@ -71,12 +74,16 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
 
   const onSelectAmountPercentage = useCallback(
     (item: ISwapFromAmountPercentageItem) => {
-      console.log('item-', item);
+      const fromTokenBalanceBN = new BigNumber(fromTokenBalance);
+      if (fromTokenBalanceBN.isZero() || fromTokenBalanceBN.isNaN()) return;
+      const fromTokenBalanceAmount = fromTokenBalanceBN
+        .multipliedBy(new BigNumber(item.value))
+        .decimalPlaces(6, BigNumber.ROUND_DOWN)
+        .toFixed();
+      setFromInputAmount(fromTokenBalanceAmount);
     },
-    [],
+    [fromTokenBalance, setFromInputAmount],
   );
-
-  useSwapAccountNetworkSync({ fromToken, toToken });
 
   return (
     <YStack>
