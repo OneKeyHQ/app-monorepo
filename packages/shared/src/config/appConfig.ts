@@ -19,3 +19,5 @@ export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
 
 export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';
+export const CERTIFICATE_URL_PATH = '/verify';
+export const CERTIFICATE_URL_LOCAL_DEV_PROXY = 'https://certificate.onekey.so';

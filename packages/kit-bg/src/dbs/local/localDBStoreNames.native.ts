@@ -10,4 +10,5 @@ export enum ELocalDBStoreNames {
   AccountDerivation = 'AccountDerivation',
   IndexedAccount = 'IndexedAccount',
   Device = 'Device',
+  Address = 'Address',
 }

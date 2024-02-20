@@ -15,6 +15,7 @@ const wallet: IDBWallet = {
   'nextAccountIds': {},
   'accounts': [],
   'nextIndex': 54,
+  'walletNo': 0,
   'avatarInfo': {
     'img': 'pig',
   },

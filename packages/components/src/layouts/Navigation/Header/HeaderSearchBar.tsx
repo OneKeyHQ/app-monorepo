@@ -106,6 +106,7 @@ function HeaderSearchBar({
       onChangeText={handleChangeCallback}
       onSubmitEditing={onSubmitEditingCallback}
       placeholder={placeholder}
+      testID="nav-header-search"
     />
   );
 }

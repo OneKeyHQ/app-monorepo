@@ -437,7 +437,7 @@ function dialogShow({
       confirmButtonProps,
     } = props;
     if (
-      !showFooter &&
+      showFooter === false &&
       (onCancel ||
         onCancelText ||
         cancelButtonProps ||
@@ -451,7 +451,7 @@ function dialogShow({
     }
 
     if (
-      !showConfirmButton &&
+      showConfirmButton === false &&
       (onConfirm || onConfirmText || confirmButtonProps)
     ) {
       throw new Error(
@@ -459,7 +459,10 @@ function dialogShow({
       );
     }
 
-    if (!showCancelButton && (onCancel || onCancelText || cancelButtonProps)) {
+    if (
+      showCancelButton === false &&
+      (onCancel || onCancelText || cancelButtonProps)
+    ) {
       throw new Error(
         'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
       );

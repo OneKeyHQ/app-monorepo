@@ -21,11 +21,15 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public nextIndex!: number;
 
+  public walletNo!: number;
+
   public nextAccountIds?: Realm.Dictionary<number>;
 
   public associatedDevice?: RealmSchemaDevice;
 
   public deviceType?: string;
+
+  public isTemp?: boolean;
 
   public passphraseState?: string;
 
@@ -40,6 +44,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       backuped: { type: 'bool', default: false },
       accounts: { type: 'set', objectType: 'Account', default: [] },
       nextIndex: { type: 'int', default: 0 },
+      walletNo: 'int',
       nextAccountIds: {
         type: 'dictionary',
         default: {},
@@ -47,6 +52,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       },
       associatedDevice: 'Device?',
       deviceType: 'string?',
+      isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
     },
   };
@@ -60,11 +66,13 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       backuped: this.backuped || false,
       accounts: (this.accounts || []).map((account) => account.id),
       nextIndex: this.nextIndex,
+      walletNo: this.walletNo,
       nextAccountIds: Object.fromEntries(
         Object.entries(Object(this.nextAccountIds)),
       ),
       associatedDevice: this.associatedDevice?.id,
       deviceType: this.deviceType,
+      isTemp: this.isTemp,
       passphraseState: this.passphraseState,
     };
   }

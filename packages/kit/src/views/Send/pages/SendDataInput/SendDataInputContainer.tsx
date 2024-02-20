@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   AddressInput,
   type IAddressInputValue,
+  allAddressInputPlugins,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -51,7 +52,15 @@ function SendDataInputContainer() {
 
   const { serviceNFT, serviceToken } = backgroundApiProxy;
 
-  const { networkId, accountId, isNFT, token, nfts } = route.params;
+  const {
+    networkId,
+    accountId,
+    isNFT,
+    token,
+    nfts,
+    address,
+    amount: sendAmount = '',
+  } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
   const { account, network } = useAccountData({ accountId, networkId });
@@ -114,8 +123,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
-      to: { raw: '' } as IAddressInputValue,
-      amount: '',
+      to: { raw: address } as IAddressInputValue,
+      amount: sendAmount,
       nftAmount: '',
     },
     mode: 'onChange',
@@ -428,7 +437,11 @@ function SendDataInputContainer() {
               },
             }}
           >
-            <AddressInput networkId={networkId} />
+            <AddressInput
+              networkId={networkId}
+              enableAddressBook
+              plugins={allAddressInputPlugins}
+            />
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
