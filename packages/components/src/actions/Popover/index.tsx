@@ -1,4 +1,9 @@
-import type { ComponentType, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import {
   createContext,
   useCallback,
@@ -25,6 +30,7 @@ import type {
   SheetProps,
   PopoverProps as TMPopoverProps,
 } from 'tamagui';
+import { PopoverContent } from './PopoverContent';
 
 export interface IPopoverProps extends TMPopoverProps {
   title: string;
@@ -52,7 +58,6 @@ const usePopoverValue = (
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
   const openPopover = useCallback(() => {
-    console.log('openPopover');
     if (isControlled) {
       onOpenChange?.(true);
     } else {
@@ -174,11 +179,16 @@ function RawPopover({
   );
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
-      {RenderContent
-        ? ((
-            <RenderContent isOpen={isOpen} closePopover={handleClosePopover} />
-          ) as ReactElement)
-        : (renderContent as ReactElement)}
+      <PopoverContent closePopover={handleClosePopover}>
+        {RenderContent
+          ? ((
+              <RenderContent
+                isOpen={isOpen}
+                closePopover={handleClosePopover}
+              />
+            ) as ReactElement)
+          : (renderContent as ReactElement)}
+      </PopoverContent>
     </PopoverContext.Provider>
   );
   return (
