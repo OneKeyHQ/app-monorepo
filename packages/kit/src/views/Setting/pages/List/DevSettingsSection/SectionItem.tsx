@@ -8,7 +8,7 @@ import type { IDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 interface ISectionItem extends PropsWithChildren {
-  name: IDevSettingsKeys;
+  name?: IDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
 }
@@ -21,10 +21,12 @@ export function SectionItem({
 }: ISectionItem) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
-  const value = devSetting?.settings?.[name];
+  const value = name ? devSetting?.settings?.[name] : '';
   const handleChange = useCallback(
     (v: any) => {
-      void backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
+      if (name) {
+        void backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
+      }
     },
     [name],
   );
