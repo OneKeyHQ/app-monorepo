@@ -147,8 +147,8 @@ function AccountSelectorPopoverContent({
       }}
       enabledNum={accountsInfo.map((account) => account.num)}
       availableNetworksMap={accountsInfo.reduce((acc, account) => {
-        if (Array.isArray(account.networkIds)) {
-          acc[account.num] = { networkIds: account.networkIds };
+        if (Array.isArray(account.availableNetworkIds)) {
+          acc[account.num] = { networkIds: account.availableNetworkIds };
         }
         return acc;
       }, {} as Record<number, { networkIds: string[] }>)}
@@ -195,19 +195,8 @@ function HeaderRightToolBar() {
         origin,
       );
 
-    if (!connectedAccount) return;
-
     console.log('====>>>connectedAccount: ', connectedAccount);
-    const connectedAccountWithNetworkIds = await Promise.all(
-      connectedAccount.map(async (accountInfo) => {
-        const { networkIds } =
-          await backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
-            impls: [accountInfo.networkImpl],
-          });
-        return { ...accountInfo, networkIds };
-      }),
-    );
-    return connectedAccountWithNetworkIds;
+    return connectedAccount;
   }, [origin]);
 
   const afterChangeAccount = useCallback(() => {
@@ -257,7 +246,9 @@ function HeaderRightToolBar() {
               }}
               enabledNum={[accountInfo.num]}
               availableNetworksMap={{
-                [accountInfo.num]: { networkIds: accountInfo.networkIds },
+                [accountInfo.num]: {
+                  networkIds: accountInfo.availableNetworkIds,
+                },
               }}
             >
               <XStack mr="$-1.5">

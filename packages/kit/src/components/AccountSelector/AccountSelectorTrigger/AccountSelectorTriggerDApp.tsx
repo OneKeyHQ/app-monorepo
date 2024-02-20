@@ -18,7 +18,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   beforeShowTrigger?: () => Promise<void>;
 }>(({ num, compressionUiMode, disabled, beforeShowTrigger, ...rest }) => {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, indexedAccount },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
@@ -85,6 +85,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           borderRadius="$1"
           account={account}
           networkId={network?.id}
+          indexedAccount={indexedAccount}
         />
       ) : null}
       {isCompressionUiMode ? (
@@ -120,7 +121,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
-    activeAccount: { account },
+    activeAccount: { account, indexedAccount },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num });
 
@@ -150,7 +151,11 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }}
       onPress={handlePress}
     >
-      <AccountAvatar size="small" account={account} />
+      <AccountAvatar
+        size="small"
+        account={account}
+        indexedAccount={indexedAccount}
+      />
       {media.gtMd ? (
         <>
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
