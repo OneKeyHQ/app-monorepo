@@ -1,127 +1,75 @@
-import { useCallback } from 'react';
+import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SearchBar,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
-
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useRiskyTokenListAtom,
-  useRiskyTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
-import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
+import { SearchBar, SizableText, Stack, XStack } from '@onekeyhq/components';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 type IProps = {
+  tokens: IAccountToken[];
   tableLayout?: boolean;
 };
 
-function TokenListHeader({ tableLayout }: IProps) {
-  const navigation = useAppNavigation();
-  const media = useMedia();
-
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
-
-  const [riskyTokenList] = useRiskyTokenListAtom();
-  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
-
-  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
-
-  const handleHiddenPress = useCallback(() => {
-    if (!account || !network || riskyTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.TokenList,
-      params: {
-        title: 'Blocked Assets',
-        accountId: account.id,
-        networkId: network.id,
-        tokenList: {
-          tokens: riskyTokens,
-          keys: riskyTokenKeys,
-          map: riskyTokenListMap,
-        },
-      },
-    });
-  }, [
-    account,
-    navigation,
-    network,
-    riskyTokenKeys,
-    riskyTokenListMap,
-    riskyTokens,
-  ]);
-
+function TokenListHeader({ tableLayout, tokens }: IProps) {
+  const intl = useIntl();
   return (
-    <Stack p="$5" pb="$3">
+    <Stack px="$5" pb="$3">
       <XStack justifyContent="space-between">
-        <SearchBar
-          placeholder="Search..."
-          containerProps={{
-            flex: 1,
-            mr: '$2.5',
-            maxWidth: '$80',
-          }}
-        />
-        <Button
-          {...(media.gtMd && {
-            icon: 'EyeOffOutline',
-          })}
-          onPress={handleHiddenPress}
-        >
-          {`${riskyTokens.length} Blocked`}
-        </Button>
+        {tokens.length > 10 && (
+          <SearchBar
+            placeholder="Search..."
+            containerProps={{
+              flex: 1,
+              mr: '$2.5',
+              mt: '$5',
+              maxWidth: '$80',
+            }}
+          />
+        )}
       </XStack>
       {tableLayout && (
         <XStack space="$3" pt="$5">
-          <SizableText color="$textSubdued" size="$headingXs" mr={44} w="$32">
-            Assets
+          <SizableText
+            color="$textSubdued"
+            size="$headingSm"
+            w="$64"
+            mr="$3"
+            $gtXl={{
+              w: '$80',
+            }}
+          >
+            {intl.formatMessage({ id: 'form__token' })}
+          </SizableText>
+          <SizableText
+            color="$textSubdued"
+            size="$headingSm"
+            textAlign="left"
+            w="$52"
+            $gtXl={{
+              w: '$72',
+            }}
+          >
+            {intl.formatMessage({ id: 'form__balance' })}
           </SizableText>
           <XStack space="$2">
             <SizableText
               color="$textSubdued"
-              textAlign="right"
-              size="$headingXs"
-              w="$32"
+              textAlign="left"
+              size="$headingSm"
+              w="$52"
               $gtXl={{
-                w: '$56',
-              }}
-              $gt2xl={{
                 w: '$72',
               }}
             >
-              Price
+              {intl.formatMessage({ id: 'content__price' })}
             </SizableText>
-            <Stack w="$24" />
           </XStack>
-          <SizableText
-            color="$textSubdued"
-            size="$headingXs"
-            textAlign="right"
-            w="$36"
-            $gtXl={{
-              w: '$56',
-            }}
-            $gt2xl={{
-              w: '$72',
-            }}
-          >
-            Amount
-          </SizableText>
+
           <SizableText
             flex={1}
             textAlign="right"
             color="$textSubdued"
-            size="$headingXs"
+            size="$headingSm"
           >
-            Value
+            {intl.formatMessage({ id: 'form__value' })}
           </SizableText>
         </XStack>
       )}

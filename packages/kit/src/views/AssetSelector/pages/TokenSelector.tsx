@@ -83,7 +83,7 @@ function TokenSelector() {
       />
       <Page.Body>
         {networkName && <SectionList.SectionHeader title={networkName} />}
-        <TokenListView onPressToken={handleTokenOnPress} withName />
+        <TokenListView onPressToken={handleTokenOnPress} />
       </Page.Body>
     </Page>
   );

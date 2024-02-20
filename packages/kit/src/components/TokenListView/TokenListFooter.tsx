@@ -8,6 +8,8 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { EModalRoutes } from '../../routes/Modal/type';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
+  useRiskyTokenListAtom,
+  useRiskyTokenListMapAtom,
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
@@ -34,10 +36,15 @@ function TokenListFooter(props: IProps) {
 
   const [smallBalanceTokensFiatValue] = useSmallBalanceTokensFiatValueAtom();
 
+  const [riskyTokenList] = useRiskyTokenListAtom();
+  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+
+  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
+
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
 
-  const handleLowValueTokensPress = useCallback(() => {
+  const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || smallBalanceTokens.length === 0) return;
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
@@ -62,32 +69,89 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokenListMap,
     smallBalanceTokens,
   ]);
+
+  const handleOnPressBlockedTokens = useCallback(() => {
+    if (!account || !network || riskyTokens.length === 0) return;
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenList,
+      params: {
+        title: 'Blocked Assets',
+        accountId: account.id,
+        networkId: network.id,
+        tokenList: {
+          tokens: riskyTokens,
+          keys: riskyTokenKeys,
+          map: riskyTokenListMap,
+        },
+      },
+    });
+  }, [
+    account,
+    navigation,
+    network,
+    riskyTokenKeys,
+    riskyTokenListMap,
+    riskyTokens,
+  ]);
   return (
     <Stack>
-      {tableLayout && <Divider mx="$5" />}
-      <ListItem mb="$5" onPress={handleLowValueTokensPress} userSelect="none">
-        <Stack
-          p={tableLayout ? '$1' : '$1.5'}
-          borderRadius="$full"
-          bg="$bgStrong"
-        >
-          <Icon
-            name="ControllerRoundSolid"
-            color="$iconSubdued"
-            size={tableLayout ? '$6' : '$7'}
+      {tableLayout &&
+        (smallBalanceTokens.length > 0 || riskyTokens.length > 0) && (
+          <Divider mx="$5" my="$2" />
+        )}
+      {smallBalanceTokens.length > 0 && (
+        <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
+          <Stack
+            p={tableLayout ? '$1' : '$1.5'}
+            borderRadius="$full"
+            bg="$bgStrong"
+          >
+            <Icon
+              name="ControllerRoundSolid"
+              color="$iconSubdued"
+              size={tableLayout ? '$6' : '$7'}
+            />
+          </Stack>
+          <ListItem.Text
+            flex={1}
+            primary={`${smallBalanceTokens.length} Low-value Assets`}
+            {...(tableLayout && {
+              primaryTextProps: { size: '$bodyMdMedium' },
+            })}
           />
-        </Stack>
-        <ListItem.Text
-          flex={1}
-          primary={`${smallBalanceTokens.length} Low-value Assets`}
-        />
-        <ListItem.Text
-          primary={`${settings.currencyInfo.symbol}${
-            getFormattedNumber(smallBalanceTokensFiatValue, { decimal: 2 }) ??
-            '0'
-          }`}
-        />
-      </ListItem>
+          <ListItem.Text
+            primary={`${settings.currencyInfo.symbol}${
+              getFormattedNumber(smallBalanceTokensFiatValue, { decimal: 2 }) ??
+              '0'
+            }`}
+            {...(tableLayout && {
+              primaryTextProps: { size: '$bodyMd' },
+            })}
+          />
+        </ListItem>
+      )}
+      {riskyTokens.length > 0 && (
+        <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
+          <Stack
+            p={tableLayout ? '$1' : '$1.5'}
+            borderRadius="$full"
+            bg="$bgStrong"
+          >
+            <Icon
+              name="BlockOutline"
+              color="$iconSubdued"
+              size={tableLayout ? '$6' : '$7'}
+            />
+          </Stack>
+          <ListItem.Text
+            flex={1}
+            primary={`${riskyTokens.length} Blocked Assets`}
+            {...(tableLayout && {
+              primaryTextProps: { size: '$bodyMdMedium' },
+            })}
+          />
+        </ListItem>
+      )}
     </Stack>
   );
 }

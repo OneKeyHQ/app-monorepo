@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useMedia } from 'tamagui';
 
@@ -28,6 +28,7 @@ type IProps = {
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
   const [allTokens, setAllTokens] = useState<ITokenData>();
+  const initialized = useRef(false);
 
   const {
     activeAccount: { account, network },
@@ -84,6 +85,8 @@ function TokenListContainer(props: IProps) {
           tokens: mergedTokens,
         });
       }
+
+      initialized.current = true;
     },
     [
       account,
@@ -97,6 +100,7 @@ function TokenListContainer(props: IProps) {
       refreshTokenListMap,
     ],
     {
+      watchLoading: true,
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
@@ -134,6 +138,7 @@ function TokenListContainer(props: IProps) {
         isLoading={promise.isLoading}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
+        initialized={initialized.current}
         {...(media.gtLg && {
           tableLayout: true,
         })}

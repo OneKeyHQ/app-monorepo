@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Divider, Empty, ListView } from '@onekeyhq/components';
+import { Divider, Empty, ListView, Spinner, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -20,6 +20,7 @@ type IProps = {
   withFooter?: boolean;
   withPrice?: boolean;
   withName?: boolean;
+  initialized?: boolean;
 };
 
 function TokenListEmpty() {
@@ -36,8 +37,6 @@ function TokenListEmpty() {
   );
 }
 
-const ItemSeparatorComponent = () => <Divider mx="$5" />;
-
 function TokenListView(props: IProps) {
   const {
     onContentSizeChange,
@@ -47,10 +46,30 @@ function TokenListView(props: IProps) {
     withFooter,
     withName,
     withPrice,
+    isLoading,
+    initialized,
   } = props;
 
   const [tokenList] = useTokenListAtom();
   const { tokens } = tokenList;
+
+  if (!initialized && isLoading) {
+    return (
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        mt="$24"
+        onLayout={(event) =>
+          onContentSizeChange?.(
+            event.nativeEvent.layout.width,
+            event.nativeEvent.layout.height,
+          )
+        }
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
 
   return (
     <ListView
@@ -58,14 +77,17 @@ function TokenListView(props: IProps) {
       scrollEnabled={platformEnv.isWebTouchable}
       data={tokens}
       ListHeaderComponent={
-        withHeader ? <TokenListHeader tableLayout={tableLayout} /> : null
+        withHeader ? (
+          <TokenListHeader tokens={tokens} tableLayout={tableLayout} />
+        ) : null
       }
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={TokenListEmpty}
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <TokenListItem
           token={item}
           key={item.$key}
+          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
           withName={withName}
@@ -75,9 +97,6 @@ function TokenListView(props: IProps) {
       ListFooterComponent={
         withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null
       }
-      {...(tableLayout && {
-        ItemSeparatorComponent,
-      })}
     />
   );
 }
