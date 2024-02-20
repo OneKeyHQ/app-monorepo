@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -31,18 +31,26 @@ function FinalizeWalletSetupPage({
     'Your wallet is now ready',
   ];
 
+  const created = useRef(false);
+
   useEffect(() => {
     void (async () => {
-      if (mnemonic) {
-        await actions.current.createHDWallet({
-          mnemonic,
-        });
-      } else {
-        // createHWWallet is called before this page loaded
+      try {
+        if (mnemonic && !created.current) {
+          await actions.current.createHDWallet({
+            mnemonic,
+          });
+          created.current = true;
+        } else {
+          // createHWWallet is called before this page loaded
+        }
+        setShowStep(true);
+      } catch (error) {
+        navigation.pop();
+        throw error;
       }
-      setShowStep(true);
     })();
-  }, [actions, mnemonic]);
+  }, [actions, mnemonic, navigation]);
 
   useEffect(() => {
     if (!showStep) {

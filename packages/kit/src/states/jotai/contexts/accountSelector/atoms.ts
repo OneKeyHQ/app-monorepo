@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import type {
-  IDBAccount,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -17,6 +16,7 @@ import type {
   EAccountSelectorSceneName,
   IServerNetwork,
 } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -94,7 +94,7 @@ export const {
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;
   isOthersWallet?: boolean;
-  account: IDBAccount | undefined;
+  account: INetworkAccount | undefined;
   indexedAccount: IDBIndexedAccount | undefined;
   accountName: string;
   wallet: IDBWallet | undefined;

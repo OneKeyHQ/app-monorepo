@@ -21,6 +21,6 @@ export class SimpleDb {
   localTokens = new SimpleDbEntityLocalTokens();
 
   addressBook = new SimpleDbEntityAddressBook();
-  
+
   localHistory = new SimpleDbEntityLocalHistory();
 }

@@ -37,18 +37,14 @@ export class VaultFactory {
 
   vaultCreator: (options: IVaultOptions) => Promise<VaultBase>;
 
-  getVaultWithoutCache = async ({
-    networkId,
-    accountId,
-    walletId,
-  }: IVaultFactoryOptions): Promise<VaultBase> => {
+  getVaultWithoutCache = async (
+    opt: IVaultFactoryOptions,
+  ): Promise<VaultBase> => {
     if (!this.backgroundApi) {
       throw new Error('backgroundApi not set yet');
     }
     const options: IVaultOptions = {
-      networkId,
-      accountId,
-      walletId,
+      ...opt,
       backgroundApi: this.backgroundApi,
     };
     const vault: VaultBase = await this.vaultCreator(options);
@@ -74,7 +70,11 @@ export class VaultFactory {
   getChainOnlyVault = memoizee(
     ({ networkId }: { networkId: string }): Promise<VaultBaseChainOnly> =>
       // This in fact returns a watching vault.
-      this.getVaultWithoutCache({ networkId, accountId: '' }),
+      this.getVaultWithoutCache({
+        networkId,
+        accountId: '',
+        isChainOnly: true,
+      }),
     {
       ...this.vaultCacheOptions,
       max: 1,
@@ -94,6 +94,7 @@ export class VaultFactory {
         networkId,
         walletId,
         accountId: '',
+        isWalletOnly: true,
       }),
     {
       ...this.vaultCacheOptions,

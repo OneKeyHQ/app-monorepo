@@ -168,15 +168,16 @@ export function convertDeviceError(
 export async function convertDeviceResponse<T>(
   fn: () => Promise<IDeviceResponseResult<T>>,
 ): Promise<T> {
+  let response: IDeviceResponseResult<T> | undefined;
   try {
-    const response = await fn();
-    if (!response.success) {
-      throw convertDeviceError(response.payload);
-    }
-    return response.payload;
+    response = await fn();
   } catch (e) {
     const error: Error | undefined = e as Error;
     console.error(error);
     throw new HardwareErrors.OneKeyHardwareError(error);
   }
+  if (!response.success) {
+    throw convertDeviceError(response.payload);
+  }
+  return response.payload;
 }

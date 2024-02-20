@@ -11,6 +11,8 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public nextHD!: number;
 
+  public nextWalletNo!: number;
+
   public verifyString!: string;
 
   public networkOrderChanged?: boolean;
@@ -25,6 +27,7 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
     properties: {
       id: 'string',
       nextHD: 'int',
+      nextWalletNo: 'int',
       verifyString: 'string',
       networkOrderChanged: { type: 'bool', default: false },
       pendingWallets: { type: 'set', objectType: 'string', default: [] },
@@ -36,6 +39,7 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
     return {
       id: this.id,
       nextHD: this.nextHD,
+      nextWalletNo: this.nextWalletNo,
       verifyString: this.verifyString,
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,

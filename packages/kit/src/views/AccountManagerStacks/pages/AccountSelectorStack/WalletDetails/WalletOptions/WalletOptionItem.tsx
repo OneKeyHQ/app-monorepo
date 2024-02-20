@@ -1,7 +1,7 @@
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import { Icon, Spinner, Stack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 export function WalletOptionItem({
   label,
@@ -10,6 +10,7 @@ export function WalletOptionItem({
   iconColor = '$iconSubdued',
   isLoading,
   children,
+  drillIn,
   ...rest
 }: Omit<IListItemProps, 'icon'> & {
   label: ISizableTextProps['children'];
@@ -17,9 +18,10 @@ export function WalletOptionItem({
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
   isLoading?: boolean;
+  drillIn?: boolean;
 }) {
   return (
-    <ListItem drillIn={!isLoading} {...rest}>
+    <ListItem drillIn={drillIn ?? !isLoading} {...rest}>
       <Stack px="$2">
         <Icon name={icon} color={iconColor} />
       </Stack>

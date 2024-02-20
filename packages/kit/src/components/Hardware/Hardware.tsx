@@ -2,9 +2,8 @@ import { useMemo, useState } from 'react';
 
 import { useForm } from 'react-hook-form';
 import { StyleSheet } from 'react-native';
-import { useMedia } from 'tamagui';
 
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -17,6 +16,7 @@ import {
   Stack,
   Toast,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 
 export function ConfirmOnClassic() {
@@ -67,12 +67,18 @@ export function ConfirmOnDevice() {
   );
 }
 
-export function CommonDeviceLoading({ children }: { children?: any }) {
+export function CommonDeviceLoading({
+  children,
+  bg,
+}: {
+  children?: any;
+  bg?: IColorTokens;
+}) {
   return (
     <Stack
       borderRadius="$3"
       p="$5"
-      bg="$bgSubdued"
+      bg={bg ?? '$bgSubdued'}
       style={{ borderCurve: 'continuous' }}
     >
       <Spinner size="large" />
