@@ -3,6 +3,8 @@ import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
@@ -175,6 +177,14 @@ const useRenderPopoverTrigger = () => {
   );
 };
 
+const requestIdleCallback = platformEnv.isNative
+  ? (callback: () => void) => {
+      setTimeout(callback, 50);
+    }
+  : (callback: () => void) => {
+      void InteractionManager.runAfterInteractions(callback);
+    };
+
 function SelectContent() {
   const {
     changeOpenStatus,
@@ -193,7 +203,7 @@ function SelectContent() {
   const handleSelect = useCallback(
     (item: ISelectItem) => {
       changeOpenStatus?.(false);
-      void InteractionManager.runAfterInteractions(() => {
+      requestIdleCallback(() => {
         selectedItemRef.current = item;
         onValueChange?.(labelInValue ? item : item.value);
       });
