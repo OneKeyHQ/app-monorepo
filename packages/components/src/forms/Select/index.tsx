@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
 import { Popover, Trigger } from '../../actions';
@@ -191,10 +192,11 @@ function SelectContent() {
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
-      selectedItemRef.current.value = item.value;
-      selectedItemRef.current.label = item.label;
-      onValueChange?.(labelInValue ? item : item.value);
       changeOpenStatus?.(false);
+      void InteractionManager.runAfterInteractions(() => {
+        selectedItemRef.current = item;
+        onValueChange?.(labelInValue ? item : item.value);
+      });
     },
     [changeOpenStatus, labelInValue, onValueChange, selectedItemRef],
   );
@@ -239,6 +241,7 @@ function SelectContent() {
     [],
   );
 
+  console.log('data___', sections, items);
   const renderContent = useMemo(
     () => {
       const listProps = {
