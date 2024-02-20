@@ -3,6 +3,7 @@ import { BackgroundServiceProxyBase } from '../../../apis/BackgroundServiceProxy
 import type { SimpleDb } from './SimpleDb';
 import type { BackgroundApiProxyBase } from '../../../apis/BackgroundApiProxyBase';
 import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
@@ -51,6 +52,10 @@ export class SimpleDbProxy
   localTokens = this._createProxyService(
     'localTokens',
   ) as SimpleDbEntityLocalTokens;
+
+  addressBook = this._createProxyService(
+    'addressBook',
+  ) as SimpleDbEntityAddressBook;
 
   localHistory = this._createProxyService(
     'localHistory',

@@ -1,0 +1,202 @@
+diff --git a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js
+index d670464..128f7ed 100644
+--- a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js
++++ b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/index.es.js
+@@ -1,2 +1,195 @@
+-import{EventEmitter as u}from"events";import{safeJsonStringify as p,safeJsonParse as g}from"@walletconnect/safe-json";import{isWsUrl as d,isReactNative as y,isLocalhostUrl as m,formatJsonRpcError as k,parseConnectionError as v}from"@walletconnect/jsonrpc-utils";const w=()=>typeof WebSocket<"u"?WebSocket:typeof global<"u"&&typeof global.WebSocket<"u"?global.WebSocket:typeof window<"u"&&typeof window.WebSocket<"u"?window.WebSocket:typeof self<"u"&&typeof self.WebSocket<"u"?self.WebSocket:require("ws"),b=()=>typeof WebSocket<"u"||typeof global<"u"&&typeof global.WebSocket<"u"||typeof window<"u"&&typeof window.WebSocket<"u"||typeof self<"u"&&typeof self.WebSocket<"u",a=c=>c.split("?")[0],h=10,S=w();class f{constructor(e){if(this.url=e,this.events=new u,this.registering=!1,!d(e))throw new Error(`Provided URL is not compatible with WebSocket connection: ${e}`);this.url=e}get connected(){return typeof this.socket<"u"}get connecting(){return this.registering}on(e,t){this.events.on(e,t)}once(e,t){this.events.once(e,t)}off(e,t){this.events.off(e,t)}removeListener(e,t){this.events.removeListener(e,t)}async open(e=this.url){await this.register(e)}async close(){return new Promise((e,t)=>{if(typeof this.socket>"u"){t(new Error("Connection already closed"));return}this.socket.onclose=n=>{this.onClose(n),e()},this.socket.close()})}async send(e){typeof this.socket>"u"&&(this.socket=await this.register());try{this.socket.send(p(e))}catch(t){this.onError(e.id,t)}}register(e=this.url){if(!d(e))throw new Error(`Provided URL is not compatible with WebSocket connection: ${e}`);if(this.registering){const t=this.events.getMaxListeners();return(this.events.listenerCount("register_error")>=t||this.events.listenerCount("open")>=t)&&this.events.setMaxListeners(t+1),new Promise((n,o)=>{this.events.once("register_error",s=>{this.resetMaxListeners(),o(s)}),this.events.once("open",()=>{if(this.resetMaxListeners(),typeof this.socket>"u")return o(new Error("WebSocket connection is missing or invalid"));n(this.socket)})})}return this.url=e,this.registering=!0,new Promise((t,n)=>{const o=new URLSearchParams(e).get("origin"),s=y()?{headers:{origin:o}}:{rejectUnauthorized:!m(e)},i=new S(e,[],s);b()?i.onerror=r=>{const l=r;n(this.emitError(l.error))}:i.on("error",r=>{n(this.emitError(r))}),i.onopen=()=>{this.onOpen(i),t(i)}})}onOpen(e){e.onmessage=t=>this.onPayload(t),e.onclose=t=>this.onClose(t),this.socket=e,this.registering=!1,this.events.emit("open")}onClose(e){this.socket=void 0,this.registering=!1,this.events.emit("close",e)}onPayload(e){if(typeof e.data>"u")return;const t=typeof e.data=="string"?g(e.data):e.data;this.events.emit("payload",t)}onError(e,t){const n=this.parseError(t),o=n.message||n.toString(),s=k(e,o);this.events.emit("payload",s)}parseError(e,t=this.url){return v(e,a(t),"WS")}resetMaxListeners(){this.events.getMaxListeners()>h&&this.events.setMaxListeners(h)}emitError(e){const t=this.parseError(new Error(e?.message||`WebSocket connection failed for host: ${a(this.url)}`));return this.events.emit("register_error",t),t}}export{f as WsConnection,f as default};
+-//# sourceMappingURL=index.es.js.map
++// Format the file with ESLint
++// Only from 126L to 133L changed.
++// The rest is the same as the original file。
++
++import { EventEmitter as u } from 'events';
++import {
++  safeJsonStringify as p,
++  safeJsonParse as g,
++} from '@walletconnect/safe-json';
++import {
++  isWsUrl as d,
++  isReactNative as y,
++  isLocalhostUrl as m,
++  formatJsonRpcError as k,
++  parseConnectionError as v,
++} from '@walletconnect/jsonrpc-utils';
++
++const w = () =>
++  typeof WebSocket < 'u'
++    ? WebSocket
++    : typeof global < 'u' && typeof global.WebSocket < 'u'
++    ? global.WebSocket
++    : typeof window < 'u' && typeof window.WebSocket < 'u'
++    ? window.WebSocket
++    : typeof self < 'u' && typeof self.WebSocket < 'u'
++    ? self.WebSocket
++    : require('ws');
++const b = () =>
++  typeof WebSocket < 'u' ||
++  (typeof global < 'u' && typeof global.WebSocket < 'u') ||
++  (typeof window < 'u' && typeof window.WebSocket < 'u') ||
++  (typeof self < 'u' && typeof self.WebSocket < 'u');
++const a = (c) => c.split('?')[0];
++const h = 10;
++const S = w();
++class f {
++  constructor(e) {
++    if (
++      ((this.url = e), (this.events = new u()), (this.registering = !1), !d(e))
++    )
++      throw new Error(
++        `Provided URL is not compatible with WebSocket connection: ${e}`,
++      );
++    this.url = e;
++  }
++
++  get connected() {
++    return typeof this.socket < 'u';
++  }
++
++  get connecting() {
++    return this.registering;
++  }
++
++  on(e, t) {
++    this.events.on(e, t);
++  }
++
++  once(e, t) {
++    this.events.once(e, t);
++  }
++
++  off(e, t) {
++    this.events.off(e, t);
++  }
++
++  removeListener(e, t) {
++    this.events.removeListener(e, t);
++  }
++
++  async open(e = this.url) {
++    await this.register(e);
++  }
++
++  async close() {
++    return new Promise((e, t) => {
++      if (typeof this.socket > 'u') {
++        t(new Error('Connection already closed'));
++        return;
++      }
++      (this.socket.onclose = (n) => {
++        this.onClose(n), e();
++      }),
++        this.socket.close();
++    });
++  }
++
++  async send(e) {
++    typeof this.socket > 'u' && (this.socket = await this.register());
++    try {
++      this.socket.send(p(e));
++    } catch (t) {
++      this.onError(e.id, t);
++    }
++  }
++
++  register(e = this.url) {
++    if (!d(e))
++      throw new Error(
++        `Provided URL is not compatible with WebSocket connection: ${e}`,
++      );
++    if (this.registering) {
++      const t = this.events.getMaxListeners();
++      return (
++        (this.events.listenerCount('register_error') >= t ||
++          this.events.listenerCount('open') >= t) &&
++          this.events.setMaxListeners(t + 1),
++        new Promise((n, o) => {
++          this.events.once('register_error', (s) => {
++            this.resetMaxListeners(), o(s);
++          }),
++            this.events.once('open', () => {
++              if ((this.resetMaxListeners(), typeof this.socket > 'u'))
++                return o(
++                  new Error('WebSocket connection is missing or invalid'),
++                );
++              n(this.socket);
++            });
++        })
++      );
++    }
++    return (
++      (this.url = e),
++      (this.registering = !0),
++      new Promise((t, n) => {
++        // >>>>>>>>>>>>>>>> patch changes start
++        // get origin from url
++        // https://github.com/WalletConnect/walletconnect-utils/blob/fbb3ebfdcf353dead903b68e574a3aa9c491e9d4/jsonrpc/ws-connection/src/ws.ts#L121
++        const o = new URLSearchParams(e).get('origin');
++        const s = y()
++          ? { headers: { origin: o } }
++          : { rejectUnauthorized: !m(e) };
++        // >>>>>>>>>>>>>>>> patch changes end
++        const i = new S(e, [], s);
++        b()
++          ? (i.onerror = (r) => {
++              const l = r;
++              n(this.emitError(l.error));
++            })
++          : i.on('error', (r) => {
++              n(this.emitError(r));
++            }),
++          (i.onopen = () => {
++            this.onOpen(i), t(i);
++          });
++      })
++    );
++  }
++
++  onOpen(e) {
++    (e.onmessage = (t) => this.onPayload(t)),
++      (e.onclose = (t) => this.onClose(t)),
++      (this.socket = e),
++      (this.registering = !1),
++      this.events.emit('open');
++  }
++
++  onClose(e) {
++    (this.socket = void 0),
++      (this.registering = !1),
++      this.events.emit('close', e);
++  }
++
++  onPayload(e) {
++    if (typeof e.data > 'u') return;
++    const t = typeof e.data === 'string' ? g(e.data) : e.data;
++    this.events.emit('payload', t);
++  }
++
++  onError(e, t) {
++    const n = this.parseError(t);
++    const o = n.message || n.toString();
++    const s = k(e, o);
++    this.events.emit('payload', s);
++  }
++
++  parseError(e, t = this.url) {
++    return v(e, a(t), 'WS');
++  }
++
++  resetMaxListeners() {
++    this.events.getMaxListeners() > h && this.events.setMaxListeners(h);
++  }
++
++  emitError(e) {
++    const t = this.parseError(
++      new Error(
++        e?.message || `WebSocket connection failed for host: ${a(this.url)}`,
++      ),
++    );
++    return this.events.emit('register_error', t), t;
++  }
++}
++export { f as WsConnection, f as default };
++// # sourceMappingURL=index.es.js.map

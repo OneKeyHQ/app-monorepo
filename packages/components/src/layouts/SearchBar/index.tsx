@@ -35,6 +35,7 @@ export function SearchBar({
           {
             iconName: 'XCircleOutline',
             onPress: handleClearValue,
+            testID: `${rest.testID || ''}-clear`,
           },
         ],
       })}
