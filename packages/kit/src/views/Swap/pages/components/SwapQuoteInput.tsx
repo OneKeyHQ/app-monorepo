@@ -3,7 +3,6 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Button, XStack, YStack } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -13,21 +12,19 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { swapFromAmountPercentageItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapFromAmountPercentageItem } from '@onekeyhq/shared/types/swap/types';
 
 import SwapFromAmountPercentage from '../../components/SwapFromAmountPercentage';
 import SwapTokenAmountInput from '../../components/SwapTokenAmountInput';
 import SwapTokenCurrencyValue from '../../components/SwapTokenCurrencyValue';
 import SwapTokenSelectTrigger from '../../components/SwapTokenSelectTrigger';
-import { swapFromAmountPercentageItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import { SwapSelectTokenBalance } from './SwapSelectTokenBalance';
-
-import type { ISwapFromAmountPercentageItem } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: 'from' | 'to') => void;
@@ -41,12 +38,10 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
-  const { activeAccount: activeAccount1 } = useActiveAccount({ num: 1 });
 
   useSwapQuote();
-  useSwapAccountNetworkSync({ fromToken, toToken });
+  useSwapAccountNetworkSync();
 
   const amountPrice = useMemo(() => {
     const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
@@ -117,13 +112,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           <>
             <SwapAccountAddressContainer num={0} />
             <XStack>
-              <SwapSelectTokenBalance
-                accountAddress={activeAccount?.account?.address}
-                accountNetworkId={activeAccount?.network?.id}
-                accountXpub={(activeAccount?.account as IDBUtxoAccount)?.xpub}
-                token={fromToken}
-                type="from"
-              />
+              <SwapSelectTokenBalance token={fromToken} type="from" />
               <SwapFromAmountPercentage
                 selectItems={swapFromAmountPercentageItems}
                 onSelectItem={onSelectAmountPercentage}
@@ -170,13 +159,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           <>
             <SwapAccountAddressContainer num={1} />
             <XStack>
-              <SwapSelectTokenBalance
-                accountAddress={activeAccount1?.account?.address}
-                accountNetworkId={activeAccount1?.network?.id}
-                accountXpub={(activeAccount1?.account as IDBUtxoAccount)?.xpub}
-                token={toToken}
-                type="to"
-              />
+              <SwapSelectTokenBalance token={toToken} type="to" />
             </XStack>
           </>
         ) : null}

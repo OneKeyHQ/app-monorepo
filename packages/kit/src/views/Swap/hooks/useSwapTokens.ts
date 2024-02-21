@@ -113,16 +113,16 @@ export function useSwapTokenList(
 export function useSwapSelectedTokenDetail({
   token,
   type,
-  accountAddress,
-  accountNetworkId,
-  accountXpub,
 }: {
   type: 'from' | 'to';
   token?: ISwapToken;
-  accountAddress?: string;
-  accountNetworkId?: string;
-  accountXpub?: string;
 }) {
+  const { activeAccount } = useActiveAccount({
+    num: type === 'from' ? 0 : 1,
+  });
+  const accountAddress = activeAccount.account?.address;
+  const accountNetworkId = activeAccount.network?.id;
+  const accountXpub = (activeAccount.account as IDBUtxoAccount)?.xpub;
   const [swapSelectedFromTokenBalance, setSwapSelectedFromTokenBalance] =
     useSwapSelectedFromTokenBalanceAtom();
 
@@ -169,6 +169,7 @@ export function useSwapSelectedTokenDetail({
     ],
     {
       watchLoading: true,
+      debounced: 500,
     },
   );
   return {

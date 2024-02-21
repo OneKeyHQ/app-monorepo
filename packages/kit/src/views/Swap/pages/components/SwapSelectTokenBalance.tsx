@@ -3,32 +3,22 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Skeleton } from '@onekeyhq/components';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTokenBalance from '../../components/SwapTokenBalance';
 import { useSwapSelectedTokenDetail } from '../../hooks/useSwapTokens';
 
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-
 interface ISwapSelectTokenBalanceProps {
-  accountXpub?: string;
-  accountAddress?: string;
-  accountNetworkId?: string;
   type: 'from' | 'to';
   token?: ISwapToken;
 }
 export const SwapSelectTokenBalance = ({
-  accountXpub,
-  accountAddress,
-  accountNetworkId,
   type,
   token,
 }: ISwapSelectTokenBalanceProps) => {
   const { isLoading, swapSelectedTokenBalance } = useSwapSelectedTokenDetail({
     token,
     type,
-    accountAddress,
-    accountXpub,
-    accountNetworkId,
   });
   const computedBalance = useMemo(() => {
     const balanceBN = new BigNumber(swapSelectedTokenBalance ?? 0);

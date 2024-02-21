@@ -79,16 +79,8 @@ const SwapTokenSelectPage = () => {
     async (item: ISwapToken) => {
       if (type === 'from') {
         void selectFromToken(item);
-        // updateSelectedAccount({
-        //   num: 0,
-        //   builder: (v) => ({ ...v, networkId: item.networkId }),
-        // });
       } else {
         void selectToToken(item);
-        // updateSelectedAccount({
-        //   num: 1,
-        //   builder: (v) => ({ ...v, networkId: item.networkId }),
-        // });
       }
       navigation.popStack();
     },
