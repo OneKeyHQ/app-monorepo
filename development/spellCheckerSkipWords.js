@@ -629,4 +629,8 @@ module.exports = [
   'viewability',
   'glmt',
   'walletconnect',
+  'Mixpanel',
+  'mixpanel',
+  'pageview',
+  'dnt',
 ];

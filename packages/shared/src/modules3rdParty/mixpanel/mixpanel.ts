@@ -7,7 +7,7 @@ export const getMixpanel = async () => {
   if (!mixpanel) {
     mixpanel = require('mixpanel-browser');
     // eslint-disable-next-line @typescript-eslint/await-thenable
-    await mixpanel.init(token, {
+    await mixpanel?.init(token, {
       ignore_dnt: true,
       debug: platformEnv.isDev,
       track_pageview: false,
