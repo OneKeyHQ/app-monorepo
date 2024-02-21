@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -15,7 +17,12 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
@@ -66,6 +73,46 @@ function AccountListItem({
   );
 }
 
+// TODO not working
+function DAppAccountListSyncFromHome({
+  num,
+  children,
+}: {
+  num: number;
+  children?: any;
+}) {
+  const actions = useAccountSelectorActions();
+  const { activeAccount } = useActiveAccount({ num });
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      await timerUtils.wait(300);
+      // TODO not working
+      await actions.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num, // TODO multiple account selector of wallet connect
+      });
+      // await timerUtils.wait(3000);
+      setReady(true);
+    })();
+  }, [actions, num]);
+
+  // if (ready) {
+  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  //   return children;
+  // }
+  return (
+    <SizableText size="$headingMd" color="$text">
+      {activeAccount.account?.address ?? 'Loading...'}
+      --
+      {ready.toString()}
+    </SizableText>
+  );
+}
+
 function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
@@ -100,7 +147,7 @@ function DAppAccountListStandAloneItem({
   }, [$sourceInfo?.origin, $sourceInfo?.scope, serviceDApp, serviceNetwork]);
 
   return (
-    <YStack space="$2">
+    <YStack space="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         Accounts
       </SizableText>
@@ -117,6 +164,16 @@ function DAppAccountListStandAloneItem({
             [result.accountSelectorNum]: { networkIds: result.networkIds },
           }}
         >
+          <DAppAccountListSyncFromHome num={result?.accountSelectorNum} />
+
+          {/* <AccountSelectorSyncButton
+            from={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneNum: 0,
+            }}
+            num={result?.accountSelectorNum}
+          /> */}
+
           <AccountListItem
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
@@ -128,4 +185,4 @@ function DAppAccountListStandAloneItem({
   );
 }
 
-export { DAppAccountListStandAloneItem, AccountListItem };
+export { AccountListItem, DAppAccountListStandAloneItem };

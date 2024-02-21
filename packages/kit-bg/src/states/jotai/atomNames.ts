@@ -8,7 +8,7 @@ export enum EAtomNames {
   passwordAtom = 'passwordAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
-  accountSelectorMapAtom = 'accountSelectorMapAtom',
+  jotaiContextStoreMapAtom = 'jotaiContextStoreMapAtom',
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
 }

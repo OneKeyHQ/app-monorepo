@@ -3,6 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -37,9 +39,14 @@ function ConnectionModal() {
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
+
+  const [rawSelectedAccount, setRawSelectedAccount] =
+    useState<IAccountSelectorSelectedAccount | null>(null);
+
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
-    (activeAccount) => {
+    ({ activeAccount, selectedAccount: rawSelectedAccountData }) => {
       setSelectedAccount(activeAccount);
+      setRawSelectedAccount(rawSelectedAccountData);
       console.log(
         'connectionmodal setActiveAccount: ',
         activeAccount.account?.id,
@@ -69,13 +76,17 @@ function ConnectionModal() {
         return;
       }
       const { wallet, account, network, indexedAccount } = selectedAccount;
-      const accountInfo = {
+      const accountInfo: IConnectionAccountInfo = {
         networkImpl: network?.impl ?? '',
         walletId: wallet?.id ?? '',
         indexedAccountId: indexedAccount?.id ?? '',
         networkId: network?.id ?? '',
         accountId: account.id,
         address: account.address,
+
+        deriveType: selectedAccount?.deriveType || 'default',
+        focusedWallet: rawSelectedAccount?.focusedWallet,
+        othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
       await serviceDApp.saveConnectionSession({
         origin: $sourceInfo?.origin,
@@ -99,6 +110,7 @@ function ConnectionModal() {
       $sourceInfo?.scope,
       serviceDApp,
       selectedAccount,
+      rawSelectedAccount,
     ],
   );
 

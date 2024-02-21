@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IConnectionAccountInfo,
@@ -17,6 +16,7 @@ import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
 import { useWebTabDataById } from './useWebTabs';
 
+import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 import type { IElectronWebView } from '../components/WebView/types';
 
 const notifyChanges = throttle((url: string, fromScene?: string) => {
@@ -115,7 +115,7 @@ export function useShouldUpdateConnectedAccount() {
   );
 
   const getAccountInfoByActiveAccount = useCallback(
-    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+    ({ activeAccount, selectedAccount }: IHandleAccountChangedParams) => {
       const updatedAccountInfo: IConnectionAccountInfo = {
         walletId: activeAccount.wallet?.id ?? '',
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
@@ -123,6 +123,10 @@ export function useShouldUpdateConnectedAccount() {
         accountId: activeAccount.account?.id ?? '',
         address: activeAccount.account?.address ?? '',
         networkImpl: activeAccount.network?.impl ?? '',
+
+        deriveType: selectedAccount.deriveType,
+        focusedWallet: selectedAccount.focusedWallet,
+        othersWalletAccountId: selectedAccount.othersWalletAccountId,
       };
       return updatedAccountInfo;
     },
@@ -141,7 +145,7 @@ export function useShouldUpdateConnectedAccount() {
       origin: string;
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
-      selectedAccount: IAccountSelectorActiveAccountInfo;
+      selectedAccount: IHandleAccountChangedParams;
       storageType: IStorageType;
       afterUpdate: () => void;
     }) => {

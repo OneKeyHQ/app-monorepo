@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isEqual } from 'lodash';
+import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,11 +18,12 @@ import type {
 import type {
   IAccountSelectorFocusedWallet,
   IAccountSelectorSelectedAccount,
+  IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -368,7 +369,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl?: string;
       },
     ) => {
-      const selectedAccountsMapInDB =
+      let selectedAccountsMapInDB:
+        | IAccountSelectorSelectedAccountsMap
+        | undefined =
         await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap(
           {
             sceneName,
@@ -376,12 +379,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
+      if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
+        const connectionMap =
+          await backgroundApiProxy.simpleDb.dappConnection.getAccountSelectorMap(
+            {
+              sceneUrl,
+            },
+          );
+        if (connectionMap) {
+          const map: IAccountSelectorSelectedAccountsMap = {};
+          Object.entries(connectionMap).forEach(([k, v]) => {
+            map[Number(k)] = {
+              walletId: v.walletId,
+              indexedAccountId: v.indexedAccountId,
+              othersWalletAccountId: v.othersWalletAccountId,
+              networkId: v.networkId,
+              deriveType: v.deriveType,
+              focusedWallet: v.focusedWallet,
+            };
+            map[Number(k)] = omitBy(map[Number(k)], isUndefined) as any;
+          });
+          selectedAccountsMapInDB = map;
+        }
+      }
+
       const selectedAccountsMap = get(selectedAccountsAtom());
       if (
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
-        set(selectedAccountsAtom(), () => selectedAccountsMapInDB);
+        set(selectedAccountsAtom(), (v) => selectedAccountsMapInDB || v);
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },
