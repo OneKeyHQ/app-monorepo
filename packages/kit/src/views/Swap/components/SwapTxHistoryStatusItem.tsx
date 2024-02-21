@@ -4,8 +4,7 @@ import { Button } from 'tamagui';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
-
-import { ESwapTxHistoryStatus } from '../types';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapTxHistoryStatusItemProps {
   statusTitle: string;

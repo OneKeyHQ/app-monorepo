@@ -19,11 +19,11 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/types';
-import type { IFetchQuoteResult } from '../../types';
 
 const SwapProviderSelectModal = () => {
   const navigation =

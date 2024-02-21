@@ -23,6 +23,10 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
@@ -32,7 +36,6 @@ import SwapAccountAddressContainer from '../components/SwapAccountAddressContain
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/types';
-import type { ISwapNetwork, ISwapToken } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapTokenSelectPage = () => {

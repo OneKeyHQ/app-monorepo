@@ -1,11 +1,12 @@
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { ESwapProviders, ESwapSlippageSegmentKey } from '../types';
-
+import {
+  ESwapProviders,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapFromAmountPercentageItem,
   ISwapSlippageSegmentItem,
-} from '../types';
+} from '@onekeyhq/shared/types/swap/types';
 
 export const CrossChainSwapProviders = [
   ESwapProviders.SWFT,

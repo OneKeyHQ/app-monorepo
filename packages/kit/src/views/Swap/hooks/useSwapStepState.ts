@@ -1,5 +1,8 @@
 import BigNumber from 'bignumber.js';
 
+import { ESwapStepStateType } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapStepState } from '@onekeyhq/shared/types/swap/types';
+
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapBuildTxFetchingAtom,
@@ -12,9 +15,6 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
-import { ESwapStepStateType } from '../types';
-
-import type { ISwapStepState } from '../types';
 
 export function useSwapStepState() {
   const [quoteFetching] = useSwapQuoteFetchingAtom();

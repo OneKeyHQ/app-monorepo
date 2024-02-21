@@ -19,7 +19,7 @@ import SwapFromAmountPercentage from '../../components/SwapFromAmountPercentage'
 import SwapTokenAmountInput from '../../components/SwapTokenAmountInput';
 import SwapTokenCurrencyValue from '../../components/SwapTokenCurrencyValue';
 import SwapTokenSelectTrigger from '../../components/SwapTokenSelectTrigger';
-import { swapFromAmountPercentageItems } from '../../config/SwapProvider.constants';
+import { swapFromAmountPercentageItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
@@ -27,7 +27,7 @@ import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import { SwapSelectTokenBalance } from './SwapSelectTokenBalance';
 
-import type { ISwapFromAmountPercentageItem } from '../../types';
+import type { ISwapFromAmountPercentageItem } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: 'from' | 'to') => void;

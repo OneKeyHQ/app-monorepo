@@ -1,10 +1,11 @@
 import BigNumber from 'bignumber.js';
 
+import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
-} from '@onekeyhq/kit/src/views/Swap/types';
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
   ISwapNetwork,
@@ -12,8 +13,7 @@ import type {
   ISwapToken,
   ISwapTokenCatch,
   ISwapTxHistory,
-} from '@onekeyhq/kit/src/views/Swap/types';
-import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+} from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 

@@ -8,8 +8,7 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
-
-import type { ISwapToken } from '../types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapRateInfoItemProps {
   rate?: string;

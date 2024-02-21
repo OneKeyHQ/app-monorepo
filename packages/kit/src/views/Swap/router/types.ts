@@ -1,4 +1,7 @@
-import type { ISwapNetwork, ISwapTxHistory } from '../types';
+import type {
+  ISwapNetwork,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 
 export enum EModalSwapRoutes {
   SwapTokenSelect = 'SwapTokenSelect',

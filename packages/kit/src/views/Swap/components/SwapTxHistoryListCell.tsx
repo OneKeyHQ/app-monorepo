@@ -3,11 +3,10 @@ import { useMemo } from 'react';
 import { XStack, YStack } from 'tamagui';
 
 import { Badge, Image, SizableText } from '@onekeyhq/components';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { ListItem } from '../../../components/ListItem';
-import { ESwapTxHistoryStatus } from '../types';
-
-import type { ISwapTxHistory } from '../types';
 
 interface ISwapTxHistoryListCellProps {
   item: ISwapTxHistory;

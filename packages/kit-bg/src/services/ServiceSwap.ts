@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Toast } from '@onekeyhq/components';
-import { CrossChainSwapProviders } from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
+import {
+  backgroundClass,
+  backgroundMethod,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { CrossChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -12,16 +17,12 @@ import type {
   ISwapNetwork,
   ISwapToken,
   ISwapTokenDetailInfo,
-} from '@onekeyhq/kit/src/views/Swap/types';
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EExchangeProtocol,
   ESwapProviders,
   ESwapTxHistoryStatus,
-} from '@onekeyhq/kit/src/views/Swap/types';
-import {
-  backgroundClass,
-  backgroundMethod,
-} from '@onekeyhq/shared/src/background/backgroundDecorators';
+} from '@onekeyhq/shared/types/swap/types';
 
 import { getEndpoints } from '../endpoints';
 

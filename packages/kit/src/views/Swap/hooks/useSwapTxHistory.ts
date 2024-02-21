@@ -7,6 +7,14 @@ import { useIntl } from 'react-intl';
 import { Toast } from '@onekeyhq/components';
 import Share from '@onekeyhq/shared/src/modules3rdParty/react-native-share';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EExchangeProtocol,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapTxHistory,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -22,9 +30,7 @@ import {
   useSwapTxHistoryAtom,
   useSwapTxHistoryPendingAtom,
 } from '../../../states/jotai/contexts/swap';
-import { EExchangeProtocol, ESwapTxHistoryStatus } from '../types';
 
-import type { ISwapTxHistory, ISwapTxInfo } from '../types';
 import type ViewShot from 'react-native-view-shot';
 
 export function useSwapTxHistoryListSyncFromSimpleDb() {

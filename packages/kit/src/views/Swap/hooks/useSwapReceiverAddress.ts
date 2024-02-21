@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 
+import { ESwapReceiveAddressType } from '@onekeyhq/shared/types/swap/types';
+
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapReceiverAddressBookValueAtom,
   useSwapReceiverAddressInputValueAtom,
   useSwapReceiverAddressTypeAtom,
 } from '../../../states/jotai/contexts/swap';
-import { ESwapReceiveAddressType } from '../types';
 
 export function useSwapReceiverAddress() {
   const { activeAccount } = useActiveAccount({ num: 1 });

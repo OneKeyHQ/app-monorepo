@@ -1,5 +1,5 @@
-import type { ISwapTxInfo } from '@onekeyhq/kit/src/views/Swap/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';

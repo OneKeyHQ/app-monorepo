@@ -1,6 +1,9 @@
-import { SingleChainSwapProviders } from '../config/SwapProvider.constants';
-
-import type { ESwapProviders, ISwapNetwork, ISwapToken } from '../types';
+import { SingleChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ESwapProviders,
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 export function validateInput(text: string) {
   const regex = /^$|^0(\.\d{0,6})?$|^[1-9]\d*(\.\d{0,6})?$|^[1-9]\d*\.$|^0\.$/;

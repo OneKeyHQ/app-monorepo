@@ -11,12 +11,12 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-
-import SwapSlippageSegmentGroup from '../../components/SwapSlippageSegmentGroup';
 import {
   ESwapSlippageSegmentKey,
   type ISwapSlippageSegmentItem,
-} from '../../types';
+} from '@onekeyhq/shared/types/swap/types';
+
+import SwapSlippageSegmentGroup from '../../components/SwapSlippageSegmentGroup';
 import { validateInput } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 

@@ -1,8 +1,7 @@
 import { memo } from 'react';
 
 import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
-
-import type { ISwapNetwork } from '../types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];

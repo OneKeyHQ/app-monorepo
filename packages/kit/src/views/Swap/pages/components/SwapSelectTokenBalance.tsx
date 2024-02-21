@@ -7,7 +7,7 @@ import { Skeleton } from '@onekeyhq/components';
 import SwapTokenBalance from '../../components/SwapTokenBalance';
 import { useSwapSelectedTokenDetail } from '../../hooks/useSwapTokens';
 
-import type { ISwapToken } from '../../types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapSelectTokenBalanceProps {
   accountXpub?: string;

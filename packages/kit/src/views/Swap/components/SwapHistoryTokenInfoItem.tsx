@@ -3,8 +3,10 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-
-import type { ISwapNetwork, ISwapToken } from '../types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapHistoryTokenInfoItemProps {
   token: ISwapToken;

@@ -1,16 +1,16 @@
 import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   swapQuoteFetchInterval,
   swapTokenCatchMapMaxCount,
-} from '@onekeyhq/kit/src/views/Swap/config/SwapProvider.constants';
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapToken,
   ISwapTxHistory,
-} from '@onekeyhq/kit/src/views/Swap/types';
-import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+} from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 

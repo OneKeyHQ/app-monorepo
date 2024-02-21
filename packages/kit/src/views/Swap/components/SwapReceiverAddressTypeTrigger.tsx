@@ -1,8 +1,7 @@
 import { memo } from 'react';
 
 import { ActionList, IconButton } from '@onekeyhq/components';
-
-import { ESwapReceiveAddressType } from '../types';
+import { ESwapReceiveAddressType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapReceiverAddressTypeTriggerProps {
   onSelectType: (type: ESwapReceiveAddressType) => void;

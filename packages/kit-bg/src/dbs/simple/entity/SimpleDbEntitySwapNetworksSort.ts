@@ -1,4 +1,4 @@
-import type { ISwapNetwork } from '@onekeyhq/kit/src/views/Swap/types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 

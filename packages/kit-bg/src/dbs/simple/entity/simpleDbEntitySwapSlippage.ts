@@ -1,4 +1,4 @@
-import type { ISwapSlippageSegmentItem } from '@onekeyhq/kit/src/views/Swap/types';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 

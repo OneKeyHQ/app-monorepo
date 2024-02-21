@@ -2,10 +2,9 @@ import { memo } from 'react';
 
 import { Button, XStack } from 'tamagui';
 
-import { swapSlippageItems } from '../config/SwapProvider.constants';
-import { ESwapSlippageSegmentKey } from '../types';
-
-import type { ISwapSlippageSegmentItem } from '../types';
+import { swapSlippageItems } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapSlippageSegmentGroupProps {
   onSelectSlippage: (slippage: ISwapSlippageSegmentItem) => void;

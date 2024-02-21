@@ -15,11 +15,11 @@ import {
   useSwapActions,
   useSwapNetworksAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
-import type { ISwapNetwork } from '../../types';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapNetworkSelectModal = () => {

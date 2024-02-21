@@ -1,5 +1,5 @@
-import type { ISwapTxHistory } from '@onekeyhq/kit/src/views/Swap/types';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 

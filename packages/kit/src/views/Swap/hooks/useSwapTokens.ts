@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IFetchTokensParams,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -13,8 +17,6 @@ import {
   useSwapSelectedToTokenBalanceAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
-
-import type { IFetchTokensParams, ISwapToken } from '../types';
 
 export function useSwapNetworkList() {
   const [, setSwapNetworks] = useSwapNetworksAtom();

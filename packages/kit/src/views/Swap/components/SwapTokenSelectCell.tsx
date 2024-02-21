@@ -7,11 +7,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { ListItem } from '../../../components/ListItem';
 import { shortContractAddress } from '../utils/utils';
-
-import type { ISwapNetwork, ISwapToken } from '../types';
 
 interface ISwapTokenSelectCellProps {
   token: ISwapToken;

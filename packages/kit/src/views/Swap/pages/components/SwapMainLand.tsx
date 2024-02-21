@@ -4,8 +4,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { swapApproveResetValue } from '../../config/SwapProvider.constants';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';

@@ -10,13 +10,15 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-
 import {
   SingleChainSwapProviders,
   networkTransactionExplorerReplaceStr,
   socketBridgeScanUrl,
-} from '../config/SwapProvider.constants';
-import { ESwapProviders, type ISwapTxHistory } from '../types';
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapProviders,
+  type ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapTxHistoryViewInBrowserProps {
   onViewInBrowser: (url: string) => void;

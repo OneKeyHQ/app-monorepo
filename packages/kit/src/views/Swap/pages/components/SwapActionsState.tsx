@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 
 import { useSwapStepState } from '../../hooks/useSwapStepState';
-import { ESwapStepStateType } from '../../types';
+import { ESwapStepStateType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;

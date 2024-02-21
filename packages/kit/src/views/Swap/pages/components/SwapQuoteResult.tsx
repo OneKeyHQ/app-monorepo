@@ -8,12 +8,12 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
-import { ESwapApproveAllowanceType } from '../../types';
 
 interface ISwapQuoteResultProps {
   receivedAddress?: string;

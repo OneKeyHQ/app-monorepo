@@ -1,8 +1,7 @@
 import { memo } from 'react';
 
 import { Button, XStack } from '@onekeyhq/components';
-
-import type { ISwapFromAmountPercentageItem } from '../types';
+import type { ISwapFromAmountPercentageItem } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapFromAmountPercentageProps {
   selectItems: ISwapFromAmountPercentageItem[];

@@ -1,8 +1,8 @@
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { ETabRoutes } from '../../../routes/Tab/type';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-
-import type { ISwapToken } from '../types';
 
 export function useSwapAccountNetworkSync({
   fromToken,
