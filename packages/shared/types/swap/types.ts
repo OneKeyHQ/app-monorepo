@@ -217,6 +217,10 @@ export enum ESwapTxHistoryStatus {
 export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
   crossChainReceiveTxHash?: string;
+  gasFee?: string;
+  gasFeeFiatValue?: string;
+  timestamp?: number;
+  dealReceiveAmount?: string;
 }
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;

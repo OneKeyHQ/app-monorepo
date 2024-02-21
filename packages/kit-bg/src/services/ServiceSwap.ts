@@ -280,9 +280,11 @@ export default class ServiceSwap extends ServiceBase {
     provider,
     networkId,
     protocol,
+    toTokenAddress,
     ctx,
   }: {
     txId: string;
+    toTokenAddress: string;
     networkId: string;
     protocol?: EExchangeProtocol;
     provider?: ESwapProviders;
@@ -294,6 +296,7 @@ export default class ServiceSwap extends ServiceBase {
       provider,
       ctx,
       networkId,
+      toTokenAddress,
     };
     const client = await this.getClient();
     try {

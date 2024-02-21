@@ -72,6 +72,7 @@ export function useSwapTxHistoryStateSyncInterval() {
                 protocol: EExchangeProtocol.SWAP,
                 networkId: swapTxHistory.baseInfo.fromToken.networkId,
                 ctx: swapTxHistory.ctx,
+                toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
               });
             if (txStatusRes.state !== ESwapTxHistoryStatus.PENDING) {
               clearInterval(interval);
@@ -83,6 +84,15 @@ export function useSwapTxHistoryStateSyncInterval() {
                   ...swapTxHistory.txInfo,
                   receiverTransactionId:
                     txStatusRes.crossChainReceiveTxHash || '',
+                  netWorkFee: txStatusRes.gasFeeFiatValue
+                    ? txStatusRes.gasFeeFiatValue
+                    : swapTxHistory.txInfo.netWorkFee,
+                },
+                baseInfo: {
+                  ...swapTxHistory.baseInfo,
+                  toAmount: txStatusRes.dealReceiveAmount
+                    ? txStatusRes.dealReceiveAmount
+                    : swapTxHistory.baseInfo.toAmount,
                 },
               });
             }
