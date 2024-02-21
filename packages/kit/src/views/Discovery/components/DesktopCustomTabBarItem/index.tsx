@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
-import { dispatchWebViewOverlayEvent } from '../WebView/DesktopOverlay';
 
 function DesktopCustomTabBarItem({
   id,
