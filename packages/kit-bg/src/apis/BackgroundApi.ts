@@ -162,6 +162,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceScanQRCode() {
+    const ServiceScanQRCode =
+      require('../services/ServiceScanQRCode') as typeof import('../services/ServiceScanQRCode');
+    const value = new ServiceScanQRCode.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceScanQRCode', { value });
+    return value;
+  }
+
   get serviceValidator() {
     const ServiceValidator =
       require('../services/ServiceValidator') as typeof import('../services/ServiceValidator');
@@ -239,6 +249,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceOnboarding', { value });
+    return value;
+  }
+
+  get serviceAddressBook() {
+    const ServiceAddressBook =
+      require('../services/ServiceAddressBook') as typeof import('../services/ServiceAddressBook');
+    const value = new ServiceAddressBook.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAddressBook', { value });
     return value;
   }
 }

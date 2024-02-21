@@ -1,17 +1,23 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, memo, useCallback, useEffect, useRef } from 'react';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, DialogContainer, SizableText } from '@onekeyhq/components';
+import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
+import {
+  Dialog,
+  DialogContainer,
+  SizableText,
+  Toast,
+} from '@onekeyhq/components';
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   CommonDeviceLoading,
-  ConfirmOnDevice,
+  ConfirmOnClassic,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -26,6 +32,9 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   const { serviceHardware } = backgroundApiProxy;
+
+  // TODO make sure toast is last session action
+  // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
   const title = useRef('Loading');
   const content = useRef(
@@ -71,28 +80,17 @@ function HardwareSingletonDialogCmp(
     );
   }
 
-  // ConfirmOnDevice
-  if (action === EHardwareUiStateAction.REQUEST_BUTTON) {
-    title.current = 'Confirm on Device';
-    content.current = <ConfirmOnDevice />;
-  }
+  // ConfirmOnDevice: use toast instead
 
   // EnterPassphrase on App
   if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
     title.current = 'Enter Passphrase';
     content.current = (
       <EnterPhase
-        onConfirm={async ({ passphrase, save }) => {
+        onConfirm={async ({ passphrase }) => {
           await serviceHardware.sendPassphraseToDevice({
             passphrase,
           });
-          // TODO show remember dialog after wallet created
-          // TODO how to save remember state at EnterPassphraseOnDevice
-          // TODO do not show remember dialog when creating address or sign tx
-          // TODO default states when click dialog close
-          if (save) {
-            // update wallet db
-          }
           await serviceHardware.showDeviceProcessLoadingDialog({ connectId });
         }}
         switchOnDevice={async () => {
@@ -138,10 +136,15 @@ function HardwareUiStateContainerCmp() {
 
   const action = state?.action;
   const connectId = state?.connectId;
-  console.log('HardwareUiStateContainer action========', action);
 
   const dialogRef = useRef<IDialogInstance | undefined>();
-  const shouldShowDialog = Boolean(state && connectId);
+  const toastRef = useRef<IToastShowResult | undefined>();
+  const shouldShowAction = Boolean(state && connectId);
+
+  const isToastAction =
+    action && [EHardwareUiStateAction.REQUEST_BUTTON].includes(action);
+  const isToastActionRef = useRef(isToastAction);
+  isToastActionRef.current = isToastAction;
 
   const HardwareSingletonDialogRender = useCallback(
     ({ ref }: { ref: any }) => (
@@ -150,83 +153,73 @@ function HardwareUiStateContainerCmp() {
     [],
   );
 
+  console.log(
+    'HardwareUiStateContainer action ========',
+    state,
+    action,
+    shouldShowAction,
+    [
+      HardwareSingletonDialogRender,
+      connectId,
+      isToastAction,
+      serviceHardware,
+      shouldShowAction,
+    ],
+  );
+
+  const autoClosedFlag = 'autoClosed';
+
   // TODO support multiple connectId dialog show
   useEffect(() => {
     void (async () => {
-      const closePrevDialog = () => dialogRef.current?.close();
-      await closePrevDialog();
-
-      if (shouldShowDialog && connectId) {
-        dialogRef.current = Dialog.show({
-          showFooter: false,
-          dialogContainer: HardwareSingletonDialogRender,
-          async onClose() {
-            console.log('HardwareUiStateContainer onDismiss');
-            await serviceHardware.closeHardwareUiStateDialog({
-              connectId,
-              reason: 'HardwareUiStateContainer onClose',
-            });
-          },
-        });
+      // TODO do not cancel device here
+      const closePrevActions = async () => {
+        await dialogRef.current?.close({ flag: autoClosedFlag });
+        await toastRef.current?.close({ flag: autoClosedFlag });
+        await timerUtils.wait(300);
+      };
+      await closePrevActions();
+      if (shouldShowAction && connectId) {
+        if (isToastAction) {
+          toastRef.current = Toast.show({
+            children: <ConfirmOnClassic />,
+            dismissOnOverlayPress: false,
+            disableSwipeGesture: false,
+            onClose: async (params) => {
+              console.log('close ConfirmOnClassic');
+              if (params?.flag !== autoClosedFlag) {
+                await serviceHardware.closeHardwareUiStateDialog({
+                  connectId,
+                });
+              }
+            },
+          });
+        } else {
+          dialogRef.current = Dialog.show({
+            showFooter: false,
+            dialogContainer: HardwareSingletonDialogRender,
+            async onClose(params) {
+              console.log('HardwareUiStateContainer onDismiss');
+              if (params?.flag !== autoClosedFlag) {
+                await serviceHardware.closeHardwareUiStateDialog({
+                  connectId,
+                  reason: 'HardwareUiStateContainer onClose',
+                });
+              }
+            },
+          });
+        }
       }
     })();
 
     return () => {};
   }, [
     HardwareSingletonDialogRender,
-    serviceHardware,
-    shouldShowDialog,
     connectId,
+    isToastAction,
+    serviceHardware,
+    shouldShowAction,
   ]);
-
-  //   useEffect(() => {
-  //     const closePrevDialog = () => void dialogRef.current?.close();
-  //     closePrevDialog();
-
-  //     if (action === EHardwareUiStateAction.DeviceChecking) {
-  //       dialogRef.current = Dialog.show({
-  //         title: 'Checking Device',
-  //         showFooter: false,
-  //         renderContent: (
-  //           <Stack
-  //             borderRadius="$3"
-  //             p="$5"
-  //             bg="$bgSubdued"
-  //             style={{ borderCurve: 'continuous' }}
-  //           >
-  //             <Spinner size="large" />
-  //           </Stack>
-  //         ),
-  //         onDismiss: async () => {
-  //           // TODO not working
-  //           await serviceHardware.cancel(state?.payload?.connectId);
-  //         },
-  //       });
-  //     }
-
-  //     // PIN - Passphrase
-  //     if (action === EHardwareUiStateAction.REQUEST_PIN) {
-  //       dialogRef.current = Dialog.show({
-  //         title: 'Enter PIN', // Enter PIN on App
-  //         showFooter: false,
-  //         renderContent: (
-  //           <EnterPin
-  //             onConfirm={async () => {
-  //               await serviceHardware.closeHardwareUiStateDialog();
-  //             }}
-  //           />
-  //         ),
-  //         onDismiss: async () => {
-  //           await serviceHardware.cancel(state?.payload?.connectId);
-  //         },
-  //       });
-  //     }
-
-  //     return () => {
-  //       // use closePrevDialog();
-  //       // void serviceHardware.closeHardwareUiStateDialog();
-  //     };
-  //   }, [serviceHardware, action, state?.payload?.connectId]);
 
   return null;
 }

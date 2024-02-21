@@ -5,6 +5,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
@@ -39,7 +40,16 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     if (!isReady) {
       return;
     }
-    await actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+    const activeAccount = await actions.current.reloadActiveAccountInfo({
+      num,
+      selectedAccount,
+    });
+    if (activeAccount.account && activeAccount.network?.id) {
+      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+        account: activeAccount.account,
+        networkId: activeAccount.network?.id,
+      });
+    }
     // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({

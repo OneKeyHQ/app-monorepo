@@ -11,6 +11,7 @@ import type {
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
+  IAccountHistoryTx,
   IOnChainHistoryTx,
   IOnChainHistoryTxAsset,
 } from '@onekeyhq/shared/types/history';
@@ -106,6 +107,7 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
 
   isUtxo: boolean;
+  isSingleToken: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
   editFeeEnabled: boolean;
@@ -122,6 +124,8 @@ export type IVaultFactoryOptions = {
   networkId: string;
   accountId: string;
   walletId?: IDBWalletId;
+  isChainOnly?: boolean;
+  isWalletOnly?: boolean;
 };
 export type IVaultOptions = IVaultFactoryOptions & {
   backgroundApi: IBackgroundApi;
@@ -245,6 +249,11 @@ export type IWrappedInfo = {
   type: EWrappedType;
 };
 
+export type INativeAmountInfo = {
+  amount?: string;
+  maxSendAmount?: string;
+};
+
 // Send ------------
 export interface IBuildTxHelperParams {
   getToken: ({
@@ -284,7 +293,7 @@ export interface IUpdateUnsignedTxParams {
   feeInfo?: IFeeInfoUnit;
   nonceInfo?: { nonce: number };
   tokenApproveInfo?: { allowance: string };
-  maxSendInfo?: { amount: string };
+  nativeAmountInfo?: INativeAmountInfo;
 }
 export interface IBroadcastTransactionParams {
   networkId: string;
@@ -301,6 +310,12 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
   deviceParams: IDeviceSharedCallParams | undefined;
 };
 
+export interface IBatchSignTransactionParamsBase {
+  unsignedTxs: IUnsignedTxPro[];
+  feeInfo?: IFeeInfoUnit;
+  nativeAmountInfo?: INativeAmountInfo;
+}
+
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
@@ -311,6 +326,8 @@ export interface IBuildHistoryTxParams {
   networkId: string;
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxAsset>;
+  localHistoryPendingTxs?: IAccountHistoryTx[];
+  index?: number;
 }
 
 export type IGetPrivateKeyFromImportedParams = {

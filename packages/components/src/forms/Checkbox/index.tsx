@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
@@ -139,20 +139,25 @@ function CheckboxGroup({
   value,
   listStyle,
 }: ICheckboxGroupProps) {
-  const [isAll, setAll] = useState(
-    value.length === options.length && !value.find((v) => !v),
+  const innerValueRef = useRef(value);
+  innerValueRef.current = value;
+
+  const isAll = useMemo(
+    () => value.length === options.length && value.findIndex((v) => !v) === -1,
+    [value, options],
   );
   const handleSelectAll = useCallback(() => {
-    setAll(!isAll);
     onChange(options.map(() => !isAll));
-  }, [isAll, onChange, options]);
+  }, [onChange, isAll, options]);
+
   const onChangeHandler = useCallback(
     (index: number, v: ICheckedState) => {
-      value[index] = v;
-      onChange([...value]);
+      innerValueRef.current[index] = v;
+      onChange([...innerValueRef.current]);
     },
-    [onChange, value],
+    [onChange],
   );
+
   const renderItem = useCallback(
     ({
       item: { label: labelText, disabled: disabledElement },

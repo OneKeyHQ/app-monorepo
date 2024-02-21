@@ -68,6 +68,37 @@ export function checkOneKeyCardGoogleOauthUrl({
   ].includes(origin);
 }
 
+export function parseUrl(url: string) {
+  try {
+    let formatUrl = url;
+    if (url.includes('&')) {
+      const parts = url.split('&');
+      if (!parts?.[0].includes('?')) {
+        formatUrl = `${parts[0]}?${parts
+          .slice(1)
+          .join('&')
+          .replace(/\?/, '&')}`;
+      }
+    }
+    const urlObject = new URL(formatUrl);
+    return {
+      urlSchema: urlObject.protocol.replace(/(:)$/, ''),
+      urlPathList: `${urlObject.hostname}${urlObject.pathname}`
+        .replace(/^\/\//, '')
+        .split('/')
+        .filter((x) => x?.length > 0),
+      urlParamList: Array.from(urlObject.searchParams.entries()).reduce<{
+        [key: string]: any;
+      }>((paramList, [paramKey, paramValue]) => {
+        paramList[paramKey] = paramValue;
+        return paramList;
+      }, {}),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
 export default {

@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
-import { isNil } from 'lodash';
-
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -35,6 +29,7 @@ type IBuildUnsignedTxParams = {
   swapInfo?: ISwapTxInfo;
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
+  sameModal?: boolean;
 };
 
 function useSendConfirm(params: IParams) {
@@ -44,59 +39,29 @@ function useSendConfirm(params: IParams) {
 
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const {
-        onSuccess,
-        onFail,
-        encodedTx,
-        transfersInfo,
-        approveInfo,
-        wrappedInfo,
-        unsignedTx: preUnsignedTx,
-      } = params;
-      let unsignedTx =
+      const { sameModal, ...rest } = params;
+      const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           networkId,
           accountId,
-          unsignedTx: preUnsignedTx,
-          encodedTx,
-          transfersInfo,
-          approveInfo,
-          wrappedInfo,
+          ...rest,
         });
-
-      const isNonceRequired =
-        await backgroundApiProxy.serviceSend.getIsNonceRequired({
-          networkId,
-        });
-
-      if (isNonceRequired && isNil(unsignedTx.nonce)) {
-        const account = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
-        const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
-          networkId,
-          accountAddress: account.address,
-        });
-
-        unsignedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
-          accountId,
-          networkId,
-          unsignedTx,
-          nonceInfo: { nonce },
-        });
-      }
-
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
+      if (sameModal) {
+        navigation.push(EModalSendRoutes.SendConfirm, {
           accountId,
           networkId,
           unsignedTxs: [unsignedTx],
-          onSuccess,
-          onFail,
-        },
-      });
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SendModal, {
+          screen: EModalSendRoutes.SendConfirm,
+          params: {
+            accountId,
+            networkId,
+            unsignedTxs: [unsignedTx],
+          },
+        });
+      }
     },
     [accountId, navigation, networkId],
   );

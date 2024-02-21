@@ -67,8 +67,10 @@ const PasswordSetup = ({
               onPress: () => {
                 setSecureEntry(!secureEntry);
               },
+              testID: `password-eye-${secureEntry ? 'off' : 'on'}`,
             },
           ]}
+          testID="password"
         />
       </Form.Field>
       <Form.Field
@@ -104,12 +106,18 @@ const PasswordSetup = ({
               onPress: () => {
                 setSecureReentry(!secureReentry);
               },
+              testID: `confirm-password-eye-${secureReentry ? 'off' : 'on'}`,
             },
           ]}
+          testID="confirm-password"
         />
       </Form.Field>
       {biologyAuthSwitchContainer}
-      <Button variant="primary" onPress={form.handleSubmit(onSetupPassword)}>
+      <Button
+        variant="primary"
+        onPress={form.handleSubmit(onSetupPassword)}
+        testID="set-password"
+      >
         {intl.formatMessage({ id: 'title__set_password' })}
       </Button>
     </Form>

@@ -277,12 +277,15 @@ export default class ServicePassword extends ServiceBase {
 
     await this.validatePassword({ password: oldPassword, newPassword });
     try {
+      await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true);
       await localDb.updatePassword({ oldPassword, newPassword });
+      await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       return newPassword;
     } catch (e) {
+      await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
       await this.rollbackPassword(oldPassword);
       throw e;
     }
