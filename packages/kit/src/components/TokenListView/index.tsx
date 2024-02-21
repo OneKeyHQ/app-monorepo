@@ -1,8 +1,14 @@
 import { ListView } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListAtom } from '../../states/jotai/contexts/tokenList';
+import {
+  useSearchKeyAtom,
+  useTokenListAtom,
+  useTokenListInitializedAtom,
+} from '../../states/jotai/contexts/tokenList';
+import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
@@ -19,7 +25,6 @@ type IProps = {
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
-  initialized?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -31,11 +36,14 @@ function TokenListView(props: IProps) {
     withFooter,
     withPrice,
     isLoading,
-    initialized,
   } = props;
 
   const [tokenList] = useTokenListAtom();
+  const [initialized] = useTokenListInitializedAtom();
+  const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;
+
+  const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
   if (!initialized && isLoading) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
@@ -45,14 +53,14 @@ function TokenListView(props: IProps) {
     <ListView
       estimatedItemSize={48}
       scrollEnabled={platformEnv.isWebTouchable}
-      data={tokens}
+      data={filteredTokens}
       ListHeaderComponent={
         withHeader && tokens.length > 0 ? (
           <TokenListHeader tokens={tokens} tableLayout={tableLayout} />
         ) : null
       }
       onContentSizeChange={onContentSizeChange}
-      ListEmptyComponent={EmptyToken}
+      ListEmptyComponent={searchKey ? EmptySearch : EmptyToken}
       renderItem={({ item, index }) => (
         <TokenListItem
           token={item}

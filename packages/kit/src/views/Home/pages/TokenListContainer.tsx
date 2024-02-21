@@ -28,7 +28,6 @@ type IProps = {
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
   const [allTokens, setAllTokens] = useState<ITokenData>();
-  const [initialized, setInitialized] = useState(false);
 
   const {
     activeAccount: { account, network },
@@ -46,15 +45,16 @@ function TokenListContainer(props: IProps) {
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
+    updateTokenListInitialized,
   } = useTokenListActions().current;
 
   const promise = usePromiseResult(
     async () => {
       try {
-        if (!account?.address || !network?.id) return;
+        if (!account || !network) return;
         if (currentAccountId.current !== account.id) {
           currentAccountId.current = account.id;
-          setInitialized(false);
+          updateTokenListInitialized(false);
         }
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -95,7 +95,7 @@ function TokenListContainer(props: IProps) {
             tokens: mergedTokens,
           });
         }
-        setInitialized(true);
+        updateTokenListInitialized(true);
       } catch (e) {
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
@@ -105,16 +105,16 @@ function TokenListContainer(props: IProps) {
       }
     },
     [
-      account?.id,
-      account?.address,
-      network?.id,
+      account,
+      network,
+      refreshTokenList,
+      refreshTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshSmallBalanceTokensFiatValue,
-      refreshTokenList,
-      refreshTokenListMap,
+      updateTokenListInitialized,
     ],
     {
       watchLoading: true,
@@ -155,7 +155,6 @@ function TokenListContainer(props: IProps) {
         isLoading={promise.isLoading}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
-        initialized={initialized}
         {...(media.gtLg && {
           tableLayout: true,
         })}

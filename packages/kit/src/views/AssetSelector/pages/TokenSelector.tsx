@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, SectionList } from '@onekeyhq/components';
@@ -18,10 +19,11 @@ import type {
   IAssetSelectorParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
+import type { TextInputFocusEventData } from 'react-native';
 
 function TokenSelector() {
   const intl = useIntl();
-  const { refreshTokenList, refreshTokenListMap } =
+  const { refreshTokenList, refreshTokenListMap, updateSearchKey } =
     useTokenListActions().current;
 
   const route =
@@ -79,6 +81,12 @@ function TokenSelector() {
         title={intl.formatMessage({ id: 'action__select_token' })}
         headerSearchBarOptions={{
           placeholder: 'Search symbol or contract address',
+          onChangeText: debounce(
+            ({ nativeEvent }: { nativeEvent: TextInputFocusEventData }) => {
+              updateSearchKey(nativeEvent.text);
+            },
+            800,
+          ),
         }}
       />
       <Page.Body>

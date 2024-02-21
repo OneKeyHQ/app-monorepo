@@ -1,4 +1,4 @@
-import type { ITokenData } from '../../types/token';
+import type { IAccountToken, ITokenData } from '../../types/token';
 
 export function getMergedTokenData({
   tokens,
@@ -60,4 +60,25 @@ export function getEmptyTokenData() {
       map: {},
     },
   };
+}
+
+export function getFilteredTokenBySearchKey({
+  tokens,
+  searchKey,
+}: {
+  tokens: IAccountToken[];
+  searchKey: string;
+}) {
+  if (!searchKey) {
+    return tokens;
+  }
+
+  const filteredTokens = tokens.filter(
+    (token) =>
+      token.name.toLowerCase().includes(searchKey.toLowerCase()) ||
+      token.symbol.toLowerCase().includes(searchKey.toLowerCase()) ||
+      token.address.toLowerCase().includes(searchKey.toLowerCase()),
+  );
+
+  return filteredTokens;
 }

@@ -1,7 +1,10 @@
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { SearchBar, SizableText, Stack, XStack } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
+
+import { useTokenListActions } from '../../states/jotai/contexts/tokenList';
 
 type IProps = {
   tokens: IAccountToken[];
@@ -10,6 +13,7 @@ type IProps = {
 
 function TokenListHeader({ tableLayout, tokens }: IProps) {
   const intl = useIntl();
+  const { updateSearchKey } = useTokenListActions().current;
   return (
     <Stack px="$5" pb="$3">
       <XStack justifyContent="space-between">
@@ -22,6 +26,10 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
               mt: '$5',
               maxWidth: '$80',
             }}
+            onChangeText={debounce(
+              (searchKey) => updateSearchKey(searchKey),
+              800,
+            )}
           />
         )}
       </XStack>
