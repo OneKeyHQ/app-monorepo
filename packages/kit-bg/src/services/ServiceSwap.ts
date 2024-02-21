@@ -54,7 +54,7 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/networks',
         { params },
       );
-      if (data.code === 0 && data.data) {
+      if (data?.data) {
         return data.data;
       }
       Toast.error({ title: 'error', message: data?.message });
@@ -104,7 +104,7 @@ export default class ServiceSwap extends ServiceBase {
       >('/swap/v1/tokens', {
         params,
       });
-      if (data?.code === 0 && data?.data) {
+      if (data?.data) {
         return { result: data.data.data, next: data.data.next };
       }
       Toast.error({ title: 'error', message: data?.message });
@@ -139,7 +139,7 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/token/detail',
         { params },
       );
-      if (data?.code === 0 && data?.data) {
+      if (data?.data) {
         return data.data;
       }
       Toast.error({ title: 'error', message: data?.message });
@@ -263,7 +263,7 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/build-tx',
         { params },
       );
-      if (data.code === 0 && data.data) {
+      if (data?.data) {
         return data.data;
       }
       Toast.error({ title: 'error', message: data?.message });
@@ -300,7 +300,7 @@ export default class ServiceSwap extends ServiceBase {
       const { data } = await client.post<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
       >('/swap/v1/state-tx', params);
-      if (data?.code === 0 && data?.data) {
+      if (data?.data) {
         return data.data;
       }
       Toast.error({ title: 'error', message: data?.message });
