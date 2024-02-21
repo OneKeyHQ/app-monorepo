@@ -30,7 +30,6 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
-import { dispatchWebViewOverlayEvent } from '../WebView/DesktopOverlay';
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
@@ -214,7 +213,6 @@ function HeaderRightToolBar() {
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
-      dispatchWebViewOverlayEvent(value);
       setIsOpen(value);
     },
     [setIsOpen],
