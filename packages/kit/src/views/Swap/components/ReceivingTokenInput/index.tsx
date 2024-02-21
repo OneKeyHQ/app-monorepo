@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
+import { SvgUri } from 'react-native-svg';
 
 import {
   Box,
@@ -18,6 +19,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -27,6 +29,7 @@ import {
   setAllowAnotherRecipientAddress,
   setRecipient,
 } from '../../../../store/reducers/swap';
+import { isSVG } from '../../../../utils/uriUtils';
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -412,25 +415,29 @@ const TokenInput: FC<TokenInputProps> = ({
     } = arbRebateData;
     const amountParsed = new BigNumber(amount)
       .shiftedBy(-decimals)
-      .decimalPlaces(4, BigNumber.ROUND_DOWN)
+      .decimalPlaces(2, BigNumber.ROUND_DOWN)
       .toFixed();
+    const isSvg = isSVG(logoURI);
     return (
       <>
         <Typography.Body2
-          textAlign="center"
+          textAlign="left"
           bold
         >{`+${amountParsed}`}</Typography.Body2>
         <Box
           justifyContent="center"
           alignItems="center"
-          size={4}
-          mx="2px"
+          size={3}
+          mx="1px"
           borderRadius="full"
-          backgroundColor="black"
         >
-          <Image source={{ uri: logoURI }} size={3} />
+          {isSvg && platformEnv.isNative ? (
+            <SvgUri width="12" height="12" uri={logoURI} />
+          ) : (
+            <Image source={{ uri: logoURI }} size={3} />
+          )}
         </Box>
-        <Typography.Body2 textAlign="center">{`($${amountInUsd.toFixed(
+        <Typography.Body2 textAlign="left">{`($${amountInUsd.toFixed(
           2,
         )})${intl.formatMessage({
           id: 'title__reward',
@@ -493,7 +500,7 @@ const TokenInput: FC<TokenInputProps> = ({
             ) : (
               <Box position="absolute" w="full" top="0" right="0">
                 <Box w="full" position="relative">
-                  <Box position="absolute" bottom="26px" right={2}>
+                  <Box position="absolute" bottom="12px" right={2}>
                     <Box pointerEvents="none">
                       <Typography.Body2 color="text-subdued" numberOfLines={2}>
                         {extraDataContent}
