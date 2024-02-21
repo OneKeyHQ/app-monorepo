@@ -3,6 +3,7 @@ import type { ForwardedRef } from 'react';
 
 import { PageHeaderView } from '@onekeyfe/react-native-tab-page-view';
 import { useProps, useStyle } from '@tamagui/core';
+import { StyleSheet } from 'react-native';
 
 import { useThemeValue } from '../../hooks';
 
@@ -98,7 +99,15 @@ const HeaderComponent = (
     },
   );
   const rawContainerStyle = useStyle(
-    containerStyle as Record<string, unknown>,
+    {
+      ...{
+        left: '$5',
+        right: '$2.5',
+        borderBottomColor: '$borderSubdued',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+      },
+      ...containerStyle,
+    } as Record<string, unknown>,
     {
       resolveValues: 'value',
     },
