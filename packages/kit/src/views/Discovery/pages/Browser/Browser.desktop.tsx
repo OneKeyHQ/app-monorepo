@@ -5,7 +5,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
-import { DesktopOverlay } from '../../components/WebView/DesktopOverlay';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 
@@ -46,7 +45,6 @@ function DesktopBrowser() {
             activeTabId={activeTabId}
           />
         ))}
-        <DesktopOverlay />
       </Page.Body>
     </Page>
   );

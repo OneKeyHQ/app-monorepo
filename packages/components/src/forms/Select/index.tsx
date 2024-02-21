@@ -177,13 +177,9 @@ const useRenderPopoverTrigger = () => {
   );
 };
 
-const requestIdleCallback = platformEnv.isNative
-  ? (callback: () => void) => {
-      setTimeout(callback, 50);
-    }
-  : (callback: () => void) => {
-      void InteractionManager.runAfterInteractions(callback);
-    };
+const requestIdleCallback = (callback: () => void) => {
+  setTimeout(callback, 50);
+};
 
 function SelectContent() {
   const {
@@ -251,7 +247,6 @@ function SelectContent() {
     [],
   );
 
-  console.log('data___', sections, items);
   const renderContent = useMemo(
     () => {
       const listProps = {

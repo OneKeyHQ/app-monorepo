@@ -21,7 +21,7 @@ import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -180,7 +180,7 @@ function RawPopover({
   );
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
-      <PopoverContent closePopover={handleClosePopover}>
+      <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
         {RenderContent
           ? ((
               <RenderContent
@@ -204,7 +204,6 @@ function RawPopover({
       <TMPopover.Trigger asChild>
         <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
       </TMPopover.Trigger>
-
       {/* floating panel */}
       <TMPopover.Content
         unstyled
@@ -235,7 +234,6 @@ function RawPopover({
       >
         <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
       </TMPopover.Content>
-
       {/* sheet */}
       {usingSheet && (
         <TMPopover.Adapt when="md">
