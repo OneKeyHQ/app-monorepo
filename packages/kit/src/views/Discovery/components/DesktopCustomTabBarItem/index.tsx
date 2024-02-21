@@ -26,9 +26,6 @@ function DesktopCustomTabBarItem({
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
-  const handleActionListOpenChange = useCallback((isOpen: boolean) => {
-    dispatchWebViewOverlayEvent(isOpen);
-  }, []);
   return (
     <DesktopTabItem
       key={id}
@@ -36,7 +33,6 @@ function DesktopCustomTabBarItem({
       onPress={() => onPress(id)}
       label={tab.title}
       avatarSrc={tab?.favicon}
-      onActionListOpenChange={handleActionListOpenChange}
       testID={testID}
       actionList={[
         {
