@@ -590,7 +590,7 @@ export class UnknownHardwareError extends OneKeyHardwareError {
   constructor(props?: IOneKeyError) {
     const message = [
       props?.payload?.error,
-      props?.payload?.message,
+      props?.payload?.message, // use device raw error message as UnknownHardwareError message
       props?.message,
       props?.payload?.code,
     ]

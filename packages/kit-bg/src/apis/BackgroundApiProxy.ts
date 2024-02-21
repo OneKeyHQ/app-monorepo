@@ -27,6 +27,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
@@ -67,6 +68,10 @@ class BackgroundApiProxy
   serviceValidator = this._createProxyService(
     'serviceValidator',
   ) as ServiceValidator;
+
+  serviceScanQRCode = this._createProxyService(
+    'serviceScanQRCode',
+  ) as ServiceScanQRCode;
 
   serviceNameResolver = this._createProxyService(
     'serviceNameResolver',

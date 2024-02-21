@@ -1,7 +1,9 @@
 module.exports = [
   'changelog',
   'qrcode',
+  'tlightning',
   'Eip',
+  'passpharse',
   'uosmo',
   'uatom',
   'subtype',
@@ -620,8 +622,10 @@ module.exports = [
   'Hira',
   'Latn',
   'Cyrl',
+  'sym',
   'Viewable',
   'viewability',
   'caips',
+  'glmt',
   'walletconnect',
 ];

@@ -25,6 +25,7 @@ import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
@@ -101,5 +102,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHardware: ServiceHardware;
 
   serviceOnboarding: ServiceOnboarding;
+  serviceScanQRCode: ServiceScanQRCode;
   serviceAddressBook: ServiceAddressBook;
 }

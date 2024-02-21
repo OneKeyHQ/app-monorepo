@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useMedia } from 'tamagui';
 
@@ -117,10 +117,15 @@ function TokenListContainer(props: IProps) {
     [account, navigation, network],
   );
 
+  const memoWalletActionsContainer = useMemo(
+    () => <WalletActionsContainer tokens={allTokens} />,
+    [allTokens],
+  );
+
   return (
     <>
       <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        <WalletActionsContainer tokens={allTokens} />
+        {memoWalletActionsContainer}
       </Portal.Body>
       <TokenListView
         withHeader

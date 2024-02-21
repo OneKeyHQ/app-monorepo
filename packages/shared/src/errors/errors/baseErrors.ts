@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
-import { isPlainObject, isString } from 'lodash';
+import { isObject, isString } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 
@@ -48,7 +48,7 @@ export class OneKeyError<
     let infoData: I18nInfoT | undefined;
     let hardwareErrorPayload: IOneKeyHardwareErrorPayload | undefined;
     let autoToast: boolean | undefined;
-    if (!isString(errorProps) && errorProps && isPlainObject(errorProps)) {
+    if (!isString(errorProps) && errorProps && isObject(errorProps)) {
       ({
         message: msg,
         code,

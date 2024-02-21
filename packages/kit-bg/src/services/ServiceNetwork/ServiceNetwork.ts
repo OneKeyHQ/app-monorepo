@@ -87,6 +87,17 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNetworkByImplListAndChainId(
+    implList: string[],
+    chainId: string,
+  ) {
+    const { networks } = await this.getNetworksByImpls({
+      impls: implList,
+    });
+    return networks.find((n) => n.chainId === chainId);
+  }
+
+  @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
     const settings = await getVaultSettings({ networkId });
     return settings;
@@ -145,7 +156,7 @@ class ServiceNetwork extends ServiceBase {
       return acc;
     }, {} as Record<string, string>);
   }
-  
+
   async containsNetwork({
     impls,
     networkId,
