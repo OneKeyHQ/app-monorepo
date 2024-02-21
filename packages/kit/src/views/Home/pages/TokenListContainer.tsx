@@ -117,7 +117,7 @@ function TokenListContainer(props: IProps) {
     [account, navigation, network],
   );
 
-  const walletActionsContainer = useMemo(
+  const memoWalletActionsContainer = useMemo(
     () => <WalletActionsContainer tokens={allTokens} />,
     [allTokens],
   );
@@ -125,7 +125,7 @@ function TokenListContainer(props: IProps) {
   return (
     <>
       <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        {walletActionsContainer}
+        {memoWalletActionsContainer}
       </Portal.Body>
       <TokenListView
         withHeader
