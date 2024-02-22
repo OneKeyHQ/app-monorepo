@@ -32,7 +32,6 @@ import {
   EModalSendRoutes,
   type IModalSendParamList,
 } from '../../../Send/router';
-import { HomeTokenListProviderMirror } from '../HomeTokenListProviderMirror';
 
 function HeaderAction({
   icon,
@@ -197,12 +196,4 @@ function WalletActions() {
   );
 }
 
-function WalletActionsContainer() {
-  return (
-    <HomeTokenListProviderMirror>
-      <WalletActions />
-    </HomeTokenListProviderMirror>
-  );
-}
-
-export { HeaderAction, WalletActions, WalletActionsContainer };
+export { HeaderAction, WalletActions };

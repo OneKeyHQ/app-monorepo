@@ -123,8 +123,8 @@ export function useShouldUpdateConnectedAccount() {
         accountId: activeAccount.account?.id ?? '',
         address: activeAccount.account?.address ?? '',
         networkImpl: activeAccount.network?.impl ?? '',
+        deriveType: activeAccount.deriveType,
 
-        deriveType: selectedAccount.deriveType,
         focusedWallet: selectedAccount.focusedWallet,
         othersWalletAccountId: selectedAccount.othersWalletAccountId,
       };

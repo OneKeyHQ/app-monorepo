@@ -75,7 +75,13 @@ function ConnectionModal() {
         Toast.error({ title: 'no account' });
         return;
       }
-      const { wallet, account, network, indexedAccount } = selectedAccount;
+      const {
+        wallet,
+        account,
+        network,
+        indexedAccount,
+        deriveType = 'default',
+      } = selectedAccount;
       const accountInfo: IConnectionAccountInfo = {
         networkImpl: network?.impl ?? '',
         walletId: wallet?.id ?? '',
@@ -83,8 +89,8 @@ function ConnectionModal() {
         networkId: network?.id ?? '',
         accountId: account.id,
         address: account.address,
+        deriveType,
 
-        deriveType: selectedAccount?.deriveType || 'default',
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };

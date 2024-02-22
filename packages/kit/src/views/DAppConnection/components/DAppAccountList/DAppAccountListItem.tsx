@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -17,10 +17,7 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -73,21 +70,12 @@ function AccountListItem({
   );
 }
 
-// TODO not working
-function DAppAccountListSyncFromHome({
-  num,
-  children,
-}: {
-  num: number;
-  children?: any;
-}) {
+function DAppAccountListSyncFromHome({ num }: { num: number }) {
   const actions = useAccountSelectorActions();
-  const { activeAccount } = useActiveAccount({ num });
-  const [ready, setReady] = useState(false);
   useEffect(() => {
     void (async () => {
+      // required delay here, should be called after AccountSelectEffects AutoSelect
       await timerUtils.wait(300);
-      // TODO not working
       await actions.current.syncFromScene({
         from: {
           sceneName: EAccountSelectorSceneName.home,
@@ -95,22 +83,10 @@ function DAppAccountListSyncFromHome({
         },
         num, // TODO multiple account selector of wallet connect
       });
-      // await timerUtils.wait(3000);
-      setReady(true);
     })();
   }, [actions, num]);
 
-  // if (ready) {
-  //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  //   return children;
-  // }
-  return (
-    <SizableText size="$headingMd" color="$text">
-      {activeAccount.account?.address ?? 'Loading...'}
-      --
-      {ready.toString()}
-    </SizableText>
-  );
+  return null;
 }
 
 function DAppAccountListStandAloneItem({

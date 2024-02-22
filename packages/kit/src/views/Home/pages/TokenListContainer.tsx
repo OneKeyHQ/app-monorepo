@@ -14,7 +14,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
-import { WalletActionsContainer } from '../components/WalletActions';
+import { WalletActions } from '../components/WalletActions';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
 
 type IProps = {
@@ -122,7 +122,7 @@ function TokenListContainer(props: IProps) {
   return (
     <>
       <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        <WalletActionsContainer />
+        <WalletActions />
       </Portal.Body>
       <TokenListView
         withHeader

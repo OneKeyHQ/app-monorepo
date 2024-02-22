@@ -130,8 +130,8 @@ function SessionProposalModal({
         networkId: activeAccount.network?.id ?? '',
         accountId: activeAccount.account?.id ?? '',
         address: activeAccount.account?.address ?? '',
-
         deriveType: activeAccount?.deriveType ?? 'default',
+
         focusedWallet: selectedAccount?.focusedWallet,
         othersWalletAccountId: selectedAccount?.othersWalletAccountId,
       };
