@@ -27,13 +27,9 @@ export const trackEvent = (
   });
 };
 
-const asyncTrackPage = async (pageName: string) => {
-  trackEvent('page_view', { pageName });
-};
-
 export const trackPage = (pageName: string) => {
   basicInfo.screen_name = pageName;
-  void asyncTrackPage(pageName);
+  trackEvent('page_view', { pageName });
 };
 
 const asyncIdentify = async (distinctId: string) => {
