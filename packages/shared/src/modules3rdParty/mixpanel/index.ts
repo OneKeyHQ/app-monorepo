@@ -1,17 +1,9 @@
-import { getMixpanel } from './mixpanel';
+import platformEnv from '../../platformEnv';
 
-const asyncTrackPage = async (pageName: string) => {
-  const mixpanel = await getMixpanel();
-  mixpanel?.track('page_view', { pageName });
-};
+import { getMixpanel } from './mixpanel';
 
 const basicInfo = {} as {
   screen_name: string;
-};
-
-export const trackPage = (pageName: string) => {
-  basicInfo.screen_name = pageName;
-  void asyncTrackPage(pageName);
 };
 
 const asyncTrackEvent = async (
@@ -26,10 +18,22 @@ export const trackEvent = (
   eventName: string,
   eventProps?: Record<string, any>,
 ) => {
+  if (platformEnv.isDev) {
+    return;
+  }
   void asyncTrackEvent(eventName, {
     ...basicInfo,
     eventProps,
   });
+};
+
+const asyncTrackPage = async (pageName: string) => {
+  trackEvent('page_view', { pageName });
+};
+
+export const trackPage = (pageName: string) => {
+  basicInfo.screen_name = pageName;
+  void asyncTrackPage(pageName);
 };
 
 const asyncIdentify = async (distinctId: string) => {
