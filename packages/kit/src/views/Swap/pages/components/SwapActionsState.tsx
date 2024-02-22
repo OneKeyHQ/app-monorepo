@@ -10,13 +10,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
+  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ESwapStepStateType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapStepState } from '../../hooks/useSwapStepState';
-import { ESwapStepStateType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
@@ -36,6 +37,7 @@ const SwapActionsState = ({
   const swapStepState = useSwapStepState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
+  const { cleanQuoteInterval } = useSwapActions().current;
   const [selectCurrentProvider] = useSwapQuoteCurrentSelectAtom();
   const isApproveStepStatus = useMemo(
     () => swapStepState.type === ESwapStepStateType.APPROVE,
@@ -127,6 +129,7 @@ const SwapActionsState = ({
   ]);
 
   const onActionHandler = useCallback(() => {
+    cleanQuoteInterval();
     if (swapStepState.type === ESwapStepStateType.APPROVE) {
       handleApprove();
       return;
@@ -139,6 +142,7 @@ const SwapActionsState = ({
       onBuildTx();
     }
   }, [
+    cleanQuoteInterval,
     handleApprove,
     onBuildTx,
     onWrapped,

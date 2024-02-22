@@ -229,6 +229,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (this.quoteInterval) {
       clearInterval(this.quoteInterval);
     }
+    void backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
   };
 }
 
