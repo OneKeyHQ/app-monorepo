@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EDecodedTxDirection,
@@ -14,6 +15,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 
@@ -73,10 +75,12 @@ function getTxActionTransferInfo(props: ITxActionProps) {
 }
 
 function buildTransferChangeInfo({
+  currencySymbol,
   changeSymbol,
   transfers,
   intl,
 }: {
+  currencySymbol: string;
   changeSymbol: string;
   transfers: IDecodedTxTransferInfo[];
   intl: IntlShape;
@@ -85,23 +89,24 @@ function buildTransferChangeInfo({
   let changeDescription = '';
 
   if (transfers.length === 1) {
-    change = `${
-      getFormattedNumber(new BigNumber(transfers[0].amount).abs().toFixed()) ??
-      '0'
-    } ${transfers[0].symbol}`;
+    const amountBN = new BigNumber(transfers[0].amount).abs();
+    change = `${getFormattedNumber(amountBN) ?? '0'} ${transfers[0].symbol}`;
+    changeDescription = `${currencySymbol}${amountBN
+      .multipliedBy(transfers[0].price ?? 0)
+      .toFixed(2)} `;
   } else {
     const tokens = uniq(map(transfers, 'token'));
     if (tokens.length === 1) {
-      const totalAmount =
-        getFormattedNumber(
-          transfers
-            .reduce(
-              (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
-              new BigNumber(0),
-            )
-            .toFixed(),
-        ) || '0';
-      change = `${totalAmount} ${transfers[0].symbol}`;
+      const totalAmountBN = transfers.reduce(
+        (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
+        new BigNumber(0),
+      );
+      change = `${getFormattedNumber(totalAmountBN) || '0'} ${
+        transfers[0].symbol
+      }`;
+      changeDescription = `${currencySymbol}${totalAmountBN
+        .multipliedBy(transfers[0].price ?? 0)
+        .toFixed(2)} `;
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
@@ -138,8 +143,10 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout } = props;
+  const { tableLayout, decodedTx } = props;
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
   const {
     sends,
     receives,
@@ -170,40 +177,41 @@ function TxActionTransferListView(props: ITxActionProps) {
 
   if (!isEmpty(sends) && isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
+      currencySymbol: settings.currencyInfo.symbol,
       changeSymbol: '-',
       transfers: sends,
       intl,
     });
     change = changeInfo.change;
     changeDescription = changeInfo.changeDescription;
-    description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = sendNFTIcon || sendTokenIcon;
     title = intl.formatMessage({ id: 'action__send' });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
+      currencySymbol: settings.currencyInfo.symbol,
       changeSymbol: '+',
       transfers: receives,
       intl,
     });
     change = changeInfo.change;
     changeDescription = changeInfo.changeDescription;
-    description.prefix = intl.formatMessage({ id: 'content__from' });
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
+      currencySymbol: settings.currencyInfo.symbol,
       changeSymbol: '-',
       transfers: sends,
       intl,
     });
     const receiveChangeInfo = buildTransferChangeInfo({
+      currencySymbol: settings.currencyInfo.symbol,
       changeSymbol: '+',
       transfers: receives,
       intl,
     });
     change = receiveChangeInfo.change;
     changeDescription = sendChangeInfo.change;
-    description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = [
       sendNFTIcon || sendTokenIcon,
       receiveNFTIcon || receiveTokenIcon,
@@ -218,6 +226,9 @@ function TxActionTransferListView(props: ITxActionProps) {
       change={change}
       changeDescription={changeDescription}
       tableLayout={tableLayout}
+      fee={txFee}
+      feeFiatValue={txFeeFiatValue}
+      timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
     />
   );
 }
@@ -252,14 +263,14 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { networkId, nativeTokenTransferAmountToUpdate } = props;
+  const { decodedTx, nativeTokenTransferAmountToUpdate } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
 
   const { network } = useAccountData({
-    networkId,
+    networkId: decodedTx.networkId,
   });
 
   const renderTransferBlock = useCallback(

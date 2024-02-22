@@ -1,8 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
 
@@ -16,7 +24,7 @@ function TxActionCommonAvatar({
   tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const icon = avatar?.fallbackIcon;
-  const containerSize = tableLayout ? '$8' : '$10';
+  const containerSize = '$10';
   const borderRadius = avatar.circular ? '$full' : '$2';
 
   if (!avatar?.src) {
@@ -102,10 +110,7 @@ function TxActionCommonTitle({
       size="$bodyLgMedium"
       textTransform="capitalize"
       {...(tableLayout && {
-        w: '$40',
-        $gtXl: {
-          w: '$56',
-        },
+        size: '$bodyMdMedium',
       })}
     >
       {title}
@@ -115,16 +120,11 @@ function TxActionCommonTitle({
 
 function TxActionCommonDescription({
   description,
-  tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
     <XStack alignItems="center">
       {description?.prefix && (
-        <SizableText
-          size={tableLayout ? '$bodyLg' : '$bodyMd'}
-          color="$textSubdued"
-          pr="$1.5"
-        >
+        <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
           {description?.prefix}
         </SizableText>
       )}
@@ -132,14 +132,11 @@ function TxActionCommonDescription({
         <Icon
           color="$iconSubdued"
           mr="$0.5"
-          size={tableLayout ? '$4.5' : '$4'}
+          size="$4"
           name={description.icon}
         />
       )}
-      <SizableText
-        size={tableLayout ? '$bodyLg' : '$bodyMd'}
-        color="$textSubdued"
-      >
+      <SizableText size="$bodyMd" color="$textSubdued">
         {description?.children || '-'}
       </SizableText>
     </XStack>
@@ -153,15 +150,11 @@ function TxActionCommonChange({
   return (
     <SizableText
       size="$bodyLgMedium"
-      textAlign="right"
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
       {...(tableLayout && {
-        w: '$40',
-        $gtXl: {
-          w: '$56',
-        },
+        size: '$bodyMdMedium',
       })}
     >
       {change}
@@ -171,24 +164,30 @@ function TxActionCommonChange({
 
 function TxActionCommonChangeDescription({
   changeDescription,
-  tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'changeDescription' | 'tableLayout'>) {
   return (
-    <SizableText
-      size="$bodyMd"
-      color="$textSubdued"
-      textAlign="right"
-      numberOfLines={1}
-      {...(!changeDescription && {
-        opacity: 0,
-      })}
-      {...(tableLayout && {
-        size: '$bodyLg',
-        w: '$48',
-      })}
-    >
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
       {changeDescription || '-'}
     </SizableText>
+  );
+}
+
+function TxActionCommonFee({
+  fee,
+  feeFiatValue,
+}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue'>) {
+  return (
+    <YStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Gas Fee
+      </SizableText>
+      <XStack alignItems="center" space="$1">
+        <SizableText size="$bodyMd">{fee}</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {feeFiatValue}
+        </SizableText>
+      </XStack>
+    </YStack>
   );
 }
 
@@ -201,6 +200,9 @@ function TxActionCommonListView(
     description,
     change,
     changeDescription,
+    fee,
+    feeFiatValue,
+    timestamp,
     pending,
     tableLayout,
     ...rest
@@ -211,33 +213,55 @@ function TxActionCommonListView(
         flexDirection: 'row',
       })}
     >
-      <ListItem flex={1} userSelect="none" {...rest}>
+      <ListItem flex={1} userSelect="none" px="$0" {...rest}>
         <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
-        <Stack
+        <XStack
           flex={1}
+          alignItems="center"
           {...(tableLayout && {
-            flexDirection: 'row',
             space: '$3',
           })}
         >
-          <TxActionCommonTitle title={title} tableLayout={tableLayout} />
-          <TxActionCommonDescription
-            description={description}
-            tableLayout={tableLayout}
-          />
-        </Stack>
-        <Stack
-          {...(tableLayout && {
-            flexDirection: 'row-reverse',
-            space: '$3',
-          })}
-        >
-          <TxActionCommonChange change={change} tableLayout={tableLayout} />
-          <TxActionCommonChangeDescription
-            changeDescription={changeDescription}
-            tableLayout={tableLayout}
-          />
-        </Stack>
+          <YStack flexBasis={tableLayout ? '33%' : '50%'}>
+            <TxActionCommonTitle title={title} tableLayout={tableLayout} />
+            <XStack alignItems="center">
+              {tableLayout && timestamp && (
+                <>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {formatTime(new Date(timestamp), {
+                      hideSeconds: true,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
+                    •
+                  </SizableText>
+                </>
+              )}
+              <TxActionCommonDescription
+                description={description}
+                tableLayout={tableLayout}
+              />
+            </XStack>
+          </YStack>
+          <YStack
+            flexBasis={tableLayout ? '33%' : '50%'}
+            alignItems="flex-end"
+            {...(tableLayout && {
+              alignItems: 'unset',
+            })}
+          >
+            <TxActionCommonChange change={change} tableLayout={tableLayout} />
+            {changeDescription && (
+              <TxActionCommonChangeDescription
+                changeDescription={changeDescription}
+                tableLayout={tableLayout}
+              />
+            )}
+          </YStack>
+          {tableLayout && (
+            <TxActionCommonFee fee={fee} feeFiatValue={feeFiatValue} />
+          )}
+        </XStack>
       </ListItem>
       {pending && (
         <XStack

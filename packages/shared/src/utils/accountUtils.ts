@@ -39,10 +39,10 @@ function shortenAddress({ address }: { address: string | undefined }) {
   if (!address) {
     return '';
   }
-  if (address.length <= 10) {
+  if (address.length <= 14) {
     return address;
   }
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  return `${address.slice(0, 8)}...${address.slice(-6)}`;
 }
 
 function isHdWallet({ walletId }: { walletId: string | undefined }) {

@@ -33,7 +33,7 @@ function TxActionsListView(props: IProps) {
     <TxActionComponent
       action={action}
       tableLayout={tableLayout}
-      networkId={decodedTx.networkId}
+      decodedTx={decodedTx}
       nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
     />
   );

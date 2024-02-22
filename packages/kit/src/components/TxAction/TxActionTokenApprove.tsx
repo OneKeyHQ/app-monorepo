@@ -2,6 +2,8 @@ import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+
 import {
   TxActionCommonDetailView,
   TxActionCommonListView,
@@ -15,6 +17,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const approveIcon = tokenApprove?.icon ?? '';
   const approveLabel = tokenApprove?.label ?? '';
   const approveAmount = tokenApprove?.amount ?? '';
+  const approveName = tokenApprove?.name ?? '';
   const approveSymbol = tokenApprove?.symbol ?? '';
   const approveSpender = tokenApprove?.to ?? '';
   const approveOwner = tokenApprove?.from ?? '';
@@ -23,6 +26,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   return {
     approveIcon,
     approveAmount,
+    approveName,
     approveSymbol,
     approveLabel,
     approveSpender,
@@ -32,21 +36,25 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 }
 
 function TxActionTokenApproveListView(props: ITxActionProps) {
+  const { tableLayout, decodedTx } = props;
   const intl = useIntl();
-  const { tableLayout } = props;
-  const { approveIcon, approveSpender, approveLabel } =
-    getTxActionTokenApproveInfo(props);
+  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
 
-  const title = approveLabel;
+  const {
+    approveIcon,
+    approveSpender,
+    approveAmount,
+    approveName,
+    approveSymbol,
+  } = getTxActionTokenApproveInfo(props);
+
+  const title = intl.formatMessage({ id: 'title__approve' });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     circular: true,
     src: approveIcon,
     fallbackIcon: 'ImageMountainSolid',
   };
   const description = {
-    prefix: intl.formatMessage({
-      id: 'content__to',
-    }),
     children: accountUtils.shortenAddress({
       address: approveSpender,
     }),
@@ -58,6 +66,11 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       avatar={avatar}
       description={description}
       tableLayout={tableLayout}
+      change={approveName}
+      changeDescription={`${approveAmount} ${approveSymbol}`}
+      fee={txFee}
+      feeFiatValue={txFeeFiatValue}
+      timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
     />
   );
 }

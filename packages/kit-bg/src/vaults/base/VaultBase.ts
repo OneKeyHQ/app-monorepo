@@ -230,6 +230,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeInNative: onChainHistoryTx.gasFee,
 
+        totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
+
         extraInfo: null,
       };
 
@@ -339,10 +341,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
-    const { icon, symbol, isNFT, isNative } = getOnChainHistoryTxAssetInfo({
-      tokenAddress: transfer.token,
-      tokens,
-    });
+    const { icon, symbol, name, isNFT, isNative } =
+      getOnChainHistoryTxAssetInfo({
+        tokenAddress: transfer.token,
+        tokens,
+      });
 
     return {
       from: transfer.from,
@@ -351,6 +354,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       amount: transfer.amount,
       label: transfer.label.label,
       icon,
+      name,
       symbol,
       isNFT,
       isNative,
@@ -376,6 +380,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         from: approve.from,
         to: approve.to,
         icon: transfer.icon,
+        name: transfer.name,
         symbol: transfer.symbol,
         tokenIdOnNetwork: transfer.tokenIdOnNetwork,
         amount: new BigNumber(approve.amount).abs().toFixed(),

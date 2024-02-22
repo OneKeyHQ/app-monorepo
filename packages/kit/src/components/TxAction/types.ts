@@ -1,10 +1,10 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
-import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 export type ITxActionProps = {
   action: IDecodedTxAction;
-  networkId: string;
+  decodedTx: IDecodedTx;
   tableLayout?: boolean;
   nativeTokenTransferAmountToUpdate?: string;
 };
@@ -25,6 +25,8 @@ export type ITxActionCommonListViewProps = {
     fallbackIcon: IKeyOfIcons;
   };
   title: string;
+  fee?: string;
+  feeFiatValue?: string;
   description?: {
     prefix?: string;
     icon?: IKeyOfIcons;
@@ -32,6 +34,7 @@ export type ITxActionCommonListViewProps = {
   };
   change?: string;
   changeDescription?: string;
+  timestamp?: number;
   pending?: boolean;
   tableLayout?: boolean;
 };

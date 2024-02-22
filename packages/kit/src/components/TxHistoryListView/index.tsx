@@ -2,17 +2,14 @@ import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Divider,
-  Empty,
-  ListView,
-  SectionList,
-  Stack,
-} from '@onekeyhq/components';
+import { ListView, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { EmptyHistory } from '../Empty/EmptyHistory';
+import { ListLoading } from '../Loading';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
@@ -24,19 +21,13 @@ type IProps = {
   tableLayout?: boolean;
   showHeader?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
+  initialized?: boolean;
 };
 
 function TxHistoryListEmpty() {
-  const intl = useIntl();
-
   return (
-    <Stack height="100%" alignItems="center" justifyContent="center">
-      <Empty
-        title={intl.formatMessage({ id: 'transaction__history_empty_title' })}
-        description={intl.formatMessage({
-          id: 'transaction__history_empty_desc',
-        })}
-      />
+    <Stack mt="$8" alignItems="center" justifyContent="center">
+      <EmptyHistory />
     </Stack>
   );
 }
@@ -45,8 +36,15 @@ const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
   const intl = useIntl();
-  const { data, showHeader, onPressHistory, tableLayout, onContentSizeChange } =
-    props;
+  const {
+    data,
+    isLoading,
+    showHeader,
+    onPressHistory,
+    tableLayout,
+    onContentSizeChange,
+    initialized,
+  } = props;
 
   const currentDate = useRef('');
 
@@ -63,12 +61,11 @@ function TxHistoryListView(props: IProps) {
             ) : null}
             <TxHistoryListItem
               key={index}
+              index={index}
               historyTx={tx}
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextTx.decodedTx.status === EDecodedTxStatus.Pending &&
-              tableLayout && <Divider mx="$5" />}
             {nextTx.decodedTx.status !== EDecodedTxStatus.Pending && (
               <Stack mb="$5" />
             )}
@@ -103,11 +100,11 @@ function TxHistoryListView(props: IProps) {
             <SectionList.SectionHeader title={date} />
             <TxHistoryListItem
               key={index}
+              index={index}
               historyTx={tx}
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextDate === date && tableLayout && <Divider mx="$5" />}
             {nextDate !== date && <Stack mb="$5" />}
           </>
         );
@@ -116,17 +113,21 @@ function TxHistoryListView(props: IProps) {
         <>
           <TxHistoryListItem
             key={index}
+            index={index}
             historyTx={tx}
             onPress={onPressHistory}
             tableLayout={tableLayout}
           />
-          {nextDate === date && tableLayout && <Divider mx="$5" />}
           {nextDate !== date && <Stack mb="$5" />}
         </>
       );
     },
     [data, intl, onPressHistory, tableLayout],
   );
+
+  if (!initialized && isLoading) {
+    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+  }
 
   return (
     <ListView
@@ -144,9 +145,10 @@ function TxHistoryListView(props: IProps) {
         index: number;
       }) => renderListItem(item, index)}
       ListFooterComponent={ListFooterComponent}
-      {...(showHeader && {
-        ListHeaderComponent: TxHistoryListHeader,
-      })}
+      {...(showHeader &&
+        data?.length > 0 && {
+          ListHeaderComponent: TxHistoryListHeader,
+        })}
     />
   );
 }

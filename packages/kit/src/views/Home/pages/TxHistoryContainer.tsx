@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -19,11 +19,13 @@ type IProps = {
 function TxHistoryListContainer(props: IProps) {
   const { onContentSizeChange } = props;
 
+  const [initialized, setInitialized] = useState(false);
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
+  const currentAccountId = useRef(account?.id);
 
   const handleHistoryItemPress = useCallback(
     (history: IAccountHistoryTx) => {
@@ -43,14 +45,21 @@ function TxHistoryListContainer(props: IProps) {
   const history = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      return backgroundApiProxy.serviceHistory.fetchAccountHistory({
+      if (currentAccountId.current !== account.id) {
+        currentAccountId.current = account.id;
+        setInitialized(false);
+      }
+      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
       });
+      setInitialized(true);
+      return r;
     },
     [account, network],
     {
+      watchLoading: true,
       debounced: DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
@@ -62,6 +71,7 @@ function TxHistoryListContainer(props: IProps) {
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={history.isLoading}
+      initialized={initialized}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,

@@ -33,6 +33,7 @@ export type IFormatDateOptions = {
   hideYear?: boolean;
   hideMonth?: boolean;
   hideTimeForever?: boolean;
+  hideSeconds?: boolean;
 };
 
 export type IFormatMonthOptions = {
@@ -157,4 +158,21 @@ export function formatRelativeDate(date: Date | number) {
 
   const relativeDate = formatRelative(date, new Date(), { locale });
   return relativeDate ?? '';
+}
+
+export function formatTime(date: Date | string, options?: IFormatDateOptions) {
+  let parsedDate: Date;
+  if (typeof date === 'string') {
+    parsedDate = parseISO(date);
+  } else {
+    parsedDate = date;
+  }
+
+  let formatTemplate = 'HH:mm:ss';
+
+  if (options?.hideSeconds) {
+    formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
+  }
+
+  return format(parsedDate, formatTemplate) ?? '';
 }
