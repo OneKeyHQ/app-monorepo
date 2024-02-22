@@ -20,6 +20,7 @@ import {
   useBrowserBookmarkAction,
   useBrowserHistoryAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -153,12 +154,24 @@ function SearchModal() {
                         title: searchValue,
                       },
                     });
+                    trackEvent('Enter_Dapp', {
+                      dapp_name: searchValue,
+                      dapp_domain: searchValue,
+                      enter_method: 'search',
+                      is_favorited: false,
+                    });
                   } else {
                     handleOpenWebSite({
                       navigation,
                       useCurrentWindow,
                       tabId,
                       dApp: item,
+                    });
+                    trackEvent('Enter_Dapp', {
+                      dapp_name: item.name,
+                      dapp_domain: item.url,
+                      enter_method: 'search',
+                      is_favorited: false,
                     });
                   }
                 }}

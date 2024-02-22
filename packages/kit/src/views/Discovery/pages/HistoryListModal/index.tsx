@@ -27,6 +27,7 @@ import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
+import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
@@ -164,6 +165,12 @@ function HistoryListModal() {
                       url: item.url,
                       title: item.title,
                     },
+                  });
+                  trackEvent('Enter_Dapp', {
+                    dapp_name: item.url,
+                    dapp_domain: item.title,
+                    enter_method: 'historyList',
+                    is_favorited: false,
                   });
                 },
               })}

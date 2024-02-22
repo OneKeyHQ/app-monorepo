@@ -8,6 +8,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -77,13 +78,22 @@ function DashboardContent({
           bookmarksData={bookmarksData}
           historiesData={historiesData}
           onPressMore={onPressMore}
-          handleOpenWebSite={({ webSite }) =>
+          handleOpenWebSite={({ webSite }) => {
             handleOpenWebSite({
               webSite,
               navigation,
               shouldPopNavigation: false,
-            })
-          }
+            });
+
+            trackEvent('Enter_Dapp', {
+              dapp_name: webSite?.title,
+              dapp_domain: webSite?.url,
+              enter_method: 'home',
+              is_favorited: !!bookmarksData?.find(
+                (bookmark) => bookmark.url === webSite?.url,
+              ),
+            });
+          }}
         />
         <SuggestedAndExploreSection
           key="SuggestedAndExploreSection"
@@ -92,13 +102,19 @@ function DashboardContent({
               ? homePageData.categories
               : []
           }
-          handleOpenWebSite={({ webSite }) =>
+          handleOpenWebSite={({ webSite }) => {
             handleOpenWebSite({
               webSite,
               navigation,
               shouldPopNavigation: false,
-            })
-          }
+            });
+            trackEvent('Enter_Dapp', {
+              dapp_name: webSite?.title,
+              dapp_domain: webSite?.url,
+              enter_method: 'home',
+              is_favorited: false,
+            });
+          }}
         />
       </>
     ),

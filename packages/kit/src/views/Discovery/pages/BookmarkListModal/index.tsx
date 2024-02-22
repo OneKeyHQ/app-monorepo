@@ -144,14 +144,21 @@ function BookmarkListModal() {
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () =>
+                onPress: () => {
                   handleOpenWebSite({
                     navigation,
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
-                  }),
+                  });
+                  trackEvent('Enter_Dapp', {
+                    dapp_name: item.url,
+                    dapp_domain: item.title,
+                    enter_method: 'bookmarkList',
+                    is_favorited: true,
+                  });
+                },
               })}
             >
               {isEditing && (
