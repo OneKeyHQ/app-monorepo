@@ -31,3 +31,12 @@ export const trackEvent = (
     eventProps,
   });
 };
+
+const asyncIdentify = async (distinctId: string) => {
+  const mixpanel = await getMixpanel();
+  mixpanel?.identify(distinctId);
+};
+
+export const identify = (distinctId: string) => {
+  void asyncIdentify(distinctId);
+};

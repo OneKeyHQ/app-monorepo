@@ -12,6 +12,7 @@ export const getMixpanel = async () => {
       debug: platformEnv.isDev,
       track_pageview: false,
       persistence: 'localStorage',
+      // api_host: 'https://api.mixpanel.com',
     });
   }
   return mixpanel;

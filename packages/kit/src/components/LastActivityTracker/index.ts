@@ -7,30 +7,34 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   usePasswordAtom,
   usePasswordPersistAtom,
+  useSettingsPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+import {
+  identify,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();
-  const prevAppStateRef = useRef(AppState.currentState);
+  const [settings] = useSettingsPersistAtom();
   const [{ unLock }] = usePasswordAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+
+  useEffect(() => {
+    identify(settings.instanceId);
+    trackEvent('AppStart');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const refresh = useCallback(() => {
     const { currentState } = AppState;
     if (currentState === 'active') {
       backgroundApiProxy.serviceSetting
         .refreshLastActivity()
         .catch(console.error);
-      trackEvent('AppStart', {
-        resume_from_background: prevAppStateRef.current !== 'active',
-      });
-    } else if (prevAppStateRef.current === 'active') {
-      trackEvent('AppEnd');
     }
-
-    prevAppStateRef.current = currentState;
   }, []);
   const extHandleSystemIdle = useCallback(
     (state: 'idle' | 'locked' | 'active') => {

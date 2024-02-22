@@ -7,6 +7,7 @@ export const getMixpanel = async () => {
   if (!mixpanel) {
     mixpanel = new Mixpanel(token, false);
     await mixpanel.init();
+    // mixpanel.setServerURL('https://api-eu.mixpanel.com');
   }
   return mixpanel;
 };
