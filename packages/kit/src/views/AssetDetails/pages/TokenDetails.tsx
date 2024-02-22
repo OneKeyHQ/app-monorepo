@@ -42,7 +42,6 @@ import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
   const intl = useIntl();
-  const [isBlocked, setIsBlocked] = useState(false);
   const navigation = useAppNavigation();
   const media = useMedia();
 
@@ -56,14 +55,24 @@ export function TokenDetails() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const { accountId, networkId, tokenInfo } = route.params;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    isBlocked: tokenIsBlocked,
+  } = route.params;
 
-  const { result: [tokenHistory, tokenDetails] = [] } =
+  const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
+
+  const { result: [tokenHistory, tokenDetails, network] = [] } =
     usePromiseResult(async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
+      const [account, serverNetwork] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+      ]);
       if (!account) return;
 
       const [history, details] = await Promise.all([
@@ -80,7 +89,7 @@ export function TokenDetails() {
         }),
       ]);
 
-      return [history, details[0]];
+      return [history, details[0], serverNetwork];
     }, [accountId, networkId, tokenInfo.address]);
 
   const tokenValue = useMemo(
@@ -137,6 +146,21 @@ export function TokenDetails() {
     ],
   );
 
+  const handleToggleBlockedToken = useCallback(async () => {
+    setIsBlocked(!isBlocked);
+    if (isBlocked) {
+      await backgroundApiProxy.serviceToken.unblockToken({
+        networkId,
+        tokenId: tokenInfo.address,
+      });
+    } else {
+      await backgroundApiProxy.serviceToken.blockToken({
+        networkId,
+        tokenId: tokenInfo.address,
+      });
+    }
+  }, [isBlocked, networkId, tokenInfo.address]);
+
   const headerRight = useCallback(
     () => (
       <ActionList
@@ -160,17 +184,15 @@ export function TokenDetails() {
             items: [
               {
                 label: isBlocked ? 'Unblock' : 'Block',
-                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-                onPress: () => {
-                  setIsBlocked(!isBlocked);
-                },
+                icon: isBlocked ? 'BlockSolid' : 'BlockOutline',
+                onPress: handleToggleBlockedToken,
               },
             ],
           },
         ]}
       />
     ),
-    [isBlocked],
+    [handleToggleBlockedToken, isBlocked],
   );
 
   const renderTokenAddress = useCallback(() => {
@@ -211,7 +233,7 @@ export function TokenDetails() {
             width="$4"
             height="$4"
             source={{
-              uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
+              uri: network?.logoURI,
             }}
           />
           <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
@@ -248,7 +270,7 @@ export function TokenDetails() {
         )}
       </XGroup>
     );
-  }, [media.gtMd, tokenInfo.address]);
+  }, [media.gtMd, network?.logoURI, tokenInfo.address]);
   return (
     <Page scrollEnabled>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
@@ -257,15 +279,13 @@ export function TokenDetails() {
           {isBlocked && (
             <Stack key="alert">
               <Alert
-                icon="EyeOffOutline"
+                icon="BlockSolid"
                 fullBleed
-                type="info"
+                type="warning"
                 title="This token is currently blocked and won't appear in the list"
                 action={{
                   primary: 'Unblock',
-                  onPrimaryPress: () => {
-                    setIsBlocked(false);
-                  },
+                  onPrimaryPress: handleToggleBlockedToken,
                 }}
               />
               <Stack h="$5" />

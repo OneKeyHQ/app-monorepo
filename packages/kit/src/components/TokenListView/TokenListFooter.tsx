@@ -83,6 +83,7 @@ function TokenListFooter(props: IProps) {
           keys: riskyTokenKeys,
           map: riskyTokenListMap,
         },
+        isBlocked: true,
       },
     });
   }, [

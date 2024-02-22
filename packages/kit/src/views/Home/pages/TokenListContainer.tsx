@@ -57,11 +57,21 @@ function TokenListContainer(props: IProps) {
           updateTokenListInitialized(false);
         }
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
+        const blockedTokens =
+          await backgroundApiProxy.serviceToken.getBlockedTokens({
+            networkId: network.id,
+          });
+        const unblockedTokens =
+          await backgroundApiProxy.serviceToken.getUnblockedTokens({
+            networkId: network.id,
+          });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           networkId: network.id,
           accountAddress: account.address,
           // for performance testing
           limit: 300,
+          blockedTokens,
+          unblockedTokens,
         });
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
         refreshTokenListMap(r.tokens.map);

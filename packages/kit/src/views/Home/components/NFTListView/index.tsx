@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Stack, XStack } from '@onekeyhq/components';
+import { ScrollView, Stack, XStack } from '@onekeyhq/components';
 import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -58,9 +58,9 @@ function NFTListView(props: IProps) {
     );
 
   return (
-    <Stack>
+    <ScrollView h="100%">
       <NFTListHeader />
-      <XStack flexWrap="wrap" px="$2.5">
+      <XStack flexWrap="wrap" px="$2.5" pb="$5">
         {data.map((item) => (
           <NFTListItem
             nft={item}
@@ -69,7 +69,7 @@ function NFTListView(props: IProps) {
           />
         ))}
       </XStack>
-    </Stack>
+    </ScrollView>
   );
 }
 

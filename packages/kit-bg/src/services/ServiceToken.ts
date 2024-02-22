@@ -146,6 +146,68 @@ class ServiceToken extends ServiceBase {
 
     throw new Error('getToken ERROR: token not found.');
   }
+
+  @backgroundMethod()
+  public async blockToken({
+    networkId,
+    tokenId,
+  }: {
+    networkId: string;
+    tokenId: string;
+  }) {
+    const unblockedTokens =
+      await this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
+        networkId,
+      );
+
+    if (unblockedTokens.includes(tokenId)) {
+      return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
+        networkId,
+        removeFromUnBlockedTokens: [tokenId],
+      });
+    }
+
+    return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
+      networkId,
+      addToBlockedTokens: [tokenId],
+    });
+  }
+
+  @backgroundMethod()
+  public async unblockToken({
+    networkId,
+    tokenId,
+  }: {
+    networkId: string;
+    tokenId: string;
+  }) {
+    const blockedTokens =
+      await this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
+
+    if (blockedTokens.includes(tokenId)) {
+      return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
+        networkId,
+        removeFromBlockedTokens: [tokenId],
+      });
+    }
+
+    return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
+      networkId,
+      addToUnBlockedTokens: [tokenId],
+    });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokens({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
+  }
+
+  @backgroundMethod()
+  public async getUnblockedTokens({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.riskyTokens.getUnblockedTokens(
+      networkId,
+    );
+  }
 }
 
 export default ServiceToken;
