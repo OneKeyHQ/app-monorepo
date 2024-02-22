@@ -141,7 +141,7 @@ function TokenListContainer(props: IProps) {
 
 const TokenListContainerWithProvider = memo((props: IProps) => (
   <HomeTokenListProviderMirror>
-    <TokenListContainer {...props} />;
+    <TokenListContainer {...props} />
   </HomeTokenListProviderMirror>
 ));
 TokenListContainerWithProvider.displayName = 'TokenListContainerWithProvider';

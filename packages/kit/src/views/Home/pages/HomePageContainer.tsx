@@ -81,15 +81,18 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
       <Page>
         <Page.Header headerTitle={headerTitle} />
         <Page.Body>
-          <Button
-            onPress={async () => {
-              setIsHide((v) => !v);
-              await timerUtils.wait(1000);
-              onPressHide();
-            }}
-          >
-            hide
-          </Button>
+          {process.env.NODE_ENV !== 'production' ? (
+            <Button
+              onPress={async () => {
+                setIsHide((v) => !v);
+                await timerUtils.wait(1000);
+                onPressHide();
+              }}
+            >
+              home-hide-test
+            </Button>
+          ) : null}
+
           <Tab
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
