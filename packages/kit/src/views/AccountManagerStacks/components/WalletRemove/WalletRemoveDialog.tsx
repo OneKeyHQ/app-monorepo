@@ -6,6 +6,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 
 export function WalletRemoveDialog({
   defaultValue,
@@ -35,6 +36,7 @@ export function WalletRemoveDialog({
           await actions.current.removeWallet({
             walletId: wallet?.id || '',
           });
+          trackEvent('delete_wallet');
         }}
       />
     </>

@@ -6,6 +6,8 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
@@ -26,6 +28,7 @@ export function VerifyRecoveryPhrase({
   EOnboardingPages.VerifyRecoverPhrase
 >) {
   const { servicePassword } = backgroundApiProxy;
+  const [settings] = useSettingsPersistAtom();
   const { mnemonic } = route.params || {};
   ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
@@ -42,6 +45,9 @@ export function VerifyRecoveryPhrase({
     ) {
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: mnemonicConfirm,
+      });
+      trackEvent('CreatWallet', {
+        is_biometric_verification_set: settings.isBiologyAuthSwitchOn,
       });
     } else {
       Toast.error({
