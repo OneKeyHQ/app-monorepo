@@ -152,12 +152,6 @@ function BookmarkListModal() {
                       title: item.title,
                     },
                   });
-                  trackEvent('Enter_Dapp', {
-                    dapp_name: item.url,
-                    dapp_domain: item.title,
-                    enter_method: 'bookmarkList',
-                    is_favorited: true,
-                  });
                 },
               })}
             >

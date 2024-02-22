@@ -8,7 +8,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -84,15 +83,6 @@ function DashboardContent({
               navigation,
               shouldPopNavigation: false,
             });
-
-            trackEvent('Enter_Dapp', {
-              dapp_name: webSite?.title,
-              dapp_domain: webSite?.url,
-              enter_method: 'home',
-              is_favorited: !!bookmarksData?.find(
-                (bookmark) => bookmark.url === webSite?.url,
-              ),
-            });
           }}
         />
         <SuggestedAndExploreSection
@@ -107,12 +97,6 @@ function DashboardContent({
               webSite,
               navigation,
               shouldPopNavigation: false,
-            });
-            trackEvent('Enter_Dapp', {
-              dapp_name: webSite?.title,
-              dapp_domain: webSite?.url,
-              enter_method: 'home',
-              is_favorited: false,
             });
           }}
         />
