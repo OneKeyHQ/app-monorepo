@@ -108,14 +108,6 @@ class ServiceSetting extends ServiceBase {
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
   }
-
-  @backgroundMethod()
-  public async setDevMode(devMode: Partial<ISettingsPersistAtom['devMode']>) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      devMode: merge({}, prev.devMode, devMode),
-    }));
-  }
 }
 
 export default ServiceSetting;

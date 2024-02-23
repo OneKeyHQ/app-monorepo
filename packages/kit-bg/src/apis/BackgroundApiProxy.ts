@@ -13,6 +13,7 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
@@ -45,6 +46,10 @@ class BackgroundApiProxy
   servicePassword = this._createProxyService(
     'servicePassword',
   ) as ServicePassword;
+
+  serviceDevSetting = this._createProxyService(
+    'serviceDevSetting',
+  ) as ServiceDevSetting;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
 

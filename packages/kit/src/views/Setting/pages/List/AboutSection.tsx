@@ -31,7 +31,7 @@ export const AboutSection = () => {
       clickCount += 1;
     }
     if (clickCount >= 9) {
-      void backgroundApiProxy.serviceSetting.setDevMode({ enable: true });
+      void backgroundApiProxy.serviceDevSetting.switchDevMode(true);
     }
   }, []);
   return (

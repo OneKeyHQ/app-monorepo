@@ -24,10 +24,6 @@ export type ISettingsPersistAtom = {
     symbol: string;
     id: string;
   };
-  devMode: {
-    enable: boolean;
-    enableTestEndpoint: boolean;
-  };
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -48,10 +44,6 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       currencyInfo: {
         id: 'usd',
         symbol: '$',
-      },
-      devMode: {
-        enable: false,
-        enableTestEndpoint: false,
       },
     },
   });
