@@ -12,7 +12,10 @@ import {
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { INamespaceUnion } from '@onekeyhq/shared/src/walletConnect/chainsData';
 import {
@@ -43,6 +46,7 @@ function SessionProposalModal({
     closeWindowAfterResolved: true,
   });
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
   useEffect(() => {
     console.log('activeAccount: ', activeAccount);
@@ -126,11 +130,15 @@ function SessionProposalModal({
         networkId: activeAccount.network?.id ?? '',
         accountId: activeAccount.account?.id ?? '',
         address: activeAccount.account?.address ?? '',
+        deriveType: activeAccount?.deriveType ?? 'default',
+
+        focusedWallet: selectedAccount?.focusedWallet,
+        othersWalletAccountId: selectedAccount?.othersWalletAccountId,
       };
       connectionAccounts.push(accountInfo);
     }
     return connectionAccounts;
-  }, [activeAccount, supportedNamespaces]);
+  }, [activeAccount, supportedNamespaces, selectedAccount]);
 
   const onApproval = useCallback(() => {
     const approvedNamespaces = buildApprovedNamespaces({
