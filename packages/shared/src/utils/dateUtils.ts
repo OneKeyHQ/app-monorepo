@@ -155,6 +155,11 @@ export function formatRelativeDate(date: Date | number) {
     formatRelative: (token: string) => formatRelativeLocale[token],
   };
 
-  const relativeDate = formatRelative(date, new Date(), { locale });
-  return relativeDate ?? '';
+  try {
+    const relativeDate = formatRelative(date, new Date(), { locale });
+    return relativeDate ?? '';
+  } catch (error) {
+    console.error(error);
+    return `ParseError:${date.toString()}`;
+  }
 }

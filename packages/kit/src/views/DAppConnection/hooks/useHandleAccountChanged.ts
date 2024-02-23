@@ -2,11 +2,19 @@ import { useEffect, useRef } from 'react';
 
 import { debounce } from 'lodash';
 
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
+export type IHandleAccountChangedParams = {
+  activeAccount: IAccountSelectorActiveAccountInfo;
+  selectedAccount: IAccountSelectorSelectedAccount;
+};
 export type IHandleAccountChanged = (
-  activeAccount: IAccountSelectorActiveAccountInfo,
+  params: IHandleAccountChangedParams,
 ) => void;
 
 export function useHandleDiscoveryAccountChanged({
@@ -17,18 +25,18 @@ export function useHandleDiscoveryAccountChanged({
   handleAccountChanged?: IHandleAccountChanged;
 }) {
   const { activeAccount } = useActiveAccount({ num });
+  const { selectedAccount } = useSelectedAccount({ num });
   // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
   const debouncedHandleAccountChanged = useRef(
     debounce(
-      (account: IAccountSelectorActiveAccountInfo) =>
-        handleAccountChanged?.(account),
+      (params: IHandleAccountChangedParams) => handleAccountChanged?.(params),
       200,
     ),
   );
   // Use `useEffect` to listen for changes to `handleAccountChanged` and reset the debounced function.
   useEffect(() => {
     debouncedHandleAccountChanged.current = debounce(
-      (a: IAccountSelectorActiveAccountInfo) => handleAccountChanged?.(a),
+      (params: IHandleAccountChangedParams) => handleAccountChanged?.(params),
       200,
     );
     return () => {
@@ -37,6 +45,9 @@ export function useHandleDiscoveryAccountChanged({
   }, [handleAccountChanged]);
 
   useEffect(() => {
-    debouncedHandleAccountChanged.current(activeAccount);
-  }, [activeAccount, handleAccountChanged]);
+    debouncedHandleAccountChanged.current({
+      activeAccount,
+      selectedAccount,
+    });
+  }, [activeAccount, handleAccountChanged, selectedAccount]);
 }

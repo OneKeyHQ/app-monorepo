@@ -1,4 +1,4 @@
-export * from './accountSelectorMap';
+export * from './jotaiContextStoreMap';
 export * from './demo';
 export * from './devSettings';
 export * from './hardware';

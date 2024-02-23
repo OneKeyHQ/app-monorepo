@@ -1,164 +1,20 @@
-import { memo, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { uniq } from 'lodash';
-
-import type {
-  IAccountSelectorMap,
-  IAccountSelectorMapValue,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  getAccountSelectorTrackerMap,
-  useAccountSelectorMapAtom,
-  useAccountSelectorTrackerMap,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   AccountSelectorJotaiProvider,
   useAccountSelectorAvailableNetworksAtom,
 } from '../../states/jotai/contexts/accountSelector';
+import { jotaiContextStore } from '../../states/jotai/utils/jotaiContextStore';
+import { JotaiContextStoreMirrorTracker } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
-import { AccountSelectorEffects } from './AccountSelectorEffects';
-import { AccountSelectorStorageInit } from './AccountSelectorStorageInit';
 import { AccountSelectorStorageReady } from './AccountSelectorStorageReady';
-import { accountSelectorStore } from './accountSelectorStore';
 
 import type {
   IAccountSelectorAvailableNetworksMap,
   IAccountSelectorContextData,
 } from '../../states/jotai/contexts/accountSelector';
-
-function AccountSelectorRootProviderCmp({
-  enabledNumStr,
-  sceneName,
-  sceneUrl,
-}: {
-  enabledNumStr: string;
-  sceneName: EAccountSelectorSceneName;
-  sceneUrl?: string;
-}) {
-  const config = useMemo(
-    () => ({ sceneName, sceneUrl }),
-    [sceneName, sceneUrl],
-  );
-  const enabledNum = enabledNumStr.split(',');
-  // const sceneId = accountUtils.buildAccountSelectorSceneId(config);
-  const store = accountSelectorStore.getOrCreateStore({ config });
-  useEffect(() => {
-    console.log('AccountSelectorProvider mount');
-    return () => {
-      console.log('AccountSelectorProvider unmount');
-      accountSelectorStore.removeStore({ config });
-    };
-  }, [config]);
-  return (
-    <AccountSelectorJotaiProvider store={store} config={config}>
-      <AccountSelectorStorageInit />
-      {enabledNum.map((num) => (
-        <AccountSelectorEffects key={num} num={Number(num)} />
-      ))}
-    </AccountSelectorJotaiProvider>
-  );
-}
-const AccountSelectorRootProvider = memo(AccountSelectorRootProviderCmp);
-
-function AccountSelectorRootProvidersAutoMountCmp() {
-  const [map] = useAccountSelectorMapAtom();
-  const mapEntries = useMemo(() => Object.entries(map), [map]);
-  // const mapEntries = [];
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(
-      'AccountSelectorProvidersAutoMount mapEntries:',
-      mapEntries,
-      getAccountSelectorTrackerMap(),
-      global.$$accountSelectorStore,
-    );
-  }
-  return (
-    <>
-      {mapEntries.map(([key, value]) => {
-        const { sceneName, sceneUrl, enabledNum, count } = value;
-        // const config = {
-        //   sceneName,
-        //   sceneUrl,
-        // };
-        if (count <= 0) {
-          return null;
-        }
-        return (
-          <AccountSelectorRootProvider
-            key={key}
-            sceneName={sceneName}
-            sceneUrl={sceneUrl}
-            enabledNumStr={enabledNum.join(',')}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-export const AccountSelectorRootProvidersAutoMount = memo(
-  AccountSelectorRootProvidersAutoMountCmp,
-);
-
-function AccountSelectorMapTracker({
-  config,
-  enabledNum,
-}: {
-  config: IAccountSelectorContextData;
-  enabledNum: number[];
-}) {
-  const { setMap } = useAccountSelectorTrackerMap();
-
-  const { sceneName, sceneUrl } = config;
-  const sceneId = accountUtils.buildAccountSelectorSceneId(config);
-
-  useEffect(() => {
-    const processMapCount = (action: 'add' | 'remove') => {
-      const toMergeMap: IAccountSelectorMap = {};
-
-      const mapCache = getAccountSelectorTrackerMap();
-
-      const key = `${sceneId}`;
-      let value: IAccountSelectorMapValue | undefined = mapCache[key];
-      if (!value) {
-        value = {
-          sceneName,
-          sceneUrl,
-          enabledNum,
-          count: 0,
-        };
-      }
-      if (action === 'add') {
-        value.count += 1;
-        value.enabledNum = uniq([...value.enabledNum, ...enabledNum]).sort();
-      }
-      if (action === 'remove') {
-        value.count -= 1;
-      }
-      if (value.count <= 0) {
-        delete mapCache[key];
-      } else {
-        toMergeMap[key] = value;
-      }
-
-      setMap({
-        ...mapCache,
-        ...toMergeMap,
-      });
-    };
-
-    processMapCount('add');
-
-    return () => {
-      processMapCount('remove');
-    };
-  }, [enabledNum, sceneId, sceneName, sceneUrl, setMap]);
-
-  return null;
-}
 
 function AccountSelectorAvailableNetworksInit(props: {
   availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
@@ -186,10 +42,23 @@ export function AccountSelectorProviderMirror({
       'AccountSelectorProviderMirror ERROR: enabledNum is required',
     );
   }
-  const store = accountSelectorStore.getOrCreateStore({ config });
+
+  const data = useMemo(
+    () => ({
+      storeName: EJotaiContextStoreNames.accountSelector,
+      accountSelectorInfo: {
+        sceneName: config.sceneName,
+        sceneUrl: config.sceneUrl,
+        enabledNum,
+      },
+    }),
+    [config.sceneName, config.sceneUrl, enabledNum],
+  );
+  const store = jotaiContextStore.getOrCreateStore(data);
+
   return (
     <>
-      <AccountSelectorMapTracker config={config} enabledNum={enabledNum} />
+      <JotaiContextStoreMirrorTracker {...data} />
       <AccountSelectorJotaiProvider store={store} config={config}>
         <AccountSelectorStorageReady>
           <AccountSelectorAvailableNetworksInit
