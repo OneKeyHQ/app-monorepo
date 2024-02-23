@@ -69,13 +69,6 @@ Execute the following commands in the root directory to develop different busine
 - `yarn app:web`: development in extension mode
 
 
-## 🕋 Roadmap
-
-Check out where we are now!
-
-<kbd><img src="https://github.com/rayston92/graph_bed/blob/master/img/roadmap_light.png?raw=true" alt="Roadmap of OneKey"/></kbd>
-
-
 ## 💬 Docs in your languages
 | Available Languages               |
 | :--------------------------- |
@@ -84,6 +77,10 @@ Check out where we are now!
 | [Japanese / 日本語](docs/i18n/README.jp.md)|
 | [French / Français](docs/i18n/README.fr.md)|
 | [Italian / Italiano](docs/i18n/README.it.md)|
+
+## 🪄 Repo Activity
+
+![Repo Activity](https://repobeats.axiom.co/api/embed/5f8b83656094956b2d6274929f6eaa2e068a6cfb.svg "Repobeats analytics image")
 
 
 ## 🔰 Security
