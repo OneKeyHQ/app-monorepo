@@ -2,17 +2,13 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  getEmptyTokenData,
-  getMergedTokenData,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
   IToken,
+  ITokenData,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -28,43 +24,26 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, ...rest } = params;
+    const { mergeTokens, flag, ...rest } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-      '/wallet/v1/account/token/list',
+      `/wallet/v1/account/token/list?flag=${flag || ''}`,
       rest,
     );
 
+    let allTokens: ITokenData | undefined;
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
-      return getMergedTokenData({ tokens, riskTokens, smallBalanceTokens });
+      ({ allTokens } = getMergedTokenData({
+        tokens,
+        riskTokens,
+        smallBalanceTokens,
+      }));
     }
 
+    resp.data.data.allTokens = allTokens;
     return resp.data.data;
   }
-
-  @backgroundMethod()
-  public async fetchAccountTokensWithMemo(
-    params: IFetchAccountTokensParams & { mergeTokens?: boolean },
-  ) {
-    try {
-      const tokens = await this._fetchAccountTokensWithMemo(params);
-      return tokens;
-    } catch {
-      return getEmptyTokenData();
-    }
-  }
-
-  _fetchAccountTokensWithMemo = memoizee(
-    async (params: IFetchAccountTokensParams & { mergeTokens?: boolean }) =>
-      this.fetchAccountTokens(params),
-    {
-      promise: true,
-      primitive: true,
-      max: 1,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
-    },
-  );
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {

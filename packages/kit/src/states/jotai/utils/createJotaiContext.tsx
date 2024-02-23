@@ -19,18 +19,11 @@ export { atom };
 
 export type IJotaiContextStore = ReturnType<typeof createStore>;
 
-export function createJotaiContext<TContextConfig = undefined>(options?: {
-  isSingletonStore?: boolean;
-}) {
+export function createJotaiContext<TContextConfig = undefined>() {
   const Context = createContext<{
     store: IJotaiContextStore | undefined;
     config: TContextConfig | undefined;
   }>({ store: undefined, config: undefined });
-
-  let singletonStore: IJotaiContextStore | undefined;
-  if (options?.isSingletonStore) {
-    singletonStore = createStore();
-  }
 
   function Provider({
     config,
@@ -42,7 +35,7 @@ export function createJotaiContext<TContextConfig = undefined>(options?: {
     children?: ReactNode | undefined;
   }) {
     const value = useMemo(() => {
-      const s = store || singletonStore || createStore();
+      const s = store || createStore();
       return { store: s, config };
     }, [store, config]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
@@ -114,7 +107,5 @@ export function createJotaiContext<TContextConfig = undefined>(options?: {
     contextAtom,
     contextAtomMethod,
     contextAtomComputed,
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    store: singletonStore!,
   };
 }

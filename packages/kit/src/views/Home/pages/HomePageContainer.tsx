@@ -1,11 +1,12 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { Page, Tab } from '@onekeyhq/components';
+import { Button, Page, Tab } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -21,10 +22,11 @@ import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 
-function HomePage() {
+function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
   const intl = useIntl();
+  const [isHide, setIsHide] = useState(false);
 
   const onRefresh = useCallback(() => {
     // tabsViewRef?.current?.setRefreshing(true);
@@ -59,18 +61,19 @@ function HomePage() {
   );
 
   const headerTitle = useCallback(
-    () => (
-      <AccountSelectorProviderMirror
-        enabledNum={[0]}
-        config={{
-          sceneName: EAccountSelectorSceneName.home,
-          sceneUrl: '',
-        }}
-      >
-        <AccountSelectorTriggerHome num={0} linkNetwork />
-      </AccountSelectorProviderMirror>
-    ),
-    [],
+    () =>
+      isHide ? null : (
+        <AccountSelectorProviderMirror
+          enabledNum={[0]}
+          config={{
+            sceneName: EAccountSelectorSceneName.home,
+            sceneUrl: '',
+          }}
+        >
+          <AccountSelectorTriggerHome num={0} linkNetwork />
+        </AccountSelectorProviderMirror>
+      ),
+    [isHide],
   );
 
   return useMemo(
@@ -78,6 +81,18 @@ function HomePage() {
       <Page>
         <Page.Header headerTitle={headerTitle} />
         <Page.Body>
+          {process.env.NODE_ENV !== 'production' ? (
+            <Button
+              onPress={async () => {
+                setIsHide((v) => !v);
+                await timerUtils.wait(1000);
+                onPressHide();
+              }}
+            >
+              home-hide-test
+            </Button>
+          ) : null}
+
           <Tab
             data={tabs}
             ListHeaderComponent={<HomeHeaderContainer />}
@@ -96,11 +111,12 @@ function HomePage() {
         </Page.Body>
       </Page>
     ),
-    [headerTitle, tabs, screenWidth, sideBarWidth, onRefresh],
+    [headerTitle, tabs, screenWidth, sideBarWidth, onRefresh, onPressHide],
   );
 }
 
 function HomePageContainer() {
+  const [isHide, setIsHide] = useState(false);
   console.log('HomePageContainer render');
 
   const {
@@ -122,6 +138,10 @@ function HomePageContainer() {
       },
     },
   );
+
+  if (isHide) {
+    return null;
+  }
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -136,7 +156,7 @@ function HomePageContainer() {
       //   },
       // }}
     >
-      <HomePage />
+      <HomePage onPressHide={() => setIsHide((v) => !v)} />
       <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );

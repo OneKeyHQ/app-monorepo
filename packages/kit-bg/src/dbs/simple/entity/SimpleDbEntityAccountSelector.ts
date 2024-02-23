@@ -1,7 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
@@ -60,6 +60,10 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
   }) {
     checkIsDefined(num);
     checkIsDefined(sceneName);
+    if (sceneName === EAccountSelectorSceneName.discover) {
+      console.log('skip discover account selector persist');
+      return;
+    }
     const sceneId = accountUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,

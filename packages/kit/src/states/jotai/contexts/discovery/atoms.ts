@@ -10,7 +10,7 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
-} = createJotaiContext({ isSingletonStore: true });
+} = createJotaiContext();
 export { ProviderJotaiContextDiscovery, contextAtomMethod };
 
 /**

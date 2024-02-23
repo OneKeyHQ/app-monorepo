@@ -24,10 +24,10 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
-import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceValidator from '../services/ServiceValidator';
 
 class BackgroundApiProxy

@@ -10,7 +10,7 @@ export type IAssetSelectorParamList = {
     accountId: string;
     tokens?: ITokenData;
     networkName?: string;
-    onSelect: (token: IToken) => void;
+    onSelect: (token: IToken) => void | Promise<void>;
     closeAfterSelect?: boolean;
   };
 };

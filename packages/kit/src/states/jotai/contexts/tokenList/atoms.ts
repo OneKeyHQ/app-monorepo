@@ -10,9 +10,23 @@ const {
 } = createJotaiContext();
 export {
   ProviderJotaiContextTokenList,
-  withTokenListProvider,
   contextAtomMethod,
+  withTokenListProvider,
 };
+
+export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
+  contextAtom<{
+    tokens: IAccountToken[];
+    keys: string;
+  }>({
+    tokens: [],
+    keys: '',
+  });
+
+export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
+  contextAtom<{
+    [key: string]: ITokenFiat;
+  }>({});
 
 export const { atom: tokenListAtom, use: useTokenListAtom } = contextAtom<{
   tokens: IAccountToken[];

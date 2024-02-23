@@ -1,9 +1,4 @@
-import type {
-  ComponentType,
-  PropsWithChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 import {
   createContext,
   useCallback,
@@ -12,7 +7,6 @@ import {
   useState,
 } from 'react';
 
-import { InteractionManager } from 'react-native';
 import { Popover as TMPopover } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
