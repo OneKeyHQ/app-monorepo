@@ -10,7 +10,7 @@ class RealmSchemaAddress extends RealmObjectBase<IDBAddress> {
   public wallets!: Realm.Dictionary<string>;
 
   public static override schema: Realm.ObjectSchema = {
-    name: ELocalDBStoreNames.AccountDerivation,
+    name: ELocalDBStoreNames.Address,
     primaryKey: 'id',
     properties: {
       id: 'string',
