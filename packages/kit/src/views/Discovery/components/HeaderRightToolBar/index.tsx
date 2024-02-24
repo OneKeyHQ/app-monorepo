@@ -17,7 +17,6 @@ import {
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { type IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -30,7 +29,8 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
-import { dispatchWebViewOverlayEvent } from '../WebView/DesktopOverlay';
+
+import type { IHandleAccountChangedParams } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 
 function SingleAccountAndNetworkSelectorTrigger({
   origin,
@@ -45,12 +45,12 @@ function SingleAccountAndNetworkSelectorTrigger({
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
-    async (activeAccount: IAccountSelectorActiveAccountInfo) => {
+    async (selectedAccount: IHandleAccountChangedParams) => {
       await handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
         prevAccountInfo: account,
-        selectedAccount: activeAccount,
+        selectedAccount,
         storageType: account.storageType,
         afterUpdate: afterChangeAccount,
       });
@@ -79,7 +79,7 @@ function AvatarStackTrigger({
     const promises = accountsInfo.map(async (accountInfo) => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId: accountInfo.accountId,
-        networkId: accountInfo.networkId,
+        networkId: accountInfo.networkId || '',
       });
       return { account, networkId: accountInfo.networkId };
     });
@@ -154,12 +154,12 @@ function AccountSelectorPopoverContent({
             num={account.num}
             compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
-            handleAccountChanged={async (activeAccount) => {
+            handleAccountChanged={async (selectedAccount) => {
               await handleAccountInfoChanged({
                 origin,
                 accountSelectorNum: account.num,
                 prevAccountInfo: account,
-                selectedAccount: activeAccount,
+                selectedAccount,
                 storageType: account.storageType,
                 afterUpdate: afterChangeAccount,
               });
@@ -214,7 +214,6 @@ function HeaderRightToolBar() {
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
-      dispatchWebViewOverlayEvent(value);
       setIsOpen(value);
     },
     [setIsOpen],

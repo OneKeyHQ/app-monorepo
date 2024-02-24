@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -15,11 +17,10 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type {
-  IAccountSelectorAvailableNetworks,
-  IAccountSelectorAvailableNetworksMap,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
@@ -73,6 +74,25 @@ function AccountListItem({
   );
 }
 
+function DAppAccountListSyncFromHome({ num }: { num: number }) {
+  const actions = useAccountSelectorActions();
+  useEffect(() => {
+    void (async () => {
+      // required delay here, should be called after AccountSelectEffects AutoSelect
+      await timerUtils.wait(300);
+      await actions.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num, // TODO multiple account selector of wallet connect
+      });
+    })();
+  }, [actions, num]);
+
+  return null;
+}
+
 function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
@@ -114,7 +134,7 @@ function DAppAccountListStandAloneItem({
   ]);
 
   return (
-    <YStack space="$2">
+    <YStack space="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
         Accounts
       </SizableText>
@@ -131,6 +151,16 @@ function DAppAccountListStandAloneItem({
             [result.accountSelectorNum]: { networkIds: result.networkIds },
           }}
         >
+          <DAppAccountListSyncFromHome num={result?.accountSelectorNum} />
+
+          {/* <AccountSelectorSyncButton
+            from={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneNum: 0,
+            }}
+            num={result?.accountSelectorNum}
+          /> */}
+
           <AccountListItem
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
@@ -157,7 +187,7 @@ function WalletConnectAccountTriggerList({
   const enabledNum = sessionAccountsInfo.map((i) => i.accountSelectorNum);
   const availableNetworksMap = sessionAccountsInfo.reduce(
     (acc, accountInfo) => {
-      const networkIds = accountInfo.networkIds.filter(Boolean) as string[];
+      const networkIds = accountInfo.networkIds.filter(Boolean);
       acc[accountInfo.accountSelectorNum] = {
         networkIds,
         defaultNetworkId: networkIds[0],

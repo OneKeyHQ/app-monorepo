@@ -276,6 +276,14 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
+  async getAccountSelectorMap({ sceneUrl }: { sceneUrl: string }) {
+    const rawData = await this.getRawData();
+    // TODO find from wallet connect connectionMap
+    const map = rawData?.data?.injectedProvider?.[sceneUrl]?.connectionMap;
+    return map;
+  }
+
+  @backgroundMethod()
   async deleteConnection(origin: string, storageType: IStorageType) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
