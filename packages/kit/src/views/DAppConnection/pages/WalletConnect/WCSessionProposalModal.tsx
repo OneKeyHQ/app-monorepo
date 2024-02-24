@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 import { WalletConnectAccountTriggerList } from '../../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../../components/DAppRequestContent';
@@ -17,7 +16,10 @@ import {
 } from '../../components/DAppRequestLayout';
 import { useRiskDetection } from '../../hooks/useRiskDetection';
 
-import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
+import type {
+  IHandleAccountChanged,
+  IHandleAccountChangedParams,
+} from '../../hooks/useHandleAccountChanged';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 function SessionProposalModal() {
@@ -46,8 +48,8 @@ function SessionProposalModal() {
     [serviceWalletConnect],
   );
 
-  const [selectedAccountsMap, setSelectedAccountsMap] = useState<{
-    [num: number]: IAccountSelectorActiveAccountInfo;
+  const [accountChangedParamsMap, setAccountChangedParamsMap] = useState<{
+    [num: number]: IHandleAccountChangedParams;
   }>({});
   const confirmDisabled = useMemo(() => {
     if (!canContinueOperate) return true;
@@ -56,15 +58,16 @@ function SessionProposalModal() {
 
   const onApproval = useCallback(
     async (close: () => void) => {
-      const accounts = Object.values(selectedAccountsMap);
-      if (accounts.length !== sessionAccountsInfo?.length) {
+      const accountChangedParamsValues = Object.values(accountChangedParamsMap);
+      if (accountChangedParamsValues.length !== sessionAccountsInfo?.length) {
         Toast.success({
           title: 'Please select all accounts',
         });
         return;
       }
       const accountsInfo = [];
-      for (const activeAccount of accounts) {
+      for (const accountChangedParams of accountChangedParamsValues) {
+        const { activeAccount, selectedAccount } = accountChangedParams;
         if (!activeAccount.account?.address) {
           Toast.success({
             title: `Please select ${activeAccount.network?.name ?? ''} account`,
@@ -79,6 +82,10 @@ function SessionProposalModal() {
           networkId: network?.id ?? '',
           accountId: account.id,
           address: account.address,
+          deriveType: activeAccount?.deriveType ?? 'default',
+
+          focusedWallet: selectedAccount?.focusedWallet,
+          othersWalletAccountId: selectedAccount?.othersWalletAccountId,
         };
         accountsInfo.push(accountInfo);
       }
@@ -100,7 +107,7 @@ function SessionProposalModal() {
     [
       intl,
       dappApprove,
-      selectedAccountsMap,
+      accountChangedParamsMap,
       sessionAccountsInfo,
       serviceWalletConnect,
       proposal,
@@ -108,16 +115,20 @@ function SessionProposalModal() {
   );
 
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
-    (activeAccount, num) => {
+    (params, num) => {
+      const { activeAccount, selectedAccount } = params;
       console.log(
         'connectionmodal setActiveAccount: ',
         activeAccount.account?.id,
         num,
       );
       if (typeof num === 'number') {
-        setSelectedAccountsMap((prevAccountsMap) => ({
+        setAccountChangedParamsMap((prevAccountsMap) => ({
           ...prevAccountsMap,
-          [num]: activeAccount,
+          [num]: {
+            activeAccount,
+            selectedAccount,
+          },
         }));
       }
     },
@@ -125,8 +136,8 @@ function SessionProposalModal() {
   );
 
   useEffect(() => {
-    console.log('selectedAccountsMap: ', selectedAccountsMap);
-  }, [selectedAccountsMap]);
+    console.log('selectedAccountsMap: ', accountChangedParamsMap);
+  }, [accountChangedParamsMap]);
 
   return (
     <Page scrollEnabled>
