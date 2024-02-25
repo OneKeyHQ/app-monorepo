@@ -333,6 +333,13 @@ const SwiperGallery = LazyLoad(
     ),
 );
 
+const WalletWidgetsGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WalletWidgets'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -367,6 +374,10 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
   { name: EGalleryRoutes.ComponentSwiper, component: SwiperGallery },
+  {
+    name: EGalleryRoutes.ComponentWalletWidgets,
+    component: WalletWidgetsGallery,
+  },
   {
     name: EGalleryRoutes.ComponentSortableListView,
     component: SortableListViewGallery,
