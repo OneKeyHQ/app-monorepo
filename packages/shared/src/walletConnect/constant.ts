@@ -67,7 +67,7 @@ export const implToNamespaceMap = {
   [IMPL_COSMOS]: 'cosmos',
   [IMPL_DOT]: 'polkadot',
   [IMPL_TRON]: 'tron',
-};
+} as const;
 
 // https://chainagnostic.org/
 export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {

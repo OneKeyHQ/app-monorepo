@@ -6,7 +6,7 @@ import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIs
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IConnectionAccountInfo,
-  IStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -153,7 +153,7 @@ export function useShouldUpdateConnectedAccount() {
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
       selectedAccount: IHandleAccountChangedParams;
-      storageType: IStorageType;
+      storageType: IConnectionStorageType;
       afterUpdate: () => void;
     }) => {
       const willUpdateAccountInfo =

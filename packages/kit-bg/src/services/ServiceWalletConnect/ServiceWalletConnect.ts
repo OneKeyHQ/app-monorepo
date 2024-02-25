@@ -34,9 +34,12 @@ class ServiceWalletConnect extends ServiceBase {
 
   // chainId: eip155:1, eip155:137
   @backgroundMethod()
-  async getChainData(chainId?: string): Promise<IChainInfo | undefined> {
-    if (!chainId) return;
-    const [namespace, reference] = chainId.toString().split(':');
+  async getChainData(
+    walletConnectChainId?: string,
+  ): Promise<IChainInfo | undefined> {
+    if (!walletConnectChainId) return;
+    if (!walletConnectChainId.includes(':')) return;
+    const [namespace, reference] = walletConnectChainId.split(':');
     const allChainsData = await this.getAllChains();
     return allChainsData.find(
       (chain) => chain.chainId === reference && chain.namespace === namespace,
@@ -59,7 +62,7 @@ class ServiceWalletConnect extends ServiceBase {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map((n) => {
+        const infos = networks.map<IChainInfo>((n) => {
           let caipsInfo: ICaipsInfo | undefined;
           const caipsItem = caipsToNetworkMap[namespace];
           if (caipsItem) {
@@ -72,7 +75,7 @@ class ServiceWalletConnect extends ServiceBase {
             name: n.name,
           };
         });
-        chainInfos = chainInfos.concat(infos as IChainInfo[]);
+        chainInfos = chainInfos.concat(infos);
       }
 
       return chainInfos;
@@ -88,23 +91,32 @@ class ServiceWalletConnect extends ServiceBase {
     isOptionalNamespace?: boolean,
   ): Promise<string[]> {
     // Find the supported chains must
-    const required = []; // [eip155:5]
+    const required = new Set<string>(); // [eip155:5]
+    // Array to collect chains that are not supported
+    const notSupportedChains: string[] = [];
     const namespaces = isOptionalNamespace
       ? proposal.params.optionalNamespaces
       : proposal.params.requiredNamespaces;
     for (const [key, values] of Object.entries(namespaces)) {
-      const chains = key.includes(':') ? [key] : values.chains ?? [];
-      required.push(...chains);
+      if (key.includes(':')) {
+        required.add(key);
+      } else {
+        values.chains?.forEach((chain) => {
+          if (chain.includes(':')) {
+            required.add(chain);
+          } else {
+            // If it does not contain ':', add it directly to notSupportedChains
+            notSupportedChains.push(chain);
+          }
+        });
+      }
     }
 
-    // Array to collect chains that are not supported
-    const notSupportedChains: string[] = [];
-
     // Loop over each chainId and check if the chain data is supported
-    for (const chainId of required) {
-      const isSupported = await this.getChainData(chainId);
+    for (const walletConnectChainId of Array.from(required)) {
+      const isSupported = await this.getChainData(walletConnectChainId);
       if (!isSupported) {
-        notSupportedChains.push(chainId);
+        notSupportedChains.push(walletConnectChainId);
       }
     }
 
@@ -133,7 +145,9 @@ class ServiceWalletConnect extends ServiceBase {
         const { chains } = requiredNamespaces[namespace];
         const networkIds = (
           await Promise.all(
-            (chains ?? []).map(async (chainId) => this.getChainData(chainId)),
+            (chains ?? []).map(async (walletConnectChainId) =>
+              this.getChainData(walletConnectChainId),
+            ),
           )
         ).map((n) => n?.networkId);
         return {

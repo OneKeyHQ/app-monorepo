@@ -11,7 +11,7 @@ import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
-import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
@@ -20,7 +20,6 @@ import type {
   WalletConnectRequestProxy,
 } from './WalletConnectRequestProxy';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { SessionTypes } from '@walletconnect/types';
 import type { IWeb3Wallet, Web3WalletTypes } from '@walletconnect/web3wallet';
 
 class ProviderApiWalletConnect {
@@ -116,10 +115,7 @@ class ProviderApiWalletConnect {
         params: {
           proposal,
         },
-      })) as {
-        accountsInfo: IConnectionAccountInfo[];
-        supportedNamespaces: Record<string, SessionTypes.BaseNamespace>;
-      };
+      })) as IWalletConnectSessionProposalResult;
       const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
         namespaces: result.supportedNamespaces,

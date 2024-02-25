@@ -3,7 +3,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IConnectionItemWithStorageType,
-  IStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { AccountListItem } from '../DAppAccountList';
@@ -15,8 +15,7 @@ function ConnectionListItem({
   item: IConnectionItemWithStorageType;
   handleDisconnect: (
     origin: string,
-    storageType: IStorageType,
-    walletConnectTopic?: string,
+    storageType: IConnectionStorageType,
   ) => Promise<void>;
 }) {
   return (
@@ -45,11 +44,7 @@ function ConnectionListItem({
             outlineStyle: 'solid',
           }}
           onPress={() => {
-            void handleDisconnect(
-              item.origin,
-              item.storageType,
-              item.walletConnectTopic,
-            );
+            void handleDisconnect(item.origin, item.storageType);
           }}
         >
           <Icon name="BrokenLinkOutline" color="$iconSubdued" size="$6" />

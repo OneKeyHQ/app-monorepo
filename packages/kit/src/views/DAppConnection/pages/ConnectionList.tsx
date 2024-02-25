@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
-import type { IStorageType } from '@onekeyhq/shared/types/dappConnection';
+import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -21,28 +21,21 @@ function ConnectionListEmpty() {
 }
 
 function ConnectionList() {
-  const { serviceDApp, serviceWalletConnect } = backgroundApiProxy;
+  const { serviceDApp } = backgroundApiProxy;
   const { result, run } = usePromiseResult(
     async () => serviceDApp.getAllConnectedList(),
     [serviceDApp],
   );
 
   const handleDAppDisconnect = useCallback(
-    async (
-      origin: string,
-      storageType: IStorageType,
-      walletConnectTopic?: string,
-    ) => {
-      if (storageType === 'walletConnect' && walletConnectTopic) {
-        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
-      }
+    async (origin: string, storageType: IConnectionStorageType) => {
       await serviceDApp.disconnectWebsite({
         origin,
         storageType,
       });
       void run();
     },
-    [run, serviceDApp, serviceWalletConnect],
+    [run, serviceDApp],
   );
 
   const renderHeaderRight = useCallback(

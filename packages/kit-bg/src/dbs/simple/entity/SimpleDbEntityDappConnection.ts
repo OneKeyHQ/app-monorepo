@@ -5,7 +5,7 @@ import type {
   IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
   IConnectionItem,
-  IStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -21,7 +21,7 @@ export interface IDappConnectionData {
 
 function generateAccountSelectorNumber(
   connectionMap: IConnectionItem['connectionMap'],
-  storageType: IStorageType,
+  storageType: IConnectionStorageType,
 ): number {
   let accountSelectorNumber =
     storageType === 'injectedProvider'
@@ -79,7 +79,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
     imageURL?: string;
     replaceExistAccount?: boolean;
     walletConnectTopic?: string;
@@ -179,7 +179,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
@@ -248,7 +248,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   async getAccountSelectorNum(
     origin: string,
     networkImpl: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
   ): Promise<number> {
     const rawData = await this.getRawData();
     if (!rawData?.data || typeof rawData.data !== 'object') {
@@ -284,7 +284,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async deleteConnection(origin: string, storageType: IStorageType) {
+  async deleteConnection(origin: string, storageType: IConnectionStorageType) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
@@ -351,7 +351,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async findAccountsInfoByOriginAndScope(
     origin: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
     networkImpl: string,
   ) {
     const rawData = await this.getRawData();
@@ -378,7 +378,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string,
     networkImpl: string,
     newNetworkId: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
   ) {
     await this.setRawData(({ rawData }) => {
       // Check if rawData.data is a valid object and use it if it is

@@ -30,8 +30,8 @@ import type {
   IConnectionAccountInfo,
   IConnectionItem,
   IConnectionItemWithStorageType,
+  IConnectionStorageType,
   IGetDAppAccountInfoParams,
-  IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import ServiceBase from './ServiceBase';
@@ -65,7 +65,7 @@ function buildModalRouteParams({
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
 
-  const storageType: IStorageType = isWalletConnectRequest
+  const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
   let networkImpl: string | undefined = '';
@@ -251,7 +251,7 @@ class ServiceDApp extends ServiceBase {
     storageType,
   }: {
     origin: string;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
@@ -274,7 +274,7 @@ class ServiceDApp extends ServiceBase {
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
     walletConnectTopic?: string;
   }) {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
@@ -297,7 +297,7 @@ class ServiceDApp extends ServiceBase {
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
     const { origin, accountSelectorNum, updatedAccountInfo, storageType } =
       params;
@@ -323,7 +323,7 @@ class ServiceDApp extends ServiceBase {
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
@@ -347,12 +347,20 @@ class ServiceDApp extends ServiceBase {
     storageType,
   }: {
     origin: string;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
-    await this.backgroundApi.simpleDb.dappConnection.deleteConnection(
-      origin,
-      storageType,
-    );
+    const { simpleDb, serviceWalletConnect } = this.backgroundApi;
+    // disconnect walletConnect
+    if (storageType === 'walletConnect') {
+      const rawData =
+        await this.backgroundApi.simpleDb.dappConnection.getRawData();
+      const walletConnectTopic =
+        rawData?.data?.walletConnect?.[origin].walletConnectTopic;
+      if (walletConnectTopic) {
+        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+      }
+    }
+    await simpleDb.dappConnection.deleteConnection(origin, storageType);
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
@@ -441,7 +449,8 @@ class ServiceDApp extends ServiceBase {
   async getAllConnectedList(): Promise<IConnectionItemWithStorageType[]> {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    const injectedProviders = rawData?.data?.injectedProvider
+    const injectedProviders: IConnectionItemWithStorageType[] = rawData?.data
+      ?.injectedProvider
       ? Object.values(rawData.data.injectedProvider).map((i) => ({
           ...i,
           storageType: 'injectedProvider',
@@ -466,10 +475,7 @@ class ServiceDApp extends ServiceBase {
         .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
 
-    return [
-      ...injectedProviders,
-      ...walletConnects,
-    ] as IConnectionItemWithStorageType[];
+    return [...injectedProviders, ...walletConnects];
   }
 
   async disconnectInactiveSessions(
