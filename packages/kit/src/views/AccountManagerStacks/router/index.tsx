@@ -1,11 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EAccountManagerStacksRoutes } from './types';
 
 import type { IAccountManagerStacksParamList } from './types';
 
-const AccountSelectorStackPage = LazyLoad(
+const AccountSelectorStackPage = LazyLoadPage(
   () => import('../pages/AccountSelectorStack'),
 );
 

@@ -1,11 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EAssetSelectorRoutes } from './types';
 
 import type { IAssetSelectorParamList } from './types';
 
-const TokenSelector = LazyLoad(() => import('../pages/TokenSelector'));
+const TokenSelector = LazyLoadPage(() => import('../pages/TokenSelector'));
 
 export const AssetSelectorRouter: IModalFlowNavigatorConfig<
   EAssetSelectorRoutes,

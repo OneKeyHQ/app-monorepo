@@ -1,11 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EChainSelectorPages } from './type';
 
 import type { IChainSelectorParamList } from './type';
 
-const ChainSelector = LazyLoad(() => import('../pages/ChainSelector'));
+const ChainSelector = LazyLoadPage(() => import('../pages/ChainSelector'));
 
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   EChainSelectorPages,

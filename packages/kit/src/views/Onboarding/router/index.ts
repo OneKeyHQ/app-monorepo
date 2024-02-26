@@ -1,53 +1,53 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EOnboardingPages } from './type';
 
 import type { IOnboardingParamList } from './type';
 
-const ActivateDevice = LazyLoad(
+const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
 );
 
-const ConnectYourDevice = LazyLoad(
+const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ConnectYourDevice'),
 );
 
-const OneKeyHardwareWallet = LazyLoad(
+const OneKeyHardwareWallet = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/OneKeyHardwareWallet'),
 );
 
-const BeforeShowRecoveryPhrase = LazyLoad(
+const BeforeShowRecoveryPhrase = LazyLoadPage(
   () => import('../pages/CreateWalet/BeforeShowRecoveryPhrase'),
 );
 
-const RecoveryPhrase = LazyLoad(
+const RecoveryPhrase = LazyLoadPage(
   () => import('../pages/CreateWalet/RecoveryPhrase'),
 );
 
-const VerifyRecoveryPhrase = LazyLoad(
+const VerifyRecoveryPhrase = LazyLoadPage(
   () => import('../pages/CreateWalet/VerifyRecoverPhrase'),
 );
 
-const ConnectWallet = LazyLoad(() => import('../pages/ConnectWallet'));
-const FinalizeWalletSetup = LazyLoad(
+const ConnectWallet = LazyLoadPage(() => import('../pages/ConnectWallet'));
+const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
-const GetStarted = LazyLoad(() => import('../pages/GetStarted'));
+const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
 
-const ImportAddress = LazyLoad(
+const ImportAddress = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportAddress'),
 );
 
-const ImportPrivateKey = LazyLoad(
+const ImportPrivateKey = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportPrivateKey'),
 );
 
-const ImportRecoveryPhrase = LazyLoad(
+const ImportRecoveryPhrase = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportRecoveryPhrase'),
 );
 
-const ImportWalletOptions = LazyLoad(
+const ImportWalletOptions = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportWalletOptions'),
 );
 
