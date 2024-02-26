@@ -16,6 +16,7 @@ import type {
   IOnChainHistoryTxAsset,
 } from '@onekeyhq/shared/types/history';
 import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type {
@@ -287,6 +288,7 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  swapInfo?: ISwapTxInfo;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;

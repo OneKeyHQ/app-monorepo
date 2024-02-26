@@ -12,6 +12,7 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { EModalRoutes } from '../routes/Modal/type';
@@ -31,7 +32,7 @@ type IBuildUnsignedTxParams = {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
-  onSuccess?: (txs: ISignedTxPro[]) => void;
+  onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   sameModal?: boolean;
 };
@@ -43,7 +44,7 @@ function useSendConfirm(params: IParams) {
 
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, ...rest } = params;
+      const { sameModal, onSuccess, onFail, ...rest } = params;
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           networkId,
@@ -55,6 +56,8 @@ function useSendConfirm(params: IParams) {
           accountId,
           networkId,
           unsignedTxs: [unsignedTx],
+          onSuccess,
+          onFail,
         });
       } else {
         navigation.pushModal(EModalRoutes.SendModal, {
@@ -63,6 +66,8 @@ function useSendConfirm(params: IParams) {
             accountId,
             networkId,
             unsignedTxs: [unsignedTx],
+            onSuccess,
+            onFail,
           },
         });
       }

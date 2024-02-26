@@ -1,6 +1,6 @@
 import { isNil, random } from 'lodash';
 
-import type { ISignedTxPro, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -12,8 +12,11 @@ import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
-  type ISendTxBaseParams,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  ISendTxBaseParams,
+  ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -276,7 +279,7 @@ class ServiceSend extends ServiceBase {
       unsignedTx,
     });
     const txid = await this.broadcastTransaction({ networkId, signedTx });
-    return { ...signedTx, txid };
+    return { ...signedTx, txid, swapInfo: unsignedTx.swapInfo };
   }
 
   @backgroundMethod()
@@ -300,7 +303,7 @@ class ServiceSend extends ServiceBase {
       newUnsignedTxs.push(newUnsignedTx);
     }
 
-    const signedTxs: ISignedTxPro[] = [];
+    const result: ISendTxOnSuccessData[] = [];
 
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
@@ -310,25 +313,27 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
       });
 
-      signedTxs.push(signedTx);
+      const decodedTx = await this.buildDecodedTx({
+        networkId,
+        accountId,
+        unsignedTx,
+      });
+      await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+        networkId,
+        accountId,
+        data: {
+          signedTx,
+          decodedTx,
+        },
+      });
 
-      if (signedTx) {
-        await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-          networkId,
-          accountId,
-          data: {
-            signedTx,
-            decodedTx: await this.buildDecodedTx({
-              networkId,
-              accountId,
-              unsignedTx,
-            }),
-          },
-        });
-      }
+      result.push({
+        signedTx,
+        decodedTx,
+      });
     }
 
-    return signedTxs;
+    return result;
   }
 
   @backgroundMethod()
@@ -418,6 +423,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       transfersInfo,
       wrappedInfo,
+      swapInfo,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -431,6 +437,10 @@ class ServiceSend extends ServiceBase {
         transfersInfo,
         wrappedInfo,
       });
+    }
+
+    if (swapInfo) {
+      newUnsignedTx.swapInfo = swapInfo;
     }
 
     const isNonceRequired = (

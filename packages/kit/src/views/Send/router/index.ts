@@ -1,7 +1,8 @@
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 export enum EModalSendRoutes {
   SendDataInput = 'SendDataInput',
@@ -24,7 +25,7 @@ export type IModalSendParamList = {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
-    onSuccess?: (txs: ISignedTxPro[]) => void;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };
   [EModalSendRoutes.SendCustomFee]: {

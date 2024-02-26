@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -16,13 +15,14 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { type IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;
   networkId: string;
-  onSuccess?: (txs: ISignedTxPro[]) => void;
+  onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   tableLayout?: boolean;
 };
@@ -45,7 +45,7 @@ function SendConfirmActionsContainer(props: IProps) {
     setIsSubmitting(true);
 
     try {
-      const signedTxs =
+      const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
           networkId,
@@ -58,7 +58,7 @@ function SendConfirmActionsContainer(props: IProps) {
             : undefined,
         });
 
-      onSuccess?.(signedTxs);
+      onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),

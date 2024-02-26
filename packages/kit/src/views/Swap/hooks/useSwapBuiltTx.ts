@@ -10,6 +10,7 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
@@ -41,7 +42,7 @@ export function useSwapBuildTx() {
     networkId: activeAccount.network?.id ?? '',
   });
   const handleBuildTxSuccess = useCallback(
-    async (txs: ISignedTxPro[]) => {
+    async (data: ISendTxOnSuccessData[]) => {
       console.log('txs-', txs);
       if (txs?.[0].txid && txs?.[0].swapInfo) {
         const txId = txs[0].txid;
@@ -55,9 +56,12 @@ export function useSwapBuildTx() {
     },
     [generateSwapHistoryItem],
   );
-  const handleWrappedTxSuccess = useCallback(async (txs: ISignedTxPro[]) => {
-    console.log('txs-', txs);
-  }, []);
+  const handleWrappedTxSuccess = useCallback(
+    async (data: ISendTxOnSuccessData[]) => {
+      console.log('data-', data);
+    },
+    [],
+  );
   const wrappedTx = useCallback(async () => {
     if (
       fromToken &&

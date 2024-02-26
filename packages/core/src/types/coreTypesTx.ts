@@ -86,6 +86,7 @@ export type IUnsignedTx = {
 export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
+  swapInfo?: ISwapTxInfo | undefined;
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
