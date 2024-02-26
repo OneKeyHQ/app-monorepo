@@ -8,3 +8,4 @@ export * from './layouts';
 export * from './locale';
 export * from './primitives';
 export * from './type';
+export * from './utils';

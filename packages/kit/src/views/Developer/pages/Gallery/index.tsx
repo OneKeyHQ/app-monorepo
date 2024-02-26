@@ -340,7 +340,7 @@ const PortalGallery = LazyLoadPage(
     ),
 );
 
-const WalletWidgetsGallery = LazyLoad(
+const WalletWidgetsGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WalletWidgets'
