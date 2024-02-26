@@ -50,7 +50,7 @@ function SendConfirmActionsContainer(props: IProps) {
           accountId,
           networkId,
           unsignedTxs,
-          feeInfo: sendSelectedFeeInfo?.feeInfo,
+          feeInfo: sendSelectedFeeInfo,
           nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
             ? {
                 maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -81,7 +81,7 @@ function SendConfirmActionsContainer(props: IProps) {
     networkId,
     onFail,
     onSuccess,
-    sendSelectedFeeInfo?.feeInfo,
+    sendSelectedFeeInfo,
     unsignedTxs,
   ]);
 

@@ -227,17 +227,23 @@ function TxFeeContainer(props: IProps) {
       selectorValue = String(sendSelectedFee.presetIndex);
     }
 
-    const { total, totalNative, totalNativeForDisplay, totalFiatForDisplay } =
-      calculateFeeForSend({
-        feeInfo: selectedFeeInfo,
-        nativeTokenPrice: gasFee?.common.nativeTokenPrice ?? 0,
-      });
+    const {
+      total,
+      totalNative,
+      totalFiat,
+      totalNativeForDisplay,
+      totalFiatForDisplay,
+    } = calculateFeeForSend({
+      feeInfo: selectedFeeInfo,
+      nativeTokenPrice: gasFee?.common.nativeTokenPrice ?? 0,
+    });
 
     return {
       selectedFee: {
         feeInfo: selectedFeeInfo,
         total,
         totalNative,
+        totalFiat,
         totalNativeForDisplay,
         totalFiatForDisplay,
       },

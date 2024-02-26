@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,

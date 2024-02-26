@@ -177,13 +177,20 @@ class ServiceSend extends ServiceBase {
   async buildDecodedTx(
     params: ISendTxBaseParams & IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { networkId, accountId, unsignedTx } = params;
+    const { networkId, accountId, unsignedTx, feeInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const buildTxHelper = await this.getBuildTxHelper();
-    return vault.buildDecodedTx({
+    const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
       ...buildTxHelper,
     });
+
+    if (feeInfo) {
+      decodedTx.totalFeeInNative = feeInfo.totalNative;
+      decodedTx.totalFeeFiatValue = feeInfo.totalFiat;
+    }
+
+    return decodedTx;
   }
 
   @backgroundMethod()
@@ -286,8 +293,13 @@ class ServiceSend extends ServiceBase {
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
-    const { networkId, accountId, unsignedTxs, feeInfo, nativeAmountInfo } =
-      params;
+    const {
+      networkId,
+      accountId,
+      unsignedTxs,
+      feeInfo: sendSelectedFeeInfo,
+      nativeAmountInfo,
+    } = params;
 
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -296,7 +308,7 @@ class ServiceSend extends ServiceBase {
         accountId,
         networkId,
         unsignedTx,
-        feeInfo,
+        feeInfo: sendSelectedFeeInfo?.feeInfo,
         nativeAmountInfo,
       });
 

@@ -9,7 +9,10 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -281,6 +284,7 @@ export interface IBuildEncodedTxParams {
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
+  feeInfo?: ISendSelectedFeeInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -314,7 +318,7 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
 
 export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
-  feeInfo?: IFeeInfoUnit;
+  feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
 }
 

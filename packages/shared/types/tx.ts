@@ -80,6 +80,7 @@ export type IDecodedTx = {
 
   feeInfo?: IFeeInfoUnit;
   totalFeeInNative?: string;
+  totalFeeFiatValue?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
 

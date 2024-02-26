@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
