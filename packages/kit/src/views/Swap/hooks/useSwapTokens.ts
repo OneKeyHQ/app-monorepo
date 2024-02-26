@@ -26,7 +26,11 @@ export function useSwapNetworkList() {
 
       const swapNetworksSortList =
         await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
-      if (swapNetworksSortList && swapNetworksSortList.data) {
+
+      if (!networks?.length && swapNetworksSortList?.data) {
+        networks = swapNetworksSortList.data;
+      }
+      if (swapNetworksSortList?.data && networks?.length) {
         const sortNetworks = swapNetworksSortList.data;
         networks = sortNetworks
           .filter((network) =>

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
@@ -43,19 +44,30 @@ export function useSwapBuildTx() {
   });
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
-      console.log('txs-', txs);
-      if (txs?.[0].txid && txs?.[0].swapInfo) {
-        const txId = txs[0].txid;
-        const netWorkFee = '999'; // todo
-        await generateSwapHistoryItem({
-          txId,
-          netWorkFee,
-          swapTxInfo: txs?.[0].swapInfo,
-        });
+      if (data?.[0]) {
+        const transactionSignedInfo = data[0].signedTx;
+        const transactionDecodedInfo = data[0].decodedTx;
+        const txId = transactionSignedInfo.txid;
+        const { swapInfo } = transactionSignedInfo;
+        const { totalFeeInNative, totalFeeFiatValue } = transactionDecodedInfo;
+        if (swapInfo) {
+          await generateSwapHistoryItem({
+            txId,
+            gasFeeFiatValue: totalFeeFiatValue,
+            gasFeeInNative: totalFeeInNative,
+            swapTxInfo: swapInfo,
+          });
+        }
       }
     },
     [generateSwapHistoryItem],
   );
+
+  const handleBuildTxFail = useCallback((error?: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    Toast.error({ title: 'error', message: error?.message ?? '' });
+  }, []);
+
   const handleWrappedTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       console.log('data-', data);
@@ -224,6 +236,7 @@ export function useSwapBuildTx() {
         encodedTx,
         swapInfo,
         onSuccess: handleBuildTxSuccess,
+        onFail: handleBuildTxFail,
       });
       setSwapBuildTxFetching(false);
     }
@@ -232,6 +245,7 @@ export function useSwapBuildTx() {
     activeAccount.network?.id,
     fromToken,
     fromTokenAmount,
+    handleBuildTxFail,
     handleBuildTxSuccess,
     navigationToSendConfirm,
     receiverAddress,

@@ -21,6 +21,7 @@ interface ISwapTokenSelectCellProps {
   selectNetwork?: ISwapNetwork;
   tokenNetwork?: ISwapNetwork;
   onSelectToken: (token: ISwapToken) => void;
+  currencySymbol: string;
 }
 const SwapTokenSelectCell = ({
   token,
@@ -28,6 +29,7 @@ const SwapTokenSelectCell = ({
   onSelectToken,
   selectNetwork,
   tokenNetwork,
+  currencySymbol,
 }: ISwapTokenSelectCellProps) => {
   const subTitle = useMemo(() => {
     if (isSearch) {
@@ -66,7 +68,9 @@ const SwapTokenSelectCell = ({
             <SizableText>{token.balanceParsed ?? ''}</SizableText>
           ) : null}
           {token.fiatValue ? (
-            <SizableText>{`$${token.fiatValue ?? ''}`}</SizableText>
+            <SizableText>{`${currencySymbol}${
+              token.fiatValue ?? ''
+            }`}</SizableText>
           ) : null}
         </YStack>
         <IconButton

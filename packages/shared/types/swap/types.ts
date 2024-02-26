@@ -87,7 +87,27 @@ export interface IFetchQuotesParams {
   receivingAddress?: string;
   slippagePercentage?: number;
 }
-
+interface ISocketAsset {
+  address: string;
+  chainId: number;
+  decimals: number;
+  icon: string;
+  logoURI: string;
+  name: string;
+  symbol: string;
+}
+interface ISocketRewardData {
+  amount: string;
+  amountInUsd: number;
+  asset: ISocketAsset;
+  chainId: number;
+}
+export interface ISocketExtraData {
+  rewards: ISocketRewardData[];
+}
+interface IQuoteExtraData {
+  socketBridgeExtraData?: ISocketExtraData;
+}
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
   toAmount: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
@@ -99,6 +119,7 @@ export interface IFetchQuoteResult {
   limit?: IFetchQuoteLimit;
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
+  quoteExtraData?: IQuoteExtraData;
 }
 
 export interface IAllowanceResult {
@@ -118,20 +139,7 @@ export interface IFetchQuoteLimit {
 }
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
-  protocolFees?: IFeeInfo[];
-}
-
-interface IFeeTokenAsset {
-  address: string;
-  networkId: string;
-  decimals: number;
-  symbol?: string;
-  logoURI?: string;
-}
-
-export interface IFeeInfo {
-  amount: string;
-  asset?: IFeeTokenAsset;
+  protocolFees?: number;
 }
 
 // swap action state
@@ -161,7 +169,6 @@ export interface ISwapStepState {
 }
 
 // build_tx
-
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
 }
@@ -237,7 +244,8 @@ export interface ISwapTxHistory {
     txId: string;
     sender: string;
     receiver: string;
-    netWorkFee?: string;
+    gasFeeInNative?: string;
+    gasFeeFiatValue?: string;
     receiverTransactionId?: string;
   };
   swapInfo: {

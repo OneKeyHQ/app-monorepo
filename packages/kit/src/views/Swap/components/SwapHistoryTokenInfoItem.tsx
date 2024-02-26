@@ -12,11 +12,13 @@ interface ISwapHistoryTokenInfoItemProps {
   token: ISwapToken;
   amount: string;
   network?: ISwapNetwork;
+  currencySymbol: string;
 }
 const SwapHistoryTokenInfoItem = ({
   token,
   amount,
   network,
+  currencySymbol,
 }: ISwapHistoryTokenInfoItemProps) => {
   const amountFiatValue = useMemo(() => {
     const amountBN = new BigNumber(amount);
@@ -34,7 +36,7 @@ const SwapHistoryTokenInfoItem = ({
       </XStack>
       <YStack>
         <SizableText>{amount}</SizableText>
-        <SizableText>{`$${amountFiatValue}`}</SizableText>
+        <SizableText>{`${currencySymbol}${amountFiatValue}`}</SizableText>
       </YStack>
     </XStack>
   );

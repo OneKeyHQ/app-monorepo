@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import Share from '@onekeyhq/shared/src/modules3rdParty/react-native-share';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -84,9 +85,12 @@ export function useSwapTxHistoryStateSyncInterval() {
                   ...swapTxHistory.txInfo,
                   receiverTransactionId:
                     txStatusRes.crossChainReceiveTxHash || '',
-                  netWorkFee: txStatusRes.gasFeeFiatValue
+                  gasFeeInNative: txStatusRes.gasFee
+                    ? txStatusRes.gasFee
+                    : swapTxHistory.txInfo.gasFeeInNative,
+                  gasFeeFiatValue: txStatusRes.gasFeeFiatValue
                     ? txStatusRes.gasFeeFiatValue
-                    : swapTxHistory.txInfo.netWorkFee,
+                    : swapTxHistory.txInfo.gasFeeFiatValue,
                 },
                 baseInfo: {
                   ...swapTxHistory.baseInfo,
@@ -142,11 +146,13 @@ export function useSwapTxHistoryActions() {
   const generateSwapHistoryItem = useCallback(
     async ({
       txId,
-      netWorkFee,
+      gasFeeInNative,
+      gasFeeFiatValue,
       swapTxInfo,
     }: {
       txId: string;
-      netWorkFee: string;
+      gasFeeInNative?: string;
+      gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
     }) => {
       if (swapTxInfo) {
@@ -166,7 +172,8 @@ export function useSwapTxHistoryActions() {
           },
           txInfo: {
             txId,
-            netWorkFee,
+            gasFeeFiatValue,
+            gasFeeInNative,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -200,7 +207,7 @@ export function useSwapTxHistoryActions() {
 export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
-
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const statusLabel = useMemo(() => {
     if (item?.status === ESwapTxHistoryStatus.FAILED) {
       return intl.formatMessage({ id: 'transaction__failed' });
@@ -235,16 +242,30 @@ export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
     return formatDate(date);
   }, [formatDate, item?.date.updated]);
 
-  const networkFee = useMemo(
-    () =>
-      item?.txInfo?.netWorkFee
-        ? `${item?.txInfo.netWorkFee} ${
-            item?.baseInfo.fromNetwork?.symbol ?? ''
-          }`
-        : '',
-    [item?.baseInfo?.fromNetwork?.symbol, item?.txInfo?.netWorkFee],
-  );
+  const networkFee = useMemo(() => {
+    const gasFeeInNativeParse = new BigNumber(item?.txInfo?.gasFeeInNative ?? 0)
+      .decimalPlaces(6, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const gasFeeFiatValueParse = new BigNumber(
+      item?.txInfo?.gasFeeFiatValue ?? 0,
+    )
+      .decimalPlaces(6, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const gasFeeInNativeDisplay = gasFeeInNativeParse
+      ? `${gasFeeInNativeParse} ${item?.baseInfo.fromNetwork?.symbol ?? ''}`
+      : '';
+    const gasFeeFiatValueDisplay = gasFeeFiatValueParse
+      ? `(${settingsPersistAtom.currencyInfo.symbol}${gasFeeFiatValueParse})`
+      : '';
+    return { gasFeeFiatValueDisplay, gasFeeInNativeDisplay };
+  }, [
+    item?.baseInfo.fromNetwork?.symbol,
+    item?.txInfo?.gasFeeFiatValue,
+    item?.txInfo?.gasFeeInNative,
+    settingsPersistAtom.currencyInfo.symbol,
+  ]);
 
+  // todo protocolFee currency symbol
   const protocolFee = useMemo(
     () => (item?.swapInfo?.protocolFee ? `$${item?.swapInfo.protocolFee}` : ''),
     [item?.swapInfo.protocolFee],
@@ -270,7 +291,9 @@ export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
       item?.txInfo.txId
     }\n${intl.formatMessage({
       id: 'form__network_fee',
-    })} ${networkFee}\nSWAP INFO\n${intl.formatMessage({
+    })} ${networkFee.gasFeeInNativeDisplay} ${
+      networkFee.gasFeeFiatValueDisplay
+    }\nSWAP INFO\n${intl.formatMessage({
       id: 'form__rate',
     })} 1 ${item?.baseInfo.fromToken.symbol} = ${item?.swapInfo.instantRate} ${
       item?.baseInfo.toToken.symbol

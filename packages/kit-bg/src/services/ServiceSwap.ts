@@ -194,7 +194,7 @@ export default class ServiceSwap extends ServiceBase {
     };
     this._quoteCancelSource = axios.CancelToken.source();
     const endpoints = await getEndpoints();
-    const fetchUrl = `${endpoints.http}/swap/v1/quote`;
+    const fetchUrl = '/swap/v1/quote';
     try {
       const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
@@ -311,6 +311,6 @@ export default class ServiceSwap extends ServiceBase {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
     }
-    return { state: ESwapTxHistoryStatus.FAILED };
+    return { state: ESwapTxHistoryStatus.PENDING };
   }
 }

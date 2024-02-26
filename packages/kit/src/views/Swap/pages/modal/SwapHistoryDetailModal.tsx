@@ -18,6 +18,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapHistoryTokenInfoItem from '../../components/SwapHistoryTokenInfoItem';
@@ -46,6 +47,7 @@ const SwapHistoryDetailModal = () => {
   const intl = useIntl();
   const { txHistory } = route.params ?? {};
   const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const onSwapAgain = useCallback(() => {
     swapAgainUseHistoryItem(txHistory);
     navigation.popStack();
@@ -89,12 +91,14 @@ const SwapHistoryDetailModal = () => {
               />
               <YStack>
                 <SwapHistoryTokenInfoItem
+                  currencySymbol={settingsPersistAtom.currencyInfo.symbol}
                   token={txHistory.baseInfo.fromToken}
                   network={txHistory.baseInfo.fromNetwork}
                   amount={txHistory.baseInfo.fromAmount}
                 />
                 <Icon name="ChevronDoubleDownOutline" size="$10" />
                 <SwapHistoryTokenInfoItem
+                  currencySymbol={settingsPersistAtom.currencyInfo.symbol}
                   token={txHistory.baseInfo.toToken}
                   network={txHistory.baseInfo.toNetwork}
                   amount={txHistory.baseInfo.toAmount}
@@ -123,9 +127,13 @@ const SwapHistoryDetailModal = () => {
                     void onCopy(txHistory.txInfo.txId);
                   }}
                 />
-                {networkFee && (
-                  <SwapCommonInfoItem title="Network Fee" value={networkFee} />
-                )}
+                {networkFee.gasFeeFiatValueDisplay &&
+                networkFee.gasFeeInNativeDisplay ? (
+                  <SwapCommonInfoItem
+                    title="Network Fee"
+                    value={`${networkFee.gasFeeInNativeDisplay} ${networkFee.gasFeeFiatValueDisplay}`}
+                  />
+                ) : null}
               </YStack>
               <YStack>
                 <SizableText>SWAP INFO</SizableText>

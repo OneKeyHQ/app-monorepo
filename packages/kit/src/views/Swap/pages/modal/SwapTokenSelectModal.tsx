@@ -22,6 +22,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   ISwapNetwork,
@@ -53,6 +54,7 @@ const SwapTokenSelectPage = () => {
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [onlySupportSingleNetWork] = useSwapOnlySupportSingleChainAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { updateSelectedAccount } = useAccountSelectorActions().current;
@@ -113,10 +115,17 @@ const SwapTokenSelectPage = () => {
           selectNetwork={currentSelectNetwork}
           token={item}
           onSelectToken={onSelectToken}
+          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
         />
       );
     },
-    [currentSelectNetwork, onSelectToken, searchKeyword, swapNetworks],
+    [
+      currentSelectNetwork,
+      onSelectToken,
+      searchKeyword,
+      settingsPersistAtom.currencyInfo.symbol,
+      swapNetworks,
+    ],
   );
 
   return (
