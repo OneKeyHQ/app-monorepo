@@ -5,7 +5,16 @@ import { shuffle } from 'lodash';
 import { InteractionManager, Keyboard } from 'react-native';
 
 import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export const useShowCopyPasteButton = () => {
+  const [devSetting] = useDevSettingsPersistAtom();
+  return (
+    platformEnv.isDev ||
+    (devSetting.enabled && devSetting.settings?.enableCopyPasteInOnboardingPage)
+  );
+};
 
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);

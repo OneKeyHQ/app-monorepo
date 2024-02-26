@@ -86,6 +86,30 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async demoGetDbContextCount() {
+    const c = await localDb.getRecordsCount({
+      name: ELocalDBStoreNames.Context,
+    });
+    return c;
+  }
+
+  @backgroundMethod()
+  async demoGetDbAccountsCount() {
+    const c = await localDb.getRecordsCount({
+      name: ELocalDBStoreNames.Account,
+    });
+    return c;
+  }
+
+  @backgroundMethod()
+  async demoGetDbWalletsCount() {
+    const c = await localDb.getRecordsCount({
+      name: ELocalDBStoreNames.Wallet,
+    });
+    return c;
+  }
+
+  @backgroundMethod()
   async demoDbUpdateUUID() {
     const c = await localDb.demoDbUpdateUUID();
     return c;
