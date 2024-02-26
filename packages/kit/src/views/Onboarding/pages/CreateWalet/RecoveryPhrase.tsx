@@ -13,9 +13,9 @@ import {
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Tutorials } from '../../components';
+import { useShowCopyPasteButton } from '../../components/hooks';
 import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [
@@ -62,6 +62,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const isShowCopyPasteButton = useShowCopyPasteButton();
   const { servicePassword } = backgroundApiProxy;
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export function RecoveryPhrase() {
           ))}
         </XStack>
 
-        {platformEnv.isDev ? (
+        {isShowCopyPasteButton ? (
           <XStack px="$5" py="$2">
             <Button
               size="small"
