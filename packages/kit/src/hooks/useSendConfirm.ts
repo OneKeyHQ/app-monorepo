@@ -41,31 +41,35 @@ function useSendConfirm(params: IParams) {
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const { sameModal, onSuccess, onFail, ...rest } = params;
-      const unsignedTx =
-        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-          networkId,
-          accountId,
-          ...rest,
-        });
-      if (sameModal) {
-        navigation.push(EModalSendRoutes.SendConfirm, {
-          accountId,
-          networkId,
-          unsignedTxs: [unsignedTx],
-          onSuccess,
-          onFail,
-        });
-      } else {
-        navigation.pushModal(EModalRoutes.SendModal, {
-          screen: EModalSendRoutes.SendConfirm,
-          params: {
+      try {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId,
+            accountId,
+            ...rest,
+          });
+        if (sameModal) {
+          navigation.push(EModalSendRoutes.SendConfirm, {
             accountId,
             networkId,
             unsignedTxs: [unsignedTx],
             onSuccess,
             onFail,
-          },
-        });
+          });
+        } else {
+          navigation.pushModal(EModalRoutes.SendModal, {
+            screen: EModalSendRoutes.SendConfirm,
+            params: {
+              accountId,
+              networkId,
+              unsignedTxs: [unsignedTx],
+              onSuccess,
+              onFail,
+            },
+          });
+        }
+      } catch (e: any) {
+        onFail?.(e);
       }
     },
     [accountId, navigation, networkId],
