@@ -69,7 +69,11 @@ function useSendConfirm(params: IParams) {
           });
         }
       } catch (e: any) {
-        onFail?.(e);
+        if (onFail) {
+          onFail(e);
+        } else {
+          throw e;
+        }
       }
     },
     [accountId, navigation, networkId],
