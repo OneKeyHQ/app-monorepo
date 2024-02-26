@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Input,
@@ -31,7 +32,11 @@ const tutorials = [
   },
 ];
 
-function FocusDisplayInput({ text, index }: { text: string; index: number }) {
+function FocusDisplayInput({
+  text,
+  index,
+  testID = '',
+}: IPropsWithTestId<{ text: string; index: number }>) {
   const media = useMedia();
   const [isFocused, setIsFocused] = useState(false);
   const handleFocus = useCallback(() => {
@@ -55,7 +60,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
         minWidth: '$10',
         justifyContent: 'center',
       }}
-      testID=""
+      testID={testID}
     />
   );
 }
@@ -105,7 +110,11 @@ export function RecoveryPhrase() {
               flexBasis="33.33%"
               p="$1"
             >
-              <FocusDisplayInput text={phrase} index={index} testID="" />
+              <FocusDisplayInput
+                text={phrase}
+                index={index}
+                testID={`phrase-index${index}`}
+              />
             </Stack>
           ))}
         </XStack>
@@ -129,7 +138,6 @@ export function RecoveryPhrase() {
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
         onConfirm={handleConfirmPress}
-        testID="saved-phrase"
       />
     </Page>
   );

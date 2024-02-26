@@ -16,6 +16,7 @@ import type {
   IElement,
   IInputProps,
   IPageFooterProps,
+  IPropsWithTestId,
 } from '@onekeyhq/components';
 import {
   Button,
@@ -187,7 +188,8 @@ function BasicPhaseInput(
     closePopover,
     onReturnKeyPressed,
     getReturnKeyLabel,
-  }: {
+    testID = '',
+  }: IPropsWithTestId<{
     value?: string;
     index: number;
     onInputChange: (value: string) => string;
@@ -201,7 +203,7 @@ function BasicPhaseInput(
     closePopover: () => void;
     onReturnKeyPressed: (index: number) => void;
     getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions;
-  },
+  }>,
   ref: any,
 ) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
@@ -319,7 +321,13 @@ function BasicPhaseInput(
     returnKeyType: keyLabel,
   };
   if (platformEnv.isNative) {
-    return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
+    return (
+      <Input
+        {...inputProps}
+        onSubmitEditing={handleSubmitEnding}
+        testID={testID}
+      />
+    );
   }
   return (
     <Popover
@@ -338,7 +346,12 @@ function BasicPhaseInput(
       }
       renderTrigger={
         <Stack>
-          <Input {...inputProps} onKeyPress={handleKeyPress} data-1p-ignore />
+          <Input
+            {...inputProps}
+            onKeyPress={handleKeyPress}
+            data-1p-ignore
+            testID={testID}
+          />
         </Stack>
       }
     />
@@ -447,6 +460,7 @@ export function PhaseInputArea({
               items={phraseLengthOptions}
               value={phraseLength}
               onChange={setPhraseLength}
+              testID="phrase-length-selector"
               renderTrigger={({ value }) => (
                 <Button
                   iconAfter="ChevronDownSmallOutline"
@@ -464,6 +478,7 @@ export function PhaseInputArea({
               size="small"
               variant="tertiary"
               onPress={handleClear}
+              testID="clear-all"
             >
               Clear
             </Button>
@@ -494,6 +509,7 @@ export function PhaseInputArea({
                     closePopover={closePopover}
                     onReturnKeyPressed={handleReturnKeyPressed}
                     getReturnKeyLabel={getReturnKeyLabel}
+                    testID={`phase-input-index${index}`}
                   />
                 </Form.Field>
               </Stack>

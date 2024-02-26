@@ -168,7 +168,6 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             loading={form.formState.isSubmitting}
             disabled={!form.formState.isValid || pending}
             onPress={form.handleSubmit(onSave)}
-            testID="address-form-save"
           >
             {intl.formatMessage({ id: 'action__save' })}
           </Button>
