@@ -1,13 +1,13 @@
-import { ProviderJotaiContextDiscovery } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { DiscoveryBrowserProviderMirror } from '../../components/DiscoveryBrowserProviderMirror';
 
 export function withBrowserProvider<T extends React.PropsWithChildren>(
   WrappedComponent: React.ComponentType<T>,
 ): React.ComponentType<T> {
   return function WithBrowserProvider(props: T): JSX.Element {
     return (
-      <ProviderJotaiContextDiscovery>
+      <DiscoveryBrowserProviderMirror>
         <WrappedComponent {...props} />
-      </ProviderJotaiContextDiscovery>
+      </DiscoveryBrowserProviderMirror>
     );
   };
 }

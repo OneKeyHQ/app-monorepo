@@ -1,25 +1,25 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EModalAddressBookRoutes } from './types';
 
 import type { IModalAddressBookParamList } from './types';
 
-const AddressBookListModal = LazyLoad(
+const AddressBookListModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/common/components/AddressBook/pages/ListItem'),
 );
 
-const AddressBookAddItemModal = LazyLoad(
+const AddressBookAddItemModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/common/components/AddressBook/pages/AddItem'),
 );
 
-const AddressBookEditItemModal = LazyLoad(
+const AddressBookEditItemModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/common/components/AddressBook/pages/EditItem'),
 );
 
-const AddressBookPickItemModal = LazyLoad(
+const AddressBookPickItemModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/common/components/AddressBook/pages/PickItem'),
 );

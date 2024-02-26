@@ -21,8 +21,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EAccountSelectorSceneName,
@@ -34,8 +32,6 @@ import type {
   IGetDAppAccountInfoParams,
   IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
-
-import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
@@ -368,7 +364,7 @@ class ServiceDApp extends ServiceBase {
       const { accountId, networkId } = accountInfo;
       const account = await this.backgroundApi.serviceAccount.getAccount({
         accountId,
-        networkId,
+        networkId: networkId || '',
       });
       return {
         account,
@@ -404,8 +400,21 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async getAllConnectedAccountsByOrigin(origin: string) {
-    return this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
-      origin,
+    const result =
+      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+        origin,
+      );
+    if (!result) {
+      return null;
+    }
+    return Promise.all(
+      result.map(async (accountInfo) => {
+        const { networkIds } =
+          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        return { ...accountInfo, availableNetworkIds: networkIds };
+      }),
     );
   }
 
@@ -429,7 +438,9 @@ class ServiceDApp extends ServiceBase {
     if (!accountsInfo) {
       throw new Error('Network not found');
     }
-    const networkIds = accountsInfo.map((accountInfo) => accountInfo.networkId);
+    const networkIds = accountsInfo.map(
+      (accountInfo) => accountInfo.networkId || '',
+    );
     const { networks } =
       await this.backgroundApi.serviceNetwork.getNetworksByIds({ networkIds });
     return networks;
@@ -449,7 +460,7 @@ class ServiceDApp extends ServiceBase {
     if (!containsNetwork) {
       throw new Error('Network not found');
     }
-    if (await this.shouldSwitchNetwork(params)) {
+    if (!(await this.shouldSwitchNetwork(params))) {
       return;
     }
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);

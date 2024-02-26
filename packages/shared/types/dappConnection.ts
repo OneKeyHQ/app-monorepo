@@ -1,13 +1,12 @@
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 
-export interface IConnectionAccountInfo {
+export type IConnectionAccountInfo = IAccountSelectorSelectedAccount & {
   networkImpl: string;
-  walletId: string;
-  indexedAccountId: string;
-  networkId: string;
   accountId: string;
   address: string;
-}
+};
 export interface IConnectionItem {
   origin: string;
   imageURL: string;
@@ -43,4 +42,5 @@ export interface IGetDAppAccountInfoParams {
 export type IConnectionAccountInfoWithNum = IConnectionAccountInfo & {
   num: number;
   storageType: IStorageType;
+  availableNetworkIds?: string[];
 };

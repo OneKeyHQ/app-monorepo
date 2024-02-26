@@ -3,6 +3,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { AccountSelectorRootProvidersAutoMount } from '../../components/AccountSelector';
+import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
@@ -22,7 +23,7 @@ export function Container() {
       <AppStateLockContainer>
         <KeyboardContainer />
         <NavigationContainer>
-          <AccountSelectorRootProvidersAutoMount />
+          <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />

@@ -633,4 +633,6 @@ module.exports = [
   'mixpanel',
   'pageview',
   'dnt',
+  'compat',
+  'replacer',
 ];
