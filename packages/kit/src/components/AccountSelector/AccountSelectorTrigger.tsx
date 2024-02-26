@@ -30,6 +30,7 @@ export function AccountSelectorTriggerHome({
 
   return (
     <XStack
+      testID="AccountSelectorTriggerHome"
       role="button"
       alignItems="center"
       p="$1.5"
@@ -50,6 +51,7 @@ export function AccountSelectorTriggerHome({
           linkNetwork,
         })
       }
+      userSelect="none"
       maxWidth="$40"
     >
       <AccountAvatar
@@ -68,7 +70,12 @@ export function AccountSelectorTriggerHome({
       >
         {accountName}
       </SizableText>
-      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
+      <Icon
+        flexShrink={0} // Prevents the icon from shrinking when the text is too long
+        name="ChevronGrabberVerOutline"
+        size="$5"
+        color="$iconSubdued"
+      />
     </XStack>
   );
 }

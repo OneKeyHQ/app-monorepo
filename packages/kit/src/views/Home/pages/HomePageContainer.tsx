@@ -86,7 +86,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         <>
           <Page.Header headerTitle={headerTitle} />
           <Page.Body>
-            {process.env.NODE_ENV !== 'production' ? (
+            {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {
                   setIsHide((v) => !v);
@@ -96,7 +96,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
               >
                 home-hide-test
               </Button>
-            ) : null}
+            ) : null} */}
             {account ? (
               <Tab
                 data={tabs}
@@ -146,7 +146,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     headerTitle,
     intl,
     network?.name,
-    onPressHide,
     onRefresh,
     ready,
     screenWidth,
