@@ -146,6 +146,12 @@ function AccountSelectorPopoverContent({
         sceneUrl: origin,
       }}
       enabledNum={accountsInfo.map((account) => account.num)}
+      availableNetworksMap={accountsInfo.reduce((acc, account) => {
+        if (Array.isArray(account.availableNetworkIds)) {
+          acc[account.num] = { networkIds: account.availableNetworkIds };
+        }
+        return acc;
+      }, {} as Record<number, { networkIds: string[] }>)}
     >
       <YStack p="$5" space="$2">
         {accountsInfo.map((account) => (
@@ -188,6 +194,7 @@ function HeaderRightToolBar() {
       await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
         origin,
       );
+
     console.log('====>>>connectedAccount: ', connectedAccount);
     return connectedAccount;
   }, [origin]);
@@ -237,6 +244,11 @@ function HeaderRightToolBar() {
                 sceneUrl: origin ?? '',
               }}
               enabledNum={[accountInfo.num]}
+              availableNetworksMap={{
+                [accountInfo.num]: {
+                  networkIds: accountInfo.availableNetworkIds,
+                },
+              }}
             >
               <XStack mr="$-1.5">
                 <SingleAccountAndNetworkSelectorTrigger
