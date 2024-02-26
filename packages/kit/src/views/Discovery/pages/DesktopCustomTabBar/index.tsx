@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
+import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
@@ -26,6 +27,8 @@ import {
   type IDiscoveryModalParamList,
 } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
+import type { ScrollView as RNScrollView } from 'react-native';
 
 function DesktopCustomTabBar() {
   // register desktop shortcuts for browser tab
@@ -50,6 +53,15 @@ function DesktopCustomTabBar() {
     () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
+
+  // scroll to top when new tab is added
+  const scrollViewRef = useRef<RNScrollView>(null);
+  const previousTabsLength = usePrevious(tabs?.length);
+  useEffect(() => {
+    if (previousTabsLength && tabs?.length > previousTabsLength) {
+      scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    }
+  }, [previousTabsLength, tabs?.length]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -122,7 +134,7 @@ function DesktopCustomTabBar() {
           });
         }}
       />
-      <ScrollView mx="$-5" px="$5">
+      <ScrollView mx="$-5" px="$5" ref={scrollViewRef}>
         {/* Tabs */}
         {data.map((t) => (
           <DesktopCustomTabBarItem
