@@ -102,6 +102,14 @@ function DesktopCustomTabBar() {
     };
   }, [closeAllWebTabs]);
 
+  const onTabPress = useCallback(
+    (id: string) => {
+      navigation.switchTab(ETabRoutes.MultiTabBrowser);
+      setCurrentWebTab(id);
+    },
+    [setCurrentWebTab, navigation],
+  );
+
   return (
     <Stack flex={1}>
       <HandleRebuildBrowserData />
@@ -111,9 +119,7 @@ function DesktopCustomTabBar() {
           id={t.id}
           key={t.id}
           activeTabId={activeTabId}
-          onPress={(id) => {
-            setCurrentWebTab(id);
-          }}
+          onPress={onTabPress}
           onBookmarkPress={handleBookmarkPress}
           onPinnedPress={handlePinnedPress}
           onClose={handleCloseTab}
@@ -141,10 +147,7 @@ function DesktopCustomTabBar() {
             key={t.id}
             id={t.id}
             activeTabId={activeTabId}
-            onPress={(id) => {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser);
-              setCurrentWebTab(id);
-            }}
+            onPress={onTabPress}
             onBookmarkPress={handleBookmarkPress}
             onPinnedPress={handlePinnedPress}
             onClose={handleCloseTab}
