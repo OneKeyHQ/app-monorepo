@@ -2,11 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IActionListSection,
-  IKeyOfIcons,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -32,7 +28,9 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -42,8 +40,6 @@ import {
   EModalSendRoutes,
   type IModalSendParamList,
 } from '../../../Send/router';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-import { openUrlExternal } from '../../../../utils/openUrl';
 
 function HeaderAction({
   icon,
@@ -232,6 +228,9 @@ function WalletActionSwap() {
 }
 
 function WalletActionMore() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const { copyText } = useClipboard();
 
