@@ -69,6 +69,9 @@ function burntToast({
 
 export { default as Toaster } from './Toaster';
 
+export type IToastShowResult = {
+  close: (extra?: { flag?: string }) => void | Promise<void>;
+};
 export const Toast = {
   success: (props: IToastProps) => {
     burntToast({ haptic: 'success', ...props });
@@ -79,7 +82,11 @@ export const Toast = {
   message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
-  show: ({ onClose, children }: IShowToasterProps) => {
+  show: ({
+    onClose,
+    children,
+    ...others
+  }: IShowToasterProps): IToastShowResult => {
     let instanceRef: RefObject<IShowToasterInstance> | undefined =
       createRef<IShowToasterInstance>();
     let portalRef:
@@ -106,15 +113,16 @@ export const Toast = {
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowToaster ref={instanceRef} onClose={handleClose}>
+        <ShowToaster ref={instanceRef} onClose={handleClose} {...others}>
           {children}
         </ShowToaster>,
       ),
     };
-    return {
+    const r: IToastShowResult = {
       close: async (extra?: { flag?: string }) =>
         instanceRef?.current?.close(extra),
     };
+    return r;
   },
   Close: ShowToasterClose,
 };

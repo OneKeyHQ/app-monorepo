@@ -7,11 +7,15 @@ import type {
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
@@ -22,6 +26,7 @@ import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
@@ -69,16 +74,17 @@ export interface IBackgroundApiBridge {
   ): Promise<IJsonRpcResponse<T>>;
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
-  // walletConnect: ProviderApiWalletConnect; // TODO move to IBackgroundApiBridge
-
   simpleDb: SimpleDb;
+
+  // **** WalletConnect
+  walletConnect: ProviderApiWalletConnect;
 
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
-  serviceDiscovery: ServiceDiscovery;
   serviceSend: ServiceSend;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
@@ -90,7 +96,12 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceValidator: ServiceValidator;
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;
+  serviceDiscovery: ServiceDiscovery;
+  serviceDApp: ServiceDApp;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
+
   serviceOnboarding: ServiceOnboarding;
+  serviceScanQRCode: ServiceScanQRCode;
+  serviceAddressBook: ServiceAddressBook;
 }

@@ -32,7 +32,6 @@ import {
   XStack,
   useClipboard,
   useForm,
-  useFormState,
   useIsKeyboardShown,
   useMedia,
   usePage,
@@ -40,10 +39,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSuggestion } from './hooks';
+import { useShowCopyPasteButton, useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
-import type { Control } from 'react-hook-form';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
@@ -152,15 +150,11 @@ function PageFooter({
   suggestions,
   updateInputValue,
   onConfirm,
-  control,
 }: {
   suggestions: string[];
   updateInputValue: (text: string) => void;
   onConfirm: IPageFooterProps['onConfirm'];
-  control: Control;
 }) {
-  const state = useFormState({ control });
-  console.log('state.dirtyFields', state.dirtyFields);
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
@@ -378,7 +372,6 @@ export function PhaseInputArea({
     defaultValues: defaultPhrasesMap,
   });
   const { getClipboard } = useClipboard();
-  const { control } = form;
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -391,6 +384,8 @@ export function PhaseInputArea({
     }
     return `${length} invalid words`;
   };
+
+  const isShowCopyPasteButton = useShowCopyPasteButton();
 
   const handlePageFooterConfirm = useCallback(async () => {
     const mnemonic: string = Object.values(form.getValues()).join(' ');
@@ -506,7 +501,7 @@ export function PhaseInputArea({
           </XStack>
         </Form>
 
-        {platformEnv.isDev ? (
+        {isShowCopyPasteButton ? (
           <XStack px="$5" py="$2">
             <Button
               size="small"
@@ -555,7 +550,6 @@ export function PhaseInputArea({
         suggestions={suggestions}
         updateInputValue={updateInputValue}
         onConfirm={handlePageFooterConfirm}
-        control={control}
       />
     </>
   );

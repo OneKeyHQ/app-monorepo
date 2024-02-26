@@ -53,6 +53,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
         db._getOrAddObjectRecord(ELocalDBStoreNames.Context, {
           id: DB_MAIN_CONTEXT_ID,
           nextHD: 1,
+          nextWalletNo: 1,
           verifyString: DEFAULT_VERIFY_STRING,
           backupUUID: generateUUID(),
         }),
@@ -86,6 +87,7 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
       backuped: true,
       accounts: [],
       nextIndex: 0,
+      walletNo: 0,
       nextAccountIds: { 'global': 1 },
     });
   }

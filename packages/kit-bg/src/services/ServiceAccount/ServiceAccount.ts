@@ -27,8 +27,10 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
@@ -39,14 +41,10 @@ import {
 } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
-import {
-  getVaultSettings,
-  getVaultSettingsAccountDeriveInfo,
-} from '../../vaults/settings';
+import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 import type {
-  IDBAccount,
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
   IDBDevice,
@@ -55,6 +53,7 @@ import type {
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
   IDBWallet,
+  IDBWalletId,
   IDBWalletIdSingleton,
 } from '../../dbs/local/types';
 import type {
@@ -105,6 +104,16 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWalletDevice({ walletId }: { walletId: string }) {
     return localDb.getWalletDevice({ walletId });
+  }
+
+  @backgroundMethod()
+  async getDevice({ deviceId }: { deviceId: string }) {
+    return localDb.getDevice(deviceId);
+  }
+
+  @backgroundMethod()
+  async getAllDevices() {
+    return localDb.getAllDevices();
   }
 
   @backgroundMethod()
@@ -178,7 +187,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getDeriveInfoMapOfNetwork({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
     // TODO remove ETC config
     return settings.accountDeriveInfo;
   }
@@ -440,24 +451,6 @@ class ServiceAccount extends ServiceBase {
     return localDb.getIndexedAccounts({ walletId });
   }
 
-  @backgroundMethod()
-  async getAccountsOfWalletLegacy({
-    walletId,
-  }: {
-    walletId: string;
-  }): Promise<{ accounts: Array<IDBIndexedAccount> }> {
-    // TODO performance for realm and indexeddb, use wallet.indexedAccounts?
-    if (
-      accountUtils.isHdWallet({ walletId }) ||
-      accountUtils.isHwWallet({ walletId })
-    ) {
-      return this.getIndexedAccounts({ walletId });
-    }
-    return {
-      accounts: [],
-    };
-  }
-
   async getSingletonAccountsOfWallet({
     walletId,
     activeNetworkId,
@@ -535,7 +528,7 @@ class ServiceAccount extends ServiceBase {
       ];
     }
     const walletId = focusedWallet;
-    const { accounts } = await this.getAccountsOfWalletLegacy({
+    const { accounts } = await this.getIndexedAccounts({
       walletId,
     });
     if (linkedNetworkId) {
@@ -572,6 +565,51 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async saveAccountAddresses({
+    account,
+    networkId,
+  }: {
+    account: INetworkAccount;
+    networkId: string;
+  }) {
+    await localDb.saveAccountAddresses({
+      account,
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async getAccountNameFromAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    return this.getAccountNameFromAddressMemo({ networkId, address });
+  }
+
+  getAccountNameFromAddressMemo = memoizee(
+    async ({ networkId, address }: { networkId: string; address: string }) => {
+      const vault = await vaultFactory.getChainOnlyVault({
+        networkId,
+      });
+      const { normalizedAddress } = await vault.validateAddress(address);
+      return localDb.getAccountNameFromAddress({
+        networkId,
+        address,
+        normalizedAddress,
+      });
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  @backgroundMethod()
   async getAccount({
     accountId,
     networkId,
@@ -585,7 +623,9 @@ class ServiceAccount extends ServiceBase {
       accountId,
       networkId,
     });
-    return vault.getAccount();
+    const networkAccount = await vault.getAccount();
+
+    return networkAccount;
   }
 
   @backgroundMethod()
@@ -600,7 +640,9 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     accounts: INetworkAccount[];
   }> {
-    const settings = await getVaultSettings({ networkId });
+    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
+      networkId,
+    });
     const deriveInfo = await getVaultSettingsAccountDeriveInfo({
       networkId,
       deriveType,
@@ -753,6 +795,8 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
+    // TODO verify device
+
     // createHWWallet
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       () => this.createHWWalletBase(params),
@@ -807,6 +851,31 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isTempWalletRemoved({
+    wallet,
+  }: {
+    wallet: IDBWallet;
+  }): Promise<boolean> {
+    return Promise.resolve(localDb.isTempWalletRemoved({ wallet }));
+  }
+
+  @backgroundMethod()
+  async setWalletTempStatus({
+    walletId,
+    isTemp,
+  }: {
+    walletId: IDBWalletId;
+    isTemp: boolean;
+  }) {
+    const result = await localDb.setWalletTempStatus({
+      walletId,
+      isTemp,
+    });
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
     const result = await localDb.setWalletNameAndAvatar(params);
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
@@ -834,12 +903,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getIsUTXOAccount({ networkId }: { networkId: string }) {
-    const settings = await getVaultSettings({ networkId });
-    return settings.isUtxo;
-  }
-
-  @backgroundMethod()
   async buildActiveAccountInfoFromSelectedAccount({
     selectedAccount,
     nonce,
@@ -859,7 +922,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
     } = selectedAccount;
 
-    let account: IDBAccount | undefined;
+    let account: INetworkAccount | undefined;
     let wallet: IDBWallet | undefined;
     let network: IServerNetwork | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
@@ -917,6 +980,13 @@ class ServiceAccount extends ServiceBase {
         }
       }
     }
+
+    if (wallet && (await this.isTempWalletRemoved({ wallet }))) {
+      wallet = undefined;
+      account = undefined;
+      indexedAccount = undefined;
+    }
+
     const isOthersWallet = Boolean(account && !indexedAccountId);
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,

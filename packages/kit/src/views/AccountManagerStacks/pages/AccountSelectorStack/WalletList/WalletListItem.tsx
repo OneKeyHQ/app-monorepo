@@ -30,9 +30,10 @@ export function WalletListItem({
       borderRadius="$3"
       style={{
         borderCurve: 'continuous',
-        // add opacity to hidden wallet
-        opacity: accountUtils.isHwHiddenWallet({ wallet }) ? 0.6 : 1,
       }}
+      // hidden wallet use dark bg
+      // @ts-expect-error
+      bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
       {...(selected
         ? {
             bg: '$bgActive',

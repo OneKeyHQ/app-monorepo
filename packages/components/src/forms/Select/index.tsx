@@ -1,6 +1,9 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
@@ -84,6 +87,7 @@ function SelectItem({
   leading,
   selectedValue,
   description,
+  testID = '',
 }: ISelectItemProps) {
   const { md } = useMedia();
   const handleSelect = useCallback(() => {
@@ -109,6 +113,7 @@ function SelectItem({
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
+        testID={testID}
       >
         {leading ? (
           <Stack alignContent="center" justifyContent="center" pr="$4">
@@ -132,6 +137,7 @@ function SelectItem({
         {selectedValue === value ? (
           <Icon
             flexShrink={0}
+            ml="$2"
             name="CheckLargeOutline"
             size="$4"
             color="$iconActive"
@@ -144,7 +150,16 @@ function SelectItem({
         ) : null}
       </XStack>
     ),
-    [description, handleSelect, label, leading, md, selectedValue, value],
+    [
+      description,
+      handleSelect,
+      label,
+      leading,
+      md,
+      selectedValue,
+      testID,
+      value,
+    ],
   );
 }
 
@@ -162,6 +177,10 @@ const useRenderPopoverTrigger = () => {
   );
 };
 
+const requestIdleCallback = (callback: () => void) => {
+  setTimeout(callback, 50);
+};
+
 function SelectContent() {
   const {
     changeOpenStatus,
@@ -171,7 +190,6 @@ function SelectContent() {
     items,
     onValueChange,
     sections,
-    refreshState,
     sheetProps,
     floatingPanelProps,
     placement,
@@ -180,10 +198,11 @@ function SelectContent() {
   } = useContext(SelectContext);
   const handleSelect = useCallback(
     (item: ISelectItem) => {
-      selectedItemRef.current.value = item.value;
-      selectedItemRef.current.label = item.label;
-      onValueChange?.(labelInValue ? item : item.value);
       changeOpenStatus?.(false);
+      requestIdleCallback(() => {
+        selectedItemRef.current = item;
+        onValueChange?.(labelInValue ? item : item.value);
+      });
     },
     [changeOpenStatus, labelInValue, onValueChange, selectedItemRef],
   );
@@ -201,6 +220,7 @@ function SelectContent() {
         {...item}
         onSelect={handleSelect}
         selectedValue={(value as ISelectItem)?.value || (value as string)}
+        testID={`select-item-${item.value}`}
       />
     ),
     [handleSelect, value],
@@ -260,7 +280,7 @@ function SelectContent() {
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshState],
+    [isOpen],
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
@@ -301,7 +321,6 @@ function SelectFrame<T extends string | ISelectItem>({
   floatingPanelProps,
   placement = 'bottom-start',
 }: ISelectProps<T>) {
-  const [openCounts, updateOpenCounts] = useState(0);
   const selectedItemRef = useRef<ISelectItem>(
     labelInValue
       ? (value as ISelectItem)
@@ -310,19 +329,12 @@ function SelectFrame<T extends string | ISelectItem>({
           value: value as string,
         },
   );
-  const changeOpenStatus = useCallback(() => {
-    updateOpenCounts((i) => i + 1);
-  }, []);
+  const [isOpen, setIsOpen] = useState(false);
+  const changeOpenStatus = setIsOpen;
   // eslint-disable-next-line no-bitwise
-  const isOpen = useMemo(() => (openCounts & 1) === 1, [openCounts]);
-  const refreshState = useMemo(
-    () => (isOpen ? openCounts : openCounts - 1),
-    [isOpen, openCounts],
-  );
   const context = useMemo(
     () => ({
       isOpen,
-      refreshState,
       changeOpenStatus,
       value,
       labelInValue,
@@ -339,7 +351,6 @@ function SelectFrame<T extends string | ISelectItem>({
     }),
     [
       isOpen,
-      refreshState,
       labelInValue,
       changeOpenStatus,
       value,
@@ -366,7 +377,7 @@ function BasicSelect<T extends string | ISelectItem>({
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
-    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
+    ({ label, value, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
         <Input
           value={label}
@@ -374,6 +385,7 @@ function BasicSelect<T extends string | ISelectItem>({
           placeholder={placeholder}
           readonly
           flex={1}
+          testID={`${props.testID || ''}-input`}
         />
         <Icon
           name="ChevronBottomSolid"

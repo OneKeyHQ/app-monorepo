@@ -333,6 +333,13 @@ const SwiperGallery = LazyLoad(
     ),
 );
 
+const PortalGallery = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'
+    ),
+);
+
 const WalletWidgetsGallery = LazyLoad(
   () =>
     import(
@@ -352,6 +359,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLottieView,
     component: LottieViewGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPortal,
+    component: PortalGallery,
   },
   { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },

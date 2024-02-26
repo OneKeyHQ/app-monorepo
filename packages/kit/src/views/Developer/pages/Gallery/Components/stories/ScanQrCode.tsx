@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 
-import { Button, ScanQrCode, Stack } from '@onekeyhq/components';
+import { Button, Stack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -27,15 +30,9 @@ const ScanQrCameraDemo = () => {
 
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
-  const openScanQrCodeModal = useCallback(() => {
-    scanQrCode
-      .start()
-      .then((value) => {
-        alert(value);
-      })
-      .catch((e) => {
-        console.log(e);
-      });
+  const openScanQrCodeModal = useCallback(async () => {
+    const result = await scanQrCode.start(true);
+    console.log(result);
   }, [scanQrCode]);
   return (
     <Layout
@@ -56,4 +53,17 @@ const ScanQRCodeGallery = () => {
   );
 };
 
-export default ScanQRCodeGallery;
+function ScanQRCodeGalleryContainer() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <ScanQRCodeGallery />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default ScanQRCodeGalleryContainer;

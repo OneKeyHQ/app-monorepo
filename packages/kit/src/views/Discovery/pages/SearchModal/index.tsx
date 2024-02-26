@@ -3,18 +3,12 @@ import { useEffect, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import {
-  Button,
-  Heading,
-  IconButton,
   Image,
-  ListView,
   Page,
-  ScrollView,
   SizableText,
   Skeleton,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -178,7 +172,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="Bookmarks"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.BookmarkListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.BookmarkListModal,
+                });
               }}
             />
             <XStack>
@@ -232,7 +228,9 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="History"
               onMorePress={() => {
-                navigation.push(EDiscoveryModalRoutes.HistoryListModal);
+                navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  screen: EDiscoveryModalRoutes.HistoryListModal,
+                });
               }}
             />
             {historyData?.map((item, index) => (

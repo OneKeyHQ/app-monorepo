@@ -5,11 +5,15 @@ import { SimpleDbProxy } from '../dbs/simple/base/SimpleDbProxy';
 import { BackgroundApiProxyBase } from './BackgroundApiProxyBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
@@ -21,6 +25,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
@@ -32,11 +37,19 @@ class BackgroundApiProxy
 {
   simpleDb = new SimpleDbProxy(this);
 
+  walletConnect = this._createProxyService(
+    'walletConnect',
+  ) as ProviderApiWalletConnect;
+
   servicePromise = this._createProxyService('servicePromise') as ServicePromise;
 
   servicePassword = this._createProxyService(
     'servicePassword',
   ) as ServicePassword;
+
+  serviceDevSetting = this._createProxyService(
+    'serviceDevSetting',
+  ) as ServiceDevSetting;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
 
@@ -45,10 +58,6 @@ class BackgroundApiProxy
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
 
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
-
-  serviceDiscovery = this._createProxyService(
-    'serviceDiscovery',
-  ) as ServiceDiscovery;
 
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
 
@@ -64,11 +73,21 @@ class BackgroundApiProxy
     'serviceValidator',
   ) as ServiceValidator;
 
+  serviceScanQRCode = this._createProxyService(
+    'serviceScanQRCode',
+  ) as ServiceScanQRCode;
+
   serviceNameResolver = this._createProxyService(
     'serviceNameResolver',
   ) as ServiceNameResolver;
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
+  serviceDiscovery = this._createProxyService(
+    'serviceDiscovery',
+  ) as ServiceDiscovery;
+
+  serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
@@ -87,6 +106,10 @@ class BackgroundApiProxy
   serviceHardware = this._createProxyService(
     'serviceHardware',
   ) as ServiceHardware;
+
+  serviceAddressBook = this._createProxyService(
+    'serviceAddressBook',
+  ) as ServiceAddressBook;
 }
 
 export default BackgroundApiProxy;

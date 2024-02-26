@@ -1,7 +1,10 @@
+import type { IModalAddressBookParamList } from '../../common/components/AddressBook/router/types';
 import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
 import type { IModalAssetDetailsParamList } from '../../views/AssetDetails/router/types';
 import type { IModalAssetListParamList } from '../../views/AssetList/router/types';
+import type { IAssetSelectorParamList } from '../../views/AssetSelector/router/types';
 import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
+import type { IDAppConnectionModalParamList } from '../../views/DAppConnection/router';
 import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
 import type { IModalReceiveParamList } from '../../views/Receive/router/type';
@@ -17,10 +20,13 @@ export enum EModalRoutes {
   TestModal = 'TestModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
+  AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
+  AddressBookModal = 'AddressBookModal',
+  DAppConnectionModal = 'DAppConnectionModal',
 }
 
 export type IModalParamList = {
@@ -31,8 +37,11 @@ export type IModalParamList = {
   [EModalRoutes.SettingModal]: IModalSettingParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
+  [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
+  [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
 };

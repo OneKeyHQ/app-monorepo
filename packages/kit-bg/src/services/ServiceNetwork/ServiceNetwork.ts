@@ -5,6 +5,7 @@ import {
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 @backgroundClass()
@@ -86,6 +87,23 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNetworkByImplListAndChainId(
+    implList: string[],
+    chainId: string,
+  ) {
+    const { networks } = await this.getNetworksByImpls({
+      impls: implList,
+    });
+    return networks.find((n) => n.chainId === chainId);
+  }
+
+  @backgroundMethod()
+  async getVaultSettings({ networkId }: { networkId: string }) {
+    const settings = await getVaultSettings({ networkId });
+    return settings;
+  }
+
+  @backgroundMethod()
   async groupNetworks({
     networks,
     searchKey,
@@ -128,6 +146,31 @@ class ServiceNetwork extends ServiceBase {
       );
     }
     return networks;
+  }
+
+  @backgroundMethod()
+  async getNetworkNames() {
+    const { networks: allNetworks } = await this.getAllNetworks();
+    return allNetworks.reduce((acc, item) => {
+      acc[item.id] = item.name;
+      return acc;
+    }, {} as Record<string, string>);
+  }
+
+  async containsNetwork({
+    impls,
+    networkId,
+  }: {
+    impls?: string[];
+    networkId: string;
+  }) {
+    let networkIds: string[];
+    if (impls) {
+      ({ networkIds } = await this.getNetworkIdsByImpls({ impls }));
+    } else {
+      ({ networkIds } = await this.getAllNetworkIds());
+    }
+    return networkIds.includes(networkId);
   }
 }
 

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 
 import { Semaphore } from 'async-mutex';
-import { cloneDeep, isEqual } from 'lodash';
+import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,10 +18,12 @@ import type {
 import type {
   IAccountSelectorFocusedWallet,
   IAccountSelectorSelectedAccount,
+  IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
@@ -289,6 +291,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const { wallet, device } = await this.createHWWallet.call(set, params);
       // add hidden wallet if device passphrase enabled
       if (device && device.featuresInfo?.passphrase_protection) {
+        // wait previous action done, wait device ready
+        await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
+          connectId: device.connectId,
+        });
+        await timerUtils.wait(3000);
         await this.createHWHiddenWallet.call(set, {
           walletId: wallet.id,
         });
@@ -315,13 +322,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const { wallets } = await serviceAccount.getHDAndHWWallets();
         const firstWallet: IDBWallet | undefined = wallets[0];
         let firstAccount: IDBIndexedAccount | undefined;
-        if (firstWallet) {
-          const { accounts } = await serviceAccount.getAccountsOfWalletLegacy({
+        if (
+          firstWallet &&
+          (accountUtils.isHdWallet({ walletId: firstWallet.id }) ||
+            accountUtils.isHwWallet({ walletId: firstWallet.id }))
+        ) {
+          const { accounts } = await serviceAccount.getIndexedAccounts({
             walletId: firstWallet?.id,
           });
           // eslint-disable-next-line prefer-destructuring
           firstAccount = accounts[0];
         }
+
+        // TODO singleton wallet auto change account, use autoSelectAccount() instead?
 
         this.updateSelectedAccount.call(set, {
           num: 0,
@@ -356,7 +369,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl?: string;
       },
     ) => {
-      const selectedAccountsMapInDB =
+      let selectedAccountsMapInDB:
+        | IAccountSelectorSelectedAccountsMap
+        | undefined =
         await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap(
           {
             sceneName,
@@ -364,12 +379,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
+      if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
+        const connectionMap =
+          await backgroundApiProxy.simpleDb.dappConnection.getAccountSelectorMap(
+            {
+              sceneUrl,
+            },
+          );
+        if (connectionMap) {
+          const map: IAccountSelectorSelectedAccountsMap = {};
+          Object.entries(connectionMap).forEach(([k, v]) => {
+            map[Number(k)] = {
+              walletId: v.walletId,
+              indexedAccountId: v.indexedAccountId,
+              othersWalletAccountId: v.othersWalletAccountId,
+              networkId: v.networkId,
+              deriveType: v.deriveType,
+              focusedWallet: v.focusedWallet,
+            };
+            map[Number(k)] = omitBy(map[Number(k)], isUndefined) as any;
+          });
+          selectedAccountsMapInDB = map;
+        }
+      }
+
       const selectedAccountsMap = get(selectedAccountsAtom());
       if (
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
       ) {
-        set(selectedAccountsAtom(), () => selectedAccountsMapInDB);
+        set(selectedAccountsAtom(), (v) => selectedAccountsMapInDB || v);
       }
       set(accountSelectorStorageReadyAtom(), () => true);
     },

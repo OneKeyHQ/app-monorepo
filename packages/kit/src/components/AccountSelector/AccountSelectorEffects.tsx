@@ -1,10 +1,11 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
@@ -26,6 +27,11 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
+  const sceneNameRef = useRef(sceneName);
+  sceneNameRef.current = sceneName;
+  const sceneUrlRef = useRef(sceneUrl);
+  sceneUrlRef.current = sceneUrl;
+
   useAccountAutoSelect({ num });
   useNetworkAutoSelect({ num });
   useDeriveTypeAutoSelect({ num });
@@ -34,7 +40,16 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     if (!isReady) {
       return;
     }
-    await actions.current.reloadActiveAccountInfo({ num, selectedAccount });
+    const activeAccount = await actions.current.reloadActiveAccountInfo({
+      num,
+      selectedAccount,
+    });
+    if (activeAccount.account && activeAccount.network?.id) {
+      void backgroundApiProxy.serviceAccount.saveAccountAddresses({
+        account: activeAccount.account,
+        networkId: activeAccount.network?.id,
+      });
+    }
     // do not save initial value to storage
     if (!isSelectedAccountDefaultValue) {
       void actions.current.saveToStorage({
@@ -64,12 +79,33 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
 
   useEffect(() => {
     const fn = reloadActiveAccountInfo;
+    const updateNetwork = (params: {
+      networkId: string;
+      sceneName: string;
+      sceneUrl: string;
+      num: number;
+    }) => {
+      if (
+        params.sceneName === sceneNameRef.current &&
+        params.sceneUrl === sceneUrlRef.current
+      ) {
+        actions.current.updateSelectedAccount({
+          num: params.num,
+          builder: (v) => ({
+            ...v,
+            networkId: params.networkId,
+          }),
+        });
+      }
+    };
     // const fn = () => null;
     appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };
-  }, [reloadActiveAccountInfo]);
+  }, [reloadActiveAccountInfo, actions]);
 
   return null;
 }

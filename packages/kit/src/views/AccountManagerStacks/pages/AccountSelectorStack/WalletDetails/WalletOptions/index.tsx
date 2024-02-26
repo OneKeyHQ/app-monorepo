@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -9,10 +9,11 @@ import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/c
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
 import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
-import { WALLET_TYPE_HW } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';
+import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { HomeScreen } from './HomeScreen';
 import { Verification } from './Verification';
 import { WalletOptionItem } from './WalletOptionItem';
@@ -32,6 +33,32 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
   }, [navigation]);
 
   const [editMode] = useAccountSelectorEditModeAtom();
+
+  const walletSpecifiedOptions = useMemo(() => {
+    if (accountUtils.isHwWallet({ walletId: wallet?.id })) {
+      if (accountUtils.isHwHiddenWallet({ wallet })) {
+        return <HiddenWalletRememberSwitch wallet={wallet} />;
+      }
+
+      return (
+        <>
+          <Verification />
+          <HomeScreen />
+          <Advance />
+          <AboutDevice />
+          <HiddenWalletAddButton wallet={wallet} />
+        </>
+      );
+    }
+    return (
+      <WalletOptionItem
+        icon="Shield2CheckOutline"
+        label="Backup"
+        onPress={handleBackupPress}
+      />
+    );
+  }, [handleBackupPress, wallet]);
+
   return (
     <HeightTransition>
       <AnimatePresence>
@@ -49,21 +76,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
             {wallet ? <WalletProfile wallet={wallet} /> : null}
 
             {/* Options */}
-            {wallet?.type === WALLET_TYPE_HW ? (
-              <>
-                <Verification />
-                <HomeScreen />
-                <Advance />
-                <AboutDevice />
-                <HiddenWalletAddButton wallet={wallet} />
-              </>
-            ) : (
-              <WalletOptionItem
-                icon="Shield2CheckOutline"
-                label="Backup"
-                onPress={handleBackupPress}
-              />
-            )}
+            {walletSpecifiedOptions}
             <WalletRemoveButton wallet={wallet} />
 
             <Stack py="$2.5">

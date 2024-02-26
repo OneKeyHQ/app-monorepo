@@ -1,5 +1,11 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import { Popover as TMPopover } from 'tamagui';
 
@@ -9,9 +15,11 @@ import { FIX_SHEET_PROPS } from '../../composite';
 import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
+
+import { PopoverContent } from './PopoverContent';
 
 import type {
   PopoverContentTypeProps,
@@ -23,12 +31,20 @@ export interface IPopoverProps extends TMPopoverProps {
   title: string;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
+  openPopover?: () => void;
+  closePopover?: () => void;
   renderContent:
     | ReactElement
     | ComponentType<{ isOpen?: boolean; closePopover: () => void }>;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
 }
+
+interface IPopoverContext {
+  closePopover?: () => Promise<void>;
+}
+
+const PopoverContext = createContext({} as IPopoverContext);
 
 const usePopoverValue = (
   open?: boolean,
@@ -37,7 +53,6 @@ const usePopoverValue = (
   const [isOpen, setIsOpen] = useState(false);
   const isControlled = typeof open !== 'undefined';
   const openPopover = useCallback(() => {
-    console.log('openPopover');
     if (isControlled) {
       onOpenChange?.(true);
     } else {
@@ -66,6 +81,13 @@ const usePopoverValue = (
   };
 };
 
+export const usePopoverContext = () => {
+  const { closePopover } = useContext(PopoverContext);
+  return {
+    closePopover,
+  };
+};
+
 function RawPopover({
   title,
   open: isOpen,
@@ -74,6 +96,8 @@ function RawPopover({
   floatingPanelProps,
   sheetProps,
   onOpenChange,
+  openPopover,
+  closePopover,
   usingSheet = true,
   ...props
 }: IPopoverProps) {
@@ -115,31 +139,53 @@ function RawPopover({
       transformOrigin = 'top right';
   }
 
-  const closePopover = useCallback(() => {
-    onOpenChange?.(false);
-  }, [onOpenChange]);
-
-  const openPopover = useCallback(() => {
-    onOpenChange?.(true);
-  }, [onOpenChange]);
+  const handleClosePopover = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        closePopover?.();
+        setTimeout(
+          () => {
+            resolve();
+          },
+          // Need to execute the callback after the sheet animation ends on the Native side
+          platformEnv.isNative ? 300 : 0,
+        );
+      }),
+    [closePopover],
+  );
 
   const handleBackPress = useCallback(() => {
     if (!isOpen) {
       return false;
     }
-    closePopover();
+    void handleClosePopover();
     return true;
-  }, [closePopover, isOpen]);
+  }, [handleClosePopover, isOpen]);
 
   useBackHandler(handleBackPress);
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
-  const content = RenderContent
-    ? ((
-        <RenderContent isOpen={isOpen} closePopover={closePopover} />
-      ) as ReactElement)
-    : (renderContent as ReactElement);
+  const popoverContextValue = useMemo(
+    () => ({
+      closePopover: handleClosePopover,
+    }),
+    [handleClosePopover],
+  );
+  const content = (
+    <PopoverContext.Provider value={popoverContextValue}>
+      <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
+        {RenderContent
+          ? ((
+              <RenderContent
+                isOpen={isOpen}
+                closePopover={handleClosePopover}
+              />
+            ) as ReactElement)
+          : (renderContent as ReactElement)}
+      </PopoverContent>
+    </PopoverContext.Provider>
+  );
   return (
     <TMPopover
       offset={8}
@@ -152,7 +198,6 @@ function RawPopover({
       <TMPopover.Trigger asChild>
         <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
       </TMPopover.Trigger>
-
       {/* floating panel */}
       <TMPopover.Content
         unstyled
@@ -183,7 +228,6 @@ function RawPopover({
       >
         <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
       </TMPopover.Content>
-
       {/* sheet */}
       {usingSheet && (
         <TMPopover.Adapt when="md">
@@ -266,36 +310,46 @@ const Popover = ({
   sheetProps,
   ...rest
 }: IPopoverProps) => {
-  const { isOpen, onOpenChange, openPopover } = usePopoverValue(
+  const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
   );
-  // on web and WAP, we add the popover to the RNRootView
-  if (platformEnv.isRuntimeBrowser) {
-    return (
+  const memoPopover = useMemo(
+    () => (
       <RawPopover
         open={isOpen}
         onOpenChange={onOpenChange}
-        sheetProps={{ ...sheetProps, modal: true }}
-        renderTrigger={renderTrigger}
+        openPopover={openPopover}
+        closePopover={closePopover}
+        renderTrigger={undefined}
         {...rest}
+        sheetProps={sheetProps}
       />
+    ),
+    [closePopover, isOpen, onOpenChange, openPopover, rest, sheetProps],
+  );
+  if (platformEnv.isNative) {
+    // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+    return (
+      <>
+        <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+        <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+          {memoPopover}
+        </Portal.Body>
+      </>
     );
   }
-  // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+
+  // on web and WAP, we add the popover to the RNRootView
   return (
-    <>
-      <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        <RawPopover
-          open={isOpen}
-          onOpenChange={onOpenChange}
-          renderTrigger={undefined}
-          {...rest}
-          sheetProps={sheetProps}
-        />
-      </Portal.Body>
-    </>
+    <RawPopover
+      open={isOpen}
+      openPopover={openPopover}
+      closePopover={closePopover}
+      sheetProps={{ ...sheetProps, modal: true }}
+      renderTrigger={renderTrigger}
+      {...rest}
+    />
   );
 };
 

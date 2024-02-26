@@ -123,6 +123,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         ELocalDBStoreNames.Device,
       );
 
+      const addressStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.Address,
+      );
+
       const tx: ILocalDBTransaction = {
         stores: {
           [ELocalDBStoreNames.Context]: contextStore as any,
@@ -132,6 +137,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           [ELocalDBStoreNames.AccountDerivation]: accountDerivationStore as any,
           [ELocalDBStoreNames.Credential]: credentialStore as any,
           [ELocalDBStoreNames.Device]: deviceStore as any,
+          [ELocalDBStoreNames.Address]: addressStore as any,
         },
       };
 

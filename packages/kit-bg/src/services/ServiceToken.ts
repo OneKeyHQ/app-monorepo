@@ -2,15 +2,15 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
   IFetchTokenDetailParams,
   IToken,
+  ITokenData,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
-
-import simpleDb from '../dbs/simple/simpleDb';
 
 import ServiceBase from './ServiceBase';
 
@@ -24,48 +24,24 @@ class ServiceToken extends ServiceBase {
   public async fetchAccountTokens(
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
-    const { mergeTokens, ...rest } = params;
+    const { mergeTokens, flag, ...rest } = params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-      '/wallet/v1/account/token/list',
+      `/wallet/v1/account/token/list?flag=${flag || ''}`,
       rest,
     );
 
+    let allTokens: ITokenData | undefined;
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data;
-      const mergedTokens = [
-        ...tokens.data,
-        ...smallBalanceTokens.data,
-        ...riskTokens.data,
-      ];
-
-      const mergedKeys = `${tokens.keys}_${smallBalanceTokens.keys}_${riskTokens.keys}`;
-
-      const mergedTokenMap = {
-        ...tokens.map,
-        ...smallBalanceTokens.map,
-        ...riskTokens.map,
-      };
-
-      return {
-        tokens: {
-          data: mergedTokens,
-          keys: mergedKeys,
-          map: mergedTokenMap,
-        },
-        riskTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-        smallBalanceTokens: {
-          data: [],
-          keys: '',
-          map: {},
-        },
-      };
+      ({ allTokens } = getMergedTokenData({
+        tokens,
+        riskTokens,
+        smallBalanceTokens,
+      }));
     }
 
+    resp.data.data.allTokens = allTokens;
     return resp.data.data;
   }
 
@@ -89,7 +65,7 @@ class ServiceToken extends ServiceBase {
     networkId: string;
     tokens: IToken[];
   }) {
-    return simpleDb.localTokens.updateTokens({
+    return this.backgroundApi.simpleDb.localTokens.updateTokens({
       networkId,
       tokens,
     });
@@ -107,7 +83,7 @@ class ServiceToken extends ServiceBase {
   }) {
     const { networkId, tokenIdOnNetwork } = params;
 
-    const localToken = await simpleDb.localTokens.getToken({
+    const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,
     });

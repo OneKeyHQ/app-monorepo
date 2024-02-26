@@ -1,11 +1,13 @@
 // from https://github.com/magicismight/react-native-root-portal
 /* eslint-disable no-plusplus */
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 import { withStaticProperties } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { RootSiblingManager } from 'react-native-root-siblings/lib/wrapRootComponent';
 
@@ -29,6 +31,7 @@ enum EConstantName {
   FULL_WINDOW_OVERLAY_PORTAL = 'Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ACCOUNT_SELECTOR',
+  WALLET_ACTIONS = 'WALLET_ACTIONS',
 }
 
 export interface IPortalManager {
@@ -72,6 +75,31 @@ function PortalRender(props: {
   container?: EConstantName;
 }) {
   const { children, container } = props;
+
+  if (platformEnv.isDev) {
+    if (children) {
+      const isReactMemoElement = (child?: {
+        elementType?: { $$typeof?: symbol };
+      }) => child?.elementType?.$$typeof?.toString() !== 'Symbol(react.memo)';
+      const { _owner } = children as any as {
+        _owner?: {
+          child?: any;
+          sibling?: any;
+        };
+      };
+      if (
+        !isReactMemoElement(_owner?.child) &&
+        !isReactMemoElement(_owner?.sibling)
+      ) {
+        throw new Error(
+          `use React.memo or React.useMemo with a Component contains children in Portal.Body ${
+            container || ''
+          }`,
+        );
+      }
+    }
+  }
+
   const [retryTimes, updateRetryTimes] = useState(0);
 
   const managerController = useMemo(() => {
@@ -147,13 +175,14 @@ function PortalRender(props: {
   return null;
 }
 
+const MemoPortalRender = memo(PortalRender);
+
 function PortalContainer(props: {
   name: string;
   renderSibling?: (sibling: ReactNode) => ReactNode;
   children?: ReactNode;
 }) {
   const { name, renderSibling, children } = props;
-
   const sibling = useMemo(() => {
     const { Root, manager } = wrapRootComponent(ChildrenWrapper, renderSibling);
 
@@ -193,7 +222,7 @@ function PortalContainer(props: {
 
 export const Portal = withStaticProperties(PortalContainer, {
   Container: PortalContainer,
-  Body: PortalRender,
+  Body: MemoPortalRender,
   Render: renderToPortal,
   Constant: EConstantName,
 });

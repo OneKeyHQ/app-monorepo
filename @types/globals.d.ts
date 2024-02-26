@@ -6,6 +6,7 @@ import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync'
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
+import type { NavigationContainerRef } from '@react-navigation/native';
 import type { EnhancedStore } from '@reduxjs/toolkit';
 import type WebView from 'react-native-webview';
 
@@ -25,7 +26,8 @@ declare global {
   var $jotaiBgSync: JotaiBgSync;
 
   var $$navigationShortcuts: any;
-  var $$accountSelectorStore: any;
+  var $$jotaiContextStore: any;
+  var $$jotaiContextStorePrint: any;
   var $$simpleDb: any;
   var $$localDb: LocalDbBase;
   var $$appEventBus: any;
@@ -54,6 +56,7 @@ declare global {
         }>;
       }
     | undefined;
+  var $navigationRef: React.RefObject<NavigationContainerRef<any>>;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api

@@ -9,7 +9,11 @@ module.exports = function (api) {
       presets: [
         [
           'babel-preset-expo',
-          { native: { unstable_transformProfile: 'hermes-stable' } },
+          {
+            native: {
+              unstable_transformProfile: 'hermes-stable',
+            },
+          },
         ],
       ],
       plugins: [
