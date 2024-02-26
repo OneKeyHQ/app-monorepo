@@ -110,8 +110,10 @@ function SearchModal() {
   }, [searchValue, searchResult]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
-  const displayBookmarkList = (localData?.bookmarkData ?? []).length > 0;
-  const displayHistoryList = (localData?.historyData ?? []).length > 0;
+  const displayBookmarkList =
+    (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
+  const displayHistoryList =
+    (localData?.historyData ?? []).length > 0 && !displaySearchList;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
