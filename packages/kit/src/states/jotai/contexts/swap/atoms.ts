@@ -22,7 +22,7 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
-} = createJotaiContext({ isSingletonStore: true });
+} = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
 
 // swap networks & tokens
