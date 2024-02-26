@@ -329,6 +329,7 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountId,
         unsignedTx,
+        feeInfo: sendSelectedFeeInfo,
       });
       await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
         networkId,
