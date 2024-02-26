@@ -55,6 +55,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
         minWidth: '$10',
         justifyContent: 'center',
       }}
+      testID=""
     />
   );
 }
@@ -104,7 +105,7 @@ export function RecoveryPhrase() {
               flexBasis="33.33%"
               p="$1"
             >
-              <FocusDisplayInput text={phrase} index={index} />
+              <FocusDisplayInput text={phrase} index={index} testID="" />
             </Stack>
           ))}
         </XStack>
@@ -128,6 +129,7 @@ export function RecoveryPhrase() {
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
         onConfirm={handleConfirmPress}
+        testID="saved-phrase"
       />
     </Page>
   );

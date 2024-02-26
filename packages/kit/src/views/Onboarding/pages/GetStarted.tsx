@@ -84,6 +84,7 @@ export function GetStarted() {
             pressStyle={{
               bg: '$bgPrimaryActive',
             }}
+            testID="hardware-wallet"
           >
             <Stack
               alignSelf="flex-start"
@@ -134,6 +135,7 @@ export function GetStarted() {
               py="$3.5"
               drillIn
               onPress={handleCreateWalletPress}
+              testID="create-wallet"
             >
               <Stack
                 alignSelf="flex-start"
@@ -157,6 +159,7 @@ export function GetStarted() {
               py="$3.5"
               drillIn
               onPress={handleImportWalletPress}
+              testID="import-wallet"
             >
               <Stack
                 alignSelf="flex-start"
@@ -187,6 +190,7 @@ export function GetStarted() {
                 size: 'large',
               } as IButtonProps
             }
+            testID="3rd-party-wallet"
           >
             Connect 3rd-party Wallet
           </Button>
