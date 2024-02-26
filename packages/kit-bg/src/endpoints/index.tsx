@@ -2,13 +2,13 @@ import { filter, forEach } from 'lodash';
 
 import type { IEndpointDomainWhiteList } from '@onekeyhq/shared/types/endpoint';
 
-import { settingsPersistAtom } from '../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import { endpointsMap } from './endpointsMap';
 
 export async function getEndpoints() {
-  const settings = await settingsPersistAtom.get();
-  if (settings.devMode.enable && settings.devMode.enableTestEndpoint) {
+  const settings = await devSettingsPersistAtom.get();
+  if (settings.enabled && settings.settings?.enableTestEndpoint) {
     return endpointsMap.test;
   }
   return endpointsMap.prod;
