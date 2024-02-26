@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 
 import {
   Image,
@@ -44,27 +44,29 @@ function SearchModal() {
   const { getHistoryData } = useBrowserHistoryAction().current;
   const { handleOpenWebSite } = useBrowserAction().current;
 
-  const { result: bookmarkData } = usePromiseResult(async () => {
-    const bookmarks = await getBookmarkData();
-    const slicedBookmarks = bookmarks.slice(0, 8);
-    return Promise.all(
-      slicedBookmarks.map(async (i) => ({
-        ...i,
-        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-      })),
-    );
-  }, [getBookmarkData]);
-
-  const { result: historyData } = usePromiseResult(async () => {
-    const histories = await getHistoryData();
-    const slicedHistory = histories.slice(0, 8);
-    return Promise.all(
-      slicedHistory.map(async (i) => ({
-        ...i,
-        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-      })),
-    );
-  }, [getHistoryData]);
+  const { result: localData, run: refreshLocalData } =
+    usePromiseResult(async () => {
+      const bookmarks = await getBookmarkData();
+      const slicedBookmarks = bookmarks.slice(0, 8);
+      const bookmarkData = await Promise.all(
+        slicedBookmarks.map(async (i) => ({
+          ...i,
+          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+        })),
+      );
+      const histories = await getHistoryData();
+      const slicedHistory = histories.slice(0, 8);
+      const historyData = await Promise.all(
+        slicedHistory.map(async (i) => ({
+          ...i,
+          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
+        })),
+      );
+      return {
+        bookmarkData,
+        historyData,
+      };
+    }, [getBookmarkData, getHistoryData]);
 
   const { result: searchResult } = usePromiseResult(async () => {
     const ret = await backgroundApiProxy.serviceDiscovery.searchDApp(
@@ -72,6 +74,17 @@ function SearchModal() {
     );
     return ret;
   }, [searchValue]);
+
+  const jumpPageRef = useRef(false);
+  useFocusEffect(() => {
+    console.log('===>: useFocusEffect');
+    if (jumpPageRef.current) {
+      setTimeout(() => {
+        void refreshLocalData();
+      }, 300);
+      jumpPageRef.current = false;
+    }
+  });
 
   const [searchList, setSearchList] = useState<IDApp[]>([]);
   useEffect(() => {
@@ -97,8 +110,8 @@ function SearchModal() {
   }, [searchValue, searchResult]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
-  const displayBookmarkList = (bookmarkData ?? []).length > 0;
-  const displayHistoryList = (historyData ?? []).length > 0;
+  const displayBookmarkList = (localData?.bookmarkData ?? []).length > 0;
+  const displayHistoryList = (localData?.historyData ?? []).length > 0;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
@@ -172,13 +185,14 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="Bookmarks"
               onMorePress={() => {
+                jumpPageRef.current = true;
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
                   screen: EDiscoveryModalRoutes.BookmarkListModal,
                 });
               }}
             />
             <XStack>
-              {bookmarkData?.map((item, index) => (
+              {localData?.bookmarkData?.map((item, index) => (
                 <Stack
                   key={index}
                   flexBasis="25%"
@@ -228,12 +242,13 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="History"
               onMorePress={() => {
+                jumpPageRef.current = true;
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
                   screen: EDiscoveryModalRoutes.HistoryListModal,
                 });
               }}
             />
-            {historyData?.map((item, index) => (
+            {localData?.historyData?.map((item, index) => (
               <ListItem
                 key={index}
                 avatarProps={{
