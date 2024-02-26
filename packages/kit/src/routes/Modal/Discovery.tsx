@@ -1,21 +1,21 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IDiscoveryModalParamList } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
 import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
-const SearchModal = LazyLoad(
+const SearchModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/SearchModal'),
 );
 
-const MobileTabListModal = LazyLoad(
+const MobileTabListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/MobileTabListModal'),
 );
 
-const BookmarkListModal = LazyLoad(
+const BookmarkListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/BookmarkListModal'),
 );
 
-const HistoryListModal = LazyLoad(
+const HistoryListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Discovery/pages/HistoryListModal'),
 );
 

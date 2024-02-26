@@ -1,37 +1,37 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
-import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 
 import { EModalSettingRoutes } from './types';
 
 import type { IModalSettingParamList } from './types';
 
-const SettingAccountDerivationModal = LazyLoad(
+const SettingAccountDerivationModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),
 );
 
-const SettingAppAutoLockModal = LazyLoad(
+const SettingAppAutoLockModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AppAutoLock'),
 );
 
-const SettingCurrencyModal = LazyLoad(
+const SettingCurrencyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Currency'),
 );
-const SettingHardwareSdkUrlModal = LazyLoad(
+const SettingHardwareSdkUrlModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/HardwareSdkUrl'),
 );
-const SettingListModal = LazyLoad(
+const SettingListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/List'),
 );
-const SettingProtectionModal = LazyLoad(
+const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
-const SettingSpendUTXOModal = LazyLoad(
+const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
-const SettingThemeModal = LazyLoad(
+const SettingThemeModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Theme'),
 );
-const SettingLanguageModal = LazyLoad(
+const SettingLanguageModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Language'),
 );
 export const ModalSettingStack: IModalFlowNavigatorConfig<
