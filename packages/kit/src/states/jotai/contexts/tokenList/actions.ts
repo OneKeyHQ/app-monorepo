@@ -8,6 +8,8 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  allTokenListAtom,
+  allTokenListMapAtom,
   contextAtomMethod,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
@@ -21,6 +23,35 @@ import {
 } from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
+  refreshAllTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+        keys: string;
+      },
+    ) => {
+      const { keys, tokens } = payload;
+
+      if (!isEqual(get(allTokenListAtom()).keys, keys)) {
+        set(allTokenListAtom(), { tokens, keys });
+      }
+    },
+  );
+
+  refreshAllTokenListMap = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        [key: string]: ITokenFiat;
+      },
+    ) => {
+      set(allTokenListMapAtom(), payload);
+    },
+  );
+
   refreshTokenList = contextAtomMethod(
     (
       get,
@@ -130,6 +161,8 @@ const createActions = memoFn(() => {
 
 export function useTokenListActions() {
   const actions = createActions();
+  const refreshAllTokenList = actions.refreshAllTokenList.use();
+  const refreshAllTokenListMap = actions.refreshAllTokenListMap.use();
   const refreshTokenList = actions.refreshTokenList.use();
   const refreshTokenListMap = actions.refreshTokenListMap.use();
   const refreshRiskyTokenList = actions.refreshRiskyTokenList.use();
@@ -147,6 +180,8 @@ export function useTokenListActions() {
   const updateTokenListInitialized = actions.updateTokenListInitialized.use();
 
   return useRef({
+    refreshAllTokenList,
+    refreshAllTokenListMap,
     refreshTokenList,
     refreshTokenListMap,
     refreshRiskyTokenList,

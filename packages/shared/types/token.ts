@@ -29,6 +29,7 @@ export type IFetchAccountTokensParams = {
   contractList?: string[];
   blockedTokens?: string[];
   unblockedTokens?: string[];
+  flag?: string;
 };
 
 export type ITokenData = {
@@ -39,6 +40,7 @@ export type ITokenData = {
 };
 
 export type IFetchAccountTokensResp = {
+  allTokens?: ITokenData;
   tokens: ITokenData;
   riskTokens: ITokenData;
   smallBalanceTokens: ITokenData;

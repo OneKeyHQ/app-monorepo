@@ -47,7 +47,7 @@ function TokenSelector() {
       if (closeAfterSelect) {
         navigation.pop();
       }
-      onSelect?.(token);
+      void onSelect?.(token);
     },
     [closeAfterSelect, navigation, onSelect],
   );
@@ -58,21 +58,28 @@ function TokenSelector() {
       networkId,
     });
 
-    const r = await backgroundApiProxy.serviceToken.fetchAccountTokensWithMemo({
+    const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
       networkId,
       accountAddress: account.address,
       mergeTokens: true,
+      flag: 'token-selector',
     });
-    refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
-    refreshTokenListMap(r.tokens.map);
+    const { allTokens } = r;
+    if (!allTokens) {
+      throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
+    }
+    refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
+    refreshTokenListMap(allTokens.map);
   }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
 
   useEffect(() => {
-    if (tokens) {
+    // use route params token
+    if (tokens && tokens.data.length) {
       refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
       refreshTokenListMap(tokens.map);
+    } else {
+      void fetchAccountTokens();
     }
-    void fetchAccountTokens();
   }, [fetchAccountTokens, refreshTokenList, refreshTokenListMap, tokens]);
 
   return (

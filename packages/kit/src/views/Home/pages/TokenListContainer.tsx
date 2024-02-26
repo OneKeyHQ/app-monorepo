@@ -1,25 +1,21 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { CanceledError } from 'axios';
 
 import { Portal, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IToken, ITokenData } from '@onekeyhq/shared/types/token';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useTokenListActions,
-  withTokenListProvider,
-} from '../../../states/jotai/contexts/tokenList';
+import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
+import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
+import { WalletActions } from '../components/WalletActions';
 import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
-
-import { WalletActionsContainer } from './WalletActionsContainer';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -27,7 +23,6 @@ type IProps = {
 
 function TokenListContainer(props: IProps) {
   const { onContentSizeChange } = props;
-  const [allTokens, setAllTokens] = useState<ITokenData>();
 
   const {
     activeAccount: { account, network },
@@ -37,7 +32,10 @@ function TokenListContainer(props: IProps) {
 
   const media = useMedia();
   const navigation = useAppNavigation();
+
   const {
+    refreshAllTokenList,
+    refreshAllTokenListMap,
     refreshTokenList,
     refreshTokenListMap,
     refreshRiskyTokenList,
@@ -66,13 +64,16 @@ function TokenListContainer(props: IProps) {
             networkId: network.id,
           });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+          mergeTokens: true,
           networkId: network.id,
           accountAddress: account.address,
           // for performance testing
           limit: 300,
+          flag: 'home-token-list',
           blockedTokens,
           unblockedTokens,
         });
+
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
         refreshTokenListMap(r.tokens.map);
         refreshRiskyTokenList({
@@ -89,23 +90,21 @@ function TokenListContainer(props: IProps) {
           r.smallBalanceTokens.fiatValue ?? '0',
         );
 
-        const mergedTokenData = getMergedTokenData({
-          tokens: r.tokens,
-          smallBalanceTokens: r.smallBalanceTokens,
-          riskTokens: r.riskTokens,
-        });
-
-        setAllTokens(mergedTokenData.tokens);
-
-        const mergedTokens = mergedTokenData.tokens.data;
-
-        if (mergedTokens && mergedTokens.length) {
-          void backgroundApiProxy.serviceToken.updateLocalTokens({
-            networkId: network.id,
-            tokens: mergedTokens,
+        if (r.allTokens) {
+          refreshAllTokenList({
+            keys: r.allTokens?.keys,
+            tokens: r.allTokens?.data,
           });
+          refreshAllTokenListMap(r.allTokens.map);
+          const mergedTokens = r.allTokens.data;
+          if (mergedTokens && mergedTokens.length) {
+            void backgroundApiProxy.serviceToken.updateLocalTokens({
+              networkId: network.id,
+              tokens: mergedTokens,
+            });
+          }
+          updateTokenListInitialized(true);
         }
-        updateTokenListInitialized(true);
       } catch (e) {
         if (e instanceof CanceledError) {
           console.log('fetchAccountTokens canceled');
@@ -125,6 +124,8 @@ function TokenListContainer(props: IProps) {
       refreshSmallBalanceTokenListMap,
       refreshSmallBalanceTokensFiatValue,
       updateTokenListInitialized,
+      refreshAllTokenList,
+      refreshAllTokenListMap,
     ],
     {
       watchLoading: true,
@@ -148,15 +149,10 @@ function TokenListContainer(props: IProps) {
     [account, navigation, network],
   );
 
-  const memoWalletActionsContainer = useMemo(
-    () => <WalletActionsContainer tokens={allTokens} />,
-    [allTokens],
-  );
-
   return (
     <>
       <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        {memoWalletActionsContainer}
+        <WalletActions />
       </Portal.Body>
       <TokenListView
         withHeader
@@ -173,8 +169,11 @@ function TokenListContainer(props: IProps) {
   );
 }
 
-const TokenListContainerWithProvider = memo(
-  withTokenListProvider<IProps>(TokenListContainer),
-);
+const TokenListContainerWithProvider = memo((props: IProps) => (
+  <HomeTokenListProviderMirror>
+    <TokenListContainer {...props} />
+  </HomeTokenListProviderMirror>
+));
+TokenListContainerWithProvider.displayName = 'TokenListContainerWithProvider';
 
-export { TokenListContainer, TokenListContainerWithProvider };
+export { TokenListContainerWithProvider };

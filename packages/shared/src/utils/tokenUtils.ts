@@ -24,26 +24,24 @@ export function getMergedTokenData({
   };
 
   return {
-    tokens: {
+    allTokens: {
       data: mergedTokens,
       keys: mergedKeys,
       map: mergedTokenMap,
     },
-    riskTokens: {
-      data: [],
-      keys: '',
-      map: {},
-    },
-    smallBalanceTokens: {
-      data: [],
-      keys: '',
-      map: {},
-    },
+    tokens,
+    riskTokens,
+    smallBalanceTokens,
   };
 }
 
 export function getEmptyTokenData() {
   return {
+    allTokens: {
+      data: [],
+      keys: '',
+      map: {},
+    },
     tokens: {
       data: [],
       keys: '',
