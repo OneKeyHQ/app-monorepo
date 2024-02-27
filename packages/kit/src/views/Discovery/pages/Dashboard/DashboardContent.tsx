@@ -8,7 +8,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -74,7 +74,7 @@ function DashboardContent({
           }
           handleOpenWebSite={({ webSite, useSystemBrowser }) => {
             if (useSystemBrowser && webSite?.url) {
-              openUrl(webSite.url);
+              openUrlExternal(webSite.url);
             } else if (webSite?.url) {
               handleOpenWebSite({
                 webSite,
