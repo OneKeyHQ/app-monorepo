@@ -43,7 +43,7 @@ const LockNowButton = () => {
     }
   }, [passwordSetting.isPasswordSet]);
   return (
-    <Button onPress={onLock}>
+    <Button onPress={onLock} testID="me-lock">
       {intl.formatMessage({ id: 'action__lock_now' })}
     </Button>
   );

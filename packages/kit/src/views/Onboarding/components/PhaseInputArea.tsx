@@ -510,7 +510,7 @@ export function PhaseInputArea({
                     closePopover={closePopover}
                     onReturnKeyPressed={handleReturnKeyPressed}
                     getReturnKeyLabel={getReturnKeyLabel}
-                    testID={`phase-input-index${index}`}
+                    testID={`phrase-input-index${index}`}
                   />
                 </Form.Field>
               </Stack>
