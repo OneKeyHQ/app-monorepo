@@ -9,7 +9,12 @@ import {
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
 
-import type { ICaipsInfo, INamespaceUnion } from './types';
+import type {
+  ICaipsInfo,
+  INamespaceNetworkImplMapping,
+  INamespaceUnion,
+  INetworkImplNamespaceMapping,
+} from './types';
 
 export const WALLET_CONNECT_V2_PROJECT_ID =
   process.env.WALLETCONNECT_PROJECT_ID;
@@ -53,7 +58,7 @@ export const WALLET_CONNECT_CLIENT_META = {
   ],
 };
 
-export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
+export const namespaceToImplsMap: INamespaceNetworkImplMapping = {
   eip155: IMPL_EVM,
   solana: IMPL_SOL,
   cosmos: IMPL_COSMOS,
@@ -61,13 +66,13 @@ export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
   tron: IMPL_TRON,
 };
 
-export const implToNamespaceMap = {
+export const implToNamespaceMap: INetworkImplNamespaceMapping = {
   [IMPL_EVM]: 'eip155',
   [IMPL_SOL]: 'solana',
   [IMPL_COSMOS]: 'cosmos',
   [IMPL_DOT]: 'polkadot',
   [IMPL_TRON]: 'tron',
-} as const;
+};
 
 // https://chainagnostic.org/
 export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
