@@ -11,12 +11,7 @@
     "locale/**",
     "optimization/**",
     "primitives/**",
-<<<<<<< HEAD
-    "utils/**",
-    "types/**"
-=======
     "types/**",
     "utils/**"
->>>>>>> c1e6a7359 (feat: add AmountInput component (#4147))
-   ]
+  ]
 }
