@@ -35,3 +35,118 @@ function hexToDecimal(hex: string): string {
 export default { numberToHex, hexToDecimal };
 
 export { fromBigIntHex, toBigIntHex };
+
+const countLeadingZeroDecimals = (x: BigNumber) =>
+  -Math.floor(Math.log10(x.toNumber()) + 1);
+
+const removeDecimalPaddingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
+
+export interface IDisplayNumber {
+  value: string;
+  unit?: string;
+  leadingZeros?: number;
+  currency?: string;
+  symbol?: string;
+}
+
+// format Balance/Amount
+export function formatBalance(value: string): IDisplayNumber {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { value: '0' };
+  }
+  if (val.gte(1)) {
+    if (val.gte(10e15)) {
+      return {
+        value: removeDecimalPaddingZero(val.div(10e15).toFixed(2)),
+        unit: 'Q',
+      };
+    }
+
+    if (val.gte(10e12)) {
+      return {
+        value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
+        unit: 'T',
+      };
+    }
+
+    if (val.gte(10e9)) {
+      return {
+        value: removeDecimalPaddingZero(val.div(10e9).toFixed(2)),
+        unit: 'B',
+      };
+    }
+    return { value: removeDecimalPaddingZero(val.toFixed(4)) };
+  }
+
+  const zeros = countLeadingZeroDecimals(val);
+  return {
+    value: removeDecimalPaddingZero(val.toFixed(4 + zeros)),
+    leadingZeros: countLeadingZeroDecimals(val),
+  };
+}
+
+export function formatPrice(value: string, currency: string): IDisplayNumber {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { value: '0', currency };
+  }
+  if (val.gte(1)) {
+    return { value: val.toFixed(2), currency };
+  }
+
+  const zeros = countLeadingZeroDecimals(val);
+  return {
+    value: removeDecimalPaddingZero(val.toFixed(4 + zeros)),
+    currency,
+    leadingZeros: countLeadingZeroDecimals(val),
+  };
+}
+
+export function formatPriceChange(value: string): IDisplayNumber {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { value: '0.00', symbol: '%' };
+  }
+  return { value: val.toFixed(2), symbol: '%' };
+}
+
+// FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply
+export function formatFDV(value: string): IDisplayNumber {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { value: '0' };
+  }
+
+  if (val.gte(10e12)) {
+    return {
+      value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
+      unit: 'T',
+    };
+  }
+  if (val.gte(10e12)) {
+    return {
+      value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
+      unit: 'T',
+    };
+  }
+  if (val.gte(10e9)) {
+    return {
+      value: removeDecimalPaddingZero(val.div(10e9).toFixed(2)),
+      unit: 'B',
+    };
+  }
+  if (val.gte(10e6)) {
+    return {
+      value: removeDecimalPaddingZero(val.div(10e6).toFixed(2)),
+      unit: 'M',
+    };
+  }
+  if (val.gte(10e3)) {
+    return {
+      value: removeDecimalPaddingZero(val.div(10e3).toFixed(2)),
+      unit: 'K',
+    };
+  }
+  return { value: removeDecimalPaddingZero(val.toFixed(2)) };
+}
