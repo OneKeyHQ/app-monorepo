@@ -629,4 +629,5 @@ module.exports = [
   'walletconnect',
   'compat',
   'replacer',
+  'invoker',
 ];

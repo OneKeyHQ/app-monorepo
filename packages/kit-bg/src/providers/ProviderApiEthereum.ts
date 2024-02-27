@@ -4,12 +4,15 @@ import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { isNil } from 'lodash';
 
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
+  permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -24,6 +27,22 @@ export type ISwitchEthereumChainParameter = {
   chainId: string;
   networkId?: string;
 };
+
+function prefixTxValueToHex(value: string) {
+  if (value?.startsWith?.('0X') && value?.slice) {
+    // eslint-disable-next-line no-param-reassign
+    value = value.slice(2);
+  }
+  if (
+    value &&
+    value.startsWith &&
+    !value.startsWith('0x') &&
+    !value.startsWith('0X')
+  ) {
+    return `0x${value}`;
+  }
+  return value;
+}
 
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
@@ -98,6 +117,56 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async wallet_requestPermissions(
+    request: IJsBridgeMessagePayload,
+    permissions: Record<string, unknown>,
+  ) {
+    const permissionRes =
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+
+    const result = Object.keys(permissions).map((permissionName) => {
+      if (permissionName === 'eth_accounts') {
+        return {
+          caveats: [
+            {
+              type: 'restrictReturnedAccounts',
+              value: permissionRes as string[],
+            },
+          ],
+          date: Date.now(),
+          id: request.id?.toString() ?? generateUUID(),
+          invoker: request.origin,
+          parentCapability: permissionName,
+        };
+      }
+
+      return {
+        caveats: [],
+        date: Date.now(),
+        id: request.id?.toString() ?? generateUUID(),
+        invoker: request.origin,
+        parentCapability: permissionName,
+      };
+    });
+
+    return result;
+  }
+
+  @providerApiMethod()
+  async wallet_getPermissions(request: IJsBridgeMessagePayload) {
+    const result = [
+      {
+        caveats: [],
+        date: Date.now(),
+        id: request.id?.toString(),
+        invoker: request.origin as string,
+        parentCapability: 'eth_accounts',
+      },
+    ];
+    return Promise.resolve(result);
+  }
+
+  @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
       request,
@@ -120,6 +189,45 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   eth_signTransaction() {
     throw web3Errors.provider.unsupportedMethod();
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  async eth_sendTransaction(
+    request: IJsBridgeMessagePayload,
+    transaction: IEncodedTxEvm,
+  ) {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      throw web3Errors.provider.unauthorized();
+    }
+    if (!isNil(transaction.value)) {
+      transaction.value = prefixTxValueToHex(transaction.value);
+    }
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+
+    const nonceBN = new BigNumber(transaction.nonce ?? 0);
+
+    // https://app.chainspot.io/
+    // some dapp may send tx with incorrect nonce 0
+    if (nonceBN.isNaN() || nonceBN.isLessThanOrEqualTo(0)) {
+      delete transaction.nonce;
+    }
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: transaction,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+
+    console.log('eth_sendTransaction DONE', result, request, transaction);
+
+    return result;
   }
 
   @providerApiMethod()
