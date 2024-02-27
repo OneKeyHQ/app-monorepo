@@ -340,10 +340,10 @@ const PortalGallery = LazyLoadPage(
     ),
 );
 
-const WalletWidgetsGallery = LazyLoadPage(
+const AmountInputGallery = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WalletWidgets'
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AmountInput'
     ),
 );
 
@@ -386,8 +386,8 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
   { name: EGalleryRoutes.ComponentSwiper, component: SwiperGallery },
   {
-    name: EGalleryRoutes.ComponentWalletWidgets,
-    component: WalletWidgetsGallery,
+    name: EGalleryRoutes.ComponentAmountInput,
+    component: AmountInputGallery,
   },
   {
     name: EGalleryRoutes.ComponentSortableListView,
