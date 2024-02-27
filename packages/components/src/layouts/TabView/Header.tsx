@@ -81,7 +81,15 @@ const HeaderComponent = (
     resolveValues: 'value',
   });
   const rawStyle = useStyle(
-    { ...{ h: '$11', bg: '$bgApp' }, ...style } as Record<string, unknown>,
+    {
+      ...{
+        h: '$11',
+        bg: '$bgApp',
+        borderBottomColor: '$borderSubdued',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+      },
+      ...style,
+    } as Record<string, unknown>,
     {
       resolveValues: 'value',
     },
@@ -99,15 +107,7 @@ const HeaderComponent = (
     },
   );
   const rawContainerStyle = useStyle(
-    {
-      ...{
-        left: '$5',
-        right: '$2.5',
-        borderBottomColor: '$borderSubdued',
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
-      ...containerStyle,
-    } as Record<string, unknown>,
+    containerStyle as Record<string, unknown>,
     {
       resolveValues: 'value',
     },
