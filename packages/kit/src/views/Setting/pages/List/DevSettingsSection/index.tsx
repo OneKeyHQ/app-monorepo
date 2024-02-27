@@ -59,6 +59,9 @@ export const DevSettingsSection = () => {
       >
         <Switch size="small" />
       </SectionItem>
+      <SectionItem title="Clear App Data">
+        <Switch size="small" />
+      </SectionItem>
     </Section>
   );
 };
