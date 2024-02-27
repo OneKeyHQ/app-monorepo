@@ -162,6 +162,7 @@ export function WalletList({ num }: IWalletListProps) {
               wallet: item,
               status: 'default', // 'default' | 'connected';
             }}
+            testID={`wallet-${item.id}`}
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
@@ -169,7 +170,9 @@ export function WalletList({ num }: IWalletListProps) {
           <Stack p="$1" alignItems="center" mt="$3">
             <ActionList
               placement="right-start"
-              renderTrigger={<IconButton icon="PlusSmallOutline" />}
+              renderTrigger={
+                <IconButton icon="PlusSmallOutline" testID="add-wallet" />
+              }
               title="Add wallet"
               items={[
                 {
@@ -178,16 +181,19 @@ export function WalletList({ num }: IWalletListProps) {
                     ? 'BluetoothOutline'
                     : 'UsbOutline',
                   onPress: handleConnectHardwareWalletPress,
+                  testID: 'hardware-wallet',
                 },
                 {
                   label: 'Create new wallet',
                   icon: 'Ai2StarOutline',
                   onPress: handleCreateWalletPress,
+                  testID: 'create-wallet',
                 },
                 {
                   label: 'Import wallet',
                   icon: 'DownloadOutline',
                   onPress: handleImportWalletPress,
+                  testID: 'import-wallet',
                 },
               ]}
             />

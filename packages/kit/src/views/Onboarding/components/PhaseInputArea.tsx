@@ -121,6 +121,7 @@ function SuggestionList({
         word={word}
         onPress={onPressItem}
         m="$1.5"
+        testID={`suggest-${word}`}
       />
     ));
 
@@ -460,12 +461,12 @@ export function PhaseInputArea({
               items={phraseLengthOptions}
               value={phraseLength}
               onChange={setPhraseLength}
-              testID="phrase-length-selector"
               renderTrigger={({ value }) => (
                 <Button
                   iconAfter="ChevronDownSmallOutline"
                   size="small"
                   variant="tertiary"
+                  testID="phrase-length"
                 >
                   {value} words
                 </Button>

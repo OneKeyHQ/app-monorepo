@@ -167,6 +167,12 @@ export function ControlledNetworkSelectorTrigger({
 }) {
   const items = useNetworkSelectorItems();
   return (
-    <Select items={items} value={value} onChange={onChange} title="网络" />
+    <Select
+      items={items}
+      value={value}
+      onChange={onChange}
+      testID="network-selector"
+      title="网络"
+    />
   );
 }

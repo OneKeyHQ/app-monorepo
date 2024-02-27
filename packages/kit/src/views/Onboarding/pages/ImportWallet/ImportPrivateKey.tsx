@@ -23,7 +23,11 @@ export function ImportPrivateKey() {
             <ControlledNetworkSelectorTrigger />
           </Form.Field>
           <Form.Field label="Private Key" name="input">
-            <Input placeholder="Enter your private key" size="large" />
+            <Input
+              placeholder="Enter your private key"
+              size="large"
+              testID="private-key"
+            />
           </Form.Field>
         </Form>
         <Tutorials

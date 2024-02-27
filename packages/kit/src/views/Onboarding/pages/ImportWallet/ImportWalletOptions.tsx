@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import type { IIconProps } from '@onekeyhq/components';
+import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -16,13 +16,13 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { EOnboardingPages } from '../../router/type';
 
-type IOptionItem = {
+type IOptionItem = IPropsWithTestId<{
   title?: string;
   description?: string;
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
   onPress?: IListItemProps['onPress'];
-};
+}>;
 
 type IOptionSection = {
   sectionTitle?: string;
@@ -72,6 +72,7 @@ export function ImportWalletOptions() {
                       await dialog.close();
                       handleImportRecoveryPhrasePress();
                     }}
+                    testID="acknowledged"
                   >
                     Acknowledged
                   </Button>
@@ -83,6 +84,7 @@ export function ImportWalletOptions() {
                       await dialog.close();
                       handleConnectHardwareWalletPress();
                     }}
+                    testID="hardware-wallet"
                   >
                     Connect Hardware Wallet
                   </Button>
@@ -91,6 +93,7 @@ export function ImportWalletOptions() {
               showFooter: false,
             });
           },
+          testID: 'import-recovery-phrase',
         },
       ],
     },
@@ -102,12 +105,14 @@ export function ImportWalletOptions() {
           icon: 'KeyOutline',
           description: 'Import private key to generate a single-chain account.',
           onPress: handleImportPrivateKeyPress,
+          testID: 'import-private-key',
         },
         {
           title: 'Import Address',
           icon: 'SearchOutline',
           description: 'Import address to monitor a single-chain account.',
           onPress: handleImportAddressPress,
+          testID: 'import-address',
         },
       ],
     },
@@ -133,45 +138,54 @@ export function ImportWalletOptions() {
               borderColor="$borderSubdued"
               separator={<Divider />}
             >
-              {data.map(({ title, icon, description, iconColor, onPress }) => (
-                <ListItem key={title} m="0" p="$4" onPress={onPress} drillIn>
-                  <Stack
-                    flex={1}
-                    space="$3"
-                    $group-card-hover={{
-                      p: '$4',
-                    }}
+              {data.map(
+                ({ title, icon, description, iconColor, onPress, testID }) => (
+                  <ListItem
+                    key={title}
+                    m="0"
+                    p="$4"
+                    onPress={onPress}
+                    drillIn
+                    testID={testID}
                   >
                     <Stack
-                      alignSelf="flex-start"
-                      bg="$bgStrong"
-                      p="$2"
-                      borderRadius="$2"
-                      style={{ borderCurve: 'continuous' }}
+                      flex={1}
+                      space="$3"
+                      $group-card-hover={{
+                        p: '$4',
+                      }}
                     >
-                      <Icon
-                        name={icon}
-                        flexShrink={0}
-                        {...(iconColor && {
-                          color: iconColor,
-                        })}
+                      <Stack
+                        alignSelf="flex-start"
+                        bg="$bgStrong"
+                        p="$2"
+                        borderRadius="$2"
+                        style={{ borderCurve: 'continuous' }}
+                      >
+                        <Icon
+                          name={icon}
+                          flexShrink={0}
+                          {...(iconColor && {
+                            color: iconColor,
+                          })}
+                        />
+                      </Stack>
+                      <ListItem.Text
+                        userSelect="none"
+                        flex={1}
+                        primary={title}
+                        primaryTextProps={{
+                          size: '$headingMd',
+                        }}
+                        secondary={description}
+                        secondaryTextProps={{
+                          mt: '$1',
+                        }}
                       />
                     </Stack>
-                    <ListItem.Text
-                      userSelect="none"
-                      flex={1}
-                      primary={title}
-                      primaryTextProps={{
-                        size: '$headingMd',
-                      }}
-                      secondary={description}
-                      secondaryTextProps={{
-                        mt: '$1',
-                      }}
-                    />
-                  </Stack>
-                </ListItem>
-              ))}
+                  </ListItem>
+                ),
+              )}
             </Group>
           </Stack>
         ))}

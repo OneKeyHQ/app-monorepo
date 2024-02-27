@@ -51,6 +51,7 @@ export function AccountSelectorTriggerHome({
         })
       }
       maxWidth="$40"
+      testID="account-selector"
     >
       <AccountAvatar
         size="small"
