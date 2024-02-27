@@ -628,4 +628,6 @@ module.exports = [
   'glmt',
   'walletconnect',
   'lru',
+  'compat',
+  'replacer',
 ];
