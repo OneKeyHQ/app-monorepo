@@ -91,6 +91,7 @@ export function AmountInput({
               bg: '$bgActive',
             },
           })}
+          onPress={tokenSelectorTriggerProps?.onPress}
         >
           <Stack>
             <Image height="$7" width="$7" borderRadius="$full">
