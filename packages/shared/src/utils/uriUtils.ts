@@ -49,7 +49,6 @@ function parseDappRedirect(
   allowedUrls: string[],
 ): { action: EDAppOpenActionEnum } {
   const parsedUrl = safeParseURL(url);
-  console.log('====>>>>>>>allowedUrls: ', allowedUrls);
   if (
     !parsedUrl ||
     (!isProtocolSupportedOpenInApp(parsedUrl.toString()) &&
