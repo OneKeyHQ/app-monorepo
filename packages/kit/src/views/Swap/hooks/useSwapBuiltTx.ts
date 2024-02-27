@@ -17,6 +17,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapApprovingTransactionAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -35,6 +36,7 @@ export function useSwapBuildTx() {
   const [slippagePercentage] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const receiverAddress = useSwapReceiverAddress();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -59,21 +61,43 @@ export function useSwapBuildTx() {
           });
         }
       }
+      setSwapBuildTxFetching(false);
     },
-    [generateSwapHistoryItem],
+    [generateSwapHistoryItem, setSwapBuildTxFetching],
   );
 
-  const handleBuildTxFail = useCallback((error?: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    Toast.error({ title: 'error', message: error?.message ?? '' });
-  }, []);
+  const handleApproveTxSuccess = useCallback(
+    async (data: ISendTxOnSuccessData[]) => {
+      if (data?.[0]) {
+        const transactionSignedInfo = data[0].signedTx;
+        const txId = transactionSignedInfo.txid;
+        setSwapApprovingTransaction((prev) => {
+          if (prev) {
+            return { ...prev, txId };
+          }
+        });
+      }
+    },
+    [setSwapApprovingTransaction],
+  );
 
   const handleWrappedTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       console.log('data-', data);
+      setSwapBuildTxFetching(false);
     },
-    [],
+    [setSwapBuildTxFetching],
   );
+
+  const handleTxFail = useCallback(
+    (error?: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      Toast.error({ title: 'error', message: error?.message ?? '' });
+      setSwapBuildTxFetching(false);
+    },
+    [setSwapBuildTxFetching],
+  );
+
   const wrappedTx = useCallback(async () => {
     if (
       fromToken &&
@@ -114,8 +138,8 @@ export function useSwapBuildTx() {
         wrappedInfo,
         swapInfo,
         onSuccess: handleWrappedTxSuccess,
+        onFail: handleTxFail,
       });
-      setSwapBuildTxFetching(false);
     }
   }, [
     activeAccount.account?.address,
@@ -128,18 +152,21 @@ export function useSwapBuildTx() {
     selectQuote,
     setSwapBuildTxFetching,
     toToken,
+    handleTxFail,
   ]);
+
   const approveTx = useCallback(
     async (amount: string, isMax?: boolean, onApproveSuccess?: () => void) => {
       const allowanceInfo = selectQuote?.allowanceResult;
-      setSwapBuildTxFetching(true);
       if (
         allowanceInfo &&
         fromToken &&
+        toToken &&
         activeAccount.network?.id &&
         activeAccount.account?.id &&
         activeAccount.account?.address
       ) {
+        setSwapBuildTxFetching(true);
         const approveInfo: IApproveInfo = {
           owner: activeAccount.account.address,
           spender: allowanceInfo.allowanceTarget,
@@ -151,21 +178,34 @@ export function useSwapBuildTx() {
             name: fromToken.name ?? fromToken.symbol,
           },
         };
+        if (!onApproveSuccess) {
+          setSwapApprovingTransaction({
+            provider: selectQuote.info.provider,
+            fromToken,
+            toToken,
+            amount,
+          });
+        }
         await navigationToSendConfirm({
           approveInfo,
-          onSuccess: onApproveSuccess,
+          onSuccess: onApproveSuccess || handleApproveTxSuccess,
+          onFail: handleTxFail,
         });
-        setSwapBuildTxFetching(false);
       }
     },
     [
-      activeAccount.account?.address,
-      activeAccount.account?.id,
-      activeAccount.network?.id,
-      fromToken,
-      navigationToSendConfirm,
       selectQuote?.allowanceResult,
+      selectQuote?.info.provider,
+      fromToken,
+      toToken,
+      activeAccount.network?.id,
+      activeAccount.account?.id,
+      activeAccount.account?.address,
       setSwapBuildTxFetching,
+      setSwapApprovingTransaction,
+      navigationToSendConfirm,
+      handleTxFail,
+      handleApproveTxSuccess,
     ],
   );
 
@@ -191,61 +231,63 @@ export function useSwapBuildTx() {
         userAddress: activeAccount.account?.address,
         provider: selectQuote.info.provider,
       });
-      if (!res) return;
-      let transferInfo: ITransferInfo | undefined;
-      let encodedTx: IEncodedTx | undefined;
-      if (res?.swftOrder) {
-        encodedTx = undefined;
-        // swft order
-        transferInfo = {
-          from: activeAccount.account?.address,
-          tokenInfo: {
-            ...fromToken,
-            address: fromToken.contractAddress,
-            name: fromToken.name ?? fromToken.symbol,
+      if (res) {
+        let transferInfo: ITransferInfo | undefined;
+        let encodedTx: IEncodedTx | undefined;
+        if (res?.swftOrder) {
+          encodedTx = undefined;
+          // swft order
+          transferInfo = {
+            from: activeAccount.account?.address,
+            tokenInfo: {
+              ...fromToken,
+              address: fromToken.contractAddress,
+              name: fromToken.name ?? fromToken.symbol,
+            },
+            to: res.swftOrder.platformAddr,
+            amount: res.swftOrder.depositCoinAmt,
+          };
+        }
+        if (res?.tx) {
+          transferInfo = undefined;
+          const valueHex = toBigIntHex(new BigNumber(res.tx.value));
+          encodedTx = {
+            ...res?.tx,
+            value: valueHex,
+            from: activeAccount.account?.address,
+          };
+        }
+        const swapInfo = {
+          sender: {
+            amount: fromTokenAmount,
+            token: fromToken,
           },
-          to: res.swftOrder.platformAddr,
-          amount: res.swftOrder.depositCoinAmt,
+          receiver: {
+            amount: selectQuote.toAmount,
+            token: toToken,
+          },
+          accountAddress: activeAccount.account?.address,
+          receivingAddress: receiverAddress,
+          swapBuildResData: res,
         };
-      }
-      if (res?.tx) {
-        transferInfo = undefined;
-        const valueHex = toBigIntHex(new BigNumber(res.tx.value));
-        encodedTx = {
-          ...res?.tx,
-          value: valueHex,
-          from: activeAccount.account?.address,
-        };
-      }
-      const swapInfo = {
-        sender: {
-          amount: fromTokenAmount,
-          token: fromToken,
-        },
-        receiver: {
-          amount: selectQuote.toAmount,
-          token: toToken,
-        },
-        accountAddress: activeAccount.account?.address,
-        receivingAddress: receiverAddress,
-        swapBuildResData: res,
-      };
 
-      await navigationToSendConfirm({
-        transfersInfo: transferInfo ? [transferInfo] : undefined,
-        encodedTx,
-        swapInfo,
-        onSuccess: handleBuildTxSuccess,
-        onFail: handleBuildTxFail,
-      });
-      setSwapBuildTxFetching(false);
+        await navigationToSendConfirm({
+          transfersInfo: transferInfo ? [transferInfo] : undefined,
+          encodedTx,
+          swapInfo,
+          onSuccess: handleBuildTxSuccess,
+          onFail: handleTxFail,
+        });
+      } else {
+        setSwapBuildTxFetching(false);
+      }
     }
   }, [
     activeAccount.account?.address,
     activeAccount.network?.id,
     fromToken,
     fromTokenAmount,
-    handleBuildTxFail,
+    handleTxFail,
     handleBuildTxSuccess,
     navigationToSendConfirm,
     receiverAddress,

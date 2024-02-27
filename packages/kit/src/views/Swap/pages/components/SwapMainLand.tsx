@@ -46,12 +46,10 @@ const SwapMainLoad = () => {
           await onApprove(amount, isMax);
         });
       } else {
-        await approveTx(amount, isMax, async () => {
-          await onBuildTx();
-        });
+        await approveTx(amount, isMax);
       }
     },
-    [approveTx, onBuildTx],
+    [approveTx],
   );
 
   const onWrapped = useCallback(async () => {

@@ -7,15 +7,18 @@ import {
   swapQuoteFetchInterval,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type {
-  ISwapToken,
-  ISwapTxHistory,
+import {
+  ESwapTxHistoryStatus,
+  type ISwapToken,
+  type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   contextAtomMethod,
+  swapApprovingTransactionAtom,
+  swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
@@ -31,6 +34,8 @@ import {
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: NodeJS.Timeout | undefined;
+
+  private approvingInterval: NodeJS.Timeout | undefined;
 
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());
@@ -189,11 +194,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (this.quoteInterval) {
       clearInterval(this.quoteInterval);
     }
+    const approvingTransaction = get(swapApprovingTransactionAtom());
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());
     const swapSlippage = get(swapSlippagePercentageAtom());
     const fromTokenAmountNumber = Number(fromTokenAmount);
+    if (
+      fromToken?.contractAddress ===
+        approvingTransaction?.fromToken.contractAddress &&
+      fromTokenAmount === approvingTransaction?.amount &&
+      toToken?.contractAddress ===
+        approvingTransaction?.toToken.contractAddress &&
+      fromToken?.networkId === approvingTransaction?.fromToken.networkId &&
+      toToken?.networkId === approvingTransaction?.toToken.networkId
+    ) {
+      console.log('quoteAction skip approvingTransaction');
+      return;
+    }
     if (
       fromToken &&
       toToken &&
@@ -231,6 +249,54 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     void backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
   };
+
+  approvingStateRunSync = contextAtomMethod(
+    async (get, set, networkId: string, txId: string) => {
+      const res = await backgroundApiProxy.serviceSwap.fetchTxState({
+        networkId,
+        txId,
+      });
+      if (
+        res.state === ESwapTxHistoryStatus.SUCCESS ||
+        res.state === ESwapTxHistoryStatus.FAILED
+      ) {
+        set(swapApprovingTransactionAtom(), undefined);
+        set(swapBuildTxFetchingAtom(), false);
+        if (this.approvingInterval) {
+          clearInterval(this.approvingInterval);
+        }
+      }
+    },
+  );
+
+  approvingStateAction = contextAtomMethod(async (get, set) => {
+    if (this.approvingInterval) {
+      clearInterval(this.approvingInterval);
+    }
+    const approvingTransaction = get(swapApprovingTransactionAtom());
+    if (approvingTransaction && approvingTransaction.txId) {
+      void this.approvingStateRunSync.call(
+        set,
+        approvingTransaction.fromToken.networkId,
+        approvingTransaction.txId,
+      );
+      this.approvingInterval = setInterval(() => {
+        if (approvingTransaction.txId) {
+          void this.approvingStateRunSync.call(
+            set,
+            approvingTransaction.fromToken.networkId,
+            approvingTransaction.txId,
+          );
+        }
+      }, 3000);
+    }
+  });
+
+  cleanApprovingInterval = () => {
+    if (this.approvingInterval) {
+      clearInterval(this.approvingInterval);
+    }
+  };
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -246,7 +312,9 @@ export const useSwapActions = () => {
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const quoteAction = actions.quoteAction.use();
-  const { cleanQuoteInterval } = actions;
+  const approvingStateAction = actions.approvingStateAction.use();
+  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
+
   return useRef({
     selectFromToken,
     quoteAction,
@@ -258,5 +326,7 @@ export const useSwapActions = () => {
     addSwapHistoryItem,
     catchSwapTokensMap,
     cleanQuoteInterval,
+    cleanApprovingInterval,
+    approvingStateAction,
   });
 };

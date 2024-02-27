@@ -7,6 +7,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ESwapProviders,
   IFetchQuoteResult,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
@@ -145,6 +146,21 @@ export const {
   atom: swapQuoteApproveAllowanceUnLimitAtom,
   use: useSwapQuoteApproveAllowanceUnLimitAtom,
 } = contextAtom<boolean>(false);
+
+// swap approve
+export const {
+  atom: swapApprovingTransactionAtom,
+  use: useSwapApprovingTransactionAtom,
+} = contextAtom<
+  | {
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+      provider: ESwapProviders;
+      amount: string;
+      txId?: string;
+    }
+  | undefined
+>(undefined);
 
 // swap build_tx
 export const {

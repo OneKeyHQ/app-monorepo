@@ -74,6 +74,7 @@ export function useSwapTxHistoryStateSyncInterval() {
                 networkId: swapTxHistory.baseInfo.fromToken.networkId,
                 ctx: swapTxHistory.ctx,
                 toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
+                receivedAddress: swapTxHistory.txInfo.receiver,
               });
             if (txStatusRes.state !== ESwapTxHistoryStatus.PENDING) {
               clearInterval(interval);
