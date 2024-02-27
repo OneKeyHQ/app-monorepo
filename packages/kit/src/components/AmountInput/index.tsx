@@ -1,8 +1,3 @@
-import type {
-  IInputProps,
-  IStackProps,
-  IXStackProps,
-} from '@onekeyhq/components';
 import {
   Icon,
   Image,
@@ -12,28 +7,39 @@ import {
   XStack,
   getFontSize,
 } from '@onekeyhq/components';
+import type {
+  IInputProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
+import type { IFormControlProps } from '@onekeyhq/components/src/forms/types';
 
-type IAmountInputFormItemProps = {
-  inputProps?: IInputProps;
-  balance?: string;
-  enableMaxAmount?: boolean;
-  tokenSelectorTriggerProps?: {
-    selectedTokenImageUri?: string;
-    selectedNetworkImageUri?: string;
-    selectedTokenSymbol?: string;
-  } & IXStackProps;
-  reversible?: boolean;
-  error?: boolean;
-} & IStackProps;
+type IAmountInputFormItemProps = IFormControlProps<
+  string,
+  {
+    inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
+    balance?: string;
+    enableMaxAmount?: boolean;
+    tokenSelectorTriggerProps?: {
+      selectedTokenImageUri?: string;
+      selectedNetworkImageUri?: string;
+      selectedTokenSymbol?: string;
+    } & IXStackProps;
+    reversible?: boolean;
+    error?: boolean;
+  } & IStackProps
+>;
 
-export function AmountInputFormItem({
+export function AmountInput({
   inputProps,
   balance,
   enableMaxAmount,
   tokenSelectorTriggerProps,
   reversible,
   error,
+  onChange,
+  value,
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
@@ -66,6 +72,8 @@ export function AmountInputFormItem({
           containerProps={{
             flex: 1,
           }}
+          value={value}
+          onChangeText={onChange}
           {...inputProps}
         />
         <XStack
