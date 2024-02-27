@@ -11,6 +11,7 @@
     "locale/**",
     "optimization/**",
     "primitives/**",
+    "types/**",
     "utils/**"
    ]
 }
