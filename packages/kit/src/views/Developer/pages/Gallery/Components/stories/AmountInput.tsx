@@ -108,7 +108,21 @@ const GalleryLayout = () => (
       },
       {
         title: 'Example 5 (Error)',
-        element: <AmountInput error />,
+        element: () => {
+          const form = useForm({ defaultValues: { amount: '' } });
+          return (
+            <Form form={form}>
+              <Form.Field
+                name="amount"
+                rules={{
+                  required: true,
+                }}
+              >
+                <AmountInput />
+              </Form.Field>
+            </Form>
+          );
+        },
       },
       {
         title: 'Example 6 (Form)',

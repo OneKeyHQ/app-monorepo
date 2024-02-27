@@ -6,6 +6,7 @@ import {
   Stack,
   XStack,
   getFontSize,
+  useFormContext,
 } from '@onekeyhq/components';
 import type {
   IInputProps,
@@ -27,7 +28,6 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenSymbol?: string;
     } & IXStackProps;
     reversible?: boolean;
-    error?: boolean;
   } & IStackProps
 >;
 
@@ -37,13 +37,21 @@ export function AmountInput({
   enableMaxAmount,
   tokenSelectorTriggerProps,
   reversible,
-  error,
   onChange,
   value,
+  name,
   ...rest
 }: IAmountInputFormItemProps) {
+  let hasError = false;
+  const form = useFormContext();
+  if (form) {
+    const {
+      formState: { errors },
+    } = form;
+    hasError = !!errors[name || ''];
+  }
   const sharedStyles = getSharedInputStyles({
-    error,
+    error: hasError,
   });
 
   return (
