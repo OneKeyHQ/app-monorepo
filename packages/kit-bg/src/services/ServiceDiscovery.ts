@@ -39,10 +39,7 @@ class ServiceDiscovery extends ServiceBase {
     if (!Array.isArray(history)) {
       return [];
     }
-    if (start >= history.length) {
-      return [];
-    }
-    const data = history.slice(start, Math.min(history.length, end));
+    const data = history.slice(0, Math.min(history.length, end));
     return Promise.all(
       data.map(async (i) => ({ ...i, logo: await this.getWebsiteIcon(i.url) })),
     );
