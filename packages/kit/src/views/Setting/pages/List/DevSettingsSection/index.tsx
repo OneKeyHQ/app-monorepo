@@ -81,9 +81,9 @@ export const DevSettingsSection = () => {
               <YStack>
                 <SectionPressItem
                   title="Clear Dapp Data"
-                  onPress={() => {
-                    void backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
-                    void dialog.close();
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
+                    await dialog.close();
                   }}
                 />
                 <SectionPressItem
