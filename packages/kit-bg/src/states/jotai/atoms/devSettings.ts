@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
@@ -21,6 +23,6 @@ export const {
   persist: true,
   name: EAtomNames.devSettingsPersistAtom,
   initialValue: {
-    enabled: false,
+    enabled: !!platformEnv.isDev,
   },
 });
