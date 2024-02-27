@@ -29,6 +29,7 @@ type ITokenListItemProps = {
   tokenContrastAddress?: string;
   balance?: string;
   value?: string;
+  disabled?: boolean;
 } & IListItemProps;
 
 function TokenListItem({
@@ -39,10 +40,17 @@ function TokenListItem({
   tokenContrastAddress,
   balance,
   value,
+  disabled,
   ...rest
 }: ITokenListItemProps) {
   return (
-    <ListItem userSelect="none" {...rest}>
+    <ListItem
+      userSelect="none"
+      {...(disabled && {
+        opacity: 0.5,
+      })}
+      {...rest}
+    >
       <ListItem.Avatar
         src={tokenImageSrc}
         cornerImageProps={{
@@ -83,6 +91,7 @@ function NetworksFilterItem({
   networkName,
   isSelected,
   tooltipContent,
+  disabled,
   ...rest
 }: INetworksFilterItemProps) {
   const BaseComponent = (
@@ -96,19 +105,23 @@ function NetworksFilterItem({
       style={{
         borderCurve: 'continuous',
       }}
-      {...(!isSelected && {
-        focusable: true,
-        hoverStyle: {
-          bg: '$bgStrongHover',
-        },
-        pressStyle: {
-          bg: '$bgStrongActive',
-        },
-        focusStyle: {
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineColor: '$focusRing',
-        },
+      {...(!isSelected &&
+        !disabled && {
+          focusable: true,
+          hoverStyle: {
+            bg: '$bgStrongHover',
+          },
+          pressStyle: {
+            bg: '$bgStrongActive',
+          },
+          focusStyle: {
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineColor: '$focusRing',
+          },
+        })}
+      {...(disabled && {
+        opacity: 0.5,
       })}
       {...rest}
     >
@@ -291,6 +304,7 @@ const WalletWidgetsGallery = () => {
               <NetworksFilterItem
                 networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png"
                 tooltipContent="Bitcoin"
+                disabled
               />
               <NetworksFilterItem networkName="12+" flex={1} />
             </XStack>
