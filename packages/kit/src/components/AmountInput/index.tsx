@@ -6,7 +6,6 @@ import {
   Stack,
   XStack,
   getFontSize,
-  useFormContext,
 } from '@onekeyhq/components';
 import type {
   IInputProps,
@@ -40,16 +39,9 @@ export function AmountInput({
   onChange,
   value,
   name,
+  hasError,
   ...rest
 }: IAmountInputFormItemProps) {
-  let hasError = false;
-  const form = useFormContext();
-  if (form) {
-    const {
-      formState: { errors },
-    } = form;
-    hasError = !!errors[name || ''];
-  }
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
