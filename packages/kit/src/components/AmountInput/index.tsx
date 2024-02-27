@@ -62,6 +62,7 @@ export function AmountInput({
           keyboardType="number-pad"
           height="$14"
           fontSize={getFontSize('$heading3xl')}
+          fontWeight="600"
           borderTopWidth="$0"
           borderRightWidth="$0"
           borderBottomWidth="$0"
