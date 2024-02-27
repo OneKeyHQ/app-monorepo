@@ -14,6 +14,7 @@ import {
   homeTab,
   useBrowserAction,
   useBrowserTabActions,
+  usePhishingLruCacheAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -59,6 +60,7 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
+  const [phishingCache] = usePhishingLruCacheAtom();
   const { onNavigation, gotoSite } = useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
@@ -133,7 +135,10 @@ function WebContent({
       const maybeDeepLink =
         !navUrl.startsWith('https') && navUrl !== 'about:blank';
       if (maybeDeepLink) {
-        const { action } = uriUtils.parseDappRedirect(navUrl);
+        const { action } = uriUtils.parseDappRedirect(
+          navUrl,
+          Array.from(phishingCache.keys()),
+        );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           setShowPhishingView(true);
         }
@@ -141,7 +146,7 @@ function WebContent({
       }
       return true;
     },
-    [],
+    [phishingCache],
   );
 
   useBackHandler(
@@ -219,6 +224,9 @@ function WebContent({
           onCloseTab={() => {
             closeWebTab(id);
             setCurrentWebTab(null);
+          }}
+          onContinue={() => {
+            // addUrlToPhishingCache({ url: phishingUrlRef.current });
           }}
         />
       </Stack>

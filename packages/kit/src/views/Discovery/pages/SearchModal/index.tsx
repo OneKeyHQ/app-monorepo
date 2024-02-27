@@ -77,7 +77,6 @@ function SearchModal() {
 
   const jumpPageRef = useRef(false);
   useFocusEffect(() => {
-    console.log('===>: useFocusEffect');
     if (jumpPageRef.current) {
       setTimeout(() => {
         void refreshLocalData();

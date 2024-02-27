@@ -627,4 +627,5 @@ module.exports = [
   'viewability',
   'glmt',
   'walletconnect',
+  'lru',
 ];
