@@ -48,9 +48,11 @@ export interface IGetDAppAccountInfoParams {
 export type IConnectionAccountInfoWithNum = IConnectionAccountInfo & {
   num: number;
   storageType: IConnectionStorageType;
+  availableNetworkIds?: string[];
 };
 
 export type IWalletConnectSessionProposalResult = {
   accountsInfo: IConnectionAccountInfo[];
   supportedNamespaces: Record<string, SessionTypes.BaseNamespace>;
+  storageType: IConnectionStorageType;
 };

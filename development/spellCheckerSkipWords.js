@@ -628,4 +628,6 @@ module.exports = [
   'caips',
   'glmt',
   'walletconnect',
+  'compat',
+  'replacer',
 ];

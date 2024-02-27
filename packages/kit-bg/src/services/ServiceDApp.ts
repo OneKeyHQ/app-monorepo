@@ -440,8 +440,21 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async getAllConnectedAccountsByOrigin(origin: string) {
-    return this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
-      origin,
+    const result =
+      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+        origin,
+      );
+    if (!result) {
+      return null;
+    }
+    return Promise.all(
+      result.map(async (accountInfo) => {
+        const { networkIds } =
+          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        return { ...accountInfo, availableNetworkIds: networkIds };
+      }),
     );
   }
 
