@@ -61,7 +61,9 @@ function WebContent({
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
   const [phishingCache] = usePhishingLruCacheAtom();
-  const { onNavigation, gotoSite } = useBrowserAction().current;
+  const phishingUrlRef = useRef<string>('');
+  const { onNavigation, gotoSite, addUrlToPhishingCache } =
+    useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
 
@@ -139,10 +141,12 @@ function WebContent({
           navUrl,
           Array.from(phishingCache.keys()),
         );
-        if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+        const forbiddenRequest = action === uriUtils.EDAppOpenActionEnum.DENY;
+        if (forbiddenRequest) {
+          phishingUrlRef.current = navUrl;
           setShowPhishingView(true);
         }
-        return false;
+        return !forbiddenRequest;
       }
       return true;
     },
@@ -226,12 +230,14 @@ function WebContent({
             setCurrentWebTab(null);
           }}
           onContinue={() => {
-            // addUrlToPhishingCache({ url: phishingUrlRef.current });
+            addUrlToPhishingCache({ url: phishingUrlRef.current });
+            setShowPhishingView(false);
+            onRefresh();
           }}
         />
       </Stack>
     ),
-    [closeWebTab, setCurrentWebTab, id],
+    [id, closeWebTab, setCurrentWebTab, addUrlToPhishingCache, onRefresh],
   );
 
   return (
