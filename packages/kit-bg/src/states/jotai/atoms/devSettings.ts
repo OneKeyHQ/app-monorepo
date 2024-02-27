@@ -6,6 +6,8 @@ import { globalAtom } from '../utils';
 export interface IDevSettings {
   // enable test endpoint
   enableTestEndpoint?: boolean;
+  // enable dev overlay window
+  showDevOverlayWindow?: boolean;
   // show copy/paste button in onboarding page
   enableCopyPasteInOnboardingPage?: boolean;
 }

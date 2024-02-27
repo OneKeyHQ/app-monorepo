@@ -54,10 +54,15 @@ export const DevSettingsSection = () => {
           }}
         />
       )}
-
       <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
+      >
+        <Switch size="small" />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="showDevOverlayWindow"
+        title="show dev overlay window"
       >
         <Switch size="small" />
       </SectionFieldItem>
