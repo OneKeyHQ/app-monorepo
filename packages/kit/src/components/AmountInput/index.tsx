@@ -13,9 +13,9 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
-import type { IFormControlProps } from '@onekeyhq/components/src/forms/types';
+import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 
-type IAmountInputFormItemProps = IFormControlProps<
+type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
