@@ -88,8 +88,9 @@ export const DevSettingsSection = () => {
                 />
                 <SectionPressItem
                   title="Clear Contracts Data"
-                  onPress={() => {
-                    void dialog.close();
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceAddressBook.dangerClearDataForE2E();
+                    await dialog.close();
                   }}
                 />
                 <SectionPressItem
