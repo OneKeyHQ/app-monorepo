@@ -194,6 +194,17 @@ class ServiceDiscovery extends ServiceBase {
 
     return bookmarks;
   }
+
+  @backgroundMethod()
+  async clearDiscoveryPageData() {
+    const { simpleDb } = this.backgroundApi;
+    await Promise.all([
+      simpleDb.browserTabs.clearRawData(),
+      simpleDb.browserBookmarks.clearRawData(),
+      simpleDb.browserHistory.clearRawData(),
+      simpleDb.dappConnection.clearRawData(),
+    ]);
+  }
 }
 
 export default ServiceDiscovery;

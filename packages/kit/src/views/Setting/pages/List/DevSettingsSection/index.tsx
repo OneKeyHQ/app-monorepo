@@ -82,6 +82,7 @@ export const DevSettingsSection = () => {
                 <SectionPressItem
                   title="Clear Dapp Data"
                   onPress={() => {
+                    void backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
                     void dialog.close();
                   }}
                 />
