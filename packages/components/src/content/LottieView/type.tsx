@@ -12,6 +12,6 @@ export type ILottieViewProps = Omit<
   resizeMode?: 'cover' | 'contain' | 'center';
   loop?: boolean;
 } & Omit<StackProps, 'width' | 'height'> & {
-    width: StackProps['width'];
-    height: StackProps['height'];
-  };
+    width?: StackProps['width'];
+    height?: StackProps['height'];
+  } & ({ width: StackProps['width'] } | { height: StackProps['height'] });

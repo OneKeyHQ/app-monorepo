@@ -24,6 +24,7 @@ export interface IButtonProps extends ThemeableStackProps {
   loading?: boolean;
   children?: React.ReactNode;
   color?: ColorTokens;
+  iconColor?: ColorTokens;
   /**
    * stop propagation from button.
    *
@@ -150,15 +151,7 @@ function ButtonIcon({
   size,
   ...props
 }: Pick<IButtonProps, 'variant' | 'size'> & Omit<IIconProps, 'size'>) {
-  const { iconColor } = BUTTON_VARIANTS[variant || 'secondary'];
-
-  return (
-    <Icon
-      size={size === 'small' ? '$4.5' : '$5'}
-      color={iconColor}
-      {...props}
-    />
-  );
+  return <Icon size={size === 'small' ? '$4.5' : '$5'} {...props} />;
 }
 
 type ISharedFrameStylesProps = {
@@ -187,7 +180,8 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     disabled,
     loading,
     children,
-    color: textColor,
+    color: outerColor,
+    iconColor: outerIconColor,
     variant = 'secondary',
     ...rest
   } = useProps(props, {});
@@ -236,17 +230,31 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       onLongPress={onLongPress}
     >
       {icon && !loading && (
-        <ButtonIcon name={icon} variant={variant} size={size} mr="$2" />
+        <ButtonIcon
+          name={icon}
+          variant={variant}
+          size={size}
+          mr="$2"
+          color={outerIconColor || iconColor}
+        />
       )}
-      {loading && <Spinner size="small" mr="$2" color={iconColor} />}
+      {loading && (
+        <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
+      )}
       <SizableText
         size={textVariant as FontSizeTokens}
-        color={textColor || color}
+        color={outerColor || color}
       >
         {children}
       </SizableText>
       {iconAfter && (
-        <ButtonIcon name={iconAfter} variant={variant} size={size} ml="$2" />
+        <ButtonIcon
+          name={iconAfter}
+          variant={variant}
+          size={size}
+          ml="$2"
+          color={outerIconColor || iconColor}
+        />
       )}
     </ButtonFrame>
   );

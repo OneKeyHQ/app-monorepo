@@ -120,23 +120,32 @@ function DialogFrame({
     iconWrapperBg: ColorTokens;
     iconColor: ColorTokens;
   } => {
-    if (tone === 'destructive') {
-      return {
-        iconWrapperBg: '$bgCritical',
-        iconColor: '$iconCritical',
-      };
+    switch (tone) {
+      case 'destructive': {
+        return {
+          iconWrapperBg: '$bgCritical',
+          iconColor: '$iconCritical',
+        };
+      }
+      case 'warning': {
+        return {
+          iconWrapperBg: '$bgCaution',
+          iconColor: '$iconCaution',
+        };
+      }
+      case 'success': {
+        return {
+          iconWrapperBg: '$bgSuccess',
+          iconColor: '$iconSuccess',
+        };
+      }
+      default: {
+        return {
+          iconWrapperBg: '$bgStrong',
+          iconColor: '$icon',
+        };
+      }
     }
-    if (tone === 'warning') {
-      return {
-        iconWrapperBg: '$bgCaution',
-        iconColor: '$iconCaution',
-      };
-    }
-
-    return {
-      iconWrapperBg: '$bgStrong',
-      iconColor: '$icon',
-    };
   };
 
   const media = useMedia();
