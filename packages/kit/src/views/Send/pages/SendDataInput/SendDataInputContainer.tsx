@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -26,6 +26,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -35,6 +39,7 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
 import AmountInput from '../../components/AmountInput';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
@@ -47,6 +52,10 @@ function SendDataInputContainer() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
@@ -164,12 +173,17 @@ function SendDataInputContainer() {
         params: {
           networkId,
           accountId,
+          tokens: {
+            data: allTokens.tokens,
+            keys: allTokens.keys,
+            map,
+          },
           onSelect: (data: IToken) => {
             setTokenInfo(data);
           },
         },
       }),
-    [accountId, navigation, networkId],
+    [accountId, allTokens.keys, allTokens.tokens, map, navigation, networkId],
   );
   const handleOnChangeAmountPercent = useCallback(
     (percent: number) => {
@@ -458,4 +472,12 @@ function SendDataInputContainer() {
   );
 }
 
-export { SendDataInputContainer };
+const SendDataInputContainerWithProvider = memo(() => (
+  <HomeTokenListProviderMirror>
+    <SendDataInputContainer />
+  </HomeTokenListProviderMirror>
+));
+SendDataInputContainerWithProvider.displayName =
+  'SendDataInputContainerWithProvider';
+
+export { SendDataInputContainer, SendDataInputContainerWithProvider };

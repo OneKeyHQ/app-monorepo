@@ -3,9 +3,8 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
-import { Button, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -121,11 +120,11 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                     name={accountName}
                     chain={network?.name ?? ''}
                     type={
-                      deriveInfo?.labelKey
+                      (deriveInfo?.labelKey
                         ? intl.formatMessage({
                             id: deriveInfo?.labelKey,
                           })
-                        : deriveInfo?.label
+                        : deriveInfo?.label) ?? ''
                     }
                   />
                 </Stack>
