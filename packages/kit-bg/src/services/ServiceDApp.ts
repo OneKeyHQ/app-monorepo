@@ -282,7 +282,7 @@ class ServiceDApp extends ServiceBase {
     await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
       origin,
       accountsInfo,
-      imageURL: await this.backgroundApi.serviceDiscovery.getWebsiteIcon(
+      imageURL: await this.backgroundApi.serviceDiscovery.buildWebsiteIconUrl(
         origin,
         128,
       ),

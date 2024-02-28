@@ -15,11 +15,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import {
-  useBrowserAction,
-  useBrowserBookmarkAction,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
@@ -40,40 +36,29 @@ function SearchModal() {
     >();
   const { useCurrentWindow, tabId } = route.params ?? {};
   const [searchValue, setSearchValue] = useState('');
-  const { getBookmarkData } = useBrowserBookmarkAction().current;
-  const { getHistoryData } = useBrowserHistoryAction().current;
   const { handleOpenWebSite } = useBrowserAction().current;
 
+  const { serviceDiscovery } = backgroundApiProxy;
   const { result: localData, run: refreshLocalData } =
     usePromiseResult(async () => {
-      const bookmarks = await getBookmarkData();
-      const slicedBookmarks = bookmarks.slice(0, 8);
-      const bookmarkData = await Promise.all(
-        slicedBookmarks.map(async (i) => ({
-          ...i,
-          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-        })),
-      );
-      const histories = await getHistoryData();
-      const slicedHistory = histories.slice(0, 8);
-      const historyData = await Promise.all(
-        slicedHistory.map(async (i) => ({
-          ...i,
-          logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-        })),
-      );
+      const bookmarkData = await serviceDiscovery.getBookmarkData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
+      const historyData = await serviceDiscovery.getHistoryData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
       return {
         bookmarkData,
         historyData,
       };
-    }, [getBookmarkData, getHistoryData]);
+    }, [serviceDiscovery]);
 
   const { result: searchResult } = usePromiseResult(async () => {
-    const ret = await backgroundApiProxy.serviceDiscovery.searchDApp(
-      searchValue,
-    );
+    const ret = await serviceDiscovery.searchDApp(searchValue);
     return ret;
-  }, [searchValue]);
+  }, [searchValue, serviceDiscovery]);
 
   const jumpPageRef = useRef(false);
   useFocusEffect(() => {
@@ -92,9 +77,10 @@ function SearchModal() {
         setSearchList([]);
         return;
       }
-      const logo = await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
-        'https://google.com',
-      );
+      const logo =
+        await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+          'https://google.com',
+        );
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,

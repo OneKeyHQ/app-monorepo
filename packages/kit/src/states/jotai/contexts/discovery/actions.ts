@@ -466,9 +466,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           id: tabId,
           url: webSite.url,
           title: webSite.title,
-          favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
-            webSite.url,
-          ),
+          favicon:
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              webSite.url,
+            ),
           isNewWindow,
           userTriggered: true,
         });

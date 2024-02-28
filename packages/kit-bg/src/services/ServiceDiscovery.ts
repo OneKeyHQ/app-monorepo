@@ -41,7 +41,10 @@ class ServiceDiscovery extends ServiceBase {
     }
     const data = history.slice(0, Math.min(history.length, end));
     return Promise.all(
-      data.map(async (i) => ({ ...i, logo: await this.getWebsiteIcon(i.url) })),
+      data.map(async (i) => ({
+        ...i,
+        logo: await this.buildWebsiteIconUrl(i.url),
+      })),
     );
   }
 
@@ -109,7 +112,7 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWebsiteIcon(url: string, size = 64) {
+  async buildWebsiteIconUrl(url: string, size = 64) {
     const hostName = uriUtils.getHostNameFromUrl({ url });
     if (!hostName) return '';
 
@@ -160,7 +163,7 @@ class ServiceDiscovery extends ServiceBase {
     const bookmarks = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
-        logo: generateIcon ? await this.getWebsiteIcon(i.url) : undefined,
+        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
       })),
     );
 
@@ -185,7 +188,7 @@ class ServiceDiscovery extends ServiceBase {
     const bookmarks = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
-        logo: generateIcon ? await this.getWebsiteIcon(i.url) : undefined,
+        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
       })),
     );
 
