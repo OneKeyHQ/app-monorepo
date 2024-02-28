@@ -70,7 +70,9 @@ const formatLocalNumber = (
   }
   const decimal = decimalPart ? `.${decimalPart}` : '';
 
-  const integer = appLocale.intl.formatNumber(BigInt(integerPart));
+  const integer = `${
+    integerPart === '-0' ? '-' : ''
+  }${appLocale.intl.formatNumber(BigInt(integerPart))}`;
 
   const result = `${integer}${
     decimal
@@ -166,7 +168,10 @@ export function formatPriceChange(value: string): IDisplayNumber {
   if (val.isNaN()) {
     return { formattedValue: '0.00', meta: { value, symbol: '%' } };
   }
-  return { formattedValue: val.toFixed(2), meta: { value, symbol: '%' } };
+  return {
+    formattedValue: formatLocalNumber(val.toFixed(2)),
+    meta: { value, symbol: '%' },
+  };
 }
 
 // DeFi Value
@@ -175,12 +180,12 @@ export function formatDeFiValue(
   currency: string,
 ): IDisplayNumber {
   const val = new BigNumber(value);
-  if (val.lt(0.01)) {
-    return { formattedValue: '0.01', meta: { value, leading: '<', currency } };
+  if (val.isNaN() || val.lt(0.01)) {
+    return { formattedValue: '0.01', meta: { value, leading: '< ', currency } };
   }
   return {
-    formattedValue: val.toFixed(2),
-    meta: { value, leading: '%', currency },
+    formattedValue: formatLocalNumber(val.toFixed(2)),
+    meta: { value, currency },
   };
 }
 
