@@ -3780,11 +3780,11 @@ const serverPresetNetworks = [
     'id': 'tbtc--1',
     'impl': 'tbtc',
     'isTestnet': true,
-    'logoURI': 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+    'logoURI': 'https://onekey-asset.com/assets/sbtc/sbtc.png',
     'name': 'Bitcoin Signet',
     'rpcURLs': [
       {
-        'url': 'https://node.onekeytest.com/sbtc',
+        'url': 'https://node.onekey.so/sbtc',
       },
     ],
     'shortcode': 'sbtc',
