@@ -2,6 +2,8 @@ import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { appLocale } from '../locale/appLocale';
+
 import hexUtils from './hexUtils';
 
 const toBigIntHex = (value: BigNumber): string => {
@@ -42,48 +44,74 @@ const countLeadingZeroDecimals = (x: BigNumber) =>
 const removeDecimalPaddingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
 
 export interface IDisplayNumber {
-  value: string;
-  unit?: string;
-  leadingZeros?: number;
-  leading?: string;
-  currency?: string;
-  symbol?: string;
+  formattedValue: string;
+  meta: {
+    value: string;
+    unit?: string;
+    leadingZeros?: number;
+    leading?: string;
+    currency?: string;
+    symbol?: string;
+  };
 }
+
+const formatLocalNumber = (value: string) =>
+  appLocale.intl.formatNumber(Number(value));
+
+const formatNumber = (value: string, isRemoveDecimalPaddingZero = false) =>
+  isRemoveDecimalPaddingZero
+    ? formatLocalNumber(removeDecimalPaddingZero(value))
+    : formatLocalNumber(value);
 
 // format Balance/Amount
 export function formatBalance(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
-    return { value: '0' };
+    return { formattedValue: '0', meta: { value } };
   }
   if (val.gte(1)) {
     if (val.gte(10e15)) {
       return {
-        value: removeDecimalPaddingZero(val.div(10e15).toFixed(2)),
-        unit: 'Q',
+        formattedValue: formatNumber(val.div(10e15).toFixed(2), true),
+        meta: {
+          value,
+          unit: 'Q',
+        },
       };
     }
 
     if (val.gte(10e12)) {
       return {
-        value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
-        unit: 'T',
+        formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+        meta: {
+          value,
+          unit: 'T',
+        },
       };
     }
 
     if (val.gte(10e9)) {
       return {
-        value: removeDecimalPaddingZero(val.div(10e9).toFixed(2)),
-        unit: 'B',
+        formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+        meta: {
+          value,
+          unit: 'B',
+        },
       };
     }
-    return { value: removeDecimalPaddingZero(val.toFixed(4)) };
+    return {
+      formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+      meta: { value },
+    };
   }
 
   const zeros = countLeadingZeroDecimals(val);
   return {
-    value: removeDecimalPaddingZero(val.toFixed(4 + zeros)),
-    leadingZeros: countLeadingZeroDecimals(val),
+    formattedValue: formatNumber(val.toFixed(4 + zeros)),
+    meta: {
+      value,
+      leadingZeros: countLeadingZeroDecimals(val),
+    },
   };
 }
 
