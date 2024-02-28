@@ -4,6 +4,7 @@ import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 import platformEnv from '../platformEnv';
 
 export enum EAppEventBusNames {
+  WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
   NetworkChanged = 'NetworkChanged',
@@ -21,6 +22,7 @@ export enum EAppEventBusNames {
 }
 
 export interface IAppEventBusPayload {
+  [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;
   [EAppEventBusNames.AccountChanged]: {

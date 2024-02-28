@@ -225,6 +225,20 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async resetContext() {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater(item) {
+          item.nextHD = 1;
+          item.nextWalletNo = 1;
+          return item;
+        },
+      });
+    });
+  }
+
   async getBackupUUID(): Promise<string> {
     const db = await this.readyDb;
     const context = await this.getContext();

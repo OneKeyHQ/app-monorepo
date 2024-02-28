@@ -39,8 +39,8 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../../dbs/local/consts';
-import localDb from '../../dbs/local/localDbInstance';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -98,7 +98,11 @@ class ServiceAccount extends ServiceBase {
     await localDb.clearRecords({
       name: ELocalDBStoreNames.Device,
     });
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    await localDb.resetContext();
+
+    await this.backgroundApi.simpleDb.accountSelector.clearRawData();
+
+    appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
   }
 
   @backgroundMethod()

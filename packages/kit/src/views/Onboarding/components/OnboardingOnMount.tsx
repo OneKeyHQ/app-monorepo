@@ -31,9 +31,9 @@ function OnboardingOnMountCmp() {
   }, [checkOnboardingState]);
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.AccountUpdate, checkOnboardingState);
+    appEventBus.on(EAppEventBusNames.WalletClear, checkOnboardingState);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountUpdate, checkOnboardingState);
+      appEventBus.off(EAppEventBusNames.WalletClear, checkOnboardingState);
     };
   }, [checkOnboardingState]);
 
