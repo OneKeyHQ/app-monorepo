@@ -55,7 +55,8 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
   return counts > 0 ? counts : 0;
 };
 
-const stripTrailingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
+const stripTrailingZero = (x: string) =>
+  x.replace(/(\.[0-9]*[1-9])0+$|\.0*$/, '$1');
 
 const formatLocalNumber = (
   value: BigNumber | string,
@@ -213,13 +214,13 @@ export function formatFDV(value: string): IDisplayNumber {
   }
   if (val.gte(10e5)) {
     return {
-      formattedValue: formatLocalNumber(val.div(10e6), 2, true),
+      formattedValue: formatLocalNumber(val.div(10e5), 2, true),
       meta: { value, unit: 'M' },
     };
   }
-  if (val.gte(10e3)) {
+  if (val.gte(10e2)) {
     return {
-      formattedValue: formatLocalNumber(val.div(10e3), 2, true),
+      formattedValue: formatLocalNumber(val.div(10e2), 2, true),
       meta: { value, unit: 'K' },
     };
   }
