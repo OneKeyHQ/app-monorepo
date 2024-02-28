@@ -1,3 +1,4 @@
+import type { IFormFieldProps } from '../types';
 import type { StackStyleProps } from '@tamagui/web/types/types';
 
 type INonGestureStackStyleProps = Omit<
@@ -15,14 +16,14 @@ type INonGestureStackStyleProps = Omit<
   | 'pointerEvents'
 >;
 
-export interface IBaseSliderProps extends INonGestureStackStyleProps {
+interface IBaseGestureSliderProps extends INonGestureStackStyleProps {
   disabled?: boolean;
-  value?: number;
   min: number;
   max: number;
   step: number;
-  onChange?: (value: number) => void;
   onSlideStart?: () => void;
   onSlideMove?: (value: number) => void;
   onSlideEnd?: () => void;
 }
+
+export type IBaseSliderProps = IFormFieldProps<number, IBaseGestureSliderProps>;

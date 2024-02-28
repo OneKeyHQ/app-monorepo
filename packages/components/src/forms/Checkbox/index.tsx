@@ -7,6 +7,7 @@ import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
 
 import type { ILabelProps } from '../../primitives';
+import type { IFormFieldProps } from '../types';
 import type { ViewStyle } from 'react-native';
 import type {
   CheckedState,
@@ -16,16 +17,14 @@ import type {
 
 export type ICheckedState = CheckedState;
 
-export type ICheckboxProps = Omit<
-  TMCheckboxProps,
-  'size' | 'onCheckedChange' | 'checked' | 'value'
-> & {
-  label?: string;
-  labelProps?: ILabelProps;
-  value?: ICheckedState;
-  onChange?: (checked: ICheckedState) => void;
-  containerProps?: StackProps;
-};
+export type ICheckboxProps = IFormFieldProps<
+  ICheckedState,
+  Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
+    label?: string;
+    labelProps?: ILabelProps;
+    containerProps?: StackProps;
+  }
+>;
 
 function RawCheckbox({
   label,

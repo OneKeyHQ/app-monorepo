@@ -1,15 +1,14 @@
 import { Switch as TMSwitch, useTheme } from 'tamagui';
 
+import type { IFormFieldProps } from '../types';
 import type { GetProps } from 'tamagui';
 
-export type ISwitchProps = Omit<
-  GetProps<typeof TMSwitch>,
-  'checked' | 'onCheckedChange' | 'value'
-> & {
-  value?: boolean;
-  onChange?: (checked: boolean) => void;
-  size?: 'small' | 'large';
-};
+export type ISwitchProps = IFormFieldProps<
+  boolean,
+  Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
+    size?: 'small' | 'large';
+  }
+>;
 
 export function Switch({
   value,
