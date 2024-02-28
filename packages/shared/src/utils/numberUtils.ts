@@ -88,8 +88,15 @@ const formatLocalNumber = (
   return keepTrailingZeros ? stripTrailingZero(result) : result;
 };
 
+export type IFormatterOptions = { currency: string };
+
+export type IFormatNumberFunc = (
+  value: string,
+  options?: IFormatterOptions,
+) => IDisplayNumber;
+
 /** Balance/Amount */
-export function formatBalance(value: string): IDisplayNumber {
+export const formatBalance: IFormatNumberFunc = (value: string) => {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return { formattedValue: '0', meta: { value } };
@@ -138,13 +145,11 @@ export function formatBalance(value: string): IDisplayNumber {
       leadingZeros: countLeadingZeroDecimals(val),
     },
   };
-}
+};
 
 /** Price/USD */
-export function formatPrice(
-  value: string,
-  { currency }: { currency: string },
-): IDisplayNumber {
+export const formatPrice: IFormatNumberFunc = (value, options) => {
+  const { currency } = options || {};
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return {
@@ -164,10 +169,10 @@ export function formatPrice(
     formattedValue: formatLocalNumber(val, 4 + zeros, true),
     meta: { value, currency, leadingZeros: zeros },
   };
-}
+};
 
 /** PriceChange */
-export function formatPriceChange(value: string): IDisplayNumber {
+export const formatPriceChange: IFormatNumberFunc = (value) => {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return { formattedValue: '0.00', meta: { value, symbol: '%' } };
@@ -176,13 +181,11 @@ export function formatPriceChange(value: string): IDisplayNumber {
     formattedValue: formatLocalNumber(val.toFixed(2)),
     meta: { value, symbol: '%' },
   };
-}
+};
 
 /** DeFi Value */
-export function formatDeFiValue(
-  value: string,
-  { currency }: { currency: string },
-): IDisplayNumber {
+export const formatDeFiValue: IFormatNumberFunc = (value, options) => {
+  const { currency } = options || {};
   const val = new BigNumber(value);
   if (val.isNaN() || val.lt(0.01)) {
     return { formattedValue: '0.01', meta: { value, leading: '< ', currency } };
@@ -191,10 +194,10 @@ export function formatDeFiValue(
     formattedValue: formatLocalNumber(val.toFixed(2)),
     meta: { value, currency },
   };
-}
+};
 
 /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
-export function formatFDV(value: string): IDisplayNumber {
+export const formatFDV: IFormatNumberFunc = (value) => {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return {
@@ -231,7 +234,7 @@ export function formatFDV(value: string): IDisplayNumber {
     formattedValue: formatLocalNumber(val, 2, true),
     meta: { value },
   };
-}
+};
 
 export const formatDisplayNumber = (value: IDisplayNumber) => {
   const {
