@@ -123,11 +123,11 @@ function TxActionCommonDescription({
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
     <XStack alignItems="center">
-      {description?.prefix && (
+      {description?.prefix ? (
         <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
           {description?.prefix}
         </SizableText>
-      )}
+      ) : null}
       {description?.icon && (
         <Icon
           color="$iconSubdued"
