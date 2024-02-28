@@ -1,8 +1,9 @@
-import { EmptyBase } from './EmptyBase';
+import { Empty } from '@onekeyhq/components';
 
 function EmptyHistory() {
   return (
-    <EmptyBase
+    <Empty
+      testID="Wallet-No-History-Empty"
       icon="ClockTimeHistoryOutline"
       title="No Transactions Yet"
       description="Your transactions will appear here"

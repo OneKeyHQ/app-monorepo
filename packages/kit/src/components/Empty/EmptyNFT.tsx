@@ -1,8 +1,9 @@
-import { EmptyBase } from './EmptyBase';
+import { Empty } from '@onekeyhq/components';
 
 function EmptyNFT() {
   return (
-    <EmptyBase
+    <Empty
+      testID="Wallet-No-NFT-Empty"
       icon="AiImagesOutline"
       title="No NFTs"
       description="No NFTs found at this address"

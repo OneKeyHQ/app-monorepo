@@ -1,11 +1,12 @@
 import { useIntl } from 'react-intl';
 
-import { EmptyBase } from './EmptyBase';
+import { Empty } from '@onekeyhq/components';
 
 function EmptySearch() {
   const intl = useIntl();
   return (
-    <EmptyBase
+    <Empty
+      testID="Wallet-No-Search-Empty"
       icon="SearchOutline"
       title={intl.formatMessage({ id: 'content__no_results' })}
     />
