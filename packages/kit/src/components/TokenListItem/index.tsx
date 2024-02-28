@@ -10,6 +10,7 @@ export type ITokenListItemProps = {
   tokenContrastAddress?: string;
   balance?: string;
   value?: string;
+  disabled?: boolean;
 } & IListItemProps;
 
 export function TokenListItem({
@@ -20,10 +21,17 @@ export function TokenListItem({
   tokenContrastAddress,
   balance,
   value,
+  disabled,
   ...rest
 }: ITokenListItemProps) {
   return (
-    <ListItem userSelect="none" {...rest}>
+    <ListItem
+      userSelect="none"
+      {...(disabled && {
+        opacity: 0.5,
+      })}
+      {...rest}
+    >
       <ListItem.Avatar
         src={tokenImageSrc}
         cornerImageProps={{
