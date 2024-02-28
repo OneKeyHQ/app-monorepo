@@ -60,11 +60,25 @@ const HeaderComponent = (
     undefined,
     true,
   );
+  const rawStyle = useStyle(
+    {
+      ...{
+        h: '$11',
+        bg: '$bgApp',
+        borderBottomColor: '$borderSubdued',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+      },
+      ...style,
+    } as Record<string, unknown>,
+    {
+      resolveValues: 'value',
+    },
+  );
   const data = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [...props.data],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.data, rawNormalColor, rawSelectedColor],
+    [props.data, rawStyle],
   );
   const reloadWebPxNumber = useCallback((value: any) => {
     if (typeof value === 'string') {
@@ -80,20 +94,6 @@ const HeaderComponent = (
   const rawProps = useProps(props, {
     resolveValues: 'value',
   });
-  const rawStyle = useStyle(
-    {
-      ...{
-        h: '$11',
-        bg: '$bgApp',
-        borderBottomColor: '$borderSubdued',
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
-      ...style,
-    } as Record<string, unknown>,
-    {
-      resolveValues: 'value',
-    },
-  );
   const rawContentContainerStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
     {
