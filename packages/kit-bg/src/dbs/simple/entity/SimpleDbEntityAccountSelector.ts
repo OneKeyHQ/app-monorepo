@@ -1,12 +1,10 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -55,20 +53,6 @@ export interface IAccountSelectorPersistInfo {
   globalDeriveTypesMap: Partial<
     Record<EGlobalDeriveTypesScopes, IGlobalDeriveTypesMap>
   >;
-}
-
-// TODO move to accountUtils
-export function buildGlobalDeriveTypesMapKey({
-  networkId,
-}: {
-  networkId: string;
-}) {
-  const impl = networkUtils.getNetworkImpl({
-    networkId,
-  });
-  const useNetworkId = [NETWORK_ID_ETC].includes(networkId);
-  const key = useNetworkId ? networkId : impl;
-  return key;
 }
 
 export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSelectorPersistInfo> {
@@ -169,7 +153,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     const scope = EGlobalDeriveTypesScopes.global; // shared scope
     // TODO swapTo scope
     const map = (await this.getRawData())?.globalDeriveTypesMap[scope];
-    const key = buildGlobalDeriveTypesMapKey({
+    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
       networkId,
     });
     const deriveType = map?.[key];
@@ -186,7 +170,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     eventEmitDisabled?: boolean;
   }) {
     const scope = EGlobalDeriveTypesScopes.global; // shared scope
-    const key = buildGlobalDeriveTypesMapKey({
+    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
       networkId,
     });
     await this.setRawData(({ rawData }) => {

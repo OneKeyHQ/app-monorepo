@@ -22,7 +22,6 @@ import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
-  // TODO multiple UI sync
   const actions = useAccountSelectorActions();
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },

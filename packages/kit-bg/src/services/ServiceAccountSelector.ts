@@ -208,7 +208,6 @@ class ServiceAccountSelector extends ServiceBase {
       network,
       deriveType,
       deriveInfo,
-      // TODO move to serviceNetwork
       deriveInfoItems: await serviceNetwork.getDeriveInfoItemsOfNetwork({
         networkId,
       }),

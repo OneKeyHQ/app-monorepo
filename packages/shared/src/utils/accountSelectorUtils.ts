@@ -2,6 +2,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 
 import { EAccountSelectorSceneName } from '../../types';
 
+import { NETWORK_ID_ETC } from '../config/presetNetworks';
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import uriUtils from './uriUtils';
@@ -102,9 +103,19 @@ function buildMergedSelectedAccount({
   return result;
 }
 
+function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
+  const impl = networkUtils.getNetworkImpl({
+    networkId,
+  });
+  const useNetworkId = [NETWORK_ID_ETC].includes(networkId);
+  const key = useNetworkId ? networkId : impl;
+  return key;
+}
+
 export default {
   isEqualAccountSelectorScene,
   buildAccountSelectorSaveKey,
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
+  buildGlobalDeriveTypesMapKey,
 };

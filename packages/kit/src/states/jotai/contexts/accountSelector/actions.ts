@@ -3,12 +3,6 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
-import type { IChainSelectorRouteParams } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
-import { EChainSelectorPages } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -21,6 +15,12 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
+import type { IChainSelectorRouteParams } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
+import { EChainSelectorPages } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -481,8 +481,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })) &&
           (await serviceAccountSelector.shouldSyncWithHome(eventPayload));
 
-        // TODO swap to another account off
-
         if (shouldSync) {
           const current = this.getSelectedAccount.call(set, { num });
           const newSelectedAccount =
@@ -937,7 +935,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
 
-          // TODO auto select network and derive type, check network compatible for others account
+          // TODO auto select network and derive type, check network compatible for others wallet account
 
           await this.updateSelectedAccount.call(set, {
             num,
