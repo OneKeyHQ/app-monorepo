@@ -65,10 +65,6 @@ export function DeriveTypeSelectorTrigger({
                   icon="RepeatOutline"
                   size="small"
                   variant="tertiary"
-                  iconProps={{
-                    size: '$4.5',
-                  }}
-                  mx="$0"
                   $platform-native={{
                     hitSlop: {
                       right: 8,

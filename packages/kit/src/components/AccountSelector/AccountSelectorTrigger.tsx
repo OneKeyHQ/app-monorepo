@@ -30,7 +30,7 @@ export function AccountSelectorTriggerHome({
 
   return (
     <XStack
-      testID="AccountSelectorTriggerHome"
+      testID="Wallet-Account-Selector-Trigger"
       role="button"
       alignItems="center"
       p="$1.5"

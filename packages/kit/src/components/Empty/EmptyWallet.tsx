@@ -9,6 +9,7 @@ function EmptyWallet() {
 
   return (
     <Empty
+      testID="Wallet-No-Wallet-Empty"
       icon="WalletCryptoOutline"
       title="No Wallet"
       description="Create one to start managing your cryptocurrency safely and efficiently"
