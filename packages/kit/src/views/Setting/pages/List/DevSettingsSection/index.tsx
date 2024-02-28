@@ -63,6 +63,7 @@ export const DevSettingsSection = () => {
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="show dev overlay window"
+        testID="show-dev-overlay"
       >
         <Switch size="small" />
       </SectionFieldItem>
@@ -74,6 +75,7 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       <SectionPressItem
         title="Clear App Data"
+        testID="clear-data-menu"
         onPress={() => {
           const dialog = Dialog.cancel({
             title: 'Clear App Data',
@@ -81,6 +83,7 @@ export const DevSettingsSection = () => {
               <YStack>
                 <SectionPressItem
                   title="Clear Dapp Data"
+                  testID="clear-dapp-data"
                   onPress={async () => {
                     await backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
                     await dialog.close();
@@ -88,6 +91,7 @@ export const DevSettingsSection = () => {
                 />
                 <SectionPressItem
                   title="Clear Contracts Data"
+                  testID="clear-contracts-data"
                   onPress={async () => {
                     await backgroundApiProxy.serviceAddressBook.dangerClearDataForE2E();
                     await dialog.close();
@@ -95,8 +99,16 @@ export const DevSettingsSection = () => {
                 />
                 <SectionPressItem
                   title="Clear Wallets Data"
+                  testID="clear-wallets-data"
                   onPress={() => {
                     void dialog.close();
+                  }}
+                />
+                <SectionPressItem
+                  title="Clear Password"
+                  testID="clear-password"
+                  onPress={() => {
+                    void backgroundApiProxy.servicePassword.clearCachedPassword();
                   }}
                 />
               </YStack>

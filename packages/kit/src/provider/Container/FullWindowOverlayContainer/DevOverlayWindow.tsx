@@ -97,6 +97,7 @@ function DevOverlayWindow() {
         alignContent="center"
         justifyContent="center"
         onPress={handlePress}
+        testID="dev-button"
       />
     </Stack>
   );
