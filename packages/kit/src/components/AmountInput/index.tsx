@@ -21,6 +21,9 @@ type IAmountInputFormItemProps = IFormFieldProps<
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
     balance?: string;
     enableMaxAmount?: boolean;
+    switchValue?: string;
+    onBalancePress?: () => void;
+    onSwitchPress?: () => void;
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
@@ -40,6 +43,9 @@ export function AmountInput({
   value,
   name,
   hasError,
+  switchValue,
+  onSwitchPress,
+  onBalancePress,
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
@@ -142,6 +148,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
+          onPress={onSwitchPress}
           {...(reversible && {
             userSelect: 'none',
             hoverStyle: {
@@ -153,7 +160,7 @@ export function AmountInput({
           })}
         >
           <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
-            $0.00
+            {switchValue || '$0.00'}
           </SizableText>
           {reversible && (
             <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
@@ -163,6 +170,7 @@ export function AmountInput({
           <XStack
             px="$3.5"
             pb="$2"
+            onPress={onBalancePress}
             {...(enableMaxAmount && {
               userSelect: 'none',
               hoverStyle: {
