@@ -1,15 +1,16 @@
-import type { PropsWithChildren } from 'react';
-
 import { RadioGroup } from 'tamagui';
 
 import { Label, XStack } from '../../primitives';
 
-export type IRadioProps = PropsWithChildren<{
-  value?: string;
-  onChange?: (value: string) => void;
-  disabled?: boolean;
-  options: { label: string; value: string }[];
-}>;
+import type { IFormFieldProps } from '../types';
+
+export type IRadioProps = IFormFieldProps<
+  string,
+  {
+    disabled?: boolean;
+    options: { label: string; value: string }[];
+  }
+>;
 
 export function Radio({ value, onChange, disabled, options }: IRadioProps) {
   return (

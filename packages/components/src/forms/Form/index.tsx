@@ -15,10 +15,11 @@ import { Label, SizableText, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
+import type { IPropsWithTestId } from '../../types';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
-export type IFormProps = PropsWithChildren<{
+export type IFormProps = IPropsWithTestId<{
   form: UseFormReturn<any>;
   header?: React.ReactNode;
 }>;
@@ -47,6 +48,7 @@ const getChildProps = (
   field: ControllerRenderProps<any, string>,
   error: Error,
 ) => {
+  const hasError = !!error;
   const { onChange, onChangeText } = child.props as {
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
@@ -60,6 +62,7 @@ const getChildProps = (
       return {
         ...field,
         error,
+        hasError,
         onChangeText: handleChange,
       };
     }
@@ -70,6 +73,7 @@ const getChildProps = (
       return {
         ...field,
         error,
+        hasError,
         onChange: handleChange,
       };
     }
