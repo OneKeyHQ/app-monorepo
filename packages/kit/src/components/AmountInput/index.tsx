@@ -27,7 +27,6 @@ type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenSymbol?: string;
     } & IXStackProps;
     reversible?: boolean;
-    error?: boolean;
   } & IStackProps
 >;
 
@@ -37,13 +36,14 @@ export function AmountInput({
   enableMaxAmount,
   tokenSelectorTriggerProps,
   reversible,
-  error,
   onChange,
   value,
+  name,
+  hasError,
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
-    error,
+    error: hasError,
   });
 
   return (
@@ -62,6 +62,7 @@ export function AmountInput({
           keyboardType="number-pad"
           height="$14"
           fontSize={getFontSize('$heading3xl')}
+          fontWeight="600"
           borderTopWidth="$0"
           borderRightWidth="$0"
           borderBottomWidth="$0"
