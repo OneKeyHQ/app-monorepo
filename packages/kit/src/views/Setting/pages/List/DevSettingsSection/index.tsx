@@ -109,6 +109,7 @@ export const DevSettingsSection = () => {
                   testID="clear-password"
                   onPress={() => {
                     void backgroundApiProxy.servicePassword.clearCachedPassword();
+                    void dialog.close();
                   }}
                 />
               </YStack>
