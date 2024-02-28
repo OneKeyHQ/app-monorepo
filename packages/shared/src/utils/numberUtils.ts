@@ -45,6 +45,7 @@ export interface IDisplayNumber {
   value: string;
   unit?: string;
   leadingZeros?: number;
+  leading?: string;
   currency?: string;
   symbol?: string;
 }
@@ -86,6 +87,7 @@ export function formatBalance(value: string): IDisplayNumber {
   };
 }
 
+// Price/USD
 export function formatPrice(value: string, currency: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
@@ -103,12 +105,25 @@ export function formatPrice(value: string, currency: string): IDisplayNumber {
   };
 }
 
+// PriceChange
 export function formatPriceChange(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return { value: '0.00', symbol: '%' };
   }
   return { value: val.toFixed(2), symbol: '%' };
+}
+
+// DeFi Value
+export function formatDeFiValue(
+  value: string,
+  currency: string,
+): IDisplayNumber {
+  const val = new BigNumber(value);
+  if (val.lt(0.01)) {
+    return { value: '0.01', leading: '<', currency };
+  }
+  return { value: val.toFixed(2), symbol: '%', currency };
 }
 
 // FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply
