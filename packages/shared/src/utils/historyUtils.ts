@@ -35,6 +35,7 @@ export function getOnChainHistoryTxAssetInfo({
   let address = '';
   let isNFT = false;
   let isNative = false;
+  let price = '0';
   if (!tokenAddress) {
     asset = tokens.native;
   } else {
@@ -57,6 +58,7 @@ export function getOnChainHistoryTxAssetInfo({
     address = token.address;
     isNFT = false;
     isNative = !!token.isNative;
+    price = (asset as IOnChainHistoryTxToken).price ?? '0';
   }
   return {
     name,
@@ -65,5 +67,6 @@ export function getOnChainHistoryTxAssetInfo({
     icon,
     isNFT,
     isNative,
+    price,
   };
 }

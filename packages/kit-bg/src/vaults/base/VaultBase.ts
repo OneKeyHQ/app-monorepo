@@ -341,7 +341,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     transfer: IOnChainHistoryTxTransfer;
     tokens: Record<string, IOnChainHistoryTxAsset>;
   }) {
-    const { icon, symbol, name, isNFT, isNative } =
+    const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
         tokenAddress: transfer.token,
         tokens,
@@ -358,6 +358,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       symbol,
       isNFT,
       isNative,
+      price,
     };
   }
 
