@@ -161,19 +161,25 @@ test('formatBalance', () => {
 
 test('formatPrice', () => {
   // not a number
-  expect(formatDisplayNumber(formatPrice('1abcd1', '$'))).toEqual('$0.00');
-  // less than hundred
-  expect(formatDisplayNumber(formatPrice('10.103', '$'))).toEqual('$10.10');
-  // thousand
-  expect(formatDisplayNumber(formatPrice('12345.21', '$'))).toEqual(
-    '$12,345.21',
+  expect(formatDisplayNumber(formatPrice('1abcd1', { currency: '$' }))).toEqual(
+    '$0.00',
   );
-  expect(formatDisplayNumber(formatPrice('12345', '$'))).toEqual('$12,345.00');
+  // less than hundred
+  expect(formatDisplayNumber(formatPrice('10.103', { currency: '$' }))).toEqual(
+    '$10.10',
+  );
+  // thousand
+  expect(
+    formatDisplayNumber(formatPrice('12345.21', { currency: '$' })),
+  ).toEqual('$12,345.21');
+  expect(formatDisplayNumber(formatPrice('12345', { currency: '$' }))).toEqual(
+    '$12,345.00',
+  );
   expect(
     formatDisplayNumber(
       formatPrice(
         '13557362245700035555161495398047413998367933131241010410691763880119784559016062844916472252762015173133555676356423519969743085158179152633859513576266605508375167501289296167138332859964556394542868213514778276007018586151530368896935403362153851120149886761999054463554127943866078939583808923520112330553910779375966862567701643361707370405490856611696753232661556874041759.125456789',
-        '$',
+        { currency: '$' },
       ),
     ),
   ).toEqual(
@@ -181,25 +187,23 @@ test('formatPrice', () => {
   );
 
   // less then 1, but leading zeros is less then 4
-  expect(formatDisplayNumber(formatPrice('0.1', '$'))).toEqual('$0.1');
-  expect(formatDisplayNumber(formatPrice('0.0045', '$'))).toEqual('$0.0045');
-  expect(formatDisplayNumber(formatPrice('0.0000454283', '$'))).toEqual(
-    '$0.00004543',
+  expect(formatDisplayNumber(formatPrice('0.1', { currency: '$' }))).toEqual(
+    '$0.1',
   );
+  expect(formatDisplayNumber(formatPrice('0.0045', { currency: '$' }))).toEqual(
+    '$0.0045',
+  );
+  expect(
+    formatDisplayNumber(formatPrice('0.0000454283', { currency: '$' })),
+  ).toEqual('$0.00004543');
 
   // less then 1, but leading zeros is more then 4
-  expect(formatDisplayNumber(formatPrice('0.0000041000', '$'))).toEqual([
-    '$',
-    '0.0',
-    { 'type': 'sub', 'value': 5 },
-    '41',
-  ]);
-  expect(formatDisplayNumber(formatPrice('0.0000000214562', '$'))).toEqual([
-    '$',
-    '0.0',
-    { 'type': 'sub', 'value': 7 },
-    '2146',
-  ]);
+  expect(
+    formatDisplayNumber(formatPrice('0.0000041000', { currency: '$' })),
+  ).toEqual(['$', '0.0', { 'type': 'sub', 'value': 5 }, '41']);
+  expect(
+    formatDisplayNumber(formatPrice('0.0000000214562', { currency: '$' })),
+  ).toEqual(['$', '0.0', { 'type': 'sub', 'value': 7 }, '2146']);
 });
 
 test('formatPriceChange', () => {
@@ -225,26 +229,40 @@ test('formatPriceChange', () => {
 });
 
 test('formatDeFiValue', () => {
-  expect(formatDisplayNumber(formatDeFiValue('1abc1', '$'))).toEqual('< $0.01');
-  expect(formatDisplayNumber(formatDeFiValue('0.009', '$'))).toEqual('< $0.01');
-  expect(formatDisplayNumber(formatDeFiValue('0.000001', '$'))).toEqual(
-    '< $0.01',
-  );
-  expect(formatDisplayNumber(formatDeFiValue('0.0000000001', '$'))).toEqual(
-    '< $0.01',
-  );
-  expect(formatDisplayNumber(formatDeFiValue('0.01', '$'))).toEqual('$0.01');
-
-  expect(formatDisplayNumber(formatDeFiValue('0.1', '$'))).toEqual('$0.10');
-  expect(formatDisplayNumber(formatDeFiValue('3.74', '$'))).toEqual('$3.74');
-  expect(formatDisplayNumber(formatDeFiValue('23374.7', '$'))).toEqual(
-    '$23,374.70',
-  );
   expect(
-    formatDisplayNumber(formatDeFiValue('912312381912937323375', '$')),
+    formatDisplayNumber(formatDeFiValue('1abc1', { currency: '$' })),
+  ).toEqual('< $0.01');
+  expect(
+    formatDisplayNumber(formatDeFiValue('0.009', { currency: '$' })),
+  ).toEqual('< $0.01');
+  expect(
+    formatDisplayNumber(formatDeFiValue('0.000001', { currency: '$' })),
+  ).toEqual('< $0.01');
+  expect(
+    formatDisplayNumber(formatDeFiValue('0.0000000001', { currency: '$' })),
+  ).toEqual('< $0.01');
+  expect(
+    formatDisplayNumber(formatDeFiValue('0.01', { currency: '$' })),
+  ).toEqual('$0.01');
+
+  expect(
+    formatDisplayNumber(formatDeFiValue('0.1', { currency: '$' })),
+  ).toEqual('$0.10');
+  expect(
+    formatDisplayNumber(formatDeFiValue('3.74', { currency: '$' })),
+  ).toEqual('$3.74');
+  expect(
+    formatDisplayNumber(formatDeFiValue('23374.7', { currency: '$' })),
+  ).toEqual('$23,374.70');
+  expect(
+    formatDisplayNumber(
+      formatDeFiValue('912312381912937323375', { currency: '$' }),
+    ),
   ).toEqual('$912,312,381,912,937,323,375.00');
   expect(
-    formatDisplayNumber(formatDeFiValue('12312381912937323374.7', '$')),
+    formatDisplayNumber(
+      formatDeFiValue('12312381912937323374.7', { currency: '$' }),
+    ),
   ).toEqual('$12,312,381,912,937,323,374.70');
 });
 
