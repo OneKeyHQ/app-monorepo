@@ -6,20 +6,14 @@ import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Form,
-  Icon,
-  Input,
-  Page,
-  SizableText,
-  useForm,
-} from '@onekeyhq/components';
+import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
   type IAddressInputValue,
   allAddressInputPlugins,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
+import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -40,7 +34,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
-import AmountInput from '../../components/AmountInput';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -342,7 +335,7 @@ function SendDataInputContainer() {
           },
         }}
       >
-        <AmountInput
+        {/* <AmountInput
           isUseFiat={isUseFiat}
           maxAmount={maxAmount}
           linkedAmount={linkedAmount}
@@ -350,21 +343,38 @@ function SendDataInputContainer() {
           currencySymbol={currencySymbol}
           onChangePercent={handleOnChangeAmountPercent}
           onChangeAmountMode={handleOnChangeAmountMode}
+        /> */}
+        <AmountInput
+          reversible
+          enableMaxAmount
+          balance={maxAmount}
+          tokenSelectorTriggerProps={{
+            selectedTokenImageUri: isNFT
+              ? nft?.metadata?.image
+              : tokenInfo?.logoURI,
+            selectedNetworkImageUri: network?.logoURI,
+            selectedTokenSymbol: isNFT
+              ? nft?.metadata?.name
+              : tokenInfo?.symbol,
+            onPress: isNFT ? undefined : handleOnSelectToken,
+          }}
         />
       </Form.Field>
     ),
     [
-      currencySymbol,
       form,
-      handleOnChangeAmountMode,
-      handleOnChangeAmountPercent,
+      handleOnSelectToken,
       handleValidateTokenAmount,
       intl,
+      isNFT,
       isUseFiat,
-      linkedAmount,
       maxAmount,
+      network?.logoURI,
+      nft?.metadata?.image,
+      nft?.metadata?.name,
       tokenDetails?.info.decimals,
-      tokenSymbol,
+      tokenInfo?.logoURI,
+      tokenInfo?.symbol,
     ],
   );
   const renderNFTDataInputForm = useCallback(() => {
@@ -404,38 +414,36 @@ function SendDataInputContainer() {
       <Page.Header title="Send" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: 'form__token' })}
-            name="token"
-          >
-            <ListItem
-              avatarProps={{
-                src: isNFT ? nft?.metadata?.image : tokenInfo?.logoURI,
-                borderRadius: '$full',
-                cornerImageProps: {
-                  src: network?.logoURI,
-                },
-              }}
-              mx="$0"
-              borderWidth={1}
-              borderColor="$border"
-              onPress={isNFT ? undefined : handleOnSelectToken}
-              borderRadius="$2"
+          {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+            <Form.Field
+              label={intl.formatMessage({ id: 'form__token' })}
+              name="token"
             >
-              <ListItem.Text
-                flex={1}
-                primary={isNFT ? nft?.metadata?.name : tokenInfo?.symbol}
-                secondary={
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {tokenInfo?.name}
-                  </SizableText>
-                }
-              />
-              {!isNFT && (
-                <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" />
-              )}
-            </ListItem>
-          </Form.Field>
+              <ListItem
+                avatarProps={{
+                  src: nft?.metadata?.image,
+                  borderRadius: '$full',
+                  cornerImageProps: {
+                    src: network?.logoURI,
+                  },
+                }}
+                mx="$0"
+                borderWidth={1}
+                borderColor="$border"
+                borderRadius="$2"
+              >
+                <ListItem.Text
+                  flex={1}
+                  primary={nft?.metadata?.name}
+                  secondary={
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {tokenInfo?.name}
+                    </SizableText>
+                  }
+                />
+              </ListItem>
+            </Form.Field>
+          ) : null}
           <Form.Field
             label={intl.formatMessage({ id: 'content__to' })}
             name="to"
