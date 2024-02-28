@@ -141,7 +141,10 @@ export function formatBalance(value: string): IDisplayNumber {
 }
 
 // Price/USD
-export function formatPrice(value: string, currency: string): IDisplayNumber {
+export function formatPrice(
+  value: string,
+  { currency }: { currency: string },
+): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return {
@@ -178,7 +181,7 @@ export function formatPriceChange(value: string): IDisplayNumber {
 // DeFi Value
 export function formatDeFiValue(
   value: string,
-  currency: string,
+  { currency }: { currency: string },
 ): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN() || val.lt(0.01)) {
