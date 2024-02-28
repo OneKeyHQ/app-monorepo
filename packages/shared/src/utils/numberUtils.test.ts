@@ -271,9 +271,12 @@ test('formatFDV', () => {
   expect(formatDisplayNumber(formatFDV('1abcd1'))).toEqual('0');
 
   // less then 0
+  expect(formatDisplayNumber(formatFDV('-0.125423'))).toEqual('-0.13');
+
+  // less then 1
   expect(formatDisplayNumber(formatFDV('0.125423'))).toEqual('0.13');
 
-  // more then 0，but less then 1 hundred
+  // more then 1，but less then 1 hundred
   expect(formatDisplayNumber(formatFDV('1'))).toEqual('1');
   expect(formatDisplayNumber(formatFDV('22.125423'))).toEqual('22.13');
 
