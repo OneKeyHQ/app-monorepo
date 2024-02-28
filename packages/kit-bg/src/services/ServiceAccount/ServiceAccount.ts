@@ -40,6 +40,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -75,6 +76,29 @@ import type {
 class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async clearWalletsAndAccounts() {
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.Account,
+    });
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.Wallet,
+    });
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.Credential,
+    });
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.Address,
+    });
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.IndexedAccount,
+    });
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.Device,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
   }
 
   @backgroundMethod()

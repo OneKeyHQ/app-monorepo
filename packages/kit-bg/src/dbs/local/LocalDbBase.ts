@@ -170,6 +170,11 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   // ---------------------------------------------- base
   abstract reset(): Promise<void>;
 
+  async clearRecords(params: { name: ELocalDBStoreNames }) {
+    const db = await this.readyDb;
+    return db.clearRecords(params);
+  }
+
   confirmHDWalletBackuped(walletId: string): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
