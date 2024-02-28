@@ -48,6 +48,7 @@ const getChildProps = (
   field: ControllerRenderProps<any, string>,
   error: Error,
 ) => {
+  const hasError = !!error;
   const { onChange, onChangeText } = child.props as {
     onChange?: (value: unknown) => void;
     onChangeText?: (value: unknown) => void;
@@ -61,6 +62,7 @@ const getChildProps = (
       return {
         ...field,
         error,
+        hasError,
         onChangeText: handleChange,
       };
     }
@@ -71,6 +73,7 @@ const getChildProps = (
       return {
         ...field,
         error,
+        hasError,
         onChange: handleChange,
       };
     }

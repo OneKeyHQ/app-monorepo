@@ -108,7 +108,21 @@ const GalleryLayout = () => (
       },
       {
         title: 'Example 5 (Error)',
-        element: <AmountInput error />,
+        element: () => {
+          const form = useForm({ defaultValues: { amount: '' } });
+          return (
+            <Form form={form}>
+              <Form.Field
+                name="amount"
+                rules={{
+                  required: true,
+                }}
+              >
+                <AmountInput />
+              </Form.Field>
+            </Form>
+          );
+        },
       },
       {
         title: 'Example 6 (Form)',
@@ -159,6 +173,7 @@ const GalleryLayout = () => (
                 <NetworksFilterItem
                   networkImageUri="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png"
                   tooltipContent="Bitcoin"
+                  disabled
                 />
                 <NetworksFilterItem networkName="12+" flex={1} />
               </XStack>
