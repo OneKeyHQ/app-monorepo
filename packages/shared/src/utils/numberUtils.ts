@@ -88,7 +88,7 @@ const formatLocalNumber = (
   return keepTrailingZeros ? stripTrailingZero(result) : result;
 };
 
-// format Balance/Amount
+/** Balance/Amount */
 export function formatBalance(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
@@ -140,7 +140,7 @@ export function formatBalance(value: string): IDisplayNumber {
   };
 }
 
-// Price/USD
+/** Price/USD */
 export function formatPrice(
   value: string,
   { currency }: { currency: string },
@@ -166,7 +166,7 @@ export function formatPrice(
   };
 }
 
-// PriceChange
+/** PriceChange */
 export function formatPriceChange(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
@@ -178,7 +178,7 @@ export function formatPriceChange(value: string): IDisplayNumber {
   };
 }
 
-// DeFi Value
+/** DeFi Value */
 export function formatDeFiValue(
   value: string,
   { currency }: { currency: string },
@@ -193,7 +193,7 @@ export function formatDeFiValue(
   };
 }
 
-// FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply
+/** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
 export function formatFDV(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
