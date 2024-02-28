@@ -374,10 +374,11 @@ function SelectFrame<T extends string | ISelectItem>({
 
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
+  testID = '',
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
-    ({ label, value, placeholder, disabled }: ISelectRenderTriggerProps) => (
+    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
         <Input
           value={label}
@@ -385,7 +386,7 @@ function BasicSelect<T extends string | ISelectItem>({
           placeholder={placeholder}
           readonly
           flex={1}
-          testID={`${props.testID || ''}-input`}
+          testID={`${testID}-input`}
         />
         <Icon
           name="ChevronBottomSolid"
