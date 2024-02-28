@@ -1073,6 +1073,58 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'bbn-test-3',
+    'code': 'babylontestnet',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'bbn',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0.007',
+          'high': '0.01',
+          'low': '0.007',
+          'normal': '0.007',
+        },
+        'mainCoinDenom': 'ubbn',
+      },
+    },
+    'id': 'cosmos--bbn-test-3',
+    'impl': 'cosmos',
+    'isTestnet': true,
+    'logoURI':
+      'https://onekey-asset.com/assets/babylontestnet/babylontestnet.png',
+    'name': 'Babylon Testnet',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd.testnet3.babylonchain.io',
+      },
+    ],
+    'shortcode': 'tbbn',
+    'shortname': 'TBBN',
+    'symbol': 'TBBN',
+    'feeMeta': {
+      'code': 'tbbn',
+      'decimals': 6,
+      'symbol': 'TBBN',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://babylon.explorers.guru/account/{address}',
+        'block': 'https://babylon.explorers.guru/block/{block}',
+        'name': 'https://babylon.explorers.guru/',
+        'transaction':
+          'https://babylon.explorers.guru/transaction/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-02-28T01:00:00.000Z',
+    'updatedAt': '2024-02-28T01:00:00.000Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': '0',
     'code': 'doge',
     'decimals': 8,
