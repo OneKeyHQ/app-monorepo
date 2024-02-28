@@ -163,7 +163,7 @@ class BlockBook {
     networkId: string;
   }): Promise<IBtcUTXOInfo> {
     const res = await this.backendRequest.post<IBtcUTXOInfo>(
-      `/${impl}/api/v2/utxo_info/`,
+      `/${impl}/api/v3/utxo_info/`,
       {
         xpub,
         forceSelectUtxos: options.forceSelectUtxos,
@@ -273,7 +273,7 @@ class BlockBook {
     decimals: number,
   ): Promise<any> {
     return this.backendRequest
-      .post('/history', {
+      .post('/v2/history', {
         network,
         networkId,
         address,
