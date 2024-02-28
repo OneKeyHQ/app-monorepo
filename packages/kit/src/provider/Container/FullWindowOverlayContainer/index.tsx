@@ -1,5 +1,6 @@
 import { Portal, ShowToastProvider } from '@onekeyhq/components';
 
+import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
 import { OverlayContainer } from './OverlayContainer';
 
 export function FullWindowOverlayContainer() {
@@ -7,6 +8,7 @@ export function FullWindowOverlayContainer() {
     <OverlayContainer>
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
       <ShowToastProvider />
+      <DevOverlayWindowContainer />
     </OverlayContainer>
   );
 }
