@@ -2,8 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import {
   formatBalance,
+  formatDeFiValue,
   formatDisplayNumber,
   formatPrice,
+  formatPriceChange,
   fromBigIntHex,
   toBigIntHex,
 } from './numberUtils';
@@ -166,4 +168,81 @@ test('formatPrice', () => {
     '$12,345.21',
   );
   expect(formatDisplayNumber(formatPrice('12345', '$'))).toEqual('$12,345.00');
+  expect(
+    formatDisplayNumber(
+      formatPrice(
+        '900719925474099290071992547409929007199254740992900719925474099290071992547409929007199254740992900719925474099290071992547409929007199254740992900719925474099290071992547409929007199254740992.125456789',
+        '$',
+      ),
+    ),
+  ).toEqual(
+    '$900,719,925,474,099,290,071,992,547,409,929,007,199,254,740,992,900,719,925,474,099,290,071,992,547,409,929,007,199,254,740,992,900,719,925,474,099,290,071,992,547,409,929,007,199,254,740,992,900,719,925,474,099,290,071,992,547,409,929,007,199,254,740,992.13',
+  );
+
+  // less then 1, but leading zeros is less then 4
+  expect(formatDisplayNumber(formatPrice('0.1', '$'))).toEqual('$0.1');
+  expect(formatDisplayNumber(formatPrice('0.0045', '$'))).toEqual('$0.0045');
+  expect(formatDisplayNumber(formatPrice('0.0000454283', '$'))).toEqual(
+    '$0.00004543',
+  );
+
+  // less then 1, but leading zeros is more then 4
+  expect(formatDisplayNumber(formatPrice('0.0000041000', '$'))).toEqual([
+    '$',
+    '0.0',
+    { 'type': 'sub', 'value': 5 },
+    '41',
+  ]);
+  expect(formatDisplayNumber(formatPrice('0.0000000214562', '$'))).toEqual([
+    '$',
+    '0.0',
+    { 'type': 'sub', 'value': 7 },
+    '2146',
+  ]);
+});
+
+test('formatPriceChange', () => {
+  expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('0.00%');
+  expect(formatDisplayNumber(formatPriceChange('0.1'))).toEqual('0.10%');
+  expect(formatDisplayNumber(formatPriceChange('3.74'))).toEqual('3.74%');
+  expect(formatDisplayNumber(formatPriceChange('23374.7'))).toEqual(
+    '23,374.70%',
+  );
+  expect(
+    formatDisplayNumber(formatPriceChange('12312381912937323374.7')),
+  ).toEqual('12,312,381,912,937,323,374.70%');
+  expect(formatDisplayNumber(formatPriceChange('427.1'))).toEqual('427.10%');
+  expect(formatDisplayNumber(formatPriceChange('-0.14'))).toEqual('-0.14%');
+  expect(formatDisplayNumber(formatPriceChange('-16.4'))).toEqual('-16.40%');
+  expect(formatDisplayNumber(formatPriceChange('-1.11'))).toEqual('-1.11%');
+  expect(
+    formatDisplayNumber(formatPriceChange('-12312381912937323374.7')),
+  ).toEqual('-12,312,381,912,937,323,374.70%');
+  expect(
+    formatDisplayNumber(formatPriceChange('-12312381912937323374')),
+  ).toEqual('-12,312,381,912,937,323,374.00%');
+});
+
+test('formatDeFiValue', () => {
+  expect(formatDisplayNumber(formatDeFiValue('1abc1', '$'))).toEqual('< $0.01');
+  expect(formatDisplayNumber(formatDeFiValue('0.009', '$'))).toEqual('< $0.01');
+  expect(formatDisplayNumber(formatDeFiValue('0.000001', '$'))).toEqual(
+    '< $0.01',
+  );
+  expect(formatDisplayNumber(formatDeFiValue('0.0000000001', '$'))).toEqual(
+    '< $0.01',
+  );
+  expect(formatDisplayNumber(formatDeFiValue('0.01', '$'))).toEqual('$0.01');
+
+  expect(formatDisplayNumber(formatDeFiValue('0.1', '$'))).toEqual('$0.10');
+  expect(formatDisplayNumber(formatDeFiValue('3.74', '$'))).toEqual('$3.74');
+  expect(formatDisplayNumber(formatDeFiValue('23374.7', '$'))).toEqual(
+    '$23,374.70',
+  );
+  expect(
+    formatDisplayNumber(formatDeFiValue('912312381912937323375', '$')),
+  ).toEqual('$912,312,381,912,937,323,375.00');
+  expect(
+    formatDisplayNumber(formatDeFiValue('12312381912937323374.7', '$')),
+  ).toEqual('$12,312,381,912,937,323,374.70');
 });
