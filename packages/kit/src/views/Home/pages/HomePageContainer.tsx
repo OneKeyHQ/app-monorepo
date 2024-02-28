@@ -120,9 +120,13 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                   <EmptyAccount
                     name={accountName}
                     chain={network?.name ?? ''}
-                    type={intl.formatMessage({
-                      id: deriveInfo?.labelKey,
-                    })}
+                    type={
+                      deriveInfo?.labelKey
+                        ? intl.formatMessage({
+                            id: deriveInfo?.labelKey,
+                          })
+                        : deriveInfo?.label
+                    }
                   />
                 </Stack>
               </YStack>
@@ -142,6 +146,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   }, [
     account,
     accountName,
+    deriveInfo?.label,
     deriveInfo?.labelKey,
     headerTitle,
     intl,
