@@ -110,6 +110,9 @@ export function DeriveTypeSelectorTrigger({
           selectedAccount.networkId || ''
         }`}
         items={selectItems}
+        floatingPanelProps={{
+          width: '$78',
+        }}
         value={selectedAccount.deriveType}
         onChange={(type) =>
           actions.current.updateSelectedAccount({
