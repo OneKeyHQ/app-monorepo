@@ -31,15 +31,6 @@ export const openUrl = (
   }
 };
 
-export const openUrlExternal = (url: string) => {
-  if (platformEnv.isNative) {
-    // open by OS default browser
-    void LinkingOpenURL(url);
-  } else {
-    window.open(url, '_blank');
-  }
-};
-
 export const openSettings = (prefType: IPrefType) => {
   if (platformEnv.isNative) {
     void LinkingOpenSettings();
