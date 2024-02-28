@@ -27,6 +27,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     labelKey: 'form__bip44_standard',
     template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETH,
+    desc: 'OneKey, MetaMask, Trezor, imToken, m/44’/60’/0’/0/*',
   },
   // TODO
   etcNative: {
@@ -49,6 +50,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     idSuffix: 'LedgerLive', // hd-1--m/44'/60'/0'/0/0--LedgerLive
     template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_ETH,
+    desc: 'm/44’/60’/*’/0/0',
   },
 };
 
