@@ -2,22 +2,35 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Switch, useClipboard } from '@onekeyhq/components';
+import {
+  Dialog,
+  SizableText,
+  Switch,
+  XStack,
+  YStack,
+  useClipboard,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
 import { Section } from '../Section';
 
-import { SectionItem } from './SectionItem';
+import { SectionFieldItem } from './SectionFieldItem';
+import { SectionPressItem } from './SectionPressItem';
 
+const { GITHUB_SHA } = process.env;
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
 
   const { copyText } = useClipboard();
-  const handleDevModeOnChange = useCallback((isOpen: boolean) => {
-    void backgroundApiProxy.serviceDevSetting.switchDevMode(isOpen);
+  const handleDevModeOnChange = useCallback(() => {
+    Dialog.show({
+      title: 'Disable the dev mode',
+      onConfirm: () => {
+        void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+      },
+    });
   }, []);
 
   if (!settings.enabled) {
@@ -29,36 +42,68 @@ export const DevSettingsSection = () => {
       title={intl.formatMessage({ id: 'form__dev_mode' })}
       titleProps={{ color: '$textCritical' }}
     >
-      <ListItem title="DevMode Switch" titleProps={{ color: '$textCritical' }}>
-        <Switch
-          size="small"
-          value={settings.enabled}
-          onChange={handleDevModeOnChange}
-        />
-      </ListItem>
-      <SectionItem title="Build Hash">
-        <SizableText
+      <SectionPressItem
+        title="Disable the dev mode"
+        onPress={handleDevModeOnChange}
+      />
+      {GITHUB_SHA && (
+        <SectionPressItem
+          title={`BuildHash: ${GITHUB_SHA}`}
           onPress={() => {
-            if (process.env.GITHUB_SHA) {
-              copyText(process.env.GITHUB_SHA);
-            }
+            copyText(GITHUB_SHA);
           }}
-        >
-          {process.env.GITHUB_SHA ? process.env.GITHUB_SHA : '--'}
-        </SizableText>
-      </SectionItem>
-      <SectionItem
+        />
+      )}
+      <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
       >
         <Switch size="small" />
-      </SectionItem>
-      <SectionItem
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="showDevOverlayWindow"
+        title="show dev overlay window"
+      >
+        <Switch size="small" />
+      </SectionFieldItem>
+      <SectionFieldItem
         name="enableCopyPasteInOnboardingPage"
         title="Show Copy/Paste In Onboarding Page"
       >
         <Switch size="small" />
-      </SectionItem>
+      </SectionFieldItem>
+      <SectionPressItem
+        title="Clear App Data"
+        onPress={() => {
+          const dialog = Dialog.cancel({
+            title: 'Clear App Data',
+            renderContent: (
+              <YStack>
+                <SectionPressItem
+                  title="Clear Dapp Data"
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
+                    await dialog.close();
+                  }}
+                />
+                <SectionPressItem
+                  title="Clear Contracts Data"
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceAddressBook.dangerClearDataForE2E();
+                    await dialog.close();
+                  }}
+                />
+                <SectionPressItem
+                  title="Clear Wallets Data"
+                  onPress={() => {
+                    void dialog.close();
+                  }}
+                />
+              </YStack>
+            ),
+          });
+        }}
+      />
     </Section>
   );
 };

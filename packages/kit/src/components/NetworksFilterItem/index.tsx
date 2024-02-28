@@ -6,6 +6,7 @@ export type INetworksFilterItemProps = {
   networkName?: string;
   isSelected?: boolean;
   tooltipContent?: string;
+  disabled?: boolean;
 } & IXStackProps;
 
 export function NetworksFilterItem({
@@ -13,6 +14,7 @@ export function NetworksFilterItem({
   networkName,
   isSelected,
   tooltipContent,
+  disabled,
   ...rest
 }: INetworksFilterItemProps) {
   const BaseComponent = (
@@ -26,19 +28,23 @@ export function NetworksFilterItem({
       style={{
         borderCurve: 'continuous',
       }}
-      {...(!isSelected && {
-        focusable: true,
-        hoverStyle: {
-          bg: '$bgStrongHover',
-        },
-        pressStyle: {
-          bg: '$bgStrongActive',
-        },
-        focusStyle: {
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineColor: '$focusRing',
-        },
+      {...(!isSelected &&
+        !disabled && {
+          focusable: true,
+          hoverStyle: {
+            bg: '$bgStrongHover',
+          },
+          pressStyle: {
+            bg: '$bgStrongActive',
+          },
+          focusStyle: {
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineColor: '$focusRing',
+          },
+        })}
+      {...(disabled && {
+        opacity: 0.5,
       })}
       {...rest}
     >
