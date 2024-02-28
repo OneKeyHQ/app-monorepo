@@ -92,6 +92,8 @@ export interface IFetchQuotesParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  fromTokenIsNative?: boolean;
+  toTokenIsNative?: boolean;
 }
 interface ISocketAsset {
   address: string;
