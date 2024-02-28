@@ -81,7 +81,7 @@ function TokenList() {
   }, [keys, refreshTokenList, refreshTokenListMap, tokenMap, tokens]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
         <TokenListView
