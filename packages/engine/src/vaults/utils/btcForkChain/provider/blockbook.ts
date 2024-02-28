@@ -155,10 +155,12 @@ class BlockBook {
     xpub,
     impl,
     options,
+    networkId,
   }: {
     xpub: string;
     impl: string;
     options: ICollectUTXOsOptions;
+    networkId: string;
   }): Promise<IBtcUTXOInfo> {
     const res = await this.backendRequest.post<IBtcUTXOInfo>(
       `/${impl}/api/v2/utxo_info/`,
@@ -170,6 +172,7 @@ class BlockBook {
           ? true
           : options.checkInscription,
         customAddressMap: options.customAddressMap,
+        networkId,
       },
     );
     return res.data;
@@ -263,6 +266,7 @@ class BlockBook {
 
   async getHistory(
     network: string,
+    networkId: string,
     address: string,
     xpub: string,
     symbol: string,
@@ -271,6 +275,7 @@ class BlockBook {
     return this.backendRequest
       .post('/history', {
         network,
+        networkId,
         address,
         xpub: xpub || undefined,
         symbol,

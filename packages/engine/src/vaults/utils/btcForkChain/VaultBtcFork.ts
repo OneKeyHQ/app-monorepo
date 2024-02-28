@@ -1369,6 +1369,7 @@ export default class VaultBtcFork extends VaultBase {
               xpub: this.getAccountXpub(dbAccount),
             },
             impl,
+            this.networkId,
             dbAccount.address,
             symbol,
             decimals,
