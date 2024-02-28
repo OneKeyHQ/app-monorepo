@@ -1,5 +1,8 @@
 import { useRef } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+import { debounce } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -8,7 +11,6 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
-  ESwapTxHistoryStatus,
   type ISwapToken,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -251,19 +253,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   };
 
   approvingStateRunSync = contextAtomMethod(
-    async (get, set, networkId: string, txId: string) => {
-      const res = await backgroundApiProxy.serviceSwap.fetchTxState({
+    async (
+      get,
+      set,
+      networkId: string,
+      tokenAddress: string,
+      userAddress: string,
+      spenderAddress: string,
+      amount: string,
+    ) => {
+      const res = await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
         networkId,
-        txId,
+        tokenAddress,
+        walletAddress: userAddress,
+        spenderAddress,
       });
-      if (
-        res.state === ESwapTxHistoryStatus.SUCCESS ||
-        res.state === ESwapTxHistoryStatus.FAILED
-      ) {
-        set(swapApprovingTransactionAtom(), undefined);
-        set(swapBuildTxFetchingAtom(), false);
-        if (this.approvingInterval) {
-          clearInterval(this.approvingInterval);
+      if (res) {
+        const allowanceBN = new BigNumber(res);
+        const amountBN = new BigNumber(amount);
+        if (!allowanceBN.isNaN() && allowanceBN.gte(amountBN)) {
+          set(swapApprovingTransactionAtom(), undefined);
+          set(swapBuildTxFetchingAtom(), false);
+          if (this.approvingInterval) {
+            clearInterval(this.approvingInterval);
+          }
         }
       }
     },
@@ -278,14 +291,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       void this.approvingStateRunSync.call(
         set,
         approvingTransaction.fromToken.networkId,
-        approvingTransaction.txId,
+        approvingTransaction.fromToken.contractAddress,
+        approvingTransaction.useAddress,
+        approvingTransaction.spenderAddress,
+        approvingTransaction.amount,
       );
       this.approvingInterval = setInterval(() => {
         if (approvingTransaction.txId) {
           void this.approvingStateRunSync.call(
             set,
             approvingTransaction.fromToken.networkId,
-            approvingTransaction.txId,
+            approvingTransaction.fromToken.contractAddress,
+            approvingTransaction.useAddress,
+            approvingTransaction.spenderAddress,
+            approvingTransaction.amount,
           );
         }
       }, 3000);
@@ -311,8 +330,11 @@ export const useSwapActions = () => {
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
-  const quoteAction = actions.quoteAction.use();
-  const approvingStateAction = actions.approvingStateAction.use();
+  const quoteAction = debounce(actions.quoteAction.use(), 100);
+  const approvingStateAction = debounce(
+    actions.approvingStateAction.use(),
+    100,
+  );
   const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({

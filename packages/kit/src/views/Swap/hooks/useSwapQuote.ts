@@ -5,6 +5,7 @@ import { ETabRoutes } from '../../../routes/Tab/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapApprovingTransactionAtom,
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -16,6 +17,7 @@ export function useSwapQuote() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
   const activeAccountAddressRef = useRef<string | undefined>();
   if (activeAccountAddressRef.current !== activeAccount?.account?.address) {
     activeAccountAddressRef.current = activeAccount?.account?.address;
@@ -33,6 +35,7 @@ export function useSwapQuote() {
     fromToken,
     toToken,
     fromTokenAmount,
+    swapApprovingTransactionAtom,
   ]);
 
   useListenTabFocusState(

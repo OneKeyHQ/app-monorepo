@@ -37,6 +37,7 @@ export function useSwapBuildTx() {
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
+  const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const receiverAddress = useSwapReceiverAddress();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
@@ -47,6 +48,7 @@ export function useSwapBuildTx() {
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
       if (data?.[0]) {
+        setSwapFromTokenAmount(''); // send success, clear from token amount
         const transactionSignedInfo = data[0].signedTx;
         const transactionDecodedInfo = data[0].decodedTx;
         const txId = transactionSignedInfo.txid;
@@ -63,7 +65,7 @@ export function useSwapBuildTx() {
       }
       setSwapBuildTxFetching(false);
     },
-    [generateSwapHistoryItem, setSwapBuildTxFetching],
+    [generateSwapHistoryItem, setSwapBuildTxFetching, setSwapFromTokenAmount],
   );
 
   const handleApproveTxSuccess = useCallback(
@@ -83,10 +85,12 @@ export function useSwapBuildTx() {
 
   const handleWrappedTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
-      console.log('data-', data);
+      if (data?.[0]) {
+        setSwapFromTokenAmount('');
+      }
       setSwapBuildTxFetching(false);
     },
-    [setSwapBuildTxFetching],
+    [setSwapBuildTxFetching, setSwapFromTokenAmount],
   );
 
   const handleTxFail = useCallback(
@@ -184,6 +188,8 @@ export function useSwapBuildTx() {
             fromToken,
             toToken,
             amount,
+            useAddress: activeAccount.account.address,
+            spenderAddress: allowanceInfo.allowanceTarget,
           });
         }
         await navigationToSendConfirm({

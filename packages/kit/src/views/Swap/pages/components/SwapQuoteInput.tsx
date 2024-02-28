@@ -19,6 +19,7 @@ import SwapFromAmountPercentage from '../../components/SwapFromAmountPercentage'
 import SwapTokenAmountInput from '../../components/SwapTokenAmountInput';
 import SwapTokenCurrencyValue from '../../components/SwapTokenCurrencyValue';
 import SwapTokenSelectTrigger from '../../components/SwapTokenSelectTrigger';
+import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
@@ -42,6 +43,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
 
   useSwapQuote();
   useSwapAccountNetworkSync();
+  useSwapApproving();
 
   const amountPrice = useMemo(() => {
     const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);

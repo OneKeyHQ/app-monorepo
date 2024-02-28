@@ -156,6 +156,8 @@ export const {
       fromToken: ISwapToken;
       toToken: ISwapToken;
       provider: ESwapProviders;
+      useAddress: string;
+      spenderAddress: string;
       amount: string;
       txId?: string;
     }

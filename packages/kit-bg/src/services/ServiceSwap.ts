@@ -316,4 +316,39 @@ export default class ServiceSwap extends ServiceBase {
     }
     return { state: ESwapTxHistoryStatus.PENDING };
   }
+
+  @backgroundMethod()
+  async fetchApproveAllowance({
+    networkId,
+    tokenAddress,
+    spenderAddress,
+    walletAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    spenderAddress: string;
+    walletAddress: string;
+  }) {
+    const params = {
+      networkId,
+      tokenAddress,
+      spenderAddress,
+      walletAddress,
+    };
+    const client = await this.getClient();
+    try {
+      const { data } = await client.get<IFetchResponse<string>>(
+        '/swap/v1/allowance',
+        { params },
+      );
+      if (data?.data) {
+        return data.data;
+      }
+      Toast.error({ title: 'error', message: data?.message });
+    } catch (e) {
+      const error = e as { message: string };
+      Toast.error({ title: 'error', message: error?.message });
+    }
+    return undefined;
+  }
 }
