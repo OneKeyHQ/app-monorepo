@@ -154,9 +154,8 @@ export function formatPrice(value: string, currency: string): IDisplayNumber {
   }
 
   const zeros = countLeadingZeroDecimals(val);
-
   return {
-    formattedValue: formatLocalNumber(val, 4 + zeros),
+    formattedValue: formatLocalNumber(val, 4 + zeros, true),
     meta: { value, currency, leadingZeros: zeros },
   };
 }
