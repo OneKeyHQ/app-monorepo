@@ -1,10 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IFetchTokensParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -114,37 +117,36 @@ export function useSwapTokenList(
   };
 }
 
-export function useSwapSelectedTokenDetail({
+export function useSwapSelectedTokenInfo({
   token,
   type,
 }: {
-  type: 'from' | 'to';
+  type: ESwapDirectionType;
   token?: ISwapToken;
 }) {
   const { activeAccount } = useActiveAccount({
-    num: type === 'from' ? 0 : 1,
+    num: type === ESwapDirectionType.FROM ? 0 : 1,
   });
   const accountAddress = activeAccount.account?.address;
   const accountNetworkId = activeAccount.network?.id;
   const accountXpub = (activeAccount.account as IDBUtxoAccount)?.xpub;
-  const [swapSelectedFromTokenBalance, setSwapSelectedFromTokenBalance] =
+  const [, setSwapSelectedFromTokenBalance] =
     useSwapSelectedFromTokenBalanceAtom();
 
-  const [swapSelectedToTokenBalance, setSwapSelectedToTokenBalance] =
-    useSwapSelectedToTokenBalanceAtom();
+  const [, setSwapSelectedToTokenBalance] = useSwapSelectedToTokenBalanceAtom();
 
   const { isLoading } = usePromiseResult(
     async () => {
       if (!token || !accountAddress || !accountNetworkId) return;
+      let balanceDisplay;
       if (
         token.accountAddress === accountAddress &&
         accountNetworkId === token.networkId
       ) {
-        if (type === 'from') {
-          setSwapSelectedFromTokenBalance(token.balanceParsed ?? '0.0');
-        } else {
-          setSwapSelectedToTokenBalance(token.balanceParsed ?? '0.0');
-        }
+        const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
+        balanceDisplay = balanceParsedBN.isNaN()
+          ? '0'
+          : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
       } else {
         const detailInfo =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -154,12 +156,16 @@ export function useSwapSelectedTokenDetail({
             contractAddress: token.contractAddress,
           });
         if (detailInfo) {
-          if (type === 'from') {
-            setSwapSelectedFromTokenBalance(detailInfo.balanceParsed ?? '0.0');
-          } else {
-            setSwapSelectedToTokenBalance(detailInfo.balanceParsed ?? '0.0');
-          }
+          const balanceParsedBN = new BigNumber(detailInfo.balanceParsed ?? 0);
+          balanceDisplay = balanceParsedBN.isNaN()
+            ? '0.0'
+            : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
         }
+      }
+      if (type === 'from') {
+        setSwapSelectedFromTokenBalance(balanceDisplay ?? '0.0');
+      } else {
+        setSwapSelectedToTokenBalance(balanceDisplay ?? '0.0');
       }
     },
     [
@@ -178,9 +184,5 @@ export function useSwapSelectedTokenDetail({
   );
   return {
     isLoading,
-    swapSelectedTokenBalance:
-      type === 'from'
-        ? swapSelectedFromTokenBalance
-        : swapSelectedToTokenBalance,
   };
 }

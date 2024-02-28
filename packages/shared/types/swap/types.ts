@@ -16,6 +16,11 @@ export enum ESwapReceiveAddressType {
   ADDRESS_BOOK = 'address_book',
 }
 
+export enum ESwapDirectionType {
+  FROM = 'from',
+  TO = 'to',
+}
+
 // token & network
 export interface ISwapNetwork {
   networkId: string;
