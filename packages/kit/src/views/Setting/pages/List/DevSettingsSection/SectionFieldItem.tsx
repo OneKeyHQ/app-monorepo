@@ -7,18 +7,18 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-interface ISectionItem extends PropsWithChildren {
+interface ISectionFieldItem extends PropsWithChildren {
   name?: IDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
 }
 
-export function SectionItem({
+export function SectionFieldItem({
   name,
   title,
   children,
   titleProps = { color: '$textCritical' },
-}: ISectionItem) {
+}: ISectionFieldItem) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
   const value = name ? devSetting?.settings?.[name] : '';
