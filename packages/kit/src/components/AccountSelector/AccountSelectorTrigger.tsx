@@ -15,12 +15,16 @@ import { AccountAvatar } from '../AccountAvatar';
 import { DeriveTypeSelectorTrigger } from './DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerLegacy } from './NetworkSelectorTrigger';
 
-export function AccountSelectorTriggerHome({
+export function AccountSelectorTriggerBase({
   num,
   linkNetwork,
+  sceneName,
+  sceneUrl,
 }: {
   num: number;
   linkNetwork?: boolean;
+  sceneName: EAccountSelectorSceneName;
+  sceneUrl: string | undefined;
 }) {
   const navigation = useAppNavigation();
   const {
@@ -46,7 +50,8 @@ export function AccountSelectorTriggerHome({
           activeWallet: wallet,
           num,
           navigation,
-          sceneName: EAccountSelectorSceneName.home,
+          sceneName,
+          sceneUrl,
           linkNetwork,
         })
       }
@@ -70,6 +75,74 @@ export function AccountSelectorTriggerHome({
       </SizableText>
       <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
+  );
+}
+
+export function AccountSelectorTriggerHome({
+  num,
+  linkNetwork,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+}) {
+  return (
+    <AccountSelectorTriggerBase
+      sceneName={EAccountSelectorSceneName.home}
+      sceneUrl={undefined}
+      num={num}
+      linkNetwork={linkNetwork}
+    />
+  );
+}
+
+function AccountSelectorTriggerSwapNetworkSelector({ num }: { num: number }) {
+  const contextData = useAccountSelectorContextData();
+  const {
+    selectedAccount: { networkId },
+  } = useSelectedAccount({ num });
+
+  const { config } = contextData;
+
+  return (
+    <>
+      <NetworkSelectorTriggerLegacy
+        key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
+          config?.sceneName || ''
+        }`}
+        num={num}
+      />
+      <DeriveTypeSelectorTrigger
+        key={`DeriveTypeSelectorTrigger-${networkId || ''}-${num}-${
+          config?.sceneName || ''
+        }`}
+        num={num}
+      />
+    </>
+  );
+}
+
+export function AccountSelectorTriggerSwap({
+  num,
+  linkNetwork,
+  showNetworkSelector,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+  showNetworkSelector?: boolean;
+}) {
+  return (
+    <>
+      <AccountSelectorTriggerBase
+        sceneName={EAccountSelectorSceneName.swap}
+        sceneUrl={undefined}
+        num={num}
+        linkNetwork={linkNetwork}
+      />
+
+      {showNetworkSelector ? (
+        <AccountSelectorTriggerSwapNetworkSelector num={num} />
+      ) : null}
+    </>
   );
 }
 

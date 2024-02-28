@@ -401,7 +401,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 walletId: section.walletId,
               });
               console.log('addHDNextIndexedAccount>>>', c);
-              actions.current.updateSelectedAccount({
+              void actions.current.updateSelectedAccount({
                 num,
                 builder: (v) => ({
                   ...v,

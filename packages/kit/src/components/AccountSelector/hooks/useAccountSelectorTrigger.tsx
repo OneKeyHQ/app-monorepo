@@ -14,7 +14,7 @@ export function useAccountSelectorTrigger({ num }: { num: number }) {
   const actions = useAccountSelectorActions();
 
   const showAccountSelector = useCallback(() => {
-    actions.current.showAccountSelector({
+    void actions.current.showAccountSelector({
       activeWallet: activeAccount.wallet,
       num,
       navigation,

@@ -57,12 +57,9 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
         items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>
-          actions.current.updateSelectedAccount({
+          actions.current.updateSelectedAccountNetwork({
             num,
-            builder: (v) => ({
-              ...v,
-              networkId: id,
-            }),
+            networkId: id,
           })
         }
         title="网络"
