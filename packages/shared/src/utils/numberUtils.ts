@@ -55,15 +55,35 @@ const countLeadingZeroDecimals = (x: BigNumber) => {
   return counts > 0 ? counts : 0;
 };
 
-const removeDecimalPaddingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
+const stripTrailingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
 
-const formatLocalNumber = (value: string) =>
-  appLocale.intl.formatNumber(Number(value), { maximumFractionDigits: 20 });
+const formatLocalNumber = (
+  value: BigNumber | string,
+  digits = 2,
+  keepTrailingZeros = false,
+  keepDigits = false,
+) => {
+  const string = typeof value === 'string' ? value : value.toFixed();
+  let [integerPart, decimalPart] = string.split('.');
+  if (!decimalPart && keepDigits) {
+    decimalPart = '0';
+  }
+  const decimal = decimalPart ? `.${decimalPart}` : '';
 
-const formatNumber = (value: string, isRemoveDecimalPaddingZero = false) =>
-  isRemoveDecimalPaddingZero
-    ? formatLocalNumber(removeDecimalPaddingZero(value))
-    : formatLocalNumber(value);
+  const integer = appLocale.intl.formatNumber(BigInt(integerPart));
+
+  const result = `${integer}${
+    decimal
+      ? appLocale.intl
+          .formatNumber(Number.parseFloat(decimal), {
+            maximumFractionDigits: digits,
+            minimumFractionDigits: digits,
+          })
+          .slice(1)
+      : ''
+  }`;
+  return keepTrailingZeros ? stripTrailingZero(result) : result;
+};
 
 // format Balance/Amount
 export function formatBalance(value: string): IDisplayNumber {
@@ -74,7 +94,7 @@ export function formatBalance(value: string): IDisplayNumber {
   if (val.gte(1)) {
     if (val.gte(10e14)) {
       return {
-        formattedValue: formatNumber(val.div(10e14).toFixed(4), true),
+        formattedValue: formatLocalNumber(val.div(10e14), 4, true),
         meta: {
           value,
           unit: 'Q',
@@ -84,7 +104,7 @@ export function formatBalance(value: string): IDisplayNumber {
 
     if (val.gte(10e11)) {
       return {
-        formattedValue: formatNumber(val.div(10e11).toFixed(4), true),
+        formattedValue: formatLocalNumber(val.div(10e11), 4, true),
         meta: {
           value,
           unit: 'T',
@@ -94,7 +114,7 @@ export function formatBalance(value: string): IDisplayNumber {
 
     if (val.gte(10e8)) {
       return {
-        formattedValue: formatNumber(val.div(10e8).toFixed(4), true),
+        formattedValue: formatLocalNumber(val.div(10e8), 4, true),
         meta: {
           value,
           unit: 'B',
@@ -102,14 +122,14 @@ export function formatBalance(value: string): IDisplayNumber {
       };
     }
     return {
-      formattedValue: formatNumber(val.toFixed(4), true),
+      formattedValue: formatLocalNumber(val, 4, true),
       meta: { value },
     };
   }
 
   const zeros = countLeadingZeroDecimals(val);
   return {
-    formattedValue: formatNumber(val.toFixed(4 + zeros), true),
+    formattedValue: formatLocalNumber(val, 4 + zeros, true),
     meta: {
       value,
       leadingZeros: countLeadingZeroDecimals(val),
@@ -121,16 +141,22 @@ export function formatBalance(value: string): IDisplayNumber {
 export function formatPrice(value: string, currency: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
-    return { formattedValue: '0', meta: { value, currency } };
+    return {
+      formattedValue: formatLocalNumber('0', 2, false, true),
+      meta: { value, currency },
+    };
   }
   if (val.gte(1)) {
-    return { formattedValue: val.toFixed(2), meta: { value, currency } };
+    return {
+      formattedValue: formatLocalNumber(val, 2, false, true),
+      meta: { value, currency },
+    };
   }
 
   const zeros = countLeadingZeroDecimals(val);
 
   return {
-    formattedValue: formatNumber(val.toFixed(4 + zeros), true),
+    formattedValue: formatLocalNumber(val, 4 + zeros),
     meta: { value, currency, leadingZeros: zeros },
   };
 }
@@ -171,30 +197,30 @@ export function formatFDV(value: string): IDisplayNumber {
 
   if (val.gte(10e11)) {
     return {
-      formattedValue: formatNumber(val.div(10e11).toFixed(2), true),
+      formattedValue: formatLocalNumber(val.div(10e11), 2, true),
       meta: { value, unit: 'T' },
     };
   }
   if (val.gte(10e8)) {
     return {
-      formattedValue: formatNumber(val.div(10e8).toFixed(2), true),
+      formattedValue: formatLocalNumber(val.div(10e8), 2, true),
       meta: { value, unit: 'B' },
     };
   }
   if (val.gte(10e5)) {
     return {
-      formattedValue: formatNumber(val.div(10e6).toFixed(2), true),
+      formattedValue: formatLocalNumber(val.div(10e6), 2, true),
       meta: { value, unit: 'M' },
     };
   }
   if (val.gte(10e3)) {
     return {
-      formattedValue: formatNumber(val.div(10e3).toFixed(2), true),
+      formattedValue: formatLocalNumber(val.div(10e3), 2, true),
       meta: { value, unit: 'K' },
     };
   }
   return {
-    formattedValue: formatNumber(val.toFixed(2), true),
+    formattedValue: formatLocalNumber(val, 2, true),
     meta: { value },
   };
 }
