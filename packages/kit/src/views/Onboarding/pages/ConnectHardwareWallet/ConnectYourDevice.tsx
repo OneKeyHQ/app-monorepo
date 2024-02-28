@@ -43,6 +43,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EOnboardingPages } from '../../router/type';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type { ImageSourcePropType } from 'react-native';
 
 const headerRight = (onPress: () => void) => (
   <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
@@ -439,7 +440,7 @@ export function ConnectYourDevicePage() {
   const devicesData = useMemo<
     {
       title: string;
-      src: string;
+      src: ImageSourcePropType;
       onPress: () => void;
       opacity?: number;
     }[]
@@ -541,7 +542,7 @@ export function ConnectYourDevicePage() {
               <ListItem
                 opacity={item.opacity ?? 0.5}
                 avatarProps={{
-                  src: item.src,
+                  source: item.src,
                 }}
                 key={index}
                 title={item.title}

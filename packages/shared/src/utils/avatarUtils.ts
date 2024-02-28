@@ -1,4 +1,5 @@
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { ImageSourcePropType } from 'react-native';
 
 export const HdWalletAvatarImages = {
   bear: require('../assets/wallet/avatar/Bear.png'),
@@ -22,7 +23,7 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
-export const HwWalletAvatarImages: Record<IDeviceType, any> = {
+export const HwWalletAvatarImages: Record<IDeviceType, ImageSourcePropType> = {
   classic: require('../assets/wallet/avatar/Classic.png'),
   classic1s: require('../assets/wallet/avatar/Classic.png'),
   mini: require('../assets/wallet/avatar/Mini.png'),
