@@ -58,14 +58,14 @@ export function useSwapNetworkList() {
 }
 
 export function useSwapTokenList(
-  selectTokenModalType: 'from' | 'to',
+  selectTokenModalType: ESwapDirectionType,
   currentNetworkId?: string,
   keywords?: string,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const { catchSwapTokensMap } = useSwapActions().current;
   const { activeAccount } = useActiveAccount({
-    num: selectTokenModalType === 'from' ? 0 : 1,
+    num: selectTokenModalType === ESwapDirectionType.FROM ? 0 : 1,
   });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const tokenFetchParams = useMemo(
@@ -162,7 +162,7 @@ export function useSwapSelectedTokenInfo({
             : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
         }
       }
-      if (type === 'from') {
+      if (type === ESwapDirectionType.FROM) {
         setSwapSelectedFromTokenBalance(balanceDisplay ?? '0.0');
       } else {
         setSwapSelectedToTokenBalance(balanceDisplay ?? '0.0');

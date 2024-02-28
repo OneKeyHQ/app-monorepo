@@ -35,7 +35,7 @@ export interface ISwapToken {
   networkId: string;
   providers: string;
   protocol: string;
-  contractAddress: string; // native token ''
+  contractAddress: string;
   symbol: string;
   decimals: number;
   name?: string;
@@ -48,6 +48,7 @@ export interface ISwapToken {
   price24h?: number;
   fiatValue?: string;
   accountAddress?: string;
+  isNative?: boolean;
 }
 
 export interface ISwapTokenCatch {
@@ -63,7 +64,7 @@ export interface ISwapTokenDetailInfo {
 }
 
 export interface IFetchTokensParams {
-  type: 'from' | 'to';
+  type: ESwapDirectionType;
   networkId?: string;
   keywords?: string;
   fromToken?: ISwapToken;

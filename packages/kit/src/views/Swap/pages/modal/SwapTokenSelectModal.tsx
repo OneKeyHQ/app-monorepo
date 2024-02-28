@@ -24,9 +24,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  ISwapNetwork,
-  ISwapToken,
+import {
+  ESwapDirectionType,
+  type ISwapNetwork,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
@@ -47,7 +48,7 @@ const SwapTokenSelectPage = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
   const type = useMemo(
-    () => route.params?.type ?? 'from',
+    () => route.params?.type ?? ESwapDirectionType.FROM,
     [route.params?.type],
   );
   const [searchKeyword, setSearchKeyword] = useState<string>('');
@@ -61,7 +62,7 @@ const SwapTokenSelectPage = () => {
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(() =>
-    type === 'from'
+    type === ESwapDirectionType.FROM
       ? swapNetworks.find(
           (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
         ) ?? swapNetworks?.[0]
@@ -79,7 +80,7 @@ const SwapTokenSelectPage = () => {
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
-      if (type === 'from') {
+      if (type === ESwapDirectionType.FROM) {
         void selectFromToken(item);
       } else {
         void selectToToken(item);
@@ -93,7 +94,7 @@ const SwapTokenSelectPage = () => {
     (network: ISwapNetwork) => {
       if (network.networkId !== 'all') {
         updateSelectedAccount({
-          num: type === 'from' ? 0 : 1,
+          num: type === ESwapDirectionType.FROM ? 0 : 1,
           builder: (v) => ({ ...v, networkId: network.networkId }),
         });
       }
@@ -159,7 +160,9 @@ const SwapTokenSelectPage = () => {
           onSelectNetwork={onSelectCurrentNetwork}
         />
       </YStack>
-      <SwapAccountAddressContainer num={type === 'from' ? 0 : 1} />
+      <SwapAccountAddressContainer
+        num={type === ESwapDirectionType.FROM ? 0 : 1}
+      />
       {fetchLoading ? (
         <Spinner flex={1} justifyContent="center" alignItems="center" />
       ) : (

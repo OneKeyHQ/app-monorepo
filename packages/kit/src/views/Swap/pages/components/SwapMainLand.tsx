@@ -5,6 +5,7 @@ import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
@@ -20,7 +21,7 @@ const SwapMainLoad = () => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const onSelectToken = useCallback(
-    (type: 'from' | 'to') => {
+    (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapTokenSelect,
         params: { type },

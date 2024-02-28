@@ -25,7 +25,7 @@ import { validateInput } from '../../utils/utils';
 import SwapInputContainer from './SwapInputContainer';
 
 interface ISwapQuoteInputProps {
-  onSelectToken: (type: 'from' | 'to') => void;
+  onSelectToken: (type: ESwapDirectionType) => void;
 }
 
 const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {

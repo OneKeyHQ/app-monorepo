@@ -1,4 +1,5 @@
 import type {
+  ESwapDirectionType,
   ISwapNetwork,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -14,7 +15,7 @@ export enum EModalSwapRoutes {
 }
 
 export type IModalSwapParamList = {
-  [EModalSwapRoutes.SwapTokenSelect]: { type: 'from' | 'to' };
+  [EModalSwapRoutes.SwapTokenSelect]: { type: ESwapDirectionType };
   [EModalSwapRoutes.SwapNetworkSelect]: {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
   };
