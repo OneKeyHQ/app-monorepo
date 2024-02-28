@@ -62,7 +62,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [intl],
   );
 
-  const headerTitle = useCallback(
+  const headerLeft = useCallback(
     () =>
       isHide ? null : (
         <AccountSelectorProviderMirror
@@ -83,7 +83,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     if (wallet) {
       return (
         <>
-          <Page.Header headerTitle={headerTitle} />
+          <Page.Header headerLeft={headerLeft} />
           <Page.Body>
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
@@ -147,7 +147,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     accountName,
     deriveInfo?.label,
     deriveInfo?.labelKey,
-    headerTitle,
+    headerLeft,
     intl,
     network?.name,
     onRefresh,
