@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import {
   formatBalance,
   formatDisplayNumber,
+  formatPrice,
   fromBigIntHex,
   toBigIntHex,
 } from './numberUtils';
@@ -53,6 +54,14 @@ test('formatBalance', () => {
   });
   expect(formatDisplayNumber(formatBalance('382134512.1242'))).toEqual(
     '382,134,512.1242',
+  );
+
+  expect(formatBalance('882134512')).toEqual({
+    'formattedValue': '882,134,512',
+    'meta': { 'value': '882134512' },
+  });
+  expect(formatDisplayNumber(formatBalance('882134512'))).toEqual(
+    '882,134,512',
   );
 
   // more then 1 billion, but less then 1 trillion
@@ -147,6 +156,14 @@ test('formatBalance', () => {
   ]);
 });
 
-
 test('formatPrice', () => {
-})
+  // not a number
+  expect(formatDisplayNumber(formatPrice('1abcd1', '$'))).toEqual('$0.00');
+  // less than hundred
+  expect(formatDisplayNumber(formatPrice('10.103', '$'))).toEqual('$10.10');
+  // thousand
+  expect(formatDisplayNumber(formatPrice('12345.21', '$'))).toEqual(
+    '$12,345.21',
+  );
+  expect(formatDisplayNumber(formatPrice('12345', '$'))).toEqual('$12,345.00');
+});
