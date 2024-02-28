@@ -56,12 +56,12 @@ export function DeriveTypeSelectorTrigger({
             }),
           })
         }
-        title="派生类型"
+        title="Derivation Path"
         renderTrigger={
           miniMode
             ? () => (
                 <IconButton
-                  title="派生类型"
+                  title="Derivation Path"
                   icon="RepeatOutline"
                   size="small"
                   variant="tertiary"
