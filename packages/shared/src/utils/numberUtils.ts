@@ -38,11 +38,6 @@ export default { numberToHex, hexToDecimal };
 
 export { fromBigIntHex, toBigIntHex };
 
-const countLeadingZeroDecimals = (x: BigNumber) =>
-  -Math.floor(Math.log10(x.toNumber()) + 1);
-
-const removeDecimalPaddingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
-
 export interface IDisplayNumber {
   formattedValue: string;
   meta: {
@@ -55,8 +50,15 @@ export interface IDisplayNumber {
   };
 }
 
+const countLeadingZeroDecimals = (x: BigNumber) => {
+  const counts = -Math.floor(Math.log10(x.toNumber()) + 1);
+  return counts > 0 ? counts : 0;
+};
+
+const removeDecimalPaddingZero = (x: string) => x.replace(/(\.\d+?)0*$/, '$1');
+
 const formatLocalNumber = (value: string) =>
-  appLocale.intl.formatNumber(Number(value));
+  appLocale.intl.formatNumber(Number(value), { maximumFractionDigits: 20 });
 
 const formatNumber = (value: string, isRemoveDecimalPaddingZero = false) =>
   isRemoveDecimalPaddingZero
@@ -70,9 +72,9 @@ export function formatBalance(value: string): IDisplayNumber {
     return { formattedValue: '0', meta: { value } };
   }
   if (val.gte(1)) {
-    if (val.gte(10e15)) {
+    if (val.gte(10e14)) {
       return {
-        formattedValue: formatNumber(val.div(10e15).toFixed(2), true),
+        formattedValue: formatNumber(val.div(10e14).toFixed(4), true),
         meta: {
           value,
           unit: 'Q',
@@ -80,9 +82,9 @@ export function formatBalance(value: string): IDisplayNumber {
       };
     }
 
-    if (val.gte(10e12)) {
+    if (val.gte(10e11)) {
       return {
-        formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+        formattedValue: formatNumber(val.div(10e11).toFixed(4), true),
         meta: {
           value,
           unit: 'T',
@@ -90,9 +92,9 @@ export function formatBalance(value: string): IDisplayNumber {
       };
     }
 
-    if (val.gte(10e9)) {
+    if (val.gte(10e8)) {
       return {
-        formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+        formattedValue: formatNumber(val.div(10e8).toFixed(4), true),
         meta: {
           value,
           unit: 'B',
@@ -100,14 +102,14 @@ export function formatBalance(value: string): IDisplayNumber {
       };
     }
     return {
-      formattedValue: formatNumber(val.div(10e12).toFixed(2), true),
+      formattedValue: formatNumber(val.toFixed(4), true),
       meta: { value },
     };
   }
 
   const zeros = countLeadingZeroDecimals(val);
   return {
-    formattedValue: formatNumber(val.toFixed(4 + zeros)),
+    formattedValue: formatNumber(val.toFixed(4 + zeros), true),
     meta: {
       value,
       leadingZeros: countLeadingZeroDecimals(val),
@@ -119,17 +121,17 @@ export function formatBalance(value: string): IDisplayNumber {
 export function formatPrice(value: string, currency: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
-    return { value: '0', currency };
+    return { formattedValue: '0', meta: { value, currency } };
   }
   if (val.gte(1)) {
-    return { value: val.toFixed(2), currency };
+    return { formattedValue: val.toFixed(2), meta: { value, currency } };
   }
 
   const zeros = countLeadingZeroDecimals(val);
+
   return {
-    value: removeDecimalPaddingZero(val.toFixed(4 + zeros)),
-    currency,
-    leadingZeros: countLeadingZeroDecimals(val),
+    formattedValue: formatNumber(val.toFixed(4 + zeros), true),
+    meta: { value, currency, leadingZeros: zeros },
   };
 }
 
@@ -137,9 +139,9 @@ export function formatPrice(value: string, currency: string): IDisplayNumber {
 export function formatPriceChange(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
-    return { value: '0.00', symbol: '%' };
+    return { formattedValue: '0.00', meta: { value, symbol: '%' } };
   }
-  return { value: val.toFixed(2), symbol: '%' };
+  return { formattedValue: val.toFixed(2), meta: { value, symbol: '%' } };
 }
 
 // DeFi Value
@@ -149,47 +151,78 @@ export function formatDeFiValue(
 ): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.lt(0.01)) {
-    return { value: '0.01', leading: '<', currency };
+    return { formattedValue: '0.01', meta: { value, leading: '<', currency } };
   }
-  return { value: val.toFixed(2), symbol: '%', currency };
+  return {
+    formattedValue: val.toFixed(2),
+    meta: { value, leading: '%', currency },
+  };
 }
 
 // FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply
 export function formatFDV(value: string): IDisplayNumber {
   const val = new BigNumber(value);
   if (val.isNaN()) {
-    return { value: '0' };
+    return {
+      formattedValue: '0',
+      meta: { value },
+    };
   }
 
-  if (val.gte(10e12)) {
+  if (val.gte(10e11)) {
     return {
-      value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
-      unit: 'T',
+      formattedValue: formatNumber(val.div(10e11).toFixed(2), true),
+      meta: { value, unit: 'T' },
     };
   }
-  if (val.gte(10e12)) {
+  if (val.gte(10e8)) {
     return {
-      value: removeDecimalPaddingZero(val.div(10e12).toFixed(2)),
-      unit: 'T',
+      formattedValue: formatNumber(val.div(10e8).toFixed(2), true),
+      meta: { value, unit: 'B' },
     };
   }
-  if (val.gte(10e9)) {
+  if (val.gte(10e5)) {
     return {
-      value: removeDecimalPaddingZero(val.div(10e9).toFixed(2)),
-      unit: 'B',
-    };
-  }
-  if (val.gte(10e6)) {
-    return {
-      value: removeDecimalPaddingZero(val.div(10e6).toFixed(2)),
-      unit: 'M',
+      formattedValue: formatNumber(val.div(10e6).toFixed(2), true),
+      meta: { value, unit: 'M' },
     };
   }
   if (val.gte(10e3)) {
     return {
-      value: removeDecimalPaddingZero(val.div(10e3).toFixed(2)),
-      unit: 'K',
+      formattedValue: formatNumber(val.div(10e3).toFixed(2), true),
+      meta: { value, unit: 'K' },
     };
   }
-  return { value: removeDecimalPaddingZero(val.toFixed(2)) };
+  return {
+    formattedValue: formatNumber(val.toFixed(2), true),
+    meta: { value },
+  };
 }
+
+export const formatDisplayNumber = (value: IDisplayNumber) => {
+  const {
+    formattedValue,
+    meta: { leading, leadingZeros, currency, unit, symbol },
+  } = value;
+  const strings = [];
+  if (leading) {
+    strings.push(leading);
+  }
+  if (currency) {
+    strings.push(currency);
+  }
+  if (leadingZeros && leadingZeros > 4) {
+    strings.push('0.0');
+    strings.push({ value: leadingZeros, type: 'sub' });
+    strings.push(formattedValue.slice(leadingZeros + 2));
+  } else {
+    strings.push(formattedValue);
+  }
+  if (unit) {
+    strings.push(unit);
+  }
+  if (symbol) {
+    strings.push(symbol);
+  }
+  return leadingZeros && leadingZeros > 4 ? strings : strings.join('');
+};
