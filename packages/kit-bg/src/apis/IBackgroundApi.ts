@@ -32,6 +32,7 @@ import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -100,6 +101,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
+  serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
 

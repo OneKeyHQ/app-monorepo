@@ -31,6 +31,7 @@ import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -91,6 +92,10 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
+
+  serviceWalletConnect = this._createProxyService(
+    'serviceWalletConnect',
+  ) as ServiceWalletConnect;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
