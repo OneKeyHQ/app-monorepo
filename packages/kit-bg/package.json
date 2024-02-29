@@ -6,7 +6,7 @@
   "dependencies": {
     "@0xsequence/multicall": "^0.36.8",
     "@onekeyhq/components": "*",
-    "@openzeppelin/contracts": "^4.9.3",
+    "@openzeppelin/contracts": "^4.9.6",
     "@reduxjs/toolkit": "^1.6.2",
     "@siddomains/sidjs": "^0.1.22",
     "@types/url-parse": "^1.4.8",

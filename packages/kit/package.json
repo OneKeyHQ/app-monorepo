@@ -5,7 +5,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "@onekeyhq/components": "*",
-    "@openzeppelin/contracts": "^4.9.3",
+    "@openzeppelin/contracts": "^4.9.6",
     "@reduxjs/toolkit": "^1.9.5",
     "@types/redux-logger": "^3.0.9",
     "@types/url-parse": "^1.4.8",
