@@ -340,6 +340,20 @@ const PortalGallery = LazyLoadPage(
     ),
 );
 
+const AmountInputGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AmountInput'
+    ),
+);
+
+const NumberSizeableTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NumberSizeableTextGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -379,6 +393,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentSectionList, component: SectionListGallery },
   { name: EGalleryRoutes.ComponentSwiper, component: SwiperGallery },
   {
+    name: EGalleryRoutes.ComponentAmountInput,
+    component: AmountInputGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentSortableListView,
     component: SortableListViewGallery,
   },
@@ -407,6 +425,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentIconButton,
     component: IconButtonGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNumberSizeableTextGallery,
+    component: NumberSizeableTextGallery,
   },
   { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },

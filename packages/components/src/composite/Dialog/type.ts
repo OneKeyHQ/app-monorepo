@@ -25,7 +25,7 @@ type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
   disabledOn?: (params: Pick<IDialogInstance, 'getForm'>) => boolean;
 };
 export interface IDialogFooterProps extends PropsWithChildren {
-  tone?: 'default' | 'destructive' | 'warning';
+  tone?: 'default' | 'destructive' | 'warning' | 'success';
   showFooter?: boolean;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;

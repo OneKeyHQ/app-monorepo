@@ -7,6 +7,7 @@ import { ListView } from '../../layouts';
 import { Icon, Label, XStack, YStack } from '../../primitives';
 
 import type { ILabelProps } from '../../primitives';
+import type { IFormFieldProps } from '../types';
 import type { ViewStyle } from 'react-native';
 import type {
   CheckedState,
@@ -16,16 +17,14 @@ import type {
 
 export type ICheckedState = CheckedState;
 
-export type ICheckboxProps = Omit<
-  TMCheckboxProps,
-  'size' | 'onCheckedChange' | 'checked' | 'value'
-> & {
-  label?: string;
-  labelProps?: ILabelProps;
-  value?: ICheckedState;
-  onChange?: (checked: ICheckedState) => void;
-  containerProps?: StackProps;
-};
+export type ICheckboxProps = IFormFieldProps<
+  ICheckedState,
+  Omit<TMCheckboxProps, 'size' | 'onCheckedChange' | 'checked' | 'value'> & {
+    label?: string;
+    labelProps?: ILabelProps;
+    containerProps?: StackProps;
+  }
+>;
 
 function RawCheckbox({
   label,
@@ -41,14 +40,15 @@ function RawCheckbox({
       // alignItems="center"
       py="$2"
       opacity={checkboxProps.disabled ? 0.5 : 1}
+      userSelect="none"
+      onPress={onPress}
       {...containerProps}
     >
       <YStack
-        onPress={onPress}
         unstyled
         p="$0"
         my="$0.5"
-        bg={value ? '$bgPrimary' : 'transparent'}
+        bg={value ? '$bgPrimary' : '$iconInverse'}
         borderWidth="$0.5"
         borderColor={value ? '$transparent' : '$borderStrong'}
         borderRadius="$1"
@@ -74,7 +74,14 @@ function RawCheckbox({
         />
       </YStack>
       {label && (
-        <Label variant="$bodyLgMedium" pl="$2" py="$2" my="$-2" {...labelProps}>
+        <Label
+          pointerEvents="none"
+          variant="$bodyLgMedium"
+          pl="$2"
+          py="$2"
+          my="$-2"
+          {...labelProps}
+        >
           {label}
         </Label>
       )}
