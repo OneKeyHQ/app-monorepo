@@ -3826,6 +3826,43 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'sbtc',
+    'decimals': 8,
+    'id': 'tbtc--1',
+    'impl': 'tbtc',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/sbtc/sbtc.png',
+    'name': 'Bitcoin Signet',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/sbtc',
+      },
+    ],
+    'shortcode': 'sbtc',
+    'shortname': 'SBTC',
+    'symbol': 'SBTC',
+    'feeMeta': {
+      'code': 'sbtc',
+      'decimals': 8,
+      'symbol': 'SBTC',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/signet/address/{address}',
+        'block': 'https://mempool.space/signet/block/{block}',
+        'name': 'https://mempool.space/signet/',
+        'transaction': 'https://mempool.space/signet/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-02-28T00:29:24.951Z',
+    'updatedAt': '2024-02-28T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': '0x2b6653dc',
     'clientApi': {
       'tronscan': 'https://apilist.tronscanapi.com',
