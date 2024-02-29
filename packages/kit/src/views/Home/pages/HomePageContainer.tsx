@@ -38,7 +38,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     }
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
-      duration: 200,
+      duration: 250,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
