@@ -53,7 +53,13 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         size="$5"
         color="$iconSubdued"
       />
-      <SizableText pl="$2" size="$bodyLg" color="$textSubdued" flex={1}>
+      <SizableText
+        pl="$2"
+        size="$bodyLg"
+        color="$textSubdued"
+        flex={1}
+        numberOfLines={1}
+      >
         {displayUrl ? tab?.url : intl.formatMessage({ id: 'form__search' })}
       </SizableText>
       {media.gtMd && (
