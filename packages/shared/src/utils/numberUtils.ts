@@ -184,7 +184,7 @@ export const formatPriceChange: IFormatNumberFunc = (value) => {
 };
 
 /** DeFi Value */
-export const formatDeFiValue: IFormatNumberFunc = (value, options) => {
+export const formatValue: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
   const val = new BigNumber(value);
   if (val.isNaN() || val.lt(0.01)) {
@@ -197,7 +197,7 @@ export const formatDeFiValue: IFormatNumberFunc = (value, options) => {
 };
 
 /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
-export const formatFDV: IFormatNumberFunc = (value) => {
+export const formatMarketCap: IFormatNumberFunc = (value) => {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return {

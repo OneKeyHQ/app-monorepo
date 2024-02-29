@@ -84,29 +84,29 @@ const NumberSizeableTextGallery = () => (
         ),
       },
       {
-        title: 'deFiValue',
+        title: 'value',
         element: (
           <YStack space="$3">
             <NumberSizeableText
-              formatter="deFiValue"
+              formatter="value"
               formatterOptions={{ currency: '$' }}
             >
               1abcd1
             </NumberSizeableText>
             <NumberSizeableText
-              formatter="deFiValue"
+              formatter="value"
               formatterOptions={{ currency: '$' }}
             >
               0.009
             </NumberSizeableText>
             <NumberSizeableText
-              formatter="deFiValue"
+              formatter="value"
               formatterOptions={{ currency: '$' }}
             >
               912312381912937323375
             </NumberSizeableText>
             <NumberSizeableText
-              formatter="deFiValue"
+              formatter="value"
               formatterOptions={{ currency: '$' }}
             >
               12312381912937323374.7
@@ -115,17 +115,25 @@ const NumberSizeableTextGallery = () => (
         ),
       },
       {
-        title: 'FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply',
+        title: 'marketCap / MarketCap / Volume / Liquidty / TVL / TokenSupply',
         element: (
           <YStack space="$3">
-            <NumberSizeableText formatter="FDV">1abcd1</NumberSizeableText>
-            <NumberSizeableText formatter="FDV">0.125423</NumberSizeableText>
-            <NumberSizeableText formatter="FDV">22.125423</NumberSizeableText>
-            <NumberSizeableText formatter="FDV">882134512</NumberSizeableText>
-            <NumberSizeableText formatter="FDV">
+            <NumberSizeableText formatter="marketCap">
+              1abcd1
+            </NumberSizeableText>
+            <NumberSizeableText formatter="marketCap">
+              0.125423
+            </NumberSizeableText>
+            <NumberSizeableText formatter="marketCap">
+              22.125423
+            </NumberSizeableText>
+            <NumberSizeableText formatter="marketCap">
+              882134512
+            </NumberSizeableText>
+            <NumberSizeableText formatter="marketCap">
               235002184512.1242
             </NumberSizeableText>
-            <NumberSizeableText formatter="FDV">
+            <NumberSizeableText formatter="marketCap">
               564200002184512.1242
             </NumberSizeableText>
           </YStack>
