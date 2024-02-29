@@ -17,15 +17,11 @@ function HeaderCollapseButton({
   const {
     leftSidebarCollapsed: isCollapse,
     setLeftSidebarCollapsed: setIsCollapse,
-    setLeftSidebarCollapsedAfterAnimated,
   } = useProviderSideBarValue();
 
   const onPressCall = useCallback(() => {
     setIsCollapse?.(!isCollapse);
   }, [isCollapse, setIsCollapse]);
-  const onDidAnimate = useCallback(() => {
-    setLeftSidebarCollapsedAfterAnimated?.(isCollapse ?? false);
-  }, [setLeftSidebarCollapsedAfterAnimated, isCollapse]);
 
   const paddingLeft = getTokenValue(
     platformEnv.isDesktopMac && isRootScreen && isCollapse ? '$20' : '$0',
@@ -36,10 +32,10 @@ function HeaderCollapseButton({
       testID="Desktop-AppSideBar-Container"
       animate={{ paddingLeft }}
       transition={{
-        type: 'timing',
-        duration: 200,
+        type: 'spring',
+        damping: 20,
+        mass: 0.1,
       }}
-      onDidAnimate={onDidAnimate}
     >
       <HeaderIconButton onPress={onPressCall} icon="SidebarOutline" />
     </MotiView>

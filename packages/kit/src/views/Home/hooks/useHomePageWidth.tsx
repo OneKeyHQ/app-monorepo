@@ -8,11 +8,11 @@ export default function useHomePageWidth() {
   const media = useMedia();
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
-  const { leftSidebarCollapsedAfterAnimated } = useProviderSideBarValue();
+  const { leftSidebarCollapsed } = useProviderSideBarValue();
   return {
     screenWidth,
     pageWidth:
-      media.md || leftSidebarCollapsedAfterAnimated
+      media.md || leftSidebarCollapsed
         ? screenWidth
         : screenWidth - sideBarWidth,
   };
