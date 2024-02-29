@@ -21,7 +21,7 @@ type IProps = {
 export function WalletListHeaderToolBar({
   onChangeText,
 }: {
-  onChangeText: IInputProps['onChangeText'];
+  onChangeText?: IInputProps['onChangeText'];
 }) {
   const media = useMedia();
 

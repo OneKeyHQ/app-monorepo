@@ -1,4 +1,4 @@
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -25,14 +25,15 @@ function NFTListItem(props: IProps) {
       $gt2xl={{
         flexBasis: '16.666666%',
       }}
+      focusable
+      focusStyle={{
+        outlineColor: '$focusRing',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: -2,
+      }}
       p="$2.5"
       borderRadius="$4"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
       onPress={() => {
         onPress?.(nft);
       }}
@@ -40,14 +41,16 @@ function NFTListItem(props: IProps) {
     >
       <Stack pb="100%">
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
-          <Image
-            w="100%"
-            h="100%"
-            source={{ uri: nft.metadata?.image }}
-            style={{
-              borderRadius: 10,
-            }}
-          />
+          <Image w="100%" h="100%" borderRadius="$2.5">
+            <Image.Source src={nft.metadata?.image} />
+            <Image.Fallback
+              bg="$bgStrong"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Icon name="ImageSquareWavesOutline" />
+            </Image.Fallback>
+          </Image>
           {Number.parseInt(nft.amount, 10) > 1 && (
             <SizableText
               position="absolute"
@@ -67,11 +70,11 @@ function NFTListItem(props: IProps) {
         </Stack>
       </Stack>
       <Stack mt="$2">
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {nft.collectionName}
-        </SizableText>
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {nft.metadata?.name ?? ''}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {nft.collectionName}
         </SizableText>
       </Stack>
     </Stack>

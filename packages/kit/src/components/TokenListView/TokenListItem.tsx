@@ -41,7 +41,7 @@ function TokenListItem(props: IProps) {
       onPress={() => {
         onPress?.(token);
       }}
-      backgroundColor={tableLayout && index % 2 === 0 ? '$bgSubdued' : ''}
+      backgroundColor={tableLayout && index % 2 === 1 ? '$bgSubdued' : ''}
       {...rest}
     >
       <Stack
