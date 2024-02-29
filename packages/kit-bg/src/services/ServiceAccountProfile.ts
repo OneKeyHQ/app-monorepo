@@ -67,6 +67,7 @@ class ServiceAccountProfile extends ServiceBase {
     address,
     enableNameResolve,
     enableAddressBook,
+    enableWalletName,
   }: IQueryAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (networkId) {
@@ -74,8 +75,8 @@ class ServiceAccountProfile extends ServiceBase {
         networkId,
         address,
       });
-      const includeDot = checkIsDomain(address);
-      if (includeDot && enableNameResolve) {
+      const isDomain = checkIsDomain(address);
+      if (isDomain && enableNameResolve) {
         const resolveNames =
           await this.backgroundApi.serviceNameResolver.resolveName({
             name: address,
@@ -92,14 +93,27 @@ class ServiceAccountProfile extends ServiceBase {
           }
         }
       }
-      if (result.isValid && enableAddressBook) {
-        const addressBookItem =
-          await this.backgroundApi.serviceAddressBook.findItem({
-            networkId,
-            address: result.resolveAddress ?? result.input,
-          });
-        if (addressBookItem) {
-          result.addressBookName = addressBookItem.name;
+      if (result.isValid) {
+        const resolveAddress = result.resolveAddress ?? result.input;
+        if (enableAddressBook && resolveAddress) {
+          const addressBookItem =
+            await this.backgroundApi.serviceAddressBook.findItem({
+              networkId,
+              address: resolveAddress,
+            });
+          if (addressBookItem) {
+            result.addressBookName = addressBookItem.name;
+          }
+        }
+        if (enableWalletName && resolveAddress) {
+          const walletAccountItems =
+            await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+              networkId,
+              address: resolveAddress,
+            });
+          if (walletAccountItems && walletAccountItems.length) {
+            result.walletAccountName = walletAccountItems[0].accountName;
+          }
         }
       }
     }
