@@ -321,8 +321,8 @@ function SendDataInputContainer() {
           onBalancePress={() => form.setValue('amount', maxAmount)}
           switchValue={
             isUseFiat
-              ? `${currencySymbol}${linkedAmount}`
-              : `${linkedAmount} ${tokenSymbol}`
+              ? `${linkedAmount} ${tokenSymbol}`
+              : `${currencySymbol}${linkedAmount}`
           }
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
