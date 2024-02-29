@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
-import type { IStorageType } from '@onekeyhq/shared/types/dappConnection';
+import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -21,20 +21,21 @@ function ConnectionListEmpty() {
 }
 
 function ConnectionList() {
+  const { serviceDApp } = backgroundApiProxy;
   const { result, run } = usePromiseResult(
-    async () => backgroundApiProxy.serviceDApp.getAllConnectedList(),
-    [],
+    async () => serviceDApp.getAllConnectedList(),
+    [serviceDApp],
   );
 
   const handleDAppDisconnect = useCallback(
-    async (origin: string, storageType: IStorageType) => {
-      await backgroundApiProxy.serviceDApp.disconnectWebsite({
+    async (origin: string, storageType: IConnectionStorageType) => {
+      await serviceDApp.disconnectWebsite({
         origin,
         storageType,
       });
       void run();
     },
-    [run],
+    [run, serviceDApp],
   );
 
   const renderHeaderRight = useCallback(
@@ -43,14 +44,14 @@ function ConnectionList() {
         variant="tertiary"
         size="medium"
         onPress={async () => {
-          await backgroundApiProxy.serviceDApp.disconnectAllWebsites();
+          await serviceDApp.disconnectAllWebsites();
           void run();
         }}
       >
         Remove All
       </Button>
     ),
-    [run],
+    [run, serviceDApp],
   );
 
   return (
