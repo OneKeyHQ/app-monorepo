@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, RefreshControl } from 'react-native';
+import { Animated, Easing, RefreshControl } from 'react-native';
 
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import {
@@ -28,7 +28,7 @@ import { TxHistoryListContainer } from './TxHistoryContainer';
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
-  const { isCollapsedMode, screenWidth, pageWidth } = useHomePageWidth();
+  const { screenWidth, pageWidth } = useHomePageWidth();
   if (CONTENT_ITEM_WIDTH == null) {
     CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
   }
@@ -39,6 +39,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
       duration: 200,
+      easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
   }, [pageWidth]);
