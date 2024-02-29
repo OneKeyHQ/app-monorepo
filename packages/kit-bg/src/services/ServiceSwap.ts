@@ -182,6 +182,8 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
+      fromTokenIsNative: fromToken.isNative,
+      toTokenIsNative: toToken.isNative,
       toNetworkId: toToken.networkId,
       fromTokenDecimals: fromToken.decimals,
       toTokenDecimals: toToken.decimals,
