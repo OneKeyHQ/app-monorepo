@@ -12,6 +12,7 @@ export enum EGalleryRoutes {
   ComponentSelect = 'component-select',
   ComponentSkeleton = 'component-skeleton',
   ComponentIconButton = 'component-iconButton',
+  ComponentNumberSizeableTextGallery = 'component-numberSizeableText',
   ComponentBadge = 'component-badge',
   ComponentDialog = 'component-dialog',
   ComponentForm = 'component-form',
