@@ -15,6 +15,7 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -124,7 +125,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     permissions: Record<string, unknown>,
   ) {
     const permissionRes =
-      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      (await this.backgroundApi.serviceDApp.openConnectionModal(
+        request,
+      )) as IConnectionAccountInfo;
 
     const result = Object.keys(permissions).map((permissionName) => {
       if (permissionName === 'eth_accounts') {
@@ -132,7 +135,7 @@ class ProviderApiEthereum extends ProviderApiBase {
           caveats: [
             {
               type: 'restrictReturnedAccounts',
-              value: permissionRes as string[],
+              value: [permissionRes.address],
             },
           ],
           date: Date.now(),
