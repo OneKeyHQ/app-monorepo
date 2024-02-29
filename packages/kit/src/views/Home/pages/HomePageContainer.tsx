@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import {
   HeaderButtonGroup,
@@ -29,7 +28,6 @@ import { TxHistoryListContainer } from './TxHistoryContainer';
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
-  const { leftSidebarCollapsed } = useProviderSideBarValue();
   const intl = useIntl();
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
@@ -119,9 +117,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                   width: '100%',
                 }}
                 $gtMd={{
-                  width: leftSidebarCollapsed
-                    ? screenWidth
-                    : screenWidth - sideBarWidth,
+                  alignSelf: 'center',
+                  width: screenWidth - sideBarWidth,
                 }}
                 refreshControl={
                   <RefreshControl refreshing={false} onRefresh={onRefresh} />
@@ -172,7 +169,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     sideBarWidth,
     tabs,
     wallet,
-    leftSidebarCollapsed,
   ]);
 
   return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
