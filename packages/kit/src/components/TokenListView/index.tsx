@@ -51,6 +51,7 @@ function TokenListView(props: IProps) {
 
   return (
     <ListView
+      py="$3"
       estimatedItemSize={48}
       scrollEnabled={platformEnv.isWebTouchable}
       data={filteredTokens}

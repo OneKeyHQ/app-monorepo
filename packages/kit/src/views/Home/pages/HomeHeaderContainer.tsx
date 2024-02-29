@@ -8,19 +8,19 @@ import { HomeOverviewContainer } from './HomeOverviewContainer';
 function HomeHeaderContainer() {
   return (
     <HomeTokenListProviderMirror>
-      <Stack
-        p="$5"
-        $gtMd={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Stack>
-          <HomeSelector mb="$2" />
+      <Stack testID="Wallet-Tab-Header" p="$5">
+        <HomeSelector mb="$2.5" />
+        <Stack
+          space="$5"
+          $gtLg={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <HomeOverviewContainer />
+          <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
         </Stack>
-        <Portal.Container name={Portal.Constant.WALLET_ACTIONS} />
       </Stack>
     </HomeTokenListProviderMirror>
   );

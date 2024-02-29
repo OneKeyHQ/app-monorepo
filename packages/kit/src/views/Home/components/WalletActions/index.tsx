@@ -2,19 +2,15 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   ActionList,
-  Button,
   Dialog,
   Form,
-  IconButton,
   Input,
-  SizableText,
   Stack,
   TextArea,
   XStack,
-  YStack,
   useClipboard,
   useForm,
   useMedia,
@@ -41,51 +37,11 @@ import {
   type IModalSendParamList,
 } from '../../../Send/router';
 
-function HeaderAction({
-  icon,
-  label,
-  onPress,
-  hideIcon = true,
-  hideLabel = false,
-}: {
-  icon?: IKeyOfIcons;
-  label?: string;
-  onPress?: () => void;
-  hideIcon?: boolean;
-  hideLabel?: boolean;
-}) {
-  const tableLayout = useMedia().gtLg;
-
-  if (tableLayout)
-    return (
-      <Button
-        size="medium"
-        icon={hideIcon ? undefined : icon}
-        {...(!hideIcon &&
-          icon && {
-            pl: '$2.5',
-            pr: '$0.5',
-            py: '$2',
-          })}
-        onPress={onPress}
-      >
-        {hideLabel ? '' : label}
-      </Button>
-    );
-
-  return (
-    <YStack space="$2" alignItems="center">
-      <IconButton size="large" icon={icon ?? 'DotHorOutline'} />
-      <SizableText size="$bodySm" color="$textSubdued">
-        {label}
-      </SizableText>
-    </YStack>
-  );
-}
+import { WalletActionItems } from './WalletActionItem';
 
 function WalletActionBuy() {
   return (
-    <HeaderAction label="Buy" onPress={() => {}} icon="PlusLargeOutline" />
+    <WalletActionItems label="Buy" onPress={() => {}} icon="PlusLargeOutline" />
   );
 }
 
@@ -130,8 +86,8 @@ function WalletActionSend() {
   }, [account, allTokens.keys, allTokens.tokens, map, navigation, network]);
 
   return (
-    <HeaderAction
-      label={intl.formatMessage({ id: 'action__send' })}
+    <WalletActionItems
+      label="Send"
       onPress={handleOnSend}
       icon="ArrowTopOutline"
     />
@@ -212,7 +168,7 @@ function WalletActionReceive() {
   }, [form, navigation]);
 
   return (
-    <HeaderAction
+    <WalletActionItems
       label="Receive"
       onPress={handleOnReceive}
       icon="ArrowBottomOutline"
@@ -223,11 +179,16 @@ function WalletActionReceive() {
 function WalletActionSwap() {
   const handleOnSwap = useCallback(() => {}, []);
   return (
-    <HeaderAction label="Swap" onPress={handleOnSwap} icon="SwitchHorOutline" />
+    <WalletActionItems
+      label="Swap"
+      onPress={handleOnSwap}
+      icon="SwitchHorOutline"
+    />
   );
 }
 
 function WalletActionMore() {
+  const media = useMedia();
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -238,11 +199,11 @@ function WalletActionMore() {
     <ActionList
       title={intl.formatMessage({ id: 'action__more' })}
       renderTrigger={
-        <HeaderAction
+        <WalletActionItems
           icon="DotHorOutline"
-          label={intl.formatMessage({ id: 'action__more' })}
-          hideIcon={false}
-          hideLabel
+          {...(media.sm && {
+            label: intl.formatMessage({ id: 'action__more' }),
+          })}
         />
       }
       sections={[
@@ -281,20 +242,21 @@ function WalletActionMore() {
 }
 
 function WalletActions() {
-  const tableLayout = useMedia().gtLg;
   return (
     <XStack
-      space="$2"
-      mt="$5"
-      justifyContent={tableLayout ? 'unset' : 'space-between'}
+      justifyContent="space-between"
+      $gtSm={{
+        justifyContent: 'unset',
+        space: '$2',
+      }}
     >
-      <WalletActionBuy />
       <WalletActionSend />
       <WalletActionReceive />
+      <WalletActionBuy />
       <WalletActionSwap />
       <WalletActionMore />
     </XStack>
   );
 }
 
-export { HeaderAction, WalletActions };
+export { WalletActions };
