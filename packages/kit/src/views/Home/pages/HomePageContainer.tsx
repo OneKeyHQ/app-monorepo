@@ -25,11 +25,17 @@ import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 
-const CONTENT_ITEM_WIDTH = new Animated.Value(1);
+let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
-  const { screenWidth, pageWidth } = useHomePageWidth();
+  const { isCollapsedMode, screenWidth, pageWidth } = useHomePageWidth();
+  if (CONTENT_ITEM_WIDTH == null) {
+    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
+  }
   useEffect(() => {
+    if (!CONTENT_ITEM_WIDTH) {
+      return;
+    }
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
       duration: 200,
