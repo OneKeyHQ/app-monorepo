@@ -2,11 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import {
   formatBalance,
-  formatDeFiValue,
   formatDisplayNumber,
-  formatFDV,
+  formatMarketCap,
   formatPrice,
   formatPriceChange,
+  formatValue,
   fromBigIntHex,
   toBigIntHex,
 } from './numberUtils';
@@ -228,78 +228,82 @@ test('formatPriceChange', () => {
   ).toEqual('-12,312,381,912,937,323,374.00%');
 });
 
-test('formatDeFiValue', () => {
+test('formatValue', () => {
+  expect(formatDisplayNumber(formatValue('1abc1', { currency: '$' }))).toEqual(
+    '< $0.01',
+  );
+  expect(formatDisplayNumber(formatValue('0.009', { currency: '$' }))).toEqual(
+    '< $0.01',
+  );
   expect(
-    formatDisplayNumber(formatDeFiValue('1abc1', { currency: '$' })),
+    formatDisplayNumber(formatValue('0.000001', { currency: '$' })),
   ).toEqual('< $0.01');
   expect(
-    formatDisplayNumber(formatDeFiValue('0.009', { currency: '$' })),
+    formatDisplayNumber(formatValue('0.0000000001', { currency: '$' })),
   ).toEqual('< $0.01');
-  expect(
-    formatDisplayNumber(formatDeFiValue('0.000001', { currency: '$' })),
-  ).toEqual('< $0.01');
-  expect(
-    formatDisplayNumber(formatDeFiValue('0.0000000001', { currency: '$' })),
-  ).toEqual('< $0.01');
-  expect(
-    formatDisplayNumber(formatDeFiValue('0.01', { currency: '$' })),
-  ).toEqual('$0.01');
+  expect(formatDisplayNumber(formatValue('0.01', { currency: '$' }))).toEqual(
+    '$0.01',
+  );
 
+  expect(formatDisplayNumber(formatValue('0.1', { currency: '$' }))).toEqual(
+    '$0.10',
+  );
+  expect(formatDisplayNumber(formatValue('3.74', { currency: '$' }))).toEqual(
+    '$3.74',
+  );
   expect(
-    formatDisplayNumber(formatDeFiValue('0.1', { currency: '$' })),
-  ).toEqual('$0.10');
-  expect(
-    formatDisplayNumber(formatDeFiValue('3.74', { currency: '$' })),
-  ).toEqual('$3.74');
-  expect(
-    formatDisplayNumber(formatDeFiValue('23374.7', { currency: '$' })),
+    formatDisplayNumber(formatValue('23374.7', { currency: '$' })),
   ).toEqual('$23,374.70');
   expect(
     formatDisplayNumber(
-      formatDeFiValue('912312381912937323375', { currency: '$' }),
+      formatValue('912312381912937323375', { currency: '$' }),
     ),
   ).toEqual('$912,312,381,912,937,323,375.00');
   expect(
     formatDisplayNumber(
-      formatDeFiValue('12312381912937323374.7', { currency: '$' }),
+      formatValue('12312381912937323374.7', { currency: '$' }),
     ),
   ).toEqual('$12,312,381,912,937,323,374.70');
 });
 
-test('formatFDV', () => {
+test('formatMarketCap', () => {
   // not a number
-  expect(formatDisplayNumber(formatFDV('1abcd1'))).toEqual('0');
+  expect(formatDisplayNumber(formatMarketCap('1abcd1'))).toEqual('0');
 
   // less then 0
-  expect(formatDisplayNumber(formatFDV('-0.125423'))).toEqual('-0.13');
+  expect(formatDisplayNumber(formatMarketCap('-0.125423'))).toEqual('-0.13');
 
   // less then 1
-  expect(formatDisplayNumber(formatFDV('0.125423'))).toEqual('0.13');
+  expect(formatDisplayNumber(formatMarketCap('0.125423'))).toEqual('0.13');
 
   // more then 1，but less then 1 hundred
-  expect(formatDisplayNumber(formatFDV('1'))).toEqual('1');
-  expect(formatDisplayNumber(formatFDV('22.125423'))).toEqual('22.13');
+  expect(formatDisplayNumber(formatMarketCap('1'))).toEqual('1');
+  expect(formatDisplayNumber(formatMarketCap('22.125423'))).toEqual('22.13');
 
   // hundred
-  expect(formatDisplayNumber(formatFDV('4512.1242'))).toEqual('4.51K');
+  expect(formatDisplayNumber(formatMarketCap('4512.1242'))).toEqual('4.51K');
 
   // thousand
-  expect(formatDisplayNumber(formatFDV('451200.1242'))).toEqual('451.2K');
+  expect(formatDisplayNumber(formatMarketCap('451200.1242'))).toEqual('451.2K');
 
   // less then 1 billion
-  expect(formatDisplayNumber(formatFDV('382134512.1242'))).toEqual('382.13M');
-  expect(formatDisplayNumber(formatFDV('882134512'))).toEqual('882.13M');
+  expect(formatDisplayNumber(formatMarketCap('382134512.1242'))).toEqual(
+    '382.13M',
+  );
+  expect(formatDisplayNumber(formatMarketCap('882134512'))).toEqual('882.13M');
 
   // more then 1 billion, but less then 1 trillion
-  expect(formatDisplayNumber(formatFDV('235002184512.1242'))).toEqual('235B');
+  expect(formatDisplayNumber(formatMarketCap('235002184512.1242'))).toEqual(
+    '235B',
+  );
 
   // more then 1 trillion, but less then 1 quadrillion
-  expect(formatDisplayNumber(formatFDV('564200002184512.1242'))).toEqual(
+  expect(formatDisplayNumber(formatMarketCap('564200002184512.1242'))).toEqual(
     '564.2T',
   );
   expect(
     formatDisplayNumber(
-      formatFDV(
+      formatMarketCap(
         '3255116964842874760052831679703895844115066538288856868434884194740944456518023472875509467503549243141300863167358277564472657050095654332334766707277424733096352658389660545755851805676886521560271531758461940273040427345386250038583046837788549074796224917907119285105994813273344111658130299851556459275463455892619289176250029729578929058406657351218902827502650151025154476207576402775212962558992075615004764128672027881612256701187404366113446444269833924432283276849837783180308348862358471943059327089560255811',
       ),
     ),

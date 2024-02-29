@@ -3,11 +3,11 @@ import { useMemo } from 'react';
 import type { IFormatterOptions } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatBalance,
-  formatDeFiValue,
   formatDisplayNumber,
-  formatFDV,
+  formatMarketCap,
   formatPrice,
   formatPriceChange,
+  formatValue,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives';
@@ -21,10 +21,10 @@ export const NUMBER_FORMATTER = {
   price: formatPrice,
   /** PriceChange */
   priceChange: formatPriceChange,
-  /** DeFi Value */
-  deFiValue: formatDeFiValue,
+  /** DeFi */
+  value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
-  FDV: formatFDV,
+  marketCap: formatMarketCap,
 };
 
 export interface INumberSizeableTextProps extends ISizableTextProps {
