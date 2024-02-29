@@ -4,14 +4,19 @@ import { useRoute } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Image,
   ListView,
   Page,
   SearchBar,
   SizableText,
   Spinner,
+  XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
+import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -25,16 +30,19 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
+  swapNetworksCommonCount,
+  swapNetworksCommonCountMD,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
   ESwapDirectionType,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
-import SwapTokenSelectCell from '../../components/SwapTokenSelectCell';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { EModalSwapRoutes } from '../../router/types';
-import SwapAccountAddressContainer from '../components/SwapAccountAddressContainer';
+import { shortContractAddress } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/types';
@@ -106,28 +114,54 @@ const SwapTokenSelectPage = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => {
-      const tokenNetwork = swapNetworks.find(
-        (network) => network.networkId === item.networkId,
-      );
-      return (
-        <SwapTokenSelectCell
-          isSearch={!!searchKeyword}
-          tokenNetwork={tokenNetwork}
-          selectNetwork={currentSelectNetwork}
-          token={item}
-          onSelectToken={onSelectToken}
-          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
-        />
-      );
+      const tokenItem: ITokenListItemProps = {
+        tokenImageSrc: item.logoURI,
+        tokenName: item.name,
+        tokenSymbol: item.symbol,
+        tokenContrastAddress: shortContractAddress(item.contractAddress),
+        networkImageSrc: item.networkLogoURI,
+        balance: item.balanceParsed,
+        value: item.fiatValue
+          ? `${settingsPersistAtom.currencyInfo.symbol}${item.fiatValue}`
+          : undefined,
+        onPress: () => onSelectToken(item),
+      };
+      return <TokenListItem {...tokenItem} />;
     },
-    [
-      currentSelectNetwork,
-      onSelectToken,
-      searchKeyword,
-      settingsPersistAtom.currencyInfo.symbol,
-      swapNetworks,
-    ],
+    [onSelectToken, settingsPersistAtom.currencyInfo.symbol],
   );
+
+  const { md } = useMedia();
+
+  const networkFilterData = useMemo(() => {
+    let swapNetworksCommon: ISwapNetwork[] = [];
+    let swapNetworksMoreCount;
+    if (swapNetworks && swapNetworks.length) {
+      if (md) {
+        swapNetworksCommon =
+          swapNetworks.length > swapNetworksCommonCountMD
+            ? swapNetworks.slice(0, swapNetworksCommonCountMD)
+            : swapNetworks;
+        swapNetworksMoreCount =
+          swapNetworks.length - swapNetworksCommonCountMD > 0
+            ? swapNetworks.length - swapNetworksCommonCountMD
+            : undefined;
+      } else {
+        swapNetworksCommon =
+          swapNetworks.length > swapNetworksCommonCount
+            ? swapNetworks.slice(0, swapNetworksCommonCount)
+            : swapNetworks;
+        swapNetworksMoreCount =
+          swapNetworks.length - swapNetworksCommonCount > 0
+            ? swapNetworks.length - swapNetworksCommonCount
+            : undefined;
+      }
+    }
+    return {
+      swapNetworksCommon,
+      swapNetworksMoreCount,
+    };
+  }, [md, swapNetworks]);
 
   return (
     <Page>
@@ -142,9 +176,6 @@ const SwapTokenSelectPage = () => {
         }}
       />
       <YStack h="$12" my="$4">
-        <SizableText>{`Select Network:${
-          currentSelectNetwork?.name ?? ''
-        }`}</SizableText>
         <NetworkToggleGroup
           type={type}
           onMoreNetwork={() => {
@@ -155,14 +186,34 @@ const SwapTokenSelectPage = () => {
             });
           }}
           onlySupportSingleNetWork={onlySupportSingleNetWork}
-          networks={swapNetworks.slice(0, 3)}
+          networks={networkFilterData.swapNetworksCommon}
+          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
           selectedNetwork={currentSelectNetwork}
           onSelectNetwork={onSelectCurrentNetwork}
         />
       </YStack>
-      <SwapAccountAddressContainer
-        num={type === ESwapDirectionType.FROM ? 0 : 1}
-      />
+      <XStack px="$5" py="$2">
+        <SizableText size="$headingSm" pr="$2">
+          Network:
+        </SizableText>
+        <XStack>
+          {currentSelectNetwork?.networkId !== 'all' ? (
+            <Image height="$5" width="$5" borderRadius="$full">
+              <Image.Source
+                source={{
+                  uri: currentSelectNetwork?.logoURI,
+                }}
+              />
+            </Image>
+          ) : null}
+          <SizableText size="$bodyMd" pl="$2">
+            {currentSelectNetwork?.name ??
+              currentSelectNetwork?.symbol ??
+              currentSelectNetwork?.shortcode ??
+              'Unknown'}
+          </SizableText>
+        </XStack>
+      </XStack>
       {fetchLoading ? (
         <Spinner flex={1} justifyContent="center" alignItems="center" />
       ) : (
@@ -171,7 +222,7 @@ const SwapTokenSelectPage = () => {
             data={currentTokens}
             ListHeaderComponent={<SizableText>SelectToken</SizableText>}
             renderItem={renderItem}
-            estimatedItemSize="$10"
+            estimatedItemSize={60}
           />
         </YStack>
       )}

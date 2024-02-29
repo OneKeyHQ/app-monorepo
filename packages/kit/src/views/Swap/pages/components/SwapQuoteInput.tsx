@@ -43,30 +43,6 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   useSwapAccountNetworkSync();
   useSwapApproving();
 
-  const amountPrice = useMemo(() => {
-    const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
-    const toTokenPriceBN = new BigNumber(toToken?.price ?? 0);
-    const fromTokenFiatValueBN = new BigNumber(
-      fromInputAmount ?? 0,
-    ).multipliedBy(fromTokenPriceBN);
-    const toTokenFiatValueBN = new BigNumber(
-      swapQuoteCurrentSelect?.toAmount ?? '0',
-    ).multipliedBy(toTokenPriceBN);
-    return {
-      fromTokenFiatValue: fromTokenFiatValueBN.isNaN()
-        ? '0'
-        : fromTokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed(),
-      toTokenFiatValue: toTokenFiatValueBN.isNaN()
-        ? '0'
-        : toTokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed(),
-    };
-  }, [
-    fromInputAmount,
-    fromToken?.price,
-    swapQuoteCurrentSelect?.toAmount,
-    toToken?.price,
-  ]);
-
   return (
     <YStack>
       <SwapInputContainer
@@ -78,9 +54,11 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           }
         }}
         amountValue={fromInputAmount}
+        onBalanceMaxPress={() => {
+          setFromInputAmount(fromTokenBalance);
+        }}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
-        amountPrice={amountPrice.fromTokenFiatValue}
         address={activeAccount.account?.address}
       />
       <XStack justifyContent="flex-end" mr="$10" my="$2">
@@ -92,7 +70,6 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
-        amountPrice={amountPrice.toTokenFiatValue}
         address={activeAccount.account?.address}
       />
     </YStack>

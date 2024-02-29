@@ -62,21 +62,34 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   catchSwapTokensMap = contextAtomMethod(
     async (get, set, key: string, tokens: ISwapToken[]) => {
       const swapTokenMap = get(swapTokenMapAtom());
+      const swapNetworksList = get(swapNetworks());
       const catchTokens = swapTokenMap.tokenCatch?.[key];
+      const newTokens = tokens.map((token) => {
+        const network = swapNetworksList.find(
+          (n) => n.networkId === token.networkId,
+        );
+        if (network) {
+          token.networkLogoURI = network.logoURI;
+        }
+        return token;
+      });
       const dateNow = Date.now();
       let catchCount = 0;
       if (swapTokenMap.tokenCatch && catchTokens?.data) {
         // have catch
-        if (JSON.stringify(catchTokens.data) !== JSON.stringify(tokens)) {
+        if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
           // catch data not equal
-          swapTokenMap.tokenCatch[key] = { data: tokens, updatedAt: dateNow };
+          swapTokenMap.tokenCatch[key] = {
+            data: newTokens,
+            updatedAt: dateNow,
+          };
         }
         catchCount = Object.keys(swapTokenMap.tokenCatch).length;
       } else {
         // no catch
         swapTokenMap.tokenCatch = {
           ...(swapTokenMap.tokenCatch ?? {}),
-          [key]: { data: tokens, updatedAt: dateNow },
+          [key]: { data: newTokens, updatedAt: dateNow },
         };
         catchCount = Object.keys(swapTokenMap.tokenCatch).length;
       }

@@ -41,3 +41,6 @@ export const swapApproveResetValue = '0';
 export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 15,
 });
+
+export const swapNetworksCommonCount = 8;
+export const swapNetworksCommonCountMD = 5;

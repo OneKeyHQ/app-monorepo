@@ -1,13 +1,16 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
-import { Button, Image, SizableText, XStack } from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
 import type {
   ESwapDirectionType,
   ISwapNetwork,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
+
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
+  moreNetworksCount?: number;
   type: ESwapDirectionType;
   onlySupportSingleNetWork?: string;
   isOnlySupportSingleNetWork?: () => boolean;
@@ -22,54 +25,55 @@ const SwapNetworkToggleGroup = ({
   onlySupportSingleNetWork,
   type,
   onSelectNetwork,
+  moreNetworksCount,
   onMoreNetwork,
-}: ISwapNetworkToggleGroupProps) => (
-  // <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-  <XStack space="$4">
-    {networks.map((network) => (
-      <Button
-        ml="$2"
-        key={network.networkId}
-        backgroundColor={
-          network?.networkId === selectedNetwork?.networkId ||
-          (!selectedNetwork && network.networkId === 'all')
-            ? '$bgCriticalStrongDark'
-            : '$background'
-        }
-        disabled={
-          !!(
-            type === 'to' &&
-            onlySupportSingleNetWork &&
-            network.networkId !== onlySupportSingleNetWork
-          )
-        }
-        onPress={() => {
-          onSelectNetwork(network);
-        }}
-      >
-        <XStack space="$2" justifyContent="center" alignItems="center">
-          <Image
-            w="$4"
-            h="$4"
-            borderRadius="$2"
-            source={{ uri: network.logoURI }}
-            // resizeMode="center"
-          />
-          <SizableText>
-            {network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'}
-          </SizableText>
-        </XStack>
-      </Button>
-    ))}
-    <Button
-      ml="$2"
-      onPress={onMoreNetwork}
-      disabled={!!(type === 'to' && onlySupportSingleNetWork)}
-    >
-      更多网络
-    </Button>
-  </XStack>
-  // </ScrollView>
-);
+}: ISwapNetworkToggleGroupProps) => {
+  const { md } = useMedia();
+  const getNetworkName = useCallback(
+    (networkId: string) => {
+      if (networkId === 'all') {
+        return md ? 'All' : 'All Networks';
+      }
+      return undefined;
+    },
+    [md],
+  );
+  return (
+    <XStack px="$5" pt="$1" pb="$3" space="$2">
+      {networks.map((network) => (
+        <NetworksFilterItem
+          key={network.networkId}
+          networkName={getNetworkName(network.networkId)}
+          networkImageUri={network.logoURI}
+          tooltipContent={
+            network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'
+          }
+          disabled={
+            !!(
+              type === 'to' &&
+              onlySupportSingleNetWork &&
+              network.networkId !== onlySupportSingleNetWork
+            )
+          }
+          isSelected={
+            network?.networkId === selectedNetwork?.networkId ||
+            (!selectedNetwork && network.networkId === 'all')
+          }
+          onPress={() => {
+            onSelectNetwork(network);
+          }}
+        />
+      ))}
+      {moreNetworksCount && moreNetworksCount > 0 ? (
+        <NetworksFilterItem
+          networkName={`${moreNetworksCount}+`}
+          flex={1}
+          onPress={onMoreNetwork}
+          disabled={!!(type === 'to' && onlySupportSingleNetWork)}
+        />
+      ) : null}
+    </XStack>
+  );
+};
 
 export default memo(SwapNetworkToggleGroup);

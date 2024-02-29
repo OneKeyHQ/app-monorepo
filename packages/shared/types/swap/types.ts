@@ -40,6 +40,7 @@ export interface ISwapToken {
   decimals: number;
   name?: string;
   logoURI?: string;
+  networkLogoURI?: string;
   swapSwftCode?: string;
   swapSwftUnSupportCode?: string;
   balance?: string;
