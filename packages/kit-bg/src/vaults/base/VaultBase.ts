@@ -31,7 +31,8 @@ import type {
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
-  IOnChainHistoryTxAsset,
+  IOnChainHistoryTxNFT,
+  IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
@@ -206,12 +207,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildOnChainHistoryTx(
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
-    const { accountId, networkId, onChainHistoryTx, tokens, index } = params;
-
+    const { accountId, networkId, onChainHistoryTx, tokens, nfts } = params;
     try {
       const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
         tokens,
+        nfts,
       });
 
       const decodedTx: IDecodedTx = {
@@ -254,9 +255,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildHistoryTxAction({
     tx,
     tokens,
+    nfts,
   }: {
     tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
       if (tx.type) return this.buildHistoryTxFunctionCallAction({ tx });
@@ -264,10 +267,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
 
     if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
-      return this.buildHistoryTxApproveAction({ tx, tokens });
+      return this.buildHistoryTxApproveAction({ tx, tokens, nfts });
     }
 
-    return this.buildHistoryTransferAction({ tx, tokens });
+    return this.buildHistoryTransferAction({ tx, tokens, nfts });
   }
 
   async buildHistoryTxFunctionCallAction({
@@ -308,9 +311,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   buildHistoryTransferAction({
     tx,
     tokens,
+    nfts,
   }: {
     tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IOnChainHistoryTxNFT>;
   }): IDecodedTxAction {
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -322,12 +327,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           this.buildHistoryTransfer({
             transfer: send,
             tokens,
+            nfts,
           }),
         ),
         receives: tx.receives.map((receive) =>
           this.buildHistoryTransfer({
             transfer: receive,
             tokens,
+            nfts,
           }),
         ),
       },
@@ -337,14 +344,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   buildHistoryTransfer({
     transfer,
     tokens,
+    nfts,
   }: {
     transfer: IOnChainHistoryTxTransfer;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
         tokenAddress: transfer.token,
         tokens,
+        nfts,
       });
 
     return {
@@ -365,14 +375,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   buildHistoryTxApproveAction({
     tx,
     tokens,
+    nfts,
   }: {
     tx: IOnChainHistoryTx;
-    tokens: Record<string, IOnChainHistoryTxAsset>;
+    tokens: Record<string, IOnChainHistoryTxToken>;
+    nfts: Record<string, IOnChainHistoryTxNFT>;
   }): IDecodedTxAction {
     const approve = tx.sends[0];
     const transfer = this.buildHistoryTransfer({
       transfer: approve,
       tokens,
+      nfts,
     });
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,

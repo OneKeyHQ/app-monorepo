@@ -59,7 +59,7 @@ function NFTListView(props: IProps) {
 
   return (
     <ScrollView h="100%">
-      <NFTListHeader />
+      <NFTListHeader nfts={data} />
       <XStack flexWrap="wrap" px="$2.5" pb="$5">
         {data.map((item) => (
           <NFTListItem

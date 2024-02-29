@@ -63,7 +63,7 @@ function HistoryDetails() {
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];
 
-  const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
+  const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
   const relatedAssetInfo = useMemo(() => {
     if (!txDetails) return undefined;
@@ -73,8 +73,9 @@ function HistoryDetails() {
     return getOnChainHistoryTxAssetInfo({
       tokenAddress,
       tokens,
+      nfts,
     });
-  }, [tokens, txDetails]);
+  }, [nfts, tokens, txDetails]);
 
   const details = useMemo(() => {
     if (!txDetails) return [];

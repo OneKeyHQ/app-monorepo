@@ -178,21 +178,6 @@ function SendDataInputContainer() {
       }),
     [accountId, allTokens.keys, allTokens.tokens, map, navigation, networkId],
   );
-  const handleOnChangeAmountPercent = useCallback(
-    (percent: number) => {
-      form.setValue(
-        'amount',
-        new BigNumber(
-          (isUseFiat ? tokenDetails?.fiatValue : tokenDetails?.balanceParsed) ??
-            0,
-        )
-          .times(percent)
-          .toFixed(),
-      );
-      void form.trigger('amount');
-    },
-    [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
-  );
   const handleOnConfirm = useCallback(async () => {
     try {
       if (!account) return;
@@ -294,16 +279,9 @@ function SendDataInputContainer() {
   const maxAmount = useMemo(
     () =>
       isUseFiat
-        ? `${currencySymbol}${
-            getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0
-          }`
+        ? `${getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0}`
         : `${getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}`,
-    [
-      currencySymbol,
-      isUseFiat,
-      tokenDetails?.balanceParsed,
-      tokenDetails?.fiatValue,
-    ],
+    [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
   );
 
   const renderTokenDataInputForm = useCallback(
@@ -335,19 +313,17 @@ function SendDataInputContainer() {
           },
         }}
       >
-        {/* <AmountInput
-          isUseFiat={isUseFiat}
-          maxAmount={maxAmount}
-          linkedAmount={linkedAmount}
-          tokenSymbol={tokenSymbol}
-          currencySymbol={currencySymbol}
-          onChangePercent={handleOnChangeAmountPercent}
-          onChangeAmountMode={handleOnChangeAmountMode}
-        /> */}
         <AmountInput
           reversible
           enableMaxAmount
           balance={maxAmount}
+          onSwitchPress={handleOnChangeAmountMode}
+          onBalancePress={() => form.setValue('amount', maxAmount)}
+          switchValue={
+            isUseFiat
+              ? `${currencySymbol}${linkedAmount}`
+              : `${linkedAmount} ${tokenSymbol}`
+          }
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
               ? nft?.metadata?.image
@@ -362,12 +338,15 @@ function SendDataInputContainer() {
       </Form.Field>
     ),
     [
+      currencySymbol,
       form,
+      handleOnChangeAmountMode,
       handleOnSelectToken,
       handleValidateTokenAmount,
       intl,
       isNFT,
       isUseFiat,
+      linkedAmount,
       maxAmount,
       network?.logoURI,
       nft?.metadata?.image,
@@ -375,6 +354,7 @@ function SendDataInputContainer() {
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenInfo?.symbol,
+      tokenSymbol,
     ],
   );
   const renderNFTDataInputForm = useCallback(() => {
