@@ -32,6 +32,13 @@ const GalleryLayout = () => (
             <AmountInput
               value={amountValue}
               onChange={setAmountValue}
+              onSwitchPress={() => {
+                alert('onSwitchPress');
+              }}
+              onBalancePress={() => {
+                alert('onBalancePress');
+              }}
+              switchValue="$1.00"
               inputProps={{
                 placeholder: '0',
               }}
