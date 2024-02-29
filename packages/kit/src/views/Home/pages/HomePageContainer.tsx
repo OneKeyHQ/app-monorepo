@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Animated, RefreshControl } from 'react-native';
@@ -29,7 +29,13 @@ const CONTENT_ITEM_WIDTH = new Animated.Value(1);
 
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const { screenWidth, pageWidth } = useHomePageWidth();
-  CONTENT_ITEM_WIDTH.setValue(pageWidth);
+  useEffect(() => {
+    Animated.timing(CONTENT_ITEM_WIDTH, {
+      toValue: pageWidth,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [pageWidth]);
   const intl = useIntl();
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },

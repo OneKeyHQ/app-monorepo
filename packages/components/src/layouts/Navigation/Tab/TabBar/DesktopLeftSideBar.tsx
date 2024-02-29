@@ -140,9 +140,8 @@ export function DesktopLeftSideBar({
       testID="Desktop-AppSideBar-Container"
       animate={{ width: isCollapse ? 0 : sidebarWidth }}
       transition={{
-        type: 'spring',
-        damping: 20,
-        mass: 0.1,
+        duration: 200,
+        type: 'timing',
       }}
       style={{
         backgroundColor: theme.bgSidebar.val,
