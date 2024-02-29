@@ -25,8 +25,9 @@ function TokenListItem(props: IProps) {
       key={token.name}
       avatarProps={{
         src: token.logoURI,
-        circular: true,
+        borderRadius: '$full',
         fallbackProps: {
+          delayMs: 1000,
           bg: '$bgStrong',
           justifyContent: 'center',
           alignItems: 'center',
@@ -44,23 +45,16 @@ function TokenListItem(props: IProps) {
       {...rest}
     >
       <Stack
-        {...(tableLayout
-          ? {
-              flexDirection: 'row',
-              space: '$3',
-            }
-          : {
-              flex: 1,
-            })}
+        flexGrow={1}
+        flexBasis={0}
+        {...(tableLayout && {
+          flexDirection: 'row',
+        })}
       >
         <XStack
-          alignItems="center"
           {...(tableLayout && {
-            w: '$56',
-            textAlign: 'left',
-            $gtXl: {
-              w: '$72',
-            },
+            flexGrow: 1,
+            flexBasis: 0,
           })}
         >
           <TokenNameView
@@ -78,13 +72,10 @@ function TokenListItem(props: IProps) {
           color="$textSubdued"
           $key={token.$key ?? ''}
           symbol={token.symbol}
-          textAlign="left"
           {...(tableLayout && {
+            flexGrow: 1,
+            flexBasis: 0,
             color: '$text',
-            w: '$52',
-            $gtXl: {
-              w: '$72',
-            },
           })}
         />
       </Stack>
@@ -93,9 +84,9 @@ function TokenListItem(props: IProps) {
         flexDirection="column-reverse"
         alignItems="flex-end"
         {...(tableLayout && {
-          flex: 1,
           flexDirection: 'row',
-          space: '$3',
+          flexGrow: 1,
+          flexBasis: 0,
         })}
       >
         {withPrice && (
@@ -103,22 +94,14 @@ function TokenListItem(props: IProps) {
             space="$2"
             alignItems="center"
             {...(tableLayout && {
-              w: '$52',
-              $gtXl: {
-                w: '$72',
-              },
+              flexGrow: 1,
+              flexBasis: 0,
             })}
           >
             {tableLayout && (
               <TokenPriceView $key={token.$key ?? ''} size="$bodyMd" />
             )}
-            <TokenPriceChangeView
-              $key={token.$key ?? ''}
-              size="$bodyMd"
-              {...(tableLayout && {
-                w: '$24',
-              })}
-            />
+            <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
           </XStack>
         )}
         <TokenValueView
@@ -126,7 +109,8 @@ function TokenListItem(props: IProps) {
           size="$bodyLgMedium"
           textAlign="right"
           {...(tableLayout && {
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: 0,
             size: '$bodyMd',
           })}
         />

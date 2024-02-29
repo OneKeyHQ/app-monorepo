@@ -47,7 +47,7 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
   const { updateSearchKey } = useTokenListActions().current;
 
   return (
-    <Stack>
+    <Stack testID="Wallet-Token-List-Header">
       {tokens.length > 10 && (
         <WalletListHeaderToolBar
           onChangeText={debounce(
@@ -59,20 +59,42 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
 
       {tableLayout && (
         <XStack px="$5" py="$2" space="$3">
-          <XStack flex={1}>
-            <SizableText flex={1} color="$textSubdued" size="$headingSm">
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            space={89}
+            spaceDirection="horizontal"
+          >
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              color="$textSubdued"
+              size="$headingSm"
+            >
               {intl.formatMessage({ id: 'form__token' })}
             </SizableText>
-            <SizableText flex={1} color="$textSubdued" size="$headingSm">
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              color="$textSubdued"
+              size="$headingSm"
+            >
               {intl.formatMessage({ id: 'form__balance' })}
             </SizableText>
           </XStack>
-          <XStack flex={1}>
-            <SizableText flex={1} color="$textSubdued" size="$headingSm">
+          <Stack w="$8" />
+          <XStack flexGrow={1} flexBasis={0}>
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              color="$textSubdued"
+              size="$headingSm"
+            >
               {intl.formatMessage({ id: 'content__price' })}
             </SizableText>
             <SizableText
-              flex={1}
+              flexGrow={1}
+              flexBasis={0}
               textAlign="right"
               color="$textSubdued"
               size="$headingSm"

@@ -13,9 +13,13 @@ function TokenNameView(props: IProps) {
 
   const content = useMemo(
     () => (
-      <XStack alignItems="center" space="$1">
-        <SizableText {...rest}>{name}</SizableText>
-        {isNative && <Icon name="GasSolid" color="$iconSubdued" size={20} />}
+      <XStack alignItems="center" space="$1" flex={1}>
+        <SizableText numberOfLines={1} {...rest}>
+          {name}
+        </SizableText>
+        {isNative && (
+          <Icon flexShrink={0} name="GasSolid" color="$iconSubdued" size="$5" />
+        )}
       </XStack>
     ),
     [rest, name, isNative],
