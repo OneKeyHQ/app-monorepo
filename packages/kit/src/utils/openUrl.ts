@@ -1,7 +1,4 @@
-import {
-  openSettings as LinkingOpenSettings,
-  openURL as LinkingOpenURL,
-} from 'expo-linking';
+import { openSettings as LinkingOpenSettings } from 'expo-linking';
 
 import type { IPrefType } from '@onekeyhq/desktop/src-electron/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
