@@ -5,6 +5,7 @@ import {
   PageContentView,
   PageManager,
 } from '@onekeyfe/react-native-tab-page-view';
+import { Animated } from 'react-native';
 import { withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,6 +29,7 @@ export interface ITabProps extends IScrollViewProps {
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
+  contentItemWidth?: Animated.Value;
   onSelectedPageIndex?: (pageIndex: number) => void;
   shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
@@ -38,6 +40,7 @@ const TabComponent = (
     initialScrollIndex,
     ListHeaderComponent,
     headerProps,
+    contentItemWidth,
     onSelectedPageIndex,
     shouldSelectedPageIndex,
     ...props
@@ -140,17 +143,24 @@ const TabComponent = (
       };
       index: number;
     }) => (
-      <item.page
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        onContentSizeChange={(_: number, height: number) => {
-          stickyConfig.data[index].contentHeight = height;
-          if (index === pageManager.pageIndex) {
-            reloadContentHeight(index);
-          }
+      <Animated.View
+        style={{
+          width: contentItemWidth,
+          height: '100%',
         }}
-      />
+      >
+        <item.page
+          // eslint-disable-next-line @typescript-eslint/no-shadow
+          onContentSizeChange={(_: number, height: number) => {
+            stickyConfig.data[index].contentHeight = height;
+            if (index === pageManager.pageIndex) {
+              reloadContentHeight(index);
+            }
+          }}
+        />
+      </Animated.View>
     ),
-    [stickyConfig.data, pageManager, reloadContentHeight],
+    [stickyConfig.data, contentItemWidth, pageManager, reloadContentHeight],
   );
   const Content = pageManager.renderContentView;
   return (
@@ -158,6 +168,7 @@ const TabComponent = (
       ref={scrollViewRef}
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
+        reloadContentHeight(pageManager.pageIndex);
       }}
       scrollEventThrottle={16}
       onScroll={(event) => {

@@ -1,10 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { RefreshControl, useWindowDimensions } from 'react-native';
+import { Animated, RefreshControl } from 'react-native';
 
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
-import { getTokens } from '@onekeyhq/components/src/hooks';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -19,15 +18,18 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
+import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
 
+const CONTENT_ITEM_WIDTH = new Animated.Value(1);
+
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
-  const screenWidth = useWindowDimensions().width;
-  const sideBarWidth = getTokens().size.sideBarWidth.val;
+  const { screenWidth, pageWidth } = useHomePageWidth();
+  CONTENT_ITEM_WIDTH.setValue(pageWidth);
   const intl = useIntl();
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
@@ -111,14 +113,18 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             {account ? (
               <Tab
                 data={tabs}
-                ListHeaderComponent={<HomeHeaderContainer />}
+                ListHeaderComponent={
+                  <Animated.View style={{ width: CONTENT_ITEM_WIDTH }}>
+                    <HomeHeaderContainer />
+                  </Animated.View>
+                }
                 initialScrollIndex={0}
+                contentItemWidth={CONTENT_ITEM_WIDTH}
                 $md={{
                   width: '100%',
                 }}
                 $gtMd={{
-                  alignSelf: 'center',
-                  width: screenWidth - sideBarWidth,
+                  width: screenWidth,
                 }}
                 refreshControl={
                   <RefreshControl refreshing={false} onRefresh={onRefresh} />
@@ -165,10 +171,9 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     network?.name,
     onRefresh,
     ready,
-    screenWidth,
-    sideBarWidth,
     tabs,
     wallet,
+    screenWidth,
   ]);
 
   return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
