@@ -7,7 +7,13 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
-export function useAccountSelectorTrigger({ num }: { num: number }) {
+export function useAccountSelectorTrigger({
+  num,
+  linkNetwork,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+}) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -20,9 +26,17 @@ export function useAccountSelectorTrigger({ num }: { num: number }) {
       navigation,
       sceneName,
       sceneUrl,
-      linkNetwork: true,
+      linkNetwork,
     });
-  }, [actions, navigation, num, sceneName, sceneUrl, activeAccount?.wallet]);
+  }, [
+    actions,
+    activeAccount.wallet,
+    linkNetwork,
+    navigation,
+    num,
+    sceneName,
+    sceneUrl,
+  ]);
 
   return {
     showAccountSelector,

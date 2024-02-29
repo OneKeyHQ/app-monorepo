@@ -253,7 +253,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
-        linkNetwork,
+        linkNetwork, // show account address of current network
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         linkNetwork?: boolean;
