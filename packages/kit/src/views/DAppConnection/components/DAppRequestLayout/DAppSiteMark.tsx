@@ -14,9 +14,11 @@ import {
 function DAppSiteMark({
   origin,
   urlSecurityInfo,
+  favicon,
 }: {
   origin: string;
   urlSecurityInfo?: IHostSecurity;
+  favicon?: string; // for WalletConnect
 }) {
   const content = useMemo(() => origin, [origin]);
   const { result: faviconUri } = usePromiseResult(
@@ -88,7 +90,7 @@ function DAppSiteMark({
       }}
     >
       <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
-        <Image.Source source={{ uri: faviconUri }} />
+        <Image.Source source={{ uri: favicon || faviconUri }} />
         <Image.Fallback>
           <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>

@@ -1,6 +1,4 @@
-import { useEffect, useRef } from 'react';
-
-import { debounce } from 'lodash';
+import { useEffect } from 'react';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -9,12 +7,16 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
+import { useDebounce } from '../../../hooks/useDebounce';
+
 export type IHandleAccountChangedParams = {
   activeAccount: IAccountSelectorActiveAccountInfo;
   selectedAccount: IAccountSelectorSelectedAccount;
+  num?: number;
 };
 export type IHandleAccountChanged = (
   params: IHandleAccountChangedParams,
+  num?: number,
 ) => void;
 
 export function useHandleDiscoveryAccountChanged({
@@ -26,28 +28,25 @@ export function useHandleDiscoveryAccountChanged({
 }) {
   const { activeAccount } = useActiveAccount({ num });
   const { selectedAccount } = useSelectedAccount({ num });
-  // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
-  const debouncedHandleAccountChanged = useRef(
-    debounce(
-      (params: IHandleAccountChangedParams) => handleAccountChanged?.(params),
-      200,
-    ),
-  );
-  // Use `useEffect` to listen for changes to `handleAccountChanged` and reset the debounced function.
-  useEffect(() => {
-    debouncedHandleAccountChanged.current = debounce(
-      (params: IHandleAccountChangedParams) => handleAccountChanged?.(params),
-      200,
-    );
-    return () => {
-      debouncedHandleAccountChanged.current.cancel();
-    };
-  }, [handleAccountChanged]);
+
+  // // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
+  const debouncedActiveAccount = useDebounce(activeAccount, 200);
+  const debouncedSelectedAccount = useDebounce(selectedAccount, 200);
 
   useEffect(() => {
-    debouncedHandleAccountChanged.current({
-      activeAccount,
-      selectedAccount,
-    });
-  }, [activeAccount, handleAccountChanged, selectedAccount]);
+    if (handleAccountChanged) {
+      handleAccountChanged(
+        {
+          activeAccount: debouncedActiveAccount,
+          selectedAccount: debouncedSelectedAccount,
+        },
+        num,
+      );
+    }
+  }, [
+    debouncedActiveAccount,
+    debouncedSelectedAccount,
+    handleAccountChanged,
+    num,
+  ]);
 }

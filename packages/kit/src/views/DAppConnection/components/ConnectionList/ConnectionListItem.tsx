@@ -2,8 +2,8 @@ import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
-  IConnectionItem,
-  IStorageType,
+  IConnectionItemWithStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { AccountListItem } from '../DAppAccountList';
@@ -12,10 +12,10 @@ function ConnectionListItem({
   item,
   handleDisconnect,
 }: {
-  item: IConnectionItem;
+  item: IConnectionItemWithStorageType;
   handleDisconnect: (
     origin: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
   ) => Promise<void>;
 }) {
   return (
@@ -44,7 +44,7 @@ function ConnectionListItem({
             outlineStyle: 'solid',
           }}
           onPress={() => {
-            void handleDisconnect(item.origin, 'injectedProvider');
+            void handleDisconnect(item.origin, item.storageType);
           }}
         >
           <Icon name="BrokenLinkOutline" color="$iconSubdued" size="$6" />

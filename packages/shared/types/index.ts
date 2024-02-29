@@ -14,6 +14,7 @@ export type IDappSourceInfo = {
   hostname: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
+  isWalletConnectRequest: boolean;
 };
 
 export enum ENetworkStatus {

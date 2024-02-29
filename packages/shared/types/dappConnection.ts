@@ -1,6 +1,7 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
+import type { SessionTypes } from '@walletconnect/types';
 
 export type IConnectionAccountInfo = IAccountSelectorSelectedAccount & {
   networkImpl: string;
@@ -22,13 +23,18 @@ export interface IConnectionItem {
   addressMap: {
     [address in string]: number[];
   };
+  walletConnectTopic?: string;
 }
 
 export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
   num: number;
 };
 
-export type IStorageType = 'injectedProvider' | 'walletConnect';
+export type IConnectionItemWithStorageType = IConnectionItem & {
+  storageType: IConnectionStorageType;
+};
+
+export type IConnectionStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
@@ -41,6 +47,12 @@ export interface IGetDAppAccountInfoParams {
 
 export type IConnectionAccountInfoWithNum = IConnectionAccountInfo & {
   num: number;
-  storageType: IStorageType;
+  storageType: IConnectionStorageType;
   availableNetworkIds?: string[];
+};
+
+export type IWalletConnectSessionProposalResult = {
+  accountsInfo: IConnectionAccountInfo[];
+  supportedNamespaces: Record<string, SessionTypes.BaseNamespace>;
+  storageType: IConnectionStorageType;
 };

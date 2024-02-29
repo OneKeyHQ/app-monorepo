@@ -8,15 +8,10 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  checkMethodSupport,
-  getChainData,
-  getNetworkImplByNamespace,
-  getNotSupportedChains,
-} from '@onekeyhq/shared/src/walletConnect/chainsData';
-import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
 
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
@@ -92,9 +87,12 @@ class ProviderApiWalletConnect {
   }
 
   async onSessionProposal(proposal: Web3WalletTypes.SessionProposal) {
-    console.log('onSessionProposal: ', proposal);
+    console.log('onSessionProposal: ', JSON.stringify(proposal));
     // check if all required networks are supported
-    const notSupportedChains = getNotSupportedChains(proposal);
+    const notSupportedChains =
+      await this.backgroundApi.serviceWalletConnect.getNotSupportedChains(
+        proposal,
+      );
     if (notSupportedChains.length > 0) {
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
@@ -104,9 +102,11 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const result = await this.backgroundApi.serviceDApp.openModal({
+      const { origin } = new URL(proposal.params.proposer.metadata.url);
+      const result = (await this.backgroundApi.serviceDApp.openModal({
         request: {
           scope: '$walletConnect',
+          origin,
         },
         screens: [
           EModalRoutes.DAppConnectionModal,
@@ -115,20 +115,19 @@ class ProviderApiWalletConnect {
         params: {
           proposal,
         },
-      });
-      console.log('=====>>>>result: ', result);
-      await this.web3Wallet?.approveSession({
+      })) as IWalletConnectSessionProposalResult;
+      const newSession = await this.web3Wallet?.approveSession({
         id: proposal.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        namespaces: (result as any).approvedNamespaces,
+        namespaces: result.supportedNamespaces,
       });
       await this.backgroundApi.serviceDApp.saveConnectionSession({
-        origin: new URL(proposal.params.proposer.metadata.url).origin,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        accountsInfo: (result as any).accountsInfo,
+        origin,
+        accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
+        walletConnectTopic: newSession?.topic,
       });
-    } catch {
+    } catch (e) {
+      console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
         reason: getSdkError('USER_REJECTED'),
@@ -139,9 +138,12 @@ class ProviderApiWalletConnect {
   async onSessionRequest(request: Web3WalletTypes.SessionRequest) {
     console.log('onSessionRequest: ', request);
     const { topic, id } = request;
+    const { serviceWalletConnect } = this.backgroundApi;
 
     // check request method is supported
-    const chain = getChainData(request.params.chainId);
+    const chain = await serviceWalletConnect.getChainData(
+      request.params.chainId,
+    );
     if (!chain) {
       await this.web3Wallet?.respondSessionRequest({
         topic,
@@ -154,7 +156,12 @@ class ProviderApiWalletConnect {
       return;
     }
 
-    if (!checkMethodSupport(chain.namespace, request.params.request.method)) {
+    if (
+      !(await serviceWalletConnect.checkMethodSupport(
+        chain.namespace,
+        request.params.request.method,
+      ))
+    ) {
       await this.web3Wallet?.respondSessionRequest({
         topic,
         response: {
@@ -167,8 +174,16 @@ class ProviderApiWalletConnect {
     }
 
     try {
-      const networkImpl = getNetworkImplByNamespace(chain.namespace);
+      const networkImpl = await serviceWalletConnect.getNetworkImplByNamespace(
+        chain.namespace,
+      );
       const requestProxy = this.getRequestProxy({ networkImpl });
+
+      // If the requested chainId does not match the one stored locally, switch the network.
+      await this.switchNetwork({
+        request,
+        requestProxy,
+      });
       const ret = await requestProxy.request(
         { sessionRequest: request },
         request.params.request,
@@ -197,6 +212,10 @@ class ProviderApiWalletConnect {
 
   onSessionDelete(args: Web3WalletTypes.SessionDelete) {
     console.log('onSessionDelete: ', args);
+    console.log(this.web3Wallet?.getActiveSessions());
+    void this.backgroundApi.serviceWalletConnect.handleSessionDelete(
+      args.topic,
+    );
   }
 
   onAuthRequest(args: Web3WalletTypes.AuthRequest) {
@@ -205,6 +224,49 @@ class ProviderApiWalletConnect {
 
   onSessionPing() {
     console.log('ping');
+  }
+
+  @backgroundMethod()
+  async switchNetwork({
+    request,
+    requestProxy,
+  }: {
+    request: Web3WalletTypes.SessionRequest;
+    requestProxy: WalletConnectRequestProxy;
+  }) {
+    const { topic, id } = request;
+    const origin = this.getDAppOrigin({ sessionRequest: request });
+    // Find connected account
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin,
+        scope: requestProxy.providerName,
+        isWalletConnectRequest: true,
+      });
+    const chainInfo =
+      await this.backgroundApi.serviceWalletConnect.getChainData(
+        request.params.chainId,
+      );
+    if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {
+      await this.web3Wallet?.respondSessionRequest({
+        topic,
+        response: {
+          id,
+          jsonrpc: '2.0',
+          error: getSdkError('USER_REJECTED', 'No connected account'),
+        },
+      });
+      return;
+    }
+    if (accountsInfo[0].accountInfo.networkId === chainInfo.networkId) {
+      return;
+    }
+    await this.backgroundApi.serviceDApp.switchConnectedNetwork({
+      newNetworkId: chainInfo.networkId,
+      origin,
+      scope: requestProxy.providerName,
+      isWalletConnectRequest: true,
+    });
   }
 
   @backgroundMethod()

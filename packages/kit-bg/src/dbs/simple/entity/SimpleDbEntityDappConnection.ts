@@ -1,10 +1,11 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { WalletConnectStartAccountSelectorNumber } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
   IConnectionItem,
-  IStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
@@ -20,9 +21,12 @@ export interface IDappConnectionData {
 
 function generateAccountSelectorNumber(
   connectionMap: IConnectionItem['connectionMap'],
-  storageType: IStorageType,
+  storageType: IConnectionStorageType,
 ): number {
-  let accountSelectorNumber = storageType === 'injectedProvider' ? 0 : 1000;
+  let accountSelectorNumber =
+    storageType === 'injectedProvider'
+      ? 0
+      : WalletConnectStartAccountSelectorNumber;
   // Use a while loop to ensure finding an unused `accountSelectorNumber`
   while (connectionMap[accountSelectorNumber]) {
     accountSelectorNumber += 1;
@@ -71,12 +75,14 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     imageURL,
     replaceExistAccount = true,
     storageType,
+    walletConnectTopic,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
     imageURL?: string;
     replaceExistAccount?: boolean;
+    walletConnectTopic?: string;
   }) {
     await this.setRawData(({ rawData }) => {
       let data: IDappConnectionData['data'] = {
@@ -101,6 +107,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           connectionMap: {},
           networkImplMap: {},
           addressMap: {},
+          walletConnectTopic,
         };
       } else {
         // If one already exists, create a new copy to maintain immutability.
@@ -110,6 +117,8 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           connectionMap: { ...connectionItem.connectionMap },
           networkImplMap: { ...connectionItem.networkImplMap },
           addressMap: { ...connectionItem.addressMap },
+          walletConnectTopic:
+            walletConnectTopic || connectionItem.walletConnectTopic,
         };
       }
 
@@ -170,7 +179,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
@@ -239,7 +248,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   async getAccountSelectorNum(
     origin: string,
     networkImpl: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
   ): Promise<number> {
     const rawData = await this.getRawData();
     if (!rawData?.data || typeof rawData.data !== 'object') {
@@ -275,7 +284,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async deleteConnection(origin: string, storageType: IStorageType) {
+  async deleteConnection(origin: string, storageType: IConnectionStorageType) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
@@ -342,7 +351,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async findAccountsInfoByOriginAndScope(
     origin: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
     networkImpl: string,
   ) {
     const rawData = await this.getRawData();
@@ -369,7 +378,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string,
     networkImpl: string,
     newNetworkId: string,
-    storageType: IStorageType,
+    storageType: IConnectionStorageType,
   ) {
     await this.setRawData(({ rawData }) => {
       // Check if rawData.data is a valid object and use it if it is

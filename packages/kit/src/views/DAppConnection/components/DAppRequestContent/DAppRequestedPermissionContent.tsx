@@ -23,7 +23,7 @@ function DAppRequestedPermissionContent() {
       >
         {['View your balance and activity', 'Send approval requests'].map(
           (text) => (
-            <XStack space="$3">
+            <XStack space="$3" key={text}>
               <Icon name="CheckLargeOutline" color="$icon" size="$5" />
               <SizableText color="$text" size="$bodyMd">
                 {text}
