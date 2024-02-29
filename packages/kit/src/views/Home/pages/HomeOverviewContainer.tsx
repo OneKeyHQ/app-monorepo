@@ -40,14 +40,7 @@ function HomeOverviewContainer() {
 
   return (
     <Stack>
-      <SizableText
-        size="$heading4xl"
-        $gtMd={{
-          size: '$heading5xl',
-        }}
-      >
-        {totalValue}
-      </SizableText>
+      <SizableText size="$heading5xl">{totalValue}</SizableText>
     </Stack>
   );
 }

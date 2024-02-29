@@ -5,6 +5,10 @@ import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -83,7 +87,15 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     if (wallet) {
       return (
         <>
-          <Page.Header headerLeft={headerLeft} />
+          <Page.Header
+            headerLeft={headerLeft}
+            headerRight={() => (
+              <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+                <HeaderIconButton icon="PlaceholderOutline" />
+                <HeaderIconButton icon="PlaceholderOutline" />
+              </HeaderButtonGroup>
+            )}
+          />
           <Page.Body>
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
