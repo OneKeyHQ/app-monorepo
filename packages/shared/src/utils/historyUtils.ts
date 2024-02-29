@@ -1,10 +1,7 @@
-import { isNil } from 'lodash';
-
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 
 import type {
-  IOnChainHistoryTxAsset,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '../../types/history';
@@ -23,12 +20,15 @@ export function getOnChainHistoryTxStatus(
 
 export function getOnChainHistoryTxAssetInfo({
   tokenAddress,
-  tokens,
+  tokens = {},
+  nfts = {},
 }: {
   tokenAddress: string;
-  tokens: Record<string, IOnChainHistoryTxAsset>;
+  tokens: Record<string, IOnChainHistoryTxToken>;
+  nfts: Record<string, IOnChainHistoryTxNFT>;
 }) {
-  let asset = null;
+  let token = null;
+  let nft = null;
   let icon = '';
   let name = '';
   let symbol = '';
@@ -36,29 +36,27 @@ export function getOnChainHistoryTxAssetInfo({
   let isNFT = false;
   let isNative = false;
   let price = '0';
-  if (!tokenAddress) {
-    asset = tokens.native;
-  } else {
-    asset = tokens[tokenAddress];
-  }
+  nft = nfts[tokenAddress];
+  token = tokens[tokenAddress || 'native'];
 
-  if (asset && !isNil((asset as IOnChainHistoryTxNFT).itemId)) {
-    const nft = asset as IOnChainHistoryTxNFT;
+  console.log('nfts', nfts);
+
+  if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';
     icon = nft.metadata?.image ?? '';
     address = nft.collectionAddress;
     isNFT = true;
     isNative = false;
-  } else if (asset && !isNil((asset as IOnChainHistoryTxToken).info?.address)) {
-    const token = (asset as IOnChainHistoryTxToken).info;
-    name = token.name;
-    symbol = token.symbol;
-    icon = token.logoURI ?? '';
-    address = token.address;
+  } else if (token) {
+    const { info } = token;
+    name = info.name;
+    symbol = info.symbol;
+    icon = info.logoURI ?? '';
+    address = info.address;
     isNFT = false;
-    isNative = !!token.isNative;
-    price = (asset as IOnChainHistoryTxToken).price ?? '0';
+    isNative = !!info.isNative;
+    price = token.price ?? '0';
   }
   return {
     name,

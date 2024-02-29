@@ -6,7 +6,7 @@ import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIs
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IConnectionAccountInfo,
-  IStorageType,
+  IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -104,13 +104,20 @@ export function useShouldUpdateConnectedAccount() {
     (
       prevAccountInfo: IConnectionAccountInfo,
       accountInfo: IConnectionAccountInfo,
-    ) =>
-      prevAccountInfo &&
-      (prevAccountInfo.walletId !== accountInfo.walletId ||
+    ) => {
+      const hasAccountChanged =
+        prevAccountInfo.walletId !== accountInfo.walletId ||
         prevAccountInfo.indexedAccountId !== accountInfo.indexedAccountId ||
         prevAccountInfo.networkId !== accountInfo.networkId ||
         prevAccountInfo.accountId !== accountInfo.accountId ||
-        prevAccountInfo.address !== accountInfo.address),
+        prevAccountInfo.address !== accountInfo.address;
+      const isValidAccountInfo =
+        accountInfo.walletId &&
+        accountInfo.indexedAccountId &&
+        accountInfo.networkId;
+
+      return prevAccountInfo && hasAccountChanged && isValidAccountInfo;
+    },
     [],
   );
 
@@ -146,7 +153,7 @@ export function useShouldUpdateConnectedAccount() {
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
       selectedAccount: IHandleAccountChangedParams;
-      storageType: IStorageType;
+      storageType: IConnectionStorageType;
       afterUpdate: () => void;
     }) => {
       const willUpdateAccountInfo =

@@ -21,6 +21,7 @@ export type IOnChainHistoryTxTransfer = {
   token: string;
   amount: string;
   label: IOnChainHistoryTxLabel;
+  isNative?: boolean;
 };
 
 export type IOnChainHistoryTxLabel = {
@@ -102,15 +103,12 @@ export type IOnChainHistoryTxToken = {
   price: string;
 };
 
-export type IOnChainHistoryTxAsset =
-  | IOnChainHistoryTxToken
-  | IOnChainHistoryTxNFT;
-
 export type IOnChainHistoryTxNFT = IAccountNFT;
 
 export type IFetchAccountHistoryResp = {
   data: IOnChainHistoryTx[];
-  tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
+  tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
+  nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
 };
 
 export type IFetchHistoryTxDetailsParams = {
@@ -121,5 +119,6 @@ export type IFetchHistoryTxDetailsParams = {
 
 export type IFetchHistoryTxDetailsResp = {
   data: IOnChainHistoryTx;
-  tokens: Record<string, IOnChainHistoryTxAsset>; // <tokenAddress, token>
+  tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
+  nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
 };
