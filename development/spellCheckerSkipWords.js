@@ -625,6 +625,7 @@ module.exports = [
   'sym',
   'Viewable',
   'viewability',
+  'caips',
   'glmt',
   'walletconnect',
   'lru',
