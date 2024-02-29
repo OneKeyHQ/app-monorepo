@@ -4,7 +4,7 @@ import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import ConnectionList from '../pages/ConnectionList';
 import ConnectionModal from '../pages/ConnectionModal';
 import SignMessageModal from '../pages/SignMessageModal';
-import WalletConnectSessionProposalModal from '../pages/WalletConnect/SessionProposalModal';
+import WalletConnectSessionProposalModal from '../pages/WalletConnect/WCSessionProposalModal';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
