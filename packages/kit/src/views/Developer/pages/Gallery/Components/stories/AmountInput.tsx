@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { YStack } from 'tamagui';
 
 import {
   Button,
@@ -8,6 +10,7 @@ import {
   Image,
   ListView,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   useForm,
@@ -32,13 +35,19 @@ const GalleryLayout = () => (
             <AmountInput
               value={amountValue}
               onChange={setAmountValue}
-              onSwitchPress={() => {
-                alert('onSwitchPress');
+              switchProps={{
+                value: '1.00',
+                currency: '$',
+                onPress: () => {
+                  alert('onSwitchPress');
+                },
               }}
-              onBalancePress={() => {
-                alert('onBalancePress');
+              balanceProps={{
+                balance: '0.5',
+                onPress: () => {
+                  alert('onBalancePress');
+                },
               }}
-              switchValue="$1.00"
               inputProps={{
                 placeholder: '0',
               }}
@@ -47,7 +56,6 @@ const GalleryLayout = () => (
                   'https://onekey-asset.com/assets/btc/btc.png',
                 selectedTokenSymbol: 'BTC',
               }}
-              balance="0.5"
               enableMaxAmount
               reversible
             />
@@ -55,7 +63,83 @@ const GalleryLayout = () => (
         },
       },
       {
-        title: 'Example 2 (Swap - Empty)',
+        title: 'Example 2 (fallback element)',
+        element: () => {
+          const [amountValue, setAmountValue] = useState('123');
+          const [balanceProps, setBalanceProps] = useState({
+            balance: '',
+            fallback: <Spinner />,
+          });
+          const [switchProps, setSwitchProps] = useState({
+            value: '1.00',
+            currency: '$',
+            onPress: () => {
+              alert('onSwitchPress');
+            },
+            fallback: <Spinner />,
+          });
+          const [loading, setLoading] = useState(false);
+          const showLoading = useCallback(() => {
+            setLoading(true);
+            setTimeout(() => {
+              setLoading(false);
+            }, 3000);
+          }, []);
+          const fetchSwitchValue = useCallback(() => {
+            setSwitchProps((v) => ({
+              ...v,
+              value: '',
+            }));
+            setTimeout(() => {
+              setSwitchProps((v) => ({
+                ...v,
+                value: '131231.123123',
+              }));
+            }, 3000);
+          }, []);
+          const fetchBalance = useCallback(() => {
+            setBalanceProps({
+              balance: '',
+              fallback: <Spinner />,
+            });
+            setTimeout(() => {
+              setBalanceProps({
+                balance: '111111.2222',
+                fallback: <Spinner />,
+              });
+            }, 3000);
+          }, []);
+          useEffect(() => {
+            fetchBalance();
+          }, [fetchBalance]);
+          return (
+            <YStack space="$5">
+              <AmountInput
+                loading={loading}
+                value={amountValue}
+                onChange={setAmountValue}
+                switchProps={switchProps}
+                balanceProps={balanceProps}
+                inputProps={{
+                  placeholder: '0',
+                }}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri:
+                    'https://onekey-asset.com/assets/btc/btc.png',
+                  selectedTokenSymbol: 'BTC',
+                }}
+                enableMaxAmount
+                reversible
+              />
+              <Button onPress={showLoading}>show loading</Button>
+              <Button onPress={fetchSwitchValue}>fetch switch value</Button>
+              <Button onPress={fetchBalance}>fetch balance</Button>
+            </YStack>
+          );
+        },
+      },
+      {
+        title: 'Example 3 (Swap - Empty)',
         element: () => {
           const [amountValue, setAmountValue] = useState('123');
           return (
@@ -73,7 +157,7 @@ const GalleryLayout = () => (
         },
       },
       {
-        title: 'Example 3 (Swap - From Token)',
+        title: 'Example 4 (Swap - From Token)',
         element: (
           <AmountInput
             inputProps={{
@@ -87,13 +171,15 @@ const GalleryLayout = () => (
               selectedTokenSymbol: 'BTC',
               onPress: () => alert('TokenSelectorModal'),
             }}
-            balance="0.5"
+            balanceProps={{
+              balance: '0.5',
+            }}
             enableMaxAmount
           />
         ),
       },
       {
-        title: 'Example 4 (Swap - To Token)',
+        title: 'Example 5 (Swap - To Token)',
         element: (
           <AmountInput
             value="0.5"
@@ -109,12 +195,14 @@ const GalleryLayout = () => (
               selectedTokenSymbol: 'BTC',
               onPress: () => alert('TokenSelectorModal'),
             }}
-            balance="0.5"
+            balanceProps={{
+              balance: '0.5',
+            }}
           />
         ),
       },
       {
-        title: 'Example 5 (Error)',
+        title: 'Example 6 (Error)',
         element: () => {
           const form = useForm({ defaultValues: { amount: '' } });
           return (
@@ -132,7 +220,7 @@ const GalleryLayout = () => (
         },
       },
       {
-        title: 'Example 6 (Form)',
+        title: 'Example 7 (Form)',
         element: () => {
           const form = useForm({ defaultValues: { amount: '' } });
           return (

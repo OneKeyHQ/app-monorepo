@@ -1,8 +1,14 @@
+import type { ReactElement } from 'react';
+
+import { AnimatePresence } from 'tamagui';
+
 import {
   Icon,
   Image,
   Input,
+  NumberSizeableText,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   getFontSize,
@@ -19,11 +25,19 @@ type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
-    balance?: string;
     enableMaxAmount?: boolean;
-    switchValue?: string;
-    onBalancePress?: () => void;
-    onSwitchPress?: () => void;
+    loading?: boolean;
+    switchProps?: {
+      value?: string;
+      onPress?: () => void;
+      currency?: string;
+      fallback?: ReactElement;
+    };
+    balanceProps?: {
+      balance?: string;
+      onPress?: () => void;
+      fallback?: ReactElement;
+    };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
@@ -35,7 +49,8 @@ type IAmountInputFormItemProps = IFormFieldProps<
 
 export function AmountInput({
   inputProps,
-  balance,
+  balanceProps,
+  switchProps,
   enableMaxAmount,
   tokenSelectorTriggerProps,
   reversible,
@@ -45,7 +60,7 @@ export function AmountInput({
   hasError,
   switchValue,
   onSwitchPress,
-  onBalancePress,
+  loading,
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
@@ -55,6 +70,7 @@ export function AmountInput({
   return (
     <Stack
       borderRadius="$3"
+      position="relative"
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       overflow="hidden"
@@ -148,7 +164,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
-          onPress={onSwitchPress}
+          onPress={switchProps?.onPress}
           {...(reversible && {
             userSelect: 'none',
             hoverStyle: {
@@ -159,18 +175,29 @@ export function AmountInput({
             },
           })}
         >
-          <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
-            {switchValue || '$0.00'}
-          </SizableText>
+          {!switchProps?.value && switchProps?.fallback ? (
+            <Stack pr="$2">{switchProps?.fallback}</Stack>
+          ) : (
+            <NumberSizeableText
+              formatter="price"
+              formatterOptions={{ currency: switchProps?.currency || '$' }}
+              size="$bodyMd"
+              color="$textSubdued"
+              pr="$1.5"
+            >
+              {switchProps?.value || '0.00'}
+            </NumberSizeableText>
+          )}
+
           {reversible && (
             <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
           )}
         </XStack>
-        {balance && (
+        {balanceProps?.balance ? (
           <XStack
             px="$3.5"
             pb="$2"
-            onPress={onBalancePress}
+            onPress={balanceProps?.onPress}
             {...(enableMaxAmount && {
               userSelect: 'none',
               hoverStyle: {
@@ -182,7 +209,14 @@ export function AmountInput({
             })}
           >
             <SizableText size="$bodyMd" color="$textSubdued">
-              Balance: {balance}
+              Balance:
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="balance"
+              >
+                {balanceProps?.balance}
+              </NumberSizeableText>
             </SizableText>
             {enableMaxAmount && (
               <SizableText
@@ -194,8 +228,30 @@ export function AmountInput({
               </SizableText>
             )}
           </XStack>
+        ) : (
+          <Stack pr="$6">{balanceProps?.fallback}</Stack>
         )}
       </XStack>
+      <AnimatePresence>
+        {loading && (
+          <Stack
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            opacity={0.15}
+            bg="$bgReverse"
+            justifyContent="center"
+            flex={1}
+            exitStyle={{
+              opacity: 0,
+            }}
+          >
+            <Spinner color="$bgApp" />
+          </Stack>
+        )}
+      </AnimatePresence>
     </Stack>
   );
 }
