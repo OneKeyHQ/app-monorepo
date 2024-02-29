@@ -31,7 +31,7 @@ function TokenListItem(props: IProps) {
           bg: '$bgStrong',
           justifyContent: 'center',
           alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
+          children: <Icon name="CoinOutline" />,
         },
         ...(tableLayout && {
           size: '$8',

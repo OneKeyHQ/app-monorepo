@@ -31,11 +31,11 @@ export function WalletListHeaderToolBar({
         placeholder="Search..."
         containerProps={{
           flex: 1,
-          maxWidth: '$60',
         }}
         onChangeText={onChangeText}
         {...(media.gtMd && {
           size: 'small',
+          maxWidth: '$60',
         })}
       />
     </XStack>

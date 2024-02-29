@@ -1,4 +1,4 @@
-import { ListView } from '@onekeyhq/components';
+import { ListView, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -73,7 +73,9 @@ function TokenListView(props: IProps) {
         />
       )}
       ListFooterComponent={
-        withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null
+        <Stack pb="$5">
+          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+        </Stack>
       }
     />
   );

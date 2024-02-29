@@ -108,7 +108,7 @@ function TokenListFooter(props: IProps) {
             bg="$bgStrong"
           >
             <Icon
-              name="ControllerRoundSolid"
+              name="ControllerRoundUpSolid"
               color="$iconSubdued"
               size={tableLayout ? '$6' : '$7'}
             />
