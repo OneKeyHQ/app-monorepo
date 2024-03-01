@@ -5,6 +5,8 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { DBSchema, IDBPObjectStore } from 'idb';
 import type {
   EDBAccountType,
   EDBCredentialType,
@@ -23,8 +25,6 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -409,6 +409,7 @@ export type ILocalDBGetAllRecordsParams<T extends ELocalDBStoreNames> = {
 } & ILocalDBGetRecordsQuery;
 export interface ILocalDBGetAllRecordsResult<T extends ELocalDBStoreNames> {
   records: ILocalDBRecord<T>[];
+  // recordPairs is only available of txGetAllRecords()
 }
 
 // UpdateRecords
@@ -460,6 +461,8 @@ export interface ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T>;
+
+  clearRecords(params: { name: ELocalDBStoreNames }): Promise<void>;
 
   getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,

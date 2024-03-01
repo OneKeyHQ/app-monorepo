@@ -78,7 +78,23 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   }, [reloadActiveAccountInfo]);
 
   useEffect(() => {
-    const fn = reloadActiveAccountInfo;
+    const fn = () => {
+      actions.current.updateSelectedAccount({
+        num,
+        builder: (v) => ({
+          ...v,
+          networkId: undefined,
+          deriveType: 'default',
+        }),
+      });
+    };
+    appEventBus.on(EAppEventBusNames.WalletClear, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletClear, fn);
+    };
+  }, [actions, num]);
+
+  useEffect(() => {
     const updateNetwork = (params: {
       networkId: string;
       sceneName: string;
@@ -99,10 +115,10 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       }
     };
     // const fn = () => null;
-    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
     appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
       appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };
   }, [reloadActiveAccountInfo, actions]);

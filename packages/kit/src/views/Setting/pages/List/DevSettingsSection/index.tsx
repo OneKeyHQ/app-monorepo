@@ -2,14 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  SizableText,
-  Switch,
-  XStack,
-  YStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Dialog, Switch, YStack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
@@ -100,8 +93,9 @@ export const DevSettingsSection = () => {
                 <SectionPressItem
                   title="Clear Wallets Data"
                   testID="clear-wallets-data"
-                  onPress={() => {
-                    void dialog.close();
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceAccount.clearWalletsAndAccounts();
+                    await dialog.close();
                   }}
                 />
                 <SectionPressItem
