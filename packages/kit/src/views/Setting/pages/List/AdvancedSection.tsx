@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,7 +15,7 @@ import { Section } from './Section';
 
 import type { IModalSettingParamList } from '../../router/types';
 
-export const HardwareBridgeSection = () => {
+const HardwareBridgeListItems = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPressBridgeSdkUrl = useCallback(() => {
@@ -29,34 +29,17 @@ export const HardwareBridgeSection = () => {
   }, []);
   const intl = useIntl();
 
-  const showBridgePortSetting = useMemo<boolean>(
-    () => !!(platformEnv.isExtension || platformEnv.isWeb),
-    [],
-  );
-
   const [settings] = useSettingsPersistAtom();
 
-  if (!showBridgePortSetting) {
-    return null;
-  }
-
   return (
-    <Section title="HARDWARE BRIDGE">
+    <>
       <ListItem
         onPress={onPressBridgeSdkUrl}
         icon="CodeOutline"
         title={intl.formatMessage({ id: 'form__hardware_bridge_sdk_url' })}
         drillIn
       >
-        <ListItem.Text
-          primary={settings.hardwareConnectSrc}
-          align="right"
-          primaryTextProps={
-            {
-              // tone: 'subdued',
-            }
-          }
-        />
+        <ListItem.Text primary={settings.hardwareConnectSrc} align="right" />
       </ListItem>
       <ListItem
         onPress={onPressBridgeStatus}
@@ -71,6 +54,45 @@ export const HardwareBridgeSection = () => {
           }}
         />
       </ListItem>
+    </>
+  );
+};
+
+export const AdvancedSection = () => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingSpendUTXOModal,
+    });
+  }, [navigation]);
+  const onAccountDerivation = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingAccountDerivationModal,
+    });
+  }, [navigation]);
+  const intl = useIntl();
+  const [{ spendDustUTXO }] = useSettingsPersistAtom();
+  return (
+    <Section title="Advanced">
+      <ListItem
+        onPress={onAccountDerivation}
+        icon="AlbumsOutline"
+        title="Account Derivation Path"
+        drillIn
+      />
+      <ListItem
+        onPress={onPress}
+        icon="CryptoCoinOutline"
+        title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
+        drillIn
+      >
+        <ListItem.Text primary={spendDustUTXO ? 'On' : 'Off'} align="right" />
+      </ListItem>
+
+      {platformEnv.isExtension || platformEnv.isWeb ? (
+        <HardwareBridgeListItems />
+      ) : null}
     </Section>
   );
 };

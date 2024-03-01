@@ -1,10 +1,9 @@
 import { Page, ScrollView, Stack } from '@onekeyhq/components';
 
 import { AboutSection } from './AboutSection';
-import { CryptoCurrencySection } from './CryptoCurrencySection';
+import { AdvancedSection } from './AdvancedSection';
 import { DataSection } from './DataSection';
 import { DevSettingsSection } from './DevSettingsSection';
-import { HardwareBridgeSection } from './HardwareBridgeSection';
 import { PreferenceSection } from './PreferenceSection';
 import { SecuritySection } from './SecuritySection';
 
@@ -16,8 +15,7 @@ export default function SettingListModal() {
           <SecuritySection />
           <PreferenceSection />
           <DataSection />
-          <CryptoCurrencySection />
-          <HardwareBridgeSection />
+          <AdvancedSection />
           <AboutSection />
           <DevSettingsSection />
         </Stack>
