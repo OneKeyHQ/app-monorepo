@@ -374,10 +374,10 @@ export function getStateFromPath<ParamList extends {}>(
   path: string,
   options?: Options<ParamList>,
 ): ResultState | undefined {
+  path = window.location.hash.slice(1);
   if (options) {
     validatePathConfig(options);
   }
-
   const initialRoutes: InitialRouteConfig[] = [];
 
   if (options?.initialRouteName) {
