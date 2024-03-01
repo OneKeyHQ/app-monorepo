@@ -10,7 +10,6 @@ import {
   Image,
   ListView,
   SizableText,
-  Spinner,
   Stack,
   XStack,
   useForm,
@@ -35,15 +34,15 @@ const GalleryLayout = () => (
             <AmountInput
               value={amountValue}
               onChange={setAmountValue}
-              switchProps={{
+              currency="$"
+              amountProps={{
                 value: '1.00',
-                currency: '$',
                 onPress: () => {
                   alert('onSwitchPress');
                 },
               }}
               balanceProps={{
-                balance: '0.5',
+                value: '0.5',
                 onPress: () => {
                   alert('onBalancePress');
                 },
@@ -65,75 +64,89 @@ const GalleryLayout = () => (
       {
         title: 'Example 2 (fallback element)',
         element: () => {
-          const [amountValue, setAmountValue] = useState('123');
+          const [value, setValue] = useState('');
+          const [tokenSelectorTriggerProps, setTokenSelectorTriggerProps] =
+            useState({
+              selectedTokenImageUri:
+                'https://onekey-asset.com/assets/btc/btc.png',
+              selectedTokenSymbol: 'BTC',
+            });
           const [balanceProps, setBalanceProps] = useState({
             balance: '',
-            fallback: <Spinner />,
-          });
-          const [switchProps, setSwitchProps] = useState({
-            value: '1.00',
-            currency: '$',
             onPress: () => {
-              alert('onSwitchPress');
+              alert('onBalancePress');
             },
-            fallback: <Spinner />,
+          });
+          const [amountProps, setAmountProps] = useState({
+            value: '1.00',
+            onPress: () => {
+              alert('onAmountPress');
+            },
           });
           const [loading, setLoading] = useState(false);
-          const showLoading = useCallback(() => {
+          const fetchValue = useCallback(() => {
             setLoading(true);
             setTimeout(() => {
               setLoading(false);
             }, 3000);
           }, []);
-          const fetchSwitchValue = useCallback(() => {
-            setSwitchProps((v) => ({
+          const fetchToken = useCallback(() => {
+            setTokenSelectorTriggerProps((v) => ({
               ...v,
-              value: '',
+              loading: true,
             }));
             setTimeout(() => {
-              setSwitchProps((v) => ({
+              setTokenSelectorTriggerProps((v) => ({
+                ...v,
+                loading: false,
+              }));
+            }, 3000);
+          }, []);
+          const fetchAmount = useCallback(() => {
+            setAmountProps((v) => ({
+              ...v,
+              loading: true,
+            }));
+            setTimeout(() => {
+              setAmountProps((v) => ({
                 ...v,
                 value: '131231.123123',
+                loading: false,
               }));
             }, 3000);
           }, []);
           const fetchBalance = useCallback(() => {
-            setBalanceProps({
-              balance: '',
-              fallback: <Spinner />,
-            });
+            setBalanceProps((v) => ({
+              ...v,
+              loading: true,
+            }));
             setTimeout(() => {
-              setBalanceProps({
+              setBalanceProps((v) => ({
+                ...v,
                 balance: '111111.2222',
-                fallback: <Spinner />,
-              });
+                loading: false,
+              }));
             }, 3000);
           }, []);
-          useEffect(() => {
-            fetchBalance();
-          }, [fetchBalance]);
           return (
             <YStack space="$5">
               <AmountInput
                 loading={loading}
-                value={amountValue}
-                onChange={setAmountValue}
-                switchProps={switchProps}
+                value={value}
+                onChange={setValue}
+                amountProps={amountProps}
                 balanceProps={balanceProps}
                 inputProps={{
                   placeholder: '0',
                 }}
-                tokenSelectorTriggerProps={{
-                  selectedTokenImageUri:
-                    'https://onekey-asset.com/assets/btc/btc.png',
-                  selectedTokenSymbol: 'BTC',
-                }}
+                tokenSelectorTriggerProps={tokenSelectorTriggerProps}
                 enableMaxAmount
                 reversible
               />
-              <Button onPress={showLoading}>show loading</Button>
-              <Button onPress={fetchSwitchValue}>fetch switch value</Button>
-              <Button onPress={fetchBalance}>fetch balance</Button>
+              <Button onPress={fetchValue}>value loading</Button>
+              <Button onPress={fetchToken}>token loading</Button>
+              <Button onPress={fetchAmount}>amount loading</Button>
+              <Button onPress={fetchBalance}>balance loading</Button>
             </YStack>
           );
         },
@@ -172,7 +185,7 @@ const GalleryLayout = () => (
               onPress: () => alert('TokenSelectorModal'),
             }}
             balanceProps={{
-              balance: '0.5',
+              value: '0.5',
             }}
             enableMaxAmount
           />
@@ -196,7 +209,7 @@ const GalleryLayout = () => (
               onPress: () => alert('TokenSelectorModal'),
             }}
             balanceProps={{
-              balance: '0.5',
+              value: '0.5',
             }}
           />
         ),
@@ -213,7 +226,11 @@ const GalleryLayout = () => (
                   required: true,
                 }}
               >
-                <AmountInput />
+                <AmountInput
+                  balanceProps={{
+                    value: '0.5',
+                  }}
+                />
               </Form.Field>
             </Form>
           );
@@ -227,7 +244,11 @@ const GalleryLayout = () => (
             <Stack space="$2">
               <Form form={form}>
                 <Form.Field name="amount">
-                  <AmountInput />
+                  <AmountInput
+                    balanceProps={{
+                      value: '0.5',
+                    }}
+                  />
                 </Form.Field>
               </Form>
               <Button

@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useMemo } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -26,19 +26,24 @@ type IAmountInputFormItemProps = IFormFieldProps<
   {
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
     enableMaxAmount?: boolean;
+    // loading indicator part input part
     loading?: boolean;
-    switchProps?: {
+    currency?: string;
+    amountProps?: {
       value?: string;
       onPress?: () => void;
-      currency?: string;
-      fallback?: ReactElement;
+      // loading indicator part amount part
+      loading?: boolean;
     };
     balanceProps?: {
-      balance?: string;
+      value?: string;
       onPress?: () => void;
-      fallback?: ReactElement;
+      // loading indicator part balance part
+      loading?: boolean;
     };
     tokenSelectorTriggerProps?: {
+      // loading indicator part token part
+      loading?: boolean;
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
@@ -49,8 +54,6 @@ type IAmountInputFormItemProps = IFormFieldProps<
 
 export function AmountInput({
   inputProps,
-  balanceProps,
-  switchProps,
   enableMaxAmount,
   tokenSelectorTriggerProps,
   reversible,
@@ -58,15 +61,85 @@ export function AmountInput({
   value,
   name,
   hasError,
-  switchValue,
-  onSwitchPress,
+  amountProps,
+  balanceProps,
   loading,
+  currency = '$',
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
 
+  const AmountElement = useMemo(() => {
+    if (!amountProps) {
+      return null;
+    }
+    return (
+      <>
+        {amountProps.loading ? (
+          <Stack pr="$2">
+            <Spinner />
+          </Stack>
+        ) : (
+          <NumberSizeableText
+            formatter="price"
+            formatterOptions={{ currency }}
+            size="$bodyMd"
+            color="$textSubdued"
+            pr="$1.5"
+          >
+            {amountProps.value || '0.00'}
+          </NumberSizeableText>
+        )}
+        {reversible && (
+          <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
+        )}
+      </>
+    );
+  }, [amountProps, currency, reversible]);
+
+  const BalanceElement = useMemo(() => {
+    if (!balanceProps) {
+      return null;
+    }
+    return balanceProps.loading ? (
+      <Stack pr="$6">
+        <Spinner />
+      </Stack>
+    ) : (
+      <XStack
+        px="$3.5"
+        pb="$2"
+        onPress={balanceProps.onPress}
+        {...(enableMaxAmount && {
+          userSelect: 'none',
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Balance:
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="balance"
+          >
+            {balanceProps.value}
+          </NumberSizeableText>
+        </SizableText>
+        {enableMaxAmount && (
+          <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
+            Max
+          </SizableText>
+        )}
+      </XStack>
+    );
+  }, [balanceProps, enableMaxAmount]);
   return (
     <Stack
       borderRadius="$3"
@@ -164,7 +237,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
-          onPress={switchProps?.onPress}
+          onPress={amountProps?.onPress}
           {...(reversible && {
             userSelect: 'none',
             hoverStyle: {
@@ -175,62 +248,9 @@ export function AmountInput({
             },
           })}
         >
-          {!switchProps?.value && switchProps?.fallback ? (
-            <Stack pr="$2">{switchProps?.fallback}</Stack>
-          ) : (
-            <NumberSizeableText
-              formatter="price"
-              formatterOptions={{ currency: switchProps?.currency || '$' }}
-              size="$bodyMd"
-              color="$textSubdued"
-              pr="$1.5"
-            >
-              {switchProps?.value || '0.00'}
-            </NumberSizeableText>
-          )}
-
-          {reversible && (
-            <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
-          )}
+          {AmountElement}
         </XStack>
-        {balanceProps?.balance ? (
-          <XStack
-            px="$3.5"
-            pb="$2"
-            onPress={balanceProps?.onPress}
-            {...(enableMaxAmount && {
-              userSelect: 'none',
-              hoverStyle: {
-                bg: '$bgHover',
-              },
-              pressStyle: {
-                bg: '$bgActive',
-              },
-            })}
-          >
-            <SizableText size="$bodyMd" color="$textSubdued">
-              Balance:
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="balance"
-              >
-                {balanceProps?.balance}
-              </NumberSizeableText>
-            </SizableText>
-            {enableMaxAmount && (
-              <SizableText
-                pl="$1"
-                size="$bodyMdMedium"
-                color="$textInteractive"
-              >
-                Max
-              </SizableText>
-            )}
-          </XStack>
-        ) : (
-          <Stack pr="$6">{balanceProps?.fallback}</Stack>
-        )}
+        {BalanceElement}
       </XStack>
       <AnimatePresence>
         {loading && (
