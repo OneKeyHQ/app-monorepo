@@ -8,8 +8,12 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateGasResp,
+  IFeeInfoUnit,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -228,6 +232,10 @@ export type ITransferInfo = {
     nftType: ENFTType;
     nftAddress: string;
   };
+
+  useCustomAddressesBalance?: boolean;
+  opReturn?: string;
+  coinSelectAlgorithm?: ICoinSelectAlgorithm;
 };
 
 export type IApproveInfo = {
@@ -249,6 +257,16 @@ export type IWrappedInfo = {
   type: EWrappedType;
 };
 
+export type IUtxoInfo = {
+  txid: string;
+  vout: number;
+  value: string;
+  height: number;
+  confirmations: number;
+  address: string;
+  path: string;
+};
+
 export type INativeAmountInfo = {
   amount?: string;
   maxSendAmount?: string;
@@ -256,6 +274,7 @@ export type INativeAmountInfo = {
 
 // Send ------------
 export interface IBuildTxHelperParams {
+  getFees?: (networkId: string) => Promise<IEstimateGasResp>;
   getToken: ({
     networkId,
     tokenIdOnNetwork,
@@ -277,6 +296,10 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+
+  utxosInfo?: IUtxoInfo[];
+  feeInfo?: IFeeInfoUnit;
+  specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
@@ -287,6 +310,10 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+
+  utxosInfo?: IUtxoInfo[];
+  feeInfo?: IFeeInfoUnit;
+  specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;

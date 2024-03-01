@@ -194,6 +194,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      utxosInfo,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -201,6 +202,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      utxosInfo,
     });
   }
 
@@ -429,6 +431,31 @@ class ServiceSend extends ServiceBase {
     } = params;
 
     let newUnsignedTx = unsignedTx;
+    let utxosInfo;
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    if (vaultSettings.isUtxo) {
+      const { utxoList } =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountAddress: account.address,
+          xpub: account.pub,
+          withUTXOList: true,
+        });
+
+      if (!utxoList) {
+        throw new Error('Failed to get UTXOs of the account.');
+      }
+
+      utxosInfo = utxoList;
+    }
 
     if (!newUnsignedTx) {
       newUnsignedTx = await this.buildUnsignedTx({
@@ -438,6 +465,7 @@ class ServiceSend extends ServiceBase {
         approveInfo,
         transfersInfo,
         wrappedInfo,
+        utxosInfo,
       });
     }
 
@@ -446,11 +474,8 @@ class ServiceSend extends ServiceBase {
         networkId,
       })
     ).nonceRequired;
+
     if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
