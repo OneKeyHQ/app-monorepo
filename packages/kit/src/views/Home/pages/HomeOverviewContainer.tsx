@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -44,7 +44,12 @@ function HomeOverviewContainer() {
     [intl, overview?.netWorth, settings.currencyInfo.symbol],
   );
 
-  if (isLoading) return <SizableText>Loading</SizableText>;
+  if (isLoading)
+    return (
+      <Stack py="$2.5">
+        <Skeleton w="$40" h="$7" />
+      </Stack>
+    );
 
   return (
     <Stack>
