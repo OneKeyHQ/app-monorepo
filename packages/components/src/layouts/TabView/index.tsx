@@ -57,7 +57,7 @@ const TabComponent = (
   const dataCount = useMemo(() => data.length, [data]);
   const stickyConfig = useMemo(
     () => ({
-      lastIndex: -1,
+      lastIndex: initialScrollIndex ?? 0,
       scrollViewHeight: 0,
       headerViewY: 0,
       headerViewHeight: 0,
@@ -66,16 +66,11 @@ const TabComponent = (
         contentOffsetY: 0,
       })),
     }),
-    [dataCount],
+    [dataCount, initialScrollIndex],
   );
   const reloadContentHeight = useCallback(
     (index: number) => {
-      if (
-        stickyConfig.data[index].contentHeight *
-          stickyConfig.scrollViewHeight *
-          stickyConfig.headerViewHeight <=
-        0
-      ) {
+      if (stickyConfig.scrollViewHeight * stickyConfig.headerViewHeight <= 0) {
         return;
       }
       const minHeight =
@@ -90,6 +85,9 @@ const TabComponent = (
           height,
         });
       } else {
+        if (stickyConfig.data[index].contentHeight <= 0) {
+          return;
+        }
         setContentHeight(height);
       }
     },
