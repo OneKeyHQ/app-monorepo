@@ -120,6 +120,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   setCurrentWebTab = contextAtomMethod((get, set, tabId: string | null) => {
     const currentTabId = get(activeTabIdAtom());
     if (currentTabId !== tabId) {
+      this.pauseDappInteraction.call(set, currentTabId);
+
       // set isActive to true
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -130,6 +132,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (targetIndex !== -1) {
         tabs[targetIndex].isActive = true;
         set(activeTabIdAtom(), tabId);
+        this.resumeDappInteraction.call(set, tabId);
       } else {
         set(activeTabIdAtom(), '');
       }
