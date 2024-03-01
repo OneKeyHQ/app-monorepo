@@ -149,6 +149,7 @@ export interface IFetchQuoteLimit {
 export interface IFetchQuoteFee {
   percentageFee: number; // oneKey fee percentage
   protocolFees?: number;
+  estimatedFeeFiatValue?: number;
 }
 
 // swap action state

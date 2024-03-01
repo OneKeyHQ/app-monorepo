@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 
-import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -11,6 +10,7 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  ESwapTxHistoryStatus,
   type ISwapToken,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
@@ -266,30 +266,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   };
 
   approvingStateRunSync = contextAtomMethod(
-    async (
-      get,
-      set,
-      networkId: string,
-      tokenAddress: string,
-      userAddress: string,
-      spenderAddress: string,
-      amount: string,
-    ) => {
-      const res = await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+    async (get, set, networkId: string, txId: string) => {
+      const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
+        txId,
         networkId,
-        tokenAddress,
-        walletAddress: userAddress,
-        spenderAddress,
       });
-      if (res) {
-        const allowanceBN = new BigNumber(res);
-        const amountBN = new BigNumber(amount);
-        if (!allowanceBN.isNaN() && allowanceBN.gte(amountBN)) {
-          set(swapApprovingTransactionAtom(), undefined);
-          set(swapBuildTxFetchingAtom(), false);
-          if (this.approvingInterval) {
-            clearInterval(this.approvingInterval);
-          }
+      if (txState.state === ESwapTxHistoryStatus.SUCCESS) {
+        set(swapApprovingTransactionAtom(), undefined);
+        set(swapBuildTxFetchingAtom(), false);
+        if (this.approvingInterval) {
+          clearInterval(this.approvingInterval);
         }
       }
     },
@@ -304,20 +290,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       void this.approvingStateRunSync.call(
         set,
         approvingTransaction.fromToken.networkId,
-        approvingTransaction.fromToken.contractAddress,
-        approvingTransaction.useAddress,
-        approvingTransaction.spenderAddress,
-        approvingTransaction.amount,
+
+        approvingTransaction.txId,
       );
       this.approvingInterval = setInterval(() => {
         if (approvingTransaction.txId) {
           void this.approvingStateRunSync.call(
             set,
             approvingTransaction.fromToken.networkId,
-            approvingTransaction.fromToken.contractAddress,
-            approvingTransaction.useAddress,
-            approvingTransaction.spenderAddress,
-            approvingTransaction.amount,
+            approvingTransaction.txId,
           );
         }
       }, 3000);
