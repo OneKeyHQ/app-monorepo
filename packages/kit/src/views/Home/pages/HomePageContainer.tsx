@@ -106,8 +106,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             headerLeft={headerLeft}
             headerRight={() => (
               <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-                <HeaderIconButton icon="PlaceholderOutline" />
-                <HeaderIconButton icon="PlaceholderOutline" />
+                <HeaderIconButton title="Scan" icon="ScanOutline" />
+                <HeaderIconButton title="Lock Now" icon="LockOutline" />
               </HeaderButtonGroup>
             )}
           />

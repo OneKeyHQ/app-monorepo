@@ -46,7 +46,6 @@ function WalletActionBuy() {
 }
 
 function WalletActionSend() {
-  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {

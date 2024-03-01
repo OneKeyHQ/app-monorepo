@@ -292,7 +292,10 @@ export function TokenDetails() {
             mb="$5"
           />
         )}
+
+        {/* Overview */}
         <Stack px="$5" pb="$5">
+          {/* Balance */}
           <XStack alignItems="center">
             <Token
               sourceUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
@@ -300,6 +303,7 @@ export function TokenDetails() {
             />
             <Stack ml="$3">
               <Heading size="$heading3xl">
+                {/* TODO: Loading state */}
                 {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}{' '}
                 {tokenInfo.symbol}
               </Heading>
@@ -308,6 +312,7 @@ export function TokenDetails() {
               </SizableText>
             </Stack>
           </XStack>
+          {/* Actions */}
           <XStack pt="$5" space="$2.5">
             <Button onPress={handleSendPress}>Send</Button>
             <Button onPress={handleReceivePress}>Receive</Button>
@@ -315,16 +320,18 @@ export function TokenDetails() {
             <Button icon="DotHorOutline" pl="$2.5" pr="$0.5" />
           </XStack>
         </Stack>
+
+        {/* Banner – if this token can be staked */}
         <ListItem
-          bg="$bgSuccessSubdued"
+          drillIn
+          onPress={() => console.log('clicked')}
           py="$3"
-          mx="$0"
           px="$5"
+          mx="$0"
+          bg="$bgSuccessSubdued"
           borderTopWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
           borderRadius="$0"
-          drillIn
-          onPress={() => console.log('clicked')}
         >
           <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
             <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
@@ -339,6 +346,8 @@ export function TokenDetails() {
             }}
           />
         </ListItem>
+
+        {/* History */}
         <Divider mb="$2.5" />
         <TxHistoryListView
           data={tokenHistory ?? []}

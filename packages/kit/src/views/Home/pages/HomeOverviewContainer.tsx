@@ -47,15 +47,11 @@ function HomeOverviewContainer() {
   if (isLoading)
     return (
       <Stack py="$2.5">
-        <Skeleton w="$40" h="$7" />
+        <Skeleton w="$40" h="$7" my="$2.5" />
       </Stack>
     );
 
-  return (
-    <Stack>
-      <SizableText size="$heading5xl">{totalValue}</SizableText>
-    </Stack>
-  );
+  return <SizableText size="$heading5xl">{totalValue}</SizableText>;
 }
 
 export { HomeOverviewContainer };
