@@ -38,7 +38,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     }
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
-      duration: 200,
+      duration: 350,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
@@ -129,12 +129,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 ListHeaderComponent={<HomeHeaderContainer />}
                 initialScrollIndex={0}
                 contentItemWidth={CONTENT_ITEM_WIDTH}
-                $md={{
-                  width: '100%',
-                }}
-                $gtMd={{
-                  width: '100%',
-                }}
                 contentWidth={screenWidth}
                 refreshControl={
                   <RefreshControl refreshing={false} onRefresh={onRefresh} />
