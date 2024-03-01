@@ -39,8 +39,6 @@ export function getOnChainHistoryTxAssetInfo({
   nft = nfts[tokenAddress];
   token = tokens[tokenAddress || 'native'];
 
-  console.log('nfts', nfts);
-
   if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';

@@ -19,16 +19,22 @@ function HomeOverviewContainer() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const overview = usePromiseResult(async () => {
-    if (!account || !network) return;
-    const r =
-      await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
-        networkId: network.id,
-        accountAddress: account.address,
-        withNetWorth: true,
-      });
-    return r;
-  }, [account, network]).result;
+  const { result: overview, isLoading } = usePromiseResult(
+    async () => {
+      if (!account || !network) return;
+      const r =
+        await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+          networkId: network.id,
+          accountAddress: account.address,
+          withNetWorth: true,
+        });
+      return r;
+    },
+    [account, network],
+    {
+      watchLoading: true,
+    },
+  );
 
   const totalValue = useMemo(
     () =>
@@ -37,6 +43,8 @@ function HomeOverviewContainer() {
       )}`,
     [intl, overview?.netWorth, settings.currencyInfo.symbol],
   );
+
+  if (isLoading) return <SizableText>Loading</SizableText>;
 
   return (
     <Stack>
