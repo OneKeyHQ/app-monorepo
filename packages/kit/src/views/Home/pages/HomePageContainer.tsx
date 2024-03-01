@@ -126,19 +126,16 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             {account ? (
               <Tab
                 data={tabs}
-                ListHeaderComponent={
-                  <Animated.View style={{ width: CONTENT_ITEM_WIDTH }}>
-                    <HomeHeaderContainer />
-                  </Animated.View>
-                }
+                ListHeaderComponent={<HomeHeaderContainer />}
                 initialScrollIndex={0}
                 contentItemWidth={CONTENT_ITEM_WIDTH}
                 $md={{
                   width: '100%',
                 }}
                 $gtMd={{
-                  width: screenWidth,
+                  width: '100%',
                 }}
+                contentWidth={screenWidth}
                 refreshControl={
                   <RefreshControl refreshing={false} onRefresh={onRefresh} />
                 }

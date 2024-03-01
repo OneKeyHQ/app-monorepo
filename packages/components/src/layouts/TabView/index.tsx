@@ -30,6 +30,7 @@ export interface ITabProps extends IScrollViewProps {
   ListHeaderComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
   contentItemWidth?: Animated.Value;
+  contentWidth?: number;
   onSelectedPageIndex?: (pageIndex: number) => void;
   shouldSelectedPageIndex?: (pageIndex: number) => boolean;
 }
@@ -41,6 +42,7 @@ const TabComponent = (
     ListHeaderComponent,
     headerProps,
     contentItemWidth,
+    contentWidth,
     onSelectedPageIndex,
     shouldSelectedPageIndex,
     ...props
@@ -200,6 +202,7 @@ const TabComponent = (
           stickyConfig.headerViewY =
             event.nativeEvent.layout.y - stickyConfig.headerViewHeight;
         }}
+        w={contentWidth}
         h={contentHeight}
       >
         <Content
