@@ -70,7 +70,12 @@ const TabComponent = (
   );
   const reloadContentHeight = useCallback(
     (index: number) => {
-      if (stickyConfig.scrollViewHeight * stickyConfig.headerViewHeight <= 0) {
+      if (
+        stickyConfig.data[index].contentHeight *
+          stickyConfig.scrollViewHeight *
+          stickyConfig.headerViewHeight <=
+        0
+      ) {
         return;
       }
       const minHeight =
