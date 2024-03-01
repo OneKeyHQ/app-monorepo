@@ -34,6 +34,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { getFormattedNumber } from '../../../utils/format';
+import { RawActions } from '../../Home/components/WalletActions/RawActions';
 import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
 import { EModalAssetDetailRoutes } from '../router/types';
@@ -296,7 +297,7 @@ export function TokenDetails() {
         {/* Overview */}
         <Stack px="$5" pb="$5">
           {/* Balance */}
-          <XStack alignItems="center">
+          <XStack alignItems="center" mb="$5">
             <Token
               sourceUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
               size="xl"
@@ -313,12 +314,13 @@ export function TokenDetails() {
             </Stack>
           </XStack>
           {/* Actions */}
-          <XStack pt="$5" space="$2.5">
-            <Button onPress={handleSendPress}>Send</Button>
-            <Button onPress={handleReceivePress}>Receive</Button>
-            <Button>Swap</Button>
-            <Button icon="DotHorOutline" pl="$2.5" pr="$0.5" />
-          </XStack>
+          <RawActions>
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive onPress={handleReceivePress} />
+            <RawActions.Swap onPress={() => {}} />
+            <RawActions.Buy onPress={() => {}} />
+            <RawActions.Sell onPress={() => {}} />
+          </RawActions>
         </Stack>
 
         {/* Banner – if this token can be staked */}

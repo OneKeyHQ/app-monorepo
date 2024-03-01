@@ -4,16 +4,13 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  ActionList,
   Dialog,
   Form,
   Input,
   Stack,
   TextArea,
-  XStack,
   useClipboard,
   useForm,
-  useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerLegacy } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
@@ -37,12 +34,10 @@ import {
   type IModalSendParamList,
 } from '../../../Send/router';
 
-import { WalletActionItems } from './WalletActionItem';
+import { RawActions } from './RawActions';
 
 function WalletActionBuy() {
-  return (
-    <WalletActionItems label="Buy" onPress={() => {}} icon="PlusLargeOutline" />
-  );
+  return <RawActions.Buy onPress={() => {}} />;
 }
 
 function WalletActionSend() {
@@ -84,13 +79,7 @@ function WalletActionSend() {
     });
   }, [account, allTokens.keys, allTokens.tokens, map, navigation, network]);
 
-  return (
-    <WalletActionItems
-      label="Send"
-      onPress={handleOnSend}
-      icon="ArrowTopOutline"
-    />
-  );
+  return <RawActions.Send onPress={handleOnSend} />;
 }
 
 function WalletActionReceive() {
@@ -166,28 +155,15 @@ function WalletActionReceive() {
     });
   }, [form, navigation]);
 
-  return (
-    <WalletActionItems
-      label="Receive"
-      onPress={handleOnReceive}
-      icon="ArrowBottomOutline"
-    />
-  );
+  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
 function WalletActionSwap() {
   const handleOnSwap = useCallback(() => {}, []);
-  return (
-    <WalletActionItems
-      label="Swap"
-      onPress={handleOnSwap}
-      icon="SwitchHorOutline"
-    />
-  );
+  return <RawActions.Swap onPress={handleOnSwap} />;
 }
 
-function WalletActionMore() {
-  const media = useMedia();
+function ActionMore() {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -195,16 +171,7 @@ function WalletActionMore() {
   const { copyText } = useClipboard();
 
   return (
-    <ActionList
-      title={intl.formatMessage({ id: 'action__more' })}
-      renderTrigger={
-        <WalletActionItems
-          icon="DotHorOutline"
-          {...(media.sm && {
-            label: intl.formatMessage({ id: 'action__more' }),
-          })}
-        />
-      }
+    <RawActions.More
       sections={[
         {
           items: [
@@ -242,19 +209,13 @@ function WalletActionMore() {
 
 function WalletActions() {
   return (
-    <XStack
-      justifyContent="space-between"
-      $gtSm={{
-        justifyContent: 'unset',
-        space: '$2',
-      }}
-    >
+    <RawActions>
       <WalletActionSend />
       <WalletActionReceive />
       <WalletActionBuy />
       <WalletActionSwap />
-      <WalletActionMore />
-    </XStack>
+      <ActionMore />
+    </RawActions>
   );
 }
 
