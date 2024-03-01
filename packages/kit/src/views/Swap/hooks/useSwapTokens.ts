@@ -137,29 +137,35 @@ export function useSwapSelectedTokenInfo({
 
   const { isLoading } = usePromiseResult(
     async () => {
-      if (!token || !accountAddress || !accountNetworkId) return;
       let balanceDisplay;
-      if (
-        token.accountAddress === accountAddress &&
-        accountNetworkId === token.networkId
-      ) {
-        const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
-        balanceDisplay = balanceParsedBN.isNaN()
-          ? '0'
-          : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
-      } else {
-        const detailInfo =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: token.networkId,
-            accountAddress,
-            xpub: accountXpub,
-            contractAddress: token.contractAddress,
-          });
-        if (detailInfo) {
-          const balanceParsedBN = new BigNumber(detailInfo.balanceParsed ?? 0);
+      if (!(!token || !accountAddress || !accountNetworkId)) {
+        if (
+          token.accountAddress === accountAddress &&
+          accountNetworkId === token.networkId &&
+          type === ESwapDirectionType.FROM
+        ) {
+          const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
-            ? '0.0'
+            ? '0'
             : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
+        } else {
+          const detailInfo =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: token.networkId,
+              accountAddress,
+              xpub: accountXpub,
+              contractAddress: token.contractAddress,
+            });
+          if (detailInfo) {
+            const balanceParsedBN = new BigNumber(
+              detailInfo.balanceParsed ?? 0,
+            );
+            balanceDisplay = balanceParsedBN.isNaN()
+              ? '0.0'
+              : balanceParsedBN
+                  .decimalPlaces(6, BigNumber.ROUND_DOWN)
+                  .toFixed();
+          }
         }
       }
       if (type === ESwapDirectionType.FROM) {
