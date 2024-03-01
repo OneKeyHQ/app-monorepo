@@ -374,7 +374,7 @@ export function getStateFromPath<ParamList extends {}>(
   path: string,
   options?: Options<ParamList>,
 ): ResultState | undefined {
-  path = window.location.hash.slice(1);
+  path = window.location.hash.split('#').pop() || '/';
   if (options) {
     validatePathConfig(options);
   }
