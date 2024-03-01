@@ -12,7 +12,6 @@ import { Popover as TMPopover } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite';
-import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
@@ -274,13 +273,13 @@ function RawPopover({
               </XStack>
 
               {/* divider */}
-              <YStack
+              {/* <YStack
                 backgroundColor="$bg"
                 marginHorizontal="$5"
                 paddingHorizontal="$5"
               >
                 <Divider />
-              </YStack>
+              </YStack> */}
 
               <TMPopover.Sheet.ScrollView
                 borderBottomLeftRadius="$6"

@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IStackProps } from '@onekeyhq/components';
 import {
@@ -11,7 +12,6 @@ import {
   Button,
   Divider,
   Heading,
-  HeightTransition,
   Icon,
   Image,
   Page,
@@ -28,6 +28,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { Token } from '../../../components/Token';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -183,8 +184,8 @@ export function TokenDetails() {
           {
             items: [
               {
-                label: isBlocked ? 'Unblock' : 'Block',
-                icon: isBlocked ? 'BlockSolid' : 'BlockOutline',
+                label: isBlocked ? 'Unhide' : 'Hide',
+                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
                 onPress: handleToggleBlockedToken,
               },
             ],
@@ -273,44 +274,40 @@ export function TokenDetails() {
   }, [media.gtMd, network?.logoURI, tokenInfo.address]);
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      <Page.Header
+        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
+        headerRight={headerRight}
+      />
       <Page.Body>
-        <HeightTransition>
-          {isBlocked && (
-            <Stack key="alert">
-              <Alert
-                icon="BlockSolid"
-                fullBleed
-                type="warning"
-                title="This token is currently blocked and won't appear in the list"
-                action={{
-                  primary: 'Unblock',
-                  onPrimaryPress: handleToggleBlockedToken,
-                }}
-              />
-              <Stack h="$5" />
-            </Stack>
-          )}
-        </HeightTransition>
+        {isBlocked && (
+          <Alert
+            icon="EyeOffOutline"
+            fullBleed
+            type="warning"
+            title="This token is currently hidden and won't appear in the list"
+            action={{
+              primary: 'Unhide',
+              onPrimaryPress: handleToggleBlockedToken,
+            }}
+            mb="$5"
+          />
+        )}
         <Stack px="$5" pb="$5">
           <XStack alignItems="center">
-            <SizableText flex={1} color="$textSubdued">
-              {intl.formatMessage({ id: 'content__balance' })}
-            </SizableText>
-            {renderTokenAddress()}
+            <Token
+              sourceUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
+              size="xl"
+            />
+            <Stack ml="$3">
+              <Heading size="$heading3xl">
+                {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}{' '}
+                {tokenInfo.symbol}
+              </Heading>
+              <SizableText color="$textSubdued" size="$bodyLgMedium">
+                {tokenValue}
+              </SizableText>
+            </Stack>
           </XStack>
-          <Stack
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              space: '$2',
-            }}
-          >
-            <Heading size="$heading5xl">
-              {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}
-            </Heading>
-            <SizableText size="$bodyLgMedium">{tokenValue}</SizableText>
-          </Stack>
           <XStack pt="$5" space="$2.5">
             <Button onPress={handleSendPress}>Send</Button>
             <Button onPress={handleReceivePress}>Receive</Button>
@@ -318,23 +315,29 @@ export function TokenDetails() {
             <Button icon="DotHorOutline" pl="$2.5" pr="$0.5" />
           </XStack>
         </Stack>
-        <Divider />
         <ListItem
-          py="$3.5"
-          avatarProps={{
-            src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-          }}
-          title="USDC"
-          titleProps={{
-            size: '$bodyMdMedium',
-          }}
-          subtitle="3.77% APR"
-          subtitleProps={{
-            size: '$bodyLgMedium',
-            color: '$textSuccess',
-          }}
+          bg="$bgSuccessSubdued"
+          py="$3"
+          mx="$0"
+          px="$5"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$0"
+          drillIn
+          onPress={() => console.log('clicked')}
         >
-          <Button variant="primary">Stake</Button>
+          <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+            <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+          </Stack>
+          <ListItem.Text
+            flex={1}
+            primary="Stake and Earn"
+            secondary="Up to 3.77% in Annual Rewards"
+            secondaryTextProps={{
+              size: '$bodyMdMedium',
+              color: '$textSuccess',
+            }}
+          />
         </ListItem>
         <Divider mb="$2.5" />
         <TxHistoryListView

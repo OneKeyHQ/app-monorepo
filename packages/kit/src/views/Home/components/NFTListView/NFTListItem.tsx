@@ -20,10 +20,10 @@ function NFTListItem(props: IProps) {
         flexBasis: '25%',
       }}
       $gtXl={{
-        flexBasis: '20%',
+        flexBasis: '16.666666%',
       }}
       $gt2xl={{
-        flexBasis: '16.666666%',
+        flexBasis: '14.2857142857%',
       }}
       focusable
       focusStyle={{
@@ -71,7 +71,7 @@ function NFTListItem(props: IProps) {
       </Stack>
       <Stack mt="$2">
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {nft.metadata?.name ?? ''}
+          {nft.metadata?.name ?? '-'}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
           {nft.collectionName}
