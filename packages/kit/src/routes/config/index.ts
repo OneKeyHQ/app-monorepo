@@ -22,6 +22,7 @@ import { rootRouter } from '../router';
 
 import { buildAllowList } from './allowList';
 import { registerDeepLinking } from './deeplink';
+import { getStateFromPath } from './getStateFromPath';
 
 import type { IScreenPathConfig } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
@@ -62,6 +63,8 @@ const resolveScreens = (routes: typeof rootRouter) =>
         return prev;
       }, {} as IScreenPathConfig)
     : undefined;
+const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
+const ROOT_PATH = platformEnv.isExtension ? `${extHtmlFileUrl}#/` : '/';
 
 const MODAL_PATH = `/${ERootRoutes.Modal}`;
 const FULL_SCREEN_MODAL_PATH = `/${ERootRoutes.iOSFullScreen}`;
@@ -75,17 +78,11 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
     enabled: true,
     prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
 
+    getStateFromPath,
     /**
      * Only change url at whitelist routes, or return home page
      */
     getPathFromState(state, options) {
-      const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
-      /**
-       * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
-       */
-      if (platformEnv.isExtFirefox) {
-        return extHtmlFileUrl;
-      }
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
         FULL_SCREEN_MODAL_PATH,
@@ -95,17 +92,21 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
       const rule = allowList[defaultPathWithoutQuery];
 
       if (!rule?.showUrl) {
-        return '/';
+        return ROOT_PATH;
       }
 
       const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
-      // keep manifest v3 url with html file
-      if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
+      // keep manifest url with html file
+      if (platformEnv.isExtension) {
         /*
         check chrome.webRequest.onBeforeRequest
          /ui-expand-tab.html/#/   not working for Windows Chrome
          /ui-expand-tab.html#/    works fine
         */
+        if (newPath === '/' && window.location.href.endsWith('#/')) {
+          // fix the scenarios of /#, #/, and /#/
+          return extHtmlFileUrl;
+        }
         return `${extHtmlFileUrl}#${newPath}`;
       }
 
