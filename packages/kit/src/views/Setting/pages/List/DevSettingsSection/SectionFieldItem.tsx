@@ -19,6 +19,7 @@ export function SectionFieldItem({
   title,
   children,
   titleProps = { color: '$textCritical' },
+  testID = '',
 }: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
@@ -39,7 +40,7 @@ export function SectionFieldItem({
       })
     : null;
   return (
-    <ListItem title={title} titleProps={titleProps}>
+    <ListItem title={title} titleProps={titleProps} testID={testID}>
       {field}
     </ListItem>
   );
