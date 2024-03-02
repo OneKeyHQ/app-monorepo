@@ -138,4 +138,56 @@ function ListLoading(props: IProps) {
   );
 }
 
-export { ListLoading };
+function NFTListLoadingView(props: IProps) {
+  const { onContentSizeChange } = props;
+
+  return (
+    <XStack
+      p="$2.5"
+      flexWrap="wrap"
+      onLayout={(event) =>
+        onContentSizeChange?.(
+          event.nativeEvent.layout.width,
+          event.nativeEvent.layout.height,
+        )
+      }
+    >
+      {[...Array(6)].map((_, index) => (
+        <Stack
+          key={index}
+          flexBasis="50%"
+          $gtSm={{
+            flexBasis: '33.333333%',
+          }}
+          $gtLg={{
+            flexBasis: '25%',
+          }}
+          $gtXl={{
+            flexBasis: '16.666666%',
+          }}
+          $gt2xl={{
+            flexBasis: '14.2857142857%',
+          }}
+          p="$2.5"
+          borderRadius="$4"
+        >
+          <Stack pb="100%">
+            <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
+              <Skeleton w="100%" h="100%" borderRadius="$2.5" />
+            </Stack>
+          </Stack>
+          <Stack mt="$2">
+            <Stack py="$1">
+              <Skeleton h="$4" w="$16" />
+            </Stack>
+            <Stack py="$1">
+              <Skeleton h="$3" w="$12" />
+            </Stack>
+          </Stack>
+        </Stack>
+      ))}
+    </XStack>
+  );
+}
+
+export { ListLoading, NFTListLoadingView };

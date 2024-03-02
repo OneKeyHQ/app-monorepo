@@ -3,6 +3,8 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { Token } from '../Token';
+
 import { TokenBalanceView } from './TokenBalanceView';
 import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
@@ -23,20 +25,6 @@ function TokenListItem(props: IProps) {
   return (
     <ListItem
       key={token.name}
-      avatarProps={{
-        src: token.logoURI,
-        borderRadius: '$full',
-        fallbackProps: {
-          delayMs: 1000,
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="CoinOutline" />,
-        },
-        ...(tableLayout && {
-          size: '$8',
-        }),
-      }}
       userSelect="none"
       onPress={() => {
         onPress?.(token);
@@ -44,6 +32,7 @@ function TokenListItem(props: IProps) {
       backgroundColor={tableLayout && index % 2 === 1 ? '$bgSubdued' : ''}
       {...rest}
     >
+      <Token size={tableLayout ? 'md' : 'lg'} sourceUri={token.logoURI} />
       <Stack
         flexGrow={1}
         flexBasis={0}
