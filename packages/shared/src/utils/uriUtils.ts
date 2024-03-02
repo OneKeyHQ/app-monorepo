@@ -82,6 +82,7 @@ export function parseUrl(url: string) {
     }
     const urlObject = new URL(formatUrl);
     return {
+      url,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')

@@ -15,6 +15,7 @@ import type {
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
+  IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -75,6 +76,11 @@ const useParseQRCode = () => {
               },
             },
           });
+          break;
+        }
+        case EQRCodeHandlerType.WALLET_CONNECT: {
+          const wcValue = result.data as IWalletConnectValue;
+          void backgroundApiProxy.walletConnect.connect(wcValue.wcUri);
           break;
         }
         default: {

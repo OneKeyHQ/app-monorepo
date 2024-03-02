@@ -49,12 +49,8 @@ export interface ILightningNetworkValue extends IBaseValue {
   k1?: string;
 }
 export interface IWalletConnectValue extends IBaseValue {
-  topic?: string;
-  version?: string;
-  bridge?: string;
-  key?: string;
-  symKey?: string;
-  relayProtocol?: string;
+  version: string;
+  wcUri: string;
 }
 export interface IMigrateValue extends IBaseValue {
   address?: string;
@@ -66,6 +62,7 @@ export interface IAnimationValue extends IBaseValue {
   fullData?: string;
 }
 export interface IUrlValue extends IBaseValue {
+  url: string;
   urlSchema: string;
   urlPathList: string[];
   urlParamList: { [key: string]: string };
