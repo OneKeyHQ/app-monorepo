@@ -13,6 +13,7 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IEstimateGasResp,
   IFeeInfoUnit,
+  IFeeUTXO,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -115,6 +116,7 @@ export type IVaultSettings = {
   isSingleToken: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+  feeUTXORequired: boolean;
   editFeeEnabled: boolean;
 
   accountType: EDBAccountType;
@@ -274,7 +276,6 @@ export type INativeAmountInfo = {
 
 // Send ------------
 export interface IBuildTxHelperParams {
-  getFees?: (networkId: string) => Promise<IEstimateGasResp>;
   getToken: ({
     networkId,
     tokenIdOnNetwork,
@@ -298,7 +299,7 @@ export interface IBuildEncodedTxParams {
   wrappedInfo?: IWrappedInfo;
 
   utxosInfo?: IUtxoInfo[];
-  feeInfo?: IFeeInfoUnit;
+  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
@@ -312,7 +313,7 @@ export interface IBuildUnsignedTxParams {
   wrappedInfo?: IWrappedInfo;
 
   utxosInfo?: IUtxoInfo[];
-  feeInfo?: IFeeInfoUnit;
+  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {

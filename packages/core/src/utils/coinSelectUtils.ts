@@ -7,7 +7,6 @@ import coinSelectUtils from 'coinselect/utils';
 import { isNil } from 'lodash';
 
 import type {
-  IEncodedTxBtc,
   IInputsForCoinSelect,
   IOutputsForCoinSelect,
 } from '../chains/btc/types';
@@ -115,7 +114,6 @@ export function accumulativePro(
 
     const fee = feeRate * bytesAccum;
 
-    // go again?
     // eslint-disable-next-line no-continue
     if (inAccum < outAccum + fee) continue;
 

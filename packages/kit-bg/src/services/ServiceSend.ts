@@ -195,6 +195,8 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       utxosInfo,
+      specifiedFeeRate,
+      feeUTXO,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -203,6 +205,8 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       wrappedInfo,
       utxosInfo,
+      specifiedFeeRate,
+      feeUTXO,
     });
   }
 
@@ -428,10 +432,12 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       transfersInfo,
       wrappedInfo,
+      specifiedFeeRate,
     } = params;
 
     let newUnsignedTx = unsignedTx;
     let utxosInfo;
+    let feeUTXO;
 
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
@@ -442,19 +448,26 @@ class ServiceSend extends ServiceBase {
     });
 
     if (vaultSettings.isUtxo) {
-      const { utxoList } =
-        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+      const { feeUTXORequired } = vaultSettings;
+      const [accountDetail, feeInfo] = await Promise.all([
+        this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
           networkId,
           accountAddress: account.address,
-          xpub: account.pub,
           withUTXOList: true,
-        });
+        }),
+        this.backgroundApi.serviceGas.estimateFee({ networkId }),
+      ]);
 
-      if (!utxoList) {
+      if (!accountDetail.utxoList) {
         throw new Error('Failed to get UTXOs of the account.');
       }
 
-      utxosInfo = utxoList;
+      if (feeUTXORequired && !feeInfo.feeUTXO) {
+        throw new Error('Failed to get fee rate.');
+      }
+
+      utxosInfo = accountDetail.utxoList;
+      feeUTXO = feeInfo.feeUTXO;
     }
 
     if (!newUnsignedTx) {
@@ -466,6 +479,8 @@ class ServiceSend extends ServiceBase {
         transfersInfo,
         wrappedInfo,
         utxosInfo,
+        feeUTXO,
+        specifiedFeeRate,
       });
     }
 

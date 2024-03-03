@@ -31,13 +31,16 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   INetworkAccountAddressDetail,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type { IFeeInfoUnit, IFeeUTXO } from '@onekeyhq/shared/types/fee';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -61,18 +64,16 @@ import type {
   IBuildEncodedTxParams,
   IBuildTxHelperParams,
   IBuildUnsignedTxParams,
-  ITransferInfo,
-  IUtxoInfo,
   IVaultSettings,
 } from '../../types';
 
 type IBuildEncodedBtcTxParams = Required<
-  Pick<IBuildEncodedTxParams, 'transfersInfo' | 'feeInfo' | 'utxosInfo'>
+  Pick<IBuildEncodedTxParams, 'transfersInfo' | 'feeUTXO' | 'utxosInfo'>
 > &
   Pick<IBuildEncodedTxParams, 'specifiedFeeRate'>;
 
 type IBuildUnsignedBtcTxParams = Required<
-  Pick<IBuildUnsignedTxParams, 'transfersInfo' | 'feeInfo' | 'utxosInfo'>
+  Pick<IBuildUnsignedTxParams, 'transfersInfo' | 'feeUTXO' | 'utxosInfo'>
 > &
   Pick<IBuildUnsignedTxParams, 'specifiedFeeRate'>;
 // btc vault
@@ -95,9 +96,85 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    noopObject(params);
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx, getToken } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    const { inputs, outputs } = encodedTx;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+    const nativeToken = await getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+    });
+
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    let actions: IDecodedTxAction[] = [];
+
+    const utxoFrom = inputs.map((input) => ({
+      address: input.address,
+      balance: new BigNumber(input.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: input.value,
+      symbol: network.symbol,
+      isMine: true,
+    }));
+    const utxoTo = outputs
+      .filter((output) => !output.payload?.isCharge)
+      .map((output) => ({
+        address: output.address,
+        balance: new BigNumber(output.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        balanceValue: output.value,
+        symbol: network.symbol,
+        isMine: output.address === account.address,
+      }));
+    actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.address,
+          to: utxoTo[0].address,
+          sends: utxoTo.map((utxo) => ({
+            from: account.address,
+            to: utxo.address,
+            isNative: true,
+            tokenIdOnNetwork: '',
+            icon: nativeToken.logoURI ?? '',
+            amount: utxo.balance,
+            amountValue: utxo.balanceValue,
+            symbol: network.symbol,
+          })),
+          receives: [],
+          utxoFrom,
+          utxoTo,
+        },
+      },
+    ];
+
+    const totalFeeInNative = new BigNumber(encodedTx.fee)
+      .shiftedBy(-1 * network.feeMeta.decimals)
+      .toFixed();
+
+    return {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      encodedTx,
+      totalFeeInNative,
+    };
   }
 
   override broadcastTransaction(
@@ -119,13 +196,13 @@ export default class VaultBtc extends VaultBase {
   override async buildEncodedTx(
     params: IBuildEncodedBtcTxParams,
   ): Promise<IEncodedTxBtc> {
-    const { transfersInfo, utxosInfo, feeInfo } = params;
+    const { transfersInfo, utxosInfo, feeUTXO } = params;
     if (!utxosInfo) {
       throw new OneKeyInternalError('utxosInfo is required');
     }
 
-    if (!feeInfo) {
-      throw new OneKeyInternalError('feeInfo is required');
+    if (!feeUTXO) {
+      throw new OneKeyInternalError('feeUTXO is required');
     }
 
     if (!transfersInfo || isEmpty(transfersInfo)) {
@@ -208,9 +285,8 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IEncodedTxBtc> {
     const { transfersInfo } = params;
     const transferInfo = transfersInfo[0];
-    const network = await this.getNetwork();
     const account = (await this.getAccount()) as IDBUtxoAccount;
-    const { inputs, outputs, fee, feeRate } =
+    const { inputs, outputs, fee } =
       await this._buildTransferParamsWithCoinSelector(params);
 
     if (!inputs || !outputs || isNil(fee)) {
@@ -219,7 +295,7 @@ export default class VaultBtc extends VaultBase {
 
     return {
       inputs: inputs.map(({ txId, value, ...keep }) => ({
-        address: '',
+        address: account.address,
         path: '',
         ...keep,
         txid: txId,
@@ -267,6 +343,7 @@ export default class VaultBtc extends VaultBase {
               },
         };
       }),
+      fee: fee.toString(),
     };
   }
 
@@ -274,7 +351,7 @@ export default class VaultBtc extends VaultBase {
     transfersInfo,
     specifiedFeeRate,
     utxosInfo,
-    feeInfo,
+    feeUTXO,
   }: IBuildEncodedBtcTxParams) {
     const network = await this.getNetwork();
     if (!transfersInfo.length) {
@@ -295,7 +372,7 @@ export default class VaultBtc extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeMeta.decimals)
             .toFixed()
-        : (await this._getFeeRate(feeInfo))[1];
+        : (await this._getFeeRate(feeUTXO))[1];
 
     const inputsForCoinSelect: ICoinSelectUTXO[] = utxosInfo.map(
       ({ txid, vout, value, address, path }) => ({
@@ -411,12 +488,12 @@ export default class VaultBtc extends VaultBase {
   }
 
   _getFeeRate = memoizee(
-    async (feeInfo: IFeeInfoUnit) => {
+    async (feeUTXO: IFeeUTXO[]) => {
       try {
-        if (!feeInfo || !feeInfo.feeUTXO) {
+        if (!feeUTXO) {
           throw new OneKeyInternalError('Failed to get fee rates.');
         }
-        const fees = feeInfo.feeUTXO.map((item) =>
+        const fees = feeUTXO.map((item) =>
           new BigNumber(item.feeRate ?? 0).toFixed(0),
         );
         // Find the index of the first negative fee.

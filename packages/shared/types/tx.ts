@@ -57,6 +57,14 @@ export type IDecodedTxInteractInfo = {
   provider?: string;
 };
 
+export type IUtxoAddressInfo = {
+  address: string;
+  balance: string;
+  balanceValue: string;
+  symbol: string;
+  isMine: boolean;
+};
+
 export type IDecodedTx = {
   txid: string; // blockHash
 
@@ -129,6 +137,8 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
+  utxoFrom?: IUtxoAddressInfo[];
+  utxoTo?: IUtxoAddressInfo[];
   label?: string;
 };
 
