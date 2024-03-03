@@ -4,7 +4,7 @@ import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import { CustomHeaderTitle } from '../../components/CustomHeaderTitle';
+import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
