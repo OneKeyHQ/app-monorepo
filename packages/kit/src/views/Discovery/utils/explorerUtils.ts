@@ -104,3 +104,26 @@ export function dismissWebviewKeyboard(id?: string) {
     }
   }
 }
+
+// https://github.com/facebook/hermes/issues/114#issuecomment-887106990
+export const injectToPauseWebsocket = `
+(function(){
+  if (window.WebSocket) {
+    if (!window.$$onekeyWebSocketSend) {
+      window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
+    }
+    window.WebSocket.prototype.send = () => {};
+  }
+})()
+`;
+
+export const injectToResumeWebsocket = `
+(function(){
+  if (
+    window.WebSocket &&
+    window.$$onekeyWebSocketSend
+  ) {
+    window.WebSocket.prototype.send = window.$$onekeyWebSocketSend;
+  }
+})()
+`;
