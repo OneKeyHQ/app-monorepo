@@ -285,7 +285,7 @@ class ServiceDApp extends ServiceBase {
     await simpleDb.dappConnection.upsertConnection({
       origin,
       accountsInfo,
-      imageURL: await serviceDiscovery.getWebsiteIcon(origin, 128),
+      imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
       storageType,
       walletConnectTopic,
     });

@@ -31,6 +31,7 @@ import {
   activeTabIdAtom,
   contextAtomMethod,
   displayHomePageAtom,
+  phishingLruCacheAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
@@ -472,9 +473,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           id: tabId,
           url: webSite.url,
           title: webSite.title,
-          favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
-            webSite.url,
-          ),
+          favicon:
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              webSite.url,
+            ),
           isNewWindow,
           userTriggered: true,
         });
@@ -554,7 +556,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
 
       if (url) {
-        const { action } = uriUtils.parseDappRedirect(url);
+        const cache = get(phishingLruCacheAtom());
+        const { action } = uriUtils.parseDappRedirect(
+          url,
+          Array.from(cache.keys()),
+        );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           handlePhishingUrl?.(url);
           return;
@@ -592,6 +598,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         canGoForward,
         loading,
       });
+    },
+  );
+
+  addUrlToPhishingCache = contextAtomMethod(
+    (get, set, payload: { url: string }) => {
+      try {
+        const { origin } = new URL(payload.url);
+        const cache = get(phishingLruCacheAtom());
+        cache.set(origin, true);
+        set(phishingLruCacheAtom(), cache);
+        window.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
+      } catch {
+        // ignore
+      }
     },
   );
 }
@@ -668,11 +688,13 @@ export function useBrowserAction() {
   const openMatchDApp = actions.openMatchDApp.use();
   const handleOpenWebSite = actions.handleOpenWebSite.use();
   const onNavigation = actions.onNavigation.use();
+  const addUrlToPhishingCache = actions.addUrlToPhishingCache.use();
 
   return useRef({
     gotoSite,
     openMatchDApp,
     handleOpenWebSite,
     onNavigation,
+    addUrlToPhishingCache,
   });
 }

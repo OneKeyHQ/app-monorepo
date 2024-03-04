@@ -80,6 +80,7 @@ export type IDesktopAPI = {
   quitApp: () => void;
   clearWebViewData: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
+  setAllowedPhishingUrls: (urls: string[]) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -270,6 +271,9 @@ const desktopApi = {
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
+  },
+  setAllowedPhishingUrls: (urls: string[]) => {
+    ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
   },
 };
 
