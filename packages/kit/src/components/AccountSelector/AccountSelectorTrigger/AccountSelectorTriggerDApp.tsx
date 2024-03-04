@@ -20,7 +20,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   const {
     activeAccount: { account, network, indexedAccount },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num });
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
   const handlePress = useCallback(async () => {
     await beforeShowTrigger?.();
@@ -123,7 +123,7 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
     activeAccount: { account, indexedAccount },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num });
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
   const media = useMedia();
 

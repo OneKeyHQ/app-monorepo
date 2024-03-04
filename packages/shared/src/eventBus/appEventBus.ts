@@ -1,16 +1,20 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+
 import platformEnv from '../platformEnv';
+
+import type { EAccountSelectorSceneName } from '../../types';
 
 export enum EAppEventBusNames {
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
-  NetworkChanged = 'NetworkChanged',
-  AccountChanged = 'AccountChanged',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
+  GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
+  AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -23,13 +27,15 @@ export enum EAppEventBusNames {
 export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;
-  [EAppEventBusNames.AccountChanged]: {
-    name: string;
-    id: number;
-  };
-  [EAppEventBusNames.NetworkChanged]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
+  [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  };
   [EAppEventBusNames.DAppNetworkUpdate]: {
     networkId: string;
     sceneName: string;
