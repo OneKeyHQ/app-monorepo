@@ -322,7 +322,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       assetTransfer: {
         from: tx.from,
         to: tx.to,
-        label: tx.label.label,
+        label: tx.label,
         sends: tx.sends.map((send) =>
           this.buildHistoryTransfer({
             transfer: send,
@@ -362,7 +362,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       to: transfer.to,
       tokenIdOnNetwork: transfer.token,
       amount: transfer.amount,
-      label: transfer.label.label,
+      label: transfer.label,
       icon,
       name,
       symbol,
@@ -390,7 +390,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
-        label: approve.label.label ?? tx.label.label,
+        label: approve.label ?? tx.label,
         from: approve.from,
         to: approve.to,
         icon: transfer.icon,

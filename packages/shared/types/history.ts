@@ -20,13 +20,8 @@ export type IOnChainHistoryTxTransfer = {
   to: string;
   token: string;
   amount: string;
-  label: IOnChainHistoryTxLabel;
-  isNative?: boolean;
-};
-
-export type IOnChainHistoryTxLabel = {
   label: string;
-  riskLevel: number;
+  isNative?: boolean;
 };
 
 export type IOnChainHistoryTxUTXOInput = {
@@ -68,9 +63,12 @@ export type IOnChainHistoryTx = {
   functionCode: string;
   params: string[];
   value: string;
-  label: IOnChainHistoryTxLabel;
+  label: string;
+  confirmations?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
+  // TODO: on chain swap info
+  swapInfo?: any;
 };
 
 export type IAccountHistoryTx = {
