@@ -62,12 +62,9 @@ function ChainSelector({ num }: { num: number }) {
   );
 
   const handleListItemPress = (networkId: string) => {
-    actions.current.updateSelectedAccount({
+    void actions.current.updateSelectedAccountNetwork({
       num,
-      builder: (v) => ({
-        ...v,
-        networkId,
-      }),
+      networkId,
     });
     navigation.popStack();
   };
