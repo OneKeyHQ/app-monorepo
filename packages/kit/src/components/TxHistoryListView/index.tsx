@@ -9,7 +9,7 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { EmptyHistory } from '../Empty/EmptyHistory';
-import { ListLoading } from '../Loading';
+import { HistoryLoadingView } from '../Loading';
 
 import { TxHistoryListHeader } from './TxHistoryListHeader';
 import { TxHistoryListItem } from './TxHistoryListItem';
@@ -126,7 +126,12 @@ function TxHistoryListView(props: IProps) {
   );
 
   if (!initialized && isLoading) {
-    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+    return (
+      <HistoryLoadingView
+        tableLayout={tableLayout}
+        onContentSizeChange={onContentSizeChange}
+      />
+    );
   }
 
   return (

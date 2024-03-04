@@ -320,7 +320,7 @@ export function TokenDetails() {
         </ListItem>
 
         {/* History */}
-        <Divider mb="$2.5" />
+        <Divider />
         <TxHistoryListView
           data={tokenHistory ?? []}
           onPressHistory={handleHistoryItemPress}

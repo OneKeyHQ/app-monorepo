@@ -190,4 +190,57 @@ function NFTListLoadingView(props: IProps) {
   );
 }
 
-export { ListLoading, NFTListLoadingView };
+function HistoryLoadingView({
+  onContentSizeChange,
+  tableLayout,
+}: { tableLayout?: boolean } & IProps) {
+  return (
+    <Stack
+      py="$3"
+      onLayout={(event) =>
+        onContentSizeChange?.(
+          event.nativeEvent.layout.width,
+          event.nativeEvent.layout.height,
+        )
+      }
+    >
+      {[...Array(5)].map((_, index) => (
+        <ListItem key={index}>
+          <XStack flexGrow={1} flexBasis={0} space="$3">
+            <Stack>
+              <Skeleton radius="round" w="$10" h="$10" />
+            </Stack>
+            <Stack>
+              <Stack py="$1">
+                <Skeleton h={tableLayout ? '$3' : '$4'} w="$32" />
+              </Stack>
+              <Stack py="$1">
+                <Skeleton h="$3" w="$24" />
+              </Stack>
+            </Stack>
+          </XStack>
+          <Stack flexGrow={1} flexBasis={0}>
+            <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
+              <Skeleton h={tableLayout ? '$3' : '$4'} w="$16" />
+            </Stack>
+            <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
+              <Skeleton h="$3" w="$12" />
+            </Stack>
+          </Stack>
+          {tableLayout && (
+            <Stack flexGrow={1} flexBasis={0}>
+              <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
+                <Skeleton h={tableLayout ? '$3' : '$4'} w="$16" />
+              </Stack>
+              <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
+                <Skeleton h="$3" w="$12" />
+              </Stack>
+            </Stack>
+          )}
+        </ListItem>
+      ))}
+    </Stack>
+  );
+}
+
+export { ListLoading, NFTListLoadingView, HistoryLoadingView };
