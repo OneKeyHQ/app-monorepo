@@ -1,13 +1,16 @@
 /* eslint-disable */
 
 const icons = {
+  AppleBrand: () => import("./react/brand/Apple"),
   ArtifactNewsBrand: () => import("./react/brand/ArtifactNews"),
+  ChromeBrand: () => import("./react/brand/Chrome"),
   CopilotBrand: () => import("./react/brand/Copilot"),
   DiscordBrand: () => import("./react/brand/Discord"),
   FacebookBrand: () => import("./react/brand/Facebook"),
   FigmaBrand: () => import("./react/brand/Figma"),
   FramerBrand: () => import("./react/brand/Framer"),
   GithubBrand: () => import("./react/brand/Github"),
+  GooglePlayBrand: () => import("./react/brand/GooglePlay"),
   InstagramBrand: () => import("./react/brand/Instagram"),
   LinkedinBrand: () => import("./react/brand/Linkedin"),
   MediumBrand: () => import("./react/brand/Medium"),
@@ -87,6 +90,7 @@ const icons = {
   NexaIllus: () => import("./react/illus/Nexa"),
   NftPegIllus: () => import("./react/illus/NftPeg"),
   OkxChainIllus: () => import("./react/illus/OkxChain"),
+  OnekeyTextIllus: () => import("./react/illus/OnekeyText"),
   OpsideNetworkIllus: () => import("./react/illus/OpsideNetwork"),
   OptimismIllus: () => import("./react/illus/Optimism"),
   OsmosisIllus: () => import("./react/illus/Osmosis"),

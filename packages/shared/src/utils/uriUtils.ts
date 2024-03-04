@@ -1,4 +1,7 @@
+// import { openURL as LinkingOpenURL } from 'expo-linking';
+
 import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
+// import platformEnv from '../platformEnv';
 
 import type { IServerNetwork } from '../../types';
 
@@ -91,6 +94,7 @@ export function parseUrl(url: string) {
     }
     const urlObject = new URL(formatUrl);
     return {
+      url,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')

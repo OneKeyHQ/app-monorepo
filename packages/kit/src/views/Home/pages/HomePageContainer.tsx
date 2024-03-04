@@ -91,7 +91,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             sceneUrl: '',
           }}
         >
-          <AccountSelectorTriggerHome num={0} linkNetwork />
+          <AccountSelectorTriggerHome num={0} />
         </AccountSelectorProviderMirror>
       ),
     [isHide],
