@@ -13,9 +13,11 @@ import {
   Icon,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -59,33 +61,39 @@ export function TokenDetails() {
 
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
 
-  const { result: [tokenHistory, tokenDetails, network] = [] } =
-    usePromiseResult(async () => {
-      const [account, serverNetwork] = await Promise.all([
-        backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId,
-        }),
-        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-      ]);
-      if (!account) return;
+  const { result: [tokenHistory, tokenDetails] = [], isLoading } =
+    usePromiseResult(
+      async () => {
+        const [account, serverNetwork] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccount({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        ]);
+        if (!account) return;
 
-      const [history, details] = await Promise.all([
-        backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId: account.id,
-          accountAddress: account.address,
-          networkId,
-          tokenIdOnNetwork: tokenInfo.address,
-        }),
-        backgroundApiProxy.serviceToken.fetchTokensDetails({
-          networkId,
-          accountAddress: account.address,
-          contractList: [tokenInfo.address],
-        }),
-      ]);
+        const [history, details] = await Promise.all([
+          backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId: account.id,
+            accountAddress: account.address,
+            networkId,
+            tokenIdOnNetwork: tokenInfo.address,
+          }),
+          backgroundApiProxy.serviceToken.fetchTokensDetails({
+            networkId,
+            accountAddress: account.address,
+            contractList: [tokenInfo.address],
+          }),
+        ]);
 
-      return [history, details[0], serverNetwork];
-    }, [accountId, networkId, tokenInfo.address]);
+        return [history, details[0], serverNetwork];
+      },
+      [accountId, networkId, tokenInfo.address],
+      {
+        watchLoading: true,
+      },
+    );
 
   const tokenValue = useMemo(
     () =>
@@ -273,14 +281,22 @@ export function TokenDetails() {
               size="xl"
             />
             <Stack ml="$3">
-              <Heading size="$heading3xl">
-                {/* TODO: Loading state */}
-                {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}{' '}
-                {tokenInfo.symbol}
-              </Heading>
-              <SizableText color="$textSubdued" size="$bodyLgMedium">
-                {tokenValue}
-              </SizableText>
+              {isLoading ? (
+                <YStack height={60}>
+                  <Skeleton w="$40" h="$7" />
+                  <Skeleton w="$28" h="$5" />
+                </YStack>
+              ) : (
+                <>
+                  <Heading size="$heading3xl">
+                    {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}{' '}
+                    {tokenInfo.symbol}
+                  </Heading>
+                  <SizableText color="$textSubdued" size="$bodyLgMedium">
+                    {tokenValue}
+                  </SizableText>
+                </>
+              )}
             </Stack>
           </XStack>
           {/* Actions */}
