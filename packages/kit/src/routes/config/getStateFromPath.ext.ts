@@ -84,7 +84,11 @@ type ParsedRoute = {
  * @param path Path string to parse and convert, e.g. /foo/bar?count=42.
  * @param options Extra options to fine-tune how to parse the path.
  */
-export default function getStateFromPath<ParamList extends {}>(
+
+
+// ---CHANGED Begin----: replace `export default` by `export function`
+export function getStateFromPath<ParamList extends {}>(
+// ---CHANGED end----
   path: string,
   options?: Options<ParamList>
 ): ResultState | undefined {
