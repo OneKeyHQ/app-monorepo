@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Tooltip, XStack } from '@onekeyhq/components';
 
 type IProps = {
   name: string;
@@ -18,7 +18,17 @@ function TokenNameView(props: IProps) {
           {name}
         </SizableText>
         {isNative && (
-          <Icon flexShrink={0} name="GasSolid" color="$iconSubdued" size="$5" />
+          <Tooltip
+            renderContent="This is the cryptocurrency used to pay for network fees"
+            renderTrigger={
+              <Icon
+                flexShrink={0}
+                name="GasSolid"
+                color="$iconSubdued"
+                size="$5"
+              />
+            }
+          />
         )}
       </XStack>
     ),

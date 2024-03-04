@@ -5,27 +5,21 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
-  Button,
   Divider,
   Heading,
   Icon,
-  Image,
   Page,
   SizableText,
   Stack,
   Toast,
-  XGroup,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
@@ -45,7 +39,6 @@ import type { RouteProp } from '@react-navigation/core';
 export function TokenDetails() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const media = useMedia();
 
   const route =
     useRoute<
@@ -124,30 +117,6 @@ export function TokenDetails() {
     });
   }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
 
-  const headerTitle = useCallback(
-    () => (
-      <XStack alignItems="center">
-        <Image
-          circular
-          width="$6"
-          height="$6"
-          source={{
-            uri: tokenInfo.logoURI ?? tokenDetails?.info.logoURI,
-          }}
-        />
-        <Heading pl="$2" size="$headingLg">
-          {tokenInfo.symbol ?? tokenDetails?.info.symbol}
-        </Heading>
-      </XStack>
-    ),
-    [
-      tokenDetails?.info.logoURI,
-      tokenDetails?.info.symbol,
-      tokenInfo.logoURI,
-      tokenInfo.symbol,
-    ],
-  );
-
   const handleToggleBlockedToken = useCallback(async () => {
     setIsBlocked(!isBlocked);
     if (isBlocked) {
@@ -197,82 +166,83 @@ export function TokenDetails() {
     [handleToggleBlockedToken, isBlocked],
   );
 
-  const renderTokenAddress = useCallback(() => {
-    if (!tokenInfo.address) return null;
-    return (
-      <XGroup
-        bg="$bgStrong"
-        borderRadius="$2"
-        separator={<Divider vertical borderColor="$bgApp" />}
-      >
-        <XStack
-          alignItems="center"
-          py="$0.5"
-          px="$1.5"
-          userSelect="none"
-          style={{
-            borderCurve: 'continuous',
-          }}
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          $platform-native={{
-            hitSlop: {
-              top: 8,
-              bottom: 8,
-            },
-          }}
-          onPress={() =>
-            Toast.success({
-              title: 'Copied',
-            })
-          }
-        >
-          <Image
-            width="$4"
-            height="$4"
-            source={{
-              uri: network?.logoURI,
-            }}
-          />
-          <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
-            {accountUtils.shortenAddress({ address: tokenInfo.address })}
-          </SizableText>
-        </XStack>
-        {media.gtMd && (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            py="$0.5"
-            px="$1.5"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            style={{
-              borderCurve: 'continuous',
-            }}
-            $platform-native={
-              {
-                hitSlop: {
-                  top: 8,
-                  bottom: 8,
-                  right: 8,
-                },
-              } as IStackProps
-            }
-          >
-            <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
-          </Stack>
-        )}
-      </XGroup>
-    );
-  }, [media.gtMd, network?.logoURI, tokenInfo.address]);
+  // const renderTokenAddress = useCallback(() => {
+  //   if (!tokenInfo.address) return null;
+  //   return (
+  //     <XGroup
+  //       bg="$bgStrong"
+  //       borderRadius="$2"
+  //       separator={<Divider vertical borderColor="$bgApp" />}
+  //     >
+  //       <XStack
+  //         alignItems="center"
+  //         py="$0.5"
+  //         px="$1.5"
+  //         userSelect="none"
+  //         style={{
+  //           borderCurve: 'continuous',
+  //         }}
+  //         hoverStyle={{
+  //           bg: '$bgHover',
+  //         }}
+  //         pressStyle={{
+  //           bg: '$bgActive',
+  //         }}
+  //         $platform-native={{
+  //           hitSlop: {
+  //             top: 8,
+  //             bottom: 8,
+  //           },
+  //         }}
+  //         onPress={() =>
+  //           Toast.success({
+  //             title: 'Copied',
+  //           })
+  //         }
+  //       >
+  //         <Image
+  //           width="$4"
+  //           height="$4"
+  //           source={{
+  //             uri: network?.logoURI,
+  //           }}
+  //         />
+  //         <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
+  //           {accountUtils.shortenAddress({ address: tokenInfo.address })}
+  //         </SizableText>
+  //       </XStack>
+  //       {media.gtMd && (
+  //         <Stack
+  //           alignItems="center"
+  //           justifyContent="center"
+  //           py="$0.5"
+  //           px="$1.5"
+  //           hoverStyle={{
+  //             bg: '$bgHover',
+  //           }}
+  //           pressStyle={{
+  //             bg: '$bgActive',
+  //           }}
+  //           style={{
+  //             borderCurve: 'continuous',
+  //           }}
+  //           $platform-native={
+  //             {
+  //               hitSlop: {
+  //                 top: 8,
+  //                 bottom: 8,
+  //                 right: 8,
+  //               },
+  //             } as IStackProps
+  //           }
+  //         >
+  //           <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
+  //         </Stack>
+  //       )}
+  //     </XGroup>
+  //   );
+  // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -299,7 +269,7 @@ export function TokenDetails() {
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             <Token
-              sourceUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
+              tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
               size="xl"
             />
             <Stack ml="$3">

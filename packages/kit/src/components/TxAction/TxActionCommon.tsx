@@ -68,8 +68,8 @@ function TxActionCommonAvatar({
       <Stack position="absolute" left="$0" top="$0">
         <ListItem.Avatar
           src={avatar.src[0]}
-          size={tableLayout ? '$5' : '$6'}
-          circular={avatar.circular}
+          borderRadius="$full"
+          size="$7"
           fallbackProps={{
             bg: '$bgStrong',
             justifyContent: 'center',
@@ -81,13 +81,13 @@ function TxActionCommonAvatar({
       <Stack
         borderWidth={2}
         borderColor="$bgApp"
-        borderRadius={borderRadius}
+        borderRadius="$full"
         zIndex={1}
       >
         <ListItem.Avatar
           src={avatar.src[1]}
-          size={tableLayout ? 22 : '$7'}
-          circular={avatar.circular}
+          size="$7"
+          borderRadius="$full"
           fallbackProps={{
             bg: '$bgStrong',
             justifyContent: 'center',
@@ -149,6 +149,7 @@ function TxActionCommonChange({
 }: Pick<ITxActionCommonListViewProps, 'change' | 'tableLayout'>) {
   return (
     <SizableText
+      numberOfLines={1}
       size="$bodyLgMedium"
       {...(change?.includes('+') && {
         color: '$textSuccess',
@@ -177,7 +178,7 @@ function TxActionCommonFee({
   feeFiatValue,
 }: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue'>) {
   return (
-    <YStack>
+    <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
         Gas Fee
       </SizableText>
@@ -187,7 +188,7 @@ function TxActionCommonFee({
           {feeFiatValue}
         </SizableText>
       </XStack>
-    </YStack>
+    </Stack>
   );
 }
 
@@ -208,23 +209,26 @@ function TxActionCommonListView(
     ...rest
   } = props;
   return (
-    <Stack
-      {...(tableLayout && {
-        flexDirection: 'row',
-      })}
+    <ListItem
+      space="$2"
+      flexDirection="column"
+      alignItems="flex-start"
+      userSelect="none"
+      {...rest}
     >
-      <ListItem flex={1} userSelect="none" px="$0" {...rest}>
-        <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
+      {/* Content */}
+      <XStack space="$3" alignSelf="stretch">
         <XStack
-          flex={1}
-          alignItems="center"
+          space="$3"
           {...(tableLayout && {
-            space: '$3',
+            flexGrow: 1,
+            flexBasis: 1,
           })}
         >
-          <YStack flexBasis={tableLayout ? '33%' : '50%'}>
+          <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
+          <Stack>
             <TxActionCommonTitle title={title} tableLayout={tableLayout} />
-            <XStack alignItems="center">
+            <XStack>
               {tableLayout && timestamp && (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
@@ -242,47 +246,39 @@ function TxActionCommonListView(
                 tableLayout={tableLayout}
               />
             </XStack>
-          </YStack>
-          <YStack
-            flexBasis={tableLayout ? '33%' : '50%'}
-            alignItems="flex-end"
-            {...(tableLayout && {
-              alignItems: 'unset',
-            })}
-          >
-            <TxActionCommonChange change={change} tableLayout={tableLayout} />
-            {changeDescription && (
-              <TxActionCommonChangeDescription
-                changeDescription={changeDescription}
-                tableLayout={tableLayout}
-              />
-            )}
-          </YStack>
-          {tableLayout && (
-            <TxActionCommonFee fee={fee} feeFiatValue={feeFiatValue} />
-          )}
+          </Stack>
         </XStack>
-      </ListItem>
-      {pending && (
-        <XStack
-          px="$5"
-          space="$2.5"
-          alignItems="center"
-          {...(tableLayout
-            ? {
-                flexDirection: 'row-reverse',
-              }
-            : { pb: '$2.5', pl: 72 })}
+        <Stack
+          flexGrow={1}
+          flexBasis={0}
+          alignItems="flex-end"
+          {...(tableLayout && {
+            alignItems: 'unset',
+          })}
         >
+          <TxActionCommonChange change={change} tableLayout={tableLayout} />
+          {changeDescription && (
+            <TxActionCommonChangeDescription
+              changeDescription={changeDescription}
+              tableLayout={tableLayout}
+            />
+          )}
+        </Stack>
+        {tableLayout && (
+          <TxActionCommonFee fee={fee} feeFiatValue={feeFiatValue} />
+        )}
+      </XStack>
+
+      {/* Actions */}
+      {pending && (
+        <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
             Speed Up
           </Button>
-          <Button size="small" variant="tertiary" m="$0">
-            Cancel
-          </Button>
+          <Button size="small">Cancel</Button>
         </XStack>
       )}
-    </Stack>
+    </ListItem>
   );
 }
 

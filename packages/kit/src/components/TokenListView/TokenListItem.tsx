@@ -32,7 +32,7 @@ function TokenListItem(props: IProps) {
       backgroundColor={tableLayout && index % 2 === 1 ? '$bgSubdued' : ''}
       {...rest}
     >
-      <Token size={tableLayout ? 'md' : 'lg'} sourceUri={token.logoURI} />
+      <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
       <Stack
         flexGrow={1}
         flexBasis={0}

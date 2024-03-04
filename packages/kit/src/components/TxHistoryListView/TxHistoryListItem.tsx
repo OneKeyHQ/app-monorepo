@@ -15,7 +15,7 @@ function TxHistoryListItem(props: IProps) {
   const { decodedTx } = historyTx;
 
   return (
-    <Stack onPress={() => onPress?.(historyTx)} px="$2">
+    <Stack onPress={() => onPress?.(historyTx)}>
       <Stack
         borderRadius="$3"
         backgroundColor={tableLayout && index % 2 === 0 ? '$bgSubdued' : ''}

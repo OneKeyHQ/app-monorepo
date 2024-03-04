@@ -131,6 +131,7 @@ function TxHistoryListView(props: IProps) {
 
   return (
     <ListView
+      py="$3"
       h="100%"
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}

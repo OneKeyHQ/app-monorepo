@@ -38,8 +38,14 @@ function NFTListItem(props: IProps) {
         onPress?.(nft);
       }}
       userSelect="none"
+      group="nftItem"
     >
-      <Stack pb="100%">
+      <Stack
+        pb="100%"
+        $group-nftItem-hover={{
+          opacity: 0.8,
+        }}
+      >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
           <Image w="100%" h="100%" borderRadius="$2.5">
             <Image.Source src={nft.metadata?.image} />

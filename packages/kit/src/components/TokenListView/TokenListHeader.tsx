@@ -13,20 +13,19 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenListActions } from '../../states/jotai/contexts/tokenList';
 
-type IProps = {
-  tokens: IAccountToken[];
-  tableLayout?: boolean;
+type IWalletListHeaderToolbarProps = {
+  onChangeText?: IInputProps['onChangeText'];
+  headerRight?: React.ReactNode;
 };
 
 export function WalletListHeaderToolBar({
   onChangeText,
-}: {
-  onChangeText?: IInputProps['onChangeText'];
-}) {
+  headerRight,
+}: IWalletListHeaderToolbarProps) {
   const media = useMedia();
 
   return (
-    <XStack px="$5" py="$2">
+    <XStack px="$5" py="$2" space="$5" alignItems="center">
       <SearchBar
         placeholder="Search..."
         containerProps={{
@@ -38,9 +37,15 @@ export function WalletListHeaderToolBar({
           maxWidth: '$60',
         })}
       />
+      {headerRight && headerRight}
     </XStack>
   );
 }
+
+type IProps = {
+  tokens: IAccountToken[];
+  tableLayout?: boolean;
+};
 
 function TokenListHeader({ tableLayout, tokens }: IProps) {
   const intl = useIntl();
@@ -71,7 +76,7 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
               color="$textSubdued"
               size="$headingSm"
             >
-              {intl.formatMessage({ id: 'form__token' })}
+              Tokens
             </SizableText>
             <SizableText
               flexGrow={1}
