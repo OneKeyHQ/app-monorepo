@@ -97,7 +97,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       template: this.template || '',
       pub: '',
       impl: this.impl,
-      networks: this.networks,
+      networks: Array.from(this.networks || []),
       createAtNetwork: this.createAtNetwork,
     };
     if (this.type === EDBAccountType.SIMPLE) {

@@ -136,7 +136,7 @@ function HomePage() {
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
 
   const navigateAccountManagerStacks = useCallback(() => {
-    actions.current.showAccountSelector({
+    void actions.current.showAccountSelector({
       navigation,
       activeWallet: undefined,
       num: 0,

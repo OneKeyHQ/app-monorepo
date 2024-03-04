@@ -38,7 +38,9 @@ export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
         {/* {JSON.stringify(indexedAccount)} */}
         {selectedAccount?.deriveType}/{selectedAccount.indexedAccountId} --{' '}
         {account?.name}
+        {selectedAccount.focusedWallet}
       </SizableText>
+
       {account?.address ? (
         <>
           <SizableText onPress={() => setShowFullAddress((v) => !v)}>

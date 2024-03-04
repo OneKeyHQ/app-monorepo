@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
+  Icon,
   Image,
   SizableText,
   Stack,
@@ -90,6 +91,15 @@ function Items({
                 uri: logo,
               }}
             />
+            <Image.Fallback>
+              <Icon
+                size="$14"
+                $gtLg={{
+                  size: '$12',
+                }}
+                name="GlobusOutline"
+              />
+            </Image.Fallback>
           </Image>
           <SizableText
             size="$bodyLgMedium"
