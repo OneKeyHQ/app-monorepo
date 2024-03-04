@@ -75,6 +75,7 @@
     "eslint": "^8.25.0",
     "expo": "50.0.5",
     "jotai": "^2.5.0",
+    "lru-cache": "^10.2.0",
     "memoizee": "^0.4.15",
     "natsort": "^2.0.3",
     "prettier": "^2.8.1",

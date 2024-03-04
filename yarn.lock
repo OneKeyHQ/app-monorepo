@@ -4890,6 +4890,7 @@ __metadata:
     jest-expo: "npm:~50.0.1"
     jest-html-reporter: "npm:^3.10.2"
     jotai: "npm:^2.5.0"
+    lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
     metro: "npm:0.80.5"
     natsort: "npm:^2.0.3"
@@ -21435,6 +21436,13 @@ __metadata:
   version: 10.1.0
   resolution: "lru-cache@npm:10.1.0"
   checksum: 207278d6fa711fb1f94a0835d4d4737441d2475302482a14785b10515e4c906a57ebf9f35bf060740c9560e91c7c1ad5a04fd7ed030972a9ba18bce2a228e95b
+  languageName: node
+  linkType: hard
+
+"lru-cache@npm:^10.2.0":
+  version: 10.2.0
+  resolution: "lru-cache@npm:10.2.0"
+  checksum: 502ec42c3309c0eae1ce41afca471f831c278566d45a5273a0c51102dee31e0e250a62fa9029c3370988df33a14188a38e682c16143b794de78668de3643e302
   languageName: node
   linkType: hard
 
