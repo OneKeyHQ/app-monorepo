@@ -86,10 +86,22 @@ class ServiceAccountProfile extends ServiceBase {
     }
     const resolveAddress = result.resolveAddress ?? result.input;
     if (enableAddressBook && resolveAddress) {
-      await this.handleAddressBookName(networkId, resolveAddress, result);
+      // handleAddressBookName
+      const addressBookItem =
+        await this.backgroundApi.serviceAddressBook.findItem({
+          networkId,
+          address: resolveAddress,
+        });
+      result.addressBookName = addressBookItem?.name;
     }
     if (enableWalletName && resolveAddress) {
-      await this.handleWalletAccountName(networkId, resolveAddress, result);
+      // handleWalletAccountName
+      const walletAccountItems =
+        await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+          networkId,
+          address: resolveAddress,
+        });
+      result.walletAccountName = walletAccountItems?.[0]?.accountName;
     }
     return result;
   }
@@ -113,38 +125,6 @@ class ServiceAccountProfile extends ServiceBase {
           address: result.resolveAddress,
         });
       }
-    }
-    return result;
-  }
-
-  private async handleAddressBookName(
-    networkId: string,
-    resolveAddress: string,
-    result: IAddressQueryResult,
-  ) {
-    const addressBookItem =
-      await this.backgroundApi.serviceAddressBook.findItem({
-        networkId,
-        address: resolveAddress,
-      });
-    if (addressBookItem) {
-      result.addressBookName = addressBookItem.name;
-    }
-    return result;
-  }
-
-  private async handleWalletAccountName(
-    networkId: string,
-    resolveAddress: string,
-    result: IAddressQueryResult,
-  ) {
-    const walletAccountItems =
-      await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-        networkId,
-        address: resolveAddress,
-      });
-    if (walletAccountItems && walletAccountItems.length) {
-      result.walletAccountName = walletAccountItems[0].accountName;
     }
     return result;
   }
