@@ -115,7 +115,7 @@ export function WalletList({ num }: IWalletListProps) {
 
   const onWalletPress = useCallback(
     (focusedWallet: IAccountSelectorFocusedWallet) => {
-      actions.current.updateSelectedAccount({
+      void actions.current.updateSelectedAccount({
         num,
         builder: (account) => ({
           ...account,

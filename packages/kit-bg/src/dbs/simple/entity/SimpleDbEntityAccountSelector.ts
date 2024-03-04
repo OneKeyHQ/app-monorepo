@@ -1,5 +1,9 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -24,14 +28,21 @@ export interface IAccountSelectorSelectedAccount {
   deriveType: IAccountDeriveTypes; // TODO move to jotai global
   focusedWallet: IAccountSelectorFocusedWallet; // TODO move to standalone atom
 }
-export interface IAccountSelectorSelectedAccountsMap {
+export type IAccountSelectorSelectedAccountsMap = Partial<{
   [num: number]: IAccountSelectorSelectedAccount;
-}
+}>;
 export interface IAccountSelectorAccountsListSectionData {
   title: string;
   isHiddenWalletData?: boolean;
   data: IDBIndexedAccount[] | IDBAccount[];
   walletId: IDBWalletId;
+}
+export type IGlobalDeriveTypesMap = Partial<{
+  [networkIdOrImpl: string]: IAccountDeriveTypes;
+}>;
+export enum EGlobalDeriveTypesScopes {
+  global = 'global',
+  swapTo = 'swapTo',
 }
 export interface IAccountSelectorPersistInfo {
   selectorInfo: {
@@ -39,6 +50,9 @@ export interface IAccountSelectorPersistInfo {
       selector: IAccountSelectorSelectedAccountsMap;
     };
   };
+  globalDeriveTypesMap: Partial<
+    Record<EGlobalDeriveTypesScopes, IGlobalDeriveTypesMap>
+  >;
 }
 
 export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSelectorPersistInfo> {
@@ -64,7 +78,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       console.log('skip discover account selector persist');
       return;
     }
-    const sceneId = accountUtils.buildAccountSelectorSceneId({
+    const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,
     });
@@ -72,6 +86,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       // eslint-disable-next-line no-param-reassign
       data = data || {
         selectorInfo: {},
+        globalDeriveTypesMap: {},
       };
       data.selectorInfo[sceneId] = data.selectorInfo[sceneId] || {};
       data.selectorInfo[sceneId].selector =
@@ -79,6 +94,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       data.selectorInfo[sceneId].selector[num] = selectedAccount;
       return data;
     });
+
     console.log('saveSelectedAccount', {
       selectedAccount,
       sceneName,
@@ -95,7 +111,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
   }): Promise<IAccountSelectorSelectedAccountsMap | undefined> {
-    const sceneId = accountUtils.buildAccountSelectorSceneId({
+    const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
       sceneName,
       sceneUrl,
     });
@@ -127,5 +143,55 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       sceneUrl,
     });
     return selectedAccountsMap?.[num];
+  }
+
+  async getGlobalDeriveType({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<IAccountDeriveTypes | undefined> {
+    const scope = EGlobalDeriveTypesScopes.global; // shared scope
+    // TODO swapTo scope
+    const map = (await this.getRawData())?.globalDeriveTypesMap?.[scope];
+    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+      networkId,
+    });
+    const deriveType = map?.[key];
+    return deriveType;
+  }
+
+  async saveGlobalDeriveType({
+    networkId,
+    deriveType,
+    eventEmitDisabled,
+  }: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+    eventEmitDisabled?: boolean;
+  }) {
+    const scope = EGlobalDeriveTypesScopes.global; // shared scope
+    const key = accountSelectorUtils.buildGlobalDeriveTypesMapKey({
+      networkId,
+    });
+    await this.setRawData(({ rawData }) => {
+      if (!rawData) {
+        throw new Error('rawData is undefined');
+      }
+      rawData.globalDeriveTypesMap = rawData?.globalDeriveTypesMap || {};
+      rawData.globalDeriveTypesMap[scope] =
+        rawData.globalDeriveTypesMap[scope] || {};
+      if (rawData.globalDeriveTypesMap[scope][key] !== deriveType) {
+        rawData.globalDeriveTypesMap[scope][key] = deriveType;
+        if (!eventEmitDisabled) {
+          setTimeout(() => {
+            appEventBus.emit(
+              EAppEventBusNames.GlobalDeriveTypeUpdate,
+              undefined,
+            );
+          }, 100);
+        }
+      }
+      return rawData;
+    });
   }
 }

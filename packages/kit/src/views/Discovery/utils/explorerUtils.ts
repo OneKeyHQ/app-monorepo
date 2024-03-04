@@ -26,10 +26,10 @@ export const isValidWebUrl = (url: string) =>
     url,
   );
 
-export const validateUrl = (url: string) => {
+export const validateUrl = (url: string): string => {
+  let validatedUrl;
   try {
-    // eslint-disable-next-line no-new
-    new URL(url);
+    validatedUrl = new URL(url);
   } catch (e) {
     if (isValidWebUrl(url)) {
       return `https://${url}`;
@@ -37,7 +37,7 @@ export const validateUrl = (url: string) => {
     return `https://www.google.com/search?q=${url}`;
   }
 
-  return url;
+  return validatedUrl?.href ?? url;
 };
 
 export function getWebviewWrapperRef(id?: string) {
@@ -104,3 +104,26 @@ export function dismissWebviewKeyboard(id?: string) {
     }
   }
 }
+
+// https://github.com/facebook/hermes/issues/114#issuecomment-887106990
+export const injectToPauseWebsocket = `
+(function(){
+  if (window.WebSocket) {
+    if (!window.$$onekeyWebSocketSend) {
+      window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
+    }
+    window.WebSocket.prototype.send = () => {};
+  }
+})()
+`;
+
+export const injectToResumeWebsocket = `
+(function(){
+  if (
+    window.WebSocket &&
+    window.$$onekeyWebSocketSend
+  ) {
+    window.WebSocket.prototype.send = window.$$onekeyWebSocketSend;
+  }
+})()
+`;

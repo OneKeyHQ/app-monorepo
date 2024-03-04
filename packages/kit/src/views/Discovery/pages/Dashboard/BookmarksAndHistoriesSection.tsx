@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
+
 import type { IXStackProps } from '@onekeyhq/components';
 import {
+  Icon,
   Image,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   useMedia,
@@ -90,6 +94,15 @@ function Items({
                 uri: logo,
               }}
             />
+            <Image.Fallback>
+              <Icon
+                size="$14"
+                $gtLg={{
+                  size: '$12',
+                }}
+                name="GlobusOutline"
+              />
+            </Image.Fallback>
           </Image>
           <SizableText
             size="$bodyLgMedium"
@@ -127,6 +140,10 @@ export function BookmarksAndHistoriesSection({
     [historiesData, bookmarksData, isHistoriesView],
   );
 
+  const isNilDataSource = isHistoriesView
+    ? isNil(historiesData)
+    : isNil(bookmarksData);
+
   return (
     <Stack px="$5">
       <DashboardSectionHeader>
@@ -163,9 +180,17 @@ export function BookmarksAndHistoriesSection({
             borderCurve: 'continuous',
           }}
         >
-          <SizableText size="$bodyLg" color="$textDisabled" textAlign="center">
-            {isHistoriesView ? 'No History Yet' : 'No Bookmarks Yet'}
-          </SizableText>
+          {isNilDataSource ? (
+            <Skeleton w="100%" h="100%" />
+          ) : (
+            <SizableText
+              size="$bodyLg"
+              color="$textDisabled"
+              textAlign="center"
+            >
+              {isHistoriesView ? 'No History Yet' : 'No Bookmarks Yet'}
+            </SizableText>
+          )}
         </Stack>
       )}
     </Stack>

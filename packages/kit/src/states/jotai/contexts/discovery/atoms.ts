@@ -1,3 +1,5 @@
+import { LRUCache } from 'lru-cache';
+
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
@@ -38,3 +40,10 @@ export const {
   const { tabs } = get(webTabsAtom());
   return tabs.length >= MaximumNumberOfTabs;
 });
+
+export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =
+  contextAtom<LRUCache<string, boolean>>(
+    new LRUCache<string, boolean>({
+      max: 100,
+    }),
+  );
