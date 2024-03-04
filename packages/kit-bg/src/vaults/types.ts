@@ -320,6 +320,7 @@ export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
   feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
+  signOnly?: boolean;
 }
 
 export interface ISignMessageParams {

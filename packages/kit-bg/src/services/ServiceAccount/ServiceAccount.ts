@@ -9,7 +9,6 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,14 +23,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -59,11 +56,9 @@ import type {
 import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorFocusedWallet,
-  IAccountSelectorSelectedAccount,
 } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
   IAccountDeriveInfo,
-  IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
@@ -183,37 +178,6 @@ class ServiceAccount extends ServiceBase {
       deriveType,
     });
     return deriveInfo;
-  }
-
-  @backgroundMethod()
-  async getDeriveInfoMapOfNetwork({ networkId }: { networkId: string }) {
-    const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-    // TODO remove ETC config
-    return settings.accountDeriveInfo;
-  }
-
-  @backgroundMethod()
-  async getDeriveInfoItemsOfNetwork({
-    networkId,
-  }: {
-    networkId: string | undefined;
-  }): Promise<IAccountDeriveInfoItems[]> {
-    if (!networkId) {
-      return [];
-    }
-    const map = await this.getDeriveInfoMapOfNetwork({
-      networkId,
-    });
-    return Object.entries(map).map(([k, v]) => ({
-      value: k,
-      item: v,
-      label:
-        (v.labelKey
-          ? appLocale.intl.formatMessage({ id: v.labelKey })
-          : v.label) || k,
-    }));
   }
 
   @backgroundMethod()
@@ -900,117 +864,6 @@ class ServiceAccount extends ServiceBase {
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
-  }
-
-  @backgroundMethod()
-  async buildActiveAccountInfoFromSelectedAccount({
-    selectedAccount,
-    nonce,
-  }: {
-    selectedAccount: IAccountSelectorSelectedAccount;
-    nonce?: number;
-  }): Promise<{
-    selectedAccount: IAccountSelectorSelectedAccount;
-    activeAccount: IAccountSelectorActiveAccountInfo;
-    nonce?: number;
-  }> {
-    const {
-      othersWalletAccountId,
-      indexedAccountId,
-      deriveType,
-      networkId,
-      walletId,
-    } = selectedAccount;
-
-    let account: INetworkAccount | undefined;
-    let wallet: IDBWallet | undefined;
-    let network: IServerNetwork | undefined;
-    let indexedAccount: IDBIndexedAccount | undefined;
-    let deriveInfo: IAccountDeriveInfo | undefined;
-
-    if (walletId) {
-      try {
-        wallet = await this.getWallet({ walletId });
-      } catch (e) {
-        console.error(e);
-      }
-
-      if (indexedAccountId) {
-        try {
-          indexedAccount = await this.getIndexedAccount({
-            id: indexedAccountId,
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-
-    if (networkId) {
-      try {
-        network = await this.backgroundApi.serviceNetwork.getNetwork({
-          networkId,
-        });
-      } catch (e) {
-        console.error(e);
-      }
-
-      if (indexedAccountId || othersWalletAccountId) {
-        try {
-          const r = await this.getAccountOfWallet({
-            indexedAccountId,
-            accountId: othersWalletAccountId,
-            deriveType,
-            networkId,
-          });
-          account = r;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      if (deriveType) {
-        try {
-          deriveInfo = await getVaultSettingsAccountDeriveInfo({
-            networkId,
-            deriveType,
-          });
-        } catch (error) {
-          //
-        }
-      }
-    }
-
-    if (wallet && (await this.isTempWalletRemoved({ wallet }))) {
-      wallet = undefined;
-      account = undefined;
-      indexedAccount = undefined;
-    }
-
-    const isOthersWallet = Boolean(account && !indexedAccountId);
-    const activeAccount: IAccountSelectorActiveAccountInfo = {
-      account,
-      indexedAccount,
-      accountName: account?.name || indexedAccount?.name || '',
-      wallet,
-      network,
-      deriveType,
-      deriveInfo,
-      deriveInfoItems: await this.getDeriveInfoItemsOfNetwork({ networkId }),
-      ready: true,
-      isOthersWallet,
-    };
-    const selectedAccountFixed: IAccountSelectorSelectedAccount = {
-      othersWalletAccountId: isOthersWallet
-        ? activeAccount?.account?.id
-        : undefined,
-      indexedAccountId: activeAccount.indexedAccount?.id,
-      deriveType: activeAccount.deriveType,
-      networkId: activeAccount.network?.id,
-      walletId: activeAccount.wallet?.id,
-      focusedWallet: isOthersWallet ? '$$others' : activeAccount.wallet?.id,
-    };
-    return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 }
 

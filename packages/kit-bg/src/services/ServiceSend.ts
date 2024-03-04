@@ -299,6 +299,7 @@ class ServiceSend extends ServiceBase {
       unsignedTxs,
       feeInfo: sendSelectedFeeInfo,
       nativeAmountInfo,
+      signOnly,
     } = params;
 
     const newUnsignedTxs = [];
@@ -319,11 +320,13 @@ class ServiceSend extends ServiceBase {
 
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
-      const signedTx = await this.signAndSendTransaction({
-        networkId,
-        accountId,
-        unsignedTx,
-      });
+      const signedTx = signOnly
+        ? await this.signTransaction({ unsignedTx, accountId, networkId })
+        : await this.signAndSendTransaction({
+            unsignedTx,
+            networkId,
+            accountId,
+          });
 
       const decodedTx = await this.buildDecodedTx({
         networkId,
@@ -344,6 +347,20 @@ class ServiceSend extends ServiceBase {
         signedTx,
         decodedTx,
       });
+      if (signedTx && !signOnly) {
+        await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+          networkId,
+          accountId,
+          data: {
+            signedTx,
+            decodedTx: await this.buildDecodedTx({
+              networkId,
+              accountId,
+              unsignedTx,
+            }),
+          },
+        });
+      }
     }
 
     return result;

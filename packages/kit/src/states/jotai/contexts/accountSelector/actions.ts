@@ -20,6 +20,12 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -30,6 +36,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   accountSelectorEditModeAtom,
   accountSelectorStorageReadyAtom,
+  accountSelectorUpdateMetaAtom,
   activeAccountsAtom,
   contextAtomMethod,
   defaultActiveAccountInfo,
@@ -40,6 +47,7 @@ import {
 import type {
   IAccountSelectorActiveAccountInfo,
   IAccountSelectorRouteParams,
+  IAccountSelectorUpdateMeta,
 } from './atoms';
 
 const { serviceAccount } = backgroundApiProxy;
@@ -52,6 +60,7 @@ export type IAccountSelectorSyncFromSceneParams = {
   };
   num: number;
 };
+
 class AccountSelectorActions extends ContextJotaiActionsBase {
   refresh = contextAtomMethod((_, set, payload: { num: number }) => {
     const { num } = payload;
@@ -75,14 +84,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ): Promise<IAccountSelectorActiveAccountInfo> =>
       this.mutex.runExclusive(async () => {
+        const { serviceAccountSelector } = backgroundApiProxy;
         const { num, selectedAccount } = payload;
         console.log('buildActiveAccountInfoFromSelectedAccount', {
           selectedAccount,
         });
         const { activeAccount } =
-          await serviceAccount.buildActiveAccountInfoFromSelectedAccount({
-            selectedAccount,
-          });
+          await serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
+            {
+              selectedAccount,
+            },
+          );
 
         console.log('buildActiveAccountInfoFromSelectedAccount update state', {
           selectedAccount,
@@ -96,28 +108,92 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }),
   );
 
-  updateSelectedAccount = contextAtomMethod(
-    (
+  updateSelectedAccountNetwork = contextAtomMethod(
+    async (
       get,
       set,
       payload: {
+        num: number;
+        networkId: string;
+      },
+    ) => {
+      const { num, networkId } = payload;
+      await this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => ({
+          ...v,
+          networkId,
+        }),
+      });
+    },
+  );
+
+  updateSelectedAccountDeriveType = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        updateMeta?: IAccountSelectorUpdateMeta;
+        num: number;
+        deriveType: IAccountDeriveTypes;
+      },
+    ) => {
+      const { num, deriveType, updateMeta } = payload;
+      await this.updateSelectedAccount.call(set, {
+        updateMeta,
+        num,
+        builder: (v) => ({
+          ...v,
+          deriveType: deriveType || 'default',
+        }),
+      });
+    },
+  );
+
+  updateSelectedAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        updateMeta?: IAccountSelectorUpdateMeta;
         num: number;
         builder: (
           oldAccount: IAccountSelectorSelectedAccount,
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
-      const { num, builder } = payload;
+      const { num, builder, updateMeta } = payload;
       const oldSelectedAccount: IAccountSelectorSelectedAccount = cloneDeep(
         this.getSelectedAccount.call(set, { num }) || defaultSelectedAccount(),
       );
-      const newSelectedAccount = builder(oldSelectedAccount);
+      const newSelectedAccount = cloneDeep(builder(oldSelectedAccount));
       if (isEqual(oldSelectedAccount, newSelectedAccount)) {
         return;
+      }
+      // fix deriveType from global storage if change network only, as current deriveType is previous network's
+      // **** important: remove this logic will cause infinite loop
+      // if you want to change networkId and driveType at same time, you should call updateSelectedAccount twice, first change networkId, then change deriveType
+      if (
+        newSelectedAccount.networkId !== oldSelectedAccount.networkId &&
+        newSelectedAccount.deriveType === oldSelectedAccount.deriveType
+      ) {
+        const newDriveType =
+          await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
+            selectedAccount: newSelectedAccount,
+          });
+        if (newDriveType) {
+          newSelectedAccount.deriveType = newDriveType;
+        }
       }
       set(selectedAccountsAtom(), (v) => ({
         ...v,
         [num]: newSelectedAccount,
+      }));
+      set(accountSelectorUpdateMetaAtom(), (v) => ({
+        ...v,
+        [num]: {
+          eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
+        },
       }));
     },
   );
@@ -155,7 +231,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account: othersWalletAccount,
       });
 
-      this.updateSelectedAccount.call(set, {
+      await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
@@ -169,7 +245,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   showAccountSelector = contextAtomMethod(
-    (
+    async (
       get,
       set,
       {
@@ -177,7 +253,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
-        linkNetwork,
+        linkNetwork, // show account address of current network
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         linkNetwork?: boolean;
@@ -190,7 +266,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
           focusedWalletNew = '$$others';
         }
-        this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccount.call(set, {
           num,
           builder: (v) => ({
             ...v,
@@ -230,7 +306,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   autoSelectToCreatedWallet = contextAtomMethod(
-    (
+    async (
       _,
       set,
       {
@@ -238,7 +314,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount,
       }: { wallet: IDBWallet; indexedAccount: IDBIndexedAccount },
     ) => {
-      this.updateSelectedAccount.call(set, {
+      await this.updateSelectedAccount.call(set, {
         num: 0,
         builder: (v) => ({
           ...v,
@@ -263,7 +339,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const { wallet, indexedAccount } = await serviceAccount.createHDWallet({
         mnemonic,
       });
-      this.autoSelectToCreatedWallet.call(set, { wallet, indexedAccount });
+      await this.autoSelectToCreatedWallet.call(set, {
+        wallet,
+        indexedAccount,
+      });
       return { wallet, indexedAccount };
     },
   );
@@ -272,7 +351,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHWWalletParamsBase) => {
       const res = await serviceAccount.createHWWallet(params);
       const { wallet, indexedAccount } = res;
-      this.autoSelectToCreatedWallet.call(set, { wallet, indexedAccount });
+      await this.autoSelectToCreatedWallet.call(set, {
+        wallet,
+        indexedAccount,
+      });
       return res;
     },
   );
@@ -281,7 +363,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, { walletId }: { walletId: string }) => {
       const res = await serviceAccount.createHWHiddenWallet({ walletId });
       const { wallet, indexedAccount } = res;
-      this.autoSelectToCreatedWallet.call(set, { wallet, indexedAccount });
+      await this.autoSelectToCreatedWallet.call(set, {
+        wallet,
+        indexedAccount,
+      });
       return res;
     },
   );
@@ -336,7 +421,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // TODO singleton wallet auto change account, use autoSelectAccount() instead?
 
-        this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccount.call(set, {
           num: 0,
           builder: (v) => ({
             ...v,
@@ -346,7 +431,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }),
         });
       } else {
-        this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccount.call(set, {
           num: 0,
           builder: (v) => ({
             ...v,
@@ -354,6 +439,134 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }),
         });
       }
+    },
+  );
+
+  mutexSyncHomeAndSwap = new Semaphore(1);
+
+  syncHomeAndSwapSelectedAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        sceneName: EAccountSelectorSceneName;
+        sceneUrl?: string | undefined;
+        num: number;
+        eventPayload: {
+          selectedAccount: IAccountSelectorSelectedAccount;
+          sceneName: EAccountSelectorSceneName;
+          sceneUrl?: string | undefined;
+          num: number;
+        };
+      },
+    ) => {
+      const { serviceAccountSelector } = backgroundApiProxy;
+      await this.mutexSyncHomeAndSwap.runExclusive(async () => {
+        const { sceneName, sceneUrl, num, eventPayload } = params;
+
+        if (
+          accountSelectorUtils.isEqualAccountSelectorScene({
+            scene1: { sceneName, sceneUrl, num },
+            scene2: eventPayload,
+          })
+        ) {
+          return;
+        }
+
+        const shouldSync =
+          (await serviceAccountSelector.shouldSyncWithHome({
+            sceneName,
+            sceneUrl,
+            num,
+          })) &&
+          (await serviceAccountSelector.shouldSyncWithHome(eventPayload));
+
+        if (shouldSync) {
+          const current = this.getSelectedAccount.call(set, { num });
+          const newSelectedAccount =
+            accountSelectorUtils.buildMergedSelectedAccount({
+              data: current,
+              mergedByData: eventPayload.selectedAccount,
+            });
+          console.log('syncHomeAndSwapSelectedAccount >>>> ', {
+            params,
+            data: current,
+            mergedByData: eventPayload.selectedAccount,
+            newSelectedAccount,
+          });
+          await this.updateSelectedAccount.call(set, {
+            updateMeta: {
+              eventEmitDisabled: true, // stop update infinite loop here
+            },
+            num,
+            builder(v) {
+              return newSelectedAccount || v;
+            },
+          });
+        }
+      });
+    },
+  );
+
+  reloadSwapToAccountFromHome = contextAtomMethod(async (get, set) => {
+    const swapMap =
+      await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap({
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    const newMap =
+      await backgroundApiProxy.serviceAccountSelector.mergeHomeDataToSwapMap({
+        swapMap,
+      });
+    await this.updateSelectedAccount.call(set, {
+      num: 1,
+      builder(v) {
+        return newMap?.[1] || v;
+      },
+    });
+  });
+
+  mutexSyncLocalDeriveType = new Semaphore(1);
+
+  syncLocalDeriveTypeFromGlobal = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        num,
+        sceneName,
+        sceneUrl,
+      }: {
+        num: number;
+        sceneName: EAccountSelectorSceneName;
+        sceneUrl?: string | undefined;
+      },
+    ) => {
+      await this.mutexSyncLocalDeriveType.runExclusive(async () => {
+        const selectedAccount = this.getSelectedAccount.call(set, {
+          num,
+        });
+        const globalDeriveType =
+          await backgroundApiProxy.serviceAccountSelector.getGlobalDeriveType({
+            selectedAccount,
+          });
+        // **** globalDeriveType -> selectedAccount.deriveType
+        if (globalDeriveType) {
+          console.log('syncLocalDeriveTypeFromGlobal >>>> ', {
+            selectedAccount,
+            globalDeriveType,
+            sceneName,
+            sceneUrl,
+            num,
+          });
+          await this.updateSelectedAccountDeriveType.call(set, {
+            updateMeta: {
+              eventEmitDisabled: true, // stop update infinite loop here
+            },
+            num,
+            deriveType: globalDeriveType || 'default',
+          });
+        }
+      });
     },
   );
 
@@ -369,6 +582,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl?: string;
       },
     ) => {
+      const { serviceAccountSelector } = backgroundApiProxy;
       let selectedAccountsMapInDB:
         | IAccountSelectorSelectedAccountsMap
         | undefined =
@@ -379,6 +593,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           },
         );
 
+      // fix discover account from dappConnection
       if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
         const connectionMap =
           await backgroundApiProxy.simpleDb.dappConnection.getAccountSelectorMap(
@@ -388,8 +603,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           );
         if (connectionMap) {
           const map: IAccountSelectorSelectedAccountsMap = {};
-          Object.entries(connectionMap).forEach(([k, v]) => {
-            map[Number(k)] = {
+          Object.entries(connectionMap).forEach(([num, v]) => {
+            map[Number(num)] = {
               walletId: v.walletId,
               indexedAccountId: v.indexedAccountId,
               othersWalletAccountId: v.othersWalletAccountId,
@@ -397,10 +612,35 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               deriveType: v.deriveType,
               focusedWallet: v.focusedWallet,
             };
-            map[Number(k)] = omitBy(map[Number(k)], isUndefined) as any;
+            map[Number(num)] = omitBy(map[Number(num)], isUndefined) as any;
           });
           selectedAccountsMapInDB = map;
         }
+      }
+
+      if (selectedAccountsMapInDB) {
+        selectedAccountsMapInDB = cloneDeep(selectedAccountsMapInDB);
+      }
+
+      // fix swap account from home
+      if (sceneName === EAccountSelectorSceneName.swap) {
+        selectedAccountsMapInDB =
+          await serviceAccountSelector.mergeHomeDataToSwapMap({
+            swapMap: selectedAccountsMapInDB,
+          });
+        console.log('mergeHomeDataToSwapMap ', selectedAccountsMapInDB);
+      }
+
+      // fix derive type from global
+      if (selectedAccountsMapInDB) {
+        selectedAccountsMapInDB =
+          await backgroundApiProxy.serviceAccountSelector.fixDeriveTypesForInitAccountSelectorMap(
+            {
+              selectedAccountsMapInDB,
+              sceneName,
+              sceneUrl,
+            },
+          );
       }
 
       const selectedAccountsMap = get(selectedAccountsAtom());
@@ -414,6 +654,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  mutexSaveToStorage = new Semaphore(1);
+
   saveToStorage = contextAtomMethod(
     async (
       get,
@@ -425,18 +667,81 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
       },
     ) => {
-      const isReady = get(accountSelectorStorageReadyAtom());
-      if (isReady) {
-        if (isEqual(payload.selectedAccount, defaultSelectedAccount)) {
+      const { serviceAccountSelector } = backgroundApiProxy;
+      await this.mutexSaveToStorage.runExclusive(async () => {
+        const { selectedAccount, sceneName, sceneUrl, num } = payload;
+        const { simpleDb } = backgroundApiProxy;
+        const isReady = get(accountSelectorStorageReadyAtom());
+        if (!isReady) {
+          return;
+        }
+        if (isEqual(selectedAccount, defaultSelectedAccount)) {
           console.error(
             'AccountSelector.saveToStorage skip, selectedAccount is default',
           );
           return;
         }
-        await backgroundApiProxy.simpleDb.accountSelector.saveSelectedAccount(
-          payload,
-        );
-      }
+        const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
+          sceneName,
+          sceneUrl,
+          num,
+        });
+        if (isEqual(currentSaved, selectedAccount)) {
+          console.error(
+            'AccountSelector.saveToStorage skip, selectedAccount not changed',
+          );
+          return;
+        }
+
+        // **** saveSelectedAccount
+        // skip discover account selector persist here
+        await simpleDb.accountSelector.saveSelectedAccount(payload);
+
+        // **** save global derive type (with event emit if need)
+        const updateMeta = get(accountSelectorUpdateMetaAtom())[num];
+        const eventEmitDisabled = Boolean(updateMeta?.eventEmitDisabled);
+        await backgroundApiProxy.serviceAccountSelector.saveGlobalDeriveType({
+          eventEmitDisabled,
+          selectedAccount,
+          sceneName,
+          sceneUrl,
+          num,
+        });
+
+        // **** also save to home scene SelectedAccount if sync needed
+        if (
+          sceneName !== EAccountSelectorSceneName.home &&
+          (await serviceAccountSelector.shouldSyncWithHome({
+            sceneName,
+            sceneUrl,
+            num,
+          }))
+        ) {
+          const homeSelectedAccount =
+            await simpleDb.accountSelector.getSelectedAccount({
+              sceneName: EAccountSelectorSceneName.home,
+              num: 0,
+            });
+          const newSelectedAccount =
+            accountSelectorUtils.buildMergedSelectedAccount({
+              data: homeSelectedAccount,
+              mergedByData: selectedAccount,
+            });
+          await simpleDb.accountSelector.saveSelectedAccount({
+            sceneName: EAccountSelectorSceneName.home,
+            num: 0,
+            selectedAccount: newSelectedAccount,
+          });
+        }
+
+        // **** emit event
+        if (!eventEmitDisabled) {
+          appEventBus.emit(
+            EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+            payload,
+          );
+        }
+      });
     },
   );
 
@@ -481,7 +786,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num: sceneNum,
         });
 
-      this.updateSelectedAccount.call(set, {
+      await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => selectedAccount || v,
       });
@@ -544,7 +849,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account,
       });
       if (accountNetworkId) {
-        this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccount.call(set, {
           num,
           builder: (v) => ({
             ...v,
@@ -608,7 +913,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const isHwWallet = accountUtils.isHwWallet({
             walletId: selectedWalletId,
           });
-          const isOthers = !isHdWallet && !isHwWallet;
+          const isOthers =
+            Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
 
           if (isOthers) {
             selectedAccountNew.focusedWallet = '$$others';
@@ -629,9 +935,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
 
-          // TODO auto select network and derive type, check network compatible for others account
+          // TODO auto select network and derive type, check network compatible for others wallet account
 
-          this.updateSelectedAccount.call(set, {
+          await this.updateSelectedAccount.call(set, {
             num,
             builder: () => selectedAccountNew,
           });
@@ -646,9 +952,14 @@ const createActions = memoFn(() => new AccountSelectorActions());
 export function useAccountSelectorActions() {
   const actions = createActions();
   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
+  const getSelectedAccount = actions.getSelectedAccount.use();
   const initFromStorage = actions.initFromStorage.use();
   const saveToStorage = actions.saveToStorage.use();
   const updateSelectedAccount = actions.updateSelectedAccount.use();
+  const updateSelectedAccountNetwork =
+    actions.updateSelectedAccountNetwork.use();
+  const updateSelectedAccountDeriveType =
+    actions.updateSelectedAccountDeriveType.use();
   const refresh = actions.refresh.use();
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
@@ -662,13 +973,21 @@ export function useAccountSelectorActions() {
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
   const confirmAccountSelect = actions.confirmAccountSelect.use();
-  const getActiveAccount = actions.getActiveAccount.use();
+  const syncHomeAndSwapSelectedAccount =
+    actions.syncHomeAndSwapSelectedAccount.use();
+  const syncLocalDeriveTypeFromGlobal =
+    actions.syncLocalDeriveTypeFromGlobal.use();
+  const reloadSwapToAccountFromHome = actions.reloadSwapToAccountFromHome.use();
+
   return useRef({
     reloadActiveAccountInfo,
+    getSelectedAccount,
     refresh,
     initFromStorage,
     saveToStorage,
     updateSelectedAccount,
+    updateSelectedAccountNetwork,
+    updateSelectedAccountDeriveType,
     showAccountSelector,
     showChainSelector,
     removeWallet,
@@ -680,6 +999,8 @@ export function useAccountSelectorActions() {
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,
     confirmAccountSelect,
-    getActiveAccount,
+    syncHomeAndSwapSelectedAccount,
+    syncLocalDeriveTypeFromGlobal,
+    reloadSwapToAccountFromHome,
   });
 }
