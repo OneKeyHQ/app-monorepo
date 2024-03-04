@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EAccountSelectorSceneName,
@@ -168,12 +169,10 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // TODO: openStandaloneWindow
-      // extUtils.openStandaloneWindow({
-      //   routes: routeNames,
-      //   params: routeParams,
-      // });
-      throw new Error('not implemented');
+      void extUtils.openStandaloneWindow({
+        routes: routeNames,
+        params: routeParams,
+      });
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -578,6 +577,7 @@ class ServiceDApp extends ServiceBase {
     if (!(await this.shouldSwitchNetwork(params))) {
       return;
     }
+
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
