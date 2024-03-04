@@ -8,6 +8,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -30,6 +31,7 @@ import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -56,6 +58,10 @@ class BackgroundApiProxy
   serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
 
   serviceAccount = this._createProxyService('serviceAccount') as ServiceAccount;
+
+  serviceAccountSelector = this._createProxyService(
+    'serviceAccountSelector',
+  ) as ServiceAccountSelector;
 
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 
@@ -88,6 +94,10 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
+
+  serviceWalletConnect = this._createProxyService(
+    'serviceWalletConnect',
+  ) as ServiceWalletConnect;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',

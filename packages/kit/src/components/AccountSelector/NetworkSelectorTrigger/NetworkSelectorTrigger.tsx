@@ -3,18 +3,17 @@ import { memo, useCallback, useMemo } from 'react';
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useActiveAccount,
   useSelectedAccount,
-} from '../../states/jotai/contexts/accountSelector';
-
-import { useAccountSelectorAvailableNetworks } from './hooks/useAccountSelectorAvailableNetworks';
+} from '../../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorAvailableNetworks } from '../hooks/useAccountSelectorAvailableNetworks';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
@@ -57,12 +56,9 @@ export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
         items={items}
         value={selectedAccount.networkId}
         onChange={(id) =>
-          actions.current.updateSelectedAccount({
+          actions.current.updateSelectedAccountNetwork({
             num,
-            builder: (v) => ({
-              ...v,
-              networkId: id,
-            }),
+            networkId: id,
           })
         }
         title="网络"

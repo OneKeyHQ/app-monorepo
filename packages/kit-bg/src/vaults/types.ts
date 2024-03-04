@@ -66,13 +66,13 @@ export interface IAccountDeriveInfo {
   //       id: MessageDescriptor['id'];
   //     }
   //   | string;
-  // desc?:
-  //   | {
-  //       // LocaleIds
-  //       id: MessageDescriptor['id'];
-  //       placeholder?: any;
-  //     }
-  //   | string;
+  desc?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+        placeholder?: any;
+      }
+    | string;
   // subDesc?: string;
   // recommended?: boolean;
   // notRecommended?: boolean;
@@ -313,6 +313,7 @@ export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
   feeInfo?: IFeeInfoUnit;
   nativeAmountInfo?: INativeAmountInfo;
+  signOnly?: boolean;
 }
 
 export interface ISignMessageParams {

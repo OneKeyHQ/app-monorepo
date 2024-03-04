@@ -1,40 +1,52 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
+  useAccountSelectorContextDataAtom,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
-import { useAccountAutoSelect } from './hooks/useAccountAutoSelect';
-import { useDeriveTypeAutoSelect } from './hooks/useDeriveTypeAutoSelect';
-import { useNetworkAutoSelect } from './hooks/useNetworkAutoSelect';
+import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
+import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
+import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
-  // TODO multiple UI sync
   const actions = useAccountSelectorActions();
   const { selectedAccount, isSelectedAccountDefaultValue } = useSelectedAccount(
     { num },
   );
+  const [, setContextData] = useAccountSelectorContextDataAtom();
+  const [swapToAnotherAccount] = useSwapToAnotherAccountSwitchOnAtom();
 
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+
+  useEffect(() => {
+    setContextData({
+      sceneName,
+      sceneUrl,
+    });
+  }, [sceneName, sceneUrl, setContextData]);
 
   const sceneNameRef = useRef(sceneName);
   sceneNameRef.current = sceneName;
   const sceneUrlRef = useRef(sceneUrl);
   sceneUrlRef.current = sceneUrl;
 
-  useAccountAutoSelect({ num });
-  useNetworkAutoSelect({ num });
-  useDeriveTypeAutoSelect({ num });
+  useAutoSelectAccount({ num });
+  useAutoSelectNetwork({ num });
+  useAutoSelectDeriveType({ num });
 
   const reloadActiveAccountInfo = useCallback(async () => {
     if (!isReady) {
@@ -50,22 +62,27 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
         networkId: activeAccount.network?.id,
       });
     }
-    // do not save initial value to storage
-    if (!isSelectedAccountDefaultValue) {
-      void actions.current.saveToStorage({
-        selectedAccount,
-        sceneName,
-        sceneUrl,
-        num,
-      });
-    } else {
-      console.log(
-        'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
-      );
-    }
+  }, [actions, isReady, num, selectedAccount]);
+
+  useEffect(() => {
+    void (async () => {
+      // do not save initial value to storage
+      if (!isSelectedAccountDefaultValue) {
+        // check initFromStorage() at AccountSelectorStorageInit
+        await actions.current.saveToStorage({
+          selectedAccount,
+          sceneName,
+          sceneUrl,
+          num,
+        });
+      } else {
+        console.log(
+          'AccountSelector saveToStorage skip:  isSelectedAccountDefaultValue',
+        );
+      }
+    })();
   }, [
     actions,
-    isReady,
     isSelectedAccountDefaultValue,
     num,
     sceneName,
@@ -105,12 +122,9 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
         params.sceneName === sceneNameRef.current &&
         params.sceneUrl === sceneUrlRef.current
       ) {
-        actions.current.updateSelectedAccount({
+        void actions.current.updateSelectedAccountNetwork({
           num: params.num,
-          builder: (v) => ({
-            ...v,
-            networkId: params.networkId,
-          }),
+          networkId: params.networkId,
         });
       }
     };
@@ -122,6 +136,46 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };
   }, [reloadActiveAccountInfo, actions]);
+
+  const syncHomeAndSwap = useCallback(
+    (eventPayload: {
+      selectedAccount: IAccountSelectorSelectedAccount;
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string | undefined;
+      num: number;
+    }) =>
+      actions.current.syncHomeAndSwapSelectedAccount({
+        eventPayload,
+        sceneName,
+        sceneUrl,
+        num,
+      }),
+    [actions, num, sceneName, sceneUrl],
+  );
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+      syncHomeAndSwap,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+        syncHomeAndSwap,
+      );
+    };
+  }, [syncHomeAndSwap]);
+
+  useEffect(() => {
+    void (async () => {
+      if (
+        !swapToAnotherAccount &&
+        sceneName === EAccountSelectorSceneName.swap &&
+        num === 1
+      ) {
+        await actions.current.reloadSwapToAccountFromHome();
+      }
+    })();
+  }, [actions, num, sceneName, swapToAnotherAccount]);
 
   return null;
 }
