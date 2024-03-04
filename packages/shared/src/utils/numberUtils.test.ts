@@ -161,6 +161,33 @@ test('formatBalance', () => {
     { 'type': 'sub', 'value': 7 },
     '2146',
   ]);
+
+  // token symbol
+  expect(
+    formatDisplayNumber(
+      formatBalance('0.0000000214562', {
+        tokenSymbol: 'ETC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual(['+', '0.0', { 'type': 'sub', 'value': 7 }, '2146', ' ', 'ETC']);
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('-100.16798000000214562', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('-100.168 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('202.16798000000214562', {
+        tokenSymbol: 'USDT',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('+202.168 USDT');
 });
 
 test('formatPrice', () => {

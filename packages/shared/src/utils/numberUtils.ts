@@ -38,6 +38,12 @@ export default { numberToHex, hexToDecimal };
 
 export { fromBigIntHex, toBigIntHex };
 
+export type IFormatterOptions = {
+  currency?: string;
+  tokenSymbol?: string;
+  showPlusMinusSigns?: boolean;
+};
+
 export interface IDisplayNumber {
   formattedValue: string;
   meta: {
@@ -45,9 +51,8 @@ export interface IDisplayNumber {
     unit?: string;
     leadingZeros?: number;
     leading?: string;
-    currency?: string;
     symbol?: string;
-  };
+  } & IFormatterOptions;
 }
 
 const countLeadingZeroDecimals = (x: BigNumber) => {
@@ -88,15 +93,13 @@ const formatLocalNumber = (
   return keepTrailingZeros ? stripTrailingZero(result) : result;
 };
 
-export type IFormatterOptions = { currency: string };
-
 export type IFormatNumberFunc = (
   value: string,
   options?: IFormatterOptions,
 ) => IDisplayNumber;
 
 /** Balance/Amount */
-export const formatBalance: IFormatNumberFunc = (value: string) => {
+export const formatBalance: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
   if (val.isNaN() || val.eq(0)) {
     return { formattedValue: '0', meta: { value } };
@@ -108,6 +111,7 @@ export const formatBalance: IFormatNumberFunc = (value: string) => {
         meta: {
           value,
           unit: 'Q',
+          ...options,
         },
       };
     }
@@ -118,6 +122,7 @@ export const formatBalance: IFormatNumberFunc = (value: string) => {
         meta: {
           value,
           unit: 'T',
+          ...options,
         },
       };
     }
@@ -128,12 +133,13 @@ export const formatBalance: IFormatNumberFunc = (value: string) => {
         meta: {
           value,
           unit: 'B',
+          ...options,
         },
       };
     }
     return {
       formattedValue: formatLocalNumber(val, 4, true),
-      meta: { value },
+      meta: { value, ...options },
     };
   }
 
@@ -143,6 +149,7 @@ export const formatBalance: IFormatNumberFunc = (value: string) => {
     meta: {
       value,
       leadingZeros: countLeadingZeroDecimals(val),
+      ...options,
     },
   };
 };
@@ -154,32 +161,32 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   if (val.isNaN() || val.eq(0)) {
     return {
       formattedValue: formatLocalNumber('0', 2, false, true),
-      meta: { value, currency },
+      meta: { value, currency, ...options },
     };
   }
   if (val.gte(1)) {
     return {
       formattedValue: formatLocalNumber(val, 2, false, true),
-      meta: { value, currency },
+      meta: { value, currency, ...options },
     };
   }
 
   const zeros = countLeadingZeroDecimals(val);
   return {
     formattedValue: formatLocalNumber(val, 4 + zeros, true),
-    meta: { value, currency, leadingZeros: zeros },
+    meta: { value, currency, leadingZeros: zeros, ...options },
   };
 };
 
 /** PriceChange */
-export const formatPriceChange: IFormatNumberFunc = (value) => {
+export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
   if (val.isNaN() || val.eq(0)) {
-    return { formattedValue: '0.00', meta: { value, symbol: '%' } };
+    return { formattedValue: '0.00', meta: { value, symbol: '%', ...options } };
   }
   return {
     formattedValue: formatLocalNumber(val.toFixed(2)),
-    meta: { value, symbol: '%' },
+    meta: { value, symbol: '%', ...options },
   };
 };
 
@@ -188,28 +195,31 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
   const val = new BigNumber(value);
   if (val.isNaN() || val.lt(0.01)) {
-    return { formattedValue: '0.01', meta: { value, leading: '< ', currency } };
+    return {
+      formattedValue: '0.01',
+      meta: { value, leading: '< ', currency, ...options },
+    };
   }
   return {
     formattedValue: formatLocalNumber(val.toFixed(2)),
-    meta: { value, currency },
+    meta: { value, currency, ...options },
   };
 };
 
 /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
-export const formatMarketCap: IFormatNumberFunc = (value) => {
+export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
   if (val.isNaN() || val.eq(0)) {
     return {
       formattedValue: '0',
-      meta: { value },
+      meta: { value, ...options },
     };
   }
 
   if (val.gte(10e11)) {
     return {
       formattedValue: formatLocalNumber(val.div(10e11), 2, true),
-      meta: { value, unit: 'T' },
+      meta: { value, unit: 'T', ...options },
     };
   }
   if (val.gte(10e8)) {
@@ -221,25 +231,33 @@ export const formatMarketCap: IFormatNumberFunc = (value) => {
   if (val.gte(10e5)) {
     return {
       formattedValue: formatLocalNumber(val.div(10e5), 2, true),
-      meta: { value, unit: 'M' },
+      meta: { value, unit: 'M', ...options },
     };
   }
   if (val.gte(10e2)) {
     return {
       formattedValue: formatLocalNumber(val.div(10e2), 2, true),
-      meta: { value, unit: 'K' },
+      meta: { value, unit: 'K', ...options },
     };
   }
   return {
     formattedValue: formatLocalNumber(val, 2, true),
-    meta: { value },
+    meta: { value, ...options },
   };
 };
 
 export const formatDisplayNumber = (value: IDisplayNumber) => {
   const {
     formattedValue,
-    meta: { leading, leadingZeros, currency, unit, symbol },
+    meta: {
+      leading,
+      leadingZeros,
+      currency,
+      unit,
+      symbol,
+      showPlusMinusSigns,
+      tokenSymbol,
+    },
   } = value;
   const strings = [];
   if (leading) {
@@ -247,6 +265,9 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   }
   if (currency) {
     strings.push(currency);
+  }
+  if (showPlusMinusSigns && formattedValue[0] !== '-') {
+    strings.push('+');
   }
   if (leadingZeros && leadingZeros > 4) {
     strings.push('0.0');
@@ -260,6 +281,10 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   }
   if (symbol) {
     strings.push(symbol);
+  }
+  if (tokenSymbol) {
+    strings.push(' ');
+    strings.push(tokenSymbol);
   }
   return leadingZeros && leadingZeros > 4 ? strings : strings.join('');
 };
