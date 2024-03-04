@@ -5,6 +5,8 @@ module.exports = [
   'qrcode',
   'tlightning',
   'Eip',
+  'Sizeable',
+  'Liquidty',
   'passpharse',
   'uosmo',
   'uatom',
@@ -637,4 +639,5 @@ module.exports = [
   'lru',
   'compat',
   'replacer',
+  'invoker',
 ];
