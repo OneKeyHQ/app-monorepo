@@ -11,9 +11,9 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { Section } from './Section';
+import { Section } from '../Section';
 
-import type { IModalSettingParamList } from '../../router/types';
+import type { IModalSettingParamList } from '../../../router/types';
 
 const HardwareBridgeListItems = () => {
   const navigation =

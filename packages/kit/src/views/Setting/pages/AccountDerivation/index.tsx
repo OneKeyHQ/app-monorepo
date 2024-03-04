@@ -2,14 +2,7 @@ import type { FC } from 'react';
 import { useRef, useState } from 'react';
 
 import type { ISelectItem } from '@onekeyhq/components';
-import {
-  Icon,
-  Page,
-  Select,
-  SizableText,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Page, Select, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 type IAccountDerivationListItemProps = {
@@ -27,21 +20,21 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
   icon,
   items,
 }) => (
-  <ListItem title={title} avatarProps={{ src: icon }}>
-    <Select
-      renderTrigger={({ label }) => (
+  <Select
+    renderTrigger={({ label }) => (
+      <ListItem title={title} avatarProps={{ src: icon }}>
         <XStack>
           <SizableText mr="$3">{label}</SizableText>
-          <Icon name="ChevronBottomSolid" right="$3" top="$2" size={24} />
+          <ListItem.DrillIn name="ChevronDownSmallSolid" />
         </XStack>
-      )}
-      placement="bottom-end"
-      items={items}
-      value={value}
-      onChange={onChange}
-      title="Derivation Path"
-    />
-  </ListItem>
+      </ListItem>
+    )}
+    placement="bottom-end"
+    items={items}
+    value={value}
+    onChange={onChange}
+    title="Derivation Path"
+  />
 );
 
 const BitcoinAccountDerivation = () => {

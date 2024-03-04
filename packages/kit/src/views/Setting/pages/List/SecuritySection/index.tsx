@@ -19,11 +19,12 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import { useOptions } from '../AppAutoLock/useOptions';
+import { useOptions } from '../../AppAutoLock/useOptions';
+import { Section } from '../Section';
 
-import { Section } from './Section';
+import { CleanDataItem } from './CleanDataItem';
 
-import type { IModalSettingParamList } from '../../router/types';
+import type { IModalSettingParamList } from '../../../router/types';
 
 const AppAutoLockItem = () => {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
@@ -170,6 +171,7 @@ export const SecuritySection = () => {
       <EnableSystemIdleTimeItem />
       <PasswordItem />
       <ProtectionItem />
+      <CleanDataItem />
     </Section>
   );
 };
