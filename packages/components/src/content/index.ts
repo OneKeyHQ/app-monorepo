@@ -7,6 +7,7 @@ export * from './LottieView';
 export * from './NumberSizeableText';
 export * from './Progress';
 export * from './QRCode';
+export * from './Splash';
 export * from './Divider';
 export * from './SheetGrabber';
 export * from './ConfirmHighlighter';

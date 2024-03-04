@@ -8,6 +8,7 @@ import PasswordVerifyPromptMount from '../components/Password/container/Password
 import '../utils/axiosInterceptor';
 
 import { Container } from './Container';
+import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 
 if (platformEnv.isRuntimeBrowser) {
@@ -27,9 +28,11 @@ export function KitProvider() {
   return (
     <GlobalJotaiReady>
       <ThemeProvider>
-        <GestureHandlerRootView style={flexStyle}>
-          <Container />
-        </GestureHandlerRootView>
+        <SplashProvider>
+          <GestureHandlerRootView style={flexStyle}>
+            <Container />
+          </GestureHandlerRootView>
+        </SplashProvider>
         <PasswordVerifyPromptMount />
         <LastActivityTracker />
       </ThemeProvider>
