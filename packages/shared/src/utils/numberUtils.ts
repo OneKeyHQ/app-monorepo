@@ -98,7 +98,7 @@ export type IFormatNumberFunc = (
 /** Balance/Amount */
 export const formatBalance: IFormatNumberFunc = (value: string) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
+  if (val.isNaN() || val.eq(0)) {
     return { formattedValue: '0', meta: { value } };
   }
   if (val.gte(1)) {
@@ -151,7 +151,7 @@ export const formatBalance: IFormatNumberFunc = (value: string) => {
 export const formatPrice: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
   const val = new BigNumber(value);
-  if (val.isNaN()) {
+  if (val.isNaN() || val.eq(0)) {
     return {
       formattedValue: formatLocalNumber('0', 2, false, true),
       meta: { value, currency },
@@ -174,7 +174,7 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
 /** PriceChange */
 export const formatPriceChange: IFormatNumberFunc = (value) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
+  if (val.isNaN() || val.eq(0)) {
     return { formattedValue: '0.00', meta: { value, symbol: '%' } };
   }
   return {
@@ -199,7 +199,7 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
 /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
 export const formatMarketCap: IFormatNumberFunc = (value) => {
   const val = new BigNumber(value);
-  if (val.isNaN()) {
+  if (val.isNaN() || val.eq(0)) {
     return {
       formattedValue: '0',
       meta: { value },
