@@ -3,10 +3,13 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
+
+import type { IAccountDeriveInfoItems } from '../../vaults/types';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
@@ -171,6 +174,37 @@ class ServiceNetwork extends ServiceBase {
       ({ networkIds } = await this.getAllNetworkIds());
     }
     return networkIds.includes(networkId);
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoMapOfNetwork({ networkId }: { networkId: string }) {
+    const settings = await this.getVaultSettings({
+      networkId,
+    });
+    // TODO remove ETC config
+    return settings.accountDeriveInfo;
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoItemsOfNetwork({
+    networkId,
+  }: {
+    networkId: string | undefined;
+  }): Promise<IAccountDeriveInfoItems[]> {
+    if (!networkId) {
+      return [];
+    }
+    const map = await this.getDeriveInfoMapOfNetwork({
+      networkId,
+    });
+    return Object.entries(map).map(([k, v]) => ({
+      value: k,
+      item: v,
+      label:
+        (v.labelKey
+          ? appLocale.intl.formatMessage({ id: v.labelKey })
+          : v.label) || k,
+    }));
   }
 }
 

@@ -54,7 +54,7 @@ export function ImportPrivateKey() {
           });
           console.log(r, values);
 
-          actions.current.updateSelectedAccount({
+          void actions.current.updateSelectedAccount({
             num: 0,
             builder: (v) => ({
               ...v,

@@ -138,7 +138,6 @@ function SelectItem({
           <Icon
             flexShrink={0}
             ml="$2"
-            
             alignSelf="center"
             name="CheckLargeOutline"
             size="$4"

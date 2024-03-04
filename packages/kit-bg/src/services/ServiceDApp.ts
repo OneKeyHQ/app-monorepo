@@ -594,17 +594,11 @@ class ServiceDApp extends ServiceBase {
       });
     if (selectedAccount) {
       const { selectedAccount: newSelectedAccount } =
-        await this.backgroundApi.serviceAccount.buildActiveAccountInfoFromSelectedAccount(
+        await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
           {
             selectedAccount: { ...selectedAccount, networkId: newNetworkId },
           },
         );
-      await this.backgroundApi.simpleDb.accountSelector.saveSelectedAccount({
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: params.origin,
-        num: 0,
-        selectedAccount: { ...selectedAccount, networkId: newNetworkId },
-      });
       console.log('===>newSelectedAccount: ', newSelectedAccount);
     }
 

@@ -1,4 +1,4 @@
-import { isFunction, merge } from 'lodash';
+import { isFunction } from 'lodash';
 
 import type { ILocaleSymbol } from '@onekeyhq/components';
 // TODO: move locale to shared
@@ -19,8 +19,6 @@ import {
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
-
-import type { ISettingsPersistAtom } from '../states/jotai/atoms/settings';
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {

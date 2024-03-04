@@ -1,3 +1,4 @@
+import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   COINTYPE_ETC,
   COINTYPE_ETH,
@@ -40,7 +41,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     // ETC only, hide in other EVM chains
     enableConditions: [
       {
-        networkId: ['evm--61'], // ETC
+        networkId: [NETWORK_ID_ETC], // ETC
       },
     ],
   },

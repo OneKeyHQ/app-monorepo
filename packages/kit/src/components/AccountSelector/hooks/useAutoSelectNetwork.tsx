@@ -10,7 +10,7 @@ import {
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
-export function useNetworkAutoSelect({ num }: { num: number }) {
+export function useAutoSelectNetwork({ num }: { num: number }) {
   const {
     selectedAccount: { networkId },
   } = useSelectedAccount({ num });
@@ -41,13 +41,9 @@ export function useNetworkAutoSelect({ num }: { num: number }) {
         }
       }
       if (usedNetworkId) {
-        actions.current.updateSelectedAccount({
+        void actions.current.updateSelectedAccountNetwork({
           num,
-          builder: (v) => ({
-            ...v,
-            // TODO auto select from home network
-            networkId: usedNetworkId,
-          }),
+          networkId: usedNetworkId,
         });
       }
     }

@@ -3,6 +3,8 @@ module.exports = [
   'qrcode',
   'tlightning',
   'Eip',
+  'Sizeable',
+  'Liquidty',
   'passpharse',
   'uosmo',
   'uatom',

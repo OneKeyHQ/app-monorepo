@@ -7,22 +7,36 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
-export function useAccountSelectorTrigger({ num }: { num: number }) {
+export function useAccountSelectorTrigger({
+  num,
+  linkNetwork,
+}: {
+  num: number;
+  linkNetwork?: boolean;
+}) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const actions = useAccountSelectorActions();
 
   const showAccountSelector = useCallback(() => {
-    actions.current.showAccountSelector({
+    void actions.current.showAccountSelector({
       activeWallet: activeAccount.wallet,
       num,
       navigation,
       sceneName,
       sceneUrl,
-      linkNetwork: true,
+      linkNetwork,
     });
-  }, [actions, navigation, num, sceneName, sceneUrl, activeAccount?.wallet]);
+  }, [
+    actions,
+    activeAccount.wallet,
+    linkNetwork,
+    navigation,
+    num,
+    sceneName,
+    sceneUrl,
+  ]);
 
   return {
     showAccountSelector,

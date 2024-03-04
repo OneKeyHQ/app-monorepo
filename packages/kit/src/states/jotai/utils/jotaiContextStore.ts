@@ -1,7 +1,7 @@
 import { createStore } from 'jotai';
 
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 
 import type { IJotaiContextStore } from './createJotaiContext';
 
@@ -10,7 +10,7 @@ export function buildJotaiContextStoreId(data: IJotaiContextStoreData) {
   let storeId = `${storeName}`;
   if (accountSelectorInfo) {
     const sceneId =
-      accountUtils.buildAccountSelectorSceneId(accountSelectorInfo);
+      accountSelectorUtils.buildAccountSelectorSceneId(accountSelectorInfo);
     storeId = `${storeId}@${sceneId}`;
   }
   return storeId;

@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Select, SizableText } from '@onekeyhq/components';
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
+import { IconButton, Select, SizableText } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -108,19 +108,16 @@ export function DeriveTypeSelectorTrigger({
       <Select
         key={`${selectedAccount.deriveType || ''}-${
           selectedAccount.networkId || ''
-        }`}
+        }-${deriveInfo?.template || ''}`}
         items={selectItems}
         floatingPanelProps={{
           width: '$78',
         }}
         value={selectedAccount.deriveType}
         onChange={(type) =>
-          actions.current.updateSelectedAccount({
+          actions.current.updateSelectedAccountDeriveType({
             num,
-            builder: (v) => ({
-              ...v,
-              deriveType: type as any,
-            }),
+            deriveType: type as any,
           })
         }
         title="Derivation Path"

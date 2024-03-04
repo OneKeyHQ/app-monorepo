@@ -2,6 +2,8 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 
+export const NETWORK_ID_ETC = 'evm--61';
+
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   // shortcode
   const eth: IServerNetwork = {
