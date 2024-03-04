@@ -1,6 +1,9 @@
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+import {
+  ETrackEventNames,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
@@ -29,7 +32,7 @@ export function ImportRecoveryPhrase() {
     navigation.push(EOnboardingPages.FinalizeWalletSetup, {
       mnemonic,
     });
-    trackEvent('ImportWallet', {
+    trackEvent(ETrackEventNames.ImportWallet, {
       import_method: 'mnemonic',
     });
   };

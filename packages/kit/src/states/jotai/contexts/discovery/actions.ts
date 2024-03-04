@@ -23,7 +23,10 @@ import {
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import { trackEvent } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+import {
+  ETrackEventNames,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -459,7 +462,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
 
-        trackEvent('Enter_Dapp', {
+        trackEvent(ETrackEventNames.EnterDapp, {
           dapp_url: url,
           dapp_title: title,
           is_favorite: isBookmark,

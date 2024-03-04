@@ -11,6 +11,7 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  ETrackEventNames,
   identify,
   trackEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
@@ -25,7 +26,7 @@ const LastActivityTracker = () => {
 
   useEffect(() => {
     identify(instanceIdRef.current);
-    trackEvent('AppStart');
+    trackEvent(ETrackEventNames.AppStart);
   }, []);
 
   const refresh = useCallback(() => {

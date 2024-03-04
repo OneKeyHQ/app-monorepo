@@ -6,6 +6,15 @@ const basicInfo = {} as {
   screen_name: string;
 };
 
+export enum ETrackEventNames {
+  PageView = 'page_view',
+  AppStart = 'AppStart',
+  EnterDapp = 'EnterDapp',
+  DeleteWallet = 'DeleteWallet',
+  CreateWallet = 'CreateWallet',
+  ImportWallet = 'ImportWallet',
+}
+
 const asyncTrackEvent = async (
   eventName: string,
   eventProps?: Record<string, any>,
@@ -15,7 +24,7 @@ const asyncTrackEvent = async (
 };
 
 export const trackEvent = (
-  eventName: string,
+  eventName: ETrackEventNames,
   eventProps?: Record<string, any>,
 ) => {
   if (platformEnv.isDev) {
@@ -29,7 +38,7 @@ export const trackEvent = (
 
 export const trackPage = (pageName: string) => {
   basicInfo.screen_name = pageName;
-  trackEvent('page_view', { pageName });
+  trackEvent(ETrackEventNames.PageView, { pageName });
 };
 
 const asyncIdentify = async (distinctId: string) => {
