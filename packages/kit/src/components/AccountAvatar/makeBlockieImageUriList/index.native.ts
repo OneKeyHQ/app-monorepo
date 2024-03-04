@@ -40,19 +40,15 @@ export const useBlockieImageUri: IUseBlockieImageUri = (id: string) => {
   const [uri, setUri] = useState(caches[id]);
 
   useEffect(() => {
-    if (!uri) {
-      makeBlockieImageUri(id)
-        .then((imageUri: string) => {
-          setUri(imageUri);
-        })
-        .catch((error) => {
-          console.error(error);
-        });
-    }
+    makeBlockieImageUri(id)
+      .then((imageUri: string) => {
+        setUri(imageUri);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  return {
-    uri,
-  };
+  return uri;
 };

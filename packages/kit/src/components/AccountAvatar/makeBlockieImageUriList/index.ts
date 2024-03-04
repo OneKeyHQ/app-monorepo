@@ -41,7 +41,5 @@ export const useBlockieImageUri: IUseBlockieImageUri = (id: string) => {
       });
   }, [id]);
 
-  return {
-    uri,
-  };
+  return uri;
 };

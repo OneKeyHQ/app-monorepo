@@ -1,1 +1,1 @@
-export type IUseBlockieImageUri = (id: string) => { uri: string };
+export type IUseBlockieImageUri = (id: string) => string;
