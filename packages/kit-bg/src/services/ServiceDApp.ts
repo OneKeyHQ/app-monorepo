@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { debounce } from 'lodash';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
 // TODO: move to shared
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
@@ -9,6 +9,8 @@ import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import {
   backgroundClass,
   backgroundMethod,
@@ -20,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EAccountSelectorSceneName,
@@ -166,12 +169,10 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // TODO: openStandaloneWindow
-      // extUtils.openStandaloneWindow({
-      //   routes: routeNames,
-      //   params: routeParams,
-      // });
-      throw new Error('not implemented');
+      void extUtils.openStandaloneWindow({
+        routes: routeNames,
+        params: routeParams,
+      });
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -234,6 +235,30 @@ class ServiceDApp extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async openSignAndSendTransactionModal({
+    request,
+    encodedTx,
+    accountId,
+    networkId,
+  }: {
+    request: IJsBridgeMessagePayload;
+    encodedTx: IEncodedTx;
+    accountId: string;
+    networkId: string;
+  }) {
+    return this.openModal({
+      request,
+      screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
+      params: {
+        encodedTx,
+        accountId,
+        networkId,
+      },
+      fullScreen: true,
+    });
+  }
+
   // connection allowance
   @backgroundMethod()
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
@@ -285,7 +310,7 @@ class ServiceDApp extends ServiceBase {
     await simpleDb.dappConnection.upsertConnection({
       origin,
       accountsInfo,
-      imageURL: await serviceDiscovery.getWebsiteIcon(origin, 128),
+      imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
       storageType,
       walletConnectTopic,
     });
@@ -552,6 +577,7 @@ class ServiceDApp extends ServiceBase {
     if (!(await this.shouldSwitchNetwork(params))) {
       return;
     }
+
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
@@ -568,17 +594,11 @@ class ServiceDApp extends ServiceBase {
       });
     if (selectedAccount) {
       const { selectedAccount: newSelectedAccount } =
-        await this.backgroundApi.serviceAccount.buildActiveAccountInfoFromSelectedAccount(
+        await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
           {
             selectedAccount: { ...selectedAccount, networkId: newNetworkId },
           },
         );
-      await this.backgroundApi.simpleDb.accountSelector.saveSelectedAccount({
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: params.origin,
-        num: 0,
-        selectedAccount: { ...selectedAccount, networkId: newNetworkId },
-      });
       console.log('===>newSelectedAccount: ', newSelectedAccount);
     }
 

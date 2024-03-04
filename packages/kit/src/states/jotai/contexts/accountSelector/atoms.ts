@@ -20,6 +20,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
+// TODO save sceneName and sceneUrl to atom, so actions can get it
 export interface IAccountSelectorContextData {
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
@@ -33,6 +34,11 @@ const {
   contextAtom,
   contextAtomMethod,
 } = createJotaiContext<IAccountSelectorContextData>();
+
+export const {
+  atom: accountSelectorContextDataAtom,
+  use: useAccountSelectorContextDataAtom,
+} = contextAtom<IAccountSelectorContextData | undefined>(undefined);
 
 export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
   () => ({
@@ -90,6 +96,17 @@ export const {
 } = contextAtom<IAccountSelectorAvailableNetworksMap>({
   0: {},
 });
+export type IAccountSelectorUpdateMeta = {
+  eventEmitDisabled: boolean;
+};
+export const {
+  atom: accountSelectorUpdateMetaAtom,
+  use: useAccountSelectorUpdateMetaAtom,
+} = contextAtom<
+  Partial<{
+    [num: number]: IAccountSelectorUpdateMeta;
+  }>
+>({});
 
 export interface IAccountSelectorActiveAccountInfo {
   ready: boolean;

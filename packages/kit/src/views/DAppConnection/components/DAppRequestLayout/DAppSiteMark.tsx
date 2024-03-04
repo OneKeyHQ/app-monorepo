@@ -22,7 +22,7 @@ function DAppSiteMark({
 }) {
   const content = useMemo(() => origin, [origin]);
   const { result: faviconUri } = usePromiseResult(
-    async () => backgroundApiProxy.serviceDiscovery.getWebsiteIcon(origin),
+    async () => backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(origin),
     [origin],
   );
   const riskyStyle = useMemo<{

@@ -18,6 +18,8 @@ import type {
 import {
   browserTypeHandler,
   crossWebviewLoadUrl,
+  injectToPauseWebsocket,
+  injectToResumeWebsocket,
   validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
@@ -30,9 +32,13 @@ import {
   activeTabIdAtom,
   contextAtomMethod,
   displayHomePageAtom,
+  phishingLruCacheAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
+
+import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
+import type { WebView } from 'react-native-webview';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -115,6 +121,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   setCurrentWebTab = contextAtomMethod((get, set, tabId: string | null) => {
     const currentTabId = get(activeTabIdAtom());
     if (currentTabId !== tabId) {
+      this.pauseDappInteraction.call(set, currentTabId);
+
       // set isActive to true
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -125,6 +133,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (targetIndex !== -1) {
         tabs[targetIndex].isActive = true;
         set(activeTabIdAtom(), tabId);
+        this.resumeDappInteraction.call(set, tabId);
       } else {
         set(activeTabIdAtom(), '');
       }
@@ -465,9 +474,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           id: tabId,
           url: webSite.url,
           title: webSite.title,
-          favicon: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
-            webSite.url,
-          ),
+          favicon:
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              webSite.url,
+            ),
           isNewWindow,
           userTriggered: true,
         });
@@ -547,7 +557,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const isValidNewUrl = typeof url === 'string' && url !== tab.url;
 
       if (url) {
-        const { action } = uriUtils.parseDappRedirect(url);
+        const cache = get(phishingLruCacheAtom());
+        const { action } = uriUtils.parseDappRedirect(
+          url,
+          Array.from(cache.keys()),
+        );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           handlePhishingUrl?.(url);
           return;
@@ -584,6 +598,80 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         canGoBack,
         canGoForward,
         loading,
+      });
+    },
+  );
+
+  addUrlToPhishingCache = contextAtomMethod(
+    (get, set, payload: { url: string }) => {
+      try {
+        const { origin } = new URL(payload.url);
+        const cache = get(phishingLruCacheAtom());
+        cache.set(origin, true);
+        set(phishingLruCacheAtom(), cache);
+        window.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
+      } catch {
+        // ignore
+      }
+    },
+  );
+
+  updateDappActivityInteraction = contextAtomMethod(
+    (get, _, payload: { id?: string | null; type: 'pause' | 'resume' }) => {
+      let tabId: string | undefined | null = payload.id;
+      if (!tabId) {
+        tabId = get(activeTabIdAtom());
+      }
+      const ref = tabId ? webviewRefs[tabId] : null;
+      if (ref) {
+        const shouldPause = payload.type === 'pause';
+        const injectCode = shouldPause
+          ? injectToPauseWebsocket
+          : injectToResumeWebsocket;
+        // update jsBridge interaction
+        if (ref.jsBridge) {
+          ref.jsBridge.globalOnMessageEnabled = !shouldPause;
+        }
+        // update wallet connect websocket
+        if (platformEnv.isNative) {
+          try {
+            (ref.innerRef as WebView)?.injectJavaScript(injectCode);
+          } catch (error) {
+            // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
+            console.error(
+              `${
+                shouldPause ? 'pauseDappInteraction' : 'resumeDappInteraction'
+              } webview.injectJavaScript() ERROR >>>>> `,
+              error,
+            );
+          }
+        }
+        if (platformEnv.isDesktop) {
+          const deskTopRef = ref.innerRef as IElectronWebView;
+          if (deskTopRef) {
+            try {
+              deskTopRef.executeJavaScript(injectCode);
+            } catch (e) {
+              // if not dom ready, no need to pause websocket
+            }
+          }
+        }
+      }
+    },
+  );
+
+  pauseDappInteraction = contextAtomMethod((_, set, payload: string | null) => {
+    this.updateDappActivityInteraction.call(set, {
+      id: payload,
+      type: 'pause',
+    });
+  });
+
+  resumeDappInteraction = contextAtomMethod(
+    (_, set, payload: string | null) => {
+      this.updateDappActivityInteraction.call(set, {
+        id: payload,
+        type: 'resume',
       });
     },
   );
@@ -661,11 +749,17 @@ export function useBrowserAction() {
   const openMatchDApp = actions.openMatchDApp.use();
   const handleOpenWebSite = actions.handleOpenWebSite.use();
   const onNavigation = actions.onNavigation.use();
+  const addUrlToPhishingCache = actions.addUrlToPhishingCache.use();
+  const pauseDappInteraction = actions.pauseDappInteraction.use();
+  const resumeDappInteraction = actions.resumeDappInteraction.use();
 
   return useRef({
     gotoSite,
     openMatchDApp,
     handleOpenWebSite,
     onNavigation,
+    addUrlToPhishingCache,
+    pauseDappInteraction,
+    resumeDappInteraction,
   });
 }

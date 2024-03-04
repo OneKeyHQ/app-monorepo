@@ -3,6 +3,8 @@ module.exports = [
   'qrcode',
   'tlightning',
   'Eip',
+  'Sizeable',
+  'Liquidty',
   'passpharse',
   'uosmo',
   'uatom',
@@ -628,6 +630,8 @@ module.exports = [
   'caips',
   'glmt',
   'walletconnect',
+  'lru',
   'compat',
   'replacer',
+  'invoker',
 ];
