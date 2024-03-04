@@ -316,14 +316,17 @@ function SendDataInputContainer() {
         <AmountInput
           reversible
           enableMaxAmount
-          balance={maxAmount}
-          onSwitchPress={handleOnChangeAmountMode}
-          onBalancePress={() => form.setValue('amount', maxAmount)}
-          switchValue={
-            isUseFiat
+          balanceProps={{
+            loading: isLoadingAssets,
+            value: maxAmount,
+            onPress: () => form.setValue('amount', maxAmount),
+          }}
+          valueProps={{
+            value: isUseFiat
               ? `${linkedAmount} ${tokenSymbol}`
-              : `${currencySymbol}${linkedAmount}`
-          }
+              : `${currencySymbol}${linkedAmount}`,
+            onPress: handleOnChangeAmountMode,
+          }}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: isNFT
               ? nft?.metadata?.image
@@ -344,6 +347,7 @@ function SendDataInputContainer() {
       handleOnSelectToken,
       handleValidateTokenAmount,
       intl,
+      isLoadingAssets,
       isNFT,
       isUseFiat,
       linkedAmount,
