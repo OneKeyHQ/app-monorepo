@@ -347,6 +347,13 @@ const AmountInputGallery = LazyLoadPage(
     ),
 );
 
+const NumberSizeableTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NumberSizeableTextGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -418,6 +425,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentIconButton,
     component: IconButtonGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNumberSizeableTextGallery,
+    component: NumberSizeableTextGallery,
   },
   { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },

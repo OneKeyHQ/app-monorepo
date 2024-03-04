@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 
-import { Popover as TMPopover } from 'tamagui';
+import { Popover as TMPopover, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -313,6 +313,7 @@ const Popover = ({
     open,
     onOpenChangeFunc,
   );
+  const { md } = useMedia();
   const memoPopover = useMemo(
     () => (
       <RawPopover
@@ -339,10 +340,13 @@ const Popover = ({
     );
   }
 
-  // on web and WAP, we add the popover to the RNRootView
+  // on web, we add the popover into the RNRootView
   return (
     <RawPopover
       open={isOpen}
+      // On the web platform of md size,
+      //  the sheet needs to use the onOpenChange function to close the popover
+      onOpenChange={md ? onOpenChange : undefined}
       openPopover={openPopover}
       closePopover={closePopover}
       sheetProps={{ ...sheetProps, modal: true }}

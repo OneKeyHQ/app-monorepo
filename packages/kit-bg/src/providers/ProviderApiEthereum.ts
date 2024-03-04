@@ -4,12 +4,18 @@ import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { isNil } from 'lodash';
 
+import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
+  permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -24,6 +30,22 @@ export type ISwitchEthereumChainParameter = {
   chainId: string;
   networkId?: string;
 };
+
+function prefixTxValueToHex(value: string) {
+  if (value?.startsWith?.('0X') && value?.slice) {
+    // eslint-disable-next-line no-param-reassign
+    value = value.slice(2);
+  }
+  if (
+    value &&
+    value.startsWith &&
+    !value.startsWith('0x') &&
+    !value.startsWith('0X')
+  ) {
+    return `0x${value}`;
+  }
+  return value;
+}
 
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
@@ -98,6 +120,58 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async wallet_requestPermissions(
+    request: IJsBridgeMessagePayload,
+    permissions: Record<string, unknown>,
+  ) {
+    const permissionRes =
+      (await this.backgroundApi.serviceDApp.openConnectionModal(
+        request,
+      )) as IConnectionAccountInfo;
+
+    const result = Object.keys(permissions).map((permissionName) => {
+      if (permissionName === 'eth_accounts') {
+        return {
+          caveats: [
+            {
+              type: 'restrictReturnedAccounts',
+              value: [permissionRes.address],
+            },
+          ],
+          date: Date.now(),
+          id: request.id?.toString() ?? generateUUID(),
+          invoker: request.origin,
+          parentCapability: permissionName,
+        };
+      }
+
+      return {
+        caveats: [],
+        date: Date.now(),
+        id: request.id?.toString() ?? generateUUID(),
+        invoker: request.origin,
+        parentCapability: permissionName,
+      };
+    });
+
+    return result;
+  }
+
+  @providerApiMethod()
+  async wallet_getPermissions(request: IJsBridgeMessagePayload) {
+    const result = [
+      {
+        caveats: [],
+        date: Date.now(),
+        id: request.id?.toString(),
+        invoker: request.origin as string,
+        parentCapability: 'eth_accounts',
+      },
+    ];
+    return Promise.resolve(result);
+  }
+
+  @providerApiMethod()
   async eth_chainId(request: IJsBridgeMessagePayload) {
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
       request,
@@ -118,8 +192,59 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async metamask_getProviderState(request: IJsBridgeMessagePayload) {
+    const [accounts, chainId, networkVersion, isUnlocked] = await Promise.all([
+      this.eth_accounts(request),
+      this.eth_chainId(request),
+      this.net_version(request),
+      this._getCurrentUnlockState(),
+    ]);
+    return {
+      accounts,
+      chainId,
+      networkVersion,
+      isUnlocked,
+    };
+  }
+
+  @providerApiMethod()
   eth_signTransaction() {
     throw web3Errors.provider.unsupportedMethod();
+  }
+
+  @permissionRequired()
+  @providerApiMethod()
+  async eth_sendTransaction(
+    request: IJsBridgeMessagePayload,
+    transaction: IEncodedTxEvm,
+  ) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+
+    if (!isNil(transaction.value)) {
+      transaction.value = prefixTxValueToHex(transaction.value);
+    }
+
+    const nonceBN = new BigNumber(transaction.nonce ?? 0);
+
+    // https://app.chainspot.io/
+    // some dapp may send tx with incorrect nonce 0
+    if (nonceBN.isNaN() || nonceBN.isLessThanOrEqualTo(0)) {
+      delete transaction.nonce;
+    }
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: transaction,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+
+    console.log('eth_sendTransaction DONE', result, request, transaction);
+
+    return result;
   }
 
   @providerApiMethod()
@@ -133,15 +258,15 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async wallet_watchAsset() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -157,18 +282,17 @@ class ProviderApiEthereum extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+    const {
+      accountInfo: { accountId, networkId, address: accountAddress } = {},
+    } = (await this._getAccountsInfo(request))[0];
 
     let message = messages[0] as string;
-    const address = messages[1] as string;
+    let address = messages[1] as string;
 
+    // FIX: DYDX, KAVA evm use second param as message
+    if (message?.toLowerCase() === accountAddress?.toLowerCase() && address) {
+      [address, message] = messages;
+    }
     message = this.autoFixPersonalSignMessage({ message });
 
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -181,6 +305,29 @@ class ProviderApiEthereum extends ProviderApiBase {
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
+  }
+
+  @providerApiMethod()
+  async personal_ecRecover(
+    request: IJsBridgeMessagePayload,
+    ...messages: string[]
+  ) {
+    const [message, signature] = messages;
+    if (
+      typeof message === 'string' &&
+      typeof signature === 'string' &&
+      signature.length === 132
+    ) {
+      const result = await this._personalECRecover(
+        { type: EMessageTypesEth.PERSONAL_SIGN, message },
+        signature,
+      );
+
+      return result;
+    }
+    throw web3Errors.rpc.invalidParams(
+      'personal_ecRecover requires a message and a 65 bytes signature.',
+    );
   }
 
   autoFixPersonalSignMessage({ message }: { message: string }) {
@@ -200,14 +347,112 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async eth_signTypedData(
+    request: IJsBridgeMessagePayload,
+    ...messages: any[]
+  ) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+
+    let message;
+    if (messages.length && messages[0]) {
+      message = messages[0] ?? null;
+      if (await this._isValidAddress(messages[0] ?? null)) {
+        message = messages[1] ?? null;
+      }
+    }
+
+    let parsedData = message;
+    try {
+      parsedData = typeof message === 'string' && JSON.parse(message);
+      // eslint-disable-next-line no-empty
+    } catch {}
+
+    const { types, primaryType, domain } = parsedData;
+    let ethMessageType = EMessageTypesEth.TYPED_DATA_V1;
+    if (typeof parsedData === 'object' && (types || primaryType || domain)) {
+      ethMessageType = EMessageTypesEth.TYPED_DATA_V4;
+    }
+
+    // Convert to a JSON string
+    let messageStr = message;
+    if (typeof message === 'object') {
+      messageStr = JSON.stringify(message);
+    }
+
+    return this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: ethMessageType,
+        message: messageStr,
+        payload: messages,
+      },
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+    });
+  }
+
+  @providerApiMethod()
+  async eth_signTypedData_v1(
+    request: IJsBridgeMessagePayload,
+    ...messages: any[]
+  ) {
+    console.log('eth_signTypedData_v1', messages, request);
+    return this.eth_signTypedData(request, ...messages);
+  }
+
+  @providerApiMethod()
+  async eth_signTypedData_v3(
+    request: IJsBridgeMessagePayload,
+    ...messages: any[]
+  ) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    console.log('eth_signTypedData_v3', messages, request);
+    return this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesEth.TYPED_DATA_V3,
+        message: messages[1],
+        payload: messages,
+      },
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+    });
+  }
+
+  @providerApiMethod()
+  async eth_signTypedData_v4(
+    request: IJsBridgeMessagePayload,
+    ...messages: any[]
+  ) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    console.log('eth_signTypedData_v4', messages, request);
+    return this.backgroundApi.serviceDApp.openSignMessageModal({
+      request,
+      unsignedMessage: {
+        type: EMessageTypesEth.TYPED_DATA_V4,
+        message: messages[1],
+        payload: messages,
+      },
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+    });
+  }
+
+  @providerApiMethod()
   async wallet_switchEthereumChain(
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) {
-    return this.switchEthereumChain(request, params);
+    return this._switchEthereumChain(request, params);
   }
 
-  switchEthereumChain = async (
+  _switchEthereumChain = async (
     request: IJsBridgeMessagePayload,
     params: ISwitchEthereumChainParameter,
   ) => {
@@ -231,6 +476,65 @@ class ProviderApiEthereum extends ProviderApiBase {
     });
     return null;
   };
+
+  _isValidAddress = async ({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) => {
+    try {
+      const isValidAddress =
+        await this.backgroundApi.serviceAccountProfile.validateAddress({
+          networkId,
+          address,
+        });
+      return isValidAddress;
+    } catch {
+      return false;
+    }
+  };
+
+  _getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      throw web3Errors.provider.unauthorized();
+    }
+    return accountsInfo;
+  };
+
+  _personalECRecover = async (
+    message: {
+      type: EMessageTypesEth;
+      message: string;
+    },
+    signature: string,
+  ) => {
+    const messageHash = hashMessage({
+      messageType: message.type,
+      message: message.message,
+    });
+    const hashBuffer = ethUtils.toBuffer(messageHash);
+    const sigBuffer = ethUtils.toBuffer(signature);
+    check(hashBuffer.length === 32, 'Invalid message hash length');
+    check(sigBuffer.length === 65, 'Invalid signature length');
+
+    const [r, s, v] = [
+      sigBuffer.subarray(0, 32),
+      sigBuffer.subarray(32, 64),
+      sigBuffer[64],
+    ];
+    const publicKey = ethUtils.ecrecover(hashBuffer, v, r, s);
+    return ethUtils.addHexPrefix(
+      ethUtils.pubToAddress(publicKey).toString('hex'),
+    );
+  };
+
+  _getCurrentUnlockState = async () => Promise.resolve(true);
 }
 
 export default ProviderApiEthereum;
