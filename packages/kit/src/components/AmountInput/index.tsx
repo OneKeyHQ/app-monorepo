@@ -25,10 +25,10 @@ import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
-    inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'>;
+    inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
+      loading?: boolean;
+    };
     enableMaxAmount?: boolean;
-    // loading indicator part input part
-    loading?: boolean;
     currency?: string;
     valueProps?: {
       value?: string;
@@ -41,10 +41,10 @@ type IAmountInputFormItemProps = IFormFieldProps<
       loading?: boolean;
     };
     tokenSelectorTriggerProps?: {
-      loading?: boolean;
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
       selectedTokenSymbol?: string;
+      loading?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & IStackProps
@@ -61,13 +61,43 @@ export function AmountInput({
   hasError,
   valueProps,
   balanceProps,
-  loading,
   currency = '$',
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
+
+  const InputElement = useMemo(() => {
+    if (inputProps?.loading)
+      return (
+        <Stack py="$4" px="$3.5" flex={1}>
+          <Skeleton h="$6" w="$24" />
+        </Stack>
+      );
+
+    return (
+      <Input
+        keyboardType="number-pad"
+        height="$14"
+        fontSize={getFontSize('$heading3xl')}
+        fontWeight="600"
+        borderTopWidth="$0"
+        borderRightWidth="$0"
+        borderBottomWidth="$0"
+        borderLeftWidth="$0"
+        size="large"
+        bg="$transparent"
+        focusStyle={undefined}
+        containerProps={{
+          flex: 1,
+        }}
+        value={value}
+        onChangeText={onChange}
+        {...inputProps}
+      />
+    );
+  }, [inputProps, onChange, value]);
 
   const AmountElement = useMemo(() => {
     if (!valueProps) {
@@ -98,6 +128,87 @@ export function AmountInput({
       </>
     );
   }, [valueProps, currency, reversible]);
+
+  const TokenSelectorTrigger = useMemo(() => {
+    if (tokenSelectorTriggerProps?.loading) {
+      return (
+        <XStack p="$3.5" alignItems="center">
+          <Skeleton w="$7" h="$7" radius="round" />
+          <Stack pl="$2" py="$1.5">
+            <Skeleton h="$4" w="$10" />
+          </Stack>
+        </XStack>
+      );
+    }
+
+    return (
+      <XStack
+        p="$3.5"
+        alignItems="center"
+        userSelect="none"
+        {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
+          maxWidth: '$48',
+        })}
+        {...(tokenSelectorTriggerProps?.onPress && {
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
+        onPress={tokenSelectorTriggerProps?.onPress}
+      >
+        <Stack>
+          <Image height="$7" width="$7" borderRadius="$full">
+            {tokenSelectorTriggerProps?.selectedTokenImageUri && (
+              <Image.Source
+                source={{
+                  uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
+                }}
+              />
+            )}
+          </Image>
+          <Stack
+            position="absolute"
+            right="$-1"
+            bottom="$-1"
+            p="$0.5"
+            borderRadius="$full"
+            bg="$bgApp"
+          >
+            {tokenSelectorTriggerProps?.selectedNetworkImageUri && (
+              <Image height="$3" width="$3" borderRadius="$full">
+                <Image.Source
+                  source={{
+                    uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
+                  }}
+                />
+              </Image>
+            )}
+          </Stack>
+        </Stack>
+        <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
+          {tokenSelectorTriggerProps?.selectedTokenSymbol || 'Select Token'}
+        </SizableText>
+        {tokenSelectorTriggerProps?.onPress && (
+          <Icon
+            flexShrink={0}
+            name="ChevronDownSmallOutline"
+            size="$5"
+            mr="$-1"
+            color="$iconSubdued"
+          />
+        )}
+      </XStack>
+    );
+  }, [
+    tokenSelectorTriggerProps?.loading,
+    tokenSelectorTriggerProps?.onPress,
+    tokenSelectorTriggerProps?.selectedNetworkImageUri,
+    tokenSelectorTriggerProps?.selectedTokenImageUri,
+    tokenSelectorTriggerProps?.selectedTokenSymbol,
+  ]);
 
   const BalanceElement = useMemo(() => {
     if (!balanceProps) {
@@ -153,85 +264,8 @@ export function AmountInput({
       {...rest}
     >
       <XStack>
-        <Input
-          keyboardType="number-pad"
-          height="$14"
-          fontSize={getFontSize('$heading3xl')}
-          fontWeight="600"
-          borderTopWidth="$0"
-          borderRightWidth="$0"
-          borderBottomWidth="$0"
-          borderLeftWidth="$0"
-          size="large"
-          bg="$transparent"
-          focusStyle={undefined}
-          containerProps={{
-            flex: 1,
-          }}
-          value={value}
-          onChangeText={onChange}
-          {...inputProps}
-        />
-
-        <XStack
-          p="$3.5"
-          alignItems="center"
-          userSelect="none"
-          {...(tokenSelectorTriggerProps?.selectedTokenSymbol && {
-            maxWidth: '$48',
-          })}
-          {...(tokenSelectorTriggerProps?.onPress && {
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
-          onPress={tokenSelectorTriggerProps?.onPress}
-        >
-          <Stack>
-            <Image height="$7" width="$7" borderRadius="$full">
-              {tokenSelectorTriggerProps?.selectedTokenImageUri && (
-                <Image.Source
-                  source={{
-                    uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
-                  }}
-                />
-              )}
-            </Image>
-            <Stack
-              position="absolute"
-              right="$-1"
-              bottom="$-1"
-              p="$0.5"
-              borderRadius="$full"
-              bg="$bgApp"
-            >
-              {tokenSelectorTriggerProps?.selectedNetworkImageUri && (
-                <Image height="$3" width="$3" borderRadius="$full">
-                  <Image.Source
-                    source={{
-                      uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
-                    }}
-                  />
-                </Image>
-              )}
-            </Stack>
-          </Stack>
-          <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
-            {tokenSelectorTriggerProps?.selectedTokenSymbol || 'Select Token'}
-          </SizableText>
-          {tokenSelectorTriggerProps?.onPress && (
-            <Icon
-              flexShrink={0}
-              name="ChevronDownSmallOutline"
-              size="$5"
-              mr="$-1"
-              color="$iconSubdued"
-            />
-          )}
-        </XStack>
+        {InputElement}
+        {TokenSelectorTrigger}
       </XStack>
       <XStack justifyContent="space-between">
         <XStack
@@ -253,26 +287,6 @@ export function AmountInput({
         </XStack>
         {BalanceElement}
       </XStack>
-      <AnimatePresence>
-        {loading && (
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            opacity={0.15}
-            bg="$bgReverse"
-            justifyContent="center"
-            flex={1}
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
-            <Spinner color="$bgApp" />
-          </Stack>
-        )}
-      </AnimatePresence>
     </Stack>
   );
 }

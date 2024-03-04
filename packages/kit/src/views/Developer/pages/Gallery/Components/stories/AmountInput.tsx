@@ -131,13 +131,13 @@ const GalleryLayout = () => (
           return (
             <YStack space="$5">
               <AmountInput
-                loading={loading}
                 value={value}
                 onChange={setValue}
                 valueProps={valueProps}
                 balanceProps={balanceProps}
                 inputProps={{
                   placeholder: '0',
+                  loading,
                 }}
                 tokenSelectorTriggerProps={tokenSelectorTriggerProps}
                 enableMaxAmount
