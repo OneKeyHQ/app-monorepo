@@ -27,7 +27,7 @@ jobs:
       - name: Clone Main Branch
         uses: actions/checkout@v3
         with:
-          ref: onekey
+          ref: x
           path: onekey
       
       - name: Get Upstream Version
