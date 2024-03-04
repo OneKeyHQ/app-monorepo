@@ -10,6 +10,7 @@ import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useTokenListActions,
+  useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -25,6 +26,8 @@ function TokenSelector() {
   const intl = useIntl();
   const { refreshTokenList, refreshTokenListMap, updateSearchKey } =
     useTokenListActions().current;
+
+  const [tokenList] = useTokenListAtom();
 
   const route =
     useRoute<
@@ -86,15 +89,23 @@ function TokenSelector() {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: 'action__select_token' })}
-        headerSearchBarOptions={{
-          placeholder: 'Search symbol or contract address',
-          onChangeText: debounce(
-            ({ nativeEvent }: { nativeEvent: TextInputFocusEventData }) => {
-              updateSearchKey(nativeEvent.text);
-            },
-            800,
-          ),
-        }}
+        headerSearchBarOptions={
+          tokenList.tokens.length > 10
+            ? {
+                placeholder: 'Search symbol or contract address',
+                onChangeText: debounce(
+                  ({
+                    nativeEvent,
+                  }: {
+                    nativeEvent: TextInputFocusEventData;
+                  }) => {
+                    updateSearchKey(nativeEvent.text);
+                  },
+                  800,
+                ),
+              }
+            : undefined
+        }
       />
       <Page.Body>
         {networkName && <SectionList.SectionHeader title={networkName} />}

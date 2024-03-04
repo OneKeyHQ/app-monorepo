@@ -67,15 +67,18 @@ export function getFilteredTokenBySearchKey({
   tokens: IAccountToken[];
   searchKey: string;
 }) {
-  if (!searchKey) {
+  if (!searchKey || tokens.length < 2) {
     return tokens;
   }
 
+  // eslint-disable-next-line no-param-reassign
+  searchKey = searchKey.trim().toLowerCase();
+
   const filteredTokens = tokens.filter(
     (token) =>
-      token.name.toLowerCase().includes(searchKey.toLowerCase()) ||
-      token.symbol.toLowerCase().includes(searchKey.toLowerCase()) ||
-      token.address.toLowerCase().includes(searchKey.toLowerCase()),
+      token.name.toLowerCase().includes(searchKey) ||
+      token.symbol.toLowerCase().includes(searchKey) ||
+      token.address.toLowerCase().includes(searchKey),
   );
 
   return filteredTokens;

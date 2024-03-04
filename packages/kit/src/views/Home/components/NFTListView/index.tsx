@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { ScrollView, Stack, XStack } from '@onekeyhq/components';
-import { EmptyNFT } from '@onekeyhq/kit/src/components/Empty';
+import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { EModalAssetDetailRoutes } from '../../../AssetDetails/router/types';
@@ -23,6 +24,9 @@ type IProps = {
 
 function NFTListView(props: IProps) {
   const { data, isLoading, initialized, onContentSizeChange } = props;
+  const [searchKey, setSearchKey] = useState('');
+
+  const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
   const navigation = useAppNavigation();
   const {
@@ -46,22 +50,15 @@ function NFTListView(props: IProps) {
     [account, navigation, network],
   );
 
-  if (!initialized && isLoading) {
-    return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
-  }
+  const renderNFTListView = useCallback(() => {
+    if (!filteredNfts || filteredNfts.length === 0)
+      return (
+        <Stack mt="$8">{searchKey ? <EmptySearch /> : <EmptyNFT />}</Stack>
+      );
 
-  if (!data || data.length === 0)
     return (
-      <Stack mt="$8">
-        <EmptyNFT />
-      </Stack>
-    );
-
-  return (
-    <ScrollView h="100%" py="$3">
-      <NFTListHeader nfts={data} />
       <XStack flexWrap="wrap" px="$2.5" pb="$5" py="$0.5">
-        {data.map((item) => (
+        {filteredNfts.map((item) => (
           <NFTListItem
             nft={item}
             key={item.itemId}
@@ -69,6 +66,17 @@ function NFTListView(props: IProps) {
           />
         ))}
       </XStack>
+    );
+  }, [filteredNfts, handleOnPressNFT, searchKey]);
+
+  if (!initialized && isLoading) {
+    return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
+  }
+
+  return (
+    <ScrollView h="100%" py="$3">
+      <NFTListHeader nfts={data} setSearchKey={setSearchKey} />
+      {renderNFTListView()}
     </ScrollView>
   );
 }

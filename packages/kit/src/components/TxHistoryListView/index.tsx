@@ -1,13 +1,15 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { ListView, SectionList, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
 
@@ -24,14 +26,6 @@ type IProps = {
   initialized?: boolean;
 };
 
-function TxHistoryListEmpty() {
-  return (
-    <Stack mt="$8" alignItems="center" justifyContent="center">
-      <EmptyHistory />
-    </Stack>
-  );
-}
-
 const ListFooterComponent = () => <Stack h="$5" />;
 
 function TxHistoryListView(props: IProps) {
@@ -47,6 +41,12 @@ function TxHistoryListView(props: IProps) {
   } = props;
 
   const currentDate = useRef('');
+  const [searchKey, setSearchKey] = useState('');
+
+  const filteredHistory = getFilteredHistoryBySearchKey({
+    history: data,
+    searchKey,
+  });
 
   const renderListItem = useCallback(
     (tx: IAccountHistoryTx, index: number) => {
@@ -140,8 +140,8 @@ function TxHistoryListView(props: IProps) {
       h="100%"
       scrollEnabled={platformEnv.isWebTouchable}
       onContentSizeChange={onContentSizeChange}
-      data={data}
-      ListEmptyComponent={TxHistoryListEmpty}
+      data={filteredHistory}
+      ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
       estimatedItemSize={48}
       renderItem={({
         item,
@@ -153,7 +153,9 @@ function TxHistoryListView(props: IProps) {
       ListFooterComponent={ListFooterComponent}
       {...(showHeader &&
         data?.length > 0 && {
-          ListHeaderComponent: TxHistoryListHeader,
+          ListHeaderComponent: (
+            <TxHistoryListHeader history={data} setSearchKey={setSearchKey} />
+          ),
         })}
     />
   );

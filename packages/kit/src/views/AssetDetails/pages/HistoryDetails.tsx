@@ -382,13 +382,7 @@ function HistoryDetails() {
         </Stack>
       </>
     );
-  }, [
-    resp.isLoading,
-    historyTx.decodedTx.status,
-    details,
-    vaultSettings?.isUtxo,
-    handleOnViewUTXOsPress,
-  ]);
+  }, [resp.isLoading]);
 
   return (
     <Page scrollEnabled>

@@ -1,15 +1,33 @@
 import { useState } from 'react';
 
+import { debounce } from 'lodash';
+
 import { IconButton, Popover, Stack, Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import { WalletListHeaderToolBar } from '../TokenListView/TokenListHeader';
+import { ListToolToolBar } from '../ListToolBar';
 
-function TxHistoryListHeader() {
+type IProps = {
+  history: IAccountHistoryTx[];
+  setSearchKey: (key: string) => void;
+};
+
+function TxHistoryListHeader({ history, setSearchKey }: IProps) {
   const [val, setVal] = useState(true);
 
   return (
-    <WalletListHeaderToolBar
+    <ListToolToolBar
+      searchProps={
+        history.length > 10
+          ? {
+              onChangeText: debounce(
+                (searchKey) => setSearchKey(searchKey),
+                800,
+              ),
+            }
+          : undefined
+      }
       headerRight={
         <Popover
           title="Settings"

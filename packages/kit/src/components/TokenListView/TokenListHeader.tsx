@@ -1,46 +1,11 @@
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IInputProps } from '@onekeyhq/components';
-import {
-  SearchBar,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenListActions } from '../../states/jotai/contexts/tokenList';
-
-type IWalletListHeaderToolbarProps = {
-  onChangeText?: IInputProps['onChangeText'];
-  headerRight?: React.ReactNode;
-};
-
-export function WalletListHeaderToolBar({
-  onChangeText,
-  headerRight,
-}: IWalletListHeaderToolbarProps) {
-  const media = useMedia();
-
-  return (
-    <XStack px="$5" py="$2" space="$5" alignItems="center">
-      <SearchBar
-        placeholder="Search..."
-        containerProps={{
-          flex: 1,
-        }}
-        onChangeText={onChangeText}
-        {...(media.gtMd && {
-          size: 'small',
-          maxWidth: '$60',
-        })}
-      />
-      {headerRight && headerRight}
-    </XStack>
-  );
-}
+import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
   tokens: IAccountToken[];
@@ -53,14 +18,18 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
 
   return (
     <Stack testID="Wallet-Token-List-Header">
-      {tokens.length > 10 && (
-        <WalletListHeaderToolBar
-          onChangeText={debounce(
-            (searchKey) => updateSearchKey(searchKey),
-            800,
-          )}
-        />
-      )}
+      <ListToolToolBar
+        searchProps={
+          tokens.length > 10
+            ? {
+                onChangeText: debounce(
+                  (searchKey) => updateSearchKey(searchKey),
+                  800,
+                ),
+              }
+            : undefined
+        }
+      />
 
       {tableLayout && (
         <XStack px="$5" py="$2" space="$3">
