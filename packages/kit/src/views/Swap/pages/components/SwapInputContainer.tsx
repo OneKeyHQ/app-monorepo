@@ -2,13 +2,15 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
+
+import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -29,7 +31,6 @@ const SwapInputContainer = ({
   onSelectToken,
   onBalanceMaxPress,
   balance,
-  address,
 }: ISwapInputContainerProps) => {
   const { isLoading } = useSwapSelectedTokenInfo({
     token,
@@ -52,14 +53,7 @@ const SwapInputContainer = ({
 
   return (
     <YStack mx="$10">
-      {token ? (
-        <XStack>
-          <SizableText>
-            {direction === ESwapDirectionType.FROM ? 'From' : 'To'}
-          </SizableText>
-          <SizableText>{address ?? 'no address'}</SizableText>
-        </XStack>
-      ) : null}
+      {token ? <SwapAccountAddressContainer type={direction} /> : null}
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}

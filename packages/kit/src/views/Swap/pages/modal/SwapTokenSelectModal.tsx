@@ -100,9 +100,9 @@ const SwapTokenSelectPage = () => {
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
-      if (network.networkId !== 'all') {
-        updateSelectedAccount({
-          num: type === ESwapDirectionType.FROM ? 0 : 1,
+      if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
+        void updateSelectedAccount({
+          num: 0,
           builder: (v) => ({ ...v, networkId: network.networkId }),
         });
       }

@@ -1,16 +1,25 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { ETabRoutes } from '../../../routes/Tab/type';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToAnotherAccountAddressAtom,
 } from '../../../states/jotai/contexts/swap';
 
-export function useSwapAccountNetworkSync() {
+import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+
+export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccount } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -25,7 +34,7 @@ export function useSwapAccountNetworkSync() {
 
   const checkTokenForAccountNetwork = useCallback(() => {
     if (fromTokenRef.current) {
-      updateSelectedAccount({
+      void updateSelectedAccount({
         num: 0,
         builder: (v) => ({
           ...v,
@@ -34,7 +43,7 @@ export function useSwapAccountNetworkSync() {
       });
     }
     if (toTokenRef.current) {
-      updateSelectedAccount({
+      void updateSelectedAccount({
         num: 1,
         builder: (v) => ({
           ...v,
@@ -57,4 +66,44 @@ export function useSwapAccountNetworkSync() {
   useEffect(() => {
     checkTokenForAccountNetwork();
   }, [checkTokenForAccountNetwork, fromToken, toToken]);
+}
+
+export function useSwapAddressInfo(type: ESwapDirectionType) {
+  const { activeAccount } = useActiveAccount({
+    num: type === ESwapDirectionType.FROM ? 0 : 1,
+  });
+  const [swapToAnotherAccountAddressAtom] =
+    useSwapToAnotherAccountAddressAtom();
+  const addressInfo = useMemo(() => {
+    let res: {
+      address: undefined | string;
+      networkId: undefined | string;
+      accountInfo: IAccountSelectorActiveAccountInfo | undefined;
+    } = {
+      networkId: undefined,
+      address: undefined,
+      accountInfo: undefined,
+    };
+    if (
+      type === ESwapDirectionType.TO &&
+      swapToAnotherAccountAddressAtom.address &&
+      swapToAnotherAccountAddressAtom.networkId
+    )
+      res = {
+        ...res,
+        address: swapToAnotherAccountAddressAtom.address,
+        networkId: swapToAnotherAccountAddressAtom.networkId,
+        accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
+      };
+    if (activeAccount) {
+      res = {
+        ...res,
+        address: activeAccount.account?.address,
+        networkId: activeAccount.network?.id,
+        accountInfo: activeAccount,
+      };
+    }
+    return res;
+  }, [activeAccount, swapToAnotherAccountAddressAtom, type]);
+  return addressInfo;
 }

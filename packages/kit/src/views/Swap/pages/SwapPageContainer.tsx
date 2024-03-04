@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, XStack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -12,20 +12,7 @@ import SwapHeaderRightActionContainer from './components/SwapHeaderRightActionCo
 import SwapMainLand from './components/SwapMainLand';
 
 const SwapPageContainer = () => {
-  const headerRight = useCallback(
-    () => (
-      <XStack>
-        <AccountSelectorProviderMirror
-          config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
-          enabledNum={[1]}
-        >
-          <AccountSelectorTriggerSwap num={1} />
-        </AccountSelectorProviderMirror>
-        <SwapHeaderRightActionContainer />
-      </XStack>
-    ),
-    [],
-  );
+  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   const headerTitle = useCallback(
     () => (
       <AccountSelectorProviderMirror

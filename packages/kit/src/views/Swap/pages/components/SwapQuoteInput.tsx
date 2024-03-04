@@ -19,7 +19,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
-import { useSwapAccountNetworkSync } from '../../hooks/uswSwapAccount';
+import { useSwapFromAccountNetworkSync } from '../../hooks/uswSwapAccount';
 import { validateInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
@@ -38,9 +38,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   useSwapQuote();
-  useSwapAccountNetworkSync();
+  useSwapFromAccountNetworkSync();
   useSwapApproving();
 
   return (
@@ -59,7 +58,6 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         }}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
-        address={activeAccount.account?.address}
       />
       <XStack justifyContent="flex-end" mr="$10" my="$2">
         <IconButton icon="SwitchVerOutline" onPress={alternationToken} />
@@ -70,7 +68,6 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
-        address={activeAccount.account?.address}
       />
     </YStack>
   );

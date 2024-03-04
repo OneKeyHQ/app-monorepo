@@ -18,6 +18,8 @@ import type {
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
+import type { IAccountSelectorActiveAccountInfo } from '../accountSelector';
+
 const {
   Provider: ProviderJotaiContextSwap,
   contextAtom,
@@ -38,6 +40,16 @@ export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
   }>({
     updatedAt: 0,
   });
+
+// swap account
+export const {
+  atom: swapToAnotherAccountAddressAtom,
+  use: useSwapToAnotherAccountAddressAtom,
+} = contextAtom<{
+  networkId: string | undefined;
+  address: string | undefined;
+  accountInfo: IAccountSelectorActiveAccountInfo | undefined;
+}>({ networkId: undefined, address: undefined, accountInfo: undefined });
 
 // swap select token
 export const {

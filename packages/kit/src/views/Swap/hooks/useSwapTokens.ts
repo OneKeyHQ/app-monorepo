@@ -11,7 +11,6 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapNetworksAtom,
@@ -20,6 +19,8 @@ import {
   useSwapSelectedToTokenBalanceAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
+
+import { useSwapAddressInfo } from './uswSwapAccount';
 
 export function useSwapNetworkList() {
   const [, setSwapNetworks] = useSwapNetworksAtom();
@@ -64,9 +65,7 @@ export function useSwapTokenList(
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const { catchSwapTokensMap } = useSwapActions().current;
-  const { activeAccount } = useActiveAccount({
-    num: selectTokenModalType === ESwapDirectionType.FROM ? 0 : 1,
-  });
+  const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const tokenFetchParams = useMemo(
     () => ({
@@ -74,17 +73,27 @@ export function useSwapTokenList(
       type: selectTokenModalType,
       fromToken,
       keywords,
-      accountAddress: activeAccount.account?.address,
-      accountNetworkId: activeAccount.network?.id,
-      accountXpub: (activeAccount.account as IDBUtxoAccount)?.xpub,
+      accountAddress:
+        selectTokenModalType === ESwapDirectionType.FROM
+          ? swapAddressInfo?.address
+          : undefined,
+      accountNetworkId:
+        selectTokenModalType === ESwapDirectionType.FROM
+          ? swapAddressInfo?.networkId
+          : undefined,
+      accountXpub:
+        selectTokenModalType === ESwapDirectionType.FROM
+          ? (swapAddressInfo?.accountInfo?.account as IDBUtxoAccount)?.xpub
+          : undefined,
     }),
     [
-      activeAccount.account,
-      activeAccount.network?.id,
       currentNetworkId,
+      selectTokenModalType,
       fromToken,
       keywords,
-      selectTokenModalType,
+      swapAddressInfo?.address,
+      swapAddressInfo?.networkId,
+      swapAddressInfo?.accountInfo?.account,
     ],
   );
 
@@ -124,12 +133,11 @@ export function useSwapSelectedTokenInfo({
   type: ESwapDirectionType;
   token?: ISwapToken;
 }) {
-  const { activeAccount } = useActiveAccount({
-    num: type === ESwapDirectionType.FROM ? 0 : 1,
-  });
-  const accountAddress = activeAccount.account?.address;
-  const accountNetworkId = activeAccount.network?.id;
-  const accountXpub = (activeAccount.account as IDBUtxoAccount)?.xpub;
+  const swapAddressInfo = useSwapAddressInfo(type);
+  const accountAddress = swapAddressInfo.address;
+  const accountNetworkId = swapAddressInfo.networkId;
+  const accountXpub = (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
+    ?.xpub;
   const [, setSwapSelectedFromTokenBalance] =
     useSwapSelectedFromTokenBalanceAtom();
 

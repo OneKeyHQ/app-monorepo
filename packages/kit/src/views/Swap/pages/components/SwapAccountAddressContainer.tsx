@@ -1,109 +1,62 @@
-import { XStack, YStack } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useCallback, useMemo } from 'react';
+
+import { ActionList, Button, SizableText, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
 
 interface ISwapAccountAddressContainerProps {
-  num: number;
+  type: ESwapDirectionType;
 }
 const SwapAccountAddressContainer = ({
-  num,
+  type,
 }: ISwapAccountAddressContainerProps) => {
-  const { activeAccount } = useActiveAccount({ num });
-  // const { activeAccount: activeAccount0 } = useActiveAccount({ num: 0 });
-  // const [receiverAddressType, setReceiverAddressType] =
-  //   useSwapReceiverAddressTypeAtom();
-
-  // const [receiverAddressInputValue, setReceiverAddressInputValue] =
-  //   useSwapReceiverAddressInputValueAtom();
-
-  // const { updateSelectedAccount } = useAccountSelectorActions().current;
-
-  // const onSelectReceiverAddressType = useCallback(
-  //   (type: ESwapReceiveAddressType) => {
-  //     setReceiverAddressType(type);
-  //   },
-  //   [setReceiverAddressType],
-  // );
-
-  // const receiverAddressShowShowComponent = useMemo(() => {
-  //   if (receiverAddressType === ESwapReceiveAddressType.INPUT) {
-  //     return (
-  //       <Input
-  //         onChangeText={setReceiverAddressInputValue}
-  //         value={receiverAddressInputValue}
-  //       />
-  //     );
-  //   }
-  //   if (receiverAddressType === ESwapReceiveAddressType.ADDRESS_BOOK) {
-  //     return (
-  //       <Button>
-  //         <SizableText>open address book</SizableText>
-  //       </Button>
-  //     );
-  //   }
-  //   return null;
-  // }, [
-  //   receiverAddressType,
-  //   receiverAddressInputValue,
-  //   setReceiverAddressInputValue,
-  // ]);
-  // const [isSupportReceiveAddressDifferent] =
-  //   useSwapProviderSupportReceiveAddressAtom();
-
-  // useEffect(() => {
-  //   if (isReceiver && !isSupportReceiveAddressDifferent) {
-  //     setReceiverAddressType(ESwapReceiveAddressType.USER_ACCOUNT);
-  //     updateSelectedAccount({
-  //       num,
-  //       builder: (v) => ({
-  //         ...v,
-  //         networkId: activeAccount0.network?.id,
-  //         walletId: activeAccount0.wallet?.id,
-  //         indexedAccountId: activeAccount0.indexedAccount?.id,
-  //       }),
-  //     });
-  //   }
-  // }, [
-  //   activeAccount0,
-  //   isReceiver,
-  //   isSupportReceiveAddressDifferent,
-  //   num,
-  //   setReceiverAddressType,
-  //   updateSelectedAccount,
-  // ]);
-
-  if (!activeAccount) {
-    return null;
-  }
+  const swapAddressInfo = useSwapAddressInfo(type);
+  const handleOnCreateAddress = useCallback(async () => {
+    const { accountInfo } = swapAddressInfo;
+    if (!accountInfo) return;
+    await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+      walletId: accountInfo.wallet?.id,
+      indexedAccountId: accountInfo.indexedAccount?.id,
+      deriveType: accountInfo.deriveType,
+      networkId: accountInfo.network?.id,
+    });
+  }, [swapAddressInfo]);
+  const addressComponent = useMemo(() => {
+    if (swapAddressInfo.address) {
+      return <SizableText>{swapAddressInfo.address}</SizableText>;
+    }
+    if (!swapAddressInfo.accountInfo) {
+      return <Button variant="tertiary">No Account</Button>;
+    }
+    const { accountInfo } = swapAddressInfo;
+    const items: { label: string; onPress: () => void }[] = [
+      {
+        label: `Create ${accountInfo.network?.name ?? 'unknown'} address for ${
+          accountInfo.wallet?.name ?? 'unknown'
+        } - ${accountInfo.accountName}`,
+        onPress: handleOnCreateAddress,
+      },
+      {
+        label: 'Enter a recipient address',
+        onPress: () => {},
+      },
+    ];
+    return (
+      <ActionList
+        items={items}
+        title="Add a address"
+        renderTrigger={<Button variant="tertiary">No Address</Button>}
+      />
+    );
+  }, [handleOnCreateAddress, swapAddressInfo]);
   return (
-    <XStack justifyContent="space-between">
-      <YStack>
-        <XStack>
-          <AccountSelectorActiveAccountHome num={num} />
-          <DeriveTypeSelectorTrigger miniMode num={num} />
-        </XStack>
-        {/* {!isReceiver ||
-        receiverAddressType === ESwapReceiveAddressType.USER_ACCOUNT ? (
-          <XStack>
-            <AccountSelectorActiveAccountHome num={num} />
-            <DeriveTypeSelectorTrigger miniMode num={num} />
-          </XStack>
-        ) : (
-          receiverAddressShowShowComponent
-        )} */}
-      </YStack>
-
-      {/* {!isReceiver && onSelectAmountPercentage ? (
-        <SwapFromAmountPercentage
-          selectItems={swapFromAmountPercentageItems}
-          onSelectItem={onSelectAmountPercentage}
-        />
-      ) : (
-        <SwapReceiverAddressTypeTrigger
-          onSelectType={onSelectReceiverAddressType}
-        />
-      )} */}
+    <XStack>
+      <SizableText mr="$2">
+        {type === ESwapDirectionType.FROM ? 'From' : 'To'}
+      </SizableText>
+      {addressComponent}
     </XStack>
   );
 };
