@@ -15,19 +15,15 @@ function TxHistoryListItem(props: IProps) {
   const { decodedTx } = historyTx;
 
   return (
-    <Stack onPress={() => onPress?.(historyTx)}>
-      <Stack>
-        <TxActionsListView
-          decodedTx={decodedTx}
-          tableLayout={tableLayout}
-          componentType={ETxActionComponentType.ListView}
-          componentProps={{
-            borderRadius: '$3',
-            backgroundColor: tableLayout && index % 2 === 0 ? '$bgSubdued' : '',
-          }}
-        />
-      </Stack>
-    </Stack>
+    <TxActionsListView
+      decodedTx={decodedTx}
+      tableLayout={tableLayout}
+      componentType={ETxActionComponentType.ListView}
+      componentProps={{
+        backgroundColor: tableLayout && index % 2 === 1 ? '$bgSubdued' : '',
+        onPress: () => onPress?.(historyTx),
+      }}
+    />
   );
 }
 

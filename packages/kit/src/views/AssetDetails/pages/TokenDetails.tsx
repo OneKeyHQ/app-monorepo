@@ -282,9 +282,13 @@ export function TokenDetails() {
             />
             <Stack ml="$3">
               {isLoading ? (
-                <YStack height={60}>
-                  <Skeleton w="$40" h="$7" />
-                  <Skeleton w="$28" h="$5" />
+                <YStack>
+                  <Stack py="$1.5">
+                    <Skeleton h="$6" w="$40" />
+                  </Stack>
+                  <Stack py="$1">
+                    <Skeleton h="$4" w="$28" />
+                  </Stack>
                 </YStack>
               ) : (
                 <>
