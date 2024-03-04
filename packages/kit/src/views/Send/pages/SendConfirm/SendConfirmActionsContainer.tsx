@@ -7,6 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -15,6 +16,7 @@ import {
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { type IModalSendParamList } from '../../router';
@@ -25,10 +27,20 @@ type IProps = {
   onSuccess?: (txs: ISignedTxPro[]) => void;
   onFail?: (error: Error) => void;
   tableLayout?: boolean;
+  sourceInfo?: IDappSourceInfo;
+  signOnly?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
-  const { accountId, networkId, onSuccess, onFail, tableLayout } = props;
+  const {
+    accountId,
+    networkId,
+    onSuccess,
+    onFail,
+    tableLayout,
+    sourceInfo,
+    signOnly,
+  } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigation =
@@ -40,6 +52,13 @@ function SendConfirmActionsContainer(props: IProps) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
+
+  console.log(sourceInfo);
+
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   const handleOnConfirm = useCallback(async () => {
     setIsSubmitting(true);
@@ -56,6 +75,7 @@ function SendConfirmActionsContainer(props: IProps) {
                 maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
               }
             : undefined,
+          signOnly,
         });
 
       onSuccess?.(signedTxs);
@@ -63,6 +83,7 @@ function SendConfirmActionsContainer(props: IProps) {
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
       });
+      void dappApprove.resolve();
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
@@ -70,10 +91,12 @@ function SendConfirmActionsContainer(props: IProps) {
         title: (e as Error).message,
       });
       onFail?.(e as Error);
+      void dappApprove.reject(e);
       throw e;
     }
   }, [
     accountId,
+    dappApprove,
     intl,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     nativeTokenTransferAmountToUpdate.isMaxSend,
@@ -82,8 +105,16 @@ function SendConfirmActionsContainer(props: IProps) {
     onFail,
     onSuccess,
     sendSelectedFeeInfo?.feeInfo,
+    signOnly,
     unsignedTxs,
   ]);
+
+  const handleOnCancel = useCallback(() => {
+    dappApprove.reject();
+    if (!sourceInfo) {
+      navigation.popStack();
+    }
+  }, [dappApprove, navigation, sourceInfo]);
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting) return true;
@@ -130,9 +161,9 @@ function SendConfirmActionsContainer(props: IProps) {
       cancelButtonProps={{
         disabled: isSubmitting,
       }}
-      onConfirmText="Sign and Broadcast"
+      onConfirmText={signOnly ? 'Sign' : 'Sign and Broadcast'}
       onConfirm={handleOnConfirm}
-      onCancel={() => navigation.popStack()}
+      onCancel={handleOnCancel}
     />
   );
 }

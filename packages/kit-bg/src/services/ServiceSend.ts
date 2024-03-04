@@ -283,8 +283,14 @@ class ServiceSend extends ServiceBase {
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
-    const { networkId, accountId, unsignedTxs, feeInfo, nativeAmountInfo } =
-      params;
+    const {
+      networkId,
+      accountId,
+      unsignedTxs,
+      feeInfo,
+      nativeAmountInfo,
+      signOnly,
+    } = params;
 
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -304,15 +310,17 @@ class ServiceSend extends ServiceBase {
 
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
-      const signedTx = await this.signAndSendTransaction({
-        networkId,
-        accountId,
-        unsignedTx,
-      });
+      const signedTx = signOnly
+        ? await this.signTransaction({ unsignedTx, accountId, networkId })
+        : await this.signAndSendTransaction({
+            unsignedTx,
+            networkId,
+            accountId,
+          });
 
       signedTxs.push(signedTx);
 
-      if (signedTx) {
+      if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
           accountId,
