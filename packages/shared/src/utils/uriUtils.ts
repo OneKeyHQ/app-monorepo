@@ -44,9 +44,16 @@ enum EDAppOpenActionEnum {
   DENY = 'deny',
 }
 
-function parseDappRedirect(url: string): { action: EDAppOpenActionEnum } {
+function parseDappRedirect(
+  url: string,
+  allowedUrls: string[],
+): { action: EDAppOpenActionEnum } {
   const parsedUrl = safeParseURL(url);
-  if (!parsedUrl || !isProtocolSupportedOpenInApp(parsedUrl.toString())) {
+  if (
+    !parsedUrl ||
+    (!isProtocolSupportedOpenInApp(parsedUrl.toString()) &&
+      !allowedUrls.includes(parsedUrl.origin))
+  ) {
     console.log('====>>>>>>>reject navigate: ', url);
     return { action: EDAppOpenActionEnum.DENY };
   }

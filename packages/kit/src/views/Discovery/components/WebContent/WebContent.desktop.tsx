@@ -28,10 +28,11 @@ type IWebContentProps = IWebTab &
 function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
+  const phishingUrlRef = useRef<string>('');
   const [showPhishingView, setShowPhishingView] = useState(false);
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
-  const { onNavigation } = useBrowserAction().current;
+  const { onNavigation, addUrlToPhishingCache } = useBrowserAction().current;
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -67,6 +68,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);
             setShowPhishingView(true);
+            phishingUrlRef.current = illegalUrl;
           },
         });
         urlRef.current = willNavigationUrl;
@@ -160,9 +162,13 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
           setCurrentWebTab(null);
           navigation.switchTab(ETabRoutes.Discovery);
         }}
+        onContinue={() => {
+          addUrlToPhishingCache({ url: phishingUrlRef.current });
+          setShowPhishingView(false);
+        }}
       />
     ),
-    [closeWebTab, setCurrentWebTab, id, navigation],
+    [closeWebTab, setCurrentWebTab, addUrlToPhishingCache, id, navigation],
   );
 
   return (

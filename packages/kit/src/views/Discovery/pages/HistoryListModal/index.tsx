@@ -54,8 +54,7 @@ function HistoryListModal() {
 
   const { handleOpenWebSite } = useBrowserAction().current;
 
-  const [page] = useState(1);
-
+  const [page, setPage] = useState(1);
   const { result: dataSource, run } = usePromiseResult(
     async () => {
       const data = await backgroundApiProxy.serviceDiscovery.fetchHistoryData(
@@ -131,6 +130,7 @@ function HistoryListModal() {
       />
       <Page.Body>
         <SectionList
+          testID="History-SectionList"
           height="100%"
           estimatedItemSize="$10"
           extraData={isEditing}
@@ -185,6 +185,9 @@ function HistoryListModal() {
               )}
             </ListItem>
           )}
+          onEndReached={() => {
+            setPage((prev) => prev + 1);
+          }}
         />
       </Page.Body>
     </Page>

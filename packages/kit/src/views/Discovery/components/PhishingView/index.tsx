@@ -11,7 +11,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
+function PhishingView({
+  onCloseTab,
+  onContinue,
+}: {
+  onCloseTab: () => void;
+  onContinue: () => void;
+}) {
   const intl = useIntl();
   const content = useMemo(
     () => (
@@ -77,6 +83,7 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
               my="$-px"
               display="inline-flex"
               variant="tertiary"
+              onPress={onContinue}
             >
               continue to the site
             </Button>
@@ -98,7 +105,7 @@ function PhishingView({ onCloseTab }: { onCloseTab: () => void }) {
         </YStack>
       </YStack>
     ),
-    [onCloseTab, intl],
+    [onCloseTab, onContinue, intl],
   );
   return content;
 }

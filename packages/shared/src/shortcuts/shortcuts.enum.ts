@@ -4,7 +4,6 @@ export enum EBrowserShortcutEvents {
   Refresh = 'Refresh',
   NewTab = 'NewTab',
   CloseTab = 'CloseTab',
-  Search = 'Search',
 }
 
 export const getShortcutsMap: () => Record<
@@ -30,10 +29,6 @@ export const getShortcutsMap: () => Record<
   [EBrowserShortcutEvents.CloseTab]: {
     keys: 'CmdOrCtrl+W',
     desc: 'Close Tab',
-  },
-  [EBrowserShortcutEvents.Search]: {
-    keys: '/',
-    desc: 'Search',
   },
 });
 
