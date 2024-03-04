@@ -52,7 +52,12 @@ export function Token({
           uri: tokenImageUri,
         }}
       />
-      <Image.Fallback bg="$bgStrong" delayMs={1000}>
+      <Image.Fallback
+        alignItems="center"
+        justifyContent="center"
+        bg="$bgStrong"
+        delayMs={1000}
+      >
         <Icon
           size={fallbackIconSize}
           name={isNFT ? 'ImageWavesOutline' : 'CoinOutline'}
