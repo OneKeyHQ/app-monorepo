@@ -8,6 +8,7 @@ import {
   Input,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -29,20 +30,17 @@ type IAmountInputFormItemProps = IFormFieldProps<
     // loading indicator part input part
     loading?: boolean;
     currency?: string;
-    amountProps?: {
+    valueProps?: {
       value?: string;
       onPress?: () => void;
-      // loading indicator part amount part
       loading?: boolean;
     };
     balanceProps?: {
       value?: string;
       onPress?: () => void;
-      // loading indicator part balance part
       loading?: boolean;
     };
     tokenSelectorTriggerProps?: {
-      // loading indicator part token part
       loading?: boolean;
       selectedTokenImageUri?: string;
       selectedNetworkImageUri?: string;
@@ -61,7 +59,7 @@ export function AmountInput({
   value,
   name,
   hasError,
-  amountProps,
+  valueProps,
   balanceProps,
   loading,
   currency = '$',
@@ -72,40 +70,42 @@ export function AmountInput({
   });
 
   const AmountElement = useMemo(() => {
-    if (!amountProps) {
+    if (!valueProps) {
       return null;
     }
+
+    if (valueProps.loading)
+      return (
+        <Stack py="$1">
+          <Skeleton h="$3" w="$16" />
+        </Stack>
+      );
+
     return (
       <>
-        {amountProps.loading ? (
-          <Stack pr="$2">
-            <Spinner />
-          </Stack>
-        ) : (
-          <NumberSizeableText
-            formatter="price"
-            formatterOptions={{ currency }}
-            size="$bodyMd"
-            color="$textSubdued"
-            pr="$1.5"
-          >
-            {amountProps.value || '0.00'}
-          </NumberSizeableText>
-        )}
+        <NumberSizeableText
+          formatter="price"
+          formatterOptions={{ currency }}
+          size="$bodyMd"
+          color="$textSubdued"
+          pr="$1.5"
+        >
+          {valueProps.value || '0.00'}
+        </NumberSizeableText>
         {reversible && (
           <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
         )}
       </>
     );
-  }, [amountProps, currency, reversible]);
+  }, [valueProps, currency, reversible]);
 
   const BalanceElement = useMemo(() => {
     if (!balanceProps) {
       return null;
     }
     return balanceProps.loading ? (
-      <Stack pr="$6">
-        <Spinner />
+      <Stack py="$1" px="$3.5">
+        <Skeleton h="$3" w="$16" />
       </Stack>
     ) : (
       <XStack
@@ -172,6 +172,7 @@ export function AmountInput({
           onChangeText={onChange}
           {...inputProps}
         />
+
         <XStack
           p="$3.5"
           alignItems="center"
@@ -237,7 +238,7 @@ export function AmountInput({
           alignItems="center"
           px="$3.5"
           pb="$2"
-          onPress={amountProps?.onPress}
+          onPress={valueProps?.onPress}
           {...(reversible && {
             userSelect: 'none',
             hoverStyle: {

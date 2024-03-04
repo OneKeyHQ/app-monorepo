@@ -35,7 +35,7 @@ const GalleryLayout = () => (
               value={amountValue}
               onChange={setAmountValue}
               currency="$"
-              amountProps={{
+              valueProps={{
                 value: '1.00',
                 onPress: () => {
                   alert('onSwitchPress');
@@ -77,7 +77,7 @@ const GalleryLayout = () => (
               alert('onBalancePress');
             },
           });
-          const [amountProps, setAmountProps] = useState({
+          const [valueProps, setvalueProps] = useState({
             value: '1.00',
             onPress: () => {
               alert('onAmountPress');
@@ -103,12 +103,12 @@ const GalleryLayout = () => (
             }, 3000);
           }, []);
           const fetchAmount = useCallback(() => {
-            setAmountProps((v) => ({
+            setvalueProps((v) => ({
               ...v,
               loading: true,
             }));
             setTimeout(() => {
-              setAmountProps((v) => ({
+              setvalueProps((v) => ({
                 ...v,
                 value: '131231.123123',
                 loading: false,
@@ -134,7 +134,7 @@ const GalleryLayout = () => (
                 loading={loading}
                 value={value}
                 onChange={setValue}
-                amountProps={amountProps}
+                valueProps={valueProps}
                 balanceProps={balanceProps}
                 inputProps={{
                   placeholder: '0',
@@ -143,10 +143,10 @@ const GalleryLayout = () => (
                 enableMaxAmount
                 reversible
               />
-              <Button onPress={fetchValue}>value loading</Button>
-              <Button onPress={fetchToken}>token loading</Button>
-              <Button onPress={fetchAmount}>amount loading</Button>
-              <Button onPress={fetchBalance}>balance loading</Button>
+              <Button onPress={fetchValue}>Amount loading</Button>
+              <Button onPress={fetchToken}>Token loading</Button>
+              <Button onPress={fetchAmount}>Value loading</Button>
+              <Button onPress={fetchBalance}>Balance loading</Button>
             </YStack>
           );
         },
