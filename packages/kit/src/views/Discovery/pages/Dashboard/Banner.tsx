@@ -12,7 +12,19 @@ import {
 } from '@onekeyhq/components';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
-export function Banner({ banners }: { banners: IDiscoveryBanner[] }) {
+import type { IMatchDAppItemType } from '../../types';
+
+export function Banner({
+  banners,
+  handleOpenWebSite,
+}: {
+  banners: IDiscoveryBanner[];
+  handleOpenWebSite: ({
+    dApp,
+    webSite,
+    useSystemBrowser,
+  }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
+}) {
   const media = useMedia();
   const renderItem = useCallback(
     ({ item }: { item: IDiscoveryBanner }) => (
@@ -22,6 +34,15 @@ export function Banner({ banners }: { banners: IDiscoveryBanner[] }) {
         flex={1}
         position="relative"
         userSelect="none"
+        onPress={() =>
+          handleOpenWebSite({
+            webSite: {
+              url: item.href,
+              title: item.href,
+            },
+            useSystemBrowser: item.useSystemBrowser,
+          })
+        }
       >
         <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.src} />
         <Stack
@@ -51,7 +72,7 @@ export function Banner({ banners }: { banners: IDiscoveryBanner[] }) {
         </Stack>
       </Stack>
     ),
-    [],
+    [handleOpenWebSite],
   );
 
   const renderPagination = useCallback(
