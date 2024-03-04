@@ -1,6 +1,3 @@
-import { openSettings as LinkingOpenSettings } from 'expo-linking';
-
-import type { IPrefType } from '@onekeyhq/desktop/src-electron/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const openUrlByWebview = (
@@ -25,13 +22,5 @@ export const openUrl = (
     openUrlByWebview(url, title, options);
   } else {
     window.open(url, '_blank');
-  }
-};
-
-export const openSettings = (prefType: IPrefType) => {
-  if (platformEnv.isNative) {
-    void LinkingOpenSettings();
-  } else {
-    window?.desktopApi?.openPreferences(prefType);
   }
 };
