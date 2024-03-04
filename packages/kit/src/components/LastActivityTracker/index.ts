@@ -21,11 +21,11 @@ const LastActivityTracker = () => {
   const [settings] = useSettingsPersistAtom();
   const [{ unLock }] = usePasswordAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+  const instanceIdRef = useRef(settings.instanceId);
 
   useEffect(() => {
-    identify(settings.instanceId);
+    identify(instanceIdRef.current);
     trackEvent('AppStart');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refresh = useCallback(() => {
