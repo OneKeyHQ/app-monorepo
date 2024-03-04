@@ -50,7 +50,7 @@ export interface IAccountAvatarProps extends IImageProps {
 }
 
 function HashImageSource({ id }: { id: string }) {
-  const { uri } = useBlockieImageUri(id);
+  const uri = useBlockieImageUri(id);
   return uri ? <Image.Source src={uri} /> : null;
 }
 
