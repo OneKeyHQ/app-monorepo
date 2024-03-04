@@ -1,7 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { debounce } from 'lodash';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
 // TODO: move to shared
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
@@ -9,6 +9,8 @@ import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import {
   backgroundClass,
   backgroundMethod,
@@ -226,6 +228,30 @@ class ServiceDApp extends ServiceBase {
       screens: [EModalRoutes.DAppConnectionModal, 'SignMessageModal'],
       params: {
         unsignedMessage,
+        accountId,
+        networkId,
+      },
+      fullScreen: true,
+    });
+  }
+
+  @backgroundMethod()
+  async openSignAndSendTransactionModal({
+    request,
+    encodedTx,
+    accountId,
+    networkId,
+  }: {
+    request: IJsBridgeMessagePayload;
+    encodedTx: IEncodedTx;
+    accountId: string;
+    networkId: string;
+  }) {
+    return this.openModal({
+      request,
+      screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
+      params: {
+        encodedTx,
         accountId,
         networkId,
       },
