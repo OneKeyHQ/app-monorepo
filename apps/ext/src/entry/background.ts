@@ -20,15 +20,14 @@ import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
 
 function initBackground() {
-  const backgroundApiInit: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiInit').default =
+  const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    require('@onekeyhq/kit/src/background/instance/backgroundApiInit').default;
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
 
-  const backgroundApi = backgroundApiInit();
   const bridge = bridgeSetup.background.createHostBridge({
-    receiveHandler: backgroundApi.bridgeReceiveHandler,
+    receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
-  backgroundApi.connectBridge(bridge);
+  backgroundApiProxy.connectBridge(bridge);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(
   //     `extension background init socket failed`,
