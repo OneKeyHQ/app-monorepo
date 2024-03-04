@@ -34,7 +34,7 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 }
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx } = props;
+  const { tableLayout, decodedTx, componentProps } = props;
   const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
 
   const { functionTo, functionName, functionIcon } =
@@ -59,6 +59,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
+      {...componentProps}
     />
   );
 }

@@ -16,14 +16,15 @@ function TxHistoryListItem(props: IProps) {
 
   return (
     <Stack onPress={() => onPress?.(historyTx)}>
-      <Stack
-        borderRadius="$3"
-        backgroundColor={tableLayout && index % 2 === 0 ? '$bgSubdued' : ''}
-      >
+      <Stack>
         <TxActionsListView
           decodedTx={decodedTx}
           tableLayout={tableLayout}
           componentType={ETxActionComponentType.ListView}
+          componentProps={{
+            borderRadius: '$3',
+            backgroundColor: tableLayout && index % 2 === 0 ? '$bgSubdued' : '',
+          }}
         />
       </Stack>
     </Stack>

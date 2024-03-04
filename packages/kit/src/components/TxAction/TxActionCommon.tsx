@@ -1,13 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -21,7 +14,6 @@ import type {
 
 function TxActionCommonAvatar({
   avatar,
-  tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const icon = avatar?.fallbackIcon;
   const containerSize = '$10';

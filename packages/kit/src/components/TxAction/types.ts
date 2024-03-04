@@ -1,11 +1,16 @@
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { ComponentProps } from 'react';
+
+import type { IKeyOfIcons, Stack } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
+
+import type { ListItem } from '../ListItem';
 
 export type ITxActionProps = {
   action: IDecodedTxAction;
   decodedTx: IDecodedTx;
   tableLayout?: boolean;
+  componentProps?: ComponentProps<typeof ListItem>;
   nativeTokenTransferAmountToUpdate?: string;
 };
 
