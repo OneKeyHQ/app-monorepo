@@ -1,4 +1,4 @@
-import { Button, Page, YStack } from '@onekeyhq/components';
+import { Button, Page, SizableText, YStack } from '@onekeyhq/components';
 import type {
   IPageNavigationProp,
   IPageScreenProps,
@@ -24,6 +24,7 @@ const DevHomeStack1 = (
     >();
   return (
     <Page>
+      <SizableText>{`a: ${route.params.a}, b:${route.params.b}`}</SizableText>
       <YStack>
         <Button
           onPress={() => {

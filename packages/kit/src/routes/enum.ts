@@ -6,4 +6,6 @@ export enum ERootRoutes {
   iOSFullScreen = 'iOSFullScreen',
 
   Gallery = 'gallery',
+
+  NotFound = 'NotFound',
 }
