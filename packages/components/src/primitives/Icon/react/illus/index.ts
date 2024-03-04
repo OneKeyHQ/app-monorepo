@@ -56,6 +56,7 @@ export { default as Near } from './Near';
 export { default as Nexa } from './Nexa';
 export { default as NftPeg } from './NftPeg';
 export { default as OkxChain } from './OkxChain';
+export { default as OnekeyText } from './OnekeyText';
 export { default as OpsideNetwork } from './OpsideNetwork';
 export { default as Optimism } from './Optimism';
 export { default as Osmosis } from './Osmosis';

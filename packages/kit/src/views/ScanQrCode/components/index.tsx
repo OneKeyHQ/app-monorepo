@@ -6,9 +6,9 @@ import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Stack, YStack } from '@onekeyhq/components';
-import { openSettings } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
+import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { ScanCamera } from './ScanCamera';
 

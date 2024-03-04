@@ -181,6 +181,7 @@ type IAddressInputProps = Omit<
   plugins?: IAddressPluginsOptions;
   enableNameResolve?: boolean; //
   enableAddressBook?: boolean;
+  enableWalletName?: boolean;
   enableFirstTransferCheck?: boolean;
 };
 
@@ -217,6 +218,7 @@ function AddressInput(props: IAddressInputProps) {
     plugins = defaultAddressInputPlugins,
     enableNameResolve = true,
     enableAddressBook,
+    enableWalletName,
     ...rest
   } = props;
   const intl = useIntl();
@@ -259,6 +261,7 @@ function AddressInput(props: IAddressInputProps) {
             address: debounceText,
             enableNameResolve,
             enableAddressBook,
+            enableWalletName,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -268,7 +271,13 @@ function AddressInput(props: IAddressInputProps) {
       }
     }
     void main();
-  }, [debounceText, networkId, enableNameResolve, enableAddressBook]);
+  }, [
+    debounceText,
+    networkId,
+    enableNameResolve,
+    enableAddressBook,
+    enableWalletName,
+  ]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;

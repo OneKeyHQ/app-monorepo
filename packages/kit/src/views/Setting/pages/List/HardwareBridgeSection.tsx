@@ -6,10 +6,10 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Section } from './Section';
 

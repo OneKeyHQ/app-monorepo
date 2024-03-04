@@ -24,13 +24,12 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
-
-import type { IPrefType } from './preload';
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({

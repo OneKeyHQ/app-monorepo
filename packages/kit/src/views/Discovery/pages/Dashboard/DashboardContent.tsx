@@ -8,8 +8,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { EDiscoveryModalRoutes } from '../../router/Routes';
 

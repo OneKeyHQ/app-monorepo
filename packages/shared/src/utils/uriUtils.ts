@@ -1,4 +1,7 @@
+// import { openURL as LinkingOpenURL } from 'expo-linking';
+
 import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
+// import platformEnv from '../platformEnv';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;

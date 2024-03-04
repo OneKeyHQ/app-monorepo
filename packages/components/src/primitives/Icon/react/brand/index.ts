@@ -1,10 +1,13 @@
+export { default as Apple } from './Apple';
 export { default as ArtifactNews } from './ArtifactNews';
+export { default as Chrome } from './Chrome';
 export { default as Copilot } from './Copilot';
 export { default as Discord } from './Discord';
 export { default as Facebook } from './Facebook';
 export { default as Figma } from './Figma';
 export { default as Framer } from './Framer';
 export { default as Github } from './Github';
+export { default as GooglePlay } from './GooglePlay';
 export { default as Instagram } from './Instagram';
 export { default as Linkedin } from './Linkedin';
 export { default as Medium } from './Medium';

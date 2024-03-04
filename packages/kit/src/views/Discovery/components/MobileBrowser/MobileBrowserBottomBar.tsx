@@ -13,7 +13,7 @@ import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_WIDTH } from '../../config/TabList.constants';
