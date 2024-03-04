@@ -77,7 +77,7 @@ const GalleryLayout = () => (
               alert('onBalancePress');
             },
           });
-          const [valueProps, setvalueProps] = useState({
+          const [valueProps, setValueProps] = useState({
             value: '1.00',
             onPress: () => {
               alert('onAmountPress');
@@ -103,12 +103,12 @@ const GalleryLayout = () => (
             }, 3000);
           }, []);
           const fetchAmount = useCallback(() => {
-            setvalueProps((v) => ({
+            setValueProps((v) => ({
               ...v,
               loading: true,
             }));
             setTimeout(() => {
-              setvalueProps((v) => ({
+              setValueProps((v) => ({
                 ...v,
                 value: '131231.123123',
                 loading: false,
@@ -157,6 +157,7 @@ const GalleryLayout = () => (
           const [amountValue, setAmountValue] = useState('123');
           return (
             <AmountInput
+              valueProps={{}}
               value={amountValue}
               onChange={setAmountValue}
               tokenSelectorTriggerProps={{
@@ -176,6 +177,7 @@ const GalleryLayout = () => (
             inputProps={{
               placeholder: '0',
             }}
+            valueProps={{}}
             tokenSelectorTriggerProps={{
               selectedTokenImageUri:
                 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
@@ -196,6 +198,7 @@ const GalleryLayout = () => (
         element: (
           <AmountInput
             value="0.5"
+            valueProps={{}}
             inputProps={{
               placeholder: '0',
               readOnly: true,
@@ -227,6 +230,8 @@ const GalleryLayout = () => (
                 }}
               >
                 <AmountInput
+
+                  valueProps={{}}
                   balanceProps={{
                     value: '0.5',
                   }}
@@ -245,6 +250,7 @@ const GalleryLayout = () => (
               <Form form={form}>
                 <Form.Field name="amount">
                   <AmountInput
+                    valueProps={{}}
                     balanceProps={{
                       value: '0.5',
                     }}
