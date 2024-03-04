@@ -154,7 +154,12 @@ function TxHistoryListView(props: IProps) {
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (
-            <TxHistoryListHeader history={data} setSearchKey={setSearchKey} />
+            <TxHistoryListHeader
+              searchKey={searchKey}
+              filteredHistory={filteredHistory}
+              history={data}
+              setSearchKey={setSearchKey}
+            />
           ),
         })}
     />

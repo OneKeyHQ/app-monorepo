@@ -75,7 +75,12 @@ function NFTListView(props: IProps) {
 
   return (
     <ScrollView h="100%" py="$3">
-      <NFTListHeader nfts={data} setSearchKey={setSearchKey} />
+      <NFTListHeader
+        nfts={data}
+        filteredNfts={filteredNfts}
+        searchKey={searchKey}
+        setSearchKey={setSearchKey}
+      />
       {renderNFTListView()}
     </ScrollView>
   );

@@ -4,17 +4,22 @@ import { useIntl } from 'react-intl';
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListActions } from '../../states/jotai/contexts/tokenList';
+import {
+  useSearchKeyAtom,
+  useTokenListActions,
+} from '../../states/jotai/contexts/tokenList';
 import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
   tokens: IAccountToken[];
+  filteredTokens: IAccountToken[];
   tableLayout?: boolean;
 };
 
-function TokenListHeader({ tableLayout, tokens }: IProps) {
+function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
   const intl = useIntl();
   const { updateSearchKey } = useTokenListActions().current;
+  const [searchKey] = useSearchKeyAtom();
 
   return (
     <Stack testID="Wallet-Token-List-Header">
@@ -22,10 +27,9 @@ function TokenListHeader({ tableLayout, tokens }: IProps) {
         searchProps={
           tokens.length > 10
             ? {
-                onChangeText: debounce(
-                  (searchKey) => updateSearchKey(searchKey),
-                  800,
-                ),
+                onChangeText: debounce((text) => updateSearchKey(text), 800),
+                searchResultCount:
+                  searchKey && searchKey.length > 2 ? filteredTokens.length : 0,
               }
             : undefined
         }

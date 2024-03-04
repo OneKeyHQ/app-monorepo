@@ -57,7 +57,11 @@ function TokenListView(props: IProps) {
       data={filteredTokens}
       ListHeaderComponent={
         withHeader && tokens.length > 0 ? (
-          <TokenListHeader tokens={tokens} tableLayout={tableLayout} />
+          <TokenListHeader
+            filteredTokens={filteredTokens}
+            tokens={tokens}
+            tableLayout={tableLayout}
+          />
         ) : null
       }
       onContentSizeChange={onContentSizeChange}
