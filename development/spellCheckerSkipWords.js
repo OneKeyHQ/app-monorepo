@@ -633,4 +633,5 @@ module.exports = [
   'lru',
   'compat',
   'replacer',
+  'invoker',
 ];
