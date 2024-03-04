@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Badge,
+  Empty,
   Heading,
   Icon,
   Image,
@@ -241,8 +242,9 @@ export function SuggestedAndExploreSection({
     [result?.networks],
   );
 
-  const exploreView = useMemo(
-    () => (
+  const exploreView = useMemo(() => {
+    const isEmpty = !dAppList?.data || dAppList?.data.length === 0;
+    return (
       <>
         <XStack py="$2">
           <Select
@@ -322,22 +324,25 @@ export function SuggestedAndExploreSection({
             )}
           />
         </XStack>
-        {renderChunkItemView(
-          chunkArray(dAppList?.data ?? [], chunkSize),
-          selectedCategory,
+        {isEmpty ? (
+          <Empty icon="SearchOutline" title="No Results" />
+        ) : (
+          renderChunkItemView(
+            chunkArray(dAppList?.data ?? [], chunkSize),
+            selectedCategory,
+          )
         )}
       </>
-    ),
-    [
-      selectOptions,
-      selectedCategory,
-      networkOptions,
-      selectedNetwork,
-      dAppList?.data,
-      chunkSize,
-      renderChunkItemView,
-    ],
-  );
+    );
+  }, [
+    selectOptions,
+    selectedCategory,
+    networkOptions,
+    selectedNetwork,
+    dAppList?.data,
+    chunkSize,
+    renderChunkItemView,
+  ]);
 
   return (
     <Stack
