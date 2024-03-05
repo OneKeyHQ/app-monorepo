@@ -4,6 +4,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { Layout } from './utils/Layout';
 
 const tokenImageUri = 'https://onekey-asset.com/assets/btc/btc.png';
+const evmTokenImageUri =
+  'https://common.onekey-asset.com/token/evm-1/0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0.jpg';
 const TokenGallery = () => (
   <Layout
     description=".."
@@ -26,7 +28,8 @@ const TokenGallery = () => (
         title: 'isNFT',
         element: (
           <YStack space="$3">
-            <Token size="md" isNFT tokenImageUri={tokenImageUri} />
+            <Token size="md" isNFT tokenImageUri={evmTokenImageUri} />
+            <Token size="md" isNFT={false} tokenImageUri={evmTokenImageUri} />
           </YStack>
         ),
       },
