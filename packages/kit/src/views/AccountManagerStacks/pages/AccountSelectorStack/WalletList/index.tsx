@@ -7,7 +7,6 @@ import {
   Page,
   Stack,
   XStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -63,7 +62,6 @@ function OthersWalletItem({
 
 export function WalletList({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
-  const media = useMedia();
   const { bottom } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
 

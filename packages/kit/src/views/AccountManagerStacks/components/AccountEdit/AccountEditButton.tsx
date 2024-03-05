@@ -1,6 +1,5 @@
 import { ActionList } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -17,7 +16,6 @@ export function AccountEditButton({
   account?: IDBAccount;
 }) {
   const name = indexedAccount?.name || account?.name || '--';
-  const { config } = useAccountSelectorContextData();
 
   return (
     <ActionList
