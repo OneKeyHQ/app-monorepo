@@ -2,6 +2,8 @@ import { SizableText, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
+import { Token } from '../Token';
+
 export type ITokenListItemProps = {
   tokenImageSrc?: string;
   networkImageSrc?: string;
@@ -32,12 +34,7 @@ export function TokenListItem({
       })}
       {...rest}
     >
-      <ListItem.Avatar
-        src={tokenImageSrc}
-        cornerImageProps={{
-          src: networkImageSrc,
-        }}
-      />
+      <Token tokenImageUri={tokenImageSrc} networkImageUri={networkImageSrc} />
       <ListItem.Text
         flex={1}
         primary={tokenName}

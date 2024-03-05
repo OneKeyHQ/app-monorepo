@@ -179,7 +179,7 @@ function HistoryDetails() {
             <Token
               isNFT={asset.isNFT}
               tokenImageUri={asset.icon}
-              chainImageUri={network?.logoURI}
+              networkImageUri={network?.logoURI}
             />
             <ListItem.Text
               primary={asset.symbol}

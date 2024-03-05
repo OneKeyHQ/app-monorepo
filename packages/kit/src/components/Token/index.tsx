@@ -3,27 +3,27 @@
   A component for render token (and NFT) images. It has a fallback icon when the image is not available. Typically used in list, card, or any other components that display small token images.
 */
 
-import type {
-  IImageProps,
-  IImageSourceProps,
-  SizeTokens,
-} from '@onekeyhq/components';
+import type { IImageProps, SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, Stack } from '@onekeyhq/components';
 
+import type { ImageURISource } from 'react-native';
+
+type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 type ITokenProps = {
   isNFT?: boolean;
-  size?: 'xl' | 'lg' | 'md' | 'sm' | 'xs';
-  tokenImageUri?: IImageSourceProps['source']['uri'];
-  chainImageUri?: IImageSourceProps['source']['uri'];
-} & IImageProps;
+  size?: ITokenSize;
+  tokenImageUri?: ImageURISource['uri'];
+  networkImageUri?: ImageURISource['uri'];
+} & Omit<IImageProps, 'size'>;
 
-const sizeMap: {
-  [key in ITokenProps['size']]: {
+const sizeMap: Record<
+  ITokenSize,
+  {
     tokenImageSize: SizeTokens;
     chainImageSize: SizeTokens;
     fallbackIconSize: SizeTokens;
-  };
-} = {
+  }
+> = {
   xl: { tokenImageSize: '$12', chainImageSize: '$5', fallbackIconSize: '$8' },
   lg: { tokenImageSize: '$10', chainImageSize: '$4', fallbackIconSize: '$7' },
   md: { tokenImageSize: '$8', chainImageSize: '$4', fallbackIconSize: '$6' },
@@ -32,13 +32,15 @@ const sizeMap: {
 };
 
 export function Token({
+  isNFT,
   size,
   tokenImageUri,
-  chainImageUri,
+  networkImageUri,
   ...rest
 }: ITokenProps) {
-  const { isNFT, tokenImageSize, chainImageSize, fallbackIconSize } =
-    sizeMap[size] || sizeMap.lg;
+  const { tokenImageSize, chainImageSize, fallbackIconSize } = size
+    ? sizeMap[size]
+    : sizeMap.lg;
 
   const tokenImage = (
     <Image
@@ -66,10 +68,10 @@ export function Token({
     </Image>
   );
 
-  if (!chainImageUri) return tokenImage;
+  if (!networkImageUri) return tokenImage;
 
   return (
-    <Stack>
+    <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
       {tokenImage}
       <Stack
         position="absolute"
@@ -87,7 +89,7 @@ export function Token({
         >
           <Image.Source
             source={{
-              uri: chainImageUri,
+              uri: networkImageUri,
             }}
           />
           <Image.Fallback bg="$bgStrong" delayMs={1000}>
