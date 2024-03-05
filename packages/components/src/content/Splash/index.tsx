@@ -20,6 +20,7 @@ export function Splash({ children }: ISplashProps) {
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;
     if (height) {
+      // close the splash after the react commit phase.
       setTimeout(() => {
         resolveSplash.current?.();
       });
