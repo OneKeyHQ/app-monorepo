@@ -1,54 +1,43 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
-
-import { AnimatePresence, Stack, getTokenValue } from 'tamagui';
 
 import { markFPTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 
+import { Stack } from '../../primitives';
+
 import { SplashView } from './SplashView';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 export type ISplashProps = PropsWithChildren;
 
 export function Splash({ children }: ISplashProps) {
-  const [showLoading, changeLoadingVisibility] = useState(true);
-
-  const handleSplashReady = useCallback(() => {
-    changeLoadingVisibility(false);
-  }, []);
-
+  const resolveSplash = useRef<() => void>();
   const handleExitComplete = useCallback(() => {
     markFPTime();
   }, []);
 
-  const bgColor = useMemo(
-    () => getTokenValue('$bgAppDark', 'color') as string,
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    if (height) {
+      setTimeout(() => {
+        resolveSplash.current?.();
+      });
+    }
+  }, []);
+
+  const ready = useMemo(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveSplash.current = resolve;
+      }),
     [],
   );
 
   return (
-    <Stack flex={1}>
+    <Stack flex={1} onLayout={handleLayout}>
       {children}
-      <AnimatePresence onExitComplete={handleExitComplete}>
-        {showLoading && (
-          <Stack
-            key="splash-view"
-            bg={bgColor}
-            animation="50ms"
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            opacity={1}
-            flex={1}
-            exitStyle={{
-              opacity: 0,
-            }}
-          >
-            <SplashView onReady={handleSplashReady} />
-          </Stack>
-        )}
-      </AnimatePresence>
+      <SplashView ready={ready} onExit={handleExitComplete} />
     </Stack>
   );
 }
