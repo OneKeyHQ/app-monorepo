@@ -168,7 +168,7 @@ class ServiceAccountSelector extends ServiceBase {
 
       if (indexedAccountId || othersWalletAccountId) {
         try {
-          const r = await serviceAccount.getAccountOfWallet({
+          const r = await serviceAccount.getNetworkAccount({
             indexedAccountId,
             accountId: othersWalletAccountId,
             deriveType,
@@ -177,6 +177,120 @@ class ServiceAccountSelector extends ServiceBase {
           account = r;
         } catch (e) {
           // account may not compatible with network
+          console.error(e);
+        }
+      }
+
+      if (deriveType) {
+        try {
+          deriveInfo = await getVaultSettingsAccountDeriveInfo({
+            networkId,
+            deriveType,
+          });
+        } catch (error) {
+          //
+        }
+      }
+    }
+
+    if (wallet && (await serviceAccount.isTempWalletRemoved({ wallet }))) {
+      wallet = undefined;
+      account = undefined;
+      indexedAccount = undefined;
+    }
+
+    const isOthersWallet = Boolean(account && !indexedAccountId);
+    const activeAccount: IAccountSelectorActiveAccountInfo = {
+      account,
+      indexedAccount,
+      accountName: account?.name || indexedAccount?.name || '',
+      wallet,
+      network,
+      deriveType,
+      deriveInfo,
+      deriveInfoItems: await serviceNetwork.getDeriveInfoItemsOfNetwork({
+        networkId,
+      }),
+      ready: true,
+      isOthersWallet,
+    };
+    const selectedAccountFixed: IAccountSelectorSelectedAccount = {
+      othersWalletAccountId: isOthersWallet
+        ? activeAccount?.account?.id
+        : undefined,
+      indexedAccountId: activeAccount.indexedAccount?.id,
+      deriveType: activeAccount.deriveType,
+      networkId: activeAccount.network?.id,
+      walletId: activeAccount.wallet?.id,
+      focusedWallet: isOthersWallet ? '$$others' : activeAccount.wallet?.id,
+    };
+    return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
+  }
+
+  @backgroundMethod()
+  async buildActiveAccountInfoFromSelectedAccount2({
+    selectedAccount,
+    nonce,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    nonce?: number;
+  }): Promise<{
+    selectedAccount: IAccountSelectorSelectedAccount;
+    activeAccount: IAccountSelectorActiveAccountInfo;
+    nonce?: number;
+  }> {
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const {
+      othersWalletAccountId,
+      indexedAccountId,
+      deriveType,
+      networkId,
+      walletId,
+    } = selectedAccount;
+
+    let account: INetworkAccount | undefined;
+    let wallet: IDBWallet | undefined;
+    let network: IServerNetwork | undefined;
+    let indexedAccount: IDBIndexedAccount | undefined;
+    let deriveInfo: IAccountDeriveInfo | undefined;
+
+    if (walletId) {
+      try {
+        wallet = await serviceAccount.getWallet({ walletId });
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (indexedAccountId) {
+        try {
+          indexedAccount = await serviceAccount.getIndexedAccount({
+            id: indexedAccountId,
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    if (networkId) {
+      try {
+        network = await this.backgroundApi.serviceNetwork.getNetwork({
+          networkId,
+        });
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (indexedAccountId || othersWalletAccountId) {
+        try {
+          const r = await serviceAccount.getNetworkAccount({
+            indexedAccountId,
+            accountId: othersWalletAccountId,
+            deriveType,
+            networkId,
+          });
+          account = r;
+        } catch (e) {
           console.error(e);
         }
       }
