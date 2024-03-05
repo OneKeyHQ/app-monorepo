@@ -1,4 +1,4 @@
-function Browser() {
+DiscoveryDashboardfunction Browser() {
   return null;
 }
 
