@@ -1,18 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
   Alert,
   Divider,
-  Heading,
   Icon,
+  NumberSizeableText,
   Page,
-  SizableText,
   Skeleton,
   Stack,
   Toast,
@@ -29,7 +26,6 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
-import { getFormattedNumber } from '../../../utils/format';
 import { RawActions } from '../../Home/components/WalletActions/RawActions';
 import { EModalReceiveRoutes } from '../../Receive/router/type';
 import { EModalSendRoutes } from '../../Send/router';
@@ -39,7 +35,6 @@ import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
-  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const route =
@@ -60,6 +55,7 @@ export function TokenDetails() {
   } = route.params;
 
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
+  const [initialized, setInitialized] = useState(false);
 
   const { result: [tokenHistory, tokenDetails] = [], isLoading } =
     usePromiseResult(
@@ -87,6 +83,8 @@ export function TokenDetails() {
           }),
         ]);
 
+        setInitialized(true);
+
         return [history, details[0], serverNetwork];
       },
       [accountId, networkId, tokenInfo.address],
@@ -94,14 +92,6 @@ export function TokenDetails() {
         watchLoading: true,
       },
     );
-
-  const tokenValue = useMemo(
-    () =>
-      `${settings.currencyInfo.symbol}${intl.formatNumber(
-        new BigNumber(tokenDetails?.fiatValue ?? 0).toNumber(),
-      )}`,
-    [intl, settings.currencyInfo.symbol, tokenDetails?.fiatValue],
-  );
 
   const handleReceivePress = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.ReceiveModal, {
@@ -292,13 +282,23 @@ export function TokenDetails() {
                 </YStack>
               ) : (
                 <>
-                  <Heading size="$heading3xl">
-                    {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}{' '}
-                    {tokenInfo.symbol}
-                  </Heading>
-                  <SizableText color="$textSubdued" size="$bodyLgMedium">
-                    {tokenValue}
-                  </SizableText>
+                  <NumberSizeableText
+                    size="$heading3xl"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                  >
+                    {tokenDetails?.balanceParsed ?? '0'}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    color="$textSubdued"
+                    size="$bodyLgMedium"
+                  >
+                    {tokenDetails?.fiatValue ?? '0'}
+                  </NumberSizeableText>
                 </>
               )}
             </Stack>
@@ -342,7 +342,8 @@ export function TokenDetails() {
         {/* History */}
         <Divider />
         <TxHistoryListView
-          hideIcon
+          initialized={initialized}
+          isLoading={isLoading}
           data={tokenHistory ?? []}
           onPressHistory={handleHistoryItemPress}
         />

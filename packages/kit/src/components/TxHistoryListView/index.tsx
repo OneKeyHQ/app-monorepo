@@ -65,6 +65,7 @@ function TxHistoryListView(props: IProps) {
               key={index}
               index={index}
               historyTx={tx}
+              showIcon={showIcon}
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
@@ -104,6 +105,7 @@ function TxHistoryListView(props: IProps) {
               key={index}
               index={index}
               historyTx={tx}
+              showIcon={showIcon}
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
@@ -117,6 +119,7 @@ function TxHistoryListView(props: IProps) {
             key={index}
             index={index}
             historyTx={tx}
+            showIcon={showIcon}
             onPress={onPressHistory}
             tableLayout={tableLayout}
           />
@@ -124,7 +127,7 @@ function TxHistoryListView(props: IProps) {
         </>
       );
     },
-    [data, intl, onPressHistory, tableLayout],
+    [data, intl, onPressHistory, showIcon, tableLayout],
   );
 
   if (!initialized && isLoading) {

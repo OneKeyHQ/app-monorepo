@@ -67,6 +67,7 @@ function TxHistoryListContainer(props: IProps) {
 
   return (
     <TxHistoryListView
+      showIcon
       data={history.result ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader

@@ -193,6 +193,7 @@ function TxActionCommonListView(
     timestamp,
     pending,
     tableLayout,
+    showIcon,
     ...rest
   } = props;
 
@@ -216,7 +217,9 @@ function TxActionCommonListView(
             flexBasis: 1,
           })}
         >
-          <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
+          {showIcon && (
+            <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
+          )}
           <Stack>
             <TxActionCommonTitle title={title} tableLayout={tableLayout} />
             <XStack>

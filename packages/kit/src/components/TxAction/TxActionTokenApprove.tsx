@@ -37,7 +37,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 }
 
 function TxActionTokenApproveListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon } = props;
   const intl = useIntl();
   const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
     decodedTx,
@@ -88,6 +88,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
+      showIcon={showIcon}
       {...componentProps}
     />
   );

@@ -113,5 +113,3 @@ export function getFilteredHistoryBySearchKey({
 
   return filteredHistory;
 }
-
-export function getHistoryStatusText({})

@@ -38,7 +38,6 @@ function NFTListItem(props: IProps) {
         onPress?.(nft);
       }}
       userSelect="none"
-      group="nftItem"
     >
       <Stack
         pb="100%"

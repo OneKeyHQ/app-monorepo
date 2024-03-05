@@ -13,6 +13,7 @@ type IProps = {
   componentType?: ETxActionComponentType;
   tableLayout?: boolean;
   nativeTokenTransferAmountToUpdate?: string;
+  showIcon?: boolean;
   componentProps?: ComponentProps<typeof ListItem>;
 };
 
@@ -23,6 +24,7 @@ function TxActionsListView(props: IProps) {
     componentProps,
     tableLayout,
     nativeTokenTransferAmountToUpdate,
+    showIcon,
   } = props;
   const actions = getDisplayedActions({ decodedTx });
   const action = actions[0];
@@ -41,6 +43,7 @@ function TxActionsListView(props: IProps) {
       tableLayout={tableLayout}
       decodedTx={decodedTx}
       componentProps={componentProps}
+      showIcon={showIcon}
       nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
     />
   );

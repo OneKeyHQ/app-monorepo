@@ -145,7 +145,7 @@ function buildTransferChangeInfo({
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout, decodedTx, componentProps } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon } = props;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
@@ -273,6 +273,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
+      showIcon={showIcon}
       {...componentProps}
     />
   );

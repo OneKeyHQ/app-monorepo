@@ -21,7 +21,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -188,7 +188,7 @@ function ActionMore() {
               label: intl.formatMessage({ id: 'action__view_in_explorer' }),
               icon: 'GlobusOutline',
               onPress: () =>
-                openUrlExternal(
+                openUrl(
                   buildExplorerAddressUrl({
                     network,
                     address: account?.address,

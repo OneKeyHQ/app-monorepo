@@ -12,6 +12,7 @@ export type ITxActionProps = {
   tableLayout?: boolean;
   componentProps?: ComponentProps<typeof ListItem>;
   nativeTokenTransferAmountToUpdate?: string;
+  showIcon?: boolean;
 };
 
 export type ITxActionComponents = {
@@ -43,6 +44,7 @@ export type ITxActionCommonListViewProps = {
   timestamp?: number;
   pending?: boolean;
   tableLayout?: boolean;
+  showIcon?: boolean;
 };
 
 export type ITxActionCommonDetailViewProps = {
