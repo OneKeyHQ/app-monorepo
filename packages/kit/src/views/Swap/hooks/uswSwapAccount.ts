@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
@@ -20,6 +21,9 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccount } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [swapToAnotherAccount, setSwapToAnotherAccount] =
+    useSwapToAnotherAccountAddressAtom();
+  const [, setSettings] = useSettingsPersistAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const fromTokenRef = useRef<ISwapToken | undefined>();
   const toTokenRef = useRef<ISwapToken | undefined>();
@@ -48,8 +52,23 @@ export function useSwapFromAccountNetworkSync() {
           networkId: toTokenRef.current?.networkId,
         }),
       });
+      if (toTokenRef.current?.networkId !== swapToAnotherAccount.networkId) {
+        void setSwapToAnotherAccount((v) => ({
+          ...v,
+          address: undefined,
+        }));
+        void setSettings((v) => ({
+          ...v,
+          swapToAnotherAccountSwitchOn: false,
+        }));
+      }
     }
-  }, [updateSelectedAccount]);
+  }, [
+    setSettings,
+    setSwapToAnotherAccount,
+    swapToAnotherAccount.networkId,
+    updateSelectedAccount,
+  ]);
 
   useListenTabFocusState(
     ETabRoutes.Swap,

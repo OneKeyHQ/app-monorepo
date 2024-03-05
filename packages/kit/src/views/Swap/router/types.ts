@@ -11,7 +11,7 @@ export enum EModalSwapRoutes {
   SwapSlippageSelect = 'SwapSlippageSelect',
   SwapHistoryList = 'SwapHistoryList',
   SwapHistoryDetail = 'SwapHistoryDetail',
-  SwapBuildTxDemo = 'SwapBuildTxDemo',
+  SwapToAnotherAddress = 'SwapToAnotherAddress',
 }
 
 export type IModalSwapParamList = {
@@ -21,9 +21,9 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapProviderSelect]: undefined;
   [EModalSwapRoutes.SwapSlippageSelect]: undefined;
-  [EModalSwapRoutes.SwapBuildTxDemo]: undefined;
   [EModalSwapRoutes.SwapHistoryList]: undefined;
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistory: ISwapTxHistory;
   };
+  [EModalSwapRoutes.SwapToAnotherAddress]: { networkId: string };
 };
