@@ -1,9 +1,11 @@
 import type { FC } from 'react';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import { Page, Select, SizableText, Stack, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IAccountDerivationListItemProps = {
   title: string;
@@ -62,13 +64,15 @@ const BitcoinAccountDerivation = () => {
       description: `P2PKH (m/44'/0'/0'), Starts with '1'`,
     },
   ]);
-  const [val, setVal] = useState(ref.current[0].value);
+  const [setting] = useSettingsPersistAtom();
   return (
     <AccountDerivationListItem
       title="Bitcoin"
       icon="https://onekey-asset.com/assets/btc/btc.png"
-      value={val}
-      onChange={setVal}
+      value={setting.bitcoinAccountDerivation}
+      onChange={(value) =>
+        backgroundApiProxy.serviceSetting.setBitcoinAccountDerivation(value)
+      }
       items={ref.current}
     />
   );
@@ -88,13 +92,15 @@ const EvmAccountDerivation = () => {
       description: `m/44'/60'/*'/0/0`,
     },
   ]);
-  const [val, setVal] = useState(ref.current[0].value);
+  const [setting] = useSettingsPersistAtom();
   return (
     <AccountDerivationListItem
       title="EVM"
       icon="https://onekey-asset.com/assets/eth/eth.png"
-      value={val}
-      onChange={setVal}
+      value={setting.evmAccountDerivation}
+      onChange={(value) =>
+        backgroundApiProxy.serviceSetting.setEvmAccountDerivation(value)
+      }
       items={ref.current}
     />
   );
@@ -115,13 +121,15 @@ const SolanaAccountDerivation = () => {
       description: `Ledger Live, Solflare, m/44'/501'/*'`,
     },
   ]);
-  const [val, setVal] = useState(ref.current[0].value);
+  const [setting] = useSettingsPersistAtom();
   return (
     <AccountDerivationListItem
       title="Solana"
       icon="https://onekey-asset.com/assets/sol/sol.png"
-      value={val}
-      onChange={setVal}
+      value={setting.solanaAccountDerivation}
+      onChange={(value) =>
+        backgroundApiProxy.serviceSetting.setSolanaAccountDerivation(value)
+      }
       items={ref.current}
     />
   );
@@ -147,13 +155,15 @@ const LiteCoinAccountDerivation = () => {
       description: `Starts with "L". BIP44, P2PKH, Base58.`,
     },
   ]);
-  const [val, setVal] = useState(ref.current[0].value);
+  const [setting] = useSettingsPersistAtom();
   return (
     <AccountDerivationListItem
       title="Lite Coin"
       icon="https://common.onekey-asset.com/chain/ltc.png"
-      value={val}
-      onChange={setVal}
+      value={setting.ltcAccountDerivation}
+      onChange={(value) =>
+        backgroundApiProxy.serviceSetting.setLtcAccountDerivation(value)
+      }
       items={ref.current}
     />
   );
@@ -178,13 +188,17 @@ const EthereumClassicAccountDerivation = () => {
       description: `m/44'/60'/*'/0/0`,
     },
   ]);
-  const [val, setVal] = useState(ref.current[0].value);
+  const [setting] = useSettingsPersistAtom();
   return (
     <AccountDerivationListItem
       title="Ethereum Classic"
       icon="https://onekey-asset.com/assets/etc/etc.png"
-      value={val}
-      onChange={setVal}
+      value={setting.ethereumClassicAccountDerivation}
+      onChange={(value) =>
+        backgroundApiProxy.serviceSetting.setEthereumClassicAccountDerivation(
+          value,
+        )
+      }
       items={ref.current}
     />
   );

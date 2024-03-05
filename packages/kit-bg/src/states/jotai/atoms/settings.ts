@@ -1,6 +1,13 @@
 import type { ILocaleSymbol } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
+import type {
+  IBitcoinAccountDerivationType,
+  IEthereumClassicAccountDerivation,
+  IEvmAccountDerivationType,
+  ILtcAccountDerivationType,
+  ISolanaAccountDerivationType,
+} from '@onekeyhq/shared/types/setting';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
@@ -25,6 +32,11 @@ export type ISettingsPersistAtom = {
     id: string;
   };
   swapToAnotherAccountSwitchOn: boolean;
+  bitcoinAccountDerivation: IBitcoinAccountDerivationType;
+  evmAccountDerivation: IEvmAccountDerivationType;
+  solanaAccountDerivation: ISolanaAccountDerivationType;
+  ltcAccountDerivation: ILtcAccountDerivationType;
+  ethereumClassicAccountDerivation: IEthereumClassicAccountDerivation;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -47,6 +59,11 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
         id: 'usd',
         symbol: '$',
       },
+      bitcoinAccountDerivation: 'Taproot',
+      evmAccountDerivation: 'BIP44',
+      solanaAccountDerivation: 'BIP44',
+      ltcAccountDerivation: 'Nested SegWit',
+      ethereumClassicAccountDerivation: 'BIP44',
     },
   });
 
