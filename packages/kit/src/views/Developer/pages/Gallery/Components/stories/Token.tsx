@@ -28,18 +28,19 @@ const TokenGallery = () => (
         title: 'isNFT',
         element: (
           <YStack space="$3">
+            <Token size="md" tokenImageUri={evmTokenImageUri} />
             <Token size="md" isNFT tokenImageUri={evmTokenImageUri} />
             <Token size="md" isNFT={false} tokenImageUri={evmTokenImageUri} />
           </YStack>
         ),
       },
       {
-        title: 'chainImageUri',
+        title: 'networkImageUri',
         element: (
           <YStack space="$3">
             <Token
               size="md"
-              chainImageUri={tokenImageUri}
+              networkImageUri={tokenImageUri}
               tokenImageUri={tokenImageUri}
             />
           </YStack>
