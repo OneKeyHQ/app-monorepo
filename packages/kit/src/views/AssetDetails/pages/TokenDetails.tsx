@@ -342,6 +342,7 @@ export function TokenDetails() {
         {/* History */}
         <Divider />
         <TxHistoryListView
+          hideIcon
           data={tokenHistory ?? []}
           onPressHistory={handleHistoryItemPress}
         />

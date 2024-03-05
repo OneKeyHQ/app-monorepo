@@ -6,6 +6,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
+import { Token } from '../Token';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -17,7 +18,7 @@ function TxActionCommonAvatar({
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const icon = avatar?.fallbackIcon;
   const containerSize = '$10';
-  const borderRadius = avatar.circular ? '$full' : '$2';
+  const borderRadius = avatar.isNFT ? '$full' : '$2';
 
   if (!avatar?.src) {
     return (
@@ -35,19 +36,7 @@ function TxActionCommonAvatar({
   }
 
   if (typeof avatar?.src === 'string') {
-    return (
-      <ListItem.Avatar
-        src={avatar.src}
-        size={containerSize}
-        circular={avatar.circular}
-        fallbackProps={{
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name={icon} color="$iconSubdued" />,
-        }}
-      />
-    );
+    return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
   }
 
   return (
@@ -58,17 +47,7 @@ function TxActionCommonAvatar({
       justifyContent="flex-end"
     >
       <Stack position="absolute" left="$0" top="$0">
-        <ListItem.Avatar
-          src={avatar.src[0]}
-          borderRadius="$full"
-          size="$7"
-          fallbackProps={{
-            bg: '$bgStrong',
-            justifyContent: 'center',
-            alignItems: 'center',
-            children: <Icon name={icon} color="$iconSubdued" />,
-          }}
-        />
+        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[0]} />
       </Stack>
       <Stack
         borderWidth={2}
@@ -76,17 +55,7 @@ function TxActionCommonAvatar({
         borderRadius="$full"
         zIndex={1}
       >
-        <ListItem.Avatar
-          src={avatar.src[1]}
-          size="$7"
-          borderRadius="$full"
-          fallbackProps={{
-            bg: '$bgStrong',
-            justifyContent: 'center',
-            alignItems: 'center',
-            children: <Icon name={icon} color="$iconSubdued" />,
-          }}
-        />
+        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[1]} />
       </Stack>
     </Stack>
   );

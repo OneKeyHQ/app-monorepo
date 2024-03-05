@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import type { IKeyOfIcons, Stack } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
@@ -25,7 +25,7 @@ export type ITxActionComponents = {
 
 export type ITxActionCommonListViewProps = {
   avatar: {
-    circular?: boolean;
+    isNFT?: boolean;
     src?: string | string[];
     fallbackIcon: IKeyOfIcons;
   };

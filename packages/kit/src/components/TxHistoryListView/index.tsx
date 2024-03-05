@@ -22,6 +22,7 @@ type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
   showHeader?: boolean;
+  showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
 };
@@ -34,6 +35,7 @@ function TxHistoryListView(props: IProps) {
     data,
     isLoading,
     showHeader,
+    showIcon,
     onPressHistory,
     tableLayout,
     onContentSizeChange,

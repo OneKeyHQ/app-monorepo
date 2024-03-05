@@ -4,8 +4,7 @@ import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -18,6 +17,7 @@ import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
+import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
 
@@ -164,7 +164,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     }),
   };
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: !(sendNFTIcon || receiveNFTIcon),
+    isNFT: !(sendNFTIcon || receiveNFTIcon),
     fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
       ? 'QuestionmarkSolid'
       : 'ImageMountainSolid',
@@ -291,25 +291,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 key={transfer.tokenIdOnNetwork}
                 overflow="hidden"
               >
-                <ListItem.Avatar
-                  src={transfer.icon}
-                  size="$7"
-                  circular={!transfer.isNFT}
-                  fallbackProps={{
-                    bg: '$bgStrong',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    children: (
-                      <Icon
-                        name={
-                          transfer.isNFT
-                            ? 'QuestionmarkOutline'
-                            : 'ImageMountainSolid'
-                        }
-                        color="$iconSubdued"
-                      />
-                    ),
-                  }}
+                <Token
+                  size="md"
+                  isNFT={transfer.isNFT}
+                  tokenImageUri={transfer.icon}
                 />
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'

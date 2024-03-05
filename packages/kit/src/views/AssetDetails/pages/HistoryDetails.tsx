@@ -199,9 +199,12 @@ function HistoryDetails() {
                   formatter="balance"
                   formatterOptions={{
                     tokenSymbol: asset.isNFT ? '' : asset.symbol,
+                    showPlusMinusSigns: true,
                   }}
                 >
-                  {transfer.amount}
+                  {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${
+                    transfer.amount
+                  }`}
                 </NumberSizeableText>
               }
               secondary={
@@ -253,20 +256,28 @@ function HistoryDetails() {
           formatter="balance"
           size="$bodyMd"
           color="$textSubdued"
+          formatterOptions={{
+            tokenSymbol: nativeToken?.symbol,
+          }}
         >
           {txDetails?.gasFee}
         </NumberSizeableText>
-        <NumberSizeableText
-          formatter="value"
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          size="$bodyMd"
-          color="$textSubdued"
-        >
-          {txDetails?.gasFeeFiatValue}
-        </NumberSizeableText>
+        <SizableText>
+          (
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {txDetails?.gasFeeFiatValue}
+          </NumberSizeableText>
+          )
+        </SizableText>
       </XStack>
     ),
     [
+      nativeToken?.symbol,
       settings.currencyInfo.symbol,
       txDetails?.gasFee,
       txDetails?.gasFeeFiatValue,

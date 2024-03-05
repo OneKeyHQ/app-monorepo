@@ -1,4 +1,4 @@
-import { Icon, Stack, XStack } from '@onekeyhq/components';
+import { Stack, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
