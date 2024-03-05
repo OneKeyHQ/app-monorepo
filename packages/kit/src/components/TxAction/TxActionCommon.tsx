@@ -1,8 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
@@ -107,7 +115,7 @@ function TxActionCommonDescription({
 function TxActionCommonChange({
   change,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'change' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'tableLayout'> & { change: string }) {
   return (
     <SizableText
       numberOfLines={1}
@@ -126,7 +134,9 @@ function TxActionCommonChange({
 
 function TxActionCommonChangeDescription({
   changeDescription,
-}: Pick<ITxActionCommonListViewProps, 'changeDescription' | 'tableLayout'>) {
+}: {
+  changeDescription: string;
+}) {
   return (
     <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
       {changeDescription || '-'}
@@ -137,17 +147,32 @@ function TxActionCommonChangeDescription({
 function TxActionCommonFee({
   fee,
   feeFiatValue,
-}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue'>) {
+  feeSymbol,
+  currencySymbol,
+}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
+  currencySymbol: string;
+}) {
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
         Gas Fee
       </SizableText>
       <XStack alignItems="center" space="$1">
-        <SizableText size="$bodyMd">{fee}</SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="balance"
+          formatterOptions={{ tokenSymbol: feeSymbol }}
+        >
+          {fee}
+        </NumberSizeableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{ currency: currencySymbol }}
+        >
           {feeFiatValue}
-        </SizableText>
+        </NumberSizeableText>
       </XStack>
     </Stack>
   );
@@ -164,11 +189,16 @@ function TxActionCommonListView(
     changeDescription,
     fee,
     feeFiatValue,
+    feeSymbol,
     timestamp,
     pending,
     tableLayout,
     ...rest
   } = props;
+
+  const [settings] = useSettingsPersistAtom();
+  const currencySymbol = settings.currencyInfo.symbol;
+
   return (
     <ListItem
       space="$2"
@@ -217,16 +247,26 @@ function TxActionCommonListView(
             alignItems: 'unset',
           })}
         >
-          <TxActionCommonChange change={change} tableLayout={tableLayout} />
-          {changeDescription && (
+          {typeof change === 'string' ? (
+            <TxActionCommonChange change={change} tableLayout={tableLayout} />
+          ) : (
+            change
+          )}
+          {typeof changeDescription === 'string' ? (
             <TxActionCommonChangeDescription
               changeDescription={changeDescription}
-              tableLayout={tableLayout}
             />
+          ) : (
+            changeDescription
           )}
         </Stack>
         {tableLayout && (
-          <TxActionCommonFee fee={fee} feeFiatValue={feeFiatValue} />
+          <TxActionCommonFee
+            fee={fee}
+            feeFiatValue={feeFiatValue}
+            feeSymbol={feeSymbol}
+            currencySymbol={currencySymbol}
+          />
         )}
       </XStack>
 

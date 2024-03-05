@@ -4,7 +4,13 @@ import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Image,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
@@ -15,7 +21,6 @@ import {
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
-import { getFormattedNumber } from '../../utils/format';
 import { Container } from '../Container';
 import { Token } from '../Token';
 
@@ -75,25 +80,25 @@ function getTxActionTransferInfo(props: ITxActionProps) {
 }
 
 function buildTransferChangeInfo({
-  currencySymbol,
-  changeSymbol,
+  changePrefix,
   transfers,
   intl,
 }: {
-  currencySymbol: string;
-  changeSymbol: string;
+  changePrefix: string;
   transfers: IDecodedTxTransferInfo[];
   intl: IntlShape;
 }) {
   let change = '';
+  let changeSymbol = '';
   let changeDescription = '';
 
   if (transfers.length === 1) {
     const amountBN = new BigNumber(transfers[0].amount).abs();
-    change = `${getFormattedNumber(amountBN) ?? '0'} ${transfers[0].symbol}`;
-    changeDescription = `${currencySymbol}${amountBN
+    change = amountBN.toFixed();
+    changeSymbol = transfers[0].symbol;
+    changeDescription = amountBN
       .multipliedBy(transfers[0].price ?? 0)
-      .toFixed(2)} `;
+      .toFixed();
   } else {
     const tokens = uniq(map(transfers, 'token'));
     if (tokens.length === 1) {
@@ -101,12 +106,12 @@ function buildTransferChangeInfo({
         (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
         new BigNumber(0),
       );
-      change = `${getFormattedNumber(totalAmountBN) || '0'} ${
-        transfers[0].symbol
-      }`;
-      changeDescription = `${currencySymbol}${totalAmountBN
+      change = totalAmountBN.toFixed();
+      changeSymbol = transfers[0].symbol;
+
+      changeDescription = totalAmountBN
         .multipliedBy(transfers[0].price ?? 0)
-        .toFixed(2)} `;
+        .toFixed();
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
@@ -116,28 +121,25 @@ function buildTransferChangeInfo({
         })}`;
         changeDescription = `${transfersWithToken[0].symbol} and more`;
       } else if (transfersWithNFT.length === 1) {
-        change = `${new BigNumber(transfersWithNFT[0].amount)
-          .abs()
-          .toFixed()} ${transfersWithNFT[0].symbol}`;
+        change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
+        changeSymbol = transfersWithNFT[0].symbol;
       } else {
-        const totalNFTs =
-          getFormattedNumber(
-            transfersWithNFT
-              .reduce(
-                (acc, transfer) =>
-                  acc.plus(new BigNumber(transfer.amount).abs()),
-                new BigNumber(0),
-              )
-              .toFixed(),
-          ) || '0';
-        change = `${totalNFTs} NFTs`;
+        const totalNFTs = transfersWithNFT
+          .reduce(
+            (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
+            new BigNumber(0),
+          )
+          .toFixed();
+        change = totalNFTs;
+        changeSymbol = 'NFTs';
         changeDescription = `${transfersWithNFT[0].symbol} and more`;
       }
     }
   }
 
   return {
-    change: `${changeSymbol} ${change}`,
+    change: `${changePrefix}${change}`,
+    changeSymbol,
     changeDescription,
   };
 }
@@ -146,7 +148,9 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps } = props;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
   const {
     sends,
     receives,
@@ -170,53 +174,90 @@ function TxActionTransferListView(props: ITxActionProps) {
       : 'ImageMountainSolid',
   };
   let title = '';
-  let change = '';
-  let changeDescription = '';
+  let change: React.ReactNode = '';
+  let changeSymbol = '';
+  let changeDescription: React.ReactNode = '';
+  let changeDescriptionSymbol = '';
 
   title = label;
 
   if (!isEmpty(sends) && isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
-      currencySymbol: settings.currencyInfo.symbol,
-      changeSymbol: '-',
+      changePrefix: '-',
       transfers: sends,
       intl,
     });
     change = changeInfo.change;
+    changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = sendNFTIcon || sendTokenIcon;
     title = intl.formatMessage({ id: 'action__send' });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
-      currencySymbol: settings.currencyInfo.symbol,
-      changeSymbol: '+',
+      changePrefix: '+',
       transfers: receives,
       intl,
     });
     change = changeInfo.change;
+    changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
-      currencySymbol: settings.currencyInfo.symbol,
-      changeSymbol: '-',
+      changePrefix: '-',
       transfers: sends,
       intl,
     });
     const receiveChangeInfo = buildTransferChangeInfo({
-      currencySymbol: settings.currencyInfo.symbol,
-      changeSymbol: '+',
+      changePrefix: '+',
       transfers: receives,
       intl,
     });
     change = receiveChangeInfo.change;
+    changeSymbol = receiveChangeInfo.changeSymbol;
     changeDescription = sendChangeInfo.change;
+    changeDescriptionSymbol = sendChangeInfo.changeSymbol;
     avatar.src = [
       sendNFTIcon || sendTokenIcon,
       receiveNFTIcon || receiveTokenIcon,
     ].filter(Boolean);
   }
+
+  change = (
+    <NumberSizeableText
+      formatter="balance"
+      formatterOptions={{
+        tokenSymbol: changeSymbol,
+        showPlusMinusSigns: true,
+      }}
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      {...((change as string)?.includes('+') && {
+        color: '$textSuccess',
+      })}
+      {...(tableLayout && {
+        size: '$bodyMdMedium',
+      })}
+    >
+      {change}
+    </NumberSizeableText>
+  );
+  changeDescription = (
+    <NumberSizeableText
+      formatter={changeDescriptionSymbol ? 'balance' : 'value'}
+      formatterOptions={{
+        tokenSymbol: changeDescriptionSymbol,
+        currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
+        showPlusMinusSigns: !!changeDescriptionSymbol,
+      }}
+      size="$bodyMd"
+      color="$textSubdued"
+      numberOfLines={1}
+    >
+      {changeDescription}
+    </NumberSizeableText>
+  );
 
   return (
     <TxActionCommonListView
@@ -228,6 +269,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       tableLayout={tableLayout}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       {...componentProps}
     />

@@ -1,9 +1,4 @@
-import BigNumber from 'bignumber.js';
-
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
-
-import { getFormattedNumber } from '../utils/format';
 
 import { useAccountData } from './useAccountData';
 
@@ -12,23 +7,17 @@ export function useFeeInfoInDecodedTx({
 }: {
   decodedTx: IDecodedTx;
 }) {
-  const [settings] = useSettingsPersistAtom();
   const { network } = useAccountData({
     networkId: decodedTx.networkId,
   });
 
   const { totalFeeInNative, totalFeeFiatValue } = decodedTx;
-  const txFee = totalFeeInNative
-    ? `${getFormattedNumber(totalFeeInNative) ?? ''} ${network?.symbol ?? ''}`
-    : '';
-  const txFeeFiatValue = totalFeeFiatValue
-    ? `${settings.currencyInfo.symbol}${new BigNumber(
-        totalFeeFiatValue,
-      ).toFixed(2)}`
-    : '';
+  const txFee = totalFeeInNative ?? '0';
+  const txFeeFiatValue = totalFeeFiatValue ?? '0';
 
   return {
     txFee,
     txFeeFiatValue,
+    txFeeSymbol: network?.symbol ?? '',
   };
 }

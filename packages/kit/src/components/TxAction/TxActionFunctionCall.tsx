@@ -35,14 +35,15 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps } = props;
-  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
 
   const { functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
 
   const title = functionName;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: true,
     src: functionIcon,
     fallbackIcon: 'ImageMountainSolid',
   };
@@ -59,6 +60,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
       {...componentProps}
     />
   );
