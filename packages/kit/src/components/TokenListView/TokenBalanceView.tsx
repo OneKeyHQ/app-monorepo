@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { SizableText } from '@onekeyhq/components';
+import { NumberSizeableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
-import { getFormattedNumber } from '../../utils/format';
 
 type IProps = {
   $key: string;
@@ -16,13 +15,17 @@ function TokenBalanceView(props: IProps) {
   const [tokenListMap] = useTokenListMapAtom();
   const token = tokenListMap[$key || ''];
 
-  const balance = getFormattedNumber(token?.balanceParsed);
-
   const content = useMemo(
     () => (
-      <SizableText {...rest}>{`${balance ?? 0} ${symbol ?? ''}`}</SizableText>
+      <NumberSizeableText
+        formatter="balance"
+        formatterOptions={{ tokenSymbol: symbol }}
+        {...rest}
+      >
+        {token?.balanceParsed ?? '0'}
+      </NumberSizeableText>
     ),
-    [balance, rest, symbol],
+    [rest, symbol, token?.balanceParsed],
   );
   return content;
 }

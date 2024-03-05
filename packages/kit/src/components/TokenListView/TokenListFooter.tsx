@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Divider, Icon, Stack } from '@onekeyhq/components';
+import { Divider, Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -129,6 +129,12 @@ function TokenListFooter(props: IProps) {
               primaryTextProps: { size: '$bodyMd' },
             })}
           />
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          >
+            {smallBalanceTokensFiatValue}
+          </NumberSizeableText>
         </ListItem>
       )}
       {riskyTokens.length > 0 && (

@@ -167,11 +167,13 @@ function TxActionTransferListView(props: ITxActionProps) {
       address: transferTarget,
     }),
   };
+
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    isNFT: !(sendNFTIcon || receiveNFTIcon),
-    fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
-      ? 'QuestionmarkSolid'
-      : 'ImageMountainSolid',
+    isNFT: !!(sendNFTIcon || receiveNFTIcon),
+    fallbackIcon:
+      sendNFTIcon || receiveNFTIcon
+        ? 'ImageMountainSolid'
+        : 'QuestionmarkSolid',
   };
   let title = '';
   let change: React.ReactNode = '';

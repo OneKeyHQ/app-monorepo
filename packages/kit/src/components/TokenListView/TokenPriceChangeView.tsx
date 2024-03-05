@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { SizableText } from '@onekeyhq/components';
+import { NumberSizeableText } from '@onekeyhq/components';
 
 import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 
@@ -26,10 +26,14 @@ function TokenPriceChangeView(props: IProps) {
       changeColor = '$textCritical';
     }
     return (
-      <SizableText color={changeColor} {...rest}>
-        {priceChangeBN.isGreaterThanOrEqualTo(0) && '+'}
-        {new BigNumber(priceChange).toFixed(2)}%
-      </SizableText>
+      <NumberSizeableText
+        formatter="priceChange"
+        formatterOptions={{ showPlusMinusSigns: true }}
+        color={changeColor}
+        {...rest}
+      >
+        {priceChange}
+      </NumberSizeableText>
     );
   }, [priceChange, rest]);
   return content;
