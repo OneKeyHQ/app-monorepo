@@ -1,9 +1,6 @@
-import { memo, useMemo } from 'react';
-
-import BigNumber from 'bignumber.js';
+import { memo } from 'react';
 
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,

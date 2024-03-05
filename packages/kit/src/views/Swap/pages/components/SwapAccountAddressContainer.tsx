@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
@@ -29,14 +30,17 @@ const SwapAccountAddressContainer = ({
     return (
       <Button
         onPress={() => {
-          navigation.push(EModalSwapRoutes.SwapToAnotherAddress);
+          navigation.pushModal(EModalRoutes.SwapModal, {
+            screen: EModalSwapRoutes.SwapToAnotherAddress,
+            params: { type },
+          });
         }}
         variant="tertiary"
       >
         No Address
       </Button>
     );
-  }, [navigation, swapAddressInfo]);
+  }, [navigation, swapAddressInfo.accountInfo, swapAddressInfo.address, type]);
 
   return (
     <XStack>

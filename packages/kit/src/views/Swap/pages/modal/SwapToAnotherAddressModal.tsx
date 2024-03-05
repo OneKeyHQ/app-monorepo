@@ -1,5 +1,6 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -21,22 +22,42 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/types';
+import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
+import type { RouteProp } from '@react-navigation/core';
+import type { SubmitHandler } from 'react-hook-form';
+
+interface IFormType {
+  address: IAddressInputValue;
+}
 
 const SwapToAnotherAddressPage = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const type = useMemo(
+    () => route.params?.type ?? ESwapDirectionType.FROM,
+    [route.params?.type],
+  );
   const { accountInfo, networkId, address } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
+
   const [, setSettings] = useSettingsPersistAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const actions = useAccountSelectorActions();
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
-      address: { raw: '' } as IAddressInputValue,
+      address: {
+        raw: '',
+      } as IAddressInputValue,
     },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
   });
 
   useEffect(() => {
@@ -64,21 +85,24 @@ const SwapToAnotherAddressPage = () => {
       activeWallet: accountInfo?.wallet,
       num: 1,
       navigation,
-      sceneName: EAccountSelectorSceneName.home,
+      sceneName: EAccountSelectorSceneName.swap,
     });
   }, [accountInfo?.wallet, actions, navigation, setSettings]);
 
-  const handleOnConfirm = useCallback(() => {
-    const finallyAddress = form.getValues('address').resolved;
-    if (!finallyAddress) return;
-    setSwapToAddress((v) => ({
-      ...v,
-      address: finallyAddress,
-      networkId,
-      accountInfo,
-    }));
-    navigation.pop();
-  }, [accountInfo, form, navigation, networkId, setSwapToAddress]);
+  const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
+    (data) => {
+      const finallyAddress = data.address.resolved;
+      if (!finallyAddress) return;
+      setSwapToAddress((v) => ({
+        ...v,
+        address: finallyAddress,
+        networkId,
+        accountInfo,
+      }));
+      navigation.pop();
+    },
+    [accountInfo, navigation, networkId, setSwapToAddress],
+  );
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
@@ -88,41 +112,51 @@ const SwapToAnotherAddressPage = () => {
         } address for ${accountInfo.wallet?.name ?? 'unknown'} - ${
           accountInfo.accountName
         }`}</Button>
-        <Button
-          mt="$4"
-          onPress={handleOnOpenAccountSelector}
-          variant="tertiary"
-        >
-          Select Another Account
-        </Button>
-        <Form form={form}>
-          <Form.Field
-            label="Enter a address"
-            name="address"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return intl.formatMessage({ id: 'form__address_invalid' });
-                }
-              },
-            }}
-          >
-            <AddressInput
-              networkId={accountInfo?.network?.id}
-              enableAddressBook
-              plugins={allAddressInputPlugins}
-            />
-          </Form.Field>
-        </Form>
+        {type === ESwapDirectionType.TO ? (
+          <>
+            <Button
+              mt="$4"
+              onPress={handleOnOpenAccountSelector}
+              variant="tertiary"
+            >
+              Select Another Account
+            </Button>
+            <Form form={form}>
+              <Form.Field
+                label="Enter a address"
+                name="address"
+                rules={{
+                  required: true,
+                  validate: (value: IAddressInputValue) => {
+                    if (value.pending) {
+                      return;
+                    }
+                    if (!value.resolved) {
+                      return intl.formatMessage({
+                        id: 'form__address_invalid',
+                      });
+                    }
+                  },
+                }}
+              >
+                <AddressInput
+                  networkId={accountInfo?.network?.id}
+                  enableAddressBook
+                  plugins={allAddressInputPlugins}
+                />
+              </Form.Field>
+            </Form>
+          </>
+        ) : null}
       </Page.Body>
-      <Page.Footer
-        onConfirm={handleOnConfirm}
-        onConfirmText={intl.formatMessage({ id: 'action__confirm' })}
-      />
+      {type === ESwapDirectionType.TO ? (
+        <Page.Footer
+          onConfirm={() => form.handleSubmit(handleOnConfirm)()}
+          onConfirmText={intl.formatMessage({
+            id: 'action__confirm',
+          })}
+        />
+      ) : null}
     </Page>
   ) : (
     <Button
