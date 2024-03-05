@@ -7,7 +7,7 @@ import {
   SizableText,
 } from '@onekeyhq/components';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function Header() {
   const locale = useLocaleVariant();
