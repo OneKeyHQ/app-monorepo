@@ -11,6 +11,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
@@ -139,6 +140,24 @@ const ProtectionItem = () => {
   ) : null;
 };
 
+const ConnectedSitesItem = () => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+      screen: EDAppConnectionModal.ConnectionList,
+    });
+  }, [navigation]);
+  return (
+    <ListItem
+      title="Connected Sites"
+      icon="LinkOutline"
+      drillIn
+      onPress={onPress}
+    />
+  );
+};
+
 export const SecuritySection = () => {
   const intl = useIntl();
   return (
@@ -148,6 +167,7 @@ export const SecuritySection = () => {
       </Suspense>
       <AppAutoLockItem />
       <PasswordItem />
+      <ConnectedSitesItem />
       <ProtectionItem />
       <CleanDataItem />
     </Section>
