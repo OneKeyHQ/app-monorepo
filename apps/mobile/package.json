@@ -28,7 +28,7 @@
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
-    "@onekeyfe/react-native-lite-card": "1.0.1",
+    "@onekeyfe/react-native-lite-card": "1.0.3",
     "@onekeyfe/react-native-tab-page-view": "1.0.0",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",

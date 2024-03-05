@@ -4,6 +4,7 @@ import { AnimatePresence } from 'tamagui';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
+import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -68,7 +69,7 @@ function FinalizeWalletSetupPage({
 
     if (currentStep === steps.length - 1) {
       setTimeout(() => {
-        navigation.popStack();
+        navigation.navigate(ERootRoutes.Main);
       }, 1000);
     }
 

@@ -9,6 +9,7 @@ import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Rout
 import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
 import type { IModalReceiveParamList } from '../../views/Receive/router/type';
 import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
+import type { ILiteCardParamList } from '../../views/LiteCard/router/types';
 import type { IModalSendParamList } from '../../views/Send/router';
 import type { IModalSettingParamList } from '../../views/Setting/router/types';
 import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
@@ -25,6 +26,7 @@ export enum EModalRoutes {
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
+  LiteCardModal = 'LiteCardModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
 }
@@ -42,6 +44,7 @@ export type IModalParamList = {
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
+  [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
 };

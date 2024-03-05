@@ -26,6 +26,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EDAppConnectionModal } from '../../../views/DAppConnection/router';
 import { EOnboardingPages } from '../../../views/Onboarding/router/type';
+import { ELiteCardRoutes } from '../../../views/LiteCard/router/types';
 import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
@@ -171,6 +172,15 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.LiteCardModal, {
+                screen: ELiteCardRoutes.LiteCardHome,
+              });
+            }}
+          >
+            Lite 卡片
           </Button>
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}
