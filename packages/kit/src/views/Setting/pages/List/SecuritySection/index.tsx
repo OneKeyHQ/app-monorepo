@@ -3,7 +3,7 @@ import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Switch } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
@@ -16,7 +16,6 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
-  useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import { useOptions } from '../../AppAutoLock/useOptions';
@@ -120,26 +119,6 @@ const FaceIdItem = () => {
   ) : null;
 };
 
-const EnableSystemIdleTimeItem = () => {
-  const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
-  const [supportSystemIdle] = useSystemIdleLockSupport();
-  const icon: ComponentProps<typeof ListItem>['icon'] =
-    'ClockTimeHistoryOutline';
-
-  return supportSystemIdle ? (
-    <ListItem icon={icon} title="启用系统闲置自动锁定">
-      <Switch
-        value={enableSystemIdleLock}
-        onChange={async (checked) => {
-          await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
-            checked,
-          );
-        }}
-      />
-    </ListItem>
-  ) : null;
-};
-
 const ProtectionItem = () => {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
@@ -168,7 +147,6 @@ export const SecuritySection = () => {
         <FaceIdItem />
       </Suspense>
       <AppAutoLockItem />
-      <EnableSystemIdleTimeItem />
       <PasswordItem />
       <ProtectionItem />
       <CleanDataItem />

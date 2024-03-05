@@ -35,10 +35,10 @@ export const ResourceSection = () => {
         title={intl.formatMessage({ id: 'terms__privacy_policy' })}
         url={privacyPolicyUrl}
       />
-      <UrlExternalListItem
+      <ListItem
         icon="Document2Outline"
+        onPress={onPress}
         title={intl.formatMessage({ id: 'content__state_logs' })}
-        url={privacyPolicyUrl}
       />
     </Section>
   );

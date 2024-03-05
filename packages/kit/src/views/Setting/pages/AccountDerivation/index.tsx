@@ -111,6 +111,7 @@ const SolanaAccountDerivation = () => {
     {
       label: 'Ledger Live',
       value: 'Ledger Live',
+      // eslint-disable-next-line spellcheck/spell-checker
       description: `Ledger Live, Solflare, m/44'/501'/*'`,
     },
   ]);
@@ -137,12 +138,13 @@ const LiteCoinAccountDerivation = () => {
     {
       label: 'Native SegWit',
       value: 'Native SegWit',
-      description: `Starts with with “ltc1”. BIP84, P2WPKH, Bech32.`,
+      // eslint-disable-next-line spellcheck/spell-checker
+      description: `Starts with with "ltc1". BIP84, P2WPKH, Bech32.`,
     },
     {
       label: 'Legacy',
       value: 'Legacy',
-      description: `Starts with “L”. BIP44, P2PKH, Base58.`,
+      description: `Starts with "L". BIP44, P2PKH, Base58.`,
     },
   ]);
   const [val, setVal] = useState(ref.current[0].value);

@@ -44,7 +44,11 @@ const SocialButtonGroup = () => (
       </XStack>
     </XStack>
     <XStack justifyContent="center" py="$4">
-      <SizableText color="$textSubdued" onPress={handleOpenDevMode}>
+      <SizableText
+        selectable={false}
+        color="$textSubdued"
+        onPress={handleOpenDevMode}
+      >
         Version: 4.18.0-2023122162
       </SizableText>
     </XStack>
