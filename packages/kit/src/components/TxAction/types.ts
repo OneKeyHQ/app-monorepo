@@ -32,13 +32,14 @@ export type ITxActionCommonListViewProps = {
   title: string;
   fee?: string;
   feeFiatValue?: string;
+  feeSymbol?: string;
   description?: {
     prefix?: string;
     icon?: IKeyOfIcons;
     children?: string;
   };
-  change?: string;
-  changeDescription?: string;
+  change?: React.ReactNode;
+  changeDescription?: React.ReactNode;
   timestamp?: number;
   pending?: boolean;
   tableLayout?: boolean;

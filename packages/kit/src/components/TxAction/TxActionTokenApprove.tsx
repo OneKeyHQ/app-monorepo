@@ -1,5 +1,6 @@
 import { useIntl } from 'react-intl';
 
+import { NumberSizeableText } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
@@ -38,7 +39,9 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 function TxActionTokenApproveListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps } = props;
   const intl = useIntl();
-  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
 
   const {
     approveIcon,
@@ -50,7 +53,6 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
 
   const title = intl.formatMessage({ id: 'title__approve' });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: true,
     src: approveIcon,
     fallbackIcon: 'ImageMountainSolid',
   };
@@ -60,6 +62,20 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     }),
   };
 
+  const changeDescription = (
+    <NumberSizeableText
+      formatter="balance"
+      formatterOptions={{
+        tokenSymbol: approveSymbol,
+      }}
+      size="$bodyMd"
+      color="$textSubdued"
+      numberOfLines={1}
+    >
+      {approveAmount}
+    </NumberSizeableText>
+  );
+
   return (
     <TxActionCommonListView
       title={title}
@@ -67,9 +83,10 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       description={description}
       tableLayout={tableLayout}
       change={approveName}
-      changeDescription={`${approveAmount} ${approveSymbol}`}
+      changeDescription={changeDescription}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       {...componentProps}
     />

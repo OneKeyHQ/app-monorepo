@@ -262,7 +262,7 @@ function HistoryDetails() {
         >
           {txDetails?.gasFee}
         </NumberSizeableText>
-        <SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
           (
           <NumberSizeableText
             formatter="value"

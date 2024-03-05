@@ -1,4 +1,3 @@
-import { Stack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';

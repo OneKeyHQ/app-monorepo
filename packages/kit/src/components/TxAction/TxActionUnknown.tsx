@@ -29,13 +29,14 @@ function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
   const { tableLayout, decodedTx, componentProps } = props;
   const { unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
-  const { txFee, txFeeFiatValue } = useFeeInfoInDecodedTx({ decodedTx });
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
 
   const title = intl.formatMessage({
     id: 'transaction__contract_interaction',
   });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: true,
     src: unknownIcon,
     fallbackIcon: 'QuestionmarkOutline',
   };
@@ -51,6 +52,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
       tableLayout={tableLayout}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       {...componentProps}
     />
