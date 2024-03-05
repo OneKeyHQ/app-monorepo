@@ -2,20 +2,27 @@ import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import PasswordVerify from '../components/PasswordVerify';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
+  onLayout: (e: LayoutChangeEvent) => void;
 }
 
 interface IPasswordVerifyForm {
   password: string;
 }
 
-const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
+const PasswordVerifyContainer = ({
+  onVerifyRes,
+  onLayout,
+}: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
   const [status, setStatues] = useState<{
@@ -66,16 +73,18 @@ const PasswordVerifyContainer = ({ onVerifyRes }: IPasswordVerifyProps) => {
   );
 
   return (
-    <PasswordVerify
-      onPasswordChange={() => {
-        setStatues({ value: 'default' });
-      }}
-      status={status}
-      onBiologyAuth={onBiologyAuthenticate}
-      onInputPasswordAuth={onInputPasswordAuthenticate}
-      isEnable={isEnable}
-      authType={authType}
-    />
+    <Stack onLayout={onLayout}>
+      <PasswordVerify
+        onPasswordChange={() => {
+          setStatues({ value: 'default' });
+        }}
+        status={status}
+        onBiologyAuth={onBiologyAuthenticate}
+        onInputPasswordAuth={onInputPasswordAuthenticate}
+        isEnable={isEnable}
+        authType={authType}
+      />
+    </Stack>
   );
 };
 export default memo(PasswordVerifyContainer);
