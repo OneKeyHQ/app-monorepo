@@ -13,7 +13,7 @@ type ITokenProps = {
   isNFT?: boolean;
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];
-  chainImageUri?: ImageURISource['uri'];
+  networkImageUri?: ImageURISource['uri'];
 } & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
@@ -35,7 +35,7 @@ export function Token({
   isNFT,
   size,
   tokenImageUri,
-  chainImageUri,
+  networkImageUri,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
@@ -68,7 +68,7 @@ export function Token({
     </Image>
   );
 
-  if (!chainImageUri) return tokenImage;
+  if (!networkImageUri) return tokenImage;
 
   return (
     <Stack position="relative" width={tokenImageSize} height={tokenImageSize}>
@@ -89,7 +89,7 @@ export function Token({
         >
           <Image.Source
             source={{
-              uri: chainImageUri,
+              uri: networkImageUri,
             }}
           />
           <Image.Fallback bg="$bgStrong" delayMs={1000}>
