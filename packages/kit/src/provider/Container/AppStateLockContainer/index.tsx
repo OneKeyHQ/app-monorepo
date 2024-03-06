@@ -9,6 +9,7 @@ import {
   useAppIsLockedAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useWebAuthActions } from '../../../components/BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
@@ -24,7 +25,12 @@ export function AppStateLockContainer({
   const [isLocked] = useAppIsLockedAtom();
   const { verifiedPasswordWebAuth } = useWebAuthActions();
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
-  const [isPreloadChildren, setIsPreloadChildren] = useState(false);
+  // Pre-rendering on the web platform not only does not improve the rendering speed of the lock screen interface,
+  // but also causes the input box to be unable to auto focus.
+  const [isPreloadChildren, setIsPreloadChildren] = useState(
+    // only works on native.
+    platformEnv.isRuntimeBrowser,
+  );
   const showChildren = useCallback(() => {
     setTimeout(() => {
       setIsPreloadChildren(true);
@@ -46,7 +52,7 @@ export function AppStateLockContainer({
   const isShowChildren = !isLocked || isPreloadChildren;
   return (
     <>
-      {/* {isShowChildren ? children : null} */}
+      {isShowChildren ? children : null}
       {!isLocked && <AppStateUpdater />}
       <AnimatePresence>
         {isLocked && (
