@@ -1,6 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 
-import { LightingInvoice, QrCode } from '../pages';
+import { CreateInvoice } from '../pages/CreateInvoice';
+import { ReceiveInvoice } from '../pages/ReceiveInvoice';
+import { ReceiveToken } from '../pages/ReceiveToken';
 
 import { EModalReceiveRoutes } from './type';
 
@@ -11,11 +13,15 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   IModalReceiveParamList
 >[] = [
   {
-    name: EModalReceiveRoutes.QrCode,
-    component: QrCode,
+    name: EModalReceiveRoutes.ReceiveToken,
+    component: ReceiveToken,
   },
   {
-    name: EModalReceiveRoutes.LightingInvoice,
-    component: LightingInvoice,
+    name: EModalReceiveRoutes.CreateInvoice,
+    component: CreateInvoice,
+  },
+  {
+    name: EModalReceiveRoutes.ReceiveInvoice,
+    component: ReceiveInvoice,
   },
 ];

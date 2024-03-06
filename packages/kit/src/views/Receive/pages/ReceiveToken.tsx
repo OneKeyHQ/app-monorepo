@@ -20,12 +20,9 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 
-export const LightingInvoice = () => null;
-export const QrCode = () => null;
-
 type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
-export function Receive() {
+function ReceiveToken() {
   const [chain] = useState('Bitcoin');
   const [addressType] = useState('Nested SegWit');
   const [isHardwareWallet] = useState(true);
@@ -199,7 +196,7 @@ export function Receive() {
                 onPress={handleVerifyOnDevicePress}
                 disabled={addressState === 'verifying'}
               >
-                Verfiy on Device
+                Verify on Device
               </Button>
             ) : (
               <Button icon="Copy1Outline" onPress={handleCopyAddressPress}>
@@ -212,3 +209,5 @@ export function Receive() {
     </Page>
   );
 }
+
+export { ReceiveToken };
