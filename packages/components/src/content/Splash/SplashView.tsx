@@ -7,6 +7,7 @@ import { Image, Stack } from '../../primitives';
 import type { ISplashViewProps } from './type';
 
 const removeWebLogo = () => {
+  document.documentElement.style.removeProperty('background-color');
   const img = document.querySelector('.onekey-index-html-preload-image');
   img?.remove();
 };

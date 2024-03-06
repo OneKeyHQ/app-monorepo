@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { Page, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/utils/themePreload';
 import {
   type ISettingsPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { setThemePreloadToLocalStorage } from '../../../../utils/themePreload';
 import {
   type IListItemSelectOption,
   ListItemSelect,
