@@ -110,7 +110,7 @@ jobs:
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/cloudflare-worker-webhooks@main
         with:
-          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          web-hook-url: ${{ secrets.CLOUD_FLARE_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Extension
           artifact-name: OneKey-Extension-RN
