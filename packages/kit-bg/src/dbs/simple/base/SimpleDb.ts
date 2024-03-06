@@ -6,6 +6,7 @@ import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
@@ -32,4 +33,6 @@ export class SimpleDb {
   addressBook = new SimpleDbEntityAddressBook();
 
   localHistory = new SimpleDbEntityLocalHistory();
+
+  riskyTokens = new SimpleDbEntityRiskyTokens();
 }

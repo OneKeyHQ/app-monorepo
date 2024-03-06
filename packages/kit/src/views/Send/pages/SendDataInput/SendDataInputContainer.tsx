@@ -1,31 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import {
-  Form,
-  Icon,
-  Input,
-  Page,
-  SizableText,
-  useForm,
-} from '@onekeyhq/components';
+import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
   type IAddressInputValue,
   allAddressInputPlugins,
 } from '@onekeyhq/kit/src/common/components/AddressInput';
+import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -35,7 +33,7 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
-import AmountInput from '../../components/AmountInput';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
 
 import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
@@ -47,6 +45,10 @@ function SendDataInputContainer() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
+
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
 
@@ -164,27 +166,17 @@ function SendDataInputContainer() {
         params: {
           networkId,
           accountId,
+          tokens: {
+            data: allTokens.tokens,
+            keys: allTokens.keys,
+            map,
+          },
           onSelect: (data: IToken) => {
             setTokenInfo(data);
           },
         },
       }),
-    [accountId, navigation, networkId],
-  );
-  const handleOnChangeAmountPercent = useCallback(
-    (percent: number) => {
-      form.setValue(
-        'amount',
-        new BigNumber(
-          (isUseFiat ? tokenDetails?.fiatValue : tokenDetails?.balanceParsed) ??
-            0,
-        )
-          .times(percent)
-          .toFixed(),
-      );
-      void form.trigger('amount');
-    },
-    [form, isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
+    [accountId, allTokens.keys, allTokens.tokens, map, navigation, networkId],
   );
   const handleOnConfirm = useCallback(async () => {
     try {
@@ -287,16 +279,9 @@ function SendDataInputContainer() {
   const maxAmount = useMemo(
     () =>
       isUseFiat
-        ? `${currencySymbol}${
-            getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0
-          }`
+        ? `${getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0}`
         : `${getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}`,
-    [
-      currencySymbol,
-      isUseFiat,
-      tokenDetails?.balanceParsed,
-      tokenDetails?.fiatValue,
-    ],
+    [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
   );
 
   const renderTokenDataInputForm = useCallback(
@@ -329,13 +314,29 @@ function SendDataInputContainer() {
         }}
       >
         <AmountInput
-          isUseFiat={isUseFiat}
-          maxAmount={maxAmount}
-          linkedAmount={linkedAmount}
-          tokenSymbol={tokenSymbol}
-          currencySymbol={currencySymbol}
-          onChangePercent={handleOnChangeAmountPercent}
-          onChangeAmountMode={handleOnChangeAmountMode}
+          reversible
+          enableMaxAmount
+          balanceProps={{
+            loading: isLoadingAssets,
+            value: maxAmount,
+            onPress: () => form.setValue('amount', maxAmount),
+          }}
+          valueProps={{
+            value: isUseFiat
+              ? `${linkedAmount} ${tokenSymbol}`
+              : `${currencySymbol}${linkedAmount}`,
+            onPress: handleOnChangeAmountMode,
+          }}
+          tokenSelectorTriggerProps={{
+            selectedTokenImageUri: isNFT
+              ? nft?.metadata?.image
+              : tokenInfo?.logoURI,
+            selectedNetworkImageUri: network?.logoURI,
+            selectedTokenSymbol: isNFT
+              ? nft?.metadata?.name
+              : tokenInfo?.symbol,
+            onPress: isNFT ? undefined : handleOnSelectToken,
+          }}
         />
       </Form.Field>
     ),
@@ -343,13 +344,20 @@ function SendDataInputContainer() {
       currencySymbol,
       form,
       handleOnChangeAmountMode,
-      handleOnChangeAmountPercent,
+      handleOnSelectToken,
       handleValidateTokenAmount,
       intl,
+      isLoadingAssets,
+      isNFT,
       isUseFiat,
       linkedAmount,
       maxAmount,
+      network?.logoURI,
+      nft?.metadata?.image,
+      nft?.metadata?.name,
       tokenDetails?.info.decimals,
+      tokenInfo?.logoURI,
+      tokenInfo?.symbol,
       tokenSymbol,
     ],
   );
@@ -390,38 +398,36 @@ function SendDataInputContainer() {
       <Page.Header title="Send" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: 'form__token' })}
-            name="token"
-          >
-            <ListItem
-              avatarProps={{
-                src: isNFT ? nft?.metadata?.image : tokenInfo?.logoURI,
-                borderRadius: '$full',
-                cornerImageProps: {
-                  src: network?.logoURI,
-                },
-              }}
-              mx="$0"
-              borderWidth={1}
-              borderColor="$border"
-              onPress={isNFT ? undefined : handleOnSelectToken}
-              borderRadius="$2"
+          {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+            <Form.Field
+              label={intl.formatMessage({ id: 'form__token' })}
+              name="token"
             >
-              <ListItem.Text
-                flex={1}
-                primary={isNFT ? nft?.metadata?.name : tokenInfo?.symbol}
-                secondary={
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {tokenInfo?.name}
-                  </SizableText>
-                }
-              />
-              {!isNFT && (
-                <Icon name="ChevronGrabberVerOutline" color="$iconSubdued" />
-              )}
-            </ListItem>
-          </Form.Field>
+              <ListItem
+                avatarProps={{
+                  src: nft?.metadata?.image,
+                  borderRadius: '$full',
+                  cornerImageProps: {
+                    src: network?.logoURI,
+                  },
+                }}
+                mx="$0"
+                borderWidth={1}
+                borderColor="$border"
+                borderRadius="$2"
+              >
+                <ListItem.Text
+                  flex={1}
+                  primary={nft?.metadata?.name}
+                  secondary={
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {tokenInfo?.name}
+                    </SizableText>
+                  }
+                />
+              </ListItem>
+            </Form.Field>
+          ) : null}
           <Form.Field
             label={intl.formatMessage({ id: 'content__to' })}
             name="to"
@@ -440,6 +446,7 @@ function SendDataInputContainer() {
             <AddressInput
               networkId={networkId}
               enableAddressBook
+              enableWalletName
               plugins={allAddressInputPlugins}
             />
           </Form.Field>
@@ -458,4 +465,12 @@ function SendDataInputContainer() {
   );
 }
 
-export { SendDataInputContainer };
+const SendDataInputContainerWithProvider = memo(() => (
+  <HomeTokenListProviderMirror>
+    <SendDataInputContainer />
+  </HomeTokenListProviderMirror>
+));
+SendDataInputContainerWithProvider.displayName =
+  'SendDataInputContainerWithProvider';
+
+export { SendDataInputContainer, SendDataInputContainerWithProvider };

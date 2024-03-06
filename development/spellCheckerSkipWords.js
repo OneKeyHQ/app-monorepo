@@ -638,4 +638,5 @@ module.exports = [
   'compat',
   'replacer',
   'invoker',
+  'ecrecover',
 ];

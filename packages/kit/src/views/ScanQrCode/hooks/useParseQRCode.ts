@@ -15,6 +15,7 @@ import type {
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
+  IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -43,40 +44,47 @@ const useParseQRCode = () => {
       }
       switch (result.type) {
         case EQRCodeHandlerType.BITCOIN:
-        case EQRCodeHandlerType.ETHEREUM: {
-          if (!account) {
-            break;
-          }
-          const chainValue = result.data as IChainValue;
-          const network = chainValue?.network;
-          if (!network) {
-            break;
-          }
-          navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-            screen: EAssetSelectorRoutes.TokenSelector,
-            params: {
-              networkId: network.id,
-              accountId: account.id,
-              networkName: network.name,
-              // tokens,
-              onSelect: async (token) => {
-                await timerUtils.wait(600);
-                navigation.pushModal(EModalRoutes.SendModal, {
-                  screen: EModalSendRoutes.SendDataInput,
-                  params: {
-                    accountId: account.id,
-                    networkId: network.id,
-                    isNFT: false,
-                    token,
-                    address: chainValue?.address,
-                    amount: chainValue?.amount,
-                  },
-                });
+        case EQRCodeHandlerType.ETHEREUM:
+          {
+            if (!account) {
+              break;
+            }
+            const chainValue = result.data as IChainValue;
+            const network = chainValue?.network;
+            if (!network) {
+              break;
+            }
+            navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+              screen: EAssetSelectorRoutes.TokenSelector,
+              params: {
+                networkId: network.id,
+                accountId: account.id,
+                networkName: network.name,
+                // tokens,
+                onSelect: async (token) => {
+                  await timerUtils.wait(600);
+                  navigation.pushModal(EModalRoutes.SendModal, {
+                    screen: EModalSendRoutes.SendDataInput,
+                    params: {
+                      accountId: account.id,
+                      networkId: network.id,
+                      isNFT: false,
+                      token,
+                      address: chainValue?.address,
+                      amount: chainValue?.amount,
+                    },
+                  });
+                },
               },
-            },
-          });
+            });
+          }
           break;
-        }
+        case EQRCodeHandlerType.WALLET_CONNECT:
+          {
+            const wcValue = result.data as IWalletConnectValue;
+            void backgroundApiProxy.walletConnect.connect(wcValue.wcUri);
+          }
+          break;
         default: {
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),
@@ -92,7 +100,6 @@ const useParseQRCode = () => {
               clipboard?.copyText(value);
             },
           });
-          break;
         }
       }
       return result;

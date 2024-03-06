@@ -116,6 +116,7 @@ export type IDecodedTxTransferInfo = {
   isNative?: boolean;
   isNFT?: boolean;
   label?: string;
+  price?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -134,6 +135,7 @@ export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
+  name: string;
   isMax: boolean;
   tokenIdOnNetwork: string;
   label?: string;

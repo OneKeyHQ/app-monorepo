@@ -10,6 +10,7 @@ import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserT
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 import type { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
@@ -75,4 +76,8 @@ export class SimpleDbProxy
   localHistory = this._createProxyService(
     'localHistory',
   ) as SimpleDbEntityLocalHistory;
+
+  riskyTokens = this._createProxyService(
+    'riskyTokens',
+  ) as SimpleDbEntityRiskyTokens;
 }

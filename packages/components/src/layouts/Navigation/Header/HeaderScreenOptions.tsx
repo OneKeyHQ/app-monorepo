@@ -52,6 +52,7 @@ export function makeHeaderScreenOptions({
       */
       headerTransparent: false,
       headerTitleAlign: 'left',
+      // TODO: don't override the headerLeft on iOS
       headerLeft: (props: HeaderBackButtonProps): ReactNode => (
         <HeaderBackButton
           onPress={currentNavigation?.goBack}
