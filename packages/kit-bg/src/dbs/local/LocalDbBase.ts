@@ -303,6 +303,19 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     return false;
   }
 
+  async resetPasswordSet(): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.verifyString = DEFAULT_VERIFY_STRING;
+          return record;
+        },
+      });
+    });
+  }
+
   async txUpdateAllCredentialsPassword({
     tx,
     oldPassword,
