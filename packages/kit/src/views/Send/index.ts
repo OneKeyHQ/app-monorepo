@@ -1,4 +1,7 @@
-export { SendDataInputContainer as SendDataInput } from './pages/SendDataInput/SendDataInputContainer';
+export {
+  SendDataInputContainer as SendDataInput,
+  SendDataInputContainerWithProvider as SendDataInputWithProvider,
+} from './pages/SendDataInput/SendDataInputContainer';
 export {
   SendConfirmContainer as SendConfirm,
   SendConfirmContainerWithProvider as SendConfirmWithProvider,

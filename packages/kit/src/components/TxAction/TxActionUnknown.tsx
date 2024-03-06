@@ -2,6 +2,8 @@ import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+
 import {
   TxActionCommonDetailView,
   TxActionCommonListView,
@@ -25,19 +27,20 @@ function getTxActionUnknownInfo(props: ITxActionProps) {
 
 function TxActionUnknownListView(props: ITxActionProps) {
   const intl = useIntl();
-  const { tableLayout } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon } = props;
   const { unknownTo, unknownIcon } = getTxActionUnknownInfo(props);
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
 
   const title = intl.formatMessage({
     id: 'transaction__contract_interaction',
   });
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: true,
     src: unknownIcon,
     fallbackIcon: 'QuestionmarkOutline',
   };
   const description = {
-    prefix: intl.formatMessage({ id: 'content__to' }),
     children: accountUtils.shortenAddress({ address: unknownTo }),
   };
 
@@ -47,6 +50,12 @@ function TxActionUnknownListView(props: ITxActionProps) {
       avatar={avatar}
       description={description}
       tableLayout={tableLayout}
+      fee={txFee}
+      feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
+      timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
+      showIcon={showIcon}
+      {...componentProps}
     />
   );
 }

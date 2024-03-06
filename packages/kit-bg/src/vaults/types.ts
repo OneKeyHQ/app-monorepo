@@ -13,7 +13,8 @@ import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
-  IOnChainHistoryTxAsset,
+  IOnChainHistoryTxNFT,
+  IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
 import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -325,7 +326,8 @@ export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
   onChainHistoryTx: IOnChainHistoryTx;
-  tokens: Record<string, IOnChainHistoryTxAsset>;
+  tokens: Record<string, IOnChainHistoryTxToken>;
+  nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
 }
