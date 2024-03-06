@@ -170,9 +170,9 @@ jobs:
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/cloudflare-worker-webhooks@main
+        uses: onekeyhq/actions/slack-notify-webhook@main
         with:
-          web-hook-url: ${{ secrets.CLOUD_FLARE_WEBHOOK }}
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-RN

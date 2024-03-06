@@ -182,9 +182,9 @@ jobs:
           xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/cloudflare-worker-webhooks@main
+        uses: onekeyhq/actions/slack-notify-webhook@main
         with:
-          web-hook-url: ${{ secrets.CLOUD_FLARE_WEBHOOK }}
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-MAS
