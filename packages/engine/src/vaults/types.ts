@@ -47,6 +47,7 @@ import type {
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxNervos } from './impl/nervos/types/IEncodedTx';
 import type { IEncodedTxNexa } from './impl/nexa/types';
 import type { IEncodedTxNostr } from './impl/nostr/helper/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
@@ -278,7 +279,8 @@ export type IEncodedTx =
   | IEncodedTxKaspa
   | IEncodedTxNexa
   | IEncodedTxLightning
-  | IEncodedTxNostr;
+  | IEncodedTxNostr
+  | IEncodedTxNervos;
 
 export type INativeTx =
   | INativeTxEvm

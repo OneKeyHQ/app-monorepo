@@ -2773,6 +2773,120 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ckb-lumos/base@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/base@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/codec": 0.21.1
+    "@ckb-lumos/toolkit": 0.21.1
+    "@types/blake2b": ^2.1.0
+    "@types/lodash.isequal": ^4.5.5
+    blake2b: ^2.1.3
+    js-xxhash: ^1.0.4
+    lodash.isequal: ^4.5.0
+  checksum: 14e3dcdb1536cb9252a43d50f1a53487bc55878240b1911717912cb8477846a2ac380e74dd3a293447243fcfaf62b9114983df65a316b6c47d14f267b0df505f
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/bi@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/bi@npm:0.21.1"
+  dependencies:
+    jsbi: ^4.1.0
+  checksum: 24b948ba7aab6b1cd7c6334c5bcd92d0536149c420b2cbcf7decc0a76c5e65847bd4b1235d971bd22724ba978265090c72b727542f8f2786fee3b7d7fa1b5fea
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/ckb-indexer@npm:^0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/ckb-indexer@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/base": 0.21.1
+    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/codec": 0.21.1
+    "@ckb-lumos/rpc": 0.21.1
+    "@ckb-lumos/toolkit": 0.21.1
+    cross-fetch: ^3.1.5
+    events: ^3.3.0
+  checksum: a57cc077ca5a23a895caa707cb5e095d51aeca8f96e14793fb70fbfc5aa53044a6f0d78c27bd070c9e85c71f5b9880f2792efab9af398020f365422060dad460
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/codec@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/codec@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/bi": 0.21.1
+  checksum: ccc192a4b6e0b5ae6bfd7d906954c9a5847e0aa32fcea35818a215cda0bc7eff820dcba04b1534344bad3c6cdc4edbf495db3d06494792c05396564ee49358ac
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/common-scripts@npm:^0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/common-scripts@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/base": 0.21.1
+    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/codec": 0.21.1
+    "@ckb-lumos/config-manager": 0.21.1
+    "@ckb-lumos/helpers": 0.21.1
+    "@ckb-lumos/rpc": 0.21.1
+    "@ckb-lumos/toolkit": 0.21.1
+    immutable: ^4.3.0
+  checksum: b713b2397fb15ed5dabb32fa922bbbf84421e384fdabcbc81b53e9cd0bec3e9f146708759728a6728d9e04bc153580a495f69d6652e2e2403c4eab238fb8f982
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/config-manager@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/config-manager@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/base": 0.21.1
+    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/codec": 0.21.1
+    "@types/deep-freeze-strict": ^1.1.0
+    deep-freeze-strict: ^1.1.1
+  checksum: c0296b08c0a953c6ceea076ed08d8220cf9725ba1287275d8f573c6a9097d779c630fd46529ef9ffd245d68773654b6c2bbc1323888b86bfc5885ebbf366be19
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/helpers@npm:0.21.1, @ckb-lumos/helpers@npm:^0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/helpers@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/base": 0.21.1
+    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/codec": 0.21.1
+    "@ckb-lumos/config-manager": 0.21.1
+    "@ckb-lumos/toolkit": 0.21.1
+    bech32: ^2.0.0
+    immutable: ^4.3.0
+  checksum: f72a988c78b560e45580dbd3c59261672af0b1408c51a352d5156f9c0b4a7ae348066b6602b2b82a9276fcd19d0bf84ad25fe91d1fa8c9d5d3fb4091eab85d5d
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/rpc@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/rpc@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/base": 0.21.1
+    "@ckb-lumos/bi": 0.21.1
+    abort-controller: ^3.0.0
+    cross-fetch: ^3.1.5
+  checksum: d5edd740f86fc96cf23b9b2bdafd6bcdf48b648635ddf5f4b2310ae8224d1ab217c3c356ca301a5e760a1e35dd82754d4a99d8d3fbd9e964bd36edd61e73dd05
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/toolkit@npm:0.21.1":
+  version: 0.21.1
+  resolution: "@ckb-lumos/toolkit@npm:0.21.1"
+  dependencies:
+    "@ckb-lumos/bi": 0.21.1
+  checksum: ae2f735c18a9af902b39ebf6ef8b04f332f3c7101d1b21d2c106cffcb6d1ed18836361d21535a9e34c52dfd53b006fa0cf42f230b41164a49e706b7b2d6fe135
+  languageName: node
+  linkType: hard
+
 "@cmdcode/buff-utils@npm:1.7.4":
   version: 1.7.4
   resolution: "@cmdcode/buff-utils@npm:1.7.4"
@@ -6802,6 +6916,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/engine@workspace:packages/engine"
   dependencies:
+    "@ckb-lumos/ckb-indexer": ^0.21.1
+    "@ckb-lumos/common-scripts": ^0.21.1
+    "@ckb-lumos/helpers": ^0.21.1
     "@conflux-dev/conflux-address-js": ^1.3.13
     "@ethersproject/keccak256": ^5.6.0
     "@ethersproject/transactions": ^5.6.0
@@ -9911,6 +10028,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/blake2b@npm:^2.1.0":
+  version: 2.1.3
+  resolution: "@types/blake2b@npm:2.1.3"
+  checksum: 55a6ed7123a7adc82cc51131644b6c035c28142d028fbc23fe06251c76583ee3303d73204e21de8ea075ef84a04c4ed424754f5035fed20730a85272620a0de3
+  languageName: node
+  linkType: hard
+
 "@types/bn.js@npm:*, @types/bn.js@npm:^5.1.0":
   version: 5.1.1
   resolution: "@types/bn.js@npm:5.1.1"
@@ -10061,6 +10185,13 @@ __metadata:
   dependencies:
     "@types/ms": "*"
   checksum: 0a7b89d8ed72526858f0b61c6fd81f477853e8c4415bb97f48b1b5545248d2ae389931680b94b393b993a7cfe893537a200647d93defe6d87159b96812305adc
+  languageName: node
+  linkType: hard
+
+"@types/deep-freeze-strict@npm:^1.1.0":
+  version: 1.1.2
+  resolution: "@types/deep-freeze-strict@npm:1.1.2"
+  checksum: b6e5b5dd68ce74ae5c2c3a43dce9725c79f0d15895c4db90f878e999b9ba553c2bed3af4806ae0f34b6fc003e71adc094d29664654803f85e70db91d1dd440ba
   languageName: node
   linkType: hard
 
@@ -10337,6 +10468,15 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: ecda18d373fbfdeb36b06f949f8fa10f0f15ad88a356269d3d5e717a047825d9b953310b8faa408973a790fbad0e0e238e15329e6000f6c9ad62837bf4488d59
+  languageName: node
+  linkType: hard
+
+"@types/lodash.isequal@npm:^4.5.5":
+  version: 4.5.8
+  resolution: "@types/lodash.isequal@npm:4.5.8"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: f3180c2d2925514fff1908a1303c11468c9f39b47fd7b053416aad3f1447f8e4a9894dd0460187ac9ac19387e25aec8dd8214d13a50a0967e0dc9cca8e4c5353
   languageName: node
   linkType: hard
 
@@ -13915,7 +14055,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blake2b@npm:^2.1.4":
+"blake2b@npm:^2.1.3, blake2b@npm:^2.1.4":
   version: 2.1.4
   resolution: "blake2b@npm:2.1.4"
   dependencies:
@@ -16915,6 +17055,13 @@ __metadata:
   version: 0.6.0
   resolution: "deep-extend@npm:0.6.0"
   checksum: 7be7e5a8d468d6b10e6a67c3de828f55001b6eb515d014f7aeb9066ce36bd5717161eb47d6a0f7bed8a9083935b465bc163ee2581c8b128d29bf61092fdf57a7
+  languageName: node
+  linkType: hard
+
+"deep-freeze-strict@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "deep-freeze-strict@npm:1.1.1"
+  checksum: b601e226c873464e35f3667a632963c1e8281f6bb4016d0fbbd8ef60fd51f0c9dcf79fadd745d1597b463f2c25ea0f213599559606c29df8c7e941394cb80f9a
   languageName: node
   linkType: hard
 
@@ -22109,6 +22256,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"immutable@npm:^4.3.0":
+  version: 4.3.5
+  resolution: "immutable@npm:4.3.5"
+  checksum: 0e25dd5c314421faede9e1122ab26cdb638cc3edc8678c4a75dee104279b12621a30c80a480fae7f68bc7e81672f1e672e454dc0fdc7e6cf0af10809348387b8
+  languageName: node
+  linkType: hard
+
 "import-fresh@npm:^2.0.0":
   version: 2.0.0
   resolution: "import-fresh@npm:2.0.0"
@@ -24205,6 +24359,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"js-xxhash@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "js-xxhash@npm:1.0.4"
+  checksum: db4b333fcab61c1141b0d99724ac419d9ee4d8450b9c91f45101c6257e863f0a5462e634f3e9cc1bad263294ba6ee83ce6a76e15b40a2800b376c82c5e4125df
+  languageName: node
+  linkType: hard
+
 "js-yaml@npm:^3.13.1":
   version: 3.14.1
   resolution: "js-yaml@npm:3.14.1"
@@ -24232,6 +24393,13 @@ __metadata:
   version: 3.2.5
   resolution: "jsbi@npm:3.2.5"
   checksum: 642d1bb139ad1c1e96c4907eb159565e980a0d168487626b493d0d0b7b341da0e43001089d3b21703fe17b18a7a6c0f42c92026f71d54471ed0a0d1b3015ec0f
+  languageName: node
+  linkType: hard
+
+"jsbi@npm:^4.1.0":
+  version: 4.3.0
+  resolution: "jsbi@npm:4.3.0"
+  checksum: 27c4f178eb7fd9d1756144066fdebc62f4a0176e877f55e646e8ce84075c13551bd575a316b9959ccdcca9d5dc05a81c9907cfa09f0cfeb43c9777797e36b0e9
   languageName: node
   linkType: hard
 

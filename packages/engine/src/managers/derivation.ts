@@ -16,6 +16,7 @@ import {
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_LTC,
   COINTYPE_NEAR,
+  COINTYPE_NERVOS,
   COINTYPE_NEXA,
   COINTYPE_NOSTR,
   COINTYPE_SOL,
@@ -39,6 +40,7 @@ import {
   IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NERVOS,
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STC,
@@ -84,6 +86,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_XMR]: [44],
   [IMPL_KASPA]: [44],
   [IMPL_NOSTR]: [44],
+  [IMPL_NERVOS]: [44],
 };
 
 // derive path template by coin types.
@@ -117,6 +120,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_LIGHTNING]: `m/44'/${COINTYPE_LIGHTNING}'/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_LIGHTNING_TESTNET]: `m/44'/${COINTYPE_LIGHTNING_TESTNET}'/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_NOSTR]: `m/44'/${COINTYPE_NOSTR}'/${INCREMENT_LEVEL_TAG}'`,
+  [COINTYPE_NERVOS]: `m/44'/${COINTYPE_NERVOS}'/0'/0/${INCREMENT_LEVEL_TAG}`,
 };
 
 function getDerivationPaths(

@@ -17,6 +17,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NERVOS,
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
@@ -53,6 +54,7 @@ import VaultHelperKaspa from './impl/kaspa/VaultHelper';
 import VaultHelperLightning from './impl/lightning-network/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
+import VaultHelperNervos from './impl/nervos/VaultHelper';
 import VaultHelperNexa from './impl/nexa/VaultHelper';
 import VaultHelperNostr from './impl/nostr/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
@@ -146,6 +148,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_NOSTR) {
     return new VaultHelperNostr(options);
+  }
+  if (impl === IMPL_NERVOS) {
+    return new VaultHelperNervos(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -291,6 +296,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_NOSTR) {
     const VaultNostr = (await import('./impl/nostr/Vault')).default;
     vault = new VaultNostr(options);
+  }
+  if (network.impl === IMPL_NERVOS) {
+    const VaultNervos = (await import('./impl/nervos/Vault')).default;
+    vault = new VaultNervos(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
