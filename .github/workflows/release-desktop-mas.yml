@@ -182,16 +182,13 @@ jobs:
           xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/notice-slack-app-update@main
+        uses: onekeyhq/actions/slack-notify-webhook@main
         with:
-          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-MAS
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          change-log: 'Download [Artifacts] at the bottom of page.'
-          custom-issue-url: ''
-          custom-message-title: ''
-          custom-message-payload: ''
