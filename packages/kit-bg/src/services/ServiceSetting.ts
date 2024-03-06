@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import {
@@ -93,13 +95,23 @@ class ServiceSetting extends ServiceBase {
     }));
   }
 
+  _getCurrencyList = memoizee(
+    async () => {
+      const client = await this.getClient();
+      const res = await client.get<{ data: ICurrencyItem[] }>(
+        '/gateway/v1/currency/list',
+      );
+      return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
   @backgroundMethod()
   public async getCurrencyList(): Promise<ICurrencyItem[]> {
-    const client = await this.getClient();
-    const res = await client.get<{ data: ICurrencyItem[] }>(
-      '/gateway/v1/currency/list',
-    );
-    return res.data.data;
+    return this._getCurrencyList();
   }
 
   @backgroundMethod()
