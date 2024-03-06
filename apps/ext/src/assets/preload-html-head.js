@@ -33,7 +33,11 @@
 
   // themePreload start ----------------------------------------------
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
+  // packages/components/tamagui.config.ts
+  // lightColors.bgApp
   const lightColor = '#ffffff';
+  // packages/components/tamagui.config.ts
+  // darkColors.bgApp
   const darkColor = '#0f0f0f';
   if (theme === 'dark') {
     document.documentElement.style.backgroundColor = darkColor;
