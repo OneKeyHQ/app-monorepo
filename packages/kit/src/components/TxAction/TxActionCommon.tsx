@@ -1,10 +1,20 @@
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Container } from '../Container';
+import { Token } from '../Token';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -13,11 +23,10 @@ import type {
 
 function TxActionCommonAvatar({
   avatar,
-  tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const icon = avatar?.fallbackIcon;
-  const containerSize = tableLayout ? '$8' : '$10';
-  const borderRadius = avatar.circular ? '$full' : '$2';
+  const containerSize = '$10';
+  const borderRadius = avatar.isNFT ? '$full' : '$2';
 
   if (!avatar?.src) {
     return (
@@ -35,19 +44,7 @@ function TxActionCommonAvatar({
   }
 
   if (typeof avatar?.src === 'string') {
-    return (
-      <ListItem.Avatar
-        src={avatar.src}
-        size={containerSize}
-        circular={avatar.circular}
-        fallbackProps={{
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name={icon} color="$iconSubdued" />,
-        }}
-      />
-    );
+    return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
   }
 
   return (
@@ -58,35 +55,15 @@ function TxActionCommonAvatar({
       justifyContent="flex-end"
     >
       <Stack position="absolute" left="$0" top="$0">
-        <ListItem.Avatar
-          src={avatar.src[0]}
-          size={tableLayout ? '$5' : '$6'}
-          circular={avatar.circular}
-          fallbackProps={{
-            bg: '$bgStrong',
-            justifyContent: 'center',
-            alignItems: 'center',
-            children: <Icon name={icon} color="$iconSubdued" />,
-          }}
-        />
+        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[0]} />
       </Stack>
       <Stack
         borderWidth={2}
         borderColor="$bgApp"
-        borderRadius={borderRadius}
+        borderRadius="$full"
         zIndex={1}
       >
-        <ListItem.Avatar
-          src={avatar.src[1]}
-          size={tableLayout ? 22 : '$7'}
-          circular={avatar.circular}
-          fallbackProps={{
-            bg: '$bgStrong',
-            justifyContent: 'center',
-            alignItems: 'center',
-            children: <Icon name={icon} color="$iconSubdued" />,
-          }}
-        />
+        <Token size="sm" isNFT={avatar.isNFT} tokenImageUri={avatar.src[1]} />
       </Stack>
     </Stack>
   );
@@ -102,10 +79,7 @@ function TxActionCommonTitle({
       size="$bodyLgMedium"
       textTransform="capitalize"
       {...(tableLayout && {
-        w: '$40',
-        $gtXl: {
-          w: '$56',
-        },
+        size: '$bodyMdMedium',
       })}
     >
       {title}
@@ -115,31 +89,23 @@ function TxActionCommonTitle({
 
 function TxActionCommonDescription({
   description,
-  tableLayout,
 }: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
   return (
     <XStack alignItems="center">
-      {description?.prefix && (
-        <SizableText
-          size={tableLayout ? '$bodyLg' : '$bodyMd'}
-          color="$textSubdued"
-          pr="$1.5"
-        >
+      {description?.prefix ? (
+        <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
           {description?.prefix}
         </SizableText>
-      )}
+      ) : null}
       {description?.icon && (
         <Icon
           color="$iconSubdued"
           mr="$0.5"
-          size={tableLayout ? '$4.5' : '$4'}
+          size="$4"
           name={description.icon}
         />
       )}
-      <SizableText
-        size={tableLayout ? '$bodyLg' : '$bodyMd'}
-        color="$textSubdued"
-      >
+      <SizableText size="$bodyMd" color="$textSubdued">
         {description?.children || '-'}
       </SizableText>
     </XStack>
@@ -149,19 +115,16 @@ function TxActionCommonDescription({
 function TxActionCommonChange({
   change,
   tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'change' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'tableLayout'> & { change: string }) {
   return (
     <SizableText
+      numberOfLines={1}
       size="$bodyLgMedium"
-      textAlign="right"
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
       {...(tableLayout && {
-        w: '$40',
-        $gtXl: {
-          w: '$56',
-        },
+        size: '$bodyMdMedium',
       })}
     >
       {change}
@@ -171,24 +134,47 @@ function TxActionCommonChange({
 
 function TxActionCommonChangeDescription({
   changeDescription,
-  tableLayout,
-}: Pick<ITxActionCommonListViewProps, 'changeDescription' | 'tableLayout'>) {
+}: {
+  changeDescription: string;
+}) {
   return (
-    <SizableText
-      size="$bodyMd"
-      color="$textSubdued"
-      textAlign="right"
-      numberOfLines={1}
-      {...(!changeDescription && {
-        opacity: 0,
-      })}
-      {...(tableLayout && {
-        size: '$bodyLg',
-        w: '$48',
-      })}
-    >
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
       {changeDescription || '-'}
     </SizableText>
+  );
+}
+
+function TxActionCommonFee({
+  fee,
+  feeFiatValue,
+  feeSymbol,
+  currencySymbol,
+}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
+  currencySymbol: string;
+}) {
+  return (
+    <Stack flexGrow={1} flexBasis={0}>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Gas Fee
+      </SizableText>
+      <XStack alignItems="center" space="$1">
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="balance"
+          formatterOptions={{ tokenSymbol: feeSymbol }}
+        >
+          {fee}
+        </NumberSizeableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{ currency: currencySymbol }}
+        >
+          {feeFiatValue}
+        </NumberSizeableText>
+      </XStack>
+    </Stack>
   );
 }
 
@@ -201,64 +187,102 @@ function TxActionCommonListView(
     description,
     change,
     changeDescription,
+    fee,
+    feeFiatValue,
+    feeSymbol,
+    timestamp,
     pending,
     tableLayout,
+    showIcon,
     ...rest
   } = props;
+
+  const [settings] = useSettingsPersistAtom();
+  const currencySymbol = settings.currencyInfo.symbol;
+
   return (
-    <Stack
-      {...(tableLayout && {
-        flexDirection: 'row',
-      })}
+    <ListItem
+      space="$2"
+      flexDirection="column"
+      alignItems="flex-start"
+      userSelect="none"
+      {...rest}
     >
-      <ListItem flex={1} userSelect="none" {...rest}>
-        <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
-        <Stack
-          flex={1}
-          {...(tableLayout && {
-            flexDirection: 'row',
-            space: '$3',
-          })}
-        >
-          <TxActionCommonTitle title={title} tableLayout={tableLayout} />
-          <TxActionCommonDescription
-            description={description}
-            tableLayout={tableLayout}
-          />
-        </Stack>
-        <Stack
-          {...(tableLayout && {
-            flexDirection: 'row-reverse',
-            space: '$3',
-          })}
-        >
-          <TxActionCommonChange change={change} tableLayout={tableLayout} />
-          <TxActionCommonChangeDescription
-            changeDescription={changeDescription}
-            tableLayout={tableLayout}
-          />
-        </Stack>
-      </ListItem>
-      {pending && (
+      {/* Content */}
+      <XStack space="$3" alignSelf="stretch">
         <XStack
-          px="$5"
-          space="$2.5"
-          alignItems="center"
-          {...(tableLayout
-            ? {
-                flexDirection: 'row-reverse',
-              }
-            : { pb: '$2.5', pl: 72 })}
+          space="$3"
+          {...(tableLayout && {
+            flexGrow: 1,
+            flexBasis: 1,
+          })}
         >
+          {showIcon && (
+            <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
+          )}
+          <Stack>
+            <TxActionCommonTitle title={title} tableLayout={tableLayout} />
+            <XStack>
+              {tableLayout && timestamp && (
+                <>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {formatTime(new Date(timestamp), {
+                      hideSeconds: true,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued" mx="$1">
+                    •
+                  </SizableText>
+                </>
+              )}
+              <TxActionCommonDescription
+                description={description}
+                tableLayout={tableLayout}
+              />
+            </XStack>
+          </Stack>
+        </XStack>
+        <Stack
+          flexGrow={1}
+          flexBasis={0}
+          alignItems="flex-end"
+          {...(tableLayout && {
+            alignItems: 'unset',
+          })}
+        >
+          {typeof change === 'string' ? (
+            <TxActionCommonChange change={change} tableLayout={tableLayout} />
+          ) : (
+            change
+          )}
+          {typeof changeDescription === 'string' ? (
+            <TxActionCommonChangeDescription
+              changeDescription={changeDescription}
+            />
+          ) : (
+            changeDescription
+          )}
+        </Stack>
+        {tableLayout && (
+          <TxActionCommonFee
+            fee={fee}
+            feeFiatValue={feeFiatValue}
+            feeSymbol={feeSymbol}
+            currencySymbol={currencySymbol}
+          />
+        )}
+      </XStack>
+
+      {/* Actions */}
+      {pending && (
+        <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
             Speed Up
           </Button>
-          <Button size="small" variant="tertiary" m="$0">
-            Cancel
-          </Button>
+          <Button size="small">Cancel</Button>
         </XStack>
       )}
-    </Stack>
+    </ListItem>
   );
 }
 

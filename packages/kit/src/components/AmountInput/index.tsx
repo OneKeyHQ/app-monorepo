@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
 import {
   Icon,
   Image,
@@ -9,7 +7,6 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   XStack,
   getFontSize,

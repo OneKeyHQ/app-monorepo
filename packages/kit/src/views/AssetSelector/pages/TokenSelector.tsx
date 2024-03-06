@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, SectionList } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useTokenListActions,
+  useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -18,11 +20,14 @@ import type {
   IAssetSelectorParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
+import type { TextInputFocusEventData } from 'react-native';
 
 function TokenSelector() {
   const intl = useIntl();
-  const { refreshTokenList, refreshTokenListMap } =
+  const { refreshTokenList, refreshTokenListMap, updateSearchKey } =
     useTokenListActions().current;
+
+  const [tokenList] = useTokenListAtom();
 
   const route =
     useRoute<
@@ -84,13 +89,27 @@ function TokenSelector() {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: 'action__select_token' })}
-        headerSearchBarOptions={{
-          placeholder: 'Search symbol or contract address',
-        }}
+        headerSearchBarOptions={
+          tokenList.tokens.length > 10
+            ? {
+                placeholder: 'Search symbol or contract address',
+                onChangeText: debounce(
+                  ({
+                    nativeEvent,
+                  }: {
+                    nativeEvent: TextInputFocusEventData;
+                  }) => {
+                    updateSearchKey(nativeEvent.text);
+                  },
+                  800,
+                ),
+              }
+            : undefined
+        }
       />
       <Page.Body>
         {networkName && <SectionList.SectionHeader title={networkName} />}
-        <TokenListView onPressToken={handleTokenOnPress} withName />
+        <TokenListView onPressToken={handleTokenOnPress} />
       </Page.Body>
     </Page>
   );

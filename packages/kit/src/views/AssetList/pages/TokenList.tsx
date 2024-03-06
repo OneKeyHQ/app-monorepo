@@ -28,8 +28,15 @@ function TokenList() {
       RouteProp<IModalAssetListParamList, EModalAssetListRoutes.TokenList>
     >();
 
-  const { accountId, networkId, tokenList, title, helpText, onPressToken } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    tokenList,
+    title,
+    helpText,
+    onPressToken,
+    isBlocked,
+  } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
   const { refreshTokenList, refreshTokenListMap } =
@@ -57,9 +64,10 @@ function TokenList() {
         accountId,
         networkId,
         tokenInfo: token,
+        isBlocked,
       });
     },
-    [accountId, navigation, networkId],
+    [accountId, isBlocked, navigation, networkId],
   );
 
   useEffect(() => {
@@ -73,7 +81,7 @@ function TokenList() {
   }, [keys, refreshTokenList, refreshTokenListMap, tokenMap, tokens]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
         <TokenListView

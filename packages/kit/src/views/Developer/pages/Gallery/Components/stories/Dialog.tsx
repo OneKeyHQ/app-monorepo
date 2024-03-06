@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useIsFocused, useNavigation } from '@react-navigation/core';
+import { useIsFocused } from '@react-navigation/core';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -18,7 +18,9 @@ import {
   useDialogInstance,
   useForm,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { ETestModalPages } from '@onekeyhq/kit/src/views/TestModal/router/type';
 
 import { EGalleryRoutes } from '../../../routes';
 
@@ -86,13 +88,9 @@ function ScrollContent() {
 }
 
 const DialogNavigatorDemo = () => {
-  const navigation = useNavigation<
-    IModalNavigationProp<{
-      [EGalleryRoutes.Components]: undefined;
-    }>
-  >();
+  const navigation = useAppNavigation<any>();
   return (
-    <YStack>
+    <YStack space="$3">
       <Button
         mt="$4"
         onPress={() => {
@@ -106,11 +104,34 @@ const DialogNavigatorDemo = () => {
               title: 'Toaster is always on top',
               duration: 3,
             });
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             navigation.push(EGalleryRoutes.Components);
           }, 1500);
         }}
       >
-        Test Visibility in Navigator
+        Test Visibility in Navigator(Stack)
+      </Button>
+      <Button
+        mt="$4"
+        onPress={() => {
+          Dialog.show({
+            title: 'Confirm whether the Dialog is always on top.',
+            renderContent: <Input />,
+            onConfirm: () => {},
+          });
+          setTimeout(() => {
+            Toast.error({
+              title: 'Toaster is always on top',
+              duration: 3,
+            });
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            navigation.pushModal(EModalRoutes.TestModal, {
+              screen: ETestModalPages.TestSimpleModal,
+            });
+          }, 1500);
+        }}
+      >
+        Test Visibility in Navigator(Modal)
       </Button>
     </YStack>
   );

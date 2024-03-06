@@ -15,6 +15,7 @@ export type IModalAssetListParamList = {
     };
     title?: string;
     helpText?: string;
+    isBlocked?: boolean;
     onPressToken?: (token: IAccountToken) => void;
   };
 };

@@ -26,6 +26,33 @@ const NumberSizeableTextGallery = () => (
             </NumberSizeableText>
             <NumberSizeableText
               formatter="balance"
+              formatterOptions={{
+                tokenSymbol: 'ETC',
+                showPlusMinusSigns: true,
+              }}
+            >
+              0.0000000214562
+            </NumberSizeableText>
+            <NumberSizeableText
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: 'USDT',
+                showPlusMinusSigns: true,
+              }}
+            >
+              -100.16798000000214562
+            </NumberSizeableText>
+            <NumberSizeableText
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: 'USDC',
+                showPlusMinusSigns: true,
+              }}
+            >
+              202.16798000000214562
+            </NumberSizeableText>
+            <NumberSizeableText
+              formatter="balance"
               subTextStyle={{ color: 'red' }}
             >
               0.00000002146

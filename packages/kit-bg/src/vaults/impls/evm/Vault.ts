@@ -755,6 +755,7 @@ export default class Vault extends VaultBase {
         to: spender,
         amount,
         icon: token.logoURI ?? '',
+        name: token.name,
         symbol: token.symbol,
         tokenIdOnNetwork: token.address,
         isMax: amount === InfiniteAmountText,

@@ -13,8 +13,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerSwap,
 } from '../../components/AccountSelector';
+import { AccountSelectorTriggerSwap } from '../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
 
 const SwapToAnotherAccountSwitch = () => {
   const [settings, setSettings] = useSettingsPersistAtom();

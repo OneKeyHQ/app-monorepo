@@ -9,6 +9,7 @@ import { useIsMounted } from './useIsMounted';
 
 type IRunnerConfig = {
   triggerByDeps?: boolean; // true when trigger by deps changed, do not set it when manually trigger
+  pollingNonce?: number;
 };
 
 export type IPromiseResultOptions<T> = {
@@ -57,6 +58,7 @@ export function usePromiseResult<T>(
   const isMountedRef = useIsMounted();
   const isFocused = useIsFocused();
   const isFocusedRef = useRef<boolean>(isFocused);
+  const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = isFocused;
   const methodRef = useRef<typeof method>(method);
   methodRef.current = method;
@@ -136,12 +138,21 @@ export function usePromiseResult<T>(
           if (shouldSetState()) {
             setLoadingFalse();
           }
-          if (pollingInterval) {
+          if (
+            pollingInterval &&
+            pollingNonceRef.current === config?.pollingNonce
+          ) {
             await timerUtils.wait(pollingInterval);
-            if (shouldSetState()) {
-              void run({ triggerByDeps: true });
-            } else {
-              isDepsChangedOnBlur.current = true;
+
+            if (pollingNonceRef.current === config?.pollingNonce) {
+              if (shouldSetState()) {
+                void run({
+                  triggerByDeps: true,
+                  pollingNonce: config.pollingNonce,
+                });
+              } else {
+                isDepsChangedOnBlur.current = true;
+              }
             }
           }
         }
@@ -170,7 +181,11 @@ export function usePromiseResult<T>(
   runRef.current = run;
 
   useEffect(() => {
-    void runRef.current({ triggerByDeps: true });
+    pollingNonceRef.current += 1;
+    void runRef.current({
+      triggerByDeps: true,
+      pollingNonce: pollingNonceRef.current,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
@@ -181,7 +196,7 @@ export function usePromiseResult<T>(
       isDepsChangedOnBlur.current
     ) {
       isDepsChangedOnBlur.current = false;
-      void runRef.current();
+      void runRef.current({ pollingNonce: pollingNonceRef.current });
     }
   }, [isFocused]);
 

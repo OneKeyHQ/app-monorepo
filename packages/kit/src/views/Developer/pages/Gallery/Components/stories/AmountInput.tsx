@@ -230,7 +230,6 @@ const GalleryLayout = () => (
                 }}
               >
                 <AmountInput
-
                   valueProps={{}}
                   balanceProps={{
                     value: '0.5',

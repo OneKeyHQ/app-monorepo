@@ -103,26 +103,32 @@ function CommonAssetContent(props: IProps) {
       <Divider />
       <Stack>
         <Heading size="$headingSm">Attributes</Heading>
-        <XStack m="$-1" pt="$2.5" flexWrap="wrap">
-          {attributes?.map(({ traitType, value }) => (
-            <Stack
-              key={traitType}
-              py="$2"
-              px="$3.5"
-              m="$1"
-              bg="$bgStrong"
-              borderRadius="$2"
-              style={{
-                borderCurve: 'continuous',
-              }}
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {traitType}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">{value}</SizableText>
-            </Stack>
-          ))}
-        </XStack>
+        {attributes?.length ? (
+          <XStack m="$-1" pt="$2.5" flexWrap="wrap">
+            {attributes?.map(({ traitType, value }) => (
+              <Stack
+                key={traitType}
+                py="$2"
+                px="$3.5"
+                m="$1"
+                bg="$bgStrong"
+                borderRadius="$2"
+                style={{
+                  borderCurve: 'continuous',
+                }}
+              >
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {traitType}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">{value}</SizableText>
+              </Stack>
+            ))}
+          </XStack>
+        ) : (
+          <SizableText size="$bodyMd" mt="$2" color="$textSubdued">
+            🤷‍♂️ We haven't found any attributes for this NFT.
+          </SizableText>
+        )}
       </Stack>
     </Stack>
   );

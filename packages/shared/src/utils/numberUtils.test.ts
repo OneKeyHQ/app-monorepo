@@ -31,8 +31,8 @@ test('fromBigIntHex', () => {
 test('formatBalance', () => {
   // not a number
   expect(formatBalance('1abcd1')).toEqual({
-    'formattedValue': '0',
-    'meta': { 'value': '1abcd1' },
+    'formattedValue': '1abcd1',
+    'meta': { 'value': '1abcd1', invalid: true },
   });
 
   // eq 0
@@ -161,12 +161,39 @@ test('formatBalance', () => {
     { 'type': 'sub', 'value': 7 },
     '2146',
   ]);
+
+  // token symbol
+  expect(
+    formatDisplayNumber(
+      formatBalance('0.0000000214562', {
+        tokenSymbol: 'ETC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual(['+', '0.0', { 'type': 'sub', 'value': 7 }, '2146', ' ', 'ETC']);
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('-100.16798000000214562', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('-100.168 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('202.16798000000214562', {
+        tokenSymbol: 'USDT',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('+202.168 USDT');
 });
 
 test('formatPrice', () => {
   // not a number
   expect(formatDisplayNumber(formatPrice('1abcd1', { currency: '$' }))).toEqual(
-    '$0.00',
+    '1abcd1',
   );
   // eq 0
   expect(formatDisplayNumber(formatPrice('0', { currency: '$' }))).toEqual(
@@ -221,7 +248,7 @@ test('formatPrice', () => {
 });
 
 test('formatPriceChange', () => {
-  expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('0.00%');
+  expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('1abc1');
 
   // eq 0
   expect(formatDisplayNumber(formatPriceChange('0'))).toEqual('0.00%');
@@ -250,7 +277,7 @@ test('formatPriceChange', () => {
 
 test('formatValue', () => {
   expect(formatDisplayNumber(formatValue('1abc1', { currency: '$' }))).toEqual(
-    '< $0.01',
+    '1abc1',
   );
   expect(formatDisplayNumber(formatValue('0.009', { currency: '$' }))).toEqual(
     '< $0.01',
@@ -299,7 +326,7 @@ test('formatValue', () => {
 
 test('formatMarketCap', () => {
   // not a number
-  expect(formatDisplayNumber(formatMarketCap('1abcd1'))).toEqual('0');
+  expect(formatDisplayNumber(formatMarketCap('1abcd1'))).toEqual('1abcd1');
 
   // eq 0
   expect(formatDisplayNumber(formatMarketCap('0'))).toEqual('0');

@@ -19,20 +19,23 @@ function CommonAssetImage(props: IProps) {
           borderRadius: 12,
         }}
       />
-      <SizableText
-        size="$bodyLgMedium"
-        position="absolute"
-        right="$0"
-        bottom="$0"
-        px="$2"
-        bg="$bgInverse"
-        color="$textInverse"
-        borderRadius="$3"
-        borderWidth={2}
-        borderColor="$bgApp"
-      >
-        {`x${nft.amount}`}
-      </SizableText>
+
+      {Number(nft.amount) > 1 && (
+        <SizableText
+          size="$bodyLgMedium"
+          position="absolute"
+          right="$0"
+          bottom="$0"
+          px="$2"
+          bg="$bgInverse"
+          color="$textInverse"
+          borderRadius="$3"
+          borderWidth={2}
+          borderColor="$bgApp"
+        >
+          {`x${nft.amount}`}
+        </SizableText>
+      )}
     </>
   );
 }

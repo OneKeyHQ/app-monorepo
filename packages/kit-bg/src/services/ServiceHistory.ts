@@ -54,7 +54,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const { data: onChainHistoryTxs, tokens } = resp.data.data;
+    const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
 
     const txs = (
       await Promise.all(
@@ -64,6 +64,7 @@ class ServiceHistory extends ServiceBase {
             networkId,
             onChainHistoryTx: tx,
             tokens,
+            nfts,
             index,
           }),
         ),

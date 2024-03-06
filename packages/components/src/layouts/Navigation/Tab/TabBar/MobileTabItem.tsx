@@ -17,7 +17,7 @@ export function MobileTabItem(
 ) {
   const { icon, label, selected, tabBarStyle, ...rest } = props;
   return (
-    <YStack alignItems="center" py="$1.5" {...rest}>
+    <YStack alignItems="center" py="$1.5" userSelect="none" {...rest}>
       {icon && (
         <Icon
           flexShrink={0}

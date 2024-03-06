@@ -14,6 +14,8 @@ export type IModalAssetDetailsParamList = {
     accountId: string;
     networkId: string;
     tokenInfo: IToken;
+    isBlocked?: boolean;
+    riskyTokens?: string[];
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

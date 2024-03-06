@@ -87,8 +87,8 @@ export function NFTDetails() {
       <Page>
         <Page.Body>
           {result.isLoading ? (
-            <Stack justifyContent="center" alignItems="center" h="100%">
-              <Spinner />
+            <Stack pt={240} justifyContent="center" alignItems="center">
+              <Spinner size="large" />
             </Stack>
           ) : null}
         </Page.Body>

@@ -1,7 +1,12 @@
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { createContext, useContext } from 'react';
 
-import { Empty, SectionList, SortableListView } from '@onekeyhq/components';
+import {
+  Empty,
+  SectionList,
+  SortableListView,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -78,6 +83,9 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
           icon={
             topNetworkIds.has(item.id) ? 'ThumbtackSolid' : 'ThumbtackOutline'
           }
+          iconProps={{
+            color: topNetworkIds.has(item.id) ? '$iconActive' : '$iconSubdued',
+          }}
         />
       ) : null}
     </ListItem>
@@ -155,6 +163,7 @@ const ListTopNetworks = () => {
       )}
       onDragEnd={(result) => setTopNetworks?.(result.data)}
       scrollEnabled={false}
+      ListFooterComponent={<Stack h="$5" />} // Act as padding bottom
     />
   );
 };
@@ -245,6 +254,7 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
         keyExtractor={(item) => (item as IServerNetwork).id}
         ListEmptyComponent={ListNetworkEmpty}
         renderSectionHeader={renderSectionHeader}
+        ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
       />
     </ListNetworkContext.Provider>
   );

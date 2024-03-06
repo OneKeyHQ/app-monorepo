@@ -162,7 +162,7 @@ function BasicActionList({
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
       renderContent={
-        <YStack p="$1" $md={{ p: '$3' }}>
+        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
           {items?.map(renderActionListItem)}
 
           {sections?.map((section, sectionIdx) => (

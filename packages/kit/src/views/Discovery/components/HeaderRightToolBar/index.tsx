@@ -13,9 +13,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import {
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerBrowserSingle,
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EAppEventBusNames,

@@ -1,10 +1,16 @@
-import { useIntl } from 'react-intl';
-
-import { Divider, Empty, ListView } from '@onekeyhq/components';
+import { ListView, Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenListAtom } from '../../states/jotai/contexts/tokenList';
+import {
+  useSearchKeyAtom,
+  useTokenListAtom,
+  useTokenListInitializedAtom,
+} from '../../states/jotai/contexts/tokenList';
+import { EmptySearch } from '../Empty';
+import { EmptyToken } from '../Empty/EmptyToken';
+import { ListLoading } from '../Loading';
 
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -19,24 +25,7 @@ type IProps = {
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
-  withName?: boolean;
 };
-
-function TokenListEmpty() {
-  const intl = useIntl();
-
-  return (
-    <Empty
-      icon="CryptoCoinOutline"
-      title={intl.formatMessage({ id: 'empty__no_tokens' })}
-      description={intl.formatMessage({
-        id: 'content__deposit_tokens_to_your_wallet',
-      })}
-    />
-  );
-}
-
-const ItemSeparatorComponent = () => <Divider mx="$5" />;
 
 function TokenListView(props: IProps) {
   const {
@@ -45,39 +34,53 @@ function TokenListView(props: IProps) {
     tableLayout,
     withHeader,
     withFooter,
-    withName,
     withPrice,
+    isLoading,
   } = props;
 
   const [tokenList] = useTokenListAtom();
+  const [initialized] = useTokenListInitializedAtom();
+  const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;
+
+  const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
+
+  if (!initialized && isLoading) {
+    return <ListLoading onContentSizeChange={onContentSizeChange} />;
+  }
 
   return (
     <ListView
+      py="$3"
       estimatedItemSize={48}
       scrollEnabled={platformEnv.isWebTouchable}
-      data={tokens}
+      data={filteredTokens}
       ListHeaderComponent={
-        withHeader ? <TokenListHeader tableLayout={tableLayout} /> : null
+        withHeader && tokens.length > 0 ? (
+          <TokenListHeader
+            filteredTokens={filteredTokens}
+            tokens={tokens}
+            tableLayout={tableLayout}
+          />
+        ) : null
       }
       onContentSizeChange={onContentSizeChange}
-      ListEmptyComponent={TokenListEmpty}
-      renderItem={({ item }) => (
+      ListEmptyComponent={searchKey ? EmptySearch : EmptyToken}
+      renderItem={({ item, index }) => (
         <TokenListItem
           token={item}
           key={item.$key}
+          index={index}
           onPress={onPressToken}
           tableLayout={tableLayout}
-          withName={withName}
           withPrice={withPrice}
         />
       )}
       ListFooterComponent={
-        withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null
+        <Stack pb="$5">
+          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+        </Stack>
       }
-      {...(tableLayout && {
-        ItemSeparatorComponent,
-      })}
     />
   );
 }

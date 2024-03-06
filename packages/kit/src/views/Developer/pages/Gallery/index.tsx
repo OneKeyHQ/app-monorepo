@@ -354,6 +354,13 @@ const NumberSizeableTextGallery = LazyLoadPage(
     ),
 );
 
+const TokenGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Token'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -370,6 +377,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPortal,
     component: PortalGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentToken,
+    component: TokenGallery,
   },
   { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },

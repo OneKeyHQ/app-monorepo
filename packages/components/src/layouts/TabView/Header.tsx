@@ -38,13 +38,11 @@ const HeaderComponent = (
     contentContainerStyle = {},
     scrollContainerStyle = {},
     containerStyle = {},
-    itemContainerStyle = { px: '$2.5', pb: 2, ml: '$2.5' },
+    itemContainerStyle = { ml: '$5', pb: '$0.5', cursor: 'default' },
     itemTitleStyle = { fontSize: 16, fontWeight: '500' },
     itemTitleNormalStyle = { color: '$textSubdued' },
     itemTitleSelectedStyle = { color: '$text' },
     cursorStyle = {
-      left: '$2.5',
-      right: '$2.5',
       h: '$0.5',
       bg: '$bgPrimary',
     },
@@ -60,11 +58,25 @@ const HeaderComponent = (
     undefined,
     true,
   );
+  const rawStyle = useStyle(
+    {
+      ...{
+        h: '$11',
+        bg: '$bgApp',
+        borderBottomColor: '$borderSubdued',
+        borderBottomWidth: StyleSheet.hairlineWidth,
+      },
+      ...style,
+    } as Record<string, unknown>,
+    {
+      resolveValues: 'value',
+    },
+  );
   const data = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [...props.data],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [props.data, rawNormalColor, rawSelectedColor],
+    [props.data, rawStyle],
   );
   const reloadWebPxNumber = useCallback((value: any) => {
     if (typeof value === 'string') {
@@ -80,12 +92,6 @@ const HeaderComponent = (
   const rawProps = useProps(props, {
     resolveValues: 'value',
   });
-  const rawStyle = useStyle(
-    { ...{ h: '$11', bg: '$bgApp' }, ...style } as Record<string, unknown>,
-    {
-      resolveValues: 'value',
-    },
-  );
   const rawContentContainerStyle = useStyle(
     contentContainerStyle as Record<string, unknown>,
     {
@@ -99,15 +105,7 @@ const HeaderComponent = (
     },
   );
   const rawContainerStyle = useStyle(
-    {
-      ...{
-        left: '$5',
-        right: '$2.5',
-        borderBottomColor: '$borderSubdued',
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
-      ...containerStyle,
-    } as Record<string, unknown>,
+    containerStyle as Record<string, unknown>,
     {
       resolveValues: 'value',
     },
