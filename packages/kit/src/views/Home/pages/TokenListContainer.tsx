@@ -70,8 +70,6 @@ function TokenListContainer(props: IProps) {
           mergeTokens: true,
           networkId: network.id,
           accountAddress: account.address,
-          // for performance testing
-          limit: 300,
           flag: 'home-token-list',
           blockedTokens: Object.keys(blockedTokens),
           unblockedTokens: Object.keys(unblockedTokens),
