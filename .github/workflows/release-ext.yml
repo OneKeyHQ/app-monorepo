@@ -107,17 +107,17 @@ jobs:
           path: |
             ./apps/ext/build/_dist/*.zip
 
-      # - name: 'Notify to Slack'
-      #   uses: onekeyhq/actions/notice-slack-app-update@main
-      #   with:
-      #     web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
-      #     artifact-type: Extension
-      #     artifact-name: OneKey-Extension-RN
-      #     artifact-bundle-id: 'so.onekey.wallet.extension'
-      #     artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
-      #     artifact-version-code: '${{ env.BUILD_NUMBER }}'
-      #     artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-      #     change-log: 'Download [Artifacts] at the bottom of page.'
-      #     custom-issue-url: ''
-      #     custom-message-title: ''
-      #     custom-message-payload: ''
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: Extension
+          artifact-name: OneKey-Extension-RN
+          artifact-bundle-id: 'so.onekey.wallet.extension'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          change-log: 'Download [Artifacts] at the bottom of page.'
+          custom-issue-url: ''
+          custom-message-title: ''
+          custom-message-payload: ''
