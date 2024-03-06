@@ -37,9 +37,9 @@ const AppStateLock = ({
           </Heading>
         </YStack>
         <YStack>{passwordVerifyContainer}</YStack>
-        {/* {enableWebAuth && (
+        {enableWebAuth && (
           <IconButton icon="FaceArcSolid" onPress={onWebAuthVerify} />
-        )} */}
+        )}
       </YStack>
       <YStack py="$8" alignItems="center">
         <Button size="small" variant="tertiary">

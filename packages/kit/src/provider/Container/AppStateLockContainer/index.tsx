@@ -53,6 +53,9 @@ export function AppStateLockContainer({
           <Stack
             key="unlock-screen"
             animation="quick"
+            enterStyle={{
+              opacity: 1,
+            }}
             exitStyle={{
               opacity: 0,
             }}
