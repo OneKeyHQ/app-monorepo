@@ -9,10 +9,9 @@ import {
   XStack,
   getThemeTokens,
 } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components';
 
 import { WalletOptionItem } from './WalletOptionItem';
-
-import type { ColorTokens } from '@onekeyhq/components';
 
 const DATA = new Array(53).fill(0);
 
