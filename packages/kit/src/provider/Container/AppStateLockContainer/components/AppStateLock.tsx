@@ -4,25 +4,20 @@ import type { IThemeableStackProps } from '@onekeyhq/components';
 import {
   Button,
   Heading,
-  IconButton,
   Image,
   Stack,
   ThemeableStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
-  onWebAuthVerify: () => void;
-  enableWebAuth: boolean;
 }
 
 const AppStateLock = ({
   passwordVerifyContainer,
-  onWebAuthVerify,
-  enableWebAuth,
+
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
@@ -56,9 +51,6 @@ const AppStateLock = ({
         >
           {passwordVerifyContainer}
         </Stack>
-        {enableWebAuth && (
-          <IconButton icon="FaceArcSolid" onPress={onWebAuthVerify} />
-        )}
       </Stack>
       <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
         <Button size="small" variant="tertiary">
