@@ -1,3 +1,4 @@
+import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
 import type { IThemeableStackProps } from '@onekeyhq/components';
@@ -11,19 +12,24 @@ import {
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 
+import type { View as IView } from 'react-native';
+
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
+  lockContainerRef: ForwardedRef<IView>;
 }
 
 const AppStateLock = ({
   passwordVerifyContainer,
-
+  lockContainerRef,
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
 
   return (
     <ThemeableStack
+      testID="unlock-screen"
+      ref={lockContainerRef}
       position="absolute"
       fullscreen
       flex={1}

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
@@ -13,6 +13,28 @@ import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
 
 import type { LayoutChangeEvent } from 'react-native';
+
+const useWebLockCheck = (isLocked: boolean) => {
+  const lockContainerRef = useRef<HTMLElement | null>();
+  const lockedRef = useRef(isLocked);
+  if (lockedRef.current !== isLocked) {
+    lockedRef.current = isLocked;
+  }
+  const checkIsLockContainerExist = useCallback(() => {
+    if (lockContainerRef?.current && lockedRef.current) {
+      if (!document.body.contains(lockContainerRef.current)) {
+        window.location.reload();
+      }
+      setTimeout(checkIsLockContainerExist, 500);
+    }
+  }, []);
+  useEffect(() => {
+    if (platformEnv.isRuntimeBrowser && isLocked) {
+      checkIsLockContainerExist();
+    }
+  }, [checkIsLockContainerExist, isLocked]);
+  return lockContainerRef;
+};
 
 export function AppStateLockContainer({
   children,
@@ -42,6 +64,8 @@ export function AppStateLockContainer({
     [showChildren],
   );
 
+  const lockContainerRef = useWebLockCheck(isLocked);
+
   const isShowChildren = !isLocked || isPreloadChildren;
   return (
     <>
@@ -50,6 +74,7 @@ export function AppStateLockContainer({
       <AnimatePresence>
         {isLocked && (
           <AppStateLock
+            lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
             animation="quick"
             enterStyle={{
