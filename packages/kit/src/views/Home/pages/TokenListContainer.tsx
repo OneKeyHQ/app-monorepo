@@ -73,8 +73,8 @@ function TokenListContainer(props: IProps) {
           // for performance testing
           limit: 300,
           flag: 'home-token-list',
-          blockedTokens,
-          unblockedTokens,
+          blockedTokens: Object.keys(blockedTokens),
+          unblockedTokens: Object.keys(unblockedTokens),
         });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });

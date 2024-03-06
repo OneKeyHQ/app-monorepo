@@ -140,7 +140,7 @@ class ServiceToken extends ServiceBase {
         networkId,
       );
 
-    if (unblockedTokens.includes(tokenId)) {
+    if (unblockedTokens[tokenId]) {
       return this.backgroundApi.simpleDb.riskyTokens.updateUnblockedTokens({
         networkId,
         removeFromUnBlockedTokens: [tokenId],
@@ -164,7 +164,7 @@ class ServiceToken extends ServiceBase {
     const blockedTokens =
       await this.backgroundApi.simpleDb.riskyTokens.getBlockedTokens(networkId);
 
-    if (blockedTokens.includes(tokenId)) {
+    if (blockedTokens[tokenId]) {
       return this.backgroundApi.simpleDb.riskyTokens.updateBlockedTokens({
         networkId,
         removeFromBlockedTokens: [tokenId],

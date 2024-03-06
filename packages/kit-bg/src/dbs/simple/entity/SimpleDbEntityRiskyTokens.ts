@@ -3,8 +3,8 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface IRiskyTokens {
-  blockedTokens: Record<string, string[]>; // <networkId, tokenIdOnNetwork[]>
-  unblockedTokens: Record<string, string[]>; // <networkId, tokenIdOnNetwork[]>
+  blockedTokens: Record<string, Record<string, boolean>>; // <networkId, <tokenIdOnNetwork: boolean>>
+  unblockedTokens: Record<string, Record<string, boolean>>; // <networkId, <tokenIdOnNetwork: boolean>>
 }
 
 export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> {
@@ -14,12 +14,12 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
 
   @backgroundMethod()
   async getBlockedTokens(networkId: string) {
-    return (await this.getRawData())?.blockedTokens[networkId] ?? [];
+    return (await this.getRawData())?.blockedTokens[networkId] ?? {};
   }
 
   @backgroundMethod()
   async getUnblockedTokens(networkId: string) {
-    return (await this.getRawData())?.unblockedTokens[networkId] ?? [];
+    return (await this.getRawData())?.unblockedTokens[networkId] ?? {};
   }
 
   @backgroundMethod()
@@ -34,15 +34,15 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
   }) {
     await this.setRawData(({ rawData }) => {
       const blockedTokens = rawData?.blockedTokens ?? {};
-      const blockedTokensSet = new Set(blockedTokens[networkId]);
+      const blockedTokensMap = blockedTokens[networkId] ?? {};
       addToBlockedTokens?.forEach((token) => {
-        blockedTokensSet.add(token);
+        blockedTokensMap[token] = true;
       });
       removeFromBlockedTokens?.forEach((token) => {
-        blockedTokensSet.delete(token);
+        delete blockedTokensMap[token];
       });
 
-      blockedTokens[networkId] = Array.from(blockedTokensSet);
+      blockedTokens[networkId] = blockedTokensMap;
 
       return {
         blockedTokens,
@@ -63,15 +63,15 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
   }) {
     await this.setRawData(({ rawData }) => {
       const unblockedTokens = rawData?.unblockedTokens ?? {};
-      const unblockedTokensSet = new Set(unblockedTokens[networkId]);
+      const unblockedTokensMap = unblockedTokens[networkId] ?? {};
       addToUnBlockedTokens?.forEach((token) => {
-        unblockedTokensSet.add(token);
+        unblockedTokensMap[token] = true;
       });
       removeFromUnBlockedTokens?.forEach((token) => {
-        unblockedTokensSet.delete(token);
+        delete unblockedTokensMap[token];
       });
 
-      unblockedTokens[networkId] = Array.from(unblockedTokensSet);
+      unblockedTokens[networkId] = unblockedTokensMap;
 
       return { blockedTokens: rawData?.blockedTokens ?? {}, unblockedTokens };
     });
