@@ -107,8 +107,8 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   return (
     <XStack
       role="button"
+      flexShrink="unset" // DO NOT remove this line, otherwise the text will not be truncated
       alignItems="center"
-      onPress={handleChainPress}
       p="$1"
       m="$-1"
       borderRadius="$2"
@@ -131,6 +131,8 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
           left: 8,
         },
       }}
+      userSelect="none"
+      onPress={handleChainPress}
     >
       {/* TODO NetworkAvatar component */}
       <Image
@@ -140,15 +142,15 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
           uri: network?.logoURI ? network?.logoURI : '',
         }}
       />
-      <SizableText
-        userSelect="none"
-        pl="$2"
-        size="$bodyMd"
-        color="$textSubdued"
-      >
+      <SizableText pl="$2" size="$bodyMd" numberOfLines={1}>
         {network?.name}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+      <Icon
+        name="ChevronDownSmallOutline"
+        color="$iconSubdued"
+        size="$5"
+        flexShrink={0}
+      />
     </XStack>
   );
 }

@@ -1,5 +1,4 @@
 import { cloneElement, useCallback, useContext, useState } from 'react';
-import type { ComponentProps } from 'react';
 
 import { StyleSheet } from 'react-native';
 import { createStyledContext, styled } from 'tamagui';
@@ -14,6 +13,7 @@ import {
 } from '../../primitives';
 import { IconButton } from '../IconButton';
 
+import type { IKeyOfIcons } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 type IAlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
@@ -39,7 +39,7 @@ type IAlertProps = {
   title?: string;
   description?: string;
   closable?: boolean;
-  icon?: ComponentProps<typeof Icon>['name'];
+  icon?: IKeyOfIcons;
   action?: IAlertActionProps;
 };
 

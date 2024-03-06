@@ -1,128 +1,95 @@
-import { useCallback } from 'react';
+import { debounce } from 'lodash';
+import { useIntl } from 'react-intl';
+
+import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH,
+  SEARCH_DEBOUNCE_INTERVAL,
+  SEARCH_KEY_MIN_LENGTH,
+} from '@onekeyhq/shared/src/consts/walletConsts';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
-  Button,
-  SearchBar,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
-
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useRiskyTokenListAtom,
-  useRiskyTokenListMapAtom,
+  useSearchKeyAtom,
+  useTokenListActions,
 } from '../../states/jotai/contexts/tokenList';
-import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
+import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
+  tokens: IAccountToken[];
+  filteredTokens: IAccountToken[];
   tableLayout?: boolean;
 };
 
-function TokenListHeader({ tableLayout }: IProps) {
-  const navigation = useAppNavigation();
-  const media = useMedia();
-
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
-
-  const [riskyTokenList] = useRiskyTokenListAtom();
-  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
-
-  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
-
-  const handleHiddenPress = useCallback(() => {
-    if (!account || !network || riskyTokens.length === 0) return;
-    navigation.pushModal(EModalRoutes.MainModal, {
-      screen: EModalAssetListRoutes.TokenList,
-      params: {
-        title: 'Blocked Assets',
-        accountId: account.id,
-        networkId: network.id,
-        tokenList: {
-          tokens: riskyTokens,
-          keys: riskyTokenKeys,
-          map: riskyTokenListMap,
-        },
-      },
-    });
-  }, [
-    account,
-    navigation,
-    network,
-    riskyTokenKeys,
-    riskyTokenListMap,
-    riskyTokens,
-  ]);
+function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
+  const intl = useIntl();
+  const { updateSearchKey } = useTokenListActions().current;
+  const [searchKey] = useSearchKeyAtom();
 
   return (
-    <Stack p="$5" pb="$3">
-      <XStack justifyContent="space-between">
-        <SearchBar
-          placeholder="Search..."
-          containerProps={{
-            flex: 1,
-            mr: '$2.5',
-            maxWidth: '$80',
-          }}
-        />
-        <Button
-          {...(media.gtMd && {
-            icon: 'EyeOffOutline',
-          })}
-          onPress={handleHiddenPress}
-        >
-          {`${riskyTokens.length} Blocked`}
-        </Button>
-      </XStack>
+    <Stack testID="Wallet-Token-List-Header">
+      <ListToolToolBar
+        searchProps={
+          tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
+            ? {
+                onChangeText: debounce(
+                  (text) => updateSearchKey(text),
+                  SEARCH_DEBOUNCE_INTERVAL,
+                ),
+                searchResultCount:
+                  searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
+                    ? filteredTokens.length
+                    : 0,
+              }
+            : undefined
+        }
+      />
+
       {tableLayout && (
-        <XStack space="$3" pt="$5">
-          <SizableText color="$textSubdued" size="$headingXs" mr={44} w="$32">
-            Assets
-          </SizableText>
-          <XStack space="$2">
+        <XStack px="$5" py="$2" space="$3">
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            space={89}
+            spaceDirection="horizontal"
+          >
             <SizableText
+              flexGrow={1}
+              flexBasis={0}
               color="$textSubdued"
-              textAlign="right"
-              size="$headingXs"
-              w="$32"
-              $gtXl={{
-                w: '$56',
-              }}
-              $gt2xl={{
-                w: '$72',
-              }}
+              size="$headingSm"
             >
-              Price
+              Tokens
             </SizableText>
-            <Stack w="$24" />
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              color="$textSubdued"
+              size="$headingSm"
+            >
+              {intl.formatMessage({ id: 'form__balance' })}
+            </SizableText>
           </XStack>
-          <SizableText
-            color="$textSubdued"
-            size="$headingXs"
-            textAlign="right"
-            w="$36"
-            $gtXl={{
-              w: '$56',
-            }}
-            $gt2xl={{
-              w: '$72',
-            }}
-          >
-            Amount
-          </SizableText>
-          <SizableText
-            flex={1}
-            textAlign="right"
-            color="$textSubdued"
-            size="$headingXs"
-          >
-            Value
-          </SizableText>
+          <Stack w="$8" />
+          <XStack flexGrow={1} flexBasis={0}>
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              color="$textSubdued"
+              size="$headingSm"
+            >
+              {intl.formatMessage({ id: 'content__price' })}
+            </SizableText>
+            <SizableText
+              flexGrow={1}
+              flexBasis={0}
+              textAlign="right"
+              color="$textSubdued"
+              size="$headingSm"
+            >
+              {intl.formatMessage({ id: 'form__value' })}
+            </SizableText>
+          </XStack>
         </XStack>
       )}
     </Stack>
