@@ -33,11 +33,19 @@
 
   // themePreload start ----------------------------------------------
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
+  const lightColor = '#ffffff';
+  const darkColor = '#0f0f0f';
   if (theme === 'dark') {
-    document.documentElement.style.backgroundColor = 'rgb(19, 19, 27)';
-  }
-  if (theme === 'light' || theme === 'system') {
-    document.documentElement.style.backgroundColor = 'white';
+    document.documentElement.style.backgroundColor = darkColor;
+  } else if (theme === 'light') {
+    document.documentElement.style.backgroundColor = lightColor;
+  } else if (window.matchMedia) {
+    const color = window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? darkColor
+      : lightColor;
+    document.documentElement.style.backgroundColor = color;
+  } else {
+    document.documentElement.style.backgroundColor = lightColor;
   }
   // themePreload end ----------------------------------------------
 

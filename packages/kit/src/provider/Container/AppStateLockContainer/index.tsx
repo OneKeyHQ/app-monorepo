@@ -46,7 +46,7 @@ export function AppStateLockContainer({
   const isShowChildren = !isLocked || isPreloadChildren;
   return (
     <>
-      {isShowChildren ? children : null}
+      {/* {isShowChildren ? children : null} */}
       {!isLocked && <AppStateUpdater />}
       <AnimatePresence>
         {isLocked && (
