@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { getTokens, useTheme } from 'tamagui';
 
@@ -9,9 +10,15 @@ import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
-import { Icon, YStack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import {
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components/src/primitives';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
 
@@ -64,6 +71,48 @@ function TabItemView({
   );
 
   return contentMemo;
+}
+
+function DownloadButton() {
+  const intl = useIntl();
+  const onPress = useCallback(() => {
+    openUrlExternal('https://onekey.so/download');
+  }, []);
+  if (!platformEnv.isWeb) {
+    return null;
+  }
+  return (
+    <XStack
+      borderWidth="$px"
+      padding="$space.2"
+      backgroundColor="$bgStrong"
+      borderColor="$borderSubdued"
+      borderRadius="$radius.2"
+      justifyContent="space-between"
+      alignItems="center"
+      onPress={onPress}
+    >
+      <SizableText size="$bodyMdMedium">
+        {intl.formatMessage({ id: 'action__download' })}
+      </SizableText>
+      <XStack space="$1">
+        <Icon name="AppleBrand" color="$iconSubdued" />
+        <Icon name="GooglePlayBrand" color="$iconSubdued" />
+        <Icon name="ChromeBrand" color="$iconSubdued" />
+      </XStack>
+    </XStack>
+  );
+}
+
+function OneKeyLogo() {
+  if (!platformEnv.isWeb) {
+    return null;
+  }
+  return (
+    <XStack pb="$3">
+      <Icon name="OnekeyTextIllus" width={112} height={28} color="$text" />
+    </XStack>
+  );
 }
 
 export function DesktopLeftSideBar({
@@ -140,9 +189,8 @@ export function DesktopLeftSideBar({
       testID="Desktop-AppSideBar-Container"
       animate={{ width: isCollapse ? 0 : sidebarWidth }}
       transition={{
-        type: 'spring',
-        damping: 20,
-        mass: 0.1,
+        duration: 200,
+        type: 'timing',
       }}
       style={{
         backgroundColor: theme.bgSidebar.val,
@@ -169,7 +217,9 @@ export function DesktopLeftSideBar({
           h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
         }}
       >
-        {tabs}
+        <OneKeyLogo />
+        <YStack flex={1}>{tabs}</YStack>
+        <DownloadButton />
       </YStack>
     </MotiView>
   );

@@ -2,15 +2,14 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IPageNavigationProp } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   Form,
   Input,
   Stack,
   TextArea,
-  XStack,
+  useClipboard,
   useForm,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -22,7 +21,9 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -33,31 +34,13 @@ import {
   type IModalSendParamList,
 } from '../../../Send/router';
 
-function HeaderAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon?: IKeyOfIcons;
-  label?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Button
-      icon={icon}
-      {...(icon && {
-        pl: '$2.5',
-        pr: '$0.5',
-      })}
-      onPress={onPress}
-    >
-      {label}
-    </Button>
-  );
+import { RawActions } from './RawActions';
+
+function WalletActionBuy() {
+  return <RawActions.Buy onPress={() => {}} />;
 }
 
 function WalletActionSend() {
-  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
@@ -96,12 +79,7 @@ function WalletActionSend() {
     });
   }, [account, allTokens.keys, allTokens.tokens, map, navigation, network]);
 
-  return (
-    <HeaderAction
-      label={intl.formatMessage({ id: 'action__send' })}
-      onPress={handleOnSend}
-    />
-  );
+  return <RawActions.Send onPress={handleOnSend} />;
 }
 
 function WalletActionReceive() {
@@ -177,23 +155,68 @@ function WalletActionReceive() {
     });
   }, [form, navigation]);
 
-  return <HeaderAction label="Receive" onPress={handleOnReceive} />;
+  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
 function WalletActionSwap() {
   const handleOnSwap = useCallback(() => {}, []);
-  return <HeaderAction label="Swap" onPress={handleOnSwap} />;
+  return <RawActions.Swap onPress={handleOnSwap} />;
+}
+
+function ActionMore() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+
+  return (
+    <RawActions.More
+      sections={[
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: 'action__sell_crypto' }),
+              icon: 'MinusLargeOutline',
+              onPress: () => {},
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
+              icon: 'GlobusOutline',
+              onPress: () =>
+                openUrl(
+                  buildExplorerAddressUrl({
+                    network,
+                    address: account?.address,
+                  }),
+                ),
+            },
+            {
+              label: intl.formatMessage({ id: 'action__copy_address' }),
+              icon: 'Copy1Outline',
+              onPress: () => copyText(account?.address || ''),
+            },
+          ],
+        },
+      ]}
+    />
+  );
 }
 
 function WalletActions() {
   return (
-    <XStack space="$2" mt="$5">
+    <RawActions>
       <WalletActionSend />
       <WalletActionReceive />
+      <WalletActionBuy />
       <WalletActionSwap />
-      <HeaderAction icon="DotHorOutline" />
-    </XStack>
+      <ActionMore />
+    </RawActions>
   );
 }
 
-export { HeaderAction, WalletActions };
+export { WalletActions };

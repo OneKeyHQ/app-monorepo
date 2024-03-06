@@ -52,6 +52,7 @@ export enum EGalleryRoutes {
   ComponentSwipeableCell = 'component-SwipeableCell',
   ComponentListItem = 'component-ListItem',
   ComponentPortal = 'component-Portal',
+  ComponentToken = 'component-Token',
   ComponentPasswordDemo = 'component-passwordDemo',
   ComponentLinearGradientGallery = 'component-LinearGradient',
   ComponentHardware = 'component-Hardware',

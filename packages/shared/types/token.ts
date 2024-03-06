@@ -27,6 +27,8 @@ export type IFetchAccountTokensParams = {
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];
+  blockedTokens?: string[];
+  unblockedTokens?: string[];
   flag?: string;
 };
 

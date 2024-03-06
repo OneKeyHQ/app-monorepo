@@ -85,12 +85,12 @@ function ChainSelector({ num }: { num: number }) {
   return (
     <Page>
       <Page.Header
-        title="Select Chain"
+        title="Networks"
         headerRight={() =>
           getHeaderRightComponent(isEditMode, handleEditButtonPress)
         }
         headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
+          placeholder: 'Search',
           onChangeText: (e) => setSearchText(e.nativeEvent.text),
         }}
       />

@@ -169,17 +169,17 @@ jobs:
         run: |
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
-      # - name: 'Notify to Slack'
-      #   uses: onekeyhq/actions/notice-slack-app-update@main
-      #   with:
-      #     web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
-      #     artifact-type: Desktop
-      #     artifact-name: OneKey-Desktop-RN
-      #     artifact-bundle-id: 'so.onekey.wallet.desktop'
-      #     artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
-      #     artifact-version-code: '${{ env.BUILD_NUMBER }}'
-      #     artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-      #     change-log: 'Download [Artifacts] at the bottom of page.'
-      #     custom-issue-url: ''
-      #     custom-message-title: ''
-      #     custom-message-payload: ''
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/notice-slack-app-update@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-RN
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          change-log: 'Download [Artifacts] at the bottom of page.'
+          custom-issue-url: ''
+          custom-message-title: ''
+          custom-message-payload: ''
