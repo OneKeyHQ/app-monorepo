@@ -12,7 +12,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void;
-  onLayout: (e: LayoutChangeEvent) => void;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }
 
 interface IPasswordVerifyForm {
