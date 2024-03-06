@@ -42,6 +42,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
             bottom={0}
             opacity={1}
             flex={1}
+            animation="quick"
             exitStyle={{
               opacity: 0,
             }}
