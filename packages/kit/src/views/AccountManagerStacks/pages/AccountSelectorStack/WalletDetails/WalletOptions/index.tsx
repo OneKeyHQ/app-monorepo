@@ -1,8 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
-import { Divider, HeightTransition, Stack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Divider,
+  HeightTransition,
+  Stack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';

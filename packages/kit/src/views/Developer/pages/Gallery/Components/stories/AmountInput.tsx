@@ -2,8 +2,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useCallback, useState } from 'react';
 
-import { YStack } from 'tamagui';
-
 import {
   Button,
   Form,
@@ -12,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';

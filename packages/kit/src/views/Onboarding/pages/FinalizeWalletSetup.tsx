@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Heading,
+  Icon,
+  Page,
+  Spinner,
+  Stack,
+} from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';

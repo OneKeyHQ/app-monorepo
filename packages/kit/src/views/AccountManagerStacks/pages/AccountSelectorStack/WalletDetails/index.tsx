@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { AnimatePresence } from 'tamagui';
 
 import {
   ActionList,
+  AnimatePresence,
   Button,
   Icon,
   IconButton,

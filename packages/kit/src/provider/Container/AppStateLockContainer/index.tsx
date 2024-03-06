@@ -1,8 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
+import { AnimatePresence } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

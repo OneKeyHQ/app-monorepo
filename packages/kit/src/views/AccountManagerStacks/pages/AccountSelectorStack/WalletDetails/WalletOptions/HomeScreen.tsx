@@ -1,8 +1,7 @@
 import { useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
 import {
+  AnimatePresence,
   Dialog,
   Icon,
   Image,
@@ -13,7 +12,7 @@ import {
 
 import { WalletOptionItem } from './WalletOptionItem';
 
-import type { ColorTokens } from 'tamagui';
+import type { ColorTokens } from '@onekeyhq/components';
 
 const DATA = new Array(53).fill(0);
 

@@ -1,9 +1,12 @@
 import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
-import { Image, Skeleton, Stack } from '@onekeyhq/components';
+import {
+  Image,
+  Skeleton,
+  Stack,
+  withStaticProperties,
+} from '@onekeyhq/components';
 import type {
   IImageFallbackProps,
   IImageProps,
