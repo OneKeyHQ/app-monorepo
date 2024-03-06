@@ -1,4 +1,9 @@
+// import { openURL as LinkingOpenURL } from 'expo-linking';
+
 import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
+// import platformEnv from '../platformEnv';
+
+import type { IServerNetwork } from '../../types';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -89,6 +94,7 @@ export function parseUrl(url: string) {
     }
     const urlObject = new URL(formatUrl);
     return {
+      url,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')
@@ -107,6 +113,22 @@ export function parseUrl(url: string) {
 }
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
+
+export function buildExplorerAddressUrl({
+  network,
+  address,
+}: {
+  network: IServerNetwork | undefined;
+  address: string | undefined;
+}) {
+  if (!network || !address) return '';
+
+  const addressUrl = network.explorers[0]?.address;
+
+  if (!addressUrl) return '';
+
+  return addressUrl.replace('{address}', address);
+}
 
 export default {
   getOriginFromUrl,

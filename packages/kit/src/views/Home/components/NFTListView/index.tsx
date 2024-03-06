@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Empty, Stack, XStack } from '@onekeyhq/components';
+import { ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
+import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { EModalAssetDetailRoutes } from '../../../AssetDetails/router/types';
@@ -16,27 +17,16 @@ import { NFTListItem } from './NFTListItem';
 type IProps = {
   data: IAccountNFT[];
   isLoading?: boolean;
+  initialized?: boolean;
   onRefresh?: () => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
 };
 
-function NFTListEmpty() {
-  const intl = useIntl();
-
-  return (
-    <Stack height="100%" alignItems="center" justifyContent="center">
-      <Empty
-        title={intl.formatMessage({ id: 'empty__no_nfts' })}
-        description={intl.formatMessage({
-          id: 'content__you_dont_have_any_nft_in_your_wallet',
-        })}
-      />
-    </Stack>
-  );
-}
-
 function NFTListView(props: IProps) {
-  const { data } = props;
+  const { data, isLoading, initialized, onContentSizeChange } = props;
+  const [searchKey, setSearchKey] = useState('');
+
+  const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
   const navigation = useAppNavigation();
   const {
@@ -60,13 +50,15 @@ function NFTListView(props: IProps) {
     [account, navigation, network],
   );
 
-  if (!data || data.length === 0) return <NFTListEmpty />;
+  const renderNFTListView = useCallback(() => {
+    if (!filteredNfts || filteredNfts.length === 0)
+      return (
+        <Stack mt="$8">{searchKey ? <EmptySearch /> : <EmptyNFT />}</Stack>
+      );
 
-  return (
-    <Stack>
-      <NFTListHeader />
-      <XStack flexWrap="wrap" px="$2.5">
-        {data.map((item) => (
+    return (
+      <XStack flexWrap="wrap" px="$2.5" pb="$5" py="$0.5">
+        {filteredNfts.map((item) => (
           <NFTListItem
             nft={item}
             key={item.itemId}
@@ -74,7 +66,23 @@ function NFTListView(props: IProps) {
           />
         ))}
       </XStack>
-    </Stack>
+    );
+  }, [filteredNfts, handleOnPressNFT, searchKey]);
+
+  if (!initialized && isLoading) {
+    return <NFTListLoadingView onContentSizeChange={onContentSizeChange} />;
+  }
+
+  return (
+    <ScrollView h="100%" py="$3">
+      <NFTListHeader
+        nfts={data}
+        filteredNfts={filteredNfts}
+        searchKey={searchKey}
+        setSearchKey={setSearchKey}
+      />
+      {renderNFTListView()}
+    </ScrollView>
   );
 }
 

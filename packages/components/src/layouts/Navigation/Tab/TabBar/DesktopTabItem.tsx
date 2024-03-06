@@ -35,6 +35,7 @@ export function DesktopTabItem(
         bg: selected ? '$bgActive' : undefined,
         borderRadius: '$2',
       }}
+      userSelect="none"
       style={tabBarStyle as ViewStyle}
       {...rest}
     >

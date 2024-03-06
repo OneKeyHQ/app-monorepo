@@ -98,16 +98,15 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   if (account?.address) {
     return (
       <Tooltip
-        renderContent="Copy to clipboard"
+        renderContent="Address"
         placement="top"
         renderTrigger={
           <XStack
             alignItems="center"
-            onPress={() => copyText(account.address)}
-            p="$1"
+            py="$1"
             px="$2"
             my="$-1"
-            ml="$1"
+            mx="$-2"
             borderRadius="$2"
             hoverStyle={{
               bg: '$bgHover',
@@ -128,8 +127,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
                 bottom: 8,
               },
             }}
+            userSelect="none"
+            onPress={() => copyText(account.address)}
           >
-            <SizableText userSelect="none" size="$bodyMd" color="$textSubdued">
+            <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({ address: account?.address })}
             </SizableText>
           </XStack>
