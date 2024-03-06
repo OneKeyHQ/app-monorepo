@@ -1,3 +1,5 @@
+const TerserPlugin = require('terser-webpack-plugin');
+
 module.exports = {
   mode: 'production',
   devtool: false,
@@ -5,6 +7,13 @@ module.exports = {
     clean: true,
   },
   optimization: {
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          keep_fnames: true,
+        },
+      }),
+    ],
     splitChunks: {
       chunks: 'all',
       minSize: 102400,
