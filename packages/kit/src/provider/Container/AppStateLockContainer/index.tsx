@@ -3,7 +3,7 @@ import { Suspense, useCallback, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
-import { Stack, Toast } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
