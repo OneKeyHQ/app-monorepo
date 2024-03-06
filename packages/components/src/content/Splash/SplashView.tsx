@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { AnimatePresence, getTokenValue } from 'tamagui';
+import { AnimatePresence } from 'tamagui';
 
 import { Image, Stack } from '../../primitives';
 
@@ -13,11 +13,6 @@ const removeWebLogo = () => {
 
 export function SplashView({ onExit, ready }: ISplashViewProps) {
   const [showLoading, changeLoadingVisibility] = useState(true);
-
-  const bgColor = useMemo(
-    () => getTokenValue('$bgAppDark', 'color') as string,
-    [],
-  );
   const hideSplash = useCallback(() => {
     removeWebLogo();
     changeLoadingVisibility(false);
@@ -33,8 +28,8 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
     <AnimatePresence onExitComplete={onExit}>
       {showLoading && (
         <Stack
+          bg="$bgApp"
           key="splash-view"
-          bg={bgColor}
           animation="50ms"
           position="absolute"
           top={0}
