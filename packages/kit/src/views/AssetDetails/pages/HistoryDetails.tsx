@@ -398,7 +398,7 @@ function HistoryDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={txDetails?.label} />
+      <Page.Header headerTitle={txDetails?.label.label} />
       <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );

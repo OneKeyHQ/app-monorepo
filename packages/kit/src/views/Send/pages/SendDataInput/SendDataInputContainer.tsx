@@ -89,7 +89,7 @@ function SendDataInputContainer() {
         nftResp = await serviceNFT.fetchNFTDetails({
           networkId,
           accountAddress: account.address,
-          params: [
+          nfts: [
             {
               collectionAddress: nft.collectionAddress,
               itemId: nft.itemId,
