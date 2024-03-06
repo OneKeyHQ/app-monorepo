@@ -75,7 +75,7 @@ const PasswordVerify = ({
         },
       });
       actions.push({
-        iconName: 'ArrowRightCircleOutline',
+        iconName: 'ArrowRightOutline',
         onPress: form.handleSubmit(onInputPasswordAuth),
         loading: status.value === 'verifying',
       });

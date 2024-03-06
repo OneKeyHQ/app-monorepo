@@ -50,7 +50,7 @@ export function AppStateLockContainer({
       {!isLocked && <AppStateUpdater />}
       <AnimatePresence>
         {isLocked && (
-          <Stack
+          <AppStateLock
             key="unlock-screen"
             animation="quick"
             enterStyle={{
@@ -59,36 +59,28 @@ export function AppStateLockContainer({
             exitStyle={{
               opacity: 0,
             }}
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-          >
-            <AppStateLock
-              enableWebAuth={!!webAuthCredentialId}
-              onWebAuthVerify={async () => {
-                try {
-                  await verifiedPasswordWebAuth();
-                  await handleUnlock();
-                } catch (e) {
-                  Toast.error({ title: '请输入密码' });
-                }
-              }}
-              passwordVerifyContainer={
-                <Suspense>
-                  <PasswordVerifyContainer
-                    onLayout={handleLayout}
-                    onVerifyRes={async (data) => {
-                      if (data) {
-                        await handleUnlock();
-                      }
-                    }}
-                  />
-                </Suspense>
+            enableWebAuth={!!webAuthCredentialId}
+            onWebAuthVerify={async () => {
+              try {
+                await verifiedPasswordWebAuth();
+                await handleUnlock();
+              } catch (e) {
+                Toast.error({ title: '请输入密码' });
               }
-            />
-          </Stack>
+            }}
+            passwordVerifyContainer={
+              <Suspense>
+                <PasswordVerifyContainer
+                  onLayout={handleLayout}
+                  onVerifyRes={async (data) => {
+                    if (data) {
+                      await handleUnlock();
+                    }
+                  }}
+                />
+              </Suspense>
+            }
+          />
         )}
       </AnimatePresence>
     </>
