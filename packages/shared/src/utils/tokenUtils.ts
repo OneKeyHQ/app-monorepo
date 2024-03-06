@@ -1,4 +1,6 @@
-import type { ITokenData } from '../../types/token';
+import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+
+import type { IAccountToken, ITokenData } from '../../types/token';
 
 export function getMergedTokenData({
   tokens,
@@ -58,4 +60,28 @@ export function getEmptyTokenData() {
       map: {},
     },
   };
+}
+
+export function getFilteredTokenBySearchKey({
+  tokens,
+  searchKey,
+}: {
+  tokens: IAccountToken[];
+  searchKey: string;
+}) {
+  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
+    return tokens;
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  searchKey = searchKey.trim().toLowerCase();
+
+  const filteredTokens = tokens.filter(
+    (token) =>
+      token.name.toLowerCase().includes(searchKey) ||
+      token.symbol.toLowerCase().includes(searchKey) ||
+      token.address.toLowerCase().includes(searchKey),
+  );
+
+  return filteredTokens;
 }

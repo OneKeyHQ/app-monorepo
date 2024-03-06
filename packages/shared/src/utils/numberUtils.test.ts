@@ -31,10 +31,14 @@ test('fromBigIntHex', () => {
 test('formatBalance', () => {
   // not a number
   expect(formatBalance('1abcd1')).toEqual({
-    'formattedValue': '0',
-    'meta': { 'value': '1abcd1' },
+    'formattedValue': '1abcd1',
+    'meta': { 'value': '1abcd1', invalid: true },
   });
-  expect(formatDisplayNumber(formatBalance('1abcd1'))).toEqual('0');
+
+  // eq 0
+  expect(formatDisplayNumber(formatBalance('0'))).toEqual('0');
+  expect(formatDisplayNumber(formatBalance('0.00'))).toEqual('0');
+  expect(formatDisplayNumber(formatBalance('0.00000'))).toEqual('0');
 
   // hundred
   expect(formatBalance('451.124282313')).toEqual({
@@ -157,13 +161,50 @@ test('formatBalance', () => {
     { 'type': 'sub', 'value': 7 },
     '2146',
   ]);
+
+  // token symbol
+  expect(
+    formatDisplayNumber(
+      formatBalance('0.0000000214562', {
+        tokenSymbol: 'ETC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual(['+', '0.0', { 'type': 'sub', 'value': 7 }, '2146', ' ', 'ETC']);
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('-100.16798000000214562', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('-100.168 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('202.16798000000214562', {
+        tokenSymbol: 'USDT',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('+202.168 USDT');
 });
 
 test('formatPrice', () => {
   // not a number
   expect(formatDisplayNumber(formatPrice('1abcd1', { currency: '$' }))).toEqual(
+    '1abcd1',
+  );
+  // eq 0
+  expect(formatDisplayNumber(formatPrice('0', { currency: '$' }))).toEqual(
     '$0.00',
   );
+  expect(formatDisplayNumber(formatPrice('0.00', { currency: '$' }))).toEqual(
+    '$0.00',
+  );
+  expect(
+    formatDisplayNumber(formatPrice('0.000000', { currency: '$' })),
+  ).toEqual('$0.00');
   // less than hundred
   expect(formatDisplayNumber(formatPrice('10.103', { currency: '$' }))).toEqual(
     '$10.10',
@@ -207,7 +248,13 @@ test('formatPrice', () => {
 });
 
 test('formatPriceChange', () => {
-  expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('0.00%');
+  expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('1abc1');
+
+  // eq 0
+  expect(formatDisplayNumber(formatPriceChange('0'))).toEqual('0.00%');
+  expect(formatDisplayNumber(formatPriceChange('0.00'))).toEqual('0.00%');
+  expect(formatDisplayNumber(formatPriceChange('0.00000'))).toEqual('0.00%');
+
   expect(formatDisplayNumber(formatPriceChange('0.1'))).toEqual('0.10%');
   expect(formatDisplayNumber(formatPriceChange('3.74'))).toEqual('3.74%');
   expect(formatDisplayNumber(formatPriceChange('23374.7'))).toEqual(
@@ -230,7 +277,7 @@ test('formatPriceChange', () => {
 
 test('formatValue', () => {
   expect(formatDisplayNumber(formatValue('1abc1', { currency: '$' }))).toEqual(
-    '< $0.01',
+    '1abc1',
   );
   expect(formatDisplayNumber(formatValue('0.009', { currency: '$' }))).toEqual(
     '< $0.01',
@@ -241,6 +288,17 @@ test('formatValue', () => {
   expect(
     formatDisplayNumber(formatValue('0.0000000001', { currency: '$' })),
   ).toEqual('< $0.01');
+
+  // eq 0
+  expect(formatDisplayNumber(formatValue('0', { currency: '$' }))).toEqual(
+    '< $0.01',
+  );
+  expect(formatDisplayNumber(formatValue('0.00', { currency: '$' }))).toEqual(
+    '< $0.01',
+  );
+  expect(formatDisplayNumber(formatValue('0.0000', { currency: '$' }))).toEqual(
+    '< $0.01',
+  );
   expect(formatDisplayNumber(formatValue('0.01', { currency: '$' }))).toEqual(
     '$0.01',
   );
@@ -268,7 +326,12 @@ test('formatValue', () => {
 
 test('formatMarketCap', () => {
   // not a number
-  expect(formatDisplayNumber(formatMarketCap('1abcd1'))).toEqual('0');
+  expect(formatDisplayNumber(formatMarketCap('1abcd1'))).toEqual('1abcd1');
+
+  // eq 0
+  expect(formatDisplayNumber(formatMarketCap('0'))).toEqual('0');
+  expect(formatDisplayNumber(formatMarketCap('0.00'))).toEqual('0');
+  expect(formatDisplayNumber(formatMarketCap('0.0000'))).toEqual('0');
 
   // less then 0
   expect(formatDisplayNumber(formatMarketCap('-0.125423'))).toEqual('-0.13');

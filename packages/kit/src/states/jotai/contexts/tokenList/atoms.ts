@@ -74,3 +74,11 @@ export const {
   atom: smallBalanceTokensFiatValueAtom,
   use: useSmallBalanceTokensFiatValueAtom,
 } = contextAtom<string>('0');
+
+export const {
+  atom: tokenListInitializedAtom,
+  use: useTokenListInitializedAtom,
+} = contextAtom<boolean>(false);
+
+export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
+  contextAtom<string>('');
