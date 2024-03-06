@@ -16,108 +16,114 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   compressionUiMode?: boolean;
   beforeShowTrigger?: () => Promise<void>;
-}>(({ num, compressionUiMode, disabled, beforeShowTrigger, ...rest }) => {
-  const {
-    activeAccount: { account, network, indexedAccount },
-    showAccountSelector,
-  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+}>(
+  (
+    { num, compressionUiMode, disabled, beforeShowTrigger, ...rest },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _: any,
+  ) => {
+    const {
+      activeAccount: { account, network, indexedAccount },
+      showAccountSelector,
+    } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
-  const handlePress = useCallback(async () => {
-    await beforeShowTrigger?.();
-    showAccountSelector();
-  }, [beforeShowTrigger, showAccountSelector]);
+    const handlePress = useCallback(async () => {
+      await beforeShowTrigger?.();
+      showAccountSelector();
+    }, [beforeShowTrigger, showAccountSelector]);
 
-  useEffect(() => {
-    console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-  }, []);
+    useEffect(() => {
+      console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
+    }, []);
 
-  const addressText = account?.address
-    ? accountUtils.shortenAddress({
-        address: account.address || '',
-      })
-    : 'No Address';
+    const addressText = account?.address
+      ? accountUtils.shortenAddress({
+          address: account.address || '',
+        })
+      : 'No Address';
 
-  const media = useMedia();
-  const isCompressionUiMode = media.md || compressionUiMode;
-  return (
-    <XStack
-      flex={1}
-      py="$2"
-      px="$3"
-      space="$2"
-      bg="$bgApp"
-      alignItems="center"
-      userSelect="none"
-      hoverStyle={
-        disabled
-          ? undefined
-          : {
-              bg: '$bgHover',
-            }
-      }
-      pressStyle={
-        disabled
-          ? undefined
-          : {
-              bg: '$bgActive',
-            }
-      }
-      focusable={!disabled}
-      focusStyle={
-        disabled
-          ? undefined
-          : {
-              outlineWidth: 2,
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-            }
-      }
-      style={{
-        borderCurve: 'continuous',
-      }}
-      onPress={handlePress}
-      disabled={disabled}
-      {...rest}
-    >
-      {account?.address ? (
-        <AccountAvatar
-          size="small"
-          borderRadius="$1"
-          account={account}
-          networkId={network?.id}
-          indexedAccount={indexedAccount}
-        />
-      ) : null}
-      {isCompressionUiMode ? (
-        <YStack flex={1}>
+    const media = useMedia();
+    const isCompressionUiMode = media.md || compressionUiMode;
+    return (
+      <XStack
+        flex={1}
+        py="$2"
+        px="$3"
+        space="$2"
+        bg="$bgApp"
+        alignItems="center"
+        userSelect="none"
+        hoverStyle={
+          disabled
+            ? undefined
+            : {
+                bg: '$bgHover',
+              }
+        }
+        pressStyle={
+          disabled
+            ? undefined
+            : {
+                bg: '$bgActive',
+              }
+        }
+        focusable={!disabled}
+        focusStyle={
+          disabled
+            ? undefined
+            : {
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+              }
+        }
+        style={{
+          borderCurve: 'continuous',
+        }}
+        onPress={handlePress}
+        disabled={disabled}
+        {...rest}
+      >
+        {account?.address ? (
+          <AccountAvatar
+            size="small"
+            borderRadius="$1"
+            account={account}
+            networkId={network?.id}
+            indexedAccount={indexedAccount}
+          />
+        ) : null}
+        {isCompressionUiMode ? (
+          <YStack flex={1}>
+            <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
+              {account?.name ?? ''}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
+              {addressText}
+            </SizableText>
+          </YStack>
+        ) : (
           <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
             {account?.name ?? ''}
           </SizableText>
-          <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
+        )}
+        {isCompressionUiMode ? null : (
+          <SizableText
+            flex={1}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+            color="$text"
+          >
             {addressText}
           </SizableText>
-        </YStack>
-      ) : (
-        <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {account?.name ?? ''}
-        </SizableText>
-      )}
-      {isCompressionUiMode ? null : (
-        <SizableText
-          flex={1}
-          size="$bodyMdMedium"
-          numberOfLines={1}
-          color="$text"
-        >
-          {addressText}
-        </SizableText>
-      )}
-      {disabled ? null : (
-        <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-      )}
-    </XStack>
-  );
-});
+        )}
+        {disabled ? null : (
+          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+        )}
+      </XStack>
+    );
+  },
+);
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {

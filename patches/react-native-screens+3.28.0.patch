@@ -434,10 +434,16 @@ index 94475b7..81ab4eb 100644
  #ifndef RCT_NEW_ARCH_ENABLED
  
 diff --git a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
-index e295dcc..aebe6bc 100644
+index e295dcc..9f9a16b 100644
 --- a/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
 +++ b/node_modules/react-native-screens/ios/UIWindow+RNScreens.mm
-@@ -6,6 +6,13 @@ @implementation UIWindow (RNScreens)
+@@ -1,11 +1,23 @@
+ #import "RNSFullWindowOverlay.h"
+ #import "UIWindow+RNScreens.h"
++#import <React/RCTUtils.h>
+ 
+ @implementation UIWindow (RNScreens)
+ 
  - (void)didAddSubview:(UIView *)subview
  {
    if (![subview isKindOfClass:[RNSFullWindowOverlayContainer class]]) {
@@ -445,6 +451,10 @@ index e295dcc..aebe6bc 100644
 +    // We only bring `RNSFullWindowOverlayContainer` above the `UIModal`; we don't handle other things like `SPAlert`
 +    NSString *subviewClassString = NSStringFromClass([subview class]);
 +    if (![subviewClassString hasPrefix:@"UI"] && ![subviewClassString hasPrefix:@"_UI"]) {
++      return;
++    }
++
++    if ([RCTPresentedViewController() isKindOfClass:[UIAlertController class]]) {
 +      return;
 +    }
 +

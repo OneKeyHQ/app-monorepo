@@ -251,7 +251,6 @@ function SelectContent() {
   const renderContent = useMemo(
     () => {
       const listProps = {
-        contentContainerStyle: { flex: 1 },
         keyExtractor,
         estimatedItemSize: '$6',
         extraData: value,
