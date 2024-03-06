@@ -1,28 +1,30 @@
-import type { FC } from 'react';
-import { useRef } from 'react';
+import { type FC } from 'react';
 
-import type { ISelectItem } from '@onekeyhq/components';
-import { Page, Select, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAccountDerivationListItemProps = {
+  num: number;
   title: string;
   icon: string;
-  value?: string;
-  onChange?: ((value: any) => void) | undefined;
-  items?: ISelectItem[];
 };
 
 const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
-  value,
-  onChange,
+  num,
   title,
   icon,
-  items,
 }) => (
-  <Select
+  <DeriveTypeSelectorTrigger
+    num={num}
+    miniMode
+    placement="bottom-end"
     renderTrigger={({ label }) => (
       <ListItem title={title} avatarProps={{ src: icon }}>
         <XStack>
@@ -31,195 +33,65 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
         </XStack>
       </ListItem>
     )}
-    placement="bottom-end"
-    items={items}
-    value={value}
-    onChange={onChange}
-    title="Derivation Path"
   />
 );
 
-const BitcoinAccountDerivation = () => {
-  const ref = useRef<ISelectItem[]>([
+const AccountDerivation = () => {
+  const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    result: { networkIds },
+  } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
+        impls: [IMPL_BTC, IMPL_EVM],
+      }),
+    [],
     {
-      label: 'Taproot',
-      value: 'Taproot',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `P2TR (m/86'/0'/0'), Starts with 'bc1p'`,
+      initResult: {
+        networkIds: [],
+      },
     },
-    {
-      label: 'Nested SegWit',
-      value: 'Nested SegWit',
-      description: `P2WPKH (m/49'/0'/0'), Starts with '3'`,
-    },
-    {
-      label: 'Native SegWit',
-      value: 'Native SegWit',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `P2SH-P2WPKH (m/84'/0'/0'), Starts with 'bc1q'`,
-    },
-    {
-      label: 'Legacy',
-      value: 'Legacy',
-      description: `P2PKH (m/44'/0'/0'), Starts with '1'`,
-    },
-  ]);
-  const [setting] = useSettingsPersistAtom();
+  );
   return (
-    <AccountDerivationListItem
-      title="Bitcoin"
-      icon="https://onekey-asset.com/assets/btc/btc.png"
-      value={setting.bitcoinAccountDerivation}
-      onChange={(value) =>
-        backgroundApiProxy.serviceSetting.setBitcoinAccountDerivation(value)
-      }
-      items={ref.current}
-    />
+    <Page>
+      <Stack px="$5" py="$3">
+        <SizableText size="$bodyLg">
+          If you don't see the accounts you expect, try switching the derivation
+          path.
+        </SizableText>
+      </Stack>
+      <AccountSelectorProviderMirror
+        enabledNum={[0, 1]}
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        availableNetworksMap={{
+          0: {
+            networkIds,
+            defaultNetworkId: getNetworkIdsMap().btc,
+          },
+          1: {
+            networkIds,
+            defaultNetworkId: getNetworkIdsMap().eth,
+          },
+        }}
+      >
+        <Stack>
+          <AccountDerivationListItem
+            title="Bitcoin"
+            icon="https://onekey-asset.com/assets/btc/btc.png"
+            num={0}
+          />
+          <AccountDerivationListItem
+            title="EVM"
+            icon="https://onekey-asset.com/assets/eth/eth.png"
+            num={1}
+          />
+        </Stack>
+      </AccountSelectorProviderMirror>
+    </Page>
   );
 };
-
-const EvmAccountDerivation = () => {
-  const ref = useRef<ISelectItem[]>([
-    {
-      label: 'BIP44',
-      value: 'BIP44',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `OneKey, MetaMask, Trezor, imToken, m/44'/60'/0'/0/*`,
-    },
-    {
-      label: 'Ledger Live',
-      value: 'Ledger Live',
-      description: `m/44'/60'/*'/0/0`,
-    },
-  ]);
-  const [setting] = useSettingsPersistAtom();
-  return (
-    <AccountDerivationListItem
-      title="EVM"
-      icon="https://onekey-asset.com/assets/eth/eth.png"
-      value={setting.evmAccountDerivation}
-      onChange={(value) =>
-        backgroundApiProxy.serviceSetting.setEvmAccountDerivation(value)
-      }
-      items={ref.current}
-    />
-  );
-};
-
-const SolanaAccountDerivation = () => {
-  const ref = useRef<ISelectItem[]>([
-    {
-      label: 'BIP44',
-      value: 'BIP44',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `OneKey, Phantom, Sollet, m/44'/501'/*'/0'`,
-    },
-    {
-      label: 'Ledger Live',
-      value: 'Ledger Live',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `Ledger Live, Solflare, m/44'/501'/*'`,
-    },
-  ]);
-  const [setting] = useSettingsPersistAtom();
-  return (
-    <AccountDerivationListItem
-      title="Solana"
-      icon="https://onekey-asset.com/assets/sol/sol.png"
-      value={setting.solanaAccountDerivation}
-      onChange={(value) =>
-        backgroundApiProxy.serviceSetting.setSolanaAccountDerivation(value)
-      }
-      items={ref.current}
-    />
-  );
-};
-
-const LiteCoinAccountDerivation = () => {
-  const ref = useRef<ISelectItem[]>([
-    {
-      label: 'Nested SegWit',
-      value: 'Nested SegWit',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `Starts with “M”. BIP49, P2SH-P2WPKH, Base58.`,
-    },
-    {
-      label: 'Native SegWit',
-      value: 'Native SegWit',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `Starts with with "ltc1". BIP84, P2WPKH, Bech32.`,
-    },
-    {
-      label: 'Legacy',
-      value: 'Legacy',
-      description: `Starts with "L". BIP44, P2PKH, Base58.`,
-    },
-  ]);
-  const [setting] = useSettingsPersistAtom();
-  return (
-    <AccountDerivationListItem
-      title="Lite Coin"
-      icon="https://common.onekey-asset.com/chain/ltc.png"
-      value={setting.ltcAccountDerivation}
-      onChange={(value) =>
-        backgroundApiProxy.serviceSetting.setLtcAccountDerivation(value)
-      }
-      items={ref.current}
-    />
-  );
-};
-
-const EthereumClassicAccountDerivation = () => {
-  const ref = useRef<ISelectItem[]>([
-    {
-      label: 'BIP44',
-      value: 'BIP44',
-      // eslint-disable-next-line spellcheck/spell-checker
-      description: `OneKey, MetaMask, Trezor, ImToken, m/44'/60'/0'/0/*`,
-    },
-    {
-      label: `BIP44  (CoinType 61')`,
-      value: `BIP44  (CoinType 61')`,
-      description: `m/44'/61'/*'/0/0`,
-    },
-    {
-      label: 'Ledger Live',
-      value: 'Ledger Live',
-      description: `m/44'/60'/*'/0/0`,
-    },
-  ]);
-  const [setting] = useSettingsPersistAtom();
-  return (
-    <AccountDerivationListItem
-      title="Ethereum Classic"
-      icon="https://onekey-asset.com/assets/etc/etc.png"
-      value={setting.ethereumClassicAccountDerivation}
-      onChange={(value) =>
-        backgroundApiProxy.serviceSetting.setEthereumClassicAccountDerivation(
-          value,
-        )
-      }
-      items={ref.current}
-    />
-  );
-};
-
-const AccountDerivation = () => (
-  <Page>
-    <Stack px="$5" py="$3">
-      <SizableText size="$bodyLg">
-        If you don't see the accounts you expect, try switching the derivation
-        path.
-      </SizableText>
-    </Stack>
-    <Stack>
-      <BitcoinAccountDerivation />
-      <EvmAccountDerivation />
-      <SolanaAccountDerivation />
-      <LiteCoinAccountDerivation />
-      <EthereumClassicAccountDerivation />
-    </Stack>
-  </Page>
-);
 
 export default AccountDerivation;

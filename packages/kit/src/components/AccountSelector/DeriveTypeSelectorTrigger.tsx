@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -39,10 +40,12 @@ export function DeriveTypeSelectorTrigger({
   num,
   miniMode,
   renderTrigger,
+  placement,
 }: {
   num: number;
   miniMode?: boolean;
   renderTrigger?: ISelectProps<ISelectItem>['renderTrigger'];
+  placement?: ComponentProps<typeof Select>['placement'];
 }) {
   const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num });
@@ -113,6 +116,7 @@ export function DeriveTypeSelectorTrigger({
         floatingPanelProps={{
           width: '$78',
         }}
+        placement={placement}
         value={selectedAccount.deriveType}
         onChange={(type) =>
           actions.current.updateSelectedAccountDeriveType({

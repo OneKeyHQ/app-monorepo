@@ -12,13 +12,6 @@ import {
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
-import type {
-  IBitcoinAccountDerivationType,
-  IEthereumClassicAccountDerivation,
-  IEvmAccountDerivationType,
-  ILtcAccountDerivationType,
-  ISolanaAccountDerivationType,
-} from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -112,50 +105,6 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
-  }
-
-  @backgroundMethod()
-  public async setBitcoinAccountDerivation(
-    value: IBitcoinAccountDerivationType,
-  ) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      bitcoinAccountDerivation: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setEvmAccountDerivation(value: IEvmAccountDerivationType) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      evmAccountDerivation: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setSolanaAccountDerivation(value: ISolanaAccountDerivationType) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      solanaAccountDerivation: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setLtcAccountDerivation(value: ILtcAccountDerivationType) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      ltcAccountDerivation: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setEthereumClassicAccountDerivation(
-    value: IEthereumClassicAccountDerivation,
-  ) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      ethereumClassicAccountDerivation: value,
-    }));
   }
 }
 
