@@ -1,3 +1,5 @@
+import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+
 import type { IAccountNFT } from '../../types/nft';
 
 export function getFilteredNftsBySearchKey({
@@ -7,7 +9,7 @@ export function getFilteredNftsBySearchKey({
   nfts: IAccountNFT[];
   searchKey: string;
 }) {
-  if (!searchKey || searchKey.length < 2) {
+  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
     return nfts;
   }
 

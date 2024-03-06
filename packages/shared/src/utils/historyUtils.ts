@@ -1,5 +1,6 @@
 import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
+import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import type {
   IAccountHistoryTx,
@@ -75,7 +76,7 @@ export function getFilteredHistoryBySearchKey({
   history: IAccountHistoryTx[];
   searchKey: string;
 }) {
-  if (!searchKey || searchKey.length < 2) {
+  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
     return history;
   }
 

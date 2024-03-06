@@ -4,6 +4,10 @@ import { CanceledError } from 'axios';
 
 import { Portal, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_TOKEN,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -15,7 +19,6 @@ import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
-import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_TOKEN } from '../constants';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -129,7 +132,7 @@ function TokenListContainer(props: IProps) {
     ],
     {
       watchLoading: true,
-      debounced: DEBOUNCE_INTERVAL,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );

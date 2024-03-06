@@ -14,7 +14,6 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
-import { getFormattedNumber } from '../../utils/format';
 import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
@@ -120,16 +119,8 @@ function TokenListFooter(props: IProps) {
               primaryTextProps: { size: '$bodyMdMedium' },
             })}
           />
-          <ListItem.Text
-            primary={`${settings.currencyInfo.symbol}${
-              getFormattedNumber(smallBalanceTokensFiatValue, { decimal: 2 }) ??
-              '0'
-            }`}
-            {...(tableLayout && {
-              primaryTextProps: { size: '$bodyMd' },
-            })}
-          />
           <NumberSizeableText
+            size={tableLayout ? '$bodyMd' : '$bodyLgMedium'}
             formatter="value"
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
           >

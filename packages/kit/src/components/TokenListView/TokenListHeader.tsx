@@ -2,6 +2,11 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH,
+  SEARCH_DEBOUNCE_INTERVAL,
+  SEARCH_KEY_MIN_LENGTH,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -25,11 +30,16 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
     <Stack testID="Wallet-Token-List-Header">
       <ListToolToolBar
         searchProps={
-          tokens.length > 10
+          tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
             ? {
-                onChangeText: debounce((text) => updateSearchKey(text), 800),
+                onChangeText: debounce(
+                  (text) => updateSearchKey(text),
+                  SEARCH_DEBOUNCE_INTERVAL,
+                ),
                 searchResultCount:
-                  searchKey && searchKey.length > 2 ? filteredTokens.length : 0,
+                  searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
+                    ? filteredTokens.length
+                    : 0,
               }
             : undefined
         }

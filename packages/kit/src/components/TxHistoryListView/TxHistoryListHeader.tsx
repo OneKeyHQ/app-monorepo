@@ -4,6 +4,11 @@ import { debounce } from 'lodash';
 
 import { IconButton, Popover, Stack, Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  ENABLE_SEARCH_HISTORY_MIN_LENGTH,
+  SEARCH_DEBOUNCE_INTERVAL,
+  SEARCH_KEY_MIN_LENGTH,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { ListToolToolBar } from '../ListToolBar';
@@ -27,11 +32,14 @@ function TxHistoryListHeader({
     <Stack>
       <ListToolToolBar
         searchProps={
-          history.length > 10
+          history.length >= ENABLE_SEARCH_HISTORY_MIN_LENGTH
             ? {
-                onChangeText: debounce((text) => setSearchKey(text), 800),
+                onChangeText: debounce(
+                  (text) => setSearchKey(text),
+                  SEARCH_DEBOUNCE_INTERVAL,
+                ),
                 searchResultCount:
-                  searchKey && searchKey.length > 2
+                  searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
                     ? filteredHistory.length
                     : 0,
               }

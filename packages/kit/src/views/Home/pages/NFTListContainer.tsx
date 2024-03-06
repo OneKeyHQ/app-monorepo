@@ -2,11 +2,14 @@ import { useRef, useState } from 'react';
 
 import { Empty, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_NFT,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { NFTListView } from '../components/NFTListView';
-import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_NFT } from '../constants';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -49,7 +52,7 @@ function NFTListContainer(props: IProps) {
     [account, isNFTEnabled, network],
     {
       watchLoading: true,
-      debounced: DEBOUNCE_INTERVAL,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
   );

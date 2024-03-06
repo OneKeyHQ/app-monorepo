@@ -1,3 +1,5 @@
+import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+
 import type { IAccountToken, ITokenData } from '../../types/token';
 
 export function getMergedTokenData({
@@ -67,7 +69,7 @@ export function getFilteredTokenBySearchKey({
   tokens: IAccountToken[];
   searchKey: string;
 }) {
-  if (!searchKey || tokens.length < 2) {
+  if (!searchKey || searchKey.length < SEARCH_KEY_MIN_LENGTH) {
     return tokens;
   }
 

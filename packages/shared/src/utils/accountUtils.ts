@@ -33,14 +33,26 @@ function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
 
-function shortenAddress({ address }: { address: string | undefined }) {
+function shortenAddress({
+  address,
+  minLength = 14,
+  leadingLength = 8,
+  trailingLength = 6,
+}: {
+  address: string | undefined;
+  leadingLength?: number;
+  trailingLength?: number;
+  minLength?: number;
+}) {
   if (!address) {
     return '';
   }
-  if (address.length <= 14) {
+  if (address.length <= minLength) {
     return address;
   }
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
+  return `${address.slice(0, leadingLength)}...${address.slice(
+    -trailingLength,
+  )}`;
 }
 
 function isHdWallet({ walletId }: { walletId: string | undefined }) {

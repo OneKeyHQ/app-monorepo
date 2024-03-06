@@ -2,6 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  POLLING_DEBOUNCE_INTERVAL,
+  POLLING_INTERVAL_FOR_HISTORY,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
@@ -10,7 +14,6 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
-import { DEBOUNCE_INTERVAL, POLLING_INTERVAL_FOR_HISTORY } from '../constants';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -60,7 +63,7 @@ function TxHistoryListContainer(props: IProps) {
     [account, network],
     {
       watchLoading: true,
-      debounced: DEBOUNCE_INTERVAL,
+      debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
