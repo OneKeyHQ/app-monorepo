@@ -32,9 +32,8 @@ function HeaderCollapseButton({
       testID="Desktop-AppSideBar-Container"
       animate={{ paddingLeft }}
       transition={{
-        type: 'spring',
-        damping: 20,
-        mass: 0.1,
+        duration: 200,
+        type: 'timing',
       }}
     >
       <HeaderIconButton onPress={onPressCall} icon="SidebarOutline" />

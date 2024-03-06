@@ -1,146 +1,106 @@
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Stack, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { Token } from '../Token';
+
 import { TokenBalanceView } from './TokenBalanceView';
+import { TokenNameView } from './TokenNameView';
 import { TokenPriceChangeView } from './TokenPriceChangeView';
 import { TokenPriceView } from './TokenPriceView';
-import { TokenSymbolView } from './TokenSymbolView';
 import { TokenValueView } from './TokenValueView';
 
 type IProps = {
+  index: number;
   token: IAccountToken;
   onPress?: (token: IAccountToken) => void;
   tableLayout?: boolean;
   withPrice?: boolean;
-  withName?: boolean;
-};
+} & Omit<IListItemProps, 'onPress'>;
 
-function TokenListItem(props: IProps & Omit<IListItemProps, 'onPress'>) {
-  const { token, onPress, tableLayout, withName, withPrice, ...rest } = props;
+function TokenListItem(props: IProps) {
+  const { index, token, onPress, tableLayout, withPrice, ...rest } = props;
 
   return (
     <ListItem
       key={token.name}
-      avatarProps={{
-        src: token.logoURI,
-        circular: true,
-        fallbackProps: {
-          bg: '$bgStrong',
-          justifyContent: 'center',
-          alignItems: 'center',
-          children: <Icon name="ImageMountainSolid" />,
-        },
-        ...(token.isNative && {
-          cornerIconProps: {
-            name: 'GasSolid',
-            size: '$3.5',
-            containerProps: {
-              borderRadius: 4,
-            },
-          },
-        }),
-        ...(tableLayout && {
-          size: '$8',
-        }),
-      }}
       userSelect="none"
       onPress={() => {
         onPress?.(token);
       }}
+      backgroundColor={tableLayout && index % 2 === 1 ? '$bgSubdued' : ''}
       {...rest}
     >
+      <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
       <Stack
-        {...(tableLayout
-          ? {
-              flexDirection: 'row',
-              space: '$3',
-            }
-          : {
-              flex: 1,
-            })}
+        flexGrow={1}
+        flexBasis={0}
+        {...(tableLayout && {
+          flexDirection: 'row',
+        })}
       >
         <XStack
-          alignItems="center"
           {...(tableLayout && {
-            w: '$32',
+            flexGrow: 1,
+            flexBasis: 0,
           })}
         >
-          <TokenSymbolView
+          <TokenNameView
             size="$bodyLgMedium"
             numberOfLines={1}
-            symbol={token.symbol}
+            name={token.name}
+            isNative={token.isNative}
+            {...(tableLayout && {
+              size: '$bodyMdMedium',
+            })}
           />
         </XStack>
-
-        {withPrice && (
-          <XStack space="$2">
-            <TokenPriceView
-              size="$bodyMd"
-              color="$textSubdued"
-              $key={token.$key ?? ''}
-              {...(tableLayout && {
-                size: '$bodyLg',
-                color: '$text',
-                w: '$32',
-                textAlign: 'right',
-                $gtXl: {
-                  w: '$56',
-                },
-                $gt2xl: {
-                  w: '$72',
-                },
-              })}
-            />
-            <TokenPriceChangeView
-              $key={token.$key ?? ''}
-              size="$bodyMd"
-              {...(tableLayout && {
-                size: '$bodyLg',
-                w: '$24',
-              })}
-            />
-          </XStack>
-        )}
-
-        {withName && (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {token.name}
-          </SizableText>
-        )}
+        <TokenBalanceView
+          size="$bodyMd"
+          color="$textSubdued"
+          $key={token.$key ?? ''}
+          symbol={token.symbol}
+          {...(tableLayout && {
+            flexGrow: 1,
+            flexBasis: 0,
+            color: '$text',
+          })}
+        />
       </Stack>
 
       <Stack
+        flexDirection="column-reverse"
+        alignItems="flex-end"
         {...(tableLayout && {
-          flex: 1,
           flexDirection: 'row',
-          space: '$3',
+          flexGrow: 1,
+          flexBasis: 0,
         })}
       >
-        <TokenBalanceView
-          size="$bodyLgMedium"
-          $key={token.$key ?? ''}
-          textAlign="right"
-          {...(tableLayout && {
-            w: '$36',
-            $gtXl: {
-              w: '$56',
-            },
-            $gt2xl: {
-              w: '$72',
-            },
-          })}
-        />
+        {withPrice && (
+          <XStack
+            space="$2"
+            alignItems="center"
+            {...(tableLayout && {
+              flexGrow: 1,
+              flexBasis: 0,
+            })}
+          >
+            {tableLayout && (
+              <TokenPriceView $key={token.$key ?? ''} size="$bodyMd" />
+            )}
+            <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
+          </XStack>
+        )}
         <TokenValueView
           $key={token.$key ?? ''}
-          color="$textSubdued"
-          size="$bodyMd"
+          size="$bodyLgMedium"
           textAlign="right"
           {...(tableLayout && {
-            flex: 1,
-            color: '$text',
-            size: '$bodyLgMedium',
+            flexGrow: 1,
+            flexBasis: 0,
+            size: '$bodyMd',
           })}
         />
       </Stack>

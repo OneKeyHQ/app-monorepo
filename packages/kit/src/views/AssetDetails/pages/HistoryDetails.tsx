@@ -1,35 +1,115 @@
-import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { isEmpty, isNil } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import type {
+  ILocaleIds,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Divider,
-  Heading,
   Image,
+  NumberSizeableText,
   Page,
+  SizableText,
   Spinner,
   Stack,
   XStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import type { IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { TxDetails } from '../../../components/TxDetails';
+import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalAssetDetailRoutes } from '../router/types';
 
-import type { ITxDetailsProps } from '../../../components/TxDetails';
 import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
+import type { ColorValue } from 'react-native';
+
+function getTxStatusTextProps(status: EDecodedTxStatus): {
+  key: ILocaleIds;
+  color: ColorValue;
+} {
+  if (status === EDecodedTxStatus.Pending) {
+    return {
+      key: 'transaction__pending',
+      color: '$textCaution',
+    };
+  }
+
+  if (status === EDecodedTxStatus.Confirmed) {
+    return {
+      key: 'transaction__success',
+      color: '$textSuccess',
+    };
+  }
+
+  return {
+    key: 'transaction__failed',
+    color: '$textError',
+  };
+}
+
+function InfoItemGroup({ children, ...rest }: IXStackProps) {
+  return (
+    <XStack p="$2.5" flexWrap="wrap" {...rest}>
+      {children}
+    </XStack>
+  );
+}
+
+function InfoItem({
+  label,
+  renderContent,
+  compact = false,
+  ...rest
+}: {
+  label: string;
+  renderContent: ReactNode;
+  compact?: boolean;
+} & IStackProps) {
+  return (
+    <Stack
+      flex={1}
+      flexBasis="100%"
+      p="$2.5"
+      space="$2"
+      {...(compact && {
+        $gtMd: {
+          flexBasis: '50%',
+        },
+      })}
+      {...rest}
+    >
+      <SizableText size="$bodyMdMedium">{label}</SizableText>
+      {typeof renderContent === 'string' ? (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {renderContent}
+        </SizableText>
+      ) : (
+        renderContent
+      )}
+    </Stack>
+  );
+}
 
 function HistoryDetails() {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<
@@ -41,8 +121,7 @@ function HistoryDetails() {
   const { networkId, accountAddress, historyTx } = route.params;
 
   const navigation = useAppNavigation();
-
-  const { copyText } = useClipboard();
+  const [settings] = useSettingsPersistAtom();
 
   const resp = usePromiseResult(
     () =>
@@ -63,91 +142,7 @@ function HistoryDetails() {
   const [network, vaultSettings, txDetailsResp, nativeToken] =
     resp.result ?? [];
 
-  const { data: txDetails, tokens = {} } = txDetailsResp ?? {};
-
-  const relatedAssetInfo = useMemo(() => {
-    if (!txDetails) return undefined;
-    const tokenAddress =
-      txDetails.sends[0]?.token || txDetails.receives[0]?.token;
-
-    return getOnChainHistoryTxAssetInfo({
-      tokenAddress,
-      tokens,
-    });
-  }, [tokens, txDetails]);
-
-  const details = useMemo(() => {
-    if (!txDetails) return [];
-    return [
-      [
-        {
-          key: 'content__from',
-          value: txDetails.from,
-          iconAfter: 'Copy1Outline',
-          onPress: () => copyText(txDetails.from),
-        },
-        {
-          key: 'content__to',
-          value: txDetails.to,
-          iconAfter: 'Copy1Outline',
-          onPress: () => copyText(txDetails.to),
-        },
-      ],
-      [
-        {
-          key: 'content__asset',
-          value: relatedAssetInfo?.symbol,
-          imgUrl: relatedAssetInfo?.icon,
-          isNFT: relatedAssetInfo?.isNFT,
-        },
-        {
-          key: 'content__contract_address',
-          value: relatedAssetInfo?.address,
-          iconAfter: 'Copy1Outline',
-          onPress: () => copyText(relatedAssetInfo?.address ?? ''),
-        },
-      ],
-      [
-        {
-          key: 'content__hash',
-          value: txDetails.tx,
-          iconAfter: 'Copy1Outline',
-          onPress: () => copyText(txDetails.tx),
-        },
-        {
-          key: 'content__time',
-          value: formatDate(new Date(txDetails.timestamp * 1000)),
-        },
-      ],
-      [
-        {
-          key: 'network__network',
-          value: network?.name,
-          imgUrl: network?.logoURI,
-        },
-        {
-          key: 'content__fee',
-          value: `${txDetails.gasFee} ${nativeToken?.symbol ?? ''}`,
-        },
-        {
-          key: 'content__nonce',
-          value: txDetails.nonce,
-        },
-      ],
-    ].map((section) =>
-      section.filter((item) => !isNil(item.value) && !isEmpty(item.value)),
-    ) as ITxDetailsProps['details'];
-  }, [
-    copyText,
-    nativeToken?.symbol,
-    network?.logoURI,
-    network?.name,
-    relatedAssetInfo?.address,
-    relatedAssetInfo?.icon,
-    relatedAssetInfo?.isNFT,
-    relatedAssetInfo?.symbol,
-    txDetails,
-  ]);
+  const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
   const handleOnViewUTXOsPress = useCallback(() => {
     if (!txDetails) return;
@@ -165,68 +160,245 @@ function HistoryDetails() {
     });
   }, [navigation, txDetails]);
 
-  const headerTitle = useCallback(
+  const renderAssetsChange = useCallback(
+    ({
+      transfers,
+      direction,
+    }: {
+      transfers: IOnChainHistoryTxTransfer[] | undefined;
+      direction: EDecodedTxDirection;
+    }) =>
+      transfers?.map((transfer, index) => {
+        const asset = getOnChainHistoryTxAssetInfo({
+          tokenAddress: transfer.token,
+          tokens,
+          nfts,
+        });
+        return (
+          <ListItem key={index}>
+            <Token
+              isNFT={asset.isNFT}
+              tokenImageUri={asset.icon}
+              networkImageUri={network?.logoURI}
+            />
+            <ListItem.Text
+              primary={asset.symbol}
+              secondary={asset.name}
+              flex={1}
+            />
+            <ListItem.Text
+              primary={
+                <NumberSizeableText
+                  textAlign="right"
+                  size="$bodyLgMedium"
+                  color={
+                    direction === EDecodedTxDirection.IN
+                      ? '$textSuccess'
+                      : '$text'
+                  }
+                  formatter="balance"
+                  formatterOptions={{
+                    tokenSymbol: asset.isNFT ? '' : asset.symbol,
+                    showPlusMinusSigns: true,
+                  }}
+                >
+                  {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${
+                    transfer.amount
+                  }`}
+                </NumberSizeableText>
+              }
+              secondary={
+                <NumberSizeableText
+                  textAlign="right"
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                >
+                  {new BigNumber(transfer.amount)
+                    .times(asset.price ?? 0)
+                    .toString()}
+                </NumberSizeableText>
+              }
+              align="right"
+            />
+          </ListItem>
+        );
+      }),
+    [network?.logoURI, nfts, settings.currencyInfo.symbol, tokens],
+  );
+
+  const renderTxStatus = useCallback(() => {
+    const { key, color } = getTxStatusTextProps(historyTx.decodedTx.status);
+    return (
+      <XStack h="$5" alignItems="center">
+        <SizableText size="$bodyMdMedium" color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
+          <XStack ml="$5">
+            <Button size="small" variant="primary">
+              Speed Up
+            </Button>
+            <Button size="small" variant="secondary" ml="$2.5">
+              Cancel
+            </Button>
+          </XStack>
+        )}
+      </XStack>
+    );
+  }, [historyTx.decodedTx.status, intl]);
+
+  const renderFeeInfo = useCallback(
     () => (
       <XStack alignItems="center">
-        <Image
-          width="$6"
-          height="$6"
-          source={{
-            uri: relatedAssetInfo?.icon,
+        <NumberSizeableText
+          formatter="balance"
+          size="$bodyMd"
+          color="$textSubdued"
+          formatterOptions={{
+            tokenSymbol: nativeToken?.symbol,
           }}
-          circular={!relatedAssetInfo?.isNFT}
-          borderRadius={3}
-        />
-        <Heading pl="$2" size="$headingLg" textTransform="capitalize">
-          {txDetails?.label.label}
-        </Heading>
+        >
+          {txDetails?.gasFee}
+        </NumberSizeableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          (
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {txDetails?.gasFeeFiatValue}
+          </NumberSizeableText>
+          )
+        </SizableText>
       </XStack>
     ),
-    [relatedAssetInfo?.icon, relatedAssetInfo?.isNFT, txDetails?.label.label],
+    [
+      nativeToken?.symbol,
+      settings.currencyInfo.symbol,
+      txDetails?.gasFee,
+      txDetails?.gasFeeFiatValue,
+    ],
   );
 
   const renderHistoryDetails = useCallback(() => {
     if (resp.isLoading) {
       return (
-        <Stack h="100%" justifyContent="center" alignItems="center">
-          <Spinner />
+        <Stack pt={240} justifyContent="center" alignItems="center">
+          <Spinner size="large" />
         </Stack>
       );
     }
 
+    if (!txDetails) return null;
+
     return (
-      <Stack>
-        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
-          <>
-            <ListItem icon="ClockTimeHistoryOutline" title="Pending">
-              <Button size="small" variant="tertiary">
-                Cancel
-              </Button>
-              <Button size="small" variant="primary" ml="$1">
-                Speed Up
-              </Button>
-            </ListItem>
-            <Divider mb="$5" pt="$3" />
-          </>
-        )}
-        <TxDetails
-          details={details}
-          isUTXO={vaultSettings?.isUtxo}
-          onViewUTXOsPress={handleOnViewUTXOsPress}
-        />
-      </Stack>
+      <>
+        {/* Part 1: What change */}
+        <Stack>
+          {renderAssetsChange({
+            transfers: txDetails.sends,
+            direction: EDecodedTxDirection.OUT,
+          })}
+          {renderAssetsChange({
+            transfers: txDetails.receives,
+            direction: EDecodedTxDirection.IN,
+          })}
+        </Stack>
+
+        {/* Part 2: Details */}
+        <Stack>
+          {/* Primary */}
+          <InfoItemGroup>
+            <InfoItem label="Status" renderContent={renderTxStatus()} compact />
+            <InfoItem
+              label="Date"
+              renderContent={formatDate(new Date(txDetails.timestamp * 1000))}
+              compact
+            />
+          </InfoItemGroup>
+          {/* Secondary */}
+          <Divider mx="$5" />
+          <InfoItemGroup>
+            <InfoItem label="From" renderContent={txDetails.from} />
+            <InfoItem label="To" renderContent={txDetails.to} />
+            <InfoItem label="Transaction ID" renderContent={txDetails.tx} />
+            <InfoItem
+              label="Network Fee"
+              renderContent={renderFeeInfo()}
+              compact
+            />
+            {txDetails.nonce && (
+              <InfoItem
+                label="Nonce"
+                renderContent={String(txDetails.nonce)}
+                compact
+              />
+            )}
+            {txDetails.confirmations && (
+              <InfoItem
+                label="Confirmations"
+                renderContent={txDetails.confirmations}
+                compact
+              />
+            )}
+          </InfoItemGroup>
+          {/* Tertiary */}
+          {txDetails.swapInfo && (
+            <>
+              <Divider mx="$5" />
+              <InfoItemGroup>
+                <InfoItem
+                  label="Rate"
+                  renderContent="1 ETH = 2229.259 USDC"
+                  compact
+                />
+                <InfoItem
+                  label="Application"
+                  renderContent={
+                    <XStack>
+                      <Image
+                        src="https://cdn.1inch.io/logo.png"
+                        w="$5"
+                        h="$5"
+                      />
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        pl="$1.5"
+                      >
+                        1inch
+                      </SizableText>
+                    </XStack>
+                  }
+                  compact
+                />
+                <InfoItem label="Protocol Fee" renderContent="$0.12" compact />
+                <InfoItem
+                  label="OneKey Fee"
+                  renderContent="0.3% (0.002 ETH)"
+                  compact
+                />
+              </InfoItemGroup>
+            </>
+          )}
+        </Stack>
+      </>
     );
   }, [
+    renderAssetsChange,
+    renderFeeInfo,
+    renderTxStatus,
     resp.isLoading,
-    historyTx.decodedTx.status,
-    details,
-    vaultSettings?.isUtxo,
-    handleOnViewUTXOsPress,
+    txDetails,
   ]);
 
   return (
-    <Page>
-      <Page.Header headerTitle={headerTitle} />
+    <Page scrollEnabled>
+      <Page.Header headerTitle={txDetails?.label} />
       <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );
