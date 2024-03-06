@@ -31,7 +31,7 @@ const AppStateLock = ({
         space="$8"
       >
         <YStack space="$4" alignItems="center">
-          <Image w={72} h={72} src={Logo} />
+          <Image w={72} h={72} source={Logo} />
           <Heading size="$headingLg" textAlign="center">
             Welcome Back
           </Heading>
