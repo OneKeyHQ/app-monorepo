@@ -9,6 +9,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { setThemePreloadToLocalStorage } from '../../../../utils/themePreload';
 import {
   type IListItemSelectOption,
   ListItemSelect,
@@ -37,11 +38,10 @@ export default function SettingThemeModal() {
     ],
     [intl],
   );
-  const onChange = useCallback(
-    async (text: IThemeValue) =>
-      backgroundApiProxy.serviceSetting.setTheme(text),
-    [],
-  );
+  const onChange = useCallback(async (text: IThemeValue) => {
+    setThemePreloadToLocalStorage(text);
+    await backgroundApiProxy.serviceSetting.setTheme(text);
+  }, []);
   return (
     <Page>
       <Stack py="$2">
