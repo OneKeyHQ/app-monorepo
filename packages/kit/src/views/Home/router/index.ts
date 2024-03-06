@@ -10,7 +10,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHome,
     component: HomePageContainer,
-    translationId: 'wallet__wallet',
+    // translationId: 'wallet__wallet',
     rewrite: '/',
   },
 ];

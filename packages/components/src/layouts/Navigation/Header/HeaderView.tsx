@@ -8,7 +8,7 @@ import { useTheme } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Stack } from '../../../primitives';
+import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
@@ -42,6 +42,7 @@ function HeaderView({
   isRootScreen = false,
 }: IStackHeaderProps & IOnekeyStackHeaderProps) {
   const {
+    headerLeft,
     headerRight,
     headerTitle,
     headerTitleAlign,
@@ -67,20 +68,31 @@ function HeaderView({
   }, [canGoBack, navigation]);
 
   const headerLeftView = useCallback(
-    (props: HeaderBackButtonProps): ReactNode => {
-      if (disableClose) return null;
-
-      return (
-        <HeaderBackButton
-          canGoBack={!topStack}
-          onPress={onBackCallback}
-          isRootScreen={isRootScreen}
-          isModelScreen={isModelScreen}
-          {...props}
-        />
-      );
-    },
-    [disableClose, isModelScreen, isRootScreen, onBackCallback, topStack],
+    (props: HeaderBackButtonProps): ReactNode => (
+      <XStack>
+        {!disableClose && (
+          <HeaderBackButton
+            canGoBack={!topStack}
+            onPress={onBackCallback}
+            isRootScreen={isRootScreen}
+            isModelScreen={isModelScreen}
+            {...props}
+          />
+        )}
+        {headerLeft?.({
+          ...props,
+          canGoBack: !topStack,
+        })}
+      </XStack>
+    ),
+    [
+      disableClose,
+      isModelScreen,
+      isRootScreen,
+      onBackCallback,
+      topStack,
+      headerLeft,
+    ],
   );
 
   if (!headerShown) {
