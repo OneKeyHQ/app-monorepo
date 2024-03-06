@@ -67,8 +67,8 @@ export function TokenDetails() {
           }),
           backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
         ]);
-        if (!account) return;
 
+        if (!account) return;
         const [history, details] = await Promise.all([
           backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId: account.id,
@@ -163,6 +163,8 @@ export function TokenDetails() {
     ),
     [handleToggleBlockedToken, isBlocked],
   );
+
+  console.log('tokenDetails', tokenDetails);
 
   // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;

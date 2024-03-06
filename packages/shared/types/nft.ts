@@ -40,10 +40,8 @@ export type IFetchAccountNFTsResp = {
 export type IFetchNFTDetailsParams = {
   networkId: string;
   accountAddress?: string;
-  params: {
-    itemId: string;
-    collectionAddress?: string;
-  }[];
+  xpub?: string;
+  nftIds: string[]; // [collectionAddress:itemId]
 };
 
 export type IFetchNFTDetailsResp = {

@@ -24,7 +24,7 @@ class ServiceNameResolver extends ServiceBase {
     try {
       const resp = await client.get<{
         data: IResolveNameResp;
-      }>('/wallet/v1/account/resolve-name', {
+      }>('/server-service-wallet/v1/account/resolve-name', {
         params: {
           name,
           networkId,

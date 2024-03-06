@@ -58,21 +58,21 @@ function TokenListContainer(props: IProps) {
           updateTokenListInitialized(false);
         }
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        const blockedTokens =
-          await backgroundApiProxy.serviceToken.getBlockedTokens({
-            networkId: network.id,
-          });
-        const unblockedTokens =
-          await backgroundApiProxy.serviceToken.getUnblockedTokens({
-            networkId: network.id,
-          });
+        // const blockedTokens =
+        //   await backgroundApiProxy.serviceToken.getBlockedTokens({
+        //     networkId: network.id,
+        //   });
+        // const unblockedTokens =
+        //   await backgroundApiProxy.serviceToken.getUnblockedTokens({
+        //     networkId: network.id,
+        //   });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           mergeTokens: true,
           networkId: network.id,
           accountAddress: account.address,
           flag: 'home-token-list',
-          blockedTokens: Object.keys(blockedTokens),
-          unblockedTokens: Object.keys(unblockedTokens),
+          // blockedTokens: Object.keys(blockedTokens),
+          // unblockedTokens: Object.keys(unblockedTokens),
         });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });

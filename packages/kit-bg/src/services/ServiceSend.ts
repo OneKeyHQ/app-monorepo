@@ -225,7 +225,7 @@ class ServiceSend extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
-    }>('/wallet/v1/account/send-transaction', {
+    }>('/server-service-wallet/v1/account/send-transaction', {
       networkId,
       tx: signedTx.rawTx,
     });
@@ -359,7 +359,6 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
-        withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
