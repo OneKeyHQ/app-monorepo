@@ -21,7 +21,7 @@ import {
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 
 export function useSwapFromAccountNetworkSync() {
-  const { updateSelectedAccount } = useAccountSelectorActions().current;
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [swapToAnotherAccount, setSwapToAnotherAccount] =
     useSwapToAnotherAccountAddressAtom();
@@ -41,24 +41,18 @@ export function useSwapFromAccountNetworkSync() {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkTokenForAccountNetworkDebounce = useCallback(
-    debounce(() => {
+    debounce(async () => {
       if (fromTokenRef.current) {
-        void updateSelectedAccount({
+        await updateSelectedAccountNetwork({
           num: 0,
-          builder: (v) => ({
-            ...v,
-            networkId: fromTokenRef.current?.networkId,
-          }),
+          networkId: fromTokenRef.current?.networkId,
         });
       }
 
       if (toTokenRef.current) {
-        void updateSelectedAccount({
+        await updateSelectedAccountNetwork({
           num: 1,
-          builder: (v) => ({
-            ...v,
-            networkId: toTokenRef.current?.networkId,
-          }),
+          networkId: toTokenRef.current?.networkId,
         });
       }
       if (
@@ -67,33 +61,33 @@ export function useSwapFromAccountNetworkSync() {
         toTokenRef.current?.networkId !==
           swapToAnotherAccountRef.current.networkId
       ) {
-        setTimeout(() => {
-          setSettings((v) => ({
-            ...v,
-            swapToAnotherAccountSwitchOn: false,
-          }));
-        }, 100);
+        setSettings((v) => ({
+          ...v,
+          swapToAnotherAccountSwitchOn: false,
+        }));
         setSwapToAnotherAccount((v) => ({
           ...v,
           networkId: toTokenRef.current?.networkId,
         }));
       }
     }, 100),
-    [setSettings, updateSelectedAccount],
+    [setSettings, updateSelectedAccountNetwork],
   );
 
   useListenTabFocusState(
     ETabRoutes.Swap,
-    (isFocus: boolean, isHideByModal: boolean) => {
+    async (isFocus: boolean, isHideByModal: boolean) => {
       if (isHideByModal) return;
       if (isFocus) {
-        checkTokenForAccountNetworkDebounce();
+        await checkTokenForAccountNetworkDebounce();
       }
     },
   );
 
   useEffect(() => {
-    checkTokenForAccountNetworkDebounce();
+    void (async () => {
+      await checkTokenForAccountNetworkDebounce();
+    })();
   }, [checkTokenForAccountNetworkDebounce, fromToken, toToken]);
 }
 
