@@ -1,6 +1,13 @@
 import { memo } from 'react';
 
-import { Icon, IconButton, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Heading,
+  IconButton,
+  Image,
+  YStack,
+} from '@onekeyhq/components';
+import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 
 interface IAppStateLockProps {
   passwordVerifyContainer: React.ReactNode;
@@ -15,18 +22,30 @@ const AppStateLock = ({
 }: IAppStateLockProps) => {
   console.log('app state lock');
   return (
-    <YStack
-      space="$5"
-      justifyContent="center"
-      alignItems="center"
-      flex={1}
-      backgroundColor="$background"
-    >
-      <Icon name="LockOutline" size="$5" />
-      <YStack minWidth="$64">{passwordVerifyContainer}</YStack>
-      {enableWebAuth && (
-        <IconButton icon="FaceArcSolid" onPress={onWebAuthVerify} />
-      )}
+    <YStack flex={1} bg="$bgApp">
+      <YStack
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        p="$8"
+        space="$8"
+      >
+        <YStack space="$4" alignItems="center">
+          <Image w={72} h={72} src={Logo} />
+          <Heading size="$headingLg" textAlign="center">
+            Welcome Back
+          </Heading>
+        </YStack>
+        <YStack>{passwordVerifyContainer}</YStack>
+        {/* {enableWebAuth && (
+          <IconButton icon="FaceArcSolid" onPress={onWebAuthVerify} />
+        )} */}
+      </YStack>
+      <YStack py="$8" alignItems="center">
+        <Button size="small" variant="tertiary">
+          Forgot Password?
+        </Button>
+      </YStack>
     </YStack>
   );
 };

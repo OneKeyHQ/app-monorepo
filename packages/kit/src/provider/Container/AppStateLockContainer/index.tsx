@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback, useState } from 'react';
 
+import { AnimatePresence } from 'tamagui';
+
 import { Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -46,33 +48,46 @@ export function AppStateLockContainer({
     <>
       {isShowChildren ? children : null}
       {!isLocked && <AppStateUpdater />}
-      {isLocked && (
-        <Stack position="absolute" top={0} left={0} right={0} bottom={0}>
-          <AppStateLock
-            enableWebAuth={!!webAuthCredentialId}
-            onWebAuthVerify={async () => {
-              try {
-                await verifiedPasswordWebAuth();
-                await handleUnlock();
-              } catch (e) {
-                Toast.error({ title: '请输入密码' });
-              }
+      <AnimatePresence>
+        {isLocked && (
+          <Stack
+            key="unlock-screen"
+            animation="quick"
+            exitStyle={{
+              opacity: 0,
             }}
-            passwordVerifyContainer={
-              <Suspense>
-                <PasswordVerifyContainer
-                  onLayout={handleLayout}
-                  onVerifyRes={async (data) => {
-                    if (data) {
-                      await handleUnlock();
-                    }
-                  }}
-                />
-              </Suspense>
-            }
-          />
-        </Stack>
-      )}
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+          >
+            <AppStateLock
+              enableWebAuth={!!webAuthCredentialId}
+              onWebAuthVerify={async () => {
+                try {
+                  await verifiedPasswordWebAuth();
+                  await handleUnlock();
+                } catch (e) {
+                  Toast.error({ title: '请输入密码' });
+                }
+              }}
+              passwordVerifyContainer={
+                <Suspense>
+                  <PasswordVerifyContainer
+                    onLayout={handleLayout}
+                    onVerifyRes={async (data) => {
+                      if (data) {
+                        await handleUnlock();
+                      }
+                    }}
+                  />
+                </Suspense>
+              }
+            />
+          </Stack>
+        )}
+      </AnimatePresence>
     </>
   );
 }
