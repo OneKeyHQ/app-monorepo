@@ -641,4 +641,5 @@ module.exports = [
   'replacer',
   'invoker',
   'ecrecover',
+  'sats',
 ];

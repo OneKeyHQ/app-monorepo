@@ -1,3 +1,4 @@
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 
 /**
@@ -19,4 +20,15 @@ export function getUtxoAccountPrefixPath({ fullPath }: { fullPath: string }) {
   pathComponent.pop();
   const prefixPath = pathComponent.join('/');
   return prefixPath;
+}
+
+export function getBIP44Path(account: IDBUtxoAccount, address: string) {
+  let realPath = '';
+  for (const [key, value] of Object.entries(account.addresses)) {
+    if (value === address) {
+      realPath = key;
+      break;
+    }
+  }
+  return `${account.path}/${realPath}`;
 }
