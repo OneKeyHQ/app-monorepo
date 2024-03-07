@@ -1,8 +1,9 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useMemo } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
+import { getTokenValue } from 'tamagui';
 
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
 import type {
@@ -56,6 +57,7 @@ function BaseListView<T>(
     columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
+    estimatedItemSize,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -90,6 +92,21 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
+  const itemSize = useMemo(
+    () =>
+      typeof estimatedItemSize === 'number'
+        ? estimatedItemSize
+        : (getTokenValue(estimatedItemSize) as number),
+    [estimatedItemSize],
+  );
+  const getItemLayout = useCallback(
+    (_: ArrayLike<T> | null | undefined, index: number) => ({
+      length: itemSize,
+      offset: itemSize * index,
+      index,
+    }),
+    [itemSize],
+  );
   return (
     <FlatList<T>
       ref={ref}
@@ -100,6 +117,8 @@ function BaseListView<T>(
       contentContainerStyle={contentStyle}
       data={data}
       renderItem={renderItem}
+      getItemLayout={getItemLayout}
+      windowSize={3}
       {...restProps}
       // we can't set it on web
       refreshControl={undefined}
