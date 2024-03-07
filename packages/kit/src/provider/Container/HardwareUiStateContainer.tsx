@@ -182,7 +182,7 @@ function HardwareUiStateContainerCmp() {
       if (shouldShowAction && connectId) {
         if (isToastAction) {
           toastRef.current = Toast.show({
-            children: <ConfirmOnDeviceToastContent />,
+            children: <ConfirmOnDeviceToastContent deviceType="classic" />,
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {

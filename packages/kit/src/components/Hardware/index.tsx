@@ -10,6 +10,8 @@ import {
   EnterPinOnDevice,
 } from './Hardware';
 
+import type { IConfirmOnDeviceToastContentProps } from './Hardware';
+
 const mockListenDeviceResult = () => {
   const actions: (() => void | undefined)[] = [];
   return {
@@ -27,12 +29,14 @@ const mockListenDeviceResult = () => {
   };
 };
 
-export const confirmOnClassic = async () => {
+export const ConfirmOnDeviceToast = async ({
+  deviceType,
+}: IConfirmOnDeviceToastContentProps) => {
   const event = mockListenDeviceResult();
-
   const toast = Toast.show({
     dismissOnOverlayPress: false,
-    children: <ConfirmOnDeviceToastContent />,
+    disableSwipeGesture: false,
+    children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
     onClose: (extra) => {
       console.log('close flag:', extra?.flag);
       console.log('close ConfirmOnDeviceToastContent');
