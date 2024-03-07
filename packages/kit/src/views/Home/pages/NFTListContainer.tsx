@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 
 import { Empty, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_NFT,
@@ -43,6 +44,7 @@ function NFTListContainer(props: IProps) {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         networkId: network.id,
         accountAddress: account.address,
+        xpub: (account as IDBUtxoAccount).xpub,
       });
 
       setInitialized(true);

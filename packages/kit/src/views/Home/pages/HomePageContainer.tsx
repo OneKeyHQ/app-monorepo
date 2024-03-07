@@ -10,11 +10,13 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
@@ -53,32 +55,43 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
+  const isNFTEnabled = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+    [network],
+  ).result?.NFTEnabled;
+
   const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: 'asset__tokens',
-        }),
-        page: memo(TokenListContainerWithProvider, () => true),
-      },
-      {
-        title: intl.formatMessage({
-          id: 'asset__collectibles',
-        }),
-        page: memo(NFTListContainer, () => true),
-      },
-      // {
-      //   title: 'Defi',
-      //   page: memo(DefiListContainer, () => true),
-      // },
-      {
-        title: intl.formatMessage({
-          id: 'transaction__history',
-        }),
-        page: memo(TxHistoryListContainer, () => true),
-      },
-    ],
-    [intl],
+    () =>
+      [
+        {
+          title: intl.formatMessage({
+            id: 'asset__tokens',
+          }),
+          page: memo(TokenListContainerWithProvider, () => true),
+        },
+        isNFTEnabled
+          ? {
+              title: intl.formatMessage({
+                id: 'asset__collectibles',
+              }),
+              page: memo(NFTListContainer, () => true),
+            }
+          : null,
+        // {
+        //   title: 'Defi',
+        //   page: memo(DefiListContainer, () => true),
+        // },
+        {
+          title: intl.formatMessage({
+            id: 'transaction__history',
+          }),
+          page: memo(TxHistoryListContainer, () => true),
+        },
+      ].filter(Boolean),
+    [intl, isNFTEnabled],
   );
 
   const headerLeft = useCallback(
