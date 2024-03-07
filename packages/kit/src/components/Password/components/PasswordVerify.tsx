@@ -13,6 +13,7 @@ import { AuthenticationType } from 'expo-local-authentication';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { AppStatusActiveListener } from '../../AppStatusActiveListener';
 import { PasswordRegex, getPasswordKeyboardType } from '../utils';
@@ -24,7 +25,7 @@ interface IPasswordVerifyProps {
   onBiologyAuth: () => void;
   onInputPasswordAuth: (data: IPasswordVerifyForm) => void;
   status: {
-    value: 'default' | 'verifying' | 'verified' | 'error';
+    value: EPasswordVerifyStatus;
     message?: string;
   };
 }
@@ -65,7 +66,7 @@ const PasswordVerify = ({
             ? 'FaceArcSolid'
             : 'FinderOutline',
         onPress: onBiologyAuth,
-        loading: status.value === 'verifying',
+        loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
     } else {
       actions.push({
@@ -75,9 +76,9 @@ const PasswordVerify = ({
         },
       });
       actions.push({
-        iconName: 'ArrowRightCircleOutline',
+        iconName: 'ArrowRightOutline',
         onPress: form.handleSubmit(onInputPasswordAuth),
-        loading: status.value === 'verifying',
+        loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
     }
 
@@ -94,7 +95,7 @@ const PasswordVerify = ({
   ]);
 
   useEffect(() => {
-    if (status.value === 'error') {
+    if (status.value === EPasswordVerifyStatus.ERROR) {
       form.setError('password', { message: status.message });
       form.setFocus('password');
     } else {
@@ -103,22 +104,32 @@ const PasswordVerify = ({
   }, [form, status]);
 
   useLayoutEffect(() => {
-    if (isEnable && !passwordInput && !manualLocking) {
+    if (
+      isEnable &&
+      !passwordInput &&
+      status.value === EPasswordVerifyStatus.DEFAULT &&
+      !manualLocking
+    ) {
       void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnable, manualLocking]);
+  }, [isEnable, manualLocking, status.value]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
     const now = Date.now();
     if (now - lastTime.current > 1000) {
       lastTime.current = now;
-      if (isEnable && !passwordInput) {
+      if (
+        isEnable &&
+        !passwordInput &&
+        status.value === EPasswordVerifyStatus.DEFAULT &&
+        !manualLocking
+      ) {
         void onBiologyAuth();
       }
     }
-  }, [isEnable, onBiologyAuth, passwordInput]);
+  }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
 
   return (
     <Form form={form}>
@@ -133,7 +144,7 @@ const PasswordVerify = ({
           autoFocus
           selectTextOnFocus
           size="large"
-          disabled={status.value === 'verifying'}
+          disabled={status.value === EPasswordVerifyStatus.VERIFYING}
           placeholder="Enter your password"
           flex={1}
           onChangeText={(text) => text.replace(PasswordRegex, '')}

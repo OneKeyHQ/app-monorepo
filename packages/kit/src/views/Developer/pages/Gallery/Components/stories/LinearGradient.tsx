@@ -1,6 +1,4 @@
-import { Stack } from 'tamagui';
-
-import { LinearGradient, SizableText } from '@onekeyhq/components';
+import { LinearGradient, SizableText, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 

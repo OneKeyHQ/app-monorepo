@@ -1,6 +1,6 @@
 import { useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
 
+import { useMedia } from '@onekeyhq/components';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 

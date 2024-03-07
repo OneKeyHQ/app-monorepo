@@ -1,5 +1,4 @@
 import { NumberSizeableText, YStack } from '@onekeyhq/components';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { Layout } from './utils/Layout';
 

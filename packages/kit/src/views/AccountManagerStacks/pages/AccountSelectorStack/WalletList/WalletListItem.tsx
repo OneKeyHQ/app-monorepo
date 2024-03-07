@@ -1,12 +1,11 @@
+import type { IStackProps } from '@onekeyhq/components';
 import { SizableText, Stack, useMedia } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import type { StackProps } from 'tamagui';
-
-interface IWalletListItemProps extends StackProps {
+interface IWalletListItemProps extends IStackProps {
   selected?: boolean;
   walletAvatarProps?: IWalletAvatarProps;
   walletName?: string;

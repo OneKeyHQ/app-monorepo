@@ -1,6 +1,4 @@
-import { YStack } from 'tamagui';
-
-import { SizableText, Skeleton } from '@onekeyhq/components';
+import { SizableText, Skeleton, YStack } from '@onekeyhq/components';
 
 type IProps = {
   address: string;

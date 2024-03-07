@@ -204,4 +204,4 @@ function HomePageContainer() {
   );
 }
 
-export { HomePageContainer };
+export default HomePageContainer;

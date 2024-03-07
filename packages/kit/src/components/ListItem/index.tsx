@@ -6,15 +6,16 @@ import type {
 } from 'react';
 import { isValidElement } from 'react';
 
-import { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
-
 import {
+  AnimatePresence,
   Divider,
   Icon,
   IconButton,
   Image,
   SizableText,
   Stack,
+  Unspaced,
+  withStaticProperties,
 } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
 import type {

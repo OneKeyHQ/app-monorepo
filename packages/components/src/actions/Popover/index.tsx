@@ -14,7 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { FIX_SHEET_PROPS } from '../../composite';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
