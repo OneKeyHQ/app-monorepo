@@ -9,11 +9,17 @@ import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
 import type { IChainSelectorRouteParams } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
 import { EChainSelectorPages } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
   IDBIndexedAccount,
   IDBWallet,
+  IDBWalletIdSingleton,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IAccountSelectorFocusedWallet,
@@ -23,6 +29,7 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
+  EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
@@ -185,6 +192,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newSelectedAccount.deriveType = newDriveType;
         }
       }
+      if (
+        newSelectedAccount.indexedAccountId &&
+        newSelectedAccount.othersWalletAccountId
+      ) {
+        if (
+          newSelectedAccount.walletId &&
+          !accountUtils.isOthersWallet({
+            walletId: newSelectedAccount.walletId,
+          })
+        ) {
+          newSelectedAccount.othersWalletAccountId = undefined;
+        }
+      }
       set(selectedAccountsAtom(), (v) => ({
         ...v,
         [num]: newSelectedAccount,
@@ -326,6 +346,62 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  withFinalizeWalletSetupStep = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        createWalletFn,
+        generatingAccountsFn,
+      }: {
+        createWalletFn: () => Promise<{
+          wallet: IDBWallet;
+          indexedAccount: IDBIndexedAccount;
+        }>;
+        generatingAccountsFn: (params: {
+          wallet: IDBWallet;
+          indexedAccount: IDBIndexedAccount;
+        }) => Promise<void>;
+      },
+    ) => {
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.CreatingWallet,
+      });
+
+      await timerUtils.wait(100);
+
+      const [{ wallet, indexedAccount }] = await Promise.all([
+        await createWalletFn(),
+        await timerUtils.wait(1000),
+      ]);
+
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+      });
+
+      await timerUtils.wait(100);
+
+      await Promise.all([
+        generatingAccountsFn({ wallet, indexedAccount }),
+        await timerUtils.wait(1000),
+      ]);
+
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.EncryptingData,
+      });
+
+      await timerUtils.wait(1000);
+
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.Ready,
+      });
+
+      await timerUtils.wait(0);
+
+      return { wallet, indexedAccount };
+    },
+  );
+
   createHDWallet = contextAtomMethod(
     async (
       _,
@@ -335,16 +411,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }: {
         mnemonic: string;
       },
-    ) => {
-      const { wallet, indexedAccount } = await serviceAccount.createHDWallet({
-        mnemonic,
-      });
-      await this.autoSelectToCreatedWallet.call(set, {
-        wallet,
-        indexedAccount,
-      });
-      return { wallet, indexedAccount };
-    },
+    ) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const { wallet, indexedAccount } =
+            await serviceAccount.createHDWallet({
+              mnemonic,
+            });
+          await this.autoSelectToCreatedWallet.call(set, {
+            wallet,
+            indexedAccount,
+          });
+          return { wallet, indexedAccount };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await serviceAccount.addDefaultNetworkAccounts({
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount.id,
+          });
+        },
+      }),
   );
 
   createHWWallet = contextAtomMethod(
@@ -360,8 +446,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWHiddenWallet = contextAtomMethod(
-    async (_, set, { walletId }: { walletId: string }) => {
-      const res = await serviceAccount.createHWHiddenWallet({ walletId });
+    async (
+      _,
+      set,
+      {
+        walletId,
+        skipDeviceCancel,
+      }: { walletId: string; skipDeviceCancel?: boolean },
+    ) => {
+      const res = await serviceAccount.createHWHiddenWallet({
+        walletId,
+        skipDeviceCancel,
+      });
       const { wallet, indexedAccount } = res;
       await this.autoSelectToCreatedWallet.call(set, {
         wallet,
@@ -372,19 +468,58 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   createHWWalletWithHidden = contextAtomMethod(
-    async (_, set, params: IDBCreateHWWalletParamsBase) => {
-      const { wallet, device } = await this.createHWWallet.call(set, params);
-      // add hidden wallet if device passphrase enabled
-      if (device && device.featuresInfo?.passphrase_protection) {
-        // wait previous action done, wait device ready
-        await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
-          connectId: device.connectId,
-        });
-        await timerUtils.wait(3000);
-        await this.createHWHiddenWallet.call(set, {
-          walletId: wallet.id,
-        });
-      }
+    async (_, set, params: IDBCreateHWWalletParamsBase) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          let { wallet, device, indexedAccount } =
+            await this.createHWWallet.call(set, params);
+          // add hidden wallet if device passphrase enabled
+          if (device && device.featuresInfo?.passphrase_protection) {
+            // wait previous action done, wait device ready
+            await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
+              connectId: device.connectId,
+            });
+            await timerUtils.wait(3000);
+            ({ wallet, device, indexedAccount } =
+              await this.createHWHiddenWallet.call(set, {
+                walletId: wallet.id,
+                skipDeviceCancel: params.skipDeviceCancel,
+              }));
+          }
+          return {
+            wallet,
+            indexedAccount,
+          };
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          await serviceAccount.addDefaultNetworkAccounts({
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount.id,
+            skipDeviceCancel: params.skipDeviceCancel,
+          });
+        },
+      }),
+  );
+
+  removeAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        indexedAccount,
+        account,
+      }: {
+        indexedAccount?: IDBIndexedAccount;
+        account?: IDBAccount;
+      },
+    ) => {
+      // TODO add home scene check
+      const num = 0;
+      await serviceAccount.removeAccount({ account, indexedAccount });
+      // set(accountSelectorEditModeAtom(), false);
+
+      await timerUtils.wait(300);
+      await this.autoSelectAccount.call(set, { num });
     },
   );
 
@@ -398,47 +533,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         walletId: string;
       },
     ) => {
+      // TODO add home scene check
+      const num = 0;
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
-      const selectedAccount = this.getSelectedAccount.call(set, { num: 0 });
 
-      // auto change to next available wallet
-      if (selectedAccount?.walletId === walletId) {
-        const { wallets } = await serviceAccount.getHDAndHWWallets();
-        const firstWallet: IDBWallet | undefined = wallets[0];
-        let firstAccount: IDBIndexedAccount | undefined;
-        if (
-          firstWallet &&
-          (accountUtils.isHdWallet({ walletId: firstWallet.id }) ||
-            accountUtils.isHwWallet({ walletId: firstWallet.id }))
-        ) {
-          const { accounts } = await serviceAccount.getIndexedAccounts({
-            walletId: firstWallet?.id,
-          });
-          // eslint-disable-next-line prefer-destructuring
-          firstAccount = accounts[0];
-        }
-
-        // TODO singleton wallet auto change account, use autoSelectAccount() instead?
-
-        await this.updateSelectedAccount.call(set, {
-          num: 0,
-          builder: (v) => ({
-            ...v,
-            indexedAccountId: firstAccount?.id,
-            walletId: firstWallet?.id,
-            focusedWallet: firstWallet?.id,
-          }),
-        });
-      } else {
-        await this.updateSelectedAccount.call(set, {
-          num: 0,
-          builder: (v) => ({
-            ...v,
-            focusedWallet: selectedAccount?.walletId,
-          }),
-        });
-      }
+      await timerUtils.wait(300);
+      await this.autoSelectAccount.call(set, { num });
     },
   );
 
@@ -860,6 +961,53 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  // TODO merge with autoSelectAccount()
+  autoSelectHomeNextAvailableAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        walletId,
+      }: {
+        walletId: string;
+      },
+    ) => {
+      const { account, wallet, network } = this.getActiveAccount.call(set, {
+        num: 0,
+      });
+      if (account && wallet) {
+        return;
+      }
+      if (wallet) {
+        if (accountUtils.isOthersWallet({ walletId })) {
+          const { accounts } =
+            await serviceAccount.getSingletonAccountsOfWallet({
+              walletId: wallet.id as IDBWalletIdSingleton,
+              activeNetworkId: network?.id,
+            });
+          const firstAccount = accounts[0];
+          if (firstAccount) {
+            const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
+              account: firstAccount,
+              networkId: network?.id || '',
+            });
+
+            await this.updateSelectedAccount.call(set, {
+              num: 0,
+              builder: (v) => ({
+                ...v,
+                networkId: accountNetworkId || v.networkId,
+                indexedAccountId: undefined,
+                walletId: wallet.id,
+                focusedWallet: '$$others',
+              }),
+            });
+          }
+        }
+      }
+    },
+  );
+
   autoSelectAccount = contextAtomMethod(
     async (get, set, { num }: { num: number }) => {
       const storageReady = get(accountSelectorStorageReadyAtom());
@@ -916,22 +1064,66 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const isOthers =
             Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
 
+          // auto select hd or hw account
           if (isOthers) {
             selectedAccountNew.focusedWallet = '$$others';
             selectedAccountNew.indexedAccountId = undefined;
-            // TODO auto select first others account if wallet or account not match
           } else if (selectedWalletId) {
             if (
               !indexedAccount ||
               indexedAccount.walletId !== selectedWalletId
             ) {
-              selectedAccountNew.focusedWallet = selectedWalletId;
               const { accounts: indexedAccounts } =
-                await serviceAccount.getIndexedAccounts({
+                await serviceAccount.getIndexedAccountsOfWallet({
                   walletId: selectedWalletId,
                 });
-              selectedIndexedAccountId = indexedAccounts[0]?.id;
+              selectedIndexedAccountId = indexedAccounts?.[0]?.id;
               selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
+              selectedAccountNew.focusedWallet = selectedWalletId;
+              selectedAccountNew.othersWalletAccountId = undefined;
+            }
+          }
+
+          // auto select others singleton account
+          if (
+            !selectedAccountNew.indexedAccountId &&
+            !selectedAccountNew.othersWalletAccountId
+          ) {
+            const autoSelectAccountFromOthersWallet = async (
+              singletonWalletId: IDBWalletIdSingleton,
+            ) => {
+              const { accounts } =
+                await serviceAccount.getSingletonAccountsOfWallet({
+                  walletId: singletonWalletId,
+                  activeNetworkId: network?.id || '',
+                });
+              const firstAccount = accounts?.[0];
+              if (firstAccount) {
+                const accountNetworkId =
+                  accountUtils.getAccountCompatibleNetwork({
+                    account: firstAccount,
+                    networkId: network?.id || '',
+                  });
+                selectedAccountNew.focusedWallet = '$$others';
+                selectedAccountNew.networkId = accountNetworkId || network?.id;
+                selectedAccountNew.deriveType = 'default';
+                selectedAccountNew.walletId = singletonWalletId;
+                selectedAccountNew.indexedAccountId = undefined;
+                selectedAccountNew.othersWalletAccountId = firstAccount.id;
+                return true;
+              }
+              return false;
+            };
+            const othersWallets: IDBWalletIdSingleton[] = [
+              WALLET_TYPE_IMPORTED,
+              WALLET_TYPE_WATCHING,
+              WALLET_TYPE_EXTERNAL,
+            ];
+            for (const walletType of othersWallets) {
+              const done = await autoSelectAccountFromOthersWallet(walletType);
+              if (done) {
+                break;
+              }
             }
           }
 
@@ -941,6 +1133,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             num,
             builder: () => selectedAccountNew,
           });
+
+          if (selectedAccount.walletId !== selectedAccountNew.walletId) {
+            set(accountSelectorEditModeAtom(), false);
+          }
         }
       }
     },
@@ -964,8 +1160,9 @@ export function useAccountSelectorActions() {
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
   const removeWallet = actions.removeWallet.use();
+  const removeAccount = actions.removeAccount.use();
   const createHDWallet = actions.createHDWallet.use();
-  const createHWWallet = actions.createHWWallet.use();
+  // const createHWWallet = actions.createHWWallet.use();
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const autoSelectAccount = actions.autoSelectAccount.use();
@@ -991,8 +1188,8 @@ export function useAccountSelectorActions() {
     showAccountSelector,
     showChainSelector,
     removeWallet,
+    removeAccount,
     createHDWallet,
-    createHWWallet,
     createHWHiddenWallet,
     createHWWalletWithHidden,
     autoSelectAccount,

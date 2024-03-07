@@ -17,8 +17,6 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public networkOrderChanged?: boolean;
 
-  public pendingWallets?: Realm.Set<string>;
-
   public backupUUID!: string;
 
   public static override schema: Realm.ObjectSchema = {
@@ -30,7 +28,6 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       nextWalletNo: 'int',
       verifyString: 'string',
       networkOrderChanged: { type: 'bool', default: false },
-      pendingWallets: { type: 'set', objectType: 'string', default: [] },
       backupUUID: { type: 'string', default: '' },
     },
   };
