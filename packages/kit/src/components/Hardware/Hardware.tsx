@@ -19,7 +19,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
-export function ConfirmOnClassic() {
+export function ConfirmOnDeviceToastContent() {
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong">

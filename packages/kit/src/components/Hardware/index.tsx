@@ -1,8 +1,8 @@
 import { Dialog, Toast } from '@onekeyhq/components';
 
 import {
-  ConfirmOnClassic,
   ConfirmOnDevice,
+  ConfirmOnDeviceToastContent,
   ConfirmPassphrase,
   EnterPassphraseOnDevice,
   EnterPhase,
@@ -32,15 +32,15 @@ export const confirmOnClassic = async () => {
 
   const toast = Toast.show({
     dismissOnOverlayPress: false,
-    children: <ConfirmOnClassic />,
+    children: <ConfirmOnDeviceToastContent />,
     onClose: (extra) => {
       console.log('close flag:', extra?.flag);
-      console.log('close ConfirmOnClassic');
+      console.log('close ConfirmOnDeviceToastContent');
     },
   });
   setTimeout(async () => {
     event.confirm();
-    await toast.close({ flag: 'confirmOnClassic closeFlag' });
+    await toast.close({ flag: 'ConfirmOnDeviceToastContent closeFlag' });
   }, 3500);
   await event.run();
 };
