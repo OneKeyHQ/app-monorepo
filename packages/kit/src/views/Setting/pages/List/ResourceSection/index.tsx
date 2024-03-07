@@ -11,6 +11,7 @@ import { Section } from '../Section';
 export const ResourceSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const requestUrl = useHelpLink({ path: 'requests/new' });
   const onPress = useCallback(() => {}, []);
   const intl = useIntl();
   return (
@@ -18,7 +19,7 @@ export const ResourceSection = () => {
       <UrlExternalListItem
         icon="EditOutline"
         title="Submit a Request"
-        url="https://help.onekey.so/hc/en-us/requests/new"
+        url={requestUrl}
       />
       <ListItem
         onPress={onPress}

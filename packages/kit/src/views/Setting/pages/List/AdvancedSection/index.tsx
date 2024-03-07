@@ -8,6 +8,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -25,7 +26,7 @@ const HardwareBridgeListItems = () => {
   }, [navigation]);
 
   const onPressBridgeStatus = useCallback(() => {
-    openUrlExternal('http://127.0.0.1:21320/status/');
+    openUrlExternal(BRIDGE_STATUS_URL);
   }, []);
   const intl = useIntl();
 

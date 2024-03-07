@@ -14,6 +14,7 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -117,6 +118,37 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async setCurrency(currencyInfo: { id: string; symbol: string }) {
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+  }
+
+  @backgroundMethod()
+  public async clearCacheOnApp(values: IClearCacheOnAppState) {
+    if (values.tokenAndNFT) {
+      // clear token and nft
+    }
+    if (values.transactionHistory) {
+      // clear transaction history
+    }
+    if (values.swapHistory) {
+      // clear swap history
+    }
+    if (values.browserCache) {
+      // clear browser cache
+    }
+    if (values.browserHistory) {
+      // clear Browser History, Bookmarks, Pins
+      await this.backgroundApi.simpleDb.browserTabs.clearRawData();
+      await this.backgroundApi.simpleDb.browserHistory.clearRawData();
+      await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
+    }
+    if (values.connectSites) {
+      // clear connect sites
+      await this.backgroundApi.simpleDb.dappConnection.clearRawData();
+    }
+  }
+
+  @backgroundMethod()
+  public async clearPendingTransaction() {
+    // TODO: clear pending transaction
   }
 }
 

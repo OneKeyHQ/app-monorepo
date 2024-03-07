@@ -6,14 +6,23 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAccountDerivationListItemProps = {
   num: number;
   title: string;
   icon: string;
+};
+
+export type IAccountDerivationConfigItem = {
+  num: number;
+  title: string;
+  icon: string;
+  networkIds: string[];
+  defaultNetworkId: string;
 };
 
 const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
@@ -38,18 +47,52 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
 
 const AccountDerivation = () => {
   const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    result: { networkIds },
+    result: { enabledNum, availableNetworksMap, items },
   } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getNetworkIdsByImpls({
-        impls: [IMPL_BTC, IMPL_EVM],
-      }),
+    async () => {
+      const { networkIds } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworkIds();
+
+      const config: IAccountDerivationConfigItem[] = [
+        {
+          num: 0,
+          title: 'Bitcoin',
+          icon: 'https://onekey-asset.com/assets/btc/btc.png',
+          networkIds,
+          defaultNetworkId: getNetworkIdsMap().btc,
+        },
+        {
+          num: 1,
+          title: 'EVM',
+          icon: 'https://onekey-asset.com/assets/eth/eth.png',
+          networkIds,
+          defaultNetworkId: getNetworkIdsMap().eth,
+        },
+      ];
+      if (platformEnv.isDev) {
+        config.push({
+          num: 10000,
+          title: 'Test Bitcoin',
+          icon: 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+          networkIds,
+          defaultNetworkId: getNetworkIdsMap().tbtc,
+        });
+      }
+      return {
+        enabledNum: config.map((o) => o.num),
+        availableNetworksMap: config.reduce((result, item) => {
+          result[item.num] = {
+            networkIds: item.networkIds,
+            defaultNetworkId: item.defaultNetworkId,
+          };
+          return result;
+        }, {} as IAccountSelectorAvailableNetworksMap),
+        items: config,
+      };
+    },
     [],
     {
-      initResult: {
-        networkIds: [],
-      },
+      initResult: { enabledNum: [], availableNetworksMap: {}, items: [] },
     },
   );
   return (
@@ -61,33 +104,22 @@ const AccountDerivation = () => {
         </SizableText>
       </Stack>
       <AccountSelectorProviderMirror
-        enabledNum={[0, 1]}
+        enabledNum={enabledNum}
         config={{
-          sceneName: EAccountSelectorSceneName.home,
+          sceneName: EAccountSelectorSceneName.settings,
           sceneUrl: '',
         }}
-        availableNetworksMap={{
-          0: {
-            networkIds,
-            defaultNetworkId: getNetworkIdsMap().btc,
-          },
-          1: {
-            networkIds,
-            defaultNetworkId: getNetworkIdsMap().eth,
-          },
-        }}
+        availableNetworksMap={availableNetworksMap}
       >
         <Stack>
-          <AccountDerivationListItem
-            title="Bitcoin"
-            icon="https://onekey-asset.com/assets/btc/btc.png"
-            num={0}
-          />
-          <AccountDerivationListItem
-            title="EVM"
-            icon="https://onekey-asset.com/assets/eth/eth.png"
-            num={1}
-          />
+          {items.map((o) => (
+            <AccountDerivationListItem
+              key={o.num}
+              title={o.title}
+              icon={o.icon}
+              num={o.num}
+            />
+          ))}
         </Stack>
       </AccountSelectorProviderMirror>
     </Page>
