@@ -46,17 +46,27 @@ function TokenListContainer(props: IProps) {
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
-    updateTokenListInitialized,
+    updateTokenListState,
   } = useTokenListActions().current;
 
-  const promise = usePromiseResult(
+  usePromiseResult(
     async () => {
       try {
         if (!account || !network) return;
         if (currentAccountId.current !== account.id) {
           currentAccountId.current = account.id;
-          updateTokenListInitialized(false);
+          updateTokenListState({
+            initialized: false,
+            isRefreshing: true,
+            address: account.address,
+          });
+        } else {
+          updateTokenListState({
+            isRefreshing: true,
+            address: account.address,
+          });
         }
+
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
         // const blockedTokens =
         //   await backgroundApiProxy.serviceToken.getBlockedTokens({
@@ -104,7 +114,11 @@ function TokenListContainer(props: IProps) {
               tokens: mergedTokens,
             });
           }
-          updateTokenListInitialized(true);
+          updateTokenListState({
+            address: account.address,
+            initialized: true,
+            isRefreshing: false,
+          });
         }
       } catch (e) {
         if (e instanceof CanceledError) {
@@ -124,12 +138,11 @@ function TokenListContainer(props: IProps) {
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshSmallBalanceTokensFiatValue,
-      updateTokenListInitialized,
+      updateTokenListState,
       refreshAllTokenList,
       refreshAllTokenListMap,
     ],
     {
-      watchLoading: true,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
@@ -159,7 +172,6 @@ function TokenListContainer(props: IProps) {
         withHeader
         withFooter
         withPrice
-        isLoading={promise.isLoading}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
         {...(media.gtLg && {

@@ -39,7 +39,7 @@ class ServiceToken extends ServiceBase {
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
-      `/server-service-wallet/v1/account/token/list?flag=${flag || ''}`,
+      `/wallet/v1/account/token/list?flag=${flag || ''}`,
       rest,
       {
         signal: controller.signal,
@@ -68,7 +68,7 @@ class ServiceToken extends ServiceBase {
       data: ({
         info: IToken;
       } & ITokenFiat)[];
-    }>('/server-service-wallet/v1/account/token/detail', params);
+    }>('/wallet/v1/account/token/detail', params);
 
     return resp.data.data;
   }

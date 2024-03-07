@@ -225,7 +225,7 @@ class ServiceSend extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
-    }>('/server-service-wallet/v1/account/send-transaction', {
+    }>('/wallet/v1/account/send-transaction', {
       networkId,
       tx: signedTx.rawTx,
     });

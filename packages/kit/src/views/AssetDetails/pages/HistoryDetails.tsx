@@ -61,7 +61,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
 
   return {
     key: 'transaction__failed',
-    color: '$textError',
+    color: '$textCritical',
   };
 }
 

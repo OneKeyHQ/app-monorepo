@@ -20,6 +20,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
+  useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -49,6 +50,7 @@ function WalletActionSend() {
 
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
+  const [tokenListState] = useTokenListStateAtom();
 
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;

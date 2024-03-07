@@ -38,7 +38,7 @@ class ServiceAccountProfile extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
-    }>('/server-service-wallet/v1/account/get-account', {
+    }>('/wallet/v1/account/get-account', {
       params,
     });
     return resp.data.data;

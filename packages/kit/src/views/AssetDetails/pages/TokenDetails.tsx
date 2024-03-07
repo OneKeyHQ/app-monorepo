@@ -169,8 +169,6 @@ export function TokenDetails() {
     [handleToggleBlockedToken, isBlocked],
   );
 
-  console.log('tokenDetails', tokenDetails);
-
   // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;
   //   return (
