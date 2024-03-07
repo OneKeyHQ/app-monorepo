@@ -4,13 +4,18 @@ import type { ILocaleSymbol } from '@onekeyhq/components';
 // TODO: move locale to shared
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { LOCALES } from '@onekeyhq/components';
+import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+// TODO: move locale to shared
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
@@ -22,6 +27,14 @@ import {
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
+
+export type IAccountDerivationConfigItem = {
+  num: number;
+  title: string;
+  icon: string;
+  networkIds: string[];
+  defaultNetworkId: string;
+};
 
 @backgroundClass()
 class ServiceSetting extends ServiceBase {
@@ -149,6 +162,49 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async clearPendingTransaction() {
     // TODO: clear pending transaction
+  }
+
+  @backgroundMethod()
+  public async getAccountDerivationConfig() {
+    const { networkIds } =
+      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
+
+    const config: IAccountDerivationConfigItem[] = [
+      {
+        num: 0,
+        title: 'Bitcoin',
+        icon: 'https://onekey-asset.com/assets/btc/btc.png',
+        networkIds,
+        defaultNetworkId: getNetworkIdsMap().btc,
+      },
+      {
+        num: 1,
+        title: 'EVM',
+        icon: 'https://onekey-asset.com/assets/eth/eth.png',
+        networkIds,
+        defaultNetworkId: getNetworkIdsMap().eth,
+      },
+    ];
+    if (platformEnv.isDev) {
+      config.push({
+        num: 10000,
+        title: 'Test Bitcoin',
+        icon: 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+        networkIds,
+        defaultNetworkId: getNetworkIdsMap().tbtc,
+      });
+    }
+    return {
+      enabledNum: config.map((o) => o.num),
+      availableNetworksMap: config.reduce((result, item) => {
+        result[item.num] = {
+          networkIds: item.networkIds,
+          defaultNetworkId: item.defaultNetworkId,
+        };
+        return result;
+      }, {} as IAccountSelectorAvailableNetworksMap),
+      items: config,
+    };
   }
 }
 
