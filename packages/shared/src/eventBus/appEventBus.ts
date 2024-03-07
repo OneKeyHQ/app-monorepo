@@ -7,6 +7,12 @@ import platformEnv from '../platformEnv';
 
 import type { EAccountSelectorSceneName } from '../../types';
 
+export enum EFinalizeWalletSetupSteps {
+  CreatingWallet = 'CreatingWallet',
+  GeneratingAccounts = 'GeneratingAccounts',
+  EncryptingData = 'EncryptingData',
+  Ready = 'Ready',
+}
 export enum EAppEventBusNames {
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
@@ -15,6 +21,7 @@ export enum EAppEventBusNames {
   DAppNetworkUpdate = 'DAppNetworkUpdate',
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
+  FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -41,6 +48,9 @@ export interface IAppEventBusPayload {
     sceneName: string;
     sceneUrl: string;
     num: number;
+  };
+  [EAppEventBusNames.FinalizeWalletSetupStep]: {
+    step: EFinalizeWalletSetupSteps;
   };
 }
 
