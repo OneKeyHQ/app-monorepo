@@ -48,11 +48,9 @@ export const confirmOnDevice = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
     title: 'Confirm on Device',
+    dismissOnOverlayPress: false,
     showFooter: false,
     renderContent: <ConfirmOnDevice />,
-    onCancel: () => {
-      event.cancel();
-    },
   });
   setTimeout(async () => {
     event.confirm();
