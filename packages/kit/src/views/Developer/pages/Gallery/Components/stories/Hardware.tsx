@@ -37,7 +37,7 @@ const HardwareGallery = () => (
                 void confirmOnClassic();
               }}
             >
-              Confirm On Device(legacy)
+              Confirm On Device(Toast)
             </Button>
 
             <Button

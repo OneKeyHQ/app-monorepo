@@ -31,6 +31,7 @@ export const confirmOnClassic = async () => {
   const event = mockListenDeviceResult();
 
   const toast = Toast.show({
+    dismissOnOverlayPress: false,
     children: <ConfirmOnClassic />,
     onClose: (extra) => {
       console.log('close flag:', extra?.flag);
