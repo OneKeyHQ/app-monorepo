@@ -52,7 +52,7 @@ export function throwCrossError(msg: string, ...args: any) {
   throw new Error(msg);
 }
 
-export function isSerializable(obj: any) {
+export function isSerializable(obj: any, keyPath?: string[]) {
   if (
     isUndefined(obj) ||
     isNull(obj) ||
@@ -66,13 +66,14 @@ export function isSerializable(obj: any) {
 
   if (!isPlainObject(obj) && !isArray(obj)) {
     // like regex, date
+    console.log('isSerializable false >>>>>> : ', keyPath, obj);
     return false;
   }
 
   // eslint-disable-next-line no-restricted-syntax
   for (const key in obj) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!isSerializable(obj[key])) {
+    if (!isSerializable(obj[key], [...(keyPath || []), key])) {
       return false;
     }
   }

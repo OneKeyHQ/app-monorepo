@@ -28,7 +28,7 @@ class RealmSchemaAccountDerivation extends RealmObjectBase<IDBAccountDerivation>
     return {
       id: this.id,
       walletId: this.walletId,
-      accounts: this.accounts,
+      accounts: Array.from(this.accounts || []),
       template: this.template,
     };
   }

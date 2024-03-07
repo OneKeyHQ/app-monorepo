@@ -113,6 +113,11 @@ export interface IActionListProps
   onOpenChange?: (isOpen: boolean) => void;
   disabled?: boolean;
   defaultOpen?: boolean;
+  renderItems?: (params: {
+    // TODO use cloneElement to override onClose props
+    handleActionListClose: () => void;
+    handleActionListOpen: () => void;
+  }) => React.ReactNode;
 }
 
 function BasicActionList({
@@ -122,6 +127,7 @@ function BasicActionList({
   onOpenChange,
   disabled,
   defaultOpen = false,
+  renderItems,
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useState(false);
@@ -182,6 +188,10 @@ function BasicActionList({
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}
+
+          {renderItems
+            ? renderItems({ handleActionListClose, handleActionListOpen })
+            : null}
         </YStack>
       }
       floatingPanelProps={{
@@ -204,4 +214,5 @@ export const ActionList = withStaticProperties(BasicActionList, {
       <BasicActionList {...props} defaultOpen renderTrigger={null} />,
     );
   },
+  Item: ActionListItem,
 });

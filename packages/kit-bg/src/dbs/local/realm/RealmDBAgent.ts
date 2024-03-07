@@ -233,7 +233,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        this.realm.create(name, r);
+        this.realm.create(name, r as any);
         result.added += 1;
         result.addedIds.push(r.id);
       } else {

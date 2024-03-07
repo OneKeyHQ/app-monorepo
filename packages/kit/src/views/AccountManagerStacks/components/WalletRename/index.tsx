@@ -1,1 +1,1 @@
-export * from './WalletRename';
+export * from './WalletRenameButton';

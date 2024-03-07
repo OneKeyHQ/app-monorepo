@@ -128,6 +128,7 @@ export type IDBCreateHWWalletParamsBase = {
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
+  skipDeviceCancel?: boolean;
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;

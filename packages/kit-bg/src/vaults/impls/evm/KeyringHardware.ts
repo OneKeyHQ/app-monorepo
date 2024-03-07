@@ -168,7 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             const sdk = await this.getHardwareSDKInstance();
 
             const response = await sdk.evmGetAddress(connectId, deviceId, {
-              ...params.deviceParams.deviceCommonParams,
+              ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
                 path: `${pathPrefix}/${pathSuffix.replace(
                   '{index}',

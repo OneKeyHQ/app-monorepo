@@ -302,7 +302,13 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async firmwareAuthenticate({ device }: { device: SearchDevice }): Promise<{
+  async firmwareAuthenticate({
+    device,
+    skipDeviceCancel,
+  }: {
+    device: SearchDevice;
+    skipDeviceCancel?: boolean;
+  }): Promise<{
     verified: boolean;
     device: SearchDevice;
     payload: {
@@ -331,7 +337,11 @@ class ServiceHardware extends ServiceBase {
           connectId,
           dataHex,
         });
-        await this.closeHardwareUiStateDialog({ skipCancel: true, connectId });
+        // always close dialog only without cancel device
+        await this.closeHardwareUiStateDialog({
+          skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
+          connectId,
+        });
         const client = await this.getClient();
         const shouldUseProxy =
           platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
@@ -365,6 +375,7 @@ class ServiceHardware extends ServiceBase {
       {
         deviceParams: { dbDevice: device as any },
         hideCheckingDeviceLoading: true,
+        skipDeviceCancel,
       },
     );
   }
@@ -589,12 +600,12 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async closeHardwareUiStateDialog({
-    skipCancel,
+    skipDeviceCancel,
     delay,
     connectId,
     reason,
   }: {
-    skipCancel?: boolean;
+    skipDeviceCancel?: boolean;
     delay?: number;
     connectId: string;
     reason?: string;
@@ -606,7 +617,7 @@ class ServiceHardware extends ServiceBase {
       }
       await hardwareUiStateAtom.set(undefined);
 
-      if (!skipCancel) {
+      if (!skipDeviceCancel) {
         console.log('closeHardwareUiStateDialog cancel device: ', connectId);
         // do not wait cancel, may cause caller stuck
         void this.cancel(connectId);
@@ -620,11 +631,11 @@ class ServiceHardware extends ServiceBase {
     fn: () => Promise<T>,
     {
       deviceParams,
-      skipCancel,
+      skipDeviceCancel,
       hideCheckingDeviceLoading,
     }: {
       deviceParams: IDeviceSharedCallParams | undefined;
-      skipCancel?: boolean;
+      skipDeviceCancel?: boolean;
       hideCheckingDeviceLoading?: boolean;
     },
   ): Promise<T> {
@@ -652,7 +663,7 @@ class ServiceHardware extends ServiceBase {
         await this.closeHardwareUiStateDialog({
           delay: 300,
           connectId,
-          skipCancel, // TODO auto cancel if device call interaction action
+          skipDeviceCancel, // auto cancel if device call interaction action
         });
       }
     }

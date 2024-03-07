@@ -21,7 +21,7 @@ class RealmSchemaAddress extends RealmObjectBase<IDBAddress> {
   get record(): IDBAddress {
     return {
       id: this.id,
-      wallets: this.wallets,
+      wallets: (this.wallets?.toJSON() as Record<string, string>) || {},
     };
   }
 }
