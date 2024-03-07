@@ -72,13 +72,19 @@ export function makeModalOpenAnimationOptions(info: {
       (route: any) => route?.key === info?.optionsInfo?.route?.key,
     );
   const animationConfig = TransitionPresets.ModalPresentationIOS;
+
+  // stack/src/views/Stack/Card.tsx 578L
+  // need keep functions to be `forModalPresentationIOS`.
   function forModalPresentationIOS(config: StackCardInterpolationProps) {
     const value = animationConfig.cardStyleInterpolator(config);
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     value.overlayStyle.opacity = config?.current?.progress?.interpolate?.({
       inputRange: [0, 1, 1.0001, 2],
       outputRange: [0, 0.6, 1, 1],
     });
+
+    // opacity animation of Modal page on Web
     if (currentRouteIndex > 1) {
       value.overlayStyle = null;
     }
