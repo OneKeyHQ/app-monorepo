@@ -20,11 +20,13 @@ export interface ITrackPayload {
   [ETrackEventNames.AppStart]: undefined;
   [ETrackEventNames.EnterDapp]: {
     dapp_url: string;
-    dapp_title: string;
-    is_favorite: string;
+    dapp_title?: string;
+    is_favorite: boolean;
   };
   [ETrackEventNames.DeleteWallet]: undefined;
-  [ETrackEventNames.CreateWallet]: undefined;
+  [ETrackEventNames.CreateWallet]: {
+    is_biometric_verification_set: boolean;
+  };
   [ETrackEventNames.ImportWallet]: {
     import_method: string;
   };
