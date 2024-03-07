@@ -76,6 +76,7 @@ const settings: IVaultSettings = {
   isSingleToken: true,
   NFTEnabled: false,
   nonceRequired: false,
+  feeUTXORequired: true,
   editFeeEnabled: true,
 
   accountDeriveInfo,
