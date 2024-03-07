@@ -64,37 +64,43 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
     exact: true,
     children: homeRouters,
   },
-  {
-    name: ETabRoutes.Swap,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
-    translationId: 'title__swap',
-    freezeOnBlur: true,
-    rewrite: '/swap',
-    exact: true,
-    children: swapRouters,
-  },
+  platformEnv.isDev
+    ? {
+        name: ETabRoutes.Swap,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
+        translationId: 'title__swap',
+        freezeOnBlur: true,
+        rewrite: '/swap',
+        exact: true,
+        children: swapRouters,
+      }
+    : undefined,
   !platformEnv.isDesktop ? discoverRouterConfig : undefined,
-  {
-    name: ETabRoutes.Me,
-    rewrite: '/me',
-    exact: true,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-    translationId: 'action__more',
-    freezeOnBlur: true,
-    children: meRouters,
-  },
-  {
-    name: ETabRoutes.Developer,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-    translationId: 'form__dev_mode',
-    freezeOnBlur: true,
-    rewrite: '/dev',
-    exact: true,
-    children: developerRouters,
-  },
+  platformEnv.isDev
+    ? {
+        name: ETabRoutes.Me,
+        rewrite: '/me',
+        exact: true,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
+        translationId: 'action__more',
+        freezeOnBlur: true,
+        children: meRouters,
+      }
+    : undefined,
+  platformEnv.isDev
+    ? {
+        name: ETabRoutes.Developer,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+        translationId: 'form__dev_mode',
+        freezeOnBlur: true,
+        rewrite: '/dev',
+        exact: true,
+        children: developerRouters,
+      }
+    : undefined,
   platformEnv.isDesktop ? discoverRouterConfig : undefined,
 ].filter<ITabNavigatorConfig<ETabRoutes>>(
   (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,

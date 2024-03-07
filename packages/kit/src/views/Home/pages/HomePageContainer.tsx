@@ -3,11 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, RefreshControl } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -100,9 +101,11 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
     if (wallet) {
+      // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
       return (
         <>
           <Page.Header
+            headerShown={!platformEnv.isNative}
             headerLeft={headerLeft}
             headerRight={() => (
               <HeaderButtonGroup testID="Wallet-Page-Header-Right">
@@ -112,6 +115,15 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             )}
           />
           <Page.Body>
+            {platformEnv.isNative && (
+              <XStack justifyContent="space-between" px="$4" pt="$20">
+                <Stack flex={1}>{headerLeft()}</Stack>
+                <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+                  <HeaderIconButton title="Scan" icon="ScanOutline" />
+                  <HeaderIconButton title="Lock Now" icon="LockOutline" />
+                </HeaderButtonGroup>
+              </XStack>
+            )}
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {

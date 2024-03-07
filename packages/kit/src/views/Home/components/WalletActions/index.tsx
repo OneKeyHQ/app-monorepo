@@ -22,6 +22,7 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -155,7 +156,11 @@ function WalletActionReceive() {
     });
   }, [form, navigation]);
 
-  return <RawActions.Receive onPress={handleOnReceive} />;
+  return (
+    <RawActions.Receive
+      onPress={platformEnv.isDev ? handleOnReceive : () => {}}
+    />
+  );
 }
 
 function WalletActionSwap() {
