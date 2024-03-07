@@ -1,6 +1,4 @@
-import { StyleSheet } from 'react-native';
-
-import type { IButtonProps } from '@onekeyhq/components';
+import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -12,13 +10,58 @@ import {
   Page,
   SizableText,
   Stack,
+  ThemeableStack,
+  XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
+
+const ActionsItem = XStack.styleable<{
+  iconName: IKeyOfIcons;
+  label: string;
+  primary?: boolean;
+}>(({ iconName, label, primary, ...rest }) => (
+  <XStack
+    flexDirection="row"
+    py="$3.5"
+    px="$4"
+    space="$3"
+    borderRadius="$3"
+    bg={primary ? '$bgPrimary' : '$bgStrong'}
+    $gtMd={{
+      py: '$3',
+    }}
+    hoverStyle={{
+      bg: primary ? '$bgPrimaryHover' : '$bgStrongHover',
+    }}
+    pressStyle={{
+      bg: primary ? '$bgPrimaryActive' : '$bgStrongActive',
+    }}
+    focusStyle={{
+      outlineColor: '$focusRing',
+      outlineOffset: 2,
+      outlineStyle: 'solid',
+      outlineWidth: 2,
+    }}
+    focusable
+    userSelect="none"
+    style={{
+      borderCurve: 'continuous',
+    }}
+    {...rest}
+  >
+    <Icon name={iconName} color={primary ? '$iconInverse' : '$icon'} />
+    <SizableText
+      size="$bodyLgMedium"
+      color={primary ? '$textInverse' : '$text'}
+    >
+      {label}
+    </SizableText>
+  </XStack>
+));
 
 export function GetStarted() {
   const { bottom } = useSafeAreaInsets();
@@ -44,184 +87,106 @@ export function GetStarted() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <Page.Body p="$5">
-        <Stack flex={1} justifyContent="center" alignItems="center">
-          <Image
-            w="$16"
-            h="$16"
-            source={require('@onekeyhq/kit/assets/logo-decorated.png')}
-          />
-
-          <Heading
-            size="$heading3xl"
-            $gtMd={{
-              size: '$heading3xl',
-            }}
-            pt="$5"
-            textAlign="center"
+      <Page.Body>
+        <Stack flex={1}>
+          <ThemeableStack
+            fullscreen
+            alignItems="center"
+            justifyContent="center"
           >
-            Simplify Crypto, Amplify Security
-          </Heading>
+            <Image
+              w={360}
+              h={360}
+              source={require('@onekeyhq/kit/assets/logo-press.png')}
+            />
+          </ThemeableStack>
+
+          <Stack px="$5" mt="auto">
+            <Heading size="$heading4xl" textAlign="center">
+              Welcome to OneKey
+            </Heading>
+            <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
+              Simple, Secure Crypto Management
+            </SizableText>
+          </Stack>
         </Stack>
         <Stack
-          py="$5"
+          py="$6"
+          px="$5"
+          space="$2.5"
           $gtMd={{
-            px: '$5',
+            maxWidth: '$96',
           }}
+          alignSelf="center"
+          w="100%"
         >
-          <ListItem
-            m="0"
-            px="$4"
-            py="$3.5"
-            bg="$bgPrimary"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderRadius="$3"
-            borderColor="$transparent"
+          <ActionsItem
+            $gtMd={{
+              borderRadius: '$2',
+            }}
+            iconName={platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline'}
+            label="Connect Hardware Wallet"
             onPress={handleConnectHardwareWallet}
-            hoverStyle={{
-              bg: '$bgPrimaryHover',
-            }}
-            pressStyle={{
-              bg: '$bgPrimaryActive',
-            }}
-          >
-            <Stack
-              alignSelf="flex-start"
-              bg="$whiteA2"
-              $theme-dark={{
-                bg: '$blackA2',
-              }}
-              p="$2"
-              borderRadius="$2"
-              style={{ borderCurve: 'continuous' }}
-            >
-              <Icon
-                name={platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline'}
-                color="$iconInverse"
-              />
-            </Stack>
-            <ListItem.Text
-              userSelect="none"
-              flex={1}
-              primary="Connect Hardware Wallet"
-              primaryTextProps={{
-                color: '$textInverse',
-              }}
-              secondary="Your secure crypto solution"
-              secondaryTextProps={{
-                color: '$textInverseSubdued',
-              }}
-            />
-            <ListItem.DrillIn
-              color="$whiteA6"
-              $theme-dark={{
-                color: '$blackA6',
-              }}
-            />
-          </ListItem>
-
+            primary
+          />
           <Group
-            bg="$bgSubdued"
-            borderWidth={StyleSheet.hairlineWidth}
             borderRadius="$3"
-            borderColor="$borderSubdued"
+            $gtMd={{
+              borderRadius: '$2',
+            }}
             separator={<Divider />}
-            my="$5"
           >
-            <ListItem
-              m="0"
-              px="$4"
-              py="$3.5"
-              drillIn
-              onPress={handleCreateWalletPress}
-            >
-              <Stack
-                alignSelf="flex-start"
-                bg="$bgStrong"
-                p="$2"
-                borderRadius="$2"
-                style={{ borderCurve: 'continuous' }}
-              >
-                <Icon name="PlusCircleOutline" />
-              </Stack>
-              <ListItem.Text
-                userSelect="none"
-                flex={1}
-                primary="Create Wallet"
-                secondary="Create new recovery phrase"
+            <Group.Item>
+              <ActionsItem
+                iconName="PlusCircleOutline"
+                label="Create Wallet"
+                onPress={handleCreateWalletPress}
               />
-            </ListItem>
-            <ListItem
-              m="0"
-              px="$4"
-              py="$3.5"
-              drillIn
-              onPress={handleImportWalletPress}
-            >
-              <Stack
-                alignSelf="flex-start"
-                bg="$bgStrong"
-                p="$2"
-                borderRadius="$2"
-                style={{ borderCurve: 'continuous' }}
-              >
-                <Icon name="ArrowBottomCircleOutline" />
-              </Stack>
-              <ListItem.Text
-                userSelect="none"
-                flex={1}
-                primary="Import Wallet"
-                secondary="Import recovery phrase, private key or address"
-                secondaryTextProps={{
-                  numberOfLines: 1,
-                }}
+            </Group.Item>
+            <Group.Item>
+              <ActionsItem
+                iconName="ArrowBottomCircleOutline"
+                label="Import Wallet"
+                onPress={handleImportWalletPress}
               />
-            </ListItem>
+            </Group.Item>
           </Group>
-          <Button
+
+          <ActionsItem
+            $gtMd={{
+              borderRadius: '$2',
+            }}
+            iconName="LinkOutline"
+            label="Link External Wallet"
             onPress={handleConnectWalletPress}
-            variant="tertiary"
-            m="$0"
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-          >
-            Connect 3rd-party Wallet
-          </Button>
+          />
         </Stack>
         <SizableText
           size="$bodySm"
           color="$textDisabled"
           textAlign="center"
-          {...(bottom && {
-            pb: bottom,
-          })}
-          $md={{
-            maxWidth: 300,
-            mx: 'auto',
-          }}
+          p="$5"
+          pt="$0"
         >
-          By using this app, you agree to our{' '}
+          Use implies consent to our{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002014776"
             size="$bodySm"
-            color="$textSubdued"
+            color="$text"
             target="_blank"
             textDecorationLine="none"
           >
-            User Service Agreement
+            Terms
           </Anchor>{' '}
-          and{' '}
+          &{' '}
           <Anchor
             href="https://help.onekey.so/hc/articles/360002003315"
             size="$bodySm"
-            color="$textSubdued"
+            color="$text"
             target="_blank"
             textDecorationLine="none"
           >
-            Privacy Policy
+            Privacy
           </Anchor>
         </SizableText>
       </Page.Body>

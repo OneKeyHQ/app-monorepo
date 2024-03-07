@@ -1,24 +1,40 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { ResizeMode, Video } from 'expo-av';
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import {
-  Anchor,
   Heading,
+  Icon,
   LinearGradient,
   Page,
   SizableText,
   Stack,
+  ThemeableStack,
+  XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
 
 export function OneKeyHardwareWallet() {
   const video = useRef(null);
+  const { bottom } = useSafeAreaInsets();
+
+  const handleBuyButtonPress = useCallback(async () => {
+    const url = 'https://shop.onekey.so/';
+
+    const supported = await Linking.canOpenURL(url);
+
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      alert(`Don't know how to open this URL: ${url}`);
+    }
+  }, []);
 
   return (
-    <Page>
-      <Page.Header title="OneKey Hardware Wallet" />
+    <Page safeAreaEnabled={false}>
+      <Page.Header title="OneKey Hardware Wallet" headerTransparent />
       <Page.Body>
         <Video
           style={{
@@ -34,15 +50,7 @@ export function OneKeyHardwareWallet() {
           isLooping
           source={OneKeyAllProductsVideo}
         />
-        <Stack
-          position="absolute"
-          left={0}
-          top={0}
-          right={0}
-          bottom={0}
-          zIndex={1}
-          justifyContent="flex-end"
-        >
+        <ThemeableStack fullscreen justifyContent="flex-end" zIndex={1}>
           <Stack p="$5" pt="$10">
             <LinearGradient
               colors={['transparent', '$blackA11']}
@@ -55,7 +63,13 @@ export function OneKeyHardwareWallet() {
               }}
               zIndex={-1}
             />
-            <Stack maxWidth="$100" alignItems="flex-start">
+            <Stack
+              alignItems="flex-start"
+              pb={bottom}
+              $gtMd={{
+                maxWidth: '$100',
+              }}
+            >
               <Heading size="$heading4xl" color="$whiteA12">
                 Your Secure Crypto Solution
               </Heading>
@@ -64,16 +78,14 @@ export function OneKeyHardwareWallet() {
                 crypto management. It supports multiple cryptocurrencies and
                 ensures robust encryption for safe transactions.
               </SizableText>
-              <Anchor
-                display="flex"
-                href="https://shop.onekey.so/"
-                target="_blank"
-                textDecorationLine="none"
-                py="$2"
-                px="$5"
+              <XStack
+                $md={{
+                  w: '100%',
+                }}
+                justifyContent="center"
+                py="$4"
+                px="$12"
                 bg="$whiteA3"
-                color="$whiteA12"
-                size="$bodyLgMedium"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$whiteA4"
                 borderRadius="$3"
@@ -92,12 +104,17 @@ export function OneKeyHardwareWallet() {
                   outlineOffset: 2,
                   outlineWidth: 2,
                 }}
+                userSelect="none"
+                onPress={handleBuyButtonPress}
               >
-                Buy One
-              </Anchor>
+                <Icon name="CartOutline" color="$whiteA12" />
+                <SizableText color="$whiteA12" pl="$2.5" size="$bodyLgMedium">
+                  Buy One
+                </SizableText>
+              </XStack>
             </Stack>
           </Stack>
-        </Stack>
+        </ThemeableStack>
       </Page.Body>
     </Page>
   );

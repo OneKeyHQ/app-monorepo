@@ -12,6 +12,7 @@ import {
   Icon,
   LottieView,
   Page,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -511,7 +512,7 @@ export function ConnectYourDevicePage() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={
           platformEnv.isNative ? 'Looking for Devices' : 'Connect Your Device'
@@ -520,7 +521,7 @@ export function ConnectYourDevicePage() {
       />
       <Page.Body>
         {/* animation */}
-        <Stack p="$5" pt="$0" mb="$4" alignItems="center" bg="$bgSubdued">
+        <Stack alignItems="center" bg="$bgSubdued">
           <LottieView
             width="100%"
             height="$56"
@@ -528,31 +529,34 @@ export function ConnectYourDevicePage() {
               platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
             }
           />
-          <SizableText textAlign="center" color="$textSubdued" mt="$1.5">
+        </Stack>
+
+        {/* devices */}
+        <ScrollView flex={1}>
+          <SizableText
+            textAlign="center"
+            color="$textSubdued"
+            pt="$2.5"
+            pb="$5"
+          >
             {platformEnv.isNative
               ? 'Please make sure your Bluetooth is enabled'
               : 'Connect your device via USB'}
           </SizableText>
-        </Stack>
-
-        {/* devices */}
-        <HeightTransition>
-          <Stack>
-            {devicesData.map((item, index) => (
-              <ListItem
-                opacity={item.opacity ?? 0.5}
-                avatarProps={{
-                  source: item.src,
-                }}
-                key={index}
-                title={item.title}
-                drillIn
-                onPress={item.onPress}
-                focusable={false}
-              />
-            ))}
-          </Stack>
-        </HeightTransition>
+          {devicesData.map((item, index) => (
+            <ListItem
+              opacity={item.opacity ?? 0.5}
+              avatarProps={{
+                source: item.src,
+              }}
+              key={index}
+              title={item.title}
+              drillIn
+              onPress={item.onPress}
+              focusable={false}
+            />
+          ))}
+        </ScrollView>
 
         {/* buy link */}
         <XStack

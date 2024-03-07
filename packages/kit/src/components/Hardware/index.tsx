@@ -84,6 +84,7 @@ export const confirmByPin = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
     title: 'Enter PIN',
+    description: 'Check device screen for keypad layout.',
     showFooter: false,
     dismissOnOverlayPress: false,
     renderContent: (
