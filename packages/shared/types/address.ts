@@ -1,4 +1,5 @@
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
+import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
@@ -31,6 +32,7 @@ export type IFetchAccountDetailsResp = {
   nonce?: number;
   isContract?: boolean;
   netWorth?: string;
+  utxoList?: IUtxoInfo[];
   validateInfo?: {
     isValid: boolean;
     addressType: string;
