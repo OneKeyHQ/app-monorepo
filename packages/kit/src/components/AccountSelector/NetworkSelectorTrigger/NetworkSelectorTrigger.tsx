@@ -108,9 +108,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   return (
     <XStack
       role="button"
-      // on Web: DO NOT remove this line, otherwise the text will not be truncated
-      // on Native: Only supports numbers.
-      flexShrink={platformEnv.isNative ? undefined : 'unset'}
+      flexShrink={1}
       alignItems="center"
       p="$1"
       m="$-1"
@@ -145,7 +143,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
           uri: network?.logoURI ? network?.logoURI : '',
         }}
       />
-      <SizableText pl="$2" size="$bodyMd" numberOfLines={1}>
+      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
         {network?.name}
       </SizableText>
       <Icon
