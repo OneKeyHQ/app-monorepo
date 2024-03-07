@@ -9,4 +9,5 @@ export * from './Spinner';
 export * from './Stack';
 export * from './SizeableText';
 export * from './Heading';
+export * from './Video';
 export type { SizeTokens } from 'tamagui';
