@@ -34,6 +34,7 @@
     "bitcoinjs-message": "2.2.0",
     "bs58check": "^3.0.1",
     "cardano-crypto.js": "^6.1.2",
+    "coinselect": "https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a",
     "cosmjs-types": "^0.8.0",
     "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
