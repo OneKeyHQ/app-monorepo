@@ -120,6 +120,11 @@ function SendDataInputContainer() {
     { watchLoading: true },
   );
 
+  if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
+    tokenDetails.balanceParsed = new BigNumber(tokenDetails.balance)
+      .shiftedBy(tokenDetails.info.decimals * -1)
+      .toFixed();
+  }
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = tokenDetails?.info.symbol ?? '';
 
