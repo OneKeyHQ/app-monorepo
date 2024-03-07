@@ -1,5 +1,5 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
@@ -76,10 +76,13 @@ function BaseListView<T>(
       resolveValues: 'auto',
     },
   );
-  const itemSize =
-    typeof estimatedItemSize === 'number'
-      ? estimatedItemSize
-      : getTokenValue(estimatedItemSize);
+  const itemSize = useMemo(
+    () =>
+      typeof estimatedItemSize === 'number'
+        ? estimatedItemSize
+        : (getTokenValue(estimatedItemSize) as number),
+    [estimatedItemSize],
+  );
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList
