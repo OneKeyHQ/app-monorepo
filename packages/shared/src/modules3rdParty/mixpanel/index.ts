@@ -15,6 +15,21 @@ export enum ETrackEventNames {
   ImportWallet = 'ImportWallet',
 }
 
+export interface ITrackPayload {
+  [ETrackEventNames.PageView]: { pageName: string };
+  [ETrackEventNames.AppStart]: undefined;
+  [ETrackEventNames.EnterDapp]: {
+    dapp_url: string;
+    dapp_title: string;
+    is_favorite: string;
+  };
+  [ETrackEventNames.DeleteWallet]: undefined;
+  [ETrackEventNames.CreateWallet]: undefined;
+  [ETrackEventNames.ImportWallet]: {
+    import_method: string;
+  };
+}
+
 const asyncTrackEvent = async (
   eventName: string,
   eventProps?: Record<string, any>,
@@ -23,10 +38,10 @@ const asyncTrackEvent = async (
   mixpanel?.track(eventName, eventProps);
 };
 
-export const trackEvent = (
-  eventName: ETrackEventNames,
-  eventProps?: Record<string, any>,
-) => {
+export function trackEvent<T extends ETrackEventNames>(
+  eventName: T,
+  eventProps?: ITrackPayload[T],
+) {
   if (platformEnv.isDev) {
     return;
   }
@@ -34,7 +49,7 @@ export const trackEvent = (
     ...basicInfo,
     eventProps,
   });
-};
+}
 
 export const trackPage = (pageName: string) => {
   basicInfo.screen_name = pageName;
