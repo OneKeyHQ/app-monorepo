@@ -108,7 +108,6 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   return (
     <XStack
       role="button"
-      bg="red"
       // on Web: DO NOT remove this line, otherwise the text will not be truncated
       // on Native: Only supports numbers.
       flexShrink={platformEnv.isNative ? undefined : 'unset'}
