@@ -53,6 +53,10 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Use bluetooth to connect OneKey hardware devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

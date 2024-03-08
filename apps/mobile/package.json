@@ -44,7 +44,6 @@
     "expo-av": "13.6.0",
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
-    "expo-camera": "14.0.3",
     "expo-clipboard": "5.0.1",
     "expo-device": "5.9.3",
     "expo-haptics": "12.6.0",
@@ -103,6 +102,20 @@
       "installConfig.hoistingLimits": [
         "uuid"
       ]
+    }
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "exclude": [
+          "expo-camera"
+        ]
+      },
+      "ios": {
+        "exclude": [
+          "expo-camera"
+        ]
+      }
     }
   }
 }

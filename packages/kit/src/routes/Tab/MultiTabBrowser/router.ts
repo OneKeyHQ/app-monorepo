@@ -1,12 +1,16 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 
+import { LazyLoadPage } from '../../../components/LazyLoadPage';
+
 import { EMultiTabBrowserRoutes } from './type';
+
+const MultiTabBrowser = LazyLoadPage(
+  () => import('../../../views/Discovery/pages/Browser/Browser'),
+);
 
 export const multiTabBrowserRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EMultiTabBrowserRoutes.MultiTabBrowser,
-    component:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      require('../../../views/Discovery/pages/Browser/Browser').default,
+    component: MultiTabBrowser,
   },
 ];

@@ -3,18 +3,21 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, RefreshControl } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
@@ -53,32 +56,43 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
+  const isNFTEnabled = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+    [network],
+  ).result?.NFTEnabled;
+
   const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: 'asset__tokens',
-        }),
-        page: memo(TokenListContainerWithProvider, () => true),
-      },
-      {
-        title: intl.formatMessage({
-          id: 'asset__collectibles',
-        }),
-        page: memo(NFTListContainer, () => true),
-      },
-      // {
-      //   title: 'Defi',
-      //   page: memo(DefiListContainer, () => true),
-      // },
-      {
-        title: intl.formatMessage({
-          id: 'transaction__history',
-        }),
-        page: memo(TxHistoryListContainer, () => true),
-      },
-    ],
-    [intl],
+    () =>
+      [
+        {
+          title: intl.formatMessage({
+            id: 'asset__tokens',
+          }),
+          page: memo(TokenListContainerWithProvider, () => true),
+        },
+        isNFTEnabled
+          ? {
+              title: intl.formatMessage({
+                id: 'asset__collectibles',
+              }),
+              page: memo(NFTListContainer, () => true),
+            }
+          : null,
+        // {
+        //   title: 'Defi',
+        //   page: memo(DefiListContainer, () => true),
+        // },
+        {
+          title: intl.formatMessage({
+            id: 'transaction__history',
+          }),
+          page: memo(TxHistoryListContainer, () => true),
+        },
+      ].filter(Boolean),
+    [intl, isNFTEnabled],
   );
 
   const headerLeft = useCallback(
@@ -100,9 +114,11 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
     if (wallet) {
+      // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
       return (
         <>
           <Page.Header
+            headerShown={!platformEnv.isNative}
             headerLeft={headerLeft}
             headerRight={() => (
               <HeaderButtonGroup testID="Wallet-Page-Header-Right">
@@ -112,6 +128,15 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             )}
           />
           <Page.Body>
+            {platformEnv.isNative && (
+              <XStack justifyContent="space-between" px="$4" pt="$20">
+                <Stack flex={1}>{headerLeft()}</Stack>
+                <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+                  <HeaderIconButton title="Scan" icon="ScanOutline" />
+                  <HeaderIconButton title="Lock Now" icon="LockOutline" />
+                </HeaderButtonGroup>
+              </XStack>
+            )}
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {
@@ -204,4 +229,4 @@ function HomePageContainer() {
   );
 }
 
-export { HomePageContainer };
+export default HomePageContainer;

@@ -2,6 +2,7 @@ import type { ISearchBarProps } from '@onekeyhq/components';
 import {
   SearchBar,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -32,7 +33,9 @@ function ListToolToolBar({ searchProps, headerRight }: IProps) {
             {...searchProps}
           />
         )}
-        {headerRight && headerRight}
+        <XStack flex={1} justifyContent="flex-end">
+          {headerRight && headerRight}
+        </XStack>
       </XStack>
       {searchProps?.searchResultCount && searchProps?.searchResultCount > 0 ? (
         <SizableText

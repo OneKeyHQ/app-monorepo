@@ -1,7 +1,6 @@
 import { useIntl } from 'react-intl';
-import { XStack } from 'tamagui';
 
-import { SizableText } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import type { IHistoryListSectionGroup } from '@onekeyhq/shared/types/history';
 
 function TxHistorySectionHeader(props: IHistoryListSectionGroup) {
