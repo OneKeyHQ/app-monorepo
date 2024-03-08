@@ -162,6 +162,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }) {
+    return Promise.resolve(encodedTx);
+  }
+
   async buildHistoryTx({
     historyTxToMerge,
     decodedTx,
