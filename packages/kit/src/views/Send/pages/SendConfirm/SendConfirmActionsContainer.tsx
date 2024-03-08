@@ -114,14 +114,12 @@ function SendConfirmActionsContainer(props: IProps) {
   }, [dappApprove, navigation, sourceInfo]);
 
   const isSubmitDisabled = useMemo(() => {
-    console.log('sendFeeStatus', sendFeeStatus.status);
     if (isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
   }, [
-    sendFeeStatus.status,
     sendFeeStatus.errMessage,
     isSubmitting,
     nativeTokenInfo.isLoading,
