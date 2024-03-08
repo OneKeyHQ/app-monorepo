@@ -52,6 +52,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }) => {
             const sdk = await this.getHardwareSDKInstance();
             const response = await sdk.btcGetPublicKey(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
                 path: `${pathPrefix}/${index}'`,
                 coin: coinName?.toLowerCase(),
@@ -78,6 +79,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address,
             publicKey: '', // TODO return pub from getAddressFromXpub
             path,
+            relPath: addressRelPath,
             xpub,
             xpubSegwit,
             addresses: {

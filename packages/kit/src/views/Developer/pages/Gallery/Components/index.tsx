@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
-import { ListView, Page } from '@onekeyhq/components';
+import { ListView, Page, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 import { EGalleryRoutes } from '../../routes';
@@ -16,8 +16,7 @@ const Index = () => {
     <Page>
       <Page.Body>
         <ListView
-          estimatedItemSize="$4"
-          flex={1}
+          estimatedItemSize="$7"
           paddingVertical={20}
           data={componentsRoute}
           renderItem={({ item }) => (

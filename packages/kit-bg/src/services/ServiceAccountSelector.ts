@@ -168,7 +168,7 @@ class ServiceAccountSelector extends ServiceBase {
 
       if (indexedAccountId || othersWalletAccountId) {
         try {
-          const r = await serviceAccount.getAccountOfWallet({
+          const r = await serviceAccount.getNetworkAccount({
             indexedAccountId,
             accountId: othersWalletAccountId,
             deriveType,

@@ -19,14 +19,27 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
-export function ConfirmOnClassic() {
+export const CONFIRM_ON_DEVICES = {
+  classic: require('@onekeyhq/kit/assets/animations/confirm-on-classic.json'),
+  mini: require('@onekeyhq/kit/assets/animations/confirm-on-mini.json'),
+  proDark: require('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'),
+  proLight: require('@onekeyhq/kit/assets/animations/confirm-on-pro-light.json'),
+  touch: require('@onekeyhq/kit/assets/animations/confirm-on-touch.json'),
+};
+
+export interface IConfirmOnDeviceToastContentProps {
+  deviceType: keyof typeof CONFIRM_ON_DEVICES;
+}
+export function ConfirmOnDeviceToastContent({
+  deviceType,
+}: IConfirmOnDeviceToastContentProps) {
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong">
         <LottieView
           width={72}
           height={72}
-          source={require('../../../assets/animations/confirm-on-classic.json')}
+          source={CONFIRM_ON_DEVICES[deviceType]}
         />
       </Stack>
       <XStack alignItems="center" px="$3" space="$5">

@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react';
 
-import { ResizeMode, Video } from 'expo-av';
 import { Linking, StyleSheet } from 'react-native';
 
 import {
@@ -11,13 +10,14 @@ import {
   SizableText,
   Stack,
   ThemeableStack,
+  Video,
+  VideoResizeMode,
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
 
 export function OneKeyHardwareWallet() {
-  const video = useRef(null);
   const { bottom } = useSafeAreaInsets();
 
   const handleBuyButtonPress = useCallback(async () => {
@@ -37,6 +37,12 @@ export function OneKeyHardwareWallet() {
       <Page.Header title="OneKey Hardware Wallet" headerTransparent />
       <Page.Body>
         <Video
+          usePoster
+          posterSource={require('@onekeyhq/kit/assets/onboarding/onekey-all-products.png')}
+          posterStyle={{
+            resizeMode: VideoResizeMode.COVER,
+          }}
+          delayMs={550}
           style={{
             flex: 1,
           }}
@@ -44,8 +50,7 @@ export function OneKeyHardwareWallet() {
             width: '100%',
             height: '100%',
           }}
-          ref={video}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={VideoResizeMode.COVER}
           shouldPlay
           isLooping
           source={OneKeyAllProductsVideo}
