@@ -31,6 +31,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import {
   WALLET_TYPE_IMPORTED,
@@ -841,7 +842,7 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify(
-      'CreateOrRemoveWallet',
+      EReasonForNeedPassword.CreateOrRemoveWallet,
     );
 
     await timerUtils.wait(100);

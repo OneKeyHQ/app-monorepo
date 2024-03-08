@@ -7,6 +7,7 @@ export type IClearCacheOnAppState = {
   connectSites: boolean;
 };
 
-export type IReasonForNeedPassword =
-  | 'CreateOrRemoveWallet'
-  | 'CreateTransaction';
+export enum EReasonForNeedPassword {
+  CreateOrRemoveWallet = 'CreateOrRemoveWallet',
+  CreateTransaction = 'CreateTransaction',
+}

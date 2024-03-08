@@ -23,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -313,7 +313,7 @@ export default class ServicePassword extends ServiceBase {
   // ui ------------------------------
   @backgroundMethod()
   async promptPasswordVerify(
-    reason?: IReasonForNeedPassword,
+    reason?: EReasonForNeedPassword,
   ): Promise<IPasswordRes> {
     // check ext ui open
     if (
@@ -358,10 +358,10 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async promptPasswordVerifyByWallet({
     walletId,
-    reason = 'CreateOrRemoveWallet',
+    reason = EReasonForNeedPassword.CreateOrRemoveWallet,
   }: {
     walletId: string;
-    reason?: IReasonForNeedPassword;
+    reason?: EReasonForNeedPassword;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     let password = '';
@@ -389,7 +389,7 @@ export default class ServicePassword extends ServiceBase {
     reason,
   }: {
     accountId: string;
-    reason?: IReasonForNeedPassword;
+    reason?: EReasonForNeedPassword;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     return this.promptPasswordVerifyByWallet({ walletId, reason });
