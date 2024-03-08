@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IFormatterOptions } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatBalance,
@@ -48,6 +49,13 @@ export function NumberSizeableText({
   subTextStyle,
   ...props
 }: INumberSizeableTextProps) {
+  if (platformEnv.isDev) {
+    if (!['string', 'number'].includes(typeof children)) {
+      throw new Error(
+        'NumberSizeableText expects only valid number and string as children',
+      );
+    }
+  }
   const result = useMemo(
     () =>
       ['string', 'number'].includes(typeof children)
