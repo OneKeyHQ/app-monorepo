@@ -15,6 +15,7 @@ import {
   ONEKEY_URL,
   TWITTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { handleOpenDevMode } from '../../utils/devMode';
@@ -63,7 +64,7 @@ const SocialButtonGroup = () => (
         color="$textSubdued"
         onPress={handleOpenDevMode}
       >
-        Version: 4.18.0-2023122162
+        Version: {platformEnv.version ?? 'Unknown'}
       </SizableText>
     </XStack>
   </YStack>
