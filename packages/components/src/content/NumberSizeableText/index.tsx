@@ -57,7 +57,6 @@ export function NumberSizeableText({
         : '',
     [formatter, formatterOptions, children],
   );
-  console.log('----reuslt', result);
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
