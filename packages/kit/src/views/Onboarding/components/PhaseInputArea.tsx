@@ -306,6 +306,7 @@ function BasicPhaseInput(
     autoCapitalize: 'none',
     autoCorrect: false,
     spellCheck: false,
+    autoComplete: 'off',
     size: media.md ? 'large' : 'medium',
     leftAddOnProps: {
       label: `${index + 1}`,
