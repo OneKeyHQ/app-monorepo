@@ -39,7 +39,7 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
-import { EPasswordPromptType, EPasswordResStatus } from './types';
+import { EPasswordPromptType } from './types';
 
 import type { IPasswordRes } from './types';
 
@@ -326,7 +326,6 @@ export default class ServicePassword extends ServiceBase {
     if (cachedPassword) {
       ensureSensitiveTextEncoded(cachedPassword);
       return Promise.resolve({
-        status: EPasswordResStatus.PASS_STATUS,
         password: cachedPassword,
       });
     }
@@ -404,7 +403,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error: { message: string },
+    error?: { message?: string },
   ) {
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,

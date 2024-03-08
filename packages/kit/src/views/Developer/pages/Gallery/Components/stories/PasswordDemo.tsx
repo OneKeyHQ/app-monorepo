@@ -16,7 +16,6 @@ import WebAuthSwitchContainer from '@onekeyhq/kit/src/components/BiologyAuthComp
 import { useWebAuthActions } from '@onekeyhq/kit/src/components/BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordSetupContainer from '@onekeyhq/kit/src/components/Password/container/PasswordSetupContainer';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
-import { EPasswordResStatus } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 
 import { Layout } from './utils/Layout';
 
@@ -25,13 +24,11 @@ const PasswordDemoGallery = () => {
   console.log(theme);
   const { verifiedPasswordWebAuth } = useWebAuthActions();
   const handlePasswordVerify = async () => {
-    const { status, password } =
+    const { password } =
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    if (status === EPasswordResStatus.PASS_STATUS) {
-      // get password success
-      console.log('password', password);
-      Toast.success({ title: '验证成功' });
-    }
+    // get password success
+    console.log('password', password);
+    Toast.success({ title: '验证成功' });
   };
   return (
     <Layout
