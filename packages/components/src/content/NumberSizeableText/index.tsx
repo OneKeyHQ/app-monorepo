@@ -48,15 +48,17 @@ export function NumberSizeableText({
   subTextStyle,
   ...props
 }: INumberSizeableTextProps) {
+  console.log('----children', children);
   const result = useMemo(
     () =>
-      typeof children === 'string'
+      ['string', 'number'].includes(typeof children)
         ? formatDisplayNumber(
-            NUMBER_FORMATTER[formatter](children, formatterOptions),
+            NUMBER_FORMATTER[formatter](String(children), formatterOptions),
           )
         : '',
     [formatter, formatterOptions, children],
   );
+  console.log('----reuslt', result);
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
