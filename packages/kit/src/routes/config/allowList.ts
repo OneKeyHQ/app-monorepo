@@ -52,6 +52,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
           throw new Error(`screen ${screenName} not found`);
         }
       }
+      if (!screen) {
+        return '';
+      }
       const nextScreenConfig = screen.screens;
       if (nextScreenConfig) {
         screenConfig = nextScreenConfig;
