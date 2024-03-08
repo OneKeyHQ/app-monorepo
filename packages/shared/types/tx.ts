@@ -123,6 +123,7 @@ export type IDecodedTxTransferInfo = {
   tokenIdOnNetwork: string;
   isNative?: boolean;
   isNFT?: boolean;
+  isOwn?: boolean; // for UTXO
   label?: string;
   price?: string;
 };

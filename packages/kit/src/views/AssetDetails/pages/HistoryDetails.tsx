@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -25,7 +25,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import type { IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxType,
+  type IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -61,7 +64,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
 
   return {
     key: 'transaction__failed',
-    color: '$textError',
+    color: '$textCritical',
   };
 }
 
@@ -249,6 +252,59 @@ function HistoryDetails() {
     );
   }, [historyTx.decodedTx.status, intl]);
 
+  const transfersToRender = useMemo(() => {
+    let transfers: {
+      transfers: IOnChainHistoryTxTransfer[];
+      direction: EDecodedTxDirection;
+    }[] = [];
+
+    let sends = txDetails?.sends ?? [];
+    let receives = txDetails?.receives ?? [];
+
+    if (vaultSettings?.isUtxo) {
+      sends = sends.filter((send) => send.isOwn);
+      receives = receives.filter((receive) => receive.isOwn);
+    }
+    transfers = [
+      {
+        transfers: sends,
+        direction: EDecodedTxDirection.OUT,
+      },
+      {
+        transfers: receives,
+        direction: EDecodedTxDirection.IN,
+      },
+    ];
+
+    return transfers.filter(Boolean);
+  }, [txDetails?.receives, txDetails?.sends, vaultSettings?.isUtxo]);
+
+  const txAddresses = useMemo(() => {
+    if (!txDetails)
+      return {
+        from: '',
+        to: '',
+      };
+    if (vaultSettings?.isUtxo) {
+      return {
+        from:
+          txDetails.sends.length > 1
+            ? `${txDetails.sends.length} addresses`
+            : txDetails.sends[0].from,
+
+        to:
+          txDetails.receives.length > 1
+            ? `${txDetails.receives.length} addresses`
+            : txDetails.receives[0].to,
+      };
+    }
+
+    return {
+      from: txDetails?.from,
+      to: txDetails?.to,
+    };
+  }, [txDetails, vaultSettings?.isUtxo]);
+
   const renderFeeInfo = useCallback(
     () => (
       <XStack alignItems="center">
@@ -299,14 +355,12 @@ function HistoryDetails() {
       <>
         {/* Part 1: What change */}
         <Stack>
-          {renderAssetsChange({
-            transfers: txDetails.sends,
-            direction: EDecodedTxDirection.OUT,
-          })}
-          {renderAssetsChange({
-            transfers: txDetails.receives,
-            direction: EDecodedTxDirection.IN,
-          })}
+          {transfersToRender.map((block) =>
+            renderAssetsChange({
+              transfers: block.transfers,
+              direction: block.direction,
+            }),
+          )}
         </Stack>
 
         {/* Part 2: Details */}
@@ -323,8 +377,8 @@ function HistoryDetails() {
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
-            <InfoItem label="From" renderContent={txDetails.from} />
-            <InfoItem label="To" renderContent={txDetails.to} />
+            <InfoItem label="From" renderContent={txAddresses.from} />
+            <InfoItem label="To" renderContent={txAddresses.to} />
             <InfoItem label="Transaction ID" renderContent={txDetails.tx} />
             <InfoItem
               label="Network Fee"
@@ -393,12 +447,15 @@ function HistoryDetails() {
     renderFeeInfo,
     renderTxStatus,
     resp.isLoading,
+    transfersToRender,
+    txAddresses.from,
+    txAddresses.to,
     txDetails,
   ]);
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={txDetails?.label} />
+      <Page.Header headerTitle={txDetails?.label.label} />
       <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );
