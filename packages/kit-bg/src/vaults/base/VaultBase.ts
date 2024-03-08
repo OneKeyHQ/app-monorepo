@@ -162,6 +162,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(true);
   }
 
+  async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }) {
+    return Promise.resolve(encodedTx);
+  }
+
   async buildHistoryTx({
     historyTxToMerge,
     decodedTx,
@@ -208,6 +216,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
     const { accountId, networkId, onChainHistoryTx, tokens, nfts } = params;
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
       const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
@@ -233,7 +243,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
+        nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
+
         extraInfo: null,
+        payload: {
+          type: onChainHistoryTx.type,
+        },
       };
 
       decodedTx.updatedAt = new Date(
@@ -322,7 +337,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       assetTransfer: {
         from: tx.from,
         to: tx.to,
-        label: tx.label,
+        label: tx.label.label,
         sends: tx.sends.map((send) =>
           this.buildHistoryTransfer({
             transfer: send,
@@ -363,6 +378,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       tokenIdOnNetwork: transfer.token,
       amount: transfer.amount,
       label: transfer.label,
+      isOwn: transfer.isOwn,
       icon,
       name,
       symbol,
@@ -454,5 +470,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAccountPath() {
     return (await this.getAccount()).path;
+  }
+
+  async getAccountXpub(): Promise<string | undefined> {
+    return undefined;
   }
 }

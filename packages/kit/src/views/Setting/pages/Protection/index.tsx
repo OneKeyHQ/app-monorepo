@@ -1,13 +1,8 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  SizableText,
-  Switch,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, SizableText, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 
 const SettingProtectionModal = () => {
@@ -15,11 +10,10 @@ const SettingProtectionModal = () => {
   const [settings] = useSettingsPersistAtom();
   return (
     <Page>
-      <YStack px="$5">
-        <XStack py="$3" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({ id: 'form__create_transactions' })}
-          </SizableText>
+      <YStack>
+        <ListItem
+          title={intl.formatMessage({ id: 'form__create_transactions' })}
+        >
           <Switch
             value={settings.protectCreateTransaction}
             onChange={(value) =>
@@ -28,11 +22,10 @@ const SettingProtectionModal = () => {
               )
             }
           />
-        </XStack>
-        <XStack py="$3" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({ id: 'form__create_delete_wallets' })}
-          </SizableText>
+        </ListItem>
+        <ListItem
+          title={intl.formatMessage({ id: 'form__create_delete_wallets' })}
+        >
           <Switch
             value={settings.protectCreateOrRemoveWallet}
             onChange={(value) =>
@@ -41,7 +34,13 @@ const SettingProtectionModal = () => {
               )
             }
           />
-        </XStack>
+        </ListItem>
+        <YStack px="$5">
+          <SizableText size="$bodySm" color="$textSubdued">
+            You password will be required in these cases even you've already
+            unlocked OneKey.
+          </SizableText>
+        </YStack>
       </YStack>
     </Page>
   );

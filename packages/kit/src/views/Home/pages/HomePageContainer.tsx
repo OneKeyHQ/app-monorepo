@@ -11,13 +11,18 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
+import { EModalSettingRoutes } from '../../Setting/router/types';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
@@ -54,32 +59,43 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     // tabsViewRef?.current?.setRefreshing(true);
   }, []);
 
+  const isNFTEnabled = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+    [network],
+  ).result?.NFTEnabled;
+
   const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: 'asset__tokens',
-        }),
-        page: memo(TokenListContainerWithProvider, () => true),
-      },
-      {
-        title: intl.formatMessage({
-          id: 'asset__collectibles',
-        }),
-        page: memo(NFTListContainer, () => true),
-      },
-      // {
-      //   title: 'Defi',
-      //   page: memo(DefiListContainer, () => true),
-      // },
-      {
-        title: intl.formatMessage({
-          id: 'transaction__history',
-        }),
-        page: memo(TxHistoryListContainer, () => true),
-      },
-    ],
-    [intl],
+    () =>
+      [
+        {
+          title: intl.formatMessage({
+            id: 'asset__tokens',
+          }),
+          page: memo(TokenListContainerWithProvider, () => true),
+        },
+        isNFTEnabled
+          ? {
+              title: intl.formatMessage({
+                id: 'asset__collectibles',
+              }),
+              page: memo(NFTListContainer, () => true),
+            }
+          : null,
+        // {
+        //   title: 'Defi',
+        //   page: memo(DefiListContainer, () => true),
+        // },
+        {
+          title: intl.formatMessage({
+            id: 'transaction__history',
+          }),
+          page: memo(TxHistoryListContainer, () => true),
+        },
+      ].filter(Boolean),
+    [intl, isNFTEnabled],
   );
 
   const headerLeft = useCallback(
@@ -98,6 +114,29 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [isHide],
   );
 
+  const navigation = useAppNavigation();
+  const openSettingPage = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+        {/* <HeaderIconButton title="Scan" icon="ScanOutline" />
+        <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
+
+        <HeaderIconButton
+          title="Scan"
+          icon="SettingsOutline"
+          onPress={openSettingPage}
+        />
+      </HeaderButtonGroup>
+    ),
+    [],
+  );
+
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
     if (wallet) {
@@ -107,21 +146,13 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           <Page.Header
             headerShown={!platformEnv.isNative}
             headerLeft={headerLeft}
-            headerRight={() => (
-              <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-                <HeaderIconButton title="Scan" icon="ScanOutline" />
-                <HeaderIconButton title="Lock Now" icon="LockOutline" />
-              </HeaderButtonGroup>
-            )}
+            headerRight={renderHeaderRight}
           />
           <Page.Body>
             {platformEnv.isNative && (
               <XStack justifyContent="space-between" px="$4" pt="$20">
                 <Stack flex={1}>{headerLeft()}</Stack>
-                <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-                  <HeaderIconButton title="Scan" icon="ScanOutline" />
-                  <HeaderIconButton title="Lock Now" icon="LockOutline" />
-                </HeaderButtonGroup>
+                {renderHeaderRight()}
               </XStack>
             )}
             {/* {process.env.NODE_ENV !== 'production' ? (
@@ -178,18 +209,19 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
       </Page.Body>
     );
   }, [
-    account,
-    accountName,
-    deriveInfo?.label,
-    deriveInfo?.labelKey,
-    headerLeft,
-    intl,
-    network?.name,
-    onRefresh,
     ready,
-    tabs,
     wallet,
+    headerLeft,
+    renderHeaderRight,
+    account,
+    tabs,
     screenWidth,
+    onRefresh,
+    accountName,
+    network?.name,
+    deriveInfo?.labelKey,
+    deriveInfo?.label,
+    intl,
   ]);
 
   return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
