@@ -13,13 +13,16 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { Container } from '../Container';
 import { Token } from '../Token';
@@ -28,19 +31,19 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 type ITransferBlock = {
   target: string;
   transfersInfo: IDecodedTxTransferInfo[];
 };
 
-function getTxActionTransferInfo(props: ITxActionProps) {
-  const { action } = props;
+function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
+  const { action, decodedTx, isUTXO } = props;
 
   const { from, to, sends, receives, label } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
+
+  const { type } = decodedTx.payload ?? {};
 
   let transferTarget = '';
 
@@ -62,6 +65,14 @@ function getTxActionTransferInfo(props: ITxActionProps) {
       [transferTarget] = targets;
     } else {
       transferTarget = from;
+    }
+  } else if (isUTXO) {
+    if (type === EOnChainHistoryTxType.Send) {
+      transferTarget =
+        receives.length > 1 ? `${receives.length} addresses` : receives[0].to;
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      transferTarget =
+        sends.length > 1 ? `${sends.length} addresses` : sends[0].from;
     }
   } else {
     transferTarget = to;
@@ -148,7 +159,8 @@ function buildTransferChangeInfo({
 
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
-  const { networkId } = decodedTx;
+  const { networkId, payload } = decodedTx;
+  const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
@@ -167,7 +179,10 @@ function TxActionTransferListView(props: ITxActionProps) {
     sendTokenIcon,
     receiveNFTIcon,
     receiveTokenIcon,
-  } = getTxActionTransferInfo(props);
+  } = getTxActionTransferInfo({
+    ...props,
+    isUTXO: vaultSettings?.isUtxo,
+  });
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
@@ -212,32 +227,49 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
-  } else {
-
-    if(vaultSettings?.isUtxo){
-      if
-    }else{
-      const sendChangeInfo = buildTransferChangeInfo({
+  } else if (vaultSettings?.isUtxo) {
+    if (type === EOnChainHistoryTxType.Send) {
+      const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
         intl,
       });
-      const receiveChangeInfo = buildTransferChangeInfo({
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendTokenIcon;
+      title = intl.formatMessage({ id: 'action__send' });
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
         transfers: receives,
         intl,
       });
-      change = receiveChangeInfo.change;
-      changeSymbol = receiveChangeInfo.changeSymbol;
-      changeDescription = sendChangeInfo.change;
-      changeDescriptionSymbol = sendChangeInfo.changeSymbol;
-      avatar.src = [
-        sendNFTIcon || sendTokenIcon,
-        receiveNFTIcon || receiveTokenIcon,
-      ].filter(Boolean);
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = receiveTokenIcon;
+      title = intl.formatMessage({ id: 'action__receive' });
     }
-
-    
+  } else {
+    const sendChangeInfo = buildTransferChangeInfo({
+      changePrefix: '-',
+      transfers: sends,
+      intl,
+    });
+    const receiveChangeInfo = buildTransferChangeInfo({
+      changePrefix: '+',
+      transfers: receives,
+      intl,
+    });
+    change = receiveChangeInfo.change;
+    changeSymbol = receiveChangeInfo.changeSymbol;
+    changeDescription = sendChangeInfo.change;
+    changeDescriptionSymbol = sendChangeInfo.changeSymbol;
+    avatar.src = [
+      sendNFTIcon || sendTokenIcon,
+      receiveNFTIcon || receiveTokenIcon,
+    ].filter(Boolean);
   }
 
   change = (

@@ -38,6 +38,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -176,6 +177,9 @@ export default class VaultBtc extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
       encodedTx,
       totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
