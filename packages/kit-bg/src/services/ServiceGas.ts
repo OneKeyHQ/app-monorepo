@@ -18,6 +18,7 @@ class ServiceGas extends ServiceBase {
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
     const client = await this.getClient();
+
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',
       params,

@@ -42,11 +42,17 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId } = params;
+    const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
+      params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
       '/wallet/v1/account/history/list',
-      params,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        tokenAddress: tokenIdOnNetwork,
+      },
     );
 
     const vault = await vaultFactory.getVault({

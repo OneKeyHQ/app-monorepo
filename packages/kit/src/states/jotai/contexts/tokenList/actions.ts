@@ -18,8 +18,8 @@ import {
   smallBalanceTokenListMapAtom,
   smallBalanceTokensFiatValueAtom,
   tokenListAtom,
-  tokenListInitializedAtom,
   tokenListMapAtom,
+  tokenListStateAtom,
 } from './atoms';
 
 class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
@@ -145,13 +145,26 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
-  updateTokenListInitialized = contextAtomMethod((get, set, value: boolean) => {
-    set(tokenListInitializedAtom(), value);
-  });
-
   updateSearchKey = contextAtomMethod((get, set, value: string) => {
     set(searchKeyAtom(), value);
   });
+
+  updateTokenListState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        address?: string;
+        isRefreshing?: boolean;
+        initialized?: boolean;
+      },
+    ) => {
+      set(tokenListStateAtom(), {
+        ...get(tokenListStateAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -177,7 +190,7 @@ export function useTokenListActions() {
 
   const updateSearchKey = actions.updateSearchKey.use();
 
-  const updateTokenListInitialized = actions.updateTokenListInitialized.use();
+  const updateTokenListState = actions.updateTokenListState.use();
 
   return useRef({
     refreshAllTokenList,
@@ -190,6 +203,6 @@ export function useTokenListActions() {
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
     updateSearchKey,
-    updateTokenListInitialized,
+    updateTokenListState,
   });
 }

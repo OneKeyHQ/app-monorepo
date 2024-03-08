@@ -81,6 +81,7 @@ export enum EAccountSelectorSceneName {
   home = 'home',
   swap = 'swap',
   discover = 'discover',
+  settings = 'settings',
 }
 
 export type INotPromise<T> = T extends Promise<any> ? never : T;

@@ -24,8 +24,12 @@ import type { TextInputFocusEventData } from 'react-native';
 
 function TokenSelector() {
   const intl = useIntl();
-  const { refreshTokenList, refreshTokenListMap, updateSearchKey } =
-    useTokenListActions().current;
+  const {
+    refreshTokenList,
+    refreshTokenListMap,
+    updateSearchKey,
+    updateTokenListState,
+  } = useTokenListActions().current;
 
   const [tokenList] = useTokenListAtom();
 
@@ -56,6 +60,7 @@ function TokenSelector() {
   );
 
   const fetchAccountTokens = useCallback(async () => {
+    updateTokenListState({ initialized: false, isRefreshing: true });
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId,
       networkId,
@@ -69,21 +74,36 @@ function TokenSelector() {
     });
     const { allTokens } = r;
     if (!allTokens) {
+      updateTokenListState({ isRefreshing: false });
       throw new Error('allTokens not found from fetchAccountTokensWithMemo ');
     }
     refreshTokenList({ keys: allTokens.keys, tokens: allTokens.data });
     refreshTokenListMap(allTokens.map);
-  }, [accountId, networkId, refreshTokenList, refreshTokenListMap]);
+    updateTokenListState({ initialized: true, isRefreshing: false });
+  }, [
+    accountId,
+    networkId,
+    refreshTokenList,
+    refreshTokenListMap,
+    updateTokenListState,
+  ]);
 
   useEffect(() => {
     // use route params token
     if (tokens && tokens.data.length) {
       refreshTokenList({ tokens: tokens.data, keys: tokens.keys });
       refreshTokenListMap(tokens.map);
+      updateTokenListState({ initialized: true, isRefreshing: false });
     } else {
       void fetchAccountTokens();
     }
-  }, [fetchAccountTokens, refreshTokenList, refreshTokenListMap, tokens]);
+  }, [
+    fetchAccountTokens,
+    refreshTokenList,
+    refreshTokenListMap,
+    tokens,
+    updateTokenListState,
+  ]);
 
   return (
     <Page scrollEnabled>
