@@ -17,7 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { openUrlExternal } from '@onekeyhq/kit/src/utils/openUrl';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -57,7 +57,7 @@ const SwapHistoryDetailModal = () => {
     Toast.success({ title: 'success', message: 'copied' });
   }, []);
   const onViewInBrowser = useCallback((url: string) => {
-    openUrlExternal(url);
+    openUrl(url);
   }, []);
   const onSupport = useCallback(() => {}, []);
   const {

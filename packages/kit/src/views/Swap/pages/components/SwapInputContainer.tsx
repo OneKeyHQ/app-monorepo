@@ -20,6 +20,8 @@ interface ISwapInputContainerProps {
   onSelectToken: (type: ESwapDirectionType) => void;
   balance: string;
   address?: string;
+  inputLoading?: boolean;
+  selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
 }
 
@@ -28,6 +30,8 @@ const SwapInputContainer = ({
   direction,
   token,
   amountValue,
+  selectTokenLoading,
+  inputLoading,
   onSelectToken,
   onBalanceMaxPress,
   balance,
@@ -57,13 +61,19 @@ const SwapInputContainer = ({
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
-        switchValue={amountPrice}
-        onBalancePress={onBalanceMaxPress}
+        balanceProps={{
+          value: balance,
+          onPress: onBalanceMaxPress,
+          loading: isLoading,
+        }}
+        valueProps={{ value: amountPrice, loading: inputLoading }}
         inputProps={{
+          loading: inputLoading,
           placeholder: '0.0',
           readOnly: direction === ESwapDirectionType.TO,
         }}
         tokenSelectorTriggerProps={{
+          loading: selectTokenLoading,
           selectedNetworkImageUri: token?.networkLogoURI,
           selectedTokenImageUri: token?.logoURI,
           selectedTokenSymbol: token?.symbol,
@@ -71,7 +81,6 @@ const SwapInputContainer = ({
             onSelectToken(direction);
           },
         }}
-        balance={balance}
         enableMaxAmount={direction === ESwapDirectionType.FROM}
       />
     </YStack>

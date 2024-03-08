@@ -44,6 +44,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
+        selectTokenLoading={fetchLoading}
         onAmountChange={(value) => {
           if (validateInput(value)) {
             setFromInputAmount(value);
@@ -61,6 +62,8 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       </XStack>
       <SwapInputContainer
         token={toToken}
+        inputLoading={quoteFetching}
+        selectTokenLoading={fetchLoading}
         direction={ESwapDirectionType.TO}
         amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
         onSelectToken={onSelectToken}
