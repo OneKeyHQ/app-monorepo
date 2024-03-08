@@ -32,7 +32,7 @@ export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
   formatter: keyof typeof NUMBER_FORMATTER;
   subTextStyle?: Omit<ISizableTextProps, 'children'>;
   formatterOptions?: IFormatterOptions;
-  children: string | number;
+  children: string | number | undefined;
 };
 
 const subTextStyles = {
