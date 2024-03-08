@@ -1,8 +1,12 @@
 import { useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
-import { Dialog, Icon, Stack, XStack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Dialog,
+  Icon,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
