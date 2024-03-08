@@ -57,6 +57,12 @@
 	<string>Use Camera to scan QR Code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Use bluetooth to connect OneKey hardware devices.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use Microphone to record videos.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
