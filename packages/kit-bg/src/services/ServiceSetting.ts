@@ -19,10 +19,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
-import type {
-  IClearCacheOnAppState,
-  IReasonForNeedPassword,
-} from '@onekeyhq/shared/types/setting';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -215,20 +213,23 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async needReenterPassword(
-    reason?: IReasonForNeedPassword,
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
   ): Promise<boolean> {
-    if (reason) {
-      const { protectCreateOrRemoveWallet, protectCreateTransaction } =
-        await settingsPersistAtom.get();
-      if (reason === 'CreateOrRemoveWallet' && protectCreateOrRemoveWallet) {
-        return true;
-      }
-      if (reason === 'CreateTransaction' && protectCreateTransaction) {
-        return true;
-      }
+    const isPasswordSet =
+      await this.backgroundApi.servicePassword.checkPasswordSet();
+    if (!reason || !isPasswordSet) {
+      return false;
     }
-    return false;
+    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+      await settingsPersistAtom.get();
+
+    return (
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction)
+    );
   }
 }
 
