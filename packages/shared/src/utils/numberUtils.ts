@@ -53,11 +53,12 @@ export interface IDisplayNumber {
     leadingZeros?: number;
     leading?: string;
     symbol?: string;
+    isZero?: boolean;
   } & IFormatterOptions;
 }
 
 const countLeadingZeroDecimals = (x: BigNumber) => {
-  const counts = -Math.floor(Math.log10(x.toNumber()) + 1);
+  const counts = -Math.floor(Math.log10(x.abs().toNumber()) + 1);
   return counts > 0 ? counts : 0;
 };
 
@@ -105,11 +106,12 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
   if (val.isNaN()) {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
-  if (val.eq(0)) {
-    return { formattedValue: '0', meta: { value } };
+  const absValue = val.abs();
+  if (absValue.eq(0)) {
+    return { formattedValue: '0', meta: { value, isZero: true, ...options } };
   }
-  if (val.gte(1)) {
-    if (val.gte(10e14)) {
+  if (absValue.gte(1)) {
+    if (absValue.gte(10e14)) {
       return {
         formattedValue: formatLocalNumber(val.div(10e14), 4, true),
         meta: {
@@ -120,7 +122,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
       };
     }
 
-    if (val.gte(10e11)) {
+    if (absValue.gte(10e11)) {
       return {
         formattedValue: formatLocalNumber(val.div(10e11), 4, true),
         meta: {
@@ -131,7 +133,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
       };
     }
 
-    if (val.gte(10e8)) {
+    if (absValue.gte(10e8)) {
       return {
         formattedValue: formatLocalNumber(val.div(10e8), 4, true),
         meta: {
@@ -152,7 +154,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
     formattedValue: formatLocalNumber(val, 4 + zeros, true),
     meta: {
       value,
-      leadingZeros: countLeadingZeroDecimals(val),
+      leadingZeros: zeros,
       ...options,
     },
   };
@@ -168,7 +170,7 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
   if (val.eq(0)) {
     return {
       formattedValue: formatLocalNumber('0', 2, false, true),
-      meta: { value, currency, ...options },
+      meta: { value, currency, isZero: true, ...options },
     };
   }
   if (val.gte(1)) {
@@ -192,7 +194,10 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
   if (val.eq(0)) {
-    return { formattedValue: '0.00', meta: { value, symbol: '%', ...options } };
+    return {
+      formattedValue: '0.00',
+      meta: { value, isZero: true, symbol: '%', ...options },
+    };
   }
   return {
     formattedValue: formatLocalNumber(val.toFixed(2)),
@@ -206,6 +211,12 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
   if (val.isNaN()) {
     return { formattedValue: value, meta: { value, invalid: true } };
+  }
+  if (val.eq(0)) {
+    return {
+      formattedValue: '0.00',
+      meta: { value, currency, isZero: true, ...options },
+    };
   }
   if (val.lt(0.01)) {
     return {
@@ -228,7 +239,7 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   if (val.eq(0)) {
     return {
       formattedValue: '0',
-      meta: { value, ...options },
+      meta: { value, isZero: true, ...options },
     };
   }
 
@@ -266,6 +277,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   const {
     formattedValue,
     meta: {
+      value: rawValue,
       invalid,
       leading,
       leadingZeros,
@@ -274,8 +286,13 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
       symbol,
       showPlusMinusSigns,
       tokenSymbol,
+      isZero,
     },
   } = value;
+  const isNegativeNumber =
+    formattedValue[0] === '-' || (isZero && rawValue[0] === '-');
+  const startsNumberIndex = isNegativeNumber ? 1 : 0;
+
   if (invalid) {
     return formattedValue;
   }
@@ -286,14 +303,21 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   if (currency) {
     strings.push(currency);
   }
-  if (showPlusMinusSigns && formattedValue[0] !== '-') {
+
+  if (showPlusMinusSigns && !isNegativeNumber) {
     strings.push('+');
   }
   if (leadingZeros && leadingZeros > 4) {
+    if (isNegativeNumber) {
+      strings.push('-');
+    }
     strings.push('0.0');
     strings.push({ value: leadingZeros, type: 'sub' });
-    strings.push(formattedValue.slice(leadingZeros + 2));
+    strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
+    if (showPlusMinusSigns && isZero && isNegativeNumber) {
+      strings.push('-');
+    }
     strings.push(formattedValue);
   }
   if (unit) {
