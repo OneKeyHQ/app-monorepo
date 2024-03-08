@@ -150,6 +150,7 @@ export default class VaultBtc extends VaultBase {
               to: utxo.address,
               isNative: true,
               tokenIdOnNetwork: '',
+              name: nativeToken.name,
               icon: nativeToken.logoURI ?? '',
               amount: utxo.balance,
               amountValue: utxo.balanceValue,
@@ -811,5 +812,9 @@ export default class VaultBtc extends VaultBase {
   override async getAccountXpub(): Promise<string> {
     const account = (await this.getAccount()) as IDBUtxoAccount;
     return account.xpubSegwit ?? account.xpub;
+  }
+
+  override async buildEstimateFeeParams() {
+    return Promise.resolve(undefined);
   }
 }

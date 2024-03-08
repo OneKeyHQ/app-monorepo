@@ -2,7 +2,7 @@ import type { ILocaleIds } from '@onekeyhq/components';
 
 import type { IAccountNFT } from './nft';
 import type { IToken } from './token';
-import type { IDecodedTx, IReplacedTxType } from './tx';
+import type { EDecodedTxStatus, IDecodedTx, IReplacedTxType } from './tx';
 
 export enum EOnChainHistoryTransferType {
   Transfer,
@@ -120,6 +120,7 @@ export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
   accountAddress: string;
+  status: EDecodedTxStatus;
 };
 
 export type IFetchHistoryTxDetailsResp = {

@@ -31,7 +31,7 @@ function TokenListContainer(props: IProps) {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
-  const currentAccountId = useRef(account?.id);
+  const currentAccountId = useRef<string>('');
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -48,6 +48,8 @@ function TokenListContainer(props: IProps) {
     refreshSmallBalanceTokensFiatValue,
     updateTokenListState,
   } = useTokenListActions().current;
+
+  console.log(account);
 
   usePromiseResult(
     async () => {

@@ -45,24 +45,24 @@ function TxHistoryListHeader({
               }
             : undefined
         }
-        headerRight={
-          <Popover
-            title="Settings"
-            renderTrigger={
-              <IconButton variant="tertiary" icon="SliderVerOutline" />
-            }
-            renderContent={
-              <Stack py="$2">
-                <ListItem
-                  title="Hide Zero-Value Transfers"
-                  subtitle="Avoid scam attempts by hiding transfers of zero-value tokens."
-                >
-                  <Switch size="small" value={val} onChange={setVal} />
-                </ListItem>
-              </Stack>
-            }
-          />
-        }
+        // headerRight={
+        //   <Popover
+        //     title="Settings"
+        //     renderTrigger={
+        //       <IconButton variant="tertiary" icon="SliderVerOutline" />
+        //     }
+        //     renderContent={
+        //       <Stack py="$2">
+        //         <ListItem
+        //           title="Hide Zero-Value Transfers"
+        //           subtitle="Avoid scam attempts by hiding transfers of zero-value tokens."
+        //         >
+        //           <Switch size="small" value={val} onChange={setVal} />
+        //         </ListItem>
+        //       </Stack>
+        //     }
+        //   />
+        // }
       />
     </Stack>
   );

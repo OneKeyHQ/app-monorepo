@@ -48,6 +48,7 @@ export type IFetchAccountTokensResp = {
 
 export type IFetchTokenDetailParams = {
   networkId: string;
+  xpub?: string;
   contractList: string[];
   accountAddress?: string;
 };

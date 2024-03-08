@@ -100,6 +100,10 @@ function SendDataInputContainer() {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: account.address,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
           contractList: [tokenInfo.address],
         });
       }
@@ -108,6 +112,7 @@ function SendDataInputContainer() {
     },
     [
       account,
+      accountId,
       isNFT,
       network,
       networkId,

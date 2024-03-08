@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { isNil, set } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -23,12 +24,12 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { getOnChainHistoryTxAssetInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
-  EOnChainHistoryTxType,
-  type IOnChainHistoryTxTransfer,
-} from '@onekeyhq/shared/types/history';
+  getHistoryTxDetailInfo,
+  getOnChainHistoryTxAssetInfo,
+} from '@onekeyhq/shared/src/utils/historyUtils';
+import { type IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
@@ -111,6 +112,70 @@ function InfoItem({
   );
 }
 
+function AssetItem({
+  asset,
+  index,
+  direction,
+  amount,
+  networkIcon,
+  currencySymbol,
+}: {
+  asset: {
+    name: string;
+    symbol: string;
+    icon: string;
+    isNFT?: boolean;
+    isNative?: boolean;
+    price: string;
+  };
+  index: number;
+  direction: EDecodedTxDirection;
+  amount: string;
+  networkIcon: string;
+  currencySymbol: string;
+}) {
+  return (
+    <ListItem key={index}>
+      <Token
+        isNFT={asset.isNFT}
+        tokenImageUri={asset.icon}
+        networkImageUri={networkIcon}
+      />
+      <ListItem.Text primary={asset.symbol} secondary={asset.name} flex={1} />
+      <ListItem.Text
+        primary={
+          <NumberSizeableText
+            textAlign="right"
+            size="$bodyLgMedium"
+            color={
+              direction === EDecodedTxDirection.IN ? '$textSuccess' : '$text'
+            }
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: asset.isNFT ? '' : asset.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${amount}`}
+          </NumberSizeableText>
+        }
+        secondary={
+          <NumberSizeableText
+            textAlign="right"
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{ currency: currencySymbol }}
+          >
+            {new BigNumber(amount).times(asset.price ?? 0).toString()}
+          </NumberSizeableText>
+        }
+        align="right"
+      />
+    </ListItem>
+  );
+}
+
 function HistoryDetails() {
   const intl = useIntl();
   const route =
@@ -125,7 +190,6 @@ function HistoryDetails() {
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-
   const resp = usePromiseResult(
     () =>
       Promise.all([
@@ -135,10 +199,16 @@ function HistoryDetails() {
           networkId,
           accountAddress,
           txid: historyTx.decodedTx.txid,
+          status: historyTx.decodedTx.status,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
       ]),
-    [accountAddress, historyTx.decodedTx.txid, networkId],
+    [
+      accountAddress,
+      historyTx.decodedTx.status,
+      historyTx.decodedTx.txid,
+      networkId,
+    ],
     { watchLoading: true },
   );
 
@@ -166,68 +236,57 @@ function HistoryDetails() {
   const renderAssetsChange = useCallback(
     ({
       transfers,
+      localTransfers,
       direction,
     }: {
       transfers: IOnChainHistoryTxTransfer[] | undefined;
+      localTransfers: IDecodedTxTransferInfo[] | undefined;
       direction: EDecodedTxDirection;
-    }) =>
-      transfers?.map((transfer, index) => {
-        const asset = getOnChainHistoryTxAssetInfo({
-          tokenAddress: transfer.token,
-          tokens,
-          nfts,
+    }) => {
+      if (transfers) {
+        return transfers?.map((transfer, index) => {
+          const asset = getOnChainHistoryTxAssetInfo({
+            tokenAddress: transfer.token,
+            tokens,
+            nfts,
+          });
+
+          return (
+            <AssetItem
+              key={index}
+              index={index}
+              asset={asset}
+              direction={direction}
+              amount={transfer.amount}
+              networkIcon={network?.logoURI ?? ''}
+              currencySymbol={settings.currencyInfo.symbol}
+            />
+          );
         });
+      }
+      return localTransfers?.map((transfer, index) => {
+        const asset = {
+          name: transfer.name,
+          symbol: transfer.symbol,
+          icon: transfer.icon,
+          isNFT: transfer.isNFT,
+          isNative: transfer.isNative,
+          price: '0',
+        };
+
         return (
-          <ListItem key={index}>
-            <Token
-              isNFT={asset.isNFT}
-              tokenImageUri={asset.icon}
-              networkImageUri={network?.logoURI}
-            />
-            <ListItem.Text
-              primary={asset.symbol}
-              secondary={asset.name}
-              flex={1}
-            />
-            <ListItem.Text
-              primary={
-                <NumberSizeableText
-                  textAlign="right"
-                  size="$bodyLgMedium"
-                  color={
-                    direction === EDecodedTxDirection.IN
-                      ? '$textSuccess'
-                      : '$text'
-                  }
-                  formatter="balance"
-                  formatterOptions={{
-                    tokenSymbol: asset.isNFT ? '' : asset.symbol,
-                    showPlusMinusSigns: true,
-                  }}
-                >
-                  {`${direction === EDecodedTxDirection.IN ? '+' : '-'}${
-                    transfer.amount
-                  }`}
-                </NumberSizeableText>
-              }
-              secondary={
-                <NumberSizeableText
-                  textAlign="right"
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                >
-                  {new BigNumber(transfer.amount)
-                    .times(asset.price ?? 0)
-                    .toString()}
-                </NumberSizeableText>
-              }
-              align="right"
-            />
-          </ListItem>
+          <AssetItem
+            key={index}
+            index={index}
+            asset={asset}
+            direction={direction}
+            amount={transfer.amount}
+            networkIcon={network?.logoURI ?? ''}
+            currencySymbol={settings.currencyInfo.symbol}
+          />
         );
-      }),
+      });
+    },
     [network?.logoURI, nfts, settings.currencyInfo.symbol, tokens],
   );
 
@@ -254,37 +313,60 @@ function HistoryDetails() {
 
   const transfersToRender = useMemo(() => {
     let transfers: {
-      transfers: IOnChainHistoryTxTransfer[];
+      transfers?: IOnChainHistoryTxTransfer[];
+      localTransfers?: IDecodedTxTransferInfo[];
       direction: EDecodedTxDirection;
     }[] = [];
 
-    let sends = txDetails?.sends ?? [];
-    let receives = txDetails?.receives ?? [];
+    let sends = txDetails?.sends;
+    let receives = txDetails?.receives;
+    const localSends = historyTx.decodedTx.actions[0].assetTransfer?.sends;
+    const localReceives =
+      historyTx.decodedTx.actions[0].assetTransfer?.receives;
 
     if (vaultSettings?.isUtxo) {
-      sends = sends.filter((send) => send.isOwn);
-      receives = receives.filter((receive) => receive.isOwn);
+      sends = sends?.filter((send) => send.isOwn);
+      receives = receives?.filter((receive) => receive.isOwn);
     }
     transfers = [
       {
         transfers: sends,
+        localTransfers: localSends,
         direction: EDecodedTxDirection.OUT,
       },
       {
         transfers: receives,
+        localTransfers: localReceives,
         direction: EDecodedTxDirection.IN,
       },
     ];
 
     return transfers.filter(Boolean);
-  }, [txDetails?.receives, txDetails?.sends, vaultSettings?.isUtxo]);
+  }, [
+    historyTx.decodedTx.actions,
+    txDetails?.receives,
+    txDetails?.sends,
+    vaultSettings?.isUtxo,
+  ]);
 
   const txAddresses = useMemo(() => {
-    if (!txDetails)
+    if (!txDetails) {
+      const { decodedTx } = historyTx;
+      if (vaultSettings?.isUtxo) {
+        return {
+          from: historyTx.decodedTx.signer,
+          to: historyTx.decodedTx.actions[0].assetTransfer?.sends
+            .map((send) => send.to)
+            .join('/n'),
+        };
+      }
+
       return {
-        from: '',
-        to: '',
+        from: decodedTx.signer,
+        to: decodedTx.to,
       };
+    }
+
     if (vaultSettings?.isUtxo) {
       return {
         from:
@@ -303,7 +385,12 @@ function HistoryDetails() {
       from: txDetails?.from,
       to: txDetails?.to,
     };
-  }, [txDetails, vaultSettings?.isUtxo]);
+  }, [historyTx, txDetails, vaultSettings?.isUtxo]);
+
+  const txInfo = getHistoryTxDetailInfo({
+    txDetails,
+    historyTx,
+  });
 
   const renderFeeInfo = useCallback(
     () => (
@@ -316,7 +403,7 @@ function HistoryDetails() {
             tokenSymbol: nativeToken?.symbol,
           }}
         >
-          {txDetails?.gasFee}
+          {txInfo?.gasFee}
         </NumberSizeableText>
         <SizableText size="$bodyMd" color="$textSubdued">
           (
@@ -326,7 +413,7 @@ function HistoryDetails() {
             size="$bodyMd"
             color="$textSubdued"
           >
-            {txDetails?.gasFeeFiatValue}
+            {txInfo?.gasFeeFiatValue}
           </NumberSizeableText>
           )
         </SizableText>
@@ -335,8 +422,8 @@ function HistoryDetails() {
     [
       nativeToken?.symbol,
       settings.currencyInfo.symbol,
-      txDetails?.gasFee,
-      txDetails?.gasFeeFiatValue,
+      txInfo?.gasFee,
+      txInfo?.gasFeeFiatValue,
     ],
   );
 
@@ -349,14 +436,13 @@ function HistoryDetails() {
       );
     }
 
-    if (!txDetails) return null;
-
     return (
       <>
         {/* Part 1: What change */}
         <Stack>
           {transfersToRender.map((block) =>
             renderAssetsChange({
+              localTransfers: block.localTransfers,
               transfers: block.transfers,
               direction: block.direction,
             }),
@@ -368,40 +454,36 @@ function HistoryDetails() {
           {/* Primary */}
           <InfoItemGroup>
             <InfoItem label="Status" renderContent={renderTxStatus()} compact />
-            <InfoItem
-              label="Date"
-              renderContent={formatDate(new Date(txDetails.timestamp * 1000))}
-              compact
-            />
+            <InfoItem label="Date" renderContent={txInfo.date} compact />
           </InfoItemGroup>
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
             <InfoItem label="From" renderContent={txAddresses.from} />
             <InfoItem label="To" renderContent={txAddresses.to} />
-            <InfoItem label="Transaction ID" renderContent={txDetails.tx} />
+            <InfoItem label="Transaction ID" renderContent={txInfo.txid} />
             <InfoItem
               label="Network Fee"
               renderContent={renderFeeInfo()}
               compact
             />
-            {txDetails.nonce && (
+            {!isNil(txInfo.nonce) && (
               <InfoItem
                 label="Nonce"
-                renderContent={String(txDetails.nonce)}
+                renderContent={String(txInfo.nonce)}
                 compact
               />
             )}
-            {txDetails.confirmations && (
+            {!isNil(txInfo.confirmations) && (
               <InfoItem
                 label="Confirmations"
-                renderContent={txDetails.confirmations}
+                renderContent={String(txInfo.confirmations)}
                 compact
               />
             )}
           </InfoItemGroup>
           {/* Tertiary */}
-          {txDetails.swapInfo && (
+          {txInfo.swapInfo && (
             <>
               <Divider mx="$5" />
               <InfoItemGroup>
@@ -450,7 +532,11 @@ function HistoryDetails() {
     transfersToRender,
     txAddresses.from,
     txAddresses.to,
-    txDetails,
+    txInfo.confirmations,
+    txInfo.date,
+    txInfo.nonce,
+    txInfo.swapInfo,
+    txInfo.txid,
   ]);
 
   return (
