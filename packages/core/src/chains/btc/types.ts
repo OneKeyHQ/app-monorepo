@@ -76,8 +76,8 @@ export type IOutputsForCoinSelect = {
 export type IEncodedTxBtc = {
   inputs: IBtcInput[];
   outputs: IBtcOutput[];
-  inputsForCoinSelect?: IInputsForCoinSelect;
-  outputsForCoinSelect?: IOutputsForCoinSelect;
+  inputsForCoinSelect: IInputsForCoinSelect;
+  outputsForCoinSelect: IOutputsForCoinSelect;
   fee: string;
 };
 

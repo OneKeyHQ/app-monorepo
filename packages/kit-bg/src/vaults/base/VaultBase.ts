@@ -208,6 +208,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
     const { accountId, networkId, onChainHistoryTx, tokens, nfts } = params;
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
       const action = await this.buildHistoryTxAction({
         tx: onChainHistoryTx,
@@ -232,6 +234,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         totalFeeInNative: onChainHistoryTx.gasFee,
 
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
+
+        nativeAmount: vaultSettings.isUtxo ? onChainHistoryTx.value : undefined,
 
         extraInfo: null,
         payload: {
@@ -366,6 +370,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       tokenIdOnNetwork: transfer.token,
       amount: transfer.amount,
       label: transfer.label,
+      isOwn: transfer.isOwn,
       icon,
       name,
       symbol,

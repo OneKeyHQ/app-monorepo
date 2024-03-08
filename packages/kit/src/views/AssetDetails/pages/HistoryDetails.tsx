@@ -257,44 +257,27 @@ function HistoryDetails() {
       transfers: IOnChainHistoryTxTransfer[];
       direction: EDecodedTxDirection;
     }[] = [];
-    if (vaultSettings?.isUtxo) {
-      if (txDetails?.type === EOnChainHistoryTxType.Send) {
-        transfers = [
-          {
-            transfers: txDetails.sends,
-            direction: EDecodedTxDirection.OUT,
-          },
-        ];
-      }
 
-      if (txDetails?.type === EOnChainHistoryTxType.Receive) {
-        transfers = [
-          {
-            transfers: txDetails.receives,
-            direction: EDecodedTxDirection.IN,
-          },
-        ];
-      }
-    } else {
-      transfers = [
-        {
-          transfers: txDetails?.sends ?? [],
-          direction: EDecodedTxDirection.OUT,
-        },
-        {
-          transfers: txDetails?.receives ?? [],
-          direction: EDecodedTxDirection.IN,
-        },
-      ];
+    let sends = txDetails?.sends ?? [];
+    let receives = txDetails?.receives ?? [];
+
+    if (vaultSettings?.isUtxo) {
+      sends = sends.filter((send) => send.isOwn);
+      receives = receives.filter((receive) => receive.isOwn);
     }
+    transfers = [
+      {
+        transfers: sends,
+        direction: EDecodedTxDirection.OUT,
+      },
+      {
+        transfers: receives,
+        direction: EDecodedTxDirection.IN,
+      },
+    ];
 
     return transfers.filter(Boolean);
-  }, [
-    txDetails?.receives,
-    txDetails?.sends,
-    txDetails?.type,
-    vaultSettings?.isUtxo,
-  ]);
+  }, [txDetails?.receives, txDetails?.sends, vaultSettings?.isUtxo]);
 
   const txAddresses = useMemo(() => {
     if (!txDetails)
@@ -306,12 +289,12 @@ function HistoryDetails() {
       return {
         from:
           txDetails.sends.length > 1
-            ? `${txDetails.sends.length} addressed`
+            ? `${txDetails.sends.length} addresses`
             : txDetails.sends[0].from,
 
         to:
           txDetails.receives.length > 1
-            ? `${txDetails.receives.length} addressed`
+            ? `${txDetails.receives.length} addresses`
             : txDetails.receives[0].to,
       };
     }

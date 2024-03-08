@@ -108,6 +108,7 @@ class ServiceSend extends ServiceBase {
     const txid = await this.broadcastTransactionLegacy({
       accountId,
       networkId,
+      accountAddress: '',
       signedTx: signedTxWithoutBroadcast,
     });
 

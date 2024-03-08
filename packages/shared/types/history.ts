@@ -27,6 +27,7 @@ export type IOnChainHistoryTxTransfer = {
   amount: string;
   label: string;
   isNative?: boolean;
+  isOwn?: boolean; // for UTXO
 };
 
 export type IOnChainHistoryTxUTXOInput = {

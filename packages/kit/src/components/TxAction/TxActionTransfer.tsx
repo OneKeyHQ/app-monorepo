@@ -96,14 +96,32 @@ function buildTransferChangeInfo({
   changePrefix,
   transfers,
   intl,
+  nativeAmount,
+  isUTXO,
 }: {
   changePrefix: string;
   transfers: IDecodedTxTransferInfo[];
   intl: IntlShape;
+  nativeAmount?: string;
+  isUTXO?: boolean;
 }) {
   let change = '';
   let changeSymbol = '';
   let changeDescription = '';
+
+  if (isUTXO) {
+    const amountBN = new BigNumber(nativeAmount ?? 0).abs();
+    change = amountBN.toFixed();
+    changeSymbol = transfers[0].symbol;
+    changeDescription = amountBN
+      .multipliedBy(transfers[0].price ?? 0)
+      .toFixed();
+    return {
+      change: `${changePrefix}${change}`,
+      changeSymbol,
+      changeDescription,
+    };
+  }
 
   if (transfers.length === 1) {
     const amountBN = new BigNumber(transfers[0].amount).abs();
@@ -159,7 +177,7 @@ function buildTransferChangeInfo({
 
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
-  const { networkId, payload } = decodedTx;
+  const { networkId, payload, nativeAmount } = decodedTx;
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -170,6 +188,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],
   ).result;
+  const isUTXO = vaultSettings?.isUtxo;
   const {
     sends,
     receives,
@@ -181,7 +200,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     receiveTokenIcon,
   } = getTxActionTransferInfo({
     ...props,
-    isUTXO: vaultSettings?.isUtxo,
+    isUTXO,
   });
   const description = {
     prefix: '',
@@ -232,18 +251,23 @@ function TxActionTransferListView(props: ITxActionProps) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
+        nativeAmount,
         intl,
+        isUTXO,
       });
       change = changeInfo.change;
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = sendTokenIcon;
       title = intl.formatMessage({ id: 'action__send' });
+      console.log('changeInfo', changeInfo);
     } else if (type === EOnChainHistoryTxType.Receive) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
         transfers: receives,
+        nativeAmount,
         intl,
+        isUTXO,
       });
       change = changeInfo.change;
       changeSymbol = changeInfo.changeSymbol;
