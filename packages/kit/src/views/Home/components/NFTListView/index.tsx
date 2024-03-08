@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { ScrollView, Stack, XStack } from '@onekeyhq/components';
+import { ScrollView, XStack } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -52,9 +52,7 @@ function NFTListView(props: IProps) {
 
   const renderNFTListView = useCallback(() => {
     if (!filteredNfts || filteredNfts.length === 0)
-      return (
-        <Stack mt="$8">{searchKey ? <EmptySearch /> : <EmptyNFT />}</Stack>
-      );
+      return searchKey ? <EmptySearch /> : <EmptyNFT />;
 
     return (
       <XStack flexWrap="wrap" px="$2.5" pb="$5" py="$0.5">

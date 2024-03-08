@@ -57,8 +57,6 @@ function TxActionsContainer(props: IProps) {
       );
     });
 
-    console.log('sendSelectedFeeInfo', sendSelectedFeeInfo);
-
     if (
       !nativeTokenInfo.isLoading &&
       decodedTxs.length === 1 &&

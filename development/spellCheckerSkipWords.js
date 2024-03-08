@@ -636,4 +636,6 @@ module.exports = [
   'invoker',
   'ecrecover',
   'sats',
+  'Accum',
+  'coinselect',
 ];

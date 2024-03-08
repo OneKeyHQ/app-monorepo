@@ -1,3 +1,4 @@
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 import type { ICurveName } from './coreTypesBase';
@@ -86,6 +87,8 @@ export type IUnsignedTx = {
 export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
+  txSize?: number;
+  transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];

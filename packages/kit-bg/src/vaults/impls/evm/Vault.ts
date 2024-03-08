@@ -575,7 +575,7 @@ export default class Vault extends VaultBase {
     const { encodedTx, nonceInfo } = params;
     const tx = {
       ...encodedTx,
-      nonce: String(nonceInfo.nonce),
+      nonce: nonceInfo.nonce,
     };
 
     return Promise.resolve(tx);
@@ -618,7 +618,7 @@ export default class Vault extends VaultBase {
       ...encodedTx,
     };
     const chainIdHex = await this.getNetworkChainId({ hex: true });
-    const chainIdNum = new BigNumber(chainIdHex).toNumber();
+    const chainIdNum = chainIdHex;
 
     tx.chainId = chainIdNum;
     return Promise.resolve({

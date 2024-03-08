@@ -18,7 +18,6 @@ export type IFetchAccountDetailsParams = {
   xpub?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
-  withNonce?: boolean;
   withBalance?: boolean;
   withValidate?: boolean;
 };

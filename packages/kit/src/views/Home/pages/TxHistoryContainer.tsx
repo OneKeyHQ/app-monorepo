@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,

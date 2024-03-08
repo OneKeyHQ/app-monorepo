@@ -53,8 +53,6 @@ function SendConfirmActionsContainer(props: IProps) {
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
 
-  console.log(sourceInfo);
-
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,

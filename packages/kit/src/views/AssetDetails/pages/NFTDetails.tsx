@@ -38,12 +38,7 @@ export function NFTDetails() {
       const r = await backgroundApiProxy.serviceNFT.fetchNFTDetails({
         networkId,
         accountAddress,
-        params: [
-          {
-            collectionAddress,
-            itemId,
-          },
-        ],
+        nfts: [{ collectionAddress, itemId }],
       });
 
       return r[0];

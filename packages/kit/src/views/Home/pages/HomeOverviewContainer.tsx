@@ -20,6 +20,10 @@ function HomeOverviewContainer() {
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
           accountAddress: account.address,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId: network.id,
+          }),
           withNetWorth: true,
         });
       return r;

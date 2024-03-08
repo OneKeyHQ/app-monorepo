@@ -6,7 +6,7 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import {
   useSearchKeyAtom,
   useTokenListAtom,
-  useTokenListInitializedAtom,
+  useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
@@ -18,7 +18,6 @@ import { TokenListItem } from './TokenListItem';
 
 type IProps = {
   tableLayout?: boolean;
-  isLoading?: boolean;
   onRefresh?: () => void;
   onPressToken?: (token: IAccountToken) => void;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
@@ -35,17 +34,16 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
-    isLoading,
   } = props;
 
   const [tokenList] = useTokenListAtom();
-  const [initialized] = useTokenListInitializedAtom();
+  const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const { tokens } = tokenList;
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
 
-  if (!initialized && isLoading) {
+  if (!tokenListState.initialized && tokenListState.isRefreshing) {
     return <ListLoading onContentSizeChange={onContentSizeChange} />;
   }
 

@@ -58,26 +58,24 @@ function ActionItem({
   );
 }
 
-function ActionBuy({ onPress }: { onPress: () => void }) {
-  return <ActionItem label="Buy" onPress={onPress} icon="PlusLargeOutline" />;
+function ActionBuy(props: IActionItemsProps) {
+  return <ActionItem label="Buy" icon="PlusLargeOutline" {...props} />;
 }
 
-function ActionSell({ onPress }: { onPress: () => void }) {
-  return <ActionItem label="Sell" onPress={onPress} icon="MinusLargeOutline" />;
+function ActionSell(props: IActionItemsProps) {
+  return <ActionItem label="Sell" icon="MinusLargeOutline" {...props} />;
 }
 
-function ActionSend({ onPress }: { onPress: () => void }) {
-  return <ActionItem label="Send" onPress={onPress} icon="ArrowTopOutline" />;
+function ActionSend(props: IActionItemsProps) {
+  return <ActionItem label="Send" icon="ArrowTopOutline" {...props} />;
 }
 
-function ActionReceive({ onPress }: { onPress: () => void }) {
-  return (
-    <ActionItem label="Receive" onPress={onPress} icon="ArrowBottomOutline" />
-  );
+function ActionReceive(props: IActionItemsProps) {
+  return <ActionItem label="Receive" icon="ArrowBottomOutline" {...props} />;
 }
 
-function ActionSwap({ onPress }: { onPress: () => void }) {
-  return <ActionItem label="Swap" onPress={onPress} icon="SwitchHorOutline" />;
+function ActionSwap(props: IActionItemsProps) {
+  return <ActionItem label="Swap" icon="SwitchHorOutline" {...props} />;
 }
 
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {

@@ -25,7 +25,7 @@ function FeeOverviewContainer(props: IProps) {
   const overview = useMemo(() => {
     let title = '';
     let description = '';
-    const { min, max } = calculateTotalFeeRange(feeInfo);
+    const { min, max } = calculateTotalFeeRange({ feeInfo });
     const totalFeeNative = calculateTotalFeeNative({
       amount: max,
       feeInfo,
