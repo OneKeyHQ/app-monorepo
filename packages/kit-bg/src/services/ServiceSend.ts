@@ -250,6 +250,7 @@ class ServiceSend extends ServiceBase {
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
+        reason: 'CreateTransaction',
       });
     // signTransaction
     const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
@@ -510,7 +511,9 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
+      await this.backgroundApi.servicePassword.promptPasswordVerify(
+        'CreateTransaction',
+      );
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,
