@@ -19,7 +19,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
-import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
+import type {
+  IClearCacheOnAppState,
+  IReasonForNeedPassword,
+} from '@onekeyhq/shared/types/setting';
 
 import {
   settingsLastActivityAtom,
@@ -209,6 +212,23 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+  }
+
+  @backgroundMethod()
+  public async needReenterPassword(
+    reason?: IReasonForNeedPassword,
+  ): Promise<boolean> {
+    if (reason) {
+      const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+        await settingsPersistAtom.get();
+      if (reason === 'CreateOrRemoveWallet' && protectCreateOrRemoveWallet) {
+        return true;
+      }
+      if (reason === 'CreateTransaction' && protectCreateTransaction) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

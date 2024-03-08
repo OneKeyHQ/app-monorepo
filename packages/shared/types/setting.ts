@@ -6,3 +6,7 @@ export type IClearCacheOnAppState = {
   browserHistory: boolean;
   connectSites: boolean;
 };
+
+export type IReasonForNeedPassword =
+  | 'CreateOrRemoveWallet'
+  | 'CreateTransaction';
