@@ -260,7 +260,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeDescription = changeInfo.changeDescription;
       avatar.src = sendTokenIcon;
       title = intl.formatMessage({ id: 'action__send' });
-      console.log('changeInfo', changeInfo);
     } else if (type === EOnChainHistoryTxType.Receive) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
