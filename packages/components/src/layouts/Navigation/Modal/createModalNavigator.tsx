@@ -6,6 +6,7 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
+import _ from 'lodash';
 import { Animated } from 'react-native';
 import { useMedia } from 'tamagui';
 
@@ -89,7 +90,8 @@ function ModalNavigator({
   const currentRouteIndex = useMemo(
     () =>
       Math.max(
-        rootNavigation?.getState?.()?.routes?.findIndex(
+        _.findLastIndex(
+          rootNavigation?.getState?.()?.routes,
           (rootRoute) =>
             state.routes.findIndex(
               // @ts-expect-error

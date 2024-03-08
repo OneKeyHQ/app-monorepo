@@ -118,7 +118,7 @@ function BaseListView<T>(
       data={data}
       renderItem={renderItem}
       getItemLayout={getItemLayout}
-      windowSize={3}
+      windowSize={5}
       {...restProps}
       // we can't set it on web
       refreshControl={undefined}

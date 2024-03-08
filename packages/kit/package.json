@@ -12,6 +12,7 @@
     "dequal": "^2.0.3",
     "dotbit": "^0.4.1",
     "eth-chains": "^1.0.0",
+    "expo-camera": "14.0.3",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
     "mime": "^3.0.0",
