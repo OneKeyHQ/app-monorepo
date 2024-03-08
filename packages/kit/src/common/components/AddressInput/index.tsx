@@ -223,10 +223,11 @@ function AddressInput(props: IAddressInputProps) {
   } = props;
   const intl = useIntl();
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
-  const { setError, clearErrors } = useFormContext();
+  const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
   const isDirty = useRef(false);
+  const rawAddress = watch([name, 'raw'].join('.'));
   const debounceText = useDebounce(inputText, 300, { trailing: true });
 
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
@@ -246,6 +247,12 @@ function AddressInput(props: IAddressInputProps) {
       onChange?.({ raw: inputText, pending: true });
     }
   }, [inputText, onChange]);
+
+  useEffect(() => {
+    if (rawAddress && textRef.current !== rawAddress) {
+      onChangeText(rawAddress);
+    }
+  }, [rawAddress, onChangeText]);
 
   useEffect(() => {
     async function main() {

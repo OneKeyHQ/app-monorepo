@@ -1,12 +1,42 @@
 import { useCallback } from 'react';
 
-import { Page, Stack } from '@onekeyhq/components';
+import { YStack } from 'tamagui';
+
+import { Divider, Page, Stack, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  usePasswordPersistAtom,
+  useSystemIdleLockSupport,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import { ListItemSelect } from '../../components/ListItemSelect';
 
 import { useOptions } from './useOptions';
+
+const EnableSystemIdleTimeItem = () => {
+  const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
+  const [supportSystemIdle] = useSystemIdleLockSupport();
+
+  return supportSystemIdle ? (
+    <YStack>
+      <Divider mx="$5" />
+      <ListItem
+        title="System Idle Lock"
+        subtitle="Include system idle time for locking."
+      >
+        <Switch
+          value={enableSystemIdleLock}
+          onChange={async (checked) => {
+            await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
+              checked,
+            );
+          }}
+        />
+      </ListItem>
+    </YStack>
+  ) : null;
+};
 
 const AppAutoLock = () => {
   const [settings] = usePasswordPersistAtom();
@@ -25,6 +55,7 @@ const AppAutoLock = () => {
           options={options}
         />
       </Stack>
+      <EnableSystemIdleTimeItem />
     </Page>
   );
 };

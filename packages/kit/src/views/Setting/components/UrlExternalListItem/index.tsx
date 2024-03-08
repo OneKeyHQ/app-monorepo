@@ -21,16 +21,6 @@ export const UrlExternalListItem: FC<IUrlExternalListItemProps> = ({
     openUrlExternal(url);
   }, [url]);
   return (
-    <ListItem onPress={onPress} icon={icon} title={title} drillIn={drillIn}>
-      {!drillIn ? (
-        <ListItem.IconButton
-          disabled
-          icon="ArrowTopRightOutline"
-          iconProps={{
-            color: '$iconActive',
-          }}
-        />
-      ) : null}
-    </ListItem>
+    <ListItem onPress={onPress} icon={icon} title={title} drillIn={drillIn} />
   );
 };

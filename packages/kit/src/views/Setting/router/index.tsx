@@ -28,12 +28,6 @@ const SettingProtectionModal = LazyLoadPage(
 const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
-const SettingThemeModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/Theme'),
-);
-const SettingLanguageModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/Language'),
-);
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes,
   IModalSettingParamList
@@ -47,16 +41,6 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingCurrencyModal,
     component: SettingCurrencyModal,
     translationId: 'content__currency',
-  },
-  {
-    name: EModalSettingRoutes.SettingLanguageModal,
-    component: SettingLanguageModal,
-    translationId: 'form__language',
-  },
-  {
-    name: EModalSettingRoutes.SettingThemeModal,
-    component: SettingThemeModal,
-    translationId: 'form__theme',
   },
   {
     name: EModalSettingRoutes.SettingSpendUTXOModal,
