@@ -28,11 +28,12 @@ export const NUMBER_FORMATTER = {
   marketCap: formatMarketCap,
 };
 
-export interface INumberSizeableTextProps extends ISizableTextProps {
+export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
   formatter: keyof typeof NUMBER_FORMATTER;
   subTextStyle?: Omit<ISizableTextProps, 'children'>;
   formatterOptions?: IFormatterOptions;
-}
+  children: string | number;
+};
 
 const subTextStyles = {
   sup: undefined,
@@ -49,13 +50,6 @@ export function NumberSizeableText({
   subTextStyle,
   ...props
 }: INumberSizeableTextProps) {
-  if (platformEnv.isDev) {
-    if (!['string', 'number'].includes(typeof children)) {
-      throw new Error(
-        'NumberSizeableText expects only valid number and string as children',
-      );
-    }
-  }
   const result = useMemo(
     () =>
       ['string', 'number'].includes(typeof children)
