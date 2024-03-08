@@ -81,6 +81,7 @@ export type IUnsignedTx = {
   feeLimitForDisplay?: BigNumber;
   feePricePerUnit?: BigNumber;
   payload?: { [key: string]: any };
+  totalFeeInNative?: string;
   tokensChangedTo?: { [key: string]: string };
 };
 export type IUnsignedTxPro = IUnsignedTx & {

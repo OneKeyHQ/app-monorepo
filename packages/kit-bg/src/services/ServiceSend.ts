@@ -204,6 +204,9 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      utxosInfo,
+      specifiedFeeRate,
+      feeUTXO,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -211,6 +214,9 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      utxosInfo,
+      specifiedFeeRate,
+      feeUTXO,
     });
   }
 
@@ -454,9 +460,43 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       wrappedInfo,
       swapInfo,
+      specifiedFeeRate,
     } = params;
 
     let newUnsignedTx = unsignedTx;
+    let utxosInfo;
+    let feeUTXO;
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    if (vaultSettings.isUtxo) {
+      const { feeUTXORequired } = vaultSettings;
+      const [accountDetail, feeInfo] = await Promise.all([
+        this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountAddress: account.address,
+          withUTXOList: true,
+        }),
+        this.backgroundApi.serviceGas.estimateFee({ networkId }),
+      ]);
+
+      if (!accountDetail.utxoList) {
+        throw new Error('Failed to get UTXOs of the account.');
+      }
+
+      if (feeUTXORequired && !feeInfo.feeUTXO) {
+        throw new Error('Failed to get fee rate.');
+      }
+
+      utxosInfo = accountDetail.utxoList;
+      feeUTXO = feeInfo.feeUTXO;
+    }
 
     if (!newUnsignedTx) {
       newUnsignedTx = await this.buildUnsignedTx({
@@ -466,6 +506,9 @@ class ServiceSend extends ServiceBase {
         approveInfo,
         transfersInfo,
         wrappedInfo,
+        utxosInfo,
+        feeUTXO,
+        specifiedFeeRate,
       });
     }
 
@@ -478,11 +521,8 @@ class ServiceSend extends ServiceBase {
         networkId,
       })
     ).nonceRequired;
+
     if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,

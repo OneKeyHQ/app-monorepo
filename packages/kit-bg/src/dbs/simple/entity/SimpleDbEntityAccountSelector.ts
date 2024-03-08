@@ -36,6 +36,7 @@ export interface IAccountSelectorAccountsListSectionData {
   isHiddenWalletData?: boolean;
   data: IDBIndexedAccount[] | IDBAccount[];
   walletId: IDBWalletId;
+  emptyText?: string;
 }
 export type IGlobalDeriveTypesMap = Partial<{
   [networkIdOrImpl: string]: IAccountDeriveTypes;

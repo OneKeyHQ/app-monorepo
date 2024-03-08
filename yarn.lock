@@ -4991,6 +4991,7 @@ __metadata:
     bitcoinjs-message: "npm:2.2.0"
     bs58check: "npm:^3.0.1"
     cardano-crypto.js: "npm:^6.1.2"
+    coinselect: "https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a"
     cosmjs-types: "npm:^0.8.0"
     ecpair: "npm:^2.1.0"
     elliptic: "npm:^6.5.4"
@@ -12798,6 +12799,13 @@ __metadata:
   version: 1.1.0
   resolution: "code-point-at@npm:1.1.0"
   checksum: 17d5666611f9b16d64fdf48176d9b7fb1c7d1c1607a189f7e600040a11a6616982876af148230336adb7d8fe728a559f743a4e29db3747e3b1a32fa7f4529681
+  languageName: node
+  linkType: hard
+
+"coinselect@https://github.com/OneKeyHQ/coinselect.git#91e8db20cf3464143cb9d404dee6de7fabb3b04a":
+  version: 3.1.13
+  resolution: "coinselect@https://github.com/OneKeyHQ/coinselect.git#commit=91e8db20cf3464143cb9d404dee6de7fabb3b04a"
+  checksum: 4cd48afdd1dc3631eca8cb41981aba7b54c2f5d55240307f99bc0acc642a9d97ee1098084c7a06da325b04cf9a05e9c98e133128c2b55023d364f7ea8d343795
   languageName: node
   linkType: hard
 

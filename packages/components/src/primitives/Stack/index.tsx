@@ -31,4 +31,4 @@ export const ZStack = TMZStack;
 export type IZStackProps = ZStackProps;
 
 export const ThemeableStack = TMThemeableStack;
-export type IThemeableStack = ThemeableStackProps;
+export type IThemeableStackProps = ThemeableStackProps;

@@ -8,9 +8,11 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
+  IFeeUTXO,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
@@ -115,6 +117,7 @@ export type IVaultSettings = {
   isSingleToken: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+  feeUTXORequired: boolean;
   editFeeEnabled: boolean;
 
   accountType: EDBAccountType;
@@ -232,6 +235,10 @@ export type ITransferInfo = {
     nftType: ENFTType;
     nftAddress: string;
   };
+
+  useCustomAddressesBalance?: boolean;
+  opReturn?: string;
+  coinSelectAlgorithm?: ICoinSelectAlgorithm;
 };
 
 export type IApproveInfo = {
@@ -252,6 +259,16 @@ export type IWrappedInfo = {
   amount: string;
   contract: string;
   type: EWrappedType;
+};
+
+export type IUtxoInfo = {
+  txid: string;
+  vout: number;
+  value: string;
+  height: number;
+  confirmations: number;
+  address: string;
+  path: string;
 };
 
 export type INativeAmountInfo = {
@@ -282,6 +299,10 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+
+  utxosInfo?: IUtxoInfo[];
+  feeUTXO?: IFeeUTXO[];
+  specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
@@ -294,6 +315,10 @@ export interface IBuildUnsignedTxParams {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
+
+  utxosInfo?: IUtxoInfo[];
+  feeUTXO?: IFeeUTXO[];
+  specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
