@@ -11,7 +11,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 type IAccountDerivationListItemProps = {
   num: number;
   title: string;
-  icon: string;
+  icon?: string;
 };
 
 const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({

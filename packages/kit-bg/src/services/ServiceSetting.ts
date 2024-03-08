@@ -31,7 +31,7 @@ import ServiceBase from './ServiceBase';
 export type IAccountDerivationConfigItem = {
   num: number;
   title: string;
-  icon: string;
+  icon?: string;
   networkIds: string[];
   defaultNetworkId: string;
 };
@@ -166,21 +166,25 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async getAccountDerivationConfig() {
-    const { networkIds } =
-      await this.backgroundApi.serviceNetwork.getAllNetworkIds();
-
+    const networks = await this.backgroundApi.serviceNetwork.getAllNetworks();
+    const networkIds = networks.networks.map((n) => n.id);
+    const btc = networks.networks.find((n) => n.id === getNetworkIdsMap().btc);
+    const eth = networks.networks.find((n) => n.id === getNetworkIdsMap().eth);
+    const tbtc = networks.networks.find(
+      (n) => n.id === getNetworkIdsMap().tbtc,
+    );
     const config: IAccountDerivationConfigItem[] = [
       {
         num: 0,
         title: 'Bitcoin',
-        icon: 'https://onekey-asset.com/assets/btc/btc.png',
+        icon: btc?.logoURI,
         networkIds,
         defaultNetworkId: getNetworkIdsMap().btc,
       },
       {
         num: 1,
         title: 'EVM',
-        icon: 'https://onekey-asset.com/assets/eth/eth.png',
+        icon: eth?.logoURI,
         networkIds,
         defaultNetworkId: getNetworkIdsMap().eth,
       },
@@ -189,7 +193,7 @@ class ServiceSetting extends ServiceBase {
       config.push({
         num: 10000,
         title: 'Test Bitcoin',
-        icon: 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+        icon: tbtc?.logoURI,
         networkIds,
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });

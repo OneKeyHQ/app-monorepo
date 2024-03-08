@@ -58,7 +58,7 @@ const ThemeListItem = () => {
       placement="bottom-end"
       renderTrigger={({ label }) => (
         <ListItem
-          icon="GlobusOutline"
+          icon="PaletteOutline"
           title={intl.formatMessage({ id: 'form__theme' })}
         >
           <XStack>
