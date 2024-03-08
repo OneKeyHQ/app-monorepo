@@ -32,10 +32,6 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (12.9.1):
     - ExpoModulesCore
-  - ExpoCamera (14.0.3):
-    - ExpoModulesCore
-    - ZXingObjC/OneD
-    - ZXingObjC/PDF417
   - ExpoClipboard (5.0.1):
     - ExpoModulesCore
   - ExpoDevice (5.9.3):
@@ -1293,7 +1289,6 @@ DEPENDENCIES:
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
-  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
   - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
@@ -1459,8 +1454,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
-  ExpoCamera:
-    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoDevice:
@@ -1656,7 +1649,6 @@ SPEC CHECKSUMS:
   EXNotifications: e11f0e9a5b657c064a481a5d522f3bc5a07bf7cd
   Expo: 49cded7844f2ec4ffb1cc3b86504853f26952935
   ExpoBlur: 2eb7f7ac50c0818ee7d596996e4c0112b3d225f6
-  ExpoCamera: c50a4c67431540e86406e953dc189b850263e522
   ExpoClipboard: b597982124f067ff9f5b89093eb3d97898d5d877
   ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
   ExpoFileSystem: 04795dd4d47e76eaf12e38c92091f77d794f9e7f
@@ -1764,9 +1756,9 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
-  Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
+  Yoga: 13c8ef87792450193e117976337b8527b49e8c03
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1
