@@ -87,9 +87,13 @@ function TxFeeContainer(props: IProps) {
         });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
-          encodedTx: !vaultSettings?.isUtxo
-            ? unsignedTxs[0].encodedTx
-            : undefined,
+          encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
+            {
+              accountId,
+              networkId,
+              encodedTx: unsignedTxs[0].encodedTx,
+            },
+          ),
         });
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
@@ -113,7 +117,7 @@ function TxFeeContainer(props: IProps) {
         });
       }
     },
-    [networkId, unsignedTxs, updateSendFeeStatus, vaultSettings?.isUtxo],
+    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       pollingInterval: 6000,
     },

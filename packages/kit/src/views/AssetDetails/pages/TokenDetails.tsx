@@ -67,15 +67,21 @@ export function TokenDetails() {
         });
 
         if (!a) return;
+        const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        });
         const [history, details] = await Promise.all([
           backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId: a.id,
             accountAddress: a.address,
+            xpub,
             networkId,
             tokenIdOnNetwork: tokenInfo.address,
           }),
           backgroundApiProxy.serviceToken.fetchTokensDetails({
             networkId,
+            xpub,
             accountAddress: a.address,
             contractList: [tokenInfo.address],
           }),
