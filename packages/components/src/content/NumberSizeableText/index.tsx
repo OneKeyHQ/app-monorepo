@@ -48,7 +48,6 @@ export function NumberSizeableText({
   subTextStyle,
   ...props
 }: INumberSizeableTextProps) {
-  console.log('----children', children);
   const result = useMemo(
     () =>
       ['string', 'number'].includes(typeof children)
