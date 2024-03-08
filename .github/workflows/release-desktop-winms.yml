@@ -146,6 +146,7 @@ jobs:
             !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
