@@ -2,8 +2,11 @@ import { EOnChainHistoryTxStatus } from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
+import { formatDate } from './dateUtils';
+
 import type {
   IAccountHistoryTx,
+  IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '../../types/history';
@@ -113,4 +116,48 @@ export function getFilteredHistoryBySearchKey({
   );
 
   return filteredHistory;
+}
+
+export function getHistoryTxDetailInfo({
+  txDetails,
+  historyTx,
+}: {
+  txDetails: IOnChainHistoryTx | undefined;
+  historyTx: IAccountHistoryTx;
+}) {
+  const { decodedTx } = historyTx;
+  let date = '';
+  let txid = '';
+  let nonce;
+  let confirmations;
+  let swapInfo;
+  let gasFee = '0';
+  let gasFeeFiatValue = '0';
+
+  if (txDetails) {
+    date = formatDate(new Date(txDetails.timestamp * 1000));
+    txid = txDetails.tx;
+    nonce = txDetails.nonce;
+    confirmations = txDetails.confirmations;
+    gasFee = txDetails.gasFee;
+    gasFeeFiatValue = txDetails.gasFeeFiatValue;
+  } else {
+    date = formatDate(
+      new Date(decodedTx.updatedAt ?? decodedTx.createdAt ?? 0),
+    );
+    txid = decodedTx.txid;
+    nonce = decodedTx.nonce;
+    gasFee = decodedTx.totalFeeInNative ?? '0';
+    gasFeeFiatValue = decodedTx.totalFeeFiatValue ?? '0';
+  }
+
+  return {
+    txid,
+    date,
+    nonce,
+    confirmations,
+    swapInfo,
+    gasFee,
+    gasFeeFiatValue,
+  };
 }
