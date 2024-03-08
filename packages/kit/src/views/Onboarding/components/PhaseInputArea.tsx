@@ -319,7 +319,16 @@ function BasicPhaseInput(
     returnKeyType: keyLabel,
   };
   if (platformEnv.isNative) {
-    return <Input {...inputProps} onSubmitEditing={handleSubmitEnding} />;
+    return (
+      <Input
+        {...inputProps}
+        secureTextEntry={platformEnv.isNativeAndroid}
+        keyboardType={
+          platformEnv.isNativeAndroid ? 'visible-password' : 'ascii-capable'
+        }
+        onSubmitEditing={handleSubmitEnding}
+      />
+    );
   }
   return (
     <Popover
