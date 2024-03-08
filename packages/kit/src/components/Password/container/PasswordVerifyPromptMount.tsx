@@ -4,10 +4,7 @@ import { isNil } from 'lodash';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  EPasswordPromptType,
-  EPasswordResStatus,
-} from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { EPasswordPromptType } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
@@ -17,10 +14,7 @@ const PasswordVerifyPromptMount = () => {
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
   const onClose = useCallback((id: number) => {
-    void backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(id, {
-      status: EPasswordResStatus.CLOSE_STATUS,
-      password: '',
-    });
+    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id);
   }, []);
 
   const showPasswordSetupPrompt = useCallback(
@@ -37,7 +31,6 @@ const PasswordVerifyPromptMount = () => {
                 await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
                   id,
                   {
-                    status: EPasswordResStatus.PASS_STATUS,
                     password: data,
                   },
                 );
@@ -65,7 +58,6 @@ const PasswordVerifyPromptMount = () => {
                 await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
                   id,
                   {
-                    status: EPasswordResStatus.PASS_STATUS,
                     password: data,
                   },
                 );
