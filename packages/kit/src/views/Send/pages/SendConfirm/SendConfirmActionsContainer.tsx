@@ -17,7 +17,6 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import { type IModalSendParamList } from '../../router';
 
@@ -115,18 +114,19 @@ function SendConfirmActionsContainer(props: IProps) {
   }, [dappApprove, navigation, sourceInfo]);
 
   const isSubmitDisabled = useMemo(() => {
+    console.log('sendFeeStatus', sendFeeStatus.status);
     if (isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
 
-    if (!sendSelectedFeeInfo || sendFeeStatus.status === ESendFeeStatus.Error)
-      return true;
+    if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
   }, [
+    sendFeeStatus.status,
+    sendFeeStatus.errMessage,
     isSubmitting,
     nativeTokenInfo.isLoading,
     sendTxStatus.isInsufficientNativeBalance,
     sendSelectedFeeInfo,
-    sendFeeStatus.status,
   ]);
 
   if (tableLayout) {
