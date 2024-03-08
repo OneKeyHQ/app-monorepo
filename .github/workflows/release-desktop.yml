@@ -170,6 +170,7 @@ jobs:
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
       - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
