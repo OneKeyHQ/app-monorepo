@@ -1,0 +1,17 @@
+/* 
+  InfoPlist.strings
+  OneKeyWallet
+
+  Created by Leon on 2024/3/8.
+  
+*/
+
+"NFCReaderUsageDescription" = "使用 NFC 将 NDEF 消息读入应用程序";
+"NSBluetoothAlwaysUsageDescription" = "使用蓝牙外设连接 OneKey 硬件钱包";
+"NSBluetoothPeripheralUsageDescription" = "使用蓝牙外设连接 OneKey 硬件钱包";
+"NSCameraUsageDescription" = "使用相机扫描二维码";
+"NSFaceIDUsageDescription" = "使用 Face ID 验证和解锁您的钱包";
+"NSMicrophoneUsageDescription" = "使用麦克风录制视频";
+"NSPhotoLibraryAddUsageDescription" = "使用图片库保存二维码图片";
+"NSPhotoLibraryUsageDescription" = "使用图片库读取二维码图片";
+"NSLocalNetworkUsageDescription" = "此 App 将可发现和连接到您所用网络上的设备。";

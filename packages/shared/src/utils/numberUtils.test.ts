@@ -36,6 +36,8 @@ test('formatBalance', () => {
   });
 
   // eq 0
+  expect(formatDisplayNumber(formatBalance('-0'))).toEqual('0');
+  expect(formatDisplayNumber(formatBalance('+0'))).toEqual('0');
   expect(formatDisplayNumber(formatBalance('0'))).toEqual('0');
   expect(formatDisplayNumber(formatBalance('0.00'))).toEqual('0');
   expect(formatDisplayNumber(formatBalance('0.00000'))).toEqual('0');
@@ -46,6 +48,9 @@ test('formatBalance', () => {
     'meta': { 'value': '451.124282313' },
   });
   expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual('4,512.1242');
+  expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
+    '-4,512.1242',
+  );
 
   // thousand
   expect(formatBalance('4512.1242')).toEqual({
@@ -53,6 +58,9 @@ test('formatBalance', () => {
     'meta': { 'value': '4512.1242' },
   });
   expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual('4,512.1242');
+  expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
+    '-4,512.1242',
+  );
 
   // less then 1 billion
   expect(formatBalance('382134512.1242')).toEqual({
@@ -62,6 +70,9 @@ test('formatBalance', () => {
   expect(formatDisplayNumber(formatBalance('382134512.1242'))).toEqual(
     '382,134,512.1242',
   );
+  expect(formatDisplayNumber(formatBalance('-382134512.1242'))).toEqual(
+    '-382,134,512.1242',
+  );
 
   expect(formatBalance('882134512')).toEqual({
     'formattedValue': '882,134,512',
@@ -69,6 +80,9 @@ test('formatBalance', () => {
   });
   expect(formatDisplayNumber(formatBalance('882134512'))).toEqual(
     '882,134,512',
+  );
+  expect(formatDisplayNumber(formatBalance('-882134512'))).toEqual(
+    '-882,134,512',
   );
 
   // more then 1 billion, but less then 1 trillion
@@ -82,6 +96,9 @@ test('formatBalance', () => {
   expect(formatDisplayNumber(formatBalance('235382184512.1242'))).toEqual(
     '235.3822B',
   );
+  expect(formatDisplayNumber(formatBalance('-235382184512.1242'))).toEqual(
+    '-235.3822B',
+  );
 
   // more then 1 trillion, but less then 1 quadrillion
   expect(formatBalance('564230002184512.1242')).toEqual({
@@ -93,6 +110,9 @@ test('formatBalance', () => {
   });
   expect(formatDisplayNumber(formatBalance('564230002184512.1242'))).toEqual(
     '564.23T',
+  );
+  expect(formatDisplayNumber(formatBalance('-564230002184512.1242'))).toEqual(
+    '-564.23T',
   );
 
   // more then 1 quadrillion
@@ -106,6 +126,9 @@ test('formatBalance', () => {
   expect(
     formatDisplayNumber(formatBalance('39477128561230002184512.1242')),
   ).toEqual('39,477,128.5612Q');
+  expect(
+    formatDisplayNumber(formatBalance('-39477128561230002184512.1242')),
+  ).toEqual('-39,477,128.5612Q');
 
   // less then 1, but leading zeros is less then 4
   expect(formatBalance('0.1')).toEqual({
@@ -116,6 +139,8 @@ test('formatBalance', () => {
     },
   });
   expect(formatDisplayNumber(formatBalance('0.1'))).toEqual('0.1');
+  expect(formatDisplayNumber(formatBalance('-0.1'))).toEqual('-0.1');
+
   expect(formatBalance('0.0045000')).toEqual({
     'formattedValue': '0.0045',
     'meta': {
@@ -124,6 +149,8 @@ test('formatBalance', () => {
     },
   });
   expect(formatDisplayNumber(formatBalance('0.0045'))).toEqual('0.0045');
+  expect(formatDisplayNumber(formatBalance('-0.0045'))).toEqual('-0.0045');
+
   expect(formatBalance('0.0000454283')).toEqual({
     'formattedValue': '0.00004543',
     'meta': {
@@ -133,6 +160,9 @@ test('formatBalance', () => {
   });
   expect(formatDisplayNumber(formatBalance('0.0000454283'))).toEqual(
     '0.00004543',
+  );
+  expect(formatDisplayNumber(formatBalance('-0.0000454283'))).toEqual(
+    '-0.00004543',
   );
 
   // less then 1, but leading zeros is more then 4
@@ -144,6 +174,19 @@ test('formatBalance', () => {
     },
   });
   expect(formatDisplayNumber(formatBalance('0.0000041000'))).toEqual([
+    '0.0',
+    { 'type': 'sub', 'value': 5 },
+    '41',
+  ]);
+  expect(formatBalance('-0.0000041000')).toEqual({
+    'formattedValue': '-0.0000041',
+    'meta': {
+      'leadingZeros': 5,
+      'value': '-0.0000041000',
+    },
+  });
+  expect(formatDisplayNumber(formatBalance('-0.0000041000'))).toEqual([
+    '-',
     '0.0',
     { 'type': 'sub', 'value': 5 },
     '41',
@@ -161,6 +204,12 @@ test('formatBalance', () => {
     { 'type': 'sub', 'value': 7 },
     '2146',
   ]);
+  expect(formatDisplayNumber(formatBalance('-0.0000000214562'))).toEqual([
+    '-',
+    '0.0',
+    { 'type': 'sub', 'value': 7 },
+    '2146',
+  ]);
 
   // token symbol
   expect(
@@ -171,6 +220,63 @@ test('formatBalance', () => {
       }),
     ),
   ).toEqual(['+', '0.0', { 'type': 'sub', 'value': 7 }, '2146', ' ', 'ETC']);
+
+  // token symbol
+  expect(
+    formatDisplayNumber(
+      formatBalance('-0.0000000214562', {
+        tokenSymbol: 'ETC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual(['-', '0.0', { 'type': 'sub', 'value': 7 }, '2146', ' ', 'ETC']);
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('0', {
+        tokenSymbol: 'USDC',
+      }),
+    ),
+  ).toEqual('0 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('+0', {
+        tokenSymbol: 'USDC',
+      }),
+    ),
+  ).toEqual('0 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('-0', {
+        tokenSymbol: 'USDC',
+      }),
+    ),
+  ).toEqual('0 USDC');
+
+  expect(
+    formatDisplayNumber(
+      formatBalance('0', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('+0 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('-0', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('-0 USDC');
+  expect(
+    formatDisplayNumber(
+      formatBalance('+0', {
+        tokenSymbol: 'USDC',
+        showPlusMinusSigns: true,
+      }),
+    ),
+  ).toEqual('+0 USDC');
 
   expect(
     formatDisplayNumber(
@@ -290,14 +396,20 @@ test('formatValue', () => {
   ).toEqual('< $0.01');
 
   // eq 0
+  expect(formatDisplayNumber(formatValue('-0', { currency: '$' }))).toEqual(
+    '$0.00',
+  );
+  expect(formatDisplayNumber(formatValue('+0', { currency: '$' }))).toEqual(
+    '$0.00',
+  );
   expect(formatDisplayNumber(formatValue('0', { currency: '$' }))).toEqual(
-    '< $0.01',
+    '$0.00',
   );
   expect(formatDisplayNumber(formatValue('0.00', { currency: '$' }))).toEqual(
-    '< $0.01',
+    '$0.00',
   );
   expect(formatDisplayNumber(formatValue('0.0000', { currency: '$' }))).toEqual(
-    '< $0.01',
+    '$0.00',
   );
   expect(formatDisplayNumber(formatValue('0.01', { currency: '$' }))).toEqual(
     '$0.01',

@@ -33,9 +33,13 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
     const client = await this.getClient();
+    const { nfts, ...rest } = params;
     const resp = await client.post<IFetchNFTDetailsResp>(
       '/wallet/v1/account/nft/detail',
-      params,
+      {
+        ...rest,
+        nftIds: nfts.map((nft) => `${nft.collectionAddress}:${nft.itemId}`),
+      },
     );
     return resp.data.data;
   }
@@ -67,12 +71,7 @@ class ServiceNFT extends ServiceBase {
     }) => {
       const nftDetails = await this.fetchNFTDetails({
         networkId,
-        params: [
-          {
-            itemId: nftId,
-            collectionAddress,
-          },
-        ],
+        nfts: [{ collectionAddress, itemId: nftId }],
       });
       return nftDetails[0];
     },
