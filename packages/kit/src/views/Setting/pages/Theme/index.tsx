@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/utils/themePreload';
 import {
   type ISettingsPersistAtom,
   useSettingsPersistAtom,
@@ -37,11 +38,10 @@ export default function SettingThemeModal() {
     ],
     [intl],
   );
-  const onChange = useCallback(
-    async (text: IThemeValue) =>
-      backgroundApiProxy.serviceSetting.setTheme(text),
-    [],
-  );
+  const onChange = useCallback(async (text: IThemeValue) => {
+    setThemePreloadToLocalStorage(text);
+    await backgroundApiProxy.serviceSetting.setTheme(text);
+  }, []);
   return (
     <Page>
       <Stack py="$2">

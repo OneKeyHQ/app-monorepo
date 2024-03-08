@@ -1,8 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
-import { useCallback, useEffect, useState } from 'react';
-
-import { YStack } from 'tamagui';
+import { useCallback, useState } from 'react';
 
 import {
   Button,
@@ -12,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';

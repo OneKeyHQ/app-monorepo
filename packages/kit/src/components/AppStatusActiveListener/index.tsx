@@ -28,7 +28,8 @@ const DesktopStatusActiveListener: FC<IAppStatusActiveListenerProps> = ({
 const ExtStatusActiveListener: FC<IAppStatusActiveListenerProps> = ({
   onActive,
 }) => {
-  useEffect(onActive, [onActive]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(onActive, []);
   return null;
 };
 

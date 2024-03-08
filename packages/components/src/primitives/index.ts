@@ -9,4 +9,5 @@ export * from './Spinner';
 export * from './Stack';
 export * from './SizeableText';
 export * from './Heading';
-export type { SizeTokens } from 'tamagui';
+export { AnimatePresence, Unspaced, withStaticProperties } from 'tamagui';
+export type { SizeTokens, ColorTokens } from 'tamagui';
