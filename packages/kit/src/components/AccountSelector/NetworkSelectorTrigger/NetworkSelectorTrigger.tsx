@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -107,7 +108,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   return (
     <XStack
       role="button"
-      flexShrink="unset" // DO NOT remove this line, otherwise the text will not be truncated
+      flexShrink={1}
       alignItems="center"
       p="$1"
       m="$-1"
@@ -142,7 +143,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
           uri: network?.logoURI ? network?.logoURI : '',
         }}
       />
-      <SizableText pl="$2" size="$bodyMd" numberOfLines={1}>
+      <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
         {network?.name}
       </SizableText>
       <Icon

@@ -103,6 +103,15 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         renderTrigger={
           <XStack
             alignItems="center"
+            onPress={() => {
+              copyText(account.address);
+              console.log({
+                selectedAccount,
+                activeAccount,
+                walletAvatar: activeAccount?.wallet?.avatar,
+              });
+              console.log(activeAccount?.wallet?.avatar);
+            }}
             py="$1"
             px="$2"
             my="$-1"
@@ -128,7 +137,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               },
             }}
             userSelect="none"
-            onPress={() => copyText(account.address)}
           >
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({ address: account?.address })}

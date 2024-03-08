@@ -1,14 +1,15 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { AnimatePresence } from 'tamagui';
 
 import {
   ActionList,
+  AnimatePresence,
   Divider,
   HeightTransition,
   Stack,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -26,8 +27,6 @@ import { HomeScreen } from './HomeScreen';
 import { Verification } from './Verification';
 import { WalletOptionItem } from './WalletOptionItem';
 import { WalletProfile } from './WalletProfile';
-
-import type { IKeyOfIcons } from '@onekeyhq/components';
 
 import type { IWalletDetailsProps } from '..';
 

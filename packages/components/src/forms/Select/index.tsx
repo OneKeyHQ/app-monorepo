@@ -1,9 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
@@ -251,7 +248,6 @@ function SelectContent() {
   const renderContent = useMemo(
     () => {
       const listProps = {
-        contentContainerStyle: { flex: 1 },
         keyExtractor,
         estimatedItemSize: '$6',
         extraData: value,
@@ -397,7 +393,7 @@ function BasicSelect<T extends string | ISelectItem>({
         />
       </>
     ),
-    [],
+    [testID],
   );
   return (
     <SelectFrame {...props}>

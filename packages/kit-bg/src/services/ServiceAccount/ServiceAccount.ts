@@ -42,6 +42,7 @@ import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 import type {
+  IDBAccount,
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
   IDBDevice,
@@ -118,9 +119,11 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
-    const { accounts: indexedAccounts } = await this.getIndexedAccounts({
-      walletId,
-    });
+    const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
+      {
+        walletId,
+      },
+    );
     // TODO use getRecordsCount instead
     if (indexedAccounts.length > 0) {
       return true;
@@ -186,6 +189,41 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async addDefaultNetworkAccounts({
+    walletId,
+    indexedAccountId,
+    skipDeviceCancel,
+  }: {
+    walletId: string | undefined;
+    indexedAccountId: string | undefined;
+    skipDeviceCancel?: boolean;
+  }) {
+    if (!walletId) {
+      return;
+    }
+    if (
+      accountUtils.isHdWallet({
+        walletId,
+      }) ||
+      accountUtils.isHwWallet({
+        walletId,
+      })
+    ) {
+      // TODO use consts
+      const networks = ['evm--1', 'btc--0'];
+      for (const id of networks) {
+        await this.addHDOrHWAccounts({
+          walletId,
+          networkId: id,
+          indexedAccountId,
+          deriveType: 'default', // TODO get global deriveType
+          skipDeviceCancel,
+        });
+      }
+    }
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async addHDOrHWAccounts({
     walletId,
@@ -193,12 +231,14 @@ class ServiceAccount extends ServiceBase {
     indexes,
     indexedAccountId,
     deriveType,
+    skipDeviceCancel,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
     indexes?: Array<number>; // multiple add by indexes
     indexedAccountId: string | undefined; // single add by indexedAccountId
     deriveType: IAccountDeriveTypes;
+    skipDeviceCancel?: boolean;
     // names?: Array<string>;
     // purpose?: number;
     // skipRepeat?: boolean;
@@ -303,6 +343,7 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
+        skipDeviceCancel,
       },
     );
   }
@@ -411,10 +452,11 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getIndexedAccounts({ walletId }: { walletId?: string } = {}) {
+  async getIndexedAccountsOfWallet({ walletId }: { walletId?: string } = {}) {
     return localDb.getIndexedAccounts({ walletId });
   }
 
+  @backgroundMethod()
   async getSingletonAccountsOfWallet({
     walletId,
     activeNetworkId,
@@ -428,21 +470,19 @@ class ServiceAccount extends ServiceBase {
     accounts = await Promise.all(
       accounts.map(async (account) => {
         const { id: accountId } = account;
-        if (activeNetworkId) {
-          const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
-            account,
-            networkId: activeNetworkId,
-          });
+        const accountNetworkId = accountUtils.getAccountCompatibleNetwork({
+          account,
+          networkId: activeNetworkId || '',
+        });
 
-          if (accountNetworkId) {
-            try {
-              return await this.getAccount({
-                accountId,
-                networkId: accountNetworkId,
-              });
-            } catch (e) {
-              return account;
-            }
+        if (accountNetworkId) {
+          try {
+            return await this.getAccount({
+              accountId,
+              networkId: accountNetworkId,
+            });
+          } catch (e) {
+            return account;
           }
         }
         return account;
@@ -451,6 +491,7 @@ class ServiceAccount extends ServiceBase {
     return { accounts };
   }
 
+  // TODO move to serviceAccountSelector
   @backgroundMethod()
   async getAccountSelectorAccountsListSectionData({
     focusedWallet,
@@ -480,26 +521,30 @@ class ServiceAccount extends ServiceBase {
 
       return [
         {
-          title: 'Watching account',
-          data: accountsWatching,
-          walletId: WALLET_TYPE_WATCHING,
-        },
-        {
-          title: 'Imported account',
+          title: 'Private Key',
           data: accountsImported,
           walletId: WALLET_TYPE_IMPORTED,
+          emptyText:
+            'No private key accounts. Add a new account to manage your assets.',
+        },
+        {
+          title: 'Watchlist',
+          data: accountsWatching,
+          walletId: WALLET_TYPE_WATCHING,
+          emptyText:
+            'Your watchlist is empty. Import a address to start monitoring.',
         },
       ];
     }
     const walletId = focusedWallet;
-    const { accounts } = await this.getIndexedAccounts({
+    const { accounts } = await this.getIndexedAccountsOfWallet({
       walletId,
     });
     if (linkedNetworkId) {
       await Promise.all(
         accounts.map(async (indexedAccount: IDBIndexedAccount) => {
           try {
-            const realAccount = await this.getAccountOfWallet({
+            const realAccount = await this.getNetworkAccount({
               accountId: undefined,
               indexedAccountId: indexedAccount.id,
               deriveType,
@@ -518,6 +563,7 @@ class ServiceAccount extends ServiceBase {
         title: '',
         data: accounts,
         walletId,
+        emptyText: 'No account',
       },
     ];
   }
@@ -635,7 +681,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountOfWallet({
+  async getNetworkAccount({
     accountId,
     indexedAccountId,
     deriveType,
@@ -718,7 +764,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async createHWHiddenWallet({ walletId }: { walletId: string }) {
+  async createHWHiddenWallet({
+    walletId,
+    skipDeviceCancel,
+  }: {
+    walletId: string;
+    skipDeviceCancel?: boolean;
+  }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
 
@@ -752,6 +804,7 @@ class ServiceAccount extends ServiceBase {
         deviceParams: {
           dbDevice,
         },
+        skipDeviceCancel,
       },
     );
   }
@@ -768,7 +821,7 @@ class ServiceAccount extends ServiceBase {
         deviceParams: {
           dbDevice: params.device as IDBDevice,
         },
-        skipCancel: true,
+        skipDeviceCancel: params.skipDeviceCancel,
       },
     );
   }
@@ -788,6 +841,9 @@ class ServiceAccount extends ServiceBase {
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
+
+    await timerUtils.wait(100);
+
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
@@ -809,6 +865,8 @@ class ServiceAccount extends ServiceBase {
       backuped: false,
       avatar: randomAvatar(),
     });
+
+    await timerUtils.wait(100);
 
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -844,6 +902,39 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.setWalletNameAndAvatar(params);
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async removeAccount({
+    indexedAccount,
+    account,
+  }: {
+    indexedAccount?: IDBIndexedAccount;
+    account?: IDBAccount;
+  }) {
+    let walletId = '';
+    if (indexedAccount) {
+      walletId = indexedAccount.walletId;
+    }
+    if (account) {
+      walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
+    }
+    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+      walletId,
+    });
+    if (account) {
+      const accountId = account.id;
+      await localDb.removeAccount({ accountId, walletId });
+    }
+    if (indexedAccount) {
+      await localDb.removeIndexedAccount({
+        indexedAccountId: indexedAccount.id,
+        walletId,
+      });
+    }
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
   }
 
   @backgroundMethod()

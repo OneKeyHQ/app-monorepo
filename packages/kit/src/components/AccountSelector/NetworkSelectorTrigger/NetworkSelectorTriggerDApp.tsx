@@ -13,7 +13,8 @@ import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   beforeShowTrigger?: () => Promise<void>;
-}>(({ num, disabled, beforeShowTrigger, ...rest }) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+}>(({ num, disabled, beforeShowTrigger, ...rest }, _: any) => {
   const {
     activeAccount: { network },
     showChainSelector,
