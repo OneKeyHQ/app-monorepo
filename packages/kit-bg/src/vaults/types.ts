@@ -297,9 +297,6 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
-
-  utxosInfo?: IUtxoInfo[];
-  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
@@ -311,9 +308,6 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
-
-  utxosInfo?: IUtxoInfo[];
-  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -325,6 +319,7 @@ export interface IUpdateUnsignedTxParams {
 }
 export interface IBroadcastTransactionParams {
   networkId: string;
+  accountAddress: string;
   signedTx: ISignedTxPro;
 }
 

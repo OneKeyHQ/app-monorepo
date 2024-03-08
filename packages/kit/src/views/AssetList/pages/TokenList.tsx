@@ -39,7 +39,7 @@ function TokenList() {
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
-  const { refreshTokenList, refreshTokenListMap } =
+  const { refreshTokenList, refreshTokenListMap, updateTokenListState } =
     useTokenListActions().current;
 
   const headerRight = useCallback(() => {
@@ -77,8 +77,16 @@ function TokenList() {
         keys,
       });
       refreshTokenListMap(tokenMap);
+      updateTokenListState({ initialized: true, isRefreshing: false });
     }
-  }, [keys, refreshTokenList, refreshTokenListMap, tokenMap, tokens]);
+  }, [
+    keys,
+    refreshTokenList,
+    refreshTokenListMap,
+    tokenMap,
+    tokens,
+    updateTokenListState,
+  ]);
 
   return (
     <Page scrollEnabled>

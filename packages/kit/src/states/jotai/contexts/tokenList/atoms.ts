@@ -75,10 +75,16 @@ export const {
   use: useSmallBalanceTokensFiatValueAtom,
 } = contextAtom<string>('0');
 
-export const {
-  atom: tokenListInitializedAtom,
-  use: useTokenListInitializedAtom,
-} = contextAtom<boolean>(false);
-
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
+
+export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
+  contextAtom<{
+    address: string;
+    isRefreshing: boolean;
+    initialized: boolean;
+  }>({
+    address: '',
+    isRefreshing: true,
+    initialized: false,
+  });
