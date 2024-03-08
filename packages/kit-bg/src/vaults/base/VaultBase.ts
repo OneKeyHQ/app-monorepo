@@ -234,6 +234,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         totalFeeFiatValue: onChainHistoryTx.gasFeeFiatValue,
 
         extraInfo: null,
+        payload: {
+          type: onChainHistoryTx.type,
+        },
       };
 
       decodedTx.updatedAt = new Date(
@@ -454,5 +457,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAccountPath() {
     return (await this.getAccount()).path;
+  }
+
+  async getAccountXpub(): Promise<string | undefined> {
+    return undefined;
   }
 }

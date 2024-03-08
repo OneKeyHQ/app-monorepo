@@ -1,5 +1,4 @@
 import { NumberSizeableText, Skeleton, Stack } from '@onekeyhq/components';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -21,7 +20,10 @@ function HomeOverviewContainer() {
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
           accountAddress: account.address,
-          xpub: (account as IDBUtxoAccount).xpub,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId: network.id,
+          }),
           withNetWorth: true,
         });
       return r;

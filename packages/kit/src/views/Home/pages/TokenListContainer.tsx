@@ -4,7 +4,6 @@ import { CanceledError } from 'axios';
 
 import { Portal, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -82,7 +81,10 @@ function TokenListContainer(props: IProps) {
           networkId: network.id,
           accountAddress: account.address,
           flag: 'home-token-list',
-          xpub: (account as IDBUtxoAccount).xpub,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId: account.id,
+            networkId: network.id,
+          }),
           // blockedTokens: Object.keys(blockedTokens),
           // unblockedTokens: Object.keys(unblockedTokens),
         });

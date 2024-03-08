@@ -956,6 +956,18 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
+
+  @backgroundMethod()
+  async getAccountXpub({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.getAccountXpub();
+  }
 }
 
 export default ServiceAccount;

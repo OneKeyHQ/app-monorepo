@@ -1,4 +1,3 @@
-import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -19,11 +18,6 @@ class ServiceGas extends ServiceBase {
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
     const client = await this.getClient();
-
-    // Temporarily delete the chain id and nonce for api testing
-    // TODO: remove next two line
-    delete (params.encodedTx as IEncodedTxEvm).chainId;
-    delete (params.encodedTx as IEncodedTxEvm).nonce;
 
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',

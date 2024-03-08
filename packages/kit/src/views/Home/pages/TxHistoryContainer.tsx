@@ -57,7 +57,6 @@ function TxHistoryListContainer(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
-        xpub: (account as IDBUtxoAccount).xpub,
       });
       setInitialized(true);
       return r;

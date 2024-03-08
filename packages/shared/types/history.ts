@@ -14,6 +14,11 @@ export enum EOnChainHistoryTxStatus {
   Success = '1',
 }
 
+export enum EOnChainHistoryTxType {
+  Send = 'Send',
+  Receive = 'Receive',
+}
+
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
   from: string;
@@ -50,7 +55,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 export type IOnChainHistoryTx = {
   tx: string;
   riskLevel: number;
-  type: string;
+  type: EOnChainHistoryTxType;
   sends: IOnChainHistoryTxTransfer[];
   receives: IOnChainHistoryTxTransfer[];
   status: EOnChainHistoryTxStatus;

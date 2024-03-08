@@ -28,6 +28,8 @@ import { TxActionCommonListView } from './TxActionCommon';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 type ITransferBlock = {
   target: string;
@@ -146,11 +148,16 @@ function buildTransferChangeInfo({
 
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { networkId } = decodedTx;
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
     decodedTx,
   });
+  const vaultSettings = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  ).result;
   const {
     sends,
     receives,
@@ -206,24 +213,31 @@ function TxActionTransferListView(props: ITxActionProps) {
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
   } else {
-    const sendChangeInfo = buildTransferChangeInfo({
-      changePrefix: '-',
-      transfers: sends,
-      intl,
-    });
-    const receiveChangeInfo = buildTransferChangeInfo({
-      changePrefix: '+',
-      transfers: receives,
-      intl,
-    });
-    change = receiveChangeInfo.change;
-    changeSymbol = receiveChangeInfo.changeSymbol;
-    changeDescription = sendChangeInfo.change;
-    changeDescriptionSymbol = sendChangeInfo.changeSymbol;
-    avatar.src = [
-      sendNFTIcon || sendTokenIcon,
-      receiveNFTIcon || receiveTokenIcon,
-    ].filter(Boolean);
+
+    if(vaultSettings?.isUtxo){
+      if
+    }else{
+      const sendChangeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: sends,
+        intl,
+      });
+      const receiveChangeInfo = buildTransferChangeInfo({
+        changePrefix: '+',
+        transfers: receives,
+        intl,
+      });
+      change = receiveChangeInfo.change;
+      changeSymbol = receiveChangeInfo.changeSymbol;
+      changeDescription = sendChangeInfo.change;
+      changeDescriptionSymbol = sendChangeInfo.changeSymbol;
+      avatar.src = [
+        sendNFTIcon || sendTokenIcon,
+        receiveNFTIcon || receiveTokenIcon,
+      ].filter(Boolean);
+    }
+
+    
   }
 
   change = (
@@ -343,7 +357,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
-                } ${
+                }${
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
                   direction === EDecodedTxDirection.OUT

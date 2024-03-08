@@ -12,9 +12,11 @@ import {
   useClipboard,
   useForm,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerLegacy } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -52,8 +54,31 @@ function WalletActionSend() {
   const [map] = useAllTokenListMapAtom();
   const [tokenListState] = useTokenListStateAtom();
 
+  const isSingleToken = usePromiseResult(async () => {
+    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: network?.id ?? '',
+    });
+    return settings.isSingleToken;
+  }, [network?.id]).result;
+
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
+    if (isSingleToken) {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network.id,
+      });
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.SendDataInput,
+        params: {
+          accountId: account.id,
+          networkId: network.id,
+          isNFT: false,
+          token: nativeToken,
+        },
+      });
+      return;
+    }
+
     navigation.pushModal(EModalRoutes.AssetSelectorModal, {
       screen: EAssetSelectorRoutes.TokenSelector,
       params: {
@@ -79,9 +104,22 @@ function WalletActionSend() {
         },
       },
     });
-  }, [account, allTokens.keys, allTokens.tokens, map, navigation, network]);
+  }, [
+    account,
+    allTokens.keys,
+    allTokens.tokens,
+    isSingleToken,
+    map,
+    navigation,
+    network,
+  ]);
 
-  return <RawActions.Send onPress={handleOnSend} />;
+  return (
+    <RawActions.Send
+      onPress={handleOnSend}
+      disabled={!tokenListState.initialized}
+    />
+  );
 }
 
 function WalletActionReceive() {

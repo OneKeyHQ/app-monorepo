@@ -14,7 +14,7 @@ export type IEncodedTxEvm = {
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
 
-  chainId?: number; // MUST be number: Error: invalid transaction.chainId
+  chainId?: string; // MUST be number: Error: invalid transaction.chainId
 };
 
 export type INativeTxEvm = IEthersTransaction;
