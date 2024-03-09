@@ -31,6 +31,7 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
+  IConnectionAccountInfoWithNum,
   IConnectionItem,
   IConnectionItemWithStorageType,
   IConnectionStorageType,
@@ -464,7 +465,9 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedAccountsByOrigin(origin: string) {
+  async getAllConnectedAccountsByOrigin(
+    origin: string,
+  ): Promise<IConnectionAccountInfoWithNum[] | null> {
     const result =
       await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
         origin,
