@@ -1,16 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, RefreshControl, StyleSheet } from 'react-native';
+import { Animated, Easing, RefreshControl } from 'react-native';
 
-import { Image, Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
+import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import DAppConnectExtensionPanel from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionPanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -228,76 +228,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
 }
 
-function DappConnectExtensionPanel() {
-  const { result } = usePromiseResult(
-    () =>
-      new Promise<{
-        showFloatingButton: boolean;
-        connectedAccount: IConnectionAccountInfoWithNum[] | null;
-        faviconUrl: string | undefined;
-      } | null>((resolve) => {
-        chrome.tabs.query(
-          { active: true, currentWindow: true },
-          async (tabs) => {
-            if (tabs[0]) {
-              try {
-                const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
-                const connectedAccount =
-                  await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
-                    currentOrigin,
-                  );
-                resolve({
-                  showFloatingButton: (connectedAccount ?? []).length > 0,
-                  connectedAccount,
-                  faviconUrl: tabs[0].favIconUrl,
-                });
-                return;
-              } catch (error) {
-                console.error('DappConnectExtensionPanel error:', error);
-                resolve(null);
-                return;
-              }
-            }
-            resolve(null);
-          },
-        );
-      }),
-    [],
-  );
-  if (!result?.showFloatingButton) {
-    return null;
-  }
-
-  return (
-    <Stack
-      position="absolute"
-      bottom="$2"
-      right="$2"
-      h="$14"
-      w="$14"
-      space="$2"
-      alignItems="center"
-      justifyContent="center"
-      bg="$bgApp"
-      borderRadius="$3"
-      shadowOffset={{
-        width: 0,
-        height: 12,
-      }}
-      shadowRadius={24}
-      shadowColor="rgba(0, 0, 0, 0.09)"
-    >
-      <Image
-        size="$10"
-        borderRadius="$2"
-        source={{
-          uri: result?.faviconUrl,
-        }}
-      />
-    </Stack>
-  );
-}
-
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   console.log('HomePageContainer render');
@@ -314,7 +244,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
-      <DappConnectExtensionPanel />
+      <DAppConnectExtensionPanel />
       <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );
