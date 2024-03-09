@@ -285,9 +285,17 @@ class ServiceDApp extends ServiceBase {
       storageType === 'walletConnect' &&
       rawData?.data.injectedProvider?.[origin]
     ) {
-      await this.disconnectWebsite({ origin, storageType: 'injectedProvider' });
+      await this.disconnectWebsite({
+        origin,
+        storageType: 'injectedProvider',
+        beforeConnect: true,
+      });
     } else if (rawData?.data.walletConnect?.[origin]) {
-      await this.disconnectWebsite({ origin, storageType: 'walletConnect' });
+      await this.disconnectWebsite({
+        origin,
+        storageType: 'walletConnect',
+        beforeConnect: true,
+      });
     }
   }
 
@@ -371,9 +379,11 @@ class ServiceDApp extends ServiceBase {
   async disconnectWebsite({
     origin,
     storageType,
+    beforeConnect = false,
   }: {
     origin: string;
     storageType: IConnectionStorageType;
+    beforeConnect?: boolean;
   }) {
     const { simpleDb, serviceWalletConnect } = this.backgroundApi;
     // disconnect walletConnect
@@ -388,6 +398,9 @@ class ServiceDApp extends ServiceBase {
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+    if (!beforeConnect) {
+      await this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(origin);
+    }
   }
 
   @backgroundMethod()
