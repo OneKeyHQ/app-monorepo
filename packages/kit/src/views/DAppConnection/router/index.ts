@@ -6,14 +6,9 @@ import ConnectionModal from '../pages/ConnectionModal';
 import SignMessageModal from '../pages/SignMessageModal';
 import WalletConnectSessionProposalModal from '../pages/WalletConnect/WCSessionProposalModal';
 
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
+import { EDAppConnectionModal } from './type';
 
-export enum EDAppConnectionModal {
-  'ConnectionModal' = 'ConnectionModal',
-  'ConnectionList' = 'ConnectionList',
-  'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
-  'SignMessageModal' = 'SignMessageModal',
-}
+import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 export type IDAppConnectionModalParamList = {
   [EDAppConnectionModal.ConnectionModal]: undefined;

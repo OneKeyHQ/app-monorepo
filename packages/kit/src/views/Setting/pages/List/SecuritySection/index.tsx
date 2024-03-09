@@ -11,7 +11,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
