@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
 // TODO: remove components from background.
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Toast } from '@onekeyhq/components';
+// import { Toast } from '@onekeyhq/components';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getBackgroundServiceApi,
@@ -66,11 +65,11 @@ export class BackgroundApiProxyBase
     );
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
-      if (error && error?.autoToast) {
-        Toast.error({
-          title: error?.message ?? 'Error',
-        });
-      }
+      // if (error && error?.autoToast) {
+      //   Toast.error({
+      //     title: error?.message ?? 'Error',
+      //   });
+      // }
     });
   }
 

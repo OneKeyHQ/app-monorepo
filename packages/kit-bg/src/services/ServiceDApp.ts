@@ -8,7 +8,7 @@ import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import {
