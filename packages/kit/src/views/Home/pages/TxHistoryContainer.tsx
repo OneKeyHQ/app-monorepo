@@ -29,7 +29,7 @@ function TxHistoryListContainer(props: IProps) {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const currentAccountId = useRef(account?.id);
+  const currentAccountId = useRef<string>('');
 
   const handleHistoryItemPress = useCallback(
     (history: IAccountHistoryTx) => {

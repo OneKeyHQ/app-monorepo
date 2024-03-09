@@ -115,6 +115,7 @@ jobs:
       #     force_orphan: true
 
       # - name: 'Notify to Slack'
+      # if: ${{ github.event.workflow_run }}:w
       # uses: onekeyhq/actions/slack-notify-webhook@main
       #   with:
       #     web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
