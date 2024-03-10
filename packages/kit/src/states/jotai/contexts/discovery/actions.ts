@@ -4,6 +4,7 @@ import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -561,6 +562,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           handlePhishingUrl?.(url);
+          return;
+        }
+        if (uriUtils.isValidDeepLink(url)) {
+          handleDeepLinkUrl({ url });
           return;
         }
       }

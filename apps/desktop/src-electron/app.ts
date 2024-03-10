@@ -463,6 +463,12 @@ function createMainWindow() {
           );
           return false;
         }
+
+        if (uriUtils.isValidDeepLink(url)) {
+          e.preventDefault();
+          console.log('====>>>>>>>reject deeplink in main process:', url);
+          return false;
+        }
       });
     }
   });
