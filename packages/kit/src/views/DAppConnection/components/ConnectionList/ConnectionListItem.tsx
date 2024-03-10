@@ -66,6 +66,7 @@ function ConnectionListItem({
           sceneUrl: item.origin,
         }}
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
+        availableNetworksMap={item.availableNetworksMap}
       >
         <YStack space="$2">
           {Object.keys(item.connectionMap).map((num) => (
