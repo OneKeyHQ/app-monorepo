@@ -315,7 +315,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async findAccountsInfoByOrigin(
+  async findInjectedAccountsInfoByOrigin(
     origin: string,
   ): Promise<IConnectionAccountInfoWithNum[] | null> {
     const rawData = await this.getRawData();
@@ -332,17 +332,6 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         ...v,
         num: Number(k),
         storageType: 'injectedProvider',
-      }));
-    }
-    const walletConnectItem = rawData.data.walletConnect?.[origin];
-    if (
-      walletConnectItem?.connectionMap &&
-      Object.keys(walletConnectItem.connectionMap).length > 0
-    ) {
-      return Object.entries(walletConnectItem.connectionMap).map(([k, v]) => ({
-        ...v,
-        num: Number(k),
-        storageType: 'walletConnect',
       }));
     }
     return null;

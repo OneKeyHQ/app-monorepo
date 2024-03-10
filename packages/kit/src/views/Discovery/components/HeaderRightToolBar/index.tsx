@@ -192,7 +192,7 @@ function HeaderRightToolBar() {
         return;
       }
       const connectedAccount =
-        await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
+        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
           origin,
         );
 

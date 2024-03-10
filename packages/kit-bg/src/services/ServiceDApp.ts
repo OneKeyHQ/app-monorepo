@@ -464,9 +464,9 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedAccountsByOrigin(origin: string) {
+  async findInjectedAccountByOrigin(origin: string) {
     const result =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+      await this.backgroundApi.simpleDb.dappConnection.findInjectedAccountsInfoByOrigin(
         origin,
       );
     if (!result) {
