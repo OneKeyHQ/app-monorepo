@@ -8,7 +8,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import DAppConnectExtensionPanel from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionPanel';
+import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -244,7 +244,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
-      <DAppConnectExtensionPanel />
+      <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );

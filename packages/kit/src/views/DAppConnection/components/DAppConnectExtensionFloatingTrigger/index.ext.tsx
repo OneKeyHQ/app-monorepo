@@ -1,11 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   Button,
   Dialog,
   Divider,
   Image,
-  SizableText,
   Stack,
   YStack,
 } from '@onekeyhq/components';
@@ -14,6 +13,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
@@ -36,6 +39,7 @@ function ExtensionConnectPanel({
   const { origin } = new URL(url);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const navigation = useAppNavigation();
+
   const onPressManageConnection = useCallback(() => {
     closeDialog();
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
@@ -157,7 +161,17 @@ export default function DAppConnectExtensionFloatingTrigger() {
         );
       }),
     [],
+    {
+      checkIsFocused: false,
+    },
   );
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, run);
+    };
+  }, [run]);
 
   const handlePressFloatingButton = useCallback(() => {
     const dialog = Dialog.show({

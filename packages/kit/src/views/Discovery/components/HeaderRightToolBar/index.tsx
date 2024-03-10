@@ -208,7 +208,6 @@ function HeaderRightToolBar() {
       setTimeout(() => afterChangeAccount(), 200);
     };
     const updateNetwork = () => {
-      console.log('-=====>re runnnnnn');
       void run();
     };
     appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
