@@ -107,9 +107,9 @@ function ExtensionConnectPanel({
         >
           Manage dApp Connections
         </Button>
-        <Button variant="tertiary" justifyContent="flex-start" px="$5">
+        {/* <Button variant="tertiary" justifyContent="flex-start" px="$5">
           Default Wallet Settings
-        </Button>
+        </Button> */}
         <Divider my="$2" />
         <Button
           variant="tertiary"
