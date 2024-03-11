@@ -9,6 +9,7 @@ import {
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -251,6 +252,7 @@ class ServiceSend extends ServiceBase {
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
       });
     // signTransaction
     const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
@@ -511,7 +513,9 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
+      await this.backgroundApi.servicePassword.promptPasswordVerify(
+        EReasonForNeedPassword.CreateTransaction,
+      );
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,

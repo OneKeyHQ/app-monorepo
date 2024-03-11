@@ -1,7 +1,5 @@
 import type { ComponentProps, FC } from 'react';
 
-import { YStack } from 'tamagui';
-
 import {
   IconButton,
   Page,
@@ -9,6 +7,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 
 import { handleOpenDevMode } from '../../utils/devMode';
