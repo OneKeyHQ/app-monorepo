@@ -15,7 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { DB_MAIN_CONTEXT_ID } from '../dbs/local/consts';
+import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import localDb from '../dbs/local/localDbInstance';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import {

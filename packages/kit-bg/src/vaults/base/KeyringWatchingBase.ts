@@ -6,8 +6,9 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { EDBAccountType, WALLET_TYPE_WATCHING } from '../../dbs/local/consts';
+import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';

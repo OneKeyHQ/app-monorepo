@@ -36,7 +36,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '../../dbs/local/consts';
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
