@@ -9,10 +9,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
-  type EAppEventBusNames,
+  EAppEventBusNames,
   EEventBusBroadcastMethodNames,
-  type IAppEventBusPayload,
   appEventBus,
+  type IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -24,13 +24,6 @@ import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
-import type {
-  IBackgroundApi,
-  IBackgroundApiBridge,
-  IBackgroundApiInternalCallMessage,
-} from './IBackgroundApi';
-import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -39,6 +32,13 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { EAtomNames } from '../states/jotai/atomNames';
+import type {
+  IBackgroundApi,
+  IBackgroundApiBridge,
+  IBackgroundApiInternalCallMessage,
+} from './IBackgroundApi';
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
@@ -65,11 +65,12 @@ export class BackgroundApiProxyBase
     );
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
-      // if (error && error?.autoToast) {
-      //   Toast.error({
-      //     title: error?.message ?? 'Error',
-      //   });
-      // }
+      if (error && error?.autoToast) {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: error?.message ?? 'Error',
+        });
+      }
     });
   }
 

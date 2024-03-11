@@ -1,6 +1,3 @@
-import { useRef } from 'react';
-
-import { ResizeMode, Video } from 'expo-av';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -10,30 +7,17 @@ import {
   Page,
   SizableText,
   Stack,
+  VideoView,
 } from '@onekeyhq/components';
-import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
+
+const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
 export function OneKeyHardwareWallet() {
-  const video = useRef(null);
-
   return (
     <Page>
       <Page.Header title="OneKey Hardware Wallet" />
       <Page.Body>
-        <Video
-          style={{
-            flex: 1,
-          }}
-          videoStyle={{
-            width: '100%',
-            height: '100%',
-          }}
-          ref={video}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          source={OneKeyAllProductsVideo}
-        />
+        <VideoView source={source} />
         <Stack
           position="absolute"
           left={0}

@@ -47,7 +47,7 @@ const AppAutoLockItem = () => {
   return isPasswordSet ? (
     <ListItem
       onPress={onPress}
-      icon="LockOutline"
+      icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({ id: 'form__app_lock' })}
       drillIn
     >
@@ -159,6 +159,18 @@ const ConnectedSitesItem = () => {
   );
 };
 
+const SignatureRecordItem = () => {
+  const onPress = useCallback(() => {}, []);
+  return (
+    <ListItem
+      onPress={onPress}
+      icon="NoteOutline"
+      title="Signature Record"
+      drillIn
+    />
+  );
+};
+
 export const SecuritySection = () => {
   const intl = useIntl();
   return (
@@ -169,6 +181,7 @@ export const SecuritySection = () => {
       <AppAutoLockItem />
       <PasswordItem />
       <ConnectedSitesItem />
+      <SignatureRecordItem />
       <ProtectionItem />
       <CleanDataItem />
     </Section>

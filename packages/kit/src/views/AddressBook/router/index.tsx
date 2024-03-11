@@ -4,22 +4,19 @@ import type { IModalAddressBookParamList } from '@onekeyhq/shared/src/routes/add
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
 const AddressBookListModal = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/common/components/AddressBook/pages/ListItem'),
+  () => import('@onekeyhq/kit/src/views/AddressBook/pages/ListItem'),
 );
 
 const AddressBookAddItemModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/common/components/AddressBook/pages/AddItem'),
+  () => import('@onekeyhq/kit/src/views/AddressBook/pages/AddItem'),
 );
 
 const AddressBookEditItemModal = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/common/components/AddressBook/pages/EditItem'),
+  () => import('@onekeyhq/kit/src/views/AddressBook/pages/EditItem'),
 );
 
 const AddressBookPickItemModal = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/common/components/AddressBook/pages/PickItem'),
+  () => import('@onekeyhq/kit/src/views/AddressBook/pages/PickItem'),
 );
 
 export const ModalAddressBookRouter: IModalFlowNavigatorConfig<

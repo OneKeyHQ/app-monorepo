@@ -3,8 +3,8 @@ import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ModalAddressBookRouter } from '../../common/components/AddressBook/router';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';

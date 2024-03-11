@@ -1,3 +1,4 @@
+import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
@@ -32,6 +33,7 @@ export type IConnectionItemWithAccountSelectorNum = IConnectionItem & {
 
 export type IConnectionItemWithStorageType = IConnectionItem & {
   storageType: IConnectionStorageType;
+  availableNetworksMap?: IAccountSelectorAvailableNetworksMap;
 };
 
 export type IConnectionStorageType = 'injectedProvider' | 'walletConnect';
