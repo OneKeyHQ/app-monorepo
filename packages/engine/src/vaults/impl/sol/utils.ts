@@ -14,6 +14,8 @@ export const TOKEN_AUTH_RULES_ID = new PublicKey(
   'auth9SigNpDKz4sJJ1DfCTuZrZNSAgh9sFD3rboVmgg',
 );
 
+export const MIN_PRIORITY_FEE = 1000;
+
 export function metadataAddress(mint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [
