@@ -17,7 +17,7 @@ import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { useSwapFromAccountNetworkSync } from '../../hooks/uswSwapAccount';
-import { validateInput } from '../../utils/utils';
+import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -46,7 +46,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         direction={ESwapDirectionType.FROM}
         selectTokenLoading={fetchLoading}
         onAmountChange={(value) => {
-          if (validateInput(value)) {
+          if (validateAmountInput(value)) {
             setFromInputAmount(value);
           }
         }}

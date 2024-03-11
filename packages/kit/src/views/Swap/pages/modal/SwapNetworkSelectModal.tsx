@@ -79,19 +79,22 @@ const SwapNetworkSelectModal = () => {
   );
   return (
     <Page>
-      <SearchBar
-        h="$12"
-        w="100%"
-        onChangeText={(text) => {
-          const afterTrim = text.trim();
-          onSearchNetWork(afterTrim);
-        }}
-      />
-      <ListView
-        estimatedItemSize="$10"
-        renderItem={renderItem}
-        data={showNetworkList}
-      />
+      <Page.Body px="$4">
+        <SearchBar
+          h="$12"
+          w="100%"
+          onChangeText={(text) => {
+            const afterTrim = text.trim();
+            onSearchNetWork(afterTrim);
+          }}
+        />
+        <ListView
+          mt="$4"
+          estimatedItemSize="$10"
+          renderItem={renderItem}
+          data={showNetworkList}
+        />
+      </Page.Body>
     </Page>
   );
 };

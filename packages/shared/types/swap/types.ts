@@ -282,9 +282,12 @@ export interface ISwapSlippageSegmentItem {
 }
 
 export enum ESwapSlippageSegmentKey {
-  AUTO = 'auto',
-  CUSTOM = 'custom',
-  ZERO_ONE = '0.1',
-  ZERO_FIVE = '0.5',
-  ONE = '1',
+  AUTO = 'Auto',
+  CUSTOM = 'Custom',
+}
+
+export enum ESwapSlippageCustomStatus {
+  NORMAL = 'normal',
+  ERROR = 'error',
+  WRONG = 'wrong',
 }

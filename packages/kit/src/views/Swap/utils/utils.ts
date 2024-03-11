@@ -5,7 +5,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-export function validateInput(text: string) {
+export function validateAmountInput(text: string) {
   const regex = /^$|^0(\.\d{0,6})?$|^[1-9]\d*(\.\d{0,6})?$|^[1-9]\d*\.$|^0\.$/;
   if (!regex.test(text)) {
     return false;

@@ -4,7 +4,6 @@ import SwapHistoryDetailModal from '../pages/modal/SwapHistoryDetailModal';
 import SwapHistoryListModal from '../pages/modal/SwapHistoryListModal';
 import SwapNetworkSelectModal from '../pages/modal/SwapNetworkSelectModal';
 import SwapProviderSelectModal from '../pages/modal/SwapProviderSelectModal';
-import SwapSlippageSelectModal from '../pages/modal/SwapSlippageSelectModal';
 import SwapToAnotherAddressModal from '../pages/modal/SwapToAnotherAddressModal';
 import SwapTokenSelectModal from '../pages/modal/SwapTokenSelectModal';
 
@@ -30,11 +29,6 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapProviderSelect,
     component: SwapProviderSelectModal,
     translationId: 'title__select_route',
-  },
-  {
-    name: EModalSwapRoutes.SwapSlippageSelect,
-    component: SwapSlippageSelectModal,
-    translationId: 'title__slippage',
   },
   {
     name: EModalSwapRoutes.SwapHistoryList,

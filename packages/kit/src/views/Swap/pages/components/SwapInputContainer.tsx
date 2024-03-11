@@ -64,7 +64,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
-          loading: isLoading,
+          loading: token && isLoading,
         }}
         valueProps={{ value: amountPrice, loading: inputLoading }}
         inputProps={{

@@ -17,11 +17,7 @@ const SwapHeaderRightActionContainer = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const onOpenSlippageModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapSlippageSelect,
-    });
-  }, [navigation]);
+  const onOpenSlippageModal = useCallback(() => {}, [navigation]);
 
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {

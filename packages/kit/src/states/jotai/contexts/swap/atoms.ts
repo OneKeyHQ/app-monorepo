@@ -176,7 +176,7 @@ export const {
   | undefined
 >(undefined);
 
-// swap build_tx
+// swap slippage
 export const {
   atom: swapSlippagePercentageAtom,
   use: useSwapSlippagePercentageAtom,
@@ -185,6 +185,12 @@ export const {
   value: 0.5,
 });
 
+export const {
+  atom: swapSlippagePopoverOpeningAtom,
+  use: useSwapSlippagePopoverOpeningAtom,
+} = contextAtom<boolean>(false);
+
+// swap build_tx
 export const {
   atom: swapBuildTxFetchingAtom,
   use: useSwapBuildTxFetchingAtom,

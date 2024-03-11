@@ -3,10 +3,7 @@ import {
   ESwapProviders,
   ESwapSlippageSegmentKey,
 } from '@onekeyhq/shared/types/swap/types';
-import type {
-  ISwapFromAmountPercentageItem,
-  ISwapSlippageSegmentItem,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapFromAmountPercentageItem } from '@onekeyhq/shared/types/swap/types';
 
 export const CrossChainSwapProviders = [
   ESwapProviders.SWFT,
@@ -23,12 +20,26 @@ export const swapFromAmountPercentageItems: ISwapFromAmountPercentageItem[] = [
   { label: 'Max', value: 1 },
 ];
 
-export const swapSlippageItems: ISwapSlippageSegmentItem[] = [
-  { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
-  { key: ESwapSlippageSegmentKey.ZERO_ONE, value: 0.1 },
-  { key: ESwapSlippageSegmentKey.ZERO_FIVE, value: 0.5 },
-  { key: ESwapSlippageSegmentKey.ONE, value: 1 },
+export const swapSlippageItems: {
+  key: ESwapSlippageSegmentKey;
+  value: ESwapSlippageSegmentKey;
+}[] = [
+  { key: ESwapSlippageSegmentKey.AUTO, value: ESwapSlippageSegmentKey.AUTO },
+  {
+    key: ESwapSlippageSegmentKey.CUSTOM,
+    value: ESwapSlippageSegmentKey.CUSTOM,
+  },
 ];
+
+export const swapSlippageAutoValue = 0.5;
+
+export const swapSlippageMaxValue = 50;
+
+export const swapSlippageWillFailMinValue = 0.1;
+
+export const swapSlippageWillAheadMinValue = 5;
+
+export const swapSlippage = 50;
 
 export const socketBridgeScanUrl = 'https://socketscan.io/tx/';
 
@@ -39,7 +50,7 @@ export const swapTokenCatchMapMaxCount = 30;
 export const swapApproveResetValue = '0';
 
 export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
-  seconds: 15,
+  seconds: 17,
 });
 
 export const swapNetworksCommonCount = 8;

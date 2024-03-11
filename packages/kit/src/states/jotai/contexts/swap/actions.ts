@@ -7,9 +7,11 @@ import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   swapQuoteFetchInterval,
+  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
   type ISwapToken,
   type ISwapTxHistory,
@@ -52,6 +54,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const currentHistoryList = get(swapTxHistoryAtom());
     await backgroundApiProxy.simpleDb.swapHistory.setRawData({
       histories: currentHistoryList,
+    });
+  });
+
+  resetSwapSlippage = contextAtomMethod((get, set) => {
+    set(swapSlippagePercentageAtom(), {
+      key: ESwapSlippageSegmentKey.AUTO,
+      value: swapSlippageAutoValue,
     });
   });
 
@@ -112,21 +121,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   selectFromToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     const fromToken = get(swapSelectFromTokenAtom());
+    if (
+      fromToken?.networkId !== token.networkId ||
+      fromToken?.contractAddress !== token.contractAddress
+    ) {
+      this.cleanManualSelectQuoteProviders.call(set);
+      this.resetSwapSlippage.call(set);
+      await this.syncNetworksSort.call(set, token.networkId);
+    }
     set(swapSelectFromTokenAtom(), token);
     set(swapSelectToTokenAtom(), undefined);
-    if (fromToken?.symbol !== token.symbol) {
-      await this.syncNetworksSort.call(set, token.networkId);
-      this.cleanManualSelectQuoteProviders.call(set);
-    }
   });
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     const toToken = get(swapSelectToTokenAtom());
-    set(swapSelectToTokenAtom(), token);
-    if (toToken?.symbol !== token.symbol) {
+    if (
+      toToken?.networkId !== token.networkId ||
+      toToken?.contractAddress !== token.contractAddress
+    ) {
       this.cleanManualSelectQuoteProviders.call(set);
+      this.resetSwapSlippage.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
     }
+    set(swapSelectToTokenAtom(), token);
   });
 
   alternationToken = contextAtomMethod((get, set) => {
@@ -137,6 +154,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    this.resetSwapSlippage.call(set);
   });
 
   addSwapHistoryItem = contextAtomMethod(

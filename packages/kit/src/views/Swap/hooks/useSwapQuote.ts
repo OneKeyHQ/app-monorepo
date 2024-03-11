@@ -9,6 +9,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSlippagePopoverOpeningAtom,
 } from '../../../states/jotai/contexts/swap';
 
 export function useSwapQuote() {
@@ -16,6 +17,7 @@ export function useSwapQuote() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [swapSlippagePopoverOpening] = useSwapSlippagePopoverOpeningAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
   const activeAccountAddressRef = useRef<string | undefined>();
@@ -24,7 +26,11 @@ export function useSwapQuote() {
   }
 
   useEffect(() => {
-    void quoteAction(activeAccountAddressRef.current);
+    if (!swapSlippagePopoverOpening) {
+      void quoteAction(activeAccountAddressRef.current);
+    } else {
+      cleanQuoteInterval();
+    }
     return () => {
       cleanQuoteInterval();
     };
@@ -36,6 +42,7 @@ export function useSwapQuote() {
     toToken,
     fromTokenAmount,
     swapApprovingTransactionAtom,
+    swapSlippagePopoverOpening,
   ]);
 
   useListenTabFocusState(

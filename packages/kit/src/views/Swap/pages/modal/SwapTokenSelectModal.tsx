@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -59,6 +60,7 @@ const SwapTokenSelectPage = () => {
     () => route.params?.type ?? ESwapDirectionType.FROM,
     [route.params?.type],
   );
+  const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -165,67 +167,68 @@ const SwapTokenSelectPage = () => {
 
   return (
     <Page>
-      <SearchBar
-        h="$12"
-        w="100%"
-        value={searchKeyword}
-        clearTextOnFocus
-        onChangeText={(text) => {
-          const afterTrim = text.trim();
-          setSearchKeyword(afterTrim);
-        }}
-      />
-      <YStack h="$12" my="$4">
-        <NetworkToggleGroup
-          type={type}
-          onMoreNetwork={() => {
-            setSearchKeyword('');
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapNetworkSelect,
-              params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
-            });
+      <Page.Body px="$4">
+        <SearchBar
+          h="$12"
+          w="100%"
+          value={searchKeyword}
+          clearTextOnFocus
+          onChangeText={(text) => {
+            const afterTrim = text.trim();
+            setSearchKeyword(afterTrim);
           }}
-          onlySupportSingleNetWork={onlySupportSingleNetWork}
-          networks={networkFilterData.swapNetworksCommon}
-          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
-          selectedNetwork={currentSelectNetwork}
-          onSelectNetwork={onSelectCurrentNetwork}
         />
-      </YStack>
-      <XStack px="$5" py="$2">
-        <SizableText size="$headingSm" pr="$2">
-          Network:
-        </SizableText>
-        <XStack>
-          {currentSelectNetwork?.networkId !== 'all' ? (
-            <Image height="$5" width="$5" borderRadius="$full">
-              <Image.Source
-                source={{
-                  uri: currentSelectNetwork?.logoURI,
-                }}
-              />
-            </Image>
-          ) : null}
-          <SizableText size="$bodyMd" pl="$2">
-            {currentSelectNetwork?.name ??
-              currentSelectNetwork?.symbol ??
-              currentSelectNetwork?.shortcode ??
-              'Unknown'}
-          </SizableText>
-        </XStack>
-      </XStack>
-      {fetchLoading ? (
-        <Spinner flex={1} justifyContent="center" alignItems="center" />
-      ) : (
-        <YStack flex={1}>
-          <ListView
-            data={currentTokens}
-            ListHeaderComponent={<SizableText>SelectToken</SizableText>}
-            renderItem={renderItem}
-            estimatedItemSize={60}
+        <YStack my="$4">
+          <NetworkToggleGroup
+            type={type}
+            onMoreNetwork={() => {
+              setSearchKeyword('');
+              navigation.pushModal(EModalRoutes.SwapModal, {
+                screen: EModalSwapRoutes.SwapNetworkSelect,
+                params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
+              });
+            }}
+            onlySupportSingleNetWork={onlySupportSingleNetWork}
+            networks={networkFilterData.swapNetworksCommon}
+            moreNetworksCount={networkFilterData.swapNetworksMoreCount}
+            selectedNetwork={currentSelectNetwork}
+            onSelectNetwork={onSelectCurrentNetwork}
           />
         </YStack>
-      )}
+        <XStack mb="$1">
+          <SizableText size="$headingSm" mr="$1">
+            {`${intl.formatMessage({ id: 'network__network' })}:`}
+          </SizableText>
+          <XStack>
+            {currentSelectNetwork?.networkId !== 'all' ? (
+              <Image height="$5" width="$5" borderRadius="$full">
+                <Image.Source
+                  source={{
+                    uri: currentSelectNetwork?.logoURI,
+                  }}
+                />
+              </Image>
+            ) : null}
+            <SizableText size="$bodyMd" pl="$2">
+              {currentSelectNetwork?.name ??
+                currentSelectNetwork?.symbol ??
+                currentSelectNetwork?.shortcode ??
+                'Unknown'}
+            </SizableText>
+          </XStack>
+        </XStack>
+        {fetchLoading ? (
+          <Spinner flex={1} justifyContent="center" alignItems="center" />
+        ) : (
+          <YStack flex={1}>
+            <ListView
+              data={currentTokens}
+              renderItem={renderItem}
+              estimatedItemSize={60}
+            />
+          </YStack>
+        )}
+      </Page.Body>
     </Page>
   );
 };
