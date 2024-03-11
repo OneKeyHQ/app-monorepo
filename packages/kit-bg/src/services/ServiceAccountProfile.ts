@@ -19,6 +19,7 @@ type IAddressNetworkIdParams = {
 type IQueryAddressArgs = {
   networkId: string;
   address: string;
+  accountId?: string;
   enableNameResolve?: boolean;
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
@@ -62,12 +63,64 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  private async isFirstTransfer({
+    networkId,
+    fromAddress,
+    toAddress,
+  }: {
+    networkId: string;
+    fromAddress: string;
+    toAddress: string;
+  }): Promise<boolean> {
+    try {
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: {
+          interacted: boolean;
+        };
+      }>('/wallet/v1/account/interacted', {
+        params: {
+          networkId,
+          accountAddress: fromAddress,
+          toAccountAddress: toAddress,
+        },
+      });
+      return !resp.data.data.interacted;
+    } catch {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  private async accountIsFirstTransferTo({
+    networkId,
+    accountId,
+    toAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    toAddress: string;
+  }): Promise<boolean> {
+    const acc = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    return this.isFirstTransfer({
+      networkId,
+      fromAddress: acc.address,
+      toAddress,
+    });
+  }
+
+  @backgroundMethod()
   public async queryAddress({
     networkId,
     address,
+    accountId,
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
+    enableFirstTransferCheck,
   }: IQueryAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
@@ -101,7 +154,18 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           address: resolveAddress,
         });
-      result.walletAccountName = walletAccountItems?.[0]?.accountName;
+      if (walletAccountItems.length > 0) {
+        const item = walletAccountItems[0];
+        result.walletAccountName = `${item.walletName} / ${item.accountName}`;
+      }
+    }
+    if (enableFirstTransferCheck && resolveAddress && accountId) {
+      const isFirstTransfer = await this.accountIsFirstTransferTo({
+        networkId,
+        accountId,
+        toAddress: resolveAddress,
+      });
+      result.isFirstTransfer = isFirstTransfer;
     }
     return result;
   }

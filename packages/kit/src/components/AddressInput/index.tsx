@@ -182,6 +182,8 @@ type IAddressInputProps = Omit<
   enableNameResolve?: boolean; //
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
+  //
+  accountId?: string;
   enableFirstTransferCheck?: boolean;
 };
 
@@ -219,6 +221,8 @@ function AddressInput(props: IAddressInputProps) {
     enableNameResolve = true,
     enableAddressBook,
     enableWalletName,
+    accountId,
+    enableFirstTransferCheck,
     ...rest
   } = props;
   const intl = useIntl();
@@ -265,10 +269,12 @@ function AddressInput(props: IAddressInputProps) {
         const result =
           await backgroundApiProxy.serviceAccountProfile.queryAddress({
             networkId,
+            accountId,
             address: debounceText,
             enableNameResolve,
             enableAddressBook,
             enableWalletName,
+            enableFirstTransferCheck,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -281,9 +287,11 @@ function AddressInput(props: IAddressInputProps) {
   }, [
     debounceText,
     networkId,
+    accountId,
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
+    enableFirstTransferCheck,
   ]);
 
   useEffect(() => {
@@ -316,7 +324,7 @@ function AddressInput(props: IAddressInputProps) {
           {loading ? (
             <Spinner />
           ) : (
-            <>
+            <XStack space="$2">
               {queryResult.walletAccountName ? (
                 <Badge badgeType="success" badgeSize="sm">
                   {queryResult.walletAccountName}
@@ -339,7 +347,7 @@ function AddressInput(props: IAddressInputProps) {
                   First Transfer
                 </Badge>
               ) : null}
-            </>
+            </XStack>
           )}
         </XStack>
         <XStack space="$6">

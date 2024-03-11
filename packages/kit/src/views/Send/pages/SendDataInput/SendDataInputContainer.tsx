@@ -457,9 +457,11 @@ function SendDataInputContainer() {
             }}
           >
             <AddressInput
+              accountId={accountId}
               networkId={networkId}
               enableAddressBook
               enableWalletName
+              enableFirstTransferCheck
               plugins={allAddressInputPlugins}
             />
           </Form.Field>
