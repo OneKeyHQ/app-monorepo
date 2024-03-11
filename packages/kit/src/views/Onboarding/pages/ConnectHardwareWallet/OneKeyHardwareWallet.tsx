@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useEffect } from 'react';
 
-import { ResizeMode, Video } from 'expo-av';
-import { StyleSheet } from 'react-native';
+import { VideoView, useVideoPlayer } from '@expo/video';
+import { Image, StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -11,28 +11,39 @@ import {
   SizableText,
   Stack,
 } from '@onekeyhq/components';
-import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function OneKeyHardwareWallet() {
-  const video = useRef(null);
+  const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
+  const player = useVideoPlayer(
+    platformEnv.isNative ? Image.resolveAssetSource(source)?.uri : source,
+  );
+
+  // If the `@expo/video` had added the `autoPlay` property in the future, we can remove the entire `useEffect`
+  useEffect(() => {
+    player.isMuted = true;
+    // On the web platform, we must add the setTimeout
+    setTimeout(() => {
+      player.play();
+    });
+  }, [player]);
 
   return (
     <Page>
       <Page.Header title="OneKey Hardware Wallet" />
       <Page.Body>
-        <Video
+        <VideoView
+          nativeControls={false}
+          allowsFullscreen={false}
+          showsTimecodes={false}
+          contentPosition={undefined}
+          requiresLinearPlayback={false}
           style={{
-            flex: 1,
-          }}
-          videoStyle={{
             width: '100%',
             height: '100%',
           }}
-          ref={video}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          source={OneKeyAllProductsVideo}
+          player={player}
+          contentFit="cover"
         />
         <Stack
           position="absolute"
