@@ -183,7 +183,6 @@ class ServiceDiscovery extends ServiceBase {
   ): Promise<IBrowserHistory[]> {
     const { generateIcon, sliceCount, keyword } = options ?? {};
     const data = await this.backgroundApi.simpleDb.browserHistory.getRawData();
-    console.log(JSON.stringify(data, null, 2));
     let dataSource = data?.data ?? [];
     if (keyword) {
       const fuse = new Fuse(dataSource, {

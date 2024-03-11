@@ -677,6 +677,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
     },
   );
+
+  validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
+    if (!url) return false;
+    const cache = get(phishingLruCacheAtom());
+    const { action } = uriUtils.parseDappRedirect(
+      url,
+      Array.from(cache.keys()),
+    );
+    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      return false;
+    }
+    if (uriUtils.isValidDeepLink(url)) {
+      return true;
+    }
+    return true;
+  });
 }
 
 const createActions = memoFn(() => {
@@ -754,6 +770,7 @@ export function useBrowserAction() {
   const addUrlToPhishingCache = actions.addUrlToPhishingCache.use();
   const pauseDappInteraction = actions.pauseDappInteraction.use();
   const resumeDappInteraction = actions.resumeDappInteraction.use();
+  const validateWebviewSrc = actions.validateWebviewSrc.use();
 
   return useRef({
     gotoSite,
@@ -763,5 +780,6 @@ export function useBrowserAction() {
     addUrlToPhishingCache,
     pauseDappInteraction,
     resumeDappInteraction,
+    validateWebviewSrc,
   });
 }
