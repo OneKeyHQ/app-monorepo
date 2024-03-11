@@ -236,6 +236,11 @@ export class ClientSol extends BaseClient {
       { slot: number; prioritizationFee: number }[]
     >(RPC_METHODS.GET_RECENT_PRIORITIZATION_FEES, [accountAddresses]);
 
+    return resp;
+  }
+
+  async getRecentMaxPrioritizationFees(accountAddress: string[]) {
+    const resp = await this.getRecentPrioritizationFees(accountAddress);
     return max(map(resp, 'prioritizationFee')) || 0;
   }
 

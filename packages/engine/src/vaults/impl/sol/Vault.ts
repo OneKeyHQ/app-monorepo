@@ -627,11 +627,8 @@ export default class Vault extends VaultBase {
 
     nativeTx.feePayer = source;
 
-    // const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
-    //   units: 300,
-    // });
-
-    const prioritizationFee = await client.getRecentPrioritizationFees([
+    // To make sure tx can be processed. In most cases, this value is 0 or very small
+    const prioritizationFee = await client.getRecentMaxPrioritizationFees([
       accountAddress,
     ]);
 
