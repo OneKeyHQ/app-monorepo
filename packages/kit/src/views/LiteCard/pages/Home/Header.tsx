@@ -7,14 +7,12 @@ import {
   SizableText,
 } from '@onekeyhq/components';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
+import { LITE_CARD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function Header() {
   const locale = useLocaleVariant();
-  const url = useMemo(
-    () => `https://lite.onekey.so/?language=${locale}`,
-    [locale],
-  );
+  const url = useMemo(() => `${LITE_CARD_URL}?language=${locale}`, [locale]);
   return (
     <LinearGradient
       colors={['rgba(222, 226, 229, 0.45)', 'rgba(222, 226, 229, 1)']}

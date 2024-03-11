@@ -4,7 +4,7 @@ import { Dialog, SizableText } from '@onekeyhq/components';
 
 import { PasswordKeyboard } from '../components/PasswordKeyboard';
 
-export function PasswordKeyboardDescription({
+function PasswordKeyboardDescription({
   description,
   shouldConfirmPassword,
 }: {
@@ -39,7 +39,7 @@ export function PasswordKeyboardDescription({
   );
 }
 
-export function showPINFormDialog(
+function showPINFormDialog(
   isSetNewPassword?: boolean,
   shouldConfirmPassword?: string,
 ) {
@@ -83,4 +83,10 @@ export function showPINFormDialog(
       },
     });
   });
+}
+
+export default function usePIN() {
+  return {
+    showPINFormDialog,
+  };
 }

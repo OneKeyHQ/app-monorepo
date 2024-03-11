@@ -22,5 +22,6 @@ export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';
 export const CERTIFICATE_URL_PATH = '/verify';
 export const CERTIFICATE_URL_LOCAL_DEV_PROXY = 'https://certificate.onekey.so';
 export const HELP_CENTER_URL = 'https://help.onekey.so/hc';
+export const LITE_CARD_URL = 'https://lite.onekey.so/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';
 export const DOWNLOAD_URL = 'https://onekey.so/download';

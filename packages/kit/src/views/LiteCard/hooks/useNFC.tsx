@@ -19,7 +19,7 @@ import type {
   CardInfo,
 } from '@onekeyfe/react-native-lite-card/src/types';
 
-export function checkNFCEnabledPermission() {
+function checkNFCEnabledPermission() {
   return new Promise<void>((resolve, reject) => {
     LiteCard.checkNFCPermission((error) => {
       if (!error) {
@@ -64,7 +64,7 @@ export function checkNFCEnabledPermission() {
   });
 }
 
-export function handlerLiteCardError(
+function handlerLiteCardError(
   error?: CallbackError,
   data?: any,
   cardInfo?: CardInfo,
@@ -88,15 +88,6 @@ export function handlerLiteCardError(
         return;
       }
       switch (error?.code) {
-        case CardErrors.ConnectionFail:
-          Dialog.show({
-            icon: 'ErrorOutline',
-            tone: 'destructive',
-            title: 'Connect Failed',
-            description: `Make sure the device is close to the phone's NFC module, then try again.`,
-            onConfirmText: 'Retry',
-          });
-          break;
         case CardErrors.InterruptError:
           Dialog.show({
             icon: 'ErrorOutline',
@@ -143,9 +134,15 @@ export function handlerLiteCardError(
             onConfirmText: 'I Got it',
           });
           break;
-        default: {
+        default:
+          Dialog.show({
+            icon: 'ErrorOutline',
+            tone: 'destructive',
+            title: 'Connect Failed',
+            description: `Make sure the device is close to the phone's NFC module, then try again.`,
+            onConfirmText: 'Retry',
+          });
           break;
-        }
       }
       reject();
     } else {
@@ -154,7 +151,7 @@ export function handlerLiteCardError(
   });
 }
 
-export function showNFCConnectDialog() {
+function showNFCConnectDialog() {
   return new Promise<void>((resolve) => {
     if (platformEnv.isNativeAndroid) {
       const searchDialog = Dialog.show({
@@ -243,4 +240,12 @@ export function showNFCConnectDialog() {
       },
     });
   });
+}
+
+export default function useNFC() {
+  return {
+    checkNFCEnabledPermission,
+    handlerLiteCardError,
+    showNFCConnectDialog,
+  };
 }

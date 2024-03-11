@@ -11,14 +11,8 @@ import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ELiteCardRoutes } from '../router/types';
 
-import {
-  checkNFCEnabledPermission,
-  handlerLiteCardError,
-  showNFCConnectDialog,
-} from './nfc';
-import { showPINFormDialog } from './pin';
-
-import type { CardInfo } from '@onekeyfe/react-native-lite-card/src/types';
+import useNFC from './useNFC';
+import usePIN from './usePIN';
 
 function readWalletIdFromSelectWallet(
   navigation: ReturnType<typeof useAppNavigation>,
@@ -53,33 +47,6 @@ async function readMnemonicWithWalletId(
       credentialId: walletId,
     });
   return mnemonic;
-}
-
-async function backupWalletWithMnemonic(mnemonic: string, oldCard: CardInfo) {
-  const isNewCard = oldCard?.isNewCard;
-  const pin = await showPINFormDialog(isNewCard);
-  if (isNewCard) {
-    await showPINFormDialog(isNewCard, pin);
-  }
-  await showNFCConnectDialog();
-  const encodeMnemonic =
-    await backgroundApiProxy.serviceLiteCardMnemonic.encodeMnemonic(mnemonic);
-  LiteCard.setMnemonic(
-    encodeMnemonic,
-    pin,
-    async (error, data, newCard) => {
-      await handlerLiteCardError(error, data, newCard, oldCard);
-      Dialog.confirm({
-        icon: 'CheckRadioOutline',
-        tone: 'success',
-        title: 'Backup Completed!',
-        description:
-          'You can recover your wallet using this card and PIN at all times. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.',
-        onConfirmText: 'I Got It',
-      });
-    },
-    !isNewCard,
-  );
 }
 
 function showBackupOverwrittenDialog() {
@@ -145,28 +112,55 @@ function showResetWarningDialog() {
 }
 
 export default function useLiteCard() {
+  const nfc = useNFC();
+  const { showPINFormDialog } = usePIN();
   const navigation = useAppNavigation();
   const backupWallet = useCallback(
     async (walletId?: string) => {
-      await checkNFCEnabledPermission();
+      await nfc.checkNFCEnabledPermission();
       const mnemonic = await readMnemonicWithWalletId(walletId, navigation);
-      await showNFCConnectDialog();
-      LiteCard.getLiteInfo(async (error, data, oldCard) => {
-        await handlerLiteCardError(error, data, oldCard);
+      await nfc.showNFCConnectDialog();
+      LiteCard.getLiteInfo(async (oldError, oldData, oldCard) => {
+        await nfc.handlerLiteCardError(oldError, oldData, oldCard);
         if (!oldCard?.isNewCard) {
           await showBackupOverwrittenDialog();
         }
-        await backupWalletWithMnemonic(mnemonic, oldCard);
+        const isNewCard = oldCard?.isNewCard;
+        const pin = await showPINFormDialog(isNewCard);
+        if (isNewCard) {
+          await showPINFormDialog(isNewCard, pin);
+        }
+        await nfc.showNFCConnectDialog();
+        const encodeMnemonic =
+          await backgroundApiProxy.serviceLiteCardMnemonic.encodeMnemonic(
+            mnemonic,
+          );
+        LiteCard.setMnemonic(
+          encodeMnemonic,
+          pin,
+          async (newError, newData, newCard) => {
+            await nfc.handlerLiteCardError(newError, newData, newCard, oldCard);
+            Dialog.confirm({
+              icon: 'CheckRadioOutline',
+              tone: 'success',
+              title: 'Backup Completed!',
+              description:
+                'You can recover your wallet using this card and PIN at all times. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.',
+              onConfirmText: 'I Got It',
+            });
+          },
+          !isNewCard,
+        );
       });
     },
-    [navigation],
+    [nfc, showPINFormDialog, navigation],
   );
   const importWallet = useCallback(async () => {
-    await checkNFCEnabledPermission();
+    await nfc.checkNFCEnabledPermission();
     const pin = await showPINFormDialog();
-    await showNFCConnectDialog();
+    await nfc.showNFCConnectDialog();
     LiteCard.getMnemonicWithPin(pin, async (error, data, cardInfo) => {
-      await handlerLiteCardError(error, data, cardInfo);
+      await nfc.handlerLiteCardError(error, data, cardInfo);
       const mnemonicEncoded =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
           text: await backgroundApiProxy.serviceLiteCardMnemonic.decodeMnemonic(
@@ -179,11 +173,11 @@ export default function useLiteCard() {
         params: { mnemonic: mnemonicEncoded },
       });
     });
-  }, [navigation]);
+  }, [nfc, showPINFormDialog, navigation]);
   const changePIN = useCallback(async () => {
-    await checkNFCEnabledPermission();
+    await nfc.checkNFCEnabledPermission();
     const oldPIN = await showPINFormDialog();
-    await showNFCConnectDialog();
+    await nfc.showNFCConnectDialog();
     LiteCard.getMnemonicWithPin(oldPIN, async (oldError, oldData, oldCard) => {
       if (oldError?.code === CardErrors.NotInitializedError) {
         Dialog.show({
@@ -196,13 +190,13 @@ export default function useLiteCard() {
         });
         return;
       }
-      await handlerLiteCardError(oldError, oldData, oldCard);
+      await nfc.handlerLiteCardError(oldError, oldData, oldCard);
       Toast.success({ title: 'Lite PIN Verified' });
       const newPIN = await showPINFormDialog(true);
       await showPINFormDialog(true, newPIN);
-      await showNFCConnectDialog();
+      await nfc.showNFCConnectDialog();
       LiteCard.changePin(oldPIN, newPIN, async (newError, newData, newCard) => {
-        await handlerLiteCardError(newError, newData, newCard, oldCard);
+        await nfc.handlerLiteCardError(newError, newData, newCard, oldCard);
         Dialog.confirm({
           icon: 'CheckRadioOutline',
           tone: 'success',
@@ -213,13 +207,13 @@ export default function useLiteCard() {
         });
       });
     });
-  }, []);
+  }, [nfc, showPINFormDialog]);
   const reset = useCallback(async () => {
-    await checkNFCEnabledPermission();
+    await nfc.checkNFCEnabledPermission();
     await showResetWarningDialog();
-    await showNFCConnectDialog();
+    await nfc.showNFCConnectDialog();
     LiteCard.reset(async (error, data, cardInfo) => {
-      await handlerLiteCardError(error, data, cardInfo);
+      await nfc.handlerLiteCardError(error, data, cardInfo);
       Dialog.confirm({
         icon: 'CheckRadioOutline',
         tone: 'success',
@@ -229,7 +223,7 @@ export default function useLiteCard() {
         onConfirmText: 'I Got it',
       });
     });
-  }, []);
+  }, [nfc]);
   return {
     backupWallet,
     importWallet,
