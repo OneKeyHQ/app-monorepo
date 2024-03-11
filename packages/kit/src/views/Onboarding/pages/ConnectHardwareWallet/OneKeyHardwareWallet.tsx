@@ -1,7 +1,4 @@
-import { useEffect } from 'react';
-
-import { VideoView, useVideoPlayer } from '@expo/video';
-import { Image, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import {
   Anchor,
@@ -10,41 +7,17 @@ import {
   Page,
   SizableText,
   Stack,
+  VideoView,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
 export function OneKeyHardwareWallet() {
-  const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
-  const player = useVideoPlayer(
-    platformEnv.isNative ? Image.resolveAssetSource(source)?.uri : source,
-  );
-
-  // If the `@expo/video` had added the `autoPlay` property in the future, we can remove the entire `useEffect`
-  useEffect(() => {
-    player.isMuted = true;
-    // On the web platform, we must add the setTimeout because of empty `mountedVideos`
-    setTimeout(() => {
-      player.play();
-    });
-  }, [player]);
-
   return (
     <Page>
       <Page.Header title="OneKey Hardware Wallet" />
       <Page.Body>
-        <VideoView
-          nativeControls={false}
-          allowsFullscreen={false}
-          showsTimecodes={false}
-          contentPosition={undefined}
-          requiresLinearPlayback={false}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-          player={player}
-          contentFit="cover"
-        />
+        <VideoView source={source} />
         <Stack
           position="absolute"
           left={0}

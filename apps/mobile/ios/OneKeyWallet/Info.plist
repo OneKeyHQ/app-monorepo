@@ -36,6 +36,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Use NFC to read NDEF messages into the application.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -51,8 +53,6 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>NFCReaderUsageDescription</key>
-	<string>Use NFC to read NDEF messages into the application.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Use bluetooth to connect OneKey hardware devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>

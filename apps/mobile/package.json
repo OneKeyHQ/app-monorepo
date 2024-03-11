@@ -42,6 +42,7 @@
     "burnt": "0.12.2",
     "expo": "50.0.5",
     "expo-application": "5.8.3",
+    "expo-av": "13.6.0",
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
     "expo-clipboard": "5.0.1",
@@ -112,7 +113,8 @@
       },
       "ios": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "expo-av"
         ]
       }
     }
