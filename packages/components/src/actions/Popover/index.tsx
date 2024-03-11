@@ -56,6 +56,7 @@ const usePopoverValue = (
       onOpenChange?.(true);
     } else {
       setIsOpen(true);
+      onOpenChange?.(true);
     }
   }, [isControlled, onOpenChange]);
   const closePopover = useCallback(() => {
@@ -63,6 +64,7 @@ const usePopoverValue = (
       onOpenChange?.(false);
     } else {
       setIsOpen(false);
+      onOpenChange?.(false);
     }
   }, [isControlled, onOpenChange]);
   return {
