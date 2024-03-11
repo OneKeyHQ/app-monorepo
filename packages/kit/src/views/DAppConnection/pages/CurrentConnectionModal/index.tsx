@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isNil } from 'lodash';
@@ -41,25 +41,35 @@ function CurrentConnectionModal() {
   const [accountsInfo, setAccountsInfo] = useState<
     IConnectionAccountInfoWithNum[] | null
   >([]);
+
+  const shouldRefreshWhenPageGoBack = useRef(false);
+  const fetchAccountsInfo = useCallback(async () => {
+    if (!origin) {
+      setAccountsInfo(null);
+      return;
+    }
+    const connectedAccountsInfo =
+      await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(origin);
+    if (!connectedAccountsInfo) {
+      navigation.pop();
+      return;
+    }
+    setAccountsInfo(connectedAccountsInfo);
+  }, [origin, navigation]);
+
   useFocusEffect(() => {
-    void (async () => {
-      if (!origin) {
-        setAccountsInfo(null);
-        return;
-      }
-      const connectedAccountsInfo =
-        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-          origin,
-        );
-      if (!connectedAccountsInfo) {
-        navigation.pop();
-        return;
-      }
-      setAccountsInfo(connectedAccountsInfo);
-    })();
+    if (shouldRefreshWhenPageGoBack.current) {
+      void fetchAccountsInfo();
+      shouldRefreshWhenPageGoBack.current = false;
+    }
   });
 
+  useEffect(() => {
+    void fetchAccountsInfo();
+  }, [fetchAccountsInfo]);
+
   const onPressManageConnection = useCallback(() => {
+    shouldRefreshWhenPageGoBack.current = true;
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.ConnectionList,
     });
