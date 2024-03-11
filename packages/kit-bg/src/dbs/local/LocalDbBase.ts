@@ -12,6 +12,15 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { ICoreImportedCredentialEncryptHex } from '@onekeyhq/core/src/types';
 import {
+  DB_MAIN_CONTEXT_ID,
+  DEFAULT_VERIFY_STRING,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   OneKeyInternalError,
   PasswordNotSet,
   WrongPassword,
@@ -27,20 +36,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import {
-  DB_MAIN_CONTEXT_ID,
-  DEFAULT_VERIFY_STRING,
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
-
-import {
-  EDBAccountType,
-} from './consts';
-
+import { EDBAccountType } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {

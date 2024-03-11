@@ -9,6 +9,7 @@ export * from './discovery';
 export * from './modal';
 export * from './onboarding';
 export * from './receive';
+export * from './root';
 export * from './scanQrCode';
 export * from './send';
 export * from './setting';

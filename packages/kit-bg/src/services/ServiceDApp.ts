@@ -2,9 +2,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { debounce } from 'lodash';
 
 import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
-// TODO: move to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import {
   backgroundClass,
   backgroundMethod,
@@ -19,6 +16,7 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSendRoutes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';

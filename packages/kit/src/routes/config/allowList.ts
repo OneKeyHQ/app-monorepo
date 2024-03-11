@@ -2,13 +2,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSettingRoutes,
+  ERootRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabDeveloperRoutes } from '../../views/Developer/type';
 import { ETabHomeRoutes } from '../../views/Home/router';
-import { ERootRoutes } from '../enum';
 import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
 import { ETabMeRoutes } from '../Tab/Me/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';

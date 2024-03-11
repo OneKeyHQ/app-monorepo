@@ -5,11 +5,6 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -23,6 +18,11 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
