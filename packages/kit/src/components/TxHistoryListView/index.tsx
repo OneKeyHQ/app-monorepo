@@ -144,6 +144,7 @@ function TxHistoryListView(props: IProps) {
       py="$3"
       h="100%"
       scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
       onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
