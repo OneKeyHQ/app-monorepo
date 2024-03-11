@@ -638,4 +638,5 @@ module.exports = [
   'sats',
   'Accum',
   'coinselect',
+  'vsize',
 ];

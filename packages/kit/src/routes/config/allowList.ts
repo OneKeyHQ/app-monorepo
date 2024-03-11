@@ -1,4 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ETestModalPages,
+} from '@onekeyhq/shared/src/routes';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabDeveloperRoutes } from '../../views/Developer/type';
@@ -8,7 +13,6 @@ import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
 import { ETabMeRoutes } from '../Tab/Me/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
 import { ETabRoutes } from '../Tab/type';
-import { EModalRoutes, EModalSettingRoutes, ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */

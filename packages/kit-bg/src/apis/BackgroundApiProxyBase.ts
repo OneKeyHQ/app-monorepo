@@ -11,8 +11,8 @@ import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandl
 import {
   EAppEventBusNames,
   EEventBusBroadcastMethodNames,
-  appEventBus,
   type IAppEventBusPayload,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -24,6 +24,13 @@ import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
+import type {
+  IBackgroundApi,
+  IBackgroundApiBridge,
+  IBackgroundApiInternalCallMessage,
+} from './IBackgroundApi';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -32,13 +39,6 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
-import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { EAtomNames } from '../states/jotai/atomNames';
-import type {
-  IBackgroundApi,
-  IBackgroundApiBridge,
-  IBackgroundApiInternalCallMessage,
-} from './IBackgroundApi';
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase

@@ -1,4 +1,3 @@
-
 import type { IAccountSelectorRouteParams } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 export enum EAccountManagerStacksRoutes {
