@@ -1,16 +1,19 @@
-import { Fragment } from 'react';
-
 import { FullWindowOverlay } from 'react-native-screens';
 
 import type { IOverlayContainerProps } from './type';
 
+function DevAppContainer({ children }: IOverlayContainerProps) {
+  if (!__DEV__) {
+    return <>{children}</>;
+  }
+  const AppContainer = require('react-native/Libraries/ReactNative/AppContainer');
+  return <AppContainer internal_excludeLogBox>{children}</AppContainer>;
+}
+
 export function OverlayContainer({ children }: IOverlayContainerProps) {
-  const ChildrenContainer = __DEV__
-    ? require('react-native/Libraries/ReactNative/AppContainer')
-    : Fragment;
   return (
     <FullWindowOverlay>
-      <ChildrenContainer>{children}</ChildrenContainer>
+      <DevAppContainer>{children}</DevAppContainer>
     </FullWindowOverlay>
   );
 }
