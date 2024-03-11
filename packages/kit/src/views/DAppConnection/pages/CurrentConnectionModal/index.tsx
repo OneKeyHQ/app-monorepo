@@ -1,22 +1,23 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isNil } from 'lodash';
 
 import {
   Divider,
+  Image,
   Page,
   SizableText,
-  Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
 import { AccountListItem } from '../../components/DAppAccountList';
@@ -35,14 +36,28 @@ function CurrentConnectionModal() {
       >
     >();
   const { faviconUrl, origin } = route.params;
-  const { result: accountsInfo, run } = usePromiseResult(async () => {
-    if (!origin) return [];
-    const connectedAccountsInfo =
-      await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(origin);
-    if (!connectedAccountsInfo) return [];
-    return connectedAccountsInfo;
-  }, [origin]);
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
+
+  const [accountsInfo, setAccountsInfo] = useState<
+    IConnectionAccountInfoWithNum[] | null
+  >([]);
+  useFocusEffect(() => {
+    void (async () => {
+      if (!origin) {
+        setAccountsInfo(null);
+        return;
+      }
+      const connectedAccountsInfo =
+        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+          origin,
+        );
+      if (!connectedAccountsInfo) {
+        navigation.pop();
+        return;
+      }
+      setAccountsInfo(connectedAccountsInfo);
+    })();
+  });
 
   const onPressManageConnection = useCallback(() => {
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
@@ -64,56 +79,67 @@ function CurrentConnectionModal() {
     <Page>
       <Page.Header title="Connect" />
       <Page.Body>
-        <>
-          {isNil(accountsInfo) || !Array.isArray(accountsInfo) ? null : (
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: origin,
-              }}
-              enabledNum={accountsInfo.map((account) => account.num)}
-              availableNetworksMap={accountsInfo.reduce((acc, account) => {
-                if (Array.isArray(account.availableNetworkIds)) {
-                  acc[account.num] = {
-                    networkIds: account.availableNetworkIds,
-                  };
-                }
-                return acc;
-              }, {} as Record<number, { networkIds: string[] }>)}
-            >
-              <YStack space="$2">
-                {accountsInfo.map((account) => (
-                  <AccountListItem
-                    key={account.num}
-                    num={account.num}
-                    compressionUiMode
-                    handleAccountChanged={async (accountChangedParams) => {
-                      await handleAccountInfoChanged({
-                        origin,
-                        accountSelectorNum: account.num,
-                        prevAccountInfo: account,
-                        accountChangedParams,
-                        storageType: account.storageType,
-                        afterUpdate: () => {},
-                      });
-                    }}
-                  />
-                ))}
-              </YStack>
-            </AccountSelectorProviderMirror>
-          )}
-          <Divider mx="$-5" mt="$5" />
-          <Stack bg="$bgSubdued" py="$3" space="$2">
-            <ListItem key="manage-connection" onPress={onPressManageConnection}>
-              <SizableText size="$bodyMd">Manage dApp Connections</SizableText>
-            </ListItem>
-            <Divider my="$2" />
-            <ListItem key="disconnection" onPress={onDisconnect}>
-              <SizableText size="$bodyMd">Disconnect</SizableText>
-            </ListItem>
-          </Stack>
-        </>
+        <XStack p="$5" space="$3">
+          <Image size="$10" source={{ uri: faviconUrl }} borderRadius="$2" />
+          <YStack>
+            <SizableText size="$bodyLgMedium">
+              {new URL(origin).hostname}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSuccess">
+              Connected
+            </SizableText>
+          </YStack>
+        </XStack>
+        {isNil(accountsInfo) || !accountsInfo.length ? null : (
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.discover,
+              sceneUrl: origin,
+            }}
+            enabledNum={accountsInfo.map((account) => account.num)}
+            availableNetworksMap={accountsInfo.reduce((acc, account) => {
+              if (Array.isArray(account.availableNetworkIds)) {
+                acc[account.num] = {
+                  networkIds: account.availableNetworkIds,
+                };
+              }
+              return acc;
+            }, {} as Record<number, { networkIds: string[] }>)}
+          >
+            <YStack space="$2" px="$5">
+              {accountsInfo.map((account) => (
+                <AccountListItem
+                  key={account.num}
+                  num={account.num}
+                  compressionUiMode
+                  handleAccountChanged={async (accountChangedParams) => {
+                    await handleAccountInfoChanged({
+                      origin,
+                      accountSelectorNum: account.num,
+                      prevAccountInfo: account,
+                      accountChangedParams,
+                      storageType: account.storageType,
+                      afterUpdate: () => {},
+                    });
+                  }}
+                />
+              ))}
+            </YStack>
+          </AccountSelectorProviderMirror>
+        )}
       </Page.Body>
+      <Page.Footer>
+        <Divider />
+        <YStack bg="$bgSubdued" py="$3" space="$2">
+          <ListItem key="manage-connection" onPress={onPressManageConnection}>
+            <SizableText size="$bodyMd">Manage dApp Connections</SizableText>
+          </ListItem>
+          <Divider mx="$5" />
+          <ListItem key="disconnection" onPress={onDisconnect}>
+            <SizableText size="$bodyMd">Disconnect</SizableText>
+          </ListItem>
+        </YStack>
+      </Page.Footer>
     </Page>
   );
 }
