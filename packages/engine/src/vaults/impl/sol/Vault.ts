@@ -85,6 +85,7 @@ import {
 import { ClientSol, PARAMS_ENCODINGS } from './sdk';
 import settings from './settings';
 import {
+  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   TOKEN_METADATA_PROGRAM_ID,
   masterEditionAddress,
@@ -627,13 +628,13 @@ export default class Vault extends VaultBase {
 
     nativeTx.feePayer = source;
 
-    // To make sure tx can be processed. In most cases, this value is 0 or very small
+    // To make sure tx can be processed
     const prioritizationFee = await client.getRecentMaxPrioritizationFees([
       accountAddress,
     ]);
 
     const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports: prioritizationFee,
+      microLamports: Math.max(MIN_PRIORITY_FEE, prioritizationFee),
     });
 
     nativeTx.add(addPriorityFee);
@@ -1256,10 +1257,19 @@ export default class Vault extends VaultBase {
   override async fetchFeeInfo(encodedTx: IEncodedTxSol): Promise<IFeeInfo> {
     const client = await this.getClient();
     const nativeTx = await this.helper.parseToNativeTx(encodedTx);
-    const message = (nativeTx as Transaction).compileMessage();
+    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+    let message = '';
+    if (isVersionedTransaction) {
+      message = Buffer.from(nativeTx.message.serialize()).toString('base64');
+    } else {
+      message = (nativeTx as Transaction)
+        .compileMessage()
+        .serialize()
+        .toString('base64');
+    }
     const [network, feePerSig] = await Promise.all([
       this.getNetwork(),
-      client.getFeesForMessage(message.serialize().toString('base64')),
+      client.getFeesForMessage(message),
     ]);
 
     const prices = [
