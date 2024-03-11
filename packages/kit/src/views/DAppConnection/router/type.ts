@@ -3,4 +3,5 @@ export enum EDAppConnectionModal {
   'ConnectionList' = 'ConnectionList',
   'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
   'SignMessageModal' = 'SignMessageModal',
+  'CurrentConnectionModal' = 'CurrentConnectionModal',
 }
