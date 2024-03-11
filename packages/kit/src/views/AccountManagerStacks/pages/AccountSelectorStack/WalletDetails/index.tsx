@@ -18,7 +18,6 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorEditModeAtom,
@@ -26,7 +25,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -43,6 +41,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,

@@ -9,7 +9,7 @@ import { AddressBookListContent } from '../../components/AddressBookListContent'
 import { PageLoading } from '../../components/PageLoading';
 import { UnsafeContent } from '../../components/UnsafeContent';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
-import { EModalAddressBookRoutes } from '../../router/types';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 const HeaderRightComponent = () => {
   const navigation = useAppNavigation();

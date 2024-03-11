@@ -16,7 +16,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import { Tutorials } from '../../components';
 import { useShowCopyPasteButton } from '../../components/hooks';
-import { EOnboardingPages } from '../../router/type';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 const tutorials = [
   {

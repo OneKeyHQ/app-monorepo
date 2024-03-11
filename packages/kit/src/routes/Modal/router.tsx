@@ -12,7 +12,7 @@ import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
-import { ModalSendStack } from '../../views/Send/router/types';
+import { ModalSendStack } from '../../views/Send/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalMainStack } from './Main';
