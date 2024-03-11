@@ -5,8 +5,6 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Divider,
-  IconButton,
   Input,
   SegmentControl,
   SizableText,
@@ -28,15 +26,7 @@ import {
 
 import { validateAmountInput } from '../../utils/utils';
 
-interface ISwapsSlippageContentContainerProps {
-  onPopOverClose: () => void;
-  title: string;
-}
-
-const SwapsSlippageContentContainer = ({
-  onPopOverClose,
-  title,
-}: ISwapsSlippageContentContainerProps) => {
+const SwapsSlippageContentContainer = () => {
   const [inputValue, setInputValue] = useState('');
   const [swapSlippage, setSwapSlippage] = useSwapSlippagePercentageAtom();
   const intl = useIntl();
@@ -83,11 +73,6 @@ const SwapsSlippageContentContainer = ({
 
   return (
     <YStack p="$4" space="$4">
-      <XStack justifyContent="space-between">
-        <SizableText>{title}</SizableText>
-        <IconButton onPress={onPopOverClose} icon="CrossedSmallOutline" />
-      </XStack>
-      <Divider mt="$2" />
       <XStack>
         <SegmentControl
           value={swapSlippage.key}

@@ -5,7 +5,6 @@ import { XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 
-import SwapSlippageTrigger from '../../components/SwapSlippageTrigger';
 import { EModalSwapRoutes } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
@@ -17,7 +16,7 @@ const SwapHeaderRightActionContainer = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const onOpenSlippageModal = useCallback(() => {}, [navigation]);
+  // const onOpenSlippageModal = useCallback(() => {}, [navigation]);
 
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -29,7 +28,7 @@ const SwapHeaderRightActionContainer = () => {
       <SwapHistoryButtonContainer
         onHistoryButtonPress={onOpenHistoryListModal}
       />
-      <SwapSlippageTrigger onOpenSlippageModal={onOpenSlippageModal} />
+      {/* <SwapSlippageTrigger onOpenSlippageModal={onOpenSlippageModal} /> */}
     </XStack>
   );
 };

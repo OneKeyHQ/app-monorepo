@@ -1,13 +1,15 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Popover, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, Popover, YStack } from '@onekeyhq/components';
 import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
@@ -24,6 +26,8 @@ interface ISwapQuoteResultProps {
 
 const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [, setSwapQuoteApproveAllowanceUnLimit] =
@@ -71,6 +75,9 @@ const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
         providerName={quoteResult.info.providerName}
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
         isLoading={quoteFetching}
+        rate={quoteResult.instantRate}
+        fromToken={fromToken}
+        toToken={toToken}
         showBest={quoteResult.isBest}
         showLock={!!quoteResult.allowanceResult}
         onPress={() => {
@@ -85,15 +92,22 @@ const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
               setSwapSlippagePopOverOpening(open);
             }}
             renderTrigger={<SwapSlippageTriggerContainer />}
-            renderContent={({ closePopover }) => (
-              <SwapSlippageContentContainer
-                onPopOverClose={closePopover}
-                title="Slippage tolerance"
-              />
-            )}
+            renderContent={() => <SwapSlippageContentContainer />}
             keepChildrenMounted
           />
-          <SwapCommonInfoItem title="Est network fee" value="1" />
+          <SwapCommonInfoItem
+            title="Est network fee"
+            valueComponent={
+              <NumberSizeableText
+                formatter="value"
+                formatterOptions={{
+                  currency: settingsPersistAtom.currencyInfo.symbol,
+                }}
+              >
+                {quoteResult.fee.estimatedFeeFiatValue ?? '0'}
+              </NumberSizeableText>
+            }
+          />
         </YStack>
       ) : null}
     </YStack>

@@ -12,6 +12,7 @@ import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
+import SwapAlertContainer from './SwapAlertContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
@@ -58,14 +59,15 @@ const SwapMainLoad = () => {
   }, [wrappedTx]);
 
   return (
-    <YStack flex={1} space="$4">
+    <YStack marginHorizontal="auto" maxWidth="100%" width={576} space="$4">
       <SwapQuoteInput onSelectToken={onSelectToken} />
+      <SwapAlertContainer />
+      <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
       <SwapActionsState
         onBuildTx={onBuildTx}
         onApprove={onApprove}
         onWrapped={onWrapped}
       />
-      <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
     </YStack>
   );
 };

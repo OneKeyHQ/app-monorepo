@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import {
-  Alert,
   Button,
   Dialog,
   SizableText,
@@ -43,31 +42,6 @@ const SwapActionsState = ({
     () => swapStepState.type === ESwapStepStateType.APPROVE,
     [swapStepState.type],
   );
-
-  const wrongMsgComponent = useMemo(() => {
-    if (
-      (swapStepState.wrongMsg || swapStepState.rateWarning) &&
-      !swapStepState.isLoading
-    ) {
-      return (
-        <YStack>
-          {swapStepState.wrongMsg ? (
-            <Alert
-              description={swapStepState.wrongMsg}
-              icon="PlaceholderOutline"
-            />
-          ) : null}
-          {swapStepState.rateWarning ? (
-            <Alert
-              description={swapStepState.rateWarning}
-              icon="PlaceholderOutline"
-            />
-          ) : null}
-        </YStack>
-      );
-    }
-    return null;
-  }, [swapStepState]);
 
   const actionText = useMemo(() => {
     if (swapStepState.type === ESwapStepStateType.APPROVE) {
@@ -152,7 +126,6 @@ const SwapActionsState = ({
 
   return (
     <YStack space="$4">
-      {wrongMsgComponent}
       {isApproveStepStatus ? (
         <XStack justifyContent="center">
           <SizableText>{`Step 1: Approve ${

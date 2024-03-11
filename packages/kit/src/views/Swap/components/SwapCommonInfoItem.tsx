@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
 import {
@@ -13,7 +14,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISwapCommonInfoItemProps {
   title: string;
-  value: string;
+  value?: string;
+  valueComponent?: ReactNode;
   onPress?: () => void;
   questionMarkContent?: string;
   isLoading?: boolean;
@@ -24,6 +26,7 @@ const SwapCommonInfoItem = ({
   value,
   onPress,
   isLoading,
+  valueComponent,
   questionMarkContent,
 }: ISwapCommonInfoItemProps) => {
   const questionMarkComponent = useMemo(
@@ -55,7 +58,7 @@ const SwapCommonInfoItem = ({
         {questionMarkContent ? questionMarkComponent : null}
       </XStack>
       <XStack space="$2">
-        <SizableText>{value}</SizableText>
+        {valueComponent || <SizableText>{value}</SizableText>}
         {onPress && <Icon name="ChevronRightSmallOutline" />}
       </XStack>
     </XStack>
