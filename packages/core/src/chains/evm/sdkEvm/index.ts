@@ -42,7 +42,7 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
     value: encodedTx?.value || '0x0',
 
     // update chainId at: buildUnsignedTxFromEncodedTx
-    chainId: checkIsDefined(encodedTx.chainId),
+    chainId: new BigNumber(checkIsDefined(encodedTx.chainId)).toNumber(),
   };
 
   if (!baseTx.to) {

@@ -3,7 +3,7 @@ import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Switch } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
@@ -11,19 +11,20 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
-  useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 
-import { useOptions } from '../AppAutoLock/useOptions';
+import { useOptions } from '../../AppAutoLock/useOptions';
+import { Section } from '../Section';
 
-import { Section } from './Section';
+import { CleanDataItem } from './CleanDataItem';
 
-import type { IModalSettingParamList } from '../../router/types';
+import type { IModalSettingParamList } from '../../../router/types';
 
 const AppAutoLockItem = () => {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
@@ -45,7 +46,7 @@ const AppAutoLockItem = () => {
   return isPasswordSet ? (
     <ListItem
       onPress={onPress}
-      icon="LockOutline"
+      icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({ id: 'form__app_lock' })}
       drillIn
     >
@@ -119,26 +120,6 @@ const FaceIdItem = () => {
   ) : null;
 };
 
-const EnableSystemIdleTimeItem = () => {
-  const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
-  const [supportSystemIdle] = useSystemIdleLockSupport();
-  const icon: ComponentProps<typeof ListItem>['icon'] =
-    'ClockTimeHistoryOutline';
-
-  return supportSystemIdle ? (
-    <ListItem icon={icon} title="启用系统闲置自动锁定">
-      <Switch
-        value={enableSystemIdleLock}
-        onChange={async (checked) => {
-          await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
-            checked,
-          );
-        }}
-      />
-    </ListItem>
-  ) : null;
-};
-
 const ProtectionItem = () => {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
@@ -159,6 +140,36 @@ const ProtectionItem = () => {
   ) : null;
 };
 
+const ConnectedSitesItem = () => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+      screen: EDAppConnectionModal.ConnectionList,
+    });
+  }, [navigation]);
+  return (
+    <ListItem
+      title="Connected Sites"
+      icon="LinkOutline"
+      drillIn
+      onPress={onPress}
+    />
+  );
+};
+
+const SignatureRecordItem = () => {
+  const onPress = useCallback(() => {}, []);
+  return (
+    <ListItem
+      onPress={onPress}
+      icon="NoteOutline"
+      title="Signature Record"
+      drillIn
+    />
+  );
+};
+
 export const SecuritySection = () => {
   const intl = useIntl();
   return (
@@ -167,9 +178,11 @@ export const SecuritySection = () => {
         <FaceIdItem />
       </Suspense>
       <AppAutoLockItem />
-      <EnableSystemIdleTimeItem />
       <PasswordItem />
+      <ConnectedSitesItem />
+      <SignatureRecordItem />
       <ProtectionItem />
+      <CleanDataItem />
     </Section>
   );
 };

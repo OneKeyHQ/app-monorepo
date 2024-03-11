@@ -31,6 +31,7 @@ import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import {
   WALLET_TYPE_IMPORTED,
@@ -868,7 +869,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify();
+    const { password } = await servicePassword.promptPasswordVerify(
+      EReasonForNeedPassword.CreateOrRemoveWallet,
+    );
 
     await timerUtils.wait(100);
 
@@ -983,6 +986,18 @@ class ServiceAccount extends ServiceBase {
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
+  }
+
+  @backgroundMethod()
+  async getAccountXpub({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({ accountId, networkId });
+    return vault.getAccountXpub();
   }
 }
 

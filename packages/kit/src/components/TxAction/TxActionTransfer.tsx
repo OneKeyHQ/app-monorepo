@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -13,13 +14,16 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { Container } from '../Container';
 import { Token } from '../Token';
@@ -34,11 +38,13 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
 };
 
-function getTxActionTransferInfo(props: ITxActionProps) {
-  const { action } = props;
+function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
+  const { action, decodedTx, isUTXO } = props;
 
   const { from, to, sends, receives, label } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
+
+  const { type } = decodedTx.payload ?? {};
 
   let transferTarget = '';
 
@@ -60,6 +66,25 @@ function getTxActionTransferInfo(props: ITxActionProps) {
       [transferTarget] = targets;
     } else {
       transferTarget = from;
+    }
+  } else if (isUTXO) {
+    if (type === EOnChainHistoryTxType.Send) {
+      const filteredReceives = receives.filter((receive) => !receive.isOwn);
+      console.log(filteredReceives[0]);
+      transferTarget =
+        filteredReceives.length > 1
+          ? `${filteredReceives.length} addresses`
+          : filteredReceives[0]
+          ? filteredReceives[0].to
+          : receives[0].to;
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      const filteredSends = sends.filter((send) => !send.isOwn);
+      transferTarget =
+        filteredSends.length > 1
+          ? `${filteredSends.length} addresses`
+          : filteredSends[0]
+          ? filteredSends[0].from
+          : sends[0].from;
     }
   } else {
     transferTarget = to;
@@ -83,14 +108,32 @@ function buildTransferChangeInfo({
   changePrefix,
   transfers,
   intl,
+  nativeAmount,
+  isUTXO,
 }: {
   changePrefix: string;
   transfers: IDecodedTxTransferInfo[];
   intl: IntlShape;
+  nativeAmount?: string;
+  isUTXO?: boolean;
 }) {
   let change = '';
   let changeSymbol = '';
   let changeDescription = '';
+
+  if (isUTXO) {
+    const amountBN = new BigNumber(nativeAmount ?? 0).abs();
+    change = amountBN.toFixed();
+    changeSymbol = transfers[0].symbol;
+    changeDescription = amountBN
+      .multipliedBy(transfers[0].price ?? 0)
+      .toFixed();
+    return {
+      change: `${changePrefix}${change}`,
+      changeSymbol,
+      changeDescription,
+    };
+  }
 
   if (transfers.length === 1) {
     const amountBN = new BigNumber(transfers[0].amount).abs();
@@ -146,11 +189,18 @@ function buildTransferChangeInfo({
 
 function TxActionTransferListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { networkId, payload, nativeAmount } = decodedTx;
+  const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
     decodedTx,
   });
+  const vaultSettings = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  ).result;
+  const isUTXO = vaultSettings?.isUtxo;
   const {
     sends,
     receives,
@@ -160,7 +210,10 @@ function TxActionTransferListView(props: ITxActionProps) {
     sendTokenIcon,
     receiveNFTIcon,
     receiveTokenIcon,
-  } = getTxActionTransferInfo(props);
+  } = getTxActionTransferInfo({
+    ...props,
+    isUTXO,
+  });
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
@@ -205,6 +258,34 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
+  } else if (vaultSettings?.isUtxo) {
+    if (type === EOnChainHistoryTxType.Send) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: sends,
+        nativeAmount,
+        intl,
+        isUTXO,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendTokenIcon;
+      title = intl.formatMessage({ id: 'action__send' });
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '+',
+        transfers: receives,
+        nativeAmount,
+        intl,
+        isUTXO,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = receiveTokenIcon;
+      title = intl.formatMessage({ id: 'action__receive' });
+    }
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
       changePrefix: '-',
@@ -242,7 +323,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         size: '$bodyMdMedium',
       })}
     >
-      {change}
+      {change as string}
     </NumberSizeableText>
   );
   changeDescription = (
@@ -257,7 +338,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {changeDescription}
+      {changeDescription as string}
     </NumberSizeableText>
   );
 
@@ -343,7 +424,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 />
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
-                } ${
+                }${
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
                   direction === EDecodedTxDirection.OUT

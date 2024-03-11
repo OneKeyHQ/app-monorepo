@@ -309,6 +309,7 @@ function BasicPhaseInput(
     autoCapitalize: 'none',
     autoCorrect: false,
     spellCheck: false,
+    autoComplete: 'off',
     size: media.md ? 'large' : 'medium',
     leftAddOnProps: {
       label: `${index + 1}`,
@@ -325,6 +326,10 @@ function BasicPhaseInput(
     return (
       <Input
         {...inputProps}
+        secureTextEntry={platformEnv.isNativeAndroid}
+        keyboardType={
+          platformEnv.isNativeAndroid ? 'visible-password' : 'ascii-capable'
+        }
         onSubmitEditing={handleSubmitEnding}
         testID={testID}
       />

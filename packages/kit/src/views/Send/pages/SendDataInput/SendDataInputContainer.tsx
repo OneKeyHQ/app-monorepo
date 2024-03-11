@@ -89,7 +89,7 @@ function SendDataInputContainer() {
         nftResp = await serviceNFT.fetchNFTDetails({
           networkId,
           accountAddress: account.address,
-          params: [
+          nfts: [
             {
               collectionAddress: nft.collectionAddress,
               itemId: nft.itemId,
@@ -100,6 +100,10 @@ function SendDataInputContainer() {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: account.address,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
           contractList: [tokenInfo.address],
         });
       }
@@ -108,6 +112,7 @@ function SendDataInputContainer() {
     },
     [
       account,
+      accountId,
       isNFT,
       network,
       networkId,
@@ -324,7 +329,10 @@ function SendDataInputContainer() {
           balanceProps={{
             loading: isLoadingAssets,
             value: maxAmount,
-            onPress: () => form.setValue('amount', maxAmount),
+            onPress: () => {
+              form.setValue('amount', maxAmount);
+              void form.trigger('amount');
+            },
           }}
           valueProps={{
             value: isUseFiat
