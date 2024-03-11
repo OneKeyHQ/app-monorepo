@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
