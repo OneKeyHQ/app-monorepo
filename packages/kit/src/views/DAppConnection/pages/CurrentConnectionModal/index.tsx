@@ -129,7 +129,7 @@ function CurrentConnectionModal() {
                       prevAccountInfo: account,
                       accountChangedParams,
                       storageType: account.storageType,
-                      afterUpdate: () => {},
+                      afterUpdate: fetchAccountsInfo,
                     });
                   }}
                 />

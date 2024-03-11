@@ -99,13 +99,29 @@ export default function DAppConnectExtensionFloatingTrigger() {
       shadowColor="rgba(0, 0, 0, 0.09)"
       onPress={handlePressFloatingButton}
     >
-      <Image
-        size="$10"
-        borderRadius="$2"
-        source={{
-          uri: result?.faviconUrl,
-        }}
-      />
+      <Stack position="relative">
+        <Image
+          size="$10"
+          borderRadius="$2"
+          source={{
+            uri: result?.faviconUrl,
+          }}
+        />
+        <Stack
+          position="absolute"
+          bottom={-2}
+          right={-2}
+          justifyContent="center"
+          alignItems="center"
+          w="$3"
+          h="$3"
+          borderRadius="$full"
+          bg="$bg"
+          zIndex="$1"
+        >
+          <Stack w="$2" h="$2" bg="$iconSuccess" borderRadius="$full" />
+        </Stack>
+      </Stack>
     </Stack>
   );
 }
