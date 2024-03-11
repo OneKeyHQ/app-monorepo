@@ -1,6 +1,10 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -8,10 +12,6 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import type {
-  IDBAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
 

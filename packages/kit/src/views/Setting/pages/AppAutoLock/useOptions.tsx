@@ -1,8 +1,7 @@
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-
-import { ELockDuration } from './const';
 
 export function useOptions() {
   const intl = useIntl();
