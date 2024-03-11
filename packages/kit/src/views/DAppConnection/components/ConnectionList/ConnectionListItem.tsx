@@ -2,21 +2,31 @@ import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IConnectionAccountInfoWithNum,
   IConnectionItemWithStorageType,
   IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import { AccountListItem } from '../DAppAccountList';
 
+import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
+
 function ConnectionListItem({
   item,
   handleDisconnect,
+  handleAccountChanged,
 }: {
   item: IConnectionItemWithStorageType;
   handleDisconnect: (
     origin: string,
     storageType: IConnectionStorageType,
   ) => Promise<void>;
+  handleAccountChanged: (params: {
+    handleAccountChangedParams: IHandleAccountChangedParams;
+    num: number;
+    origin: string;
+    prevAccountInfo: IConnectionAccountInfoWithNum;
+  }) => void;
 }) {
   return (
     <YStack space="$5" p="$5">
@@ -56,10 +66,26 @@ function ConnectionListItem({
           sceneUrl: item.origin,
         }}
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
+        availableNetworksMap={item.availableNetworksMap}
       >
         <YStack space="$2">
           {Object.keys(item.connectionMap).map((num) => (
-            <AccountListItem key={num} num={Number(num)} readonly />
+            <AccountListItem
+              key={num}
+              num={Number(num)}
+              handleAccountChanged={(handleAccountChangedParams) => {
+                handleAccountChanged({
+                  handleAccountChangedParams,
+                  num: Number(num),
+                  origin: item.origin,
+                  prevAccountInfo: {
+                    ...item.connectionMap[Number(num)],
+                    num: Number(num),
+                    storageType: item.storageType,
+                  },
+                });
+              }}
+            />
           ))}
         </YStack>
       </AccountSelectorProviderMirror>

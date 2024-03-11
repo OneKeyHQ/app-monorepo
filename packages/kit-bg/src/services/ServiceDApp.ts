@@ -464,9 +464,9 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedAccountsByOrigin(origin: string) {
+  async findInjectedAccountByOrigin(origin: string) {
     const result =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+      await this.backgroundApi.simpleDb.dappConnection.findInjectedAccountsInfoByOrigin(
         origin,
       );
     if (!result) {
@@ -513,7 +513,20 @@ class ServiceDApp extends ServiceBase {
         .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
 
-    return [...injectedProviders, ...walletConnects];
+    // Combine all connected lists and build availableNetworksMap
+    const allConnectedList = [...injectedProviders, ...walletConnects];
+    for (const item of allConnectedList) {
+      const networksMap: Record<string, { networkIds: string[] }> = {};
+      for (const [num, accountInfo] of Object.entries(item.connectionMap)) {
+        const { networkIds } =
+          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        networksMap[num] = { networkIds };
+      }
+      item.availableNetworksMap = networksMap;
+    }
+    return allConnectedList;
   }
 
   async disconnectInactiveSessions(

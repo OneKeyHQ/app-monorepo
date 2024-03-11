@@ -186,38 +186,37 @@ function HeaderRightToolBar() {
     result: connectedAccountsInfo,
     isLoading,
     run,
-  } = usePromiseResult(async () => {
-    if (!origin) {
-      return;
-    }
-    const connectedAccount =
-      await backgroundApiProxy.serviceDApp.getAllConnectedAccountsByOrigin(
-        origin,
-      );
+  } = usePromiseResult(
+    async () => {
+      if (!origin) {
+        return;
+      }
+      const connectedAccount =
+        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+          origin,
+        );
 
-    console.log('====>>>connectedAccount: ', connectedAccount);
-    return connectedAccount;
-  }, [origin]);
+      console.log('====>>>connectedAccount: ', connectedAccount);
+      return connectedAccount;
+    },
+    [origin],
+    {
+      checkIsFocused: false,
+    },
+  );
 
   const afterChangeAccount = useCallback(() => {
     void run();
   }, [run]);
 
   useEffect(() => {
-    const fn = () => {
-      setTimeout(() => afterChangeAccount(), 200);
-    };
-    const updateNetwork = () => {
-      console.log('-=====>re runnnnnn');
-      void run();
-    };
-    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
-    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, afterChangeAccount);
+    appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, afterChangeAccount);
     return () => {
-      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
-      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, afterChangeAccount);
+      appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, afterChangeAccount);
     };
-  }, [afterChangeAccount, run]);
+  }, [afterChangeAccount]);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
