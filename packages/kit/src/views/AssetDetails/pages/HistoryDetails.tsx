@@ -6,11 +6,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type {
-  ILocaleIds,
-  IStackProps,
-  IXStackProps,
-} from '@onekeyhq/components';
+import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Divider,
@@ -24,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import {

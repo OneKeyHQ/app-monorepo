@@ -25,10 +25,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import {
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
   IDBAccount,
   IDBDevice,
@@ -37,6 +33,10 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
+import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,

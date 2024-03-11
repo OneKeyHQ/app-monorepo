@@ -26,6 +26,7 @@
     "webextension-polyfill": "^0.8.0"
   },
   "devDependencies": {
-    "folderslint": "^1.2.0"
+    "folderslint": "^1.2.0",
+    "fetch:locale": "rimraf ./src/locale/jsons/*.json && npx lokalise-client fetch"
   }
 }

@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale/locale';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale/locale';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import { Toast } from '../actions/Toast';
 

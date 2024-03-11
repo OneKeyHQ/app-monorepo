@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale/locale';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';

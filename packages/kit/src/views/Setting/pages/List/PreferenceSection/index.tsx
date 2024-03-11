@@ -5,11 +5,11 @@ import { useIntl } from 'react-intl';
 import type { ISelectItem } from '@onekeyhq/components';
 import { Select, XStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
