@@ -246,7 +246,7 @@ export default class Vault extends VaultBase {
         instruction.programId.toString() ===
           ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
         instruction.data.length === 0 &&
-        instruction.keys.length === 7 &&
+        instruction.keys.length === 6 &&
         instruction.keys[4].pubkey.toString() ===
           SystemProgram.programId.toString() &&
         instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
