@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import LiteCard from '@onekeyfe/react-native-lite-card';
 import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
@@ -137,10 +137,13 @@ export default function useLiteCard() {
       });
     });
   }, [nfc, showResetWarningDialog]);
-  return {
-    backupWallet,
-    importWallet,
-    changePIN,
-    reset,
-  };
+  return useMemo(
+    () => ({
+      backupWallet,
+      importWallet,
+      changePIN,
+      reset,
+    }),
+    [backupWallet, importWallet, changePIN, reset],
+  );
 }

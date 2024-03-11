@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
@@ -41,5 +41,8 @@ export default function useReadMnemonic() {
     },
     [readWalletIdFromSelectWallet],
   );
-  return { readMnemonicWithWalletId };
+  return useMemo(
+    () => ({ readMnemonicWithWalletId }),
+    [readMnemonicWithWalletId],
+  );
 }
