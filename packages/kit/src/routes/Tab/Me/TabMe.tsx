@@ -24,7 +24,7 @@ import { useAddressBookList } from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { EDAppConnectionModal } from '../../../views/DAppConnection/router';
+import { EDAppConnectionModal } from '../../../views/DAppConnection/router/type';
 import { EOnboardingPages } from '../../../views/Onboarding/router/type';
 import { ELiteCardRoutes } from '../../../views/LiteCard/router/types';
 import { EModalRoutes } from '../../Modal/type';

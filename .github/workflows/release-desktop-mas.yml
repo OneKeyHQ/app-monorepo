@@ -182,6 +182,7 @@ jobs:
           xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
