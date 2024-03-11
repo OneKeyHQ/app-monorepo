@@ -323,7 +323,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         size: '$bodyMdMedium',
       })}
     >
-      {change}
+      {change as string}
     </NumberSizeableText>
   );
   changeDescription = (
@@ -338,7 +338,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {changeDescription}
+      {changeDescription as string}
     </NumberSizeableText>
   );
 
