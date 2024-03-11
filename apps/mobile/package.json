@@ -108,7 +108,8 @@
     "autolinking": {
       "android": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "@expo/video"
         ]
       },
       "ios": {
