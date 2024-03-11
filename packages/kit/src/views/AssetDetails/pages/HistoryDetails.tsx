@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isNil, set } from 'lodash';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -24,6 +24,8 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import {
   getHistoryTxDetailInfo,
   getOnChainHistoryTxAssetInfo,
@@ -39,9 +41,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalAssetDetailRoutes } from '../router/types';
 
-import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
 

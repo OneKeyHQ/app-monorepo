@@ -9,14 +9,12 @@ import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useLocaleOptions } from '../../../hooks';
 import { Section } from '../Section';
-
-import type { IModalSettingParamList } from '../../../router/types';
 
 type IThemeValue = 'light' | 'dark' | 'system';
 

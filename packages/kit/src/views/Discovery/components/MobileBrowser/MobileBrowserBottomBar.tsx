@@ -8,11 +8,15 @@ import type { IStackProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
@@ -24,10 +28,6 @@ import {
   useWebTabDataById,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 

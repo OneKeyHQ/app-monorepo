@@ -5,12 +5,6 @@ import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
 // TODO: move to shared
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import {
   backgroundClass,
   backgroundMethod,
@@ -21,6 +15,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSendRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';

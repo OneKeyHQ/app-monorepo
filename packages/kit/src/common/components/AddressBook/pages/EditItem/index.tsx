@@ -5,11 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
-} from '@onekeyhq/kit/src/common/components/AddressBook/router/types';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+} from '@onekeyhq/shared/src/routes/addressBook';
 
 import { CreateOrEditContent } from '../../components/CreateOrEditContent';
 

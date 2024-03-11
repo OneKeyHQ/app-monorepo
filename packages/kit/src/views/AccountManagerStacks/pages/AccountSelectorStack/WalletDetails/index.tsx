@@ -43,14 +43,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletOptions } from './WalletOptions';
 
-import type {
-  EAccountManagerStacksRoutes,
-  IAccountManagerStacksParamList,
-} from '../../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export interface IWalletDetailsProps {

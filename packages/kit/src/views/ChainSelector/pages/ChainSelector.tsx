@@ -20,7 +20,7 @@ import { ListNetworkView } from '../components/ListNetworkView';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
-} from '../router/type';
+} from '@onekeyhq/shared/src/routes';
 
 function getHeaderRightComponent(
   isEditMode: boolean,

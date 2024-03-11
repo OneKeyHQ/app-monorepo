@@ -4,11 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
-} from '@onekeyhq/kit/src/common/components/AddressBook/router/types';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+} from '@onekeyhq/shared/src/routes/addressBook';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
 import { PageLoading } from '../../components/PageLoading';
