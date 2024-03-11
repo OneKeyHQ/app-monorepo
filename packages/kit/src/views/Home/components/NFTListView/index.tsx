@@ -6,6 +6,7 @@ import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
@@ -72,7 +73,13 @@ function NFTListView(props: IProps) {
   }
 
   return (
-    <ScrollView h="100%" py="$3">
+    <ScrollView
+      h="100%"
+      py="$3"
+      scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
+      onContentSizeChange={onContentSizeChange}
+    >
       <NFTListHeader
         nfts={data}
         filteredNfts={filteredNfts}

@@ -151,7 +151,11 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           />
           <Page.Body>
             {platformEnv.isNative && (
-              <XStack justifyContent="space-between" px="$4" pt="$20">
+              <XStack
+                justifyContent="space-between"
+                px="$4"
+                pt={platformEnv.isNativeIOS ? '$20' : 0}
+              >
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
