@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -68,11 +69,22 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
     }
   } else if (isUTXO) {
     if (type === EOnChainHistoryTxType.Send) {
+      const filteredReceives = receives.filter((receive) => !receive.isOwn);
+      console.log(filteredReceives[0]);
       transferTarget =
-        receives.length > 1 ? `${receives.length} addresses` : receives[0].to;
+        filteredReceives.length > 1
+          ? `${filteredReceives.length} addresses`
+          : filteredReceives[0]
+          ? filteredReceives[0].to
+          : receives[0].to;
     } else if (type === EOnChainHistoryTxType.Receive) {
+      const filteredSends = sends.filter((send) => !send.isOwn);
       transferTarget =
-        sends.length > 1 ? `${sends.length} addresses` : sends[0].from;
+        filteredSends.length > 1
+          ? `${filteredSends.length} addresses`
+          : filteredSends[0]
+          ? filteredSends[0].from
+          : sends[0].from;
     }
   } else {
     transferTarget = to;
@@ -311,7 +323,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         size: '$bodyMdMedium',
       })}
     >
-      {change}
+      {change as string}
     </NumberSizeableText>
   );
   changeDescription = (
@@ -326,7 +338,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {changeDescription}
+      {changeDescription as string}
     </NumberSizeableText>
   );
 

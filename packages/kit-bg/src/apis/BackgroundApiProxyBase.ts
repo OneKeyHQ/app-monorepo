@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
 // TODO: remove components from background.
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Toast } from '@onekeyhq/components';
+// import { Toast } from '@onekeyhq/components';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getBackgroundServiceApi,
@@ -10,10 +9,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
-  type EAppEventBusNames,
+  EAppEventBusNames,
   EEventBusBroadcastMethodNames,
-  type IAppEventBusPayload,
   appEventBus,
+  type IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -25,13 +24,6 @@ import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 
 import { BackgroundServiceProxyBase } from './BackgroundServiceProxyBase';
 
-import type {
-  IBackgroundApi,
-  IBackgroundApiBridge,
-  IBackgroundApiInternalCallMessage,
-} from './IBackgroundApi';
-import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -40,6 +32,13 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type { EAtomNames } from '../states/jotai/atomNames';
+import type {
+  IBackgroundApi,
+  IBackgroundApiBridge,
+  IBackgroundApiInternalCallMessage,
+} from './IBackgroundApi';
 
 export class BackgroundApiProxyBase
   extends BackgroundServiceProxyBase
@@ -67,7 +66,8 @@ export class BackgroundApiProxyBase
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
       if (error && error?.autoToast) {
-        Toast.error({
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
           title: error?.message ?? 'Error',
         });
       }

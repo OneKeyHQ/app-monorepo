@@ -1,5 +1,13 @@
+import { useEffect } from 'react';
+
 import { RootSiblingParent } from 'react-native-root-siblings';
 
+import { Toast } from '@onekeyhq/components';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
@@ -15,6 +23,19 @@ const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
   100,
 );
+function ErrorToastContainer() {
+  useEffect(() => {
+    const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
+      Toast[p.method](p);
+    };
+    appEventBus.on(EAppEventBusNames.ShowToast, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowToast, fn);
+    };
+  }, []);
+
+  return null;
+}
 
 export function Container() {
   return (
@@ -27,6 +48,7 @@ export function Container() {
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <PageTrackerContainer />
+          <ErrorToastContainer />
         </NavigationContainer>
       </AppStateLockContainer>
     </RootSiblingParent>

@@ -11,7 +11,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
 import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
@@ -46,7 +46,7 @@ const AppAutoLockItem = () => {
   return isPasswordSet ? (
     <ListItem
       onPress={onPress}
-      icon="LockOutline"
+      icon="ClockTimeHistoryOutline"
       title={intl.formatMessage({ id: 'form__app_lock' })}
       drillIn
     >
@@ -158,6 +158,18 @@ const ConnectedSitesItem = () => {
   );
 };
 
+const SignatureRecordItem = () => {
+  const onPress = useCallback(() => {}, []);
+  return (
+    <ListItem
+      onPress={onPress}
+      icon="NoteOutline"
+      title="Signature Record"
+      drillIn
+    />
+  );
+};
+
 export const SecuritySection = () => {
   const intl = useIntl();
   return (
@@ -168,6 +180,7 @@ export const SecuritySection = () => {
       <AppAutoLockItem />
       <PasswordItem />
       <ConnectedSitesItem />
+      <SignatureRecordItem />
       <ProtectionItem />
       <CleanDataItem />
     </Section>

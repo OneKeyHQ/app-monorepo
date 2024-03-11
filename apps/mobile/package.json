@@ -25,6 +25,7 @@
     "rimraf": "^3"
   },
   "dependencies": {
+    "@expo/video": "^0.3.1",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
@@ -108,12 +109,14 @@
     "autolinking": {
       "android": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "@expo/video"
         ]
       },
       "ios": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "expo-av"
         ]
       }
     }

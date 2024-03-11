@@ -14,7 +14,7 @@ devUtils.execSync(`
 const version = process.env.VERSION;
 
 const browsers = [
-  'chrome-extension', // chrome v2 extension
+  // 'chrome-extension', // chrome v2 extension
   'chrome_v3-extension', // chrome v3 extension
   // 'firefox-addon', // firefox not supported anymore
   // 'edge-extension', // use chrome v2 extension

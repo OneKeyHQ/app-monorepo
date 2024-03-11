@@ -5,6 +5,7 @@ import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnecti
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useShouldUpdateConnectedAccount } from '../../Discovery/hooks/useDAppNotifyChanges';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
 
 const ItemSeparatorComponent = () => <Divider />;
@@ -25,6 +26,9 @@ function ConnectionList() {
   const { result, run } = usePromiseResult(
     async () => serviceDApp.getAllConnectedList(),
     [serviceDApp],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const handleDAppDisconnect = useCallback(
@@ -54,6 +58,8 @@ function ConnectionList() {
     [run, serviceDApp],
   );
 
+  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
+
   return (
     <Page>
       <Page.Header
@@ -74,6 +80,21 @@ function ConnectionList() {
             <ConnectionListItem
               item={item}
               handleDisconnect={handleDAppDisconnect}
+              handleAccountChanged={({
+                origin,
+                num,
+                handleAccountChangedParams,
+                prevAccountInfo,
+              }) => {
+                void handleAccountInfoChanged({
+                  origin,
+                  accountSelectorNum: num,
+                  prevAccountInfo,
+                  selectedAccount: handleAccountChangedParams,
+                  storageType: prevAccountInfo.storageType,
+                  afterUpdate: () => run(),
+                });
+              }}
             />
           )}
           ItemSeparatorComponent={ItemSeparatorComponent}

@@ -12,7 +12,7 @@ import {
   AddressInput,
   type IAddressInputValue,
   allAddressInputPlugins,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -100,6 +100,10 @@ function SendDataInputContainer() {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
           accountAddress: account.address,
+          xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
           contractList: [tokenInfo.address],
         });
       }
@@ -108,6 +112,7 @@ function SendDataInputContainer() {
     },
     [
       account,
+      accountId,
       isNFT,
       network,
       networkId,
