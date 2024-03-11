@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { ILocaleSymbol } from '../../../locale';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/locale';
 
 export type IContextValue = {
   theme: 'light' | 'dark';

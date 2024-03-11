@@ -3,9 +3,9 @@ import { useCallback } from 'react';
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '../actions/Toast';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale/locale';
 
-import type { ILocaleIds } from '../locale';
+import { Toast } from '../actions/Toast';
 
 const getClipboard = async () => {
   const str = await getStringAsync();
