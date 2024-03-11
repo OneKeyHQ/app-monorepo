@@ -12,7 +12,7 @@ import {
   AddressInput,
   type IAddressInputValue,
   allAddressInputPlugins,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';

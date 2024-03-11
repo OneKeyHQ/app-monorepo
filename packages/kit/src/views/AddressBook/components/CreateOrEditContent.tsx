@@ -19,7 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   AddressInput,
   type IAddressInputValue,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import type { IAddressItem } from '../type';

@@ -1,5 +1,5 @@
-import type { IModalAddressBookParamList } from '../../common/components/AddressBook/router/types';
 import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
+import type { IModalAddressBookParamList } from '../../views/AddressBook/router/types';
 import type { IModalAssetDetailsParamList } from '../../views/AssetDetails/router/types';
 import type { IModalAssetListParamList } from '../../views/AssetList/router/types';
 import type { IAssetSelectorParamList } from '../../views/AssetSelector/router/types';

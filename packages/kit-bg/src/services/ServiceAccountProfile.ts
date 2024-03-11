@@ -1,4 +1,4 @@
-import type { IAddressQueryResult } from '@onekeyhq/kit/src/common/components/AddressInput';
+import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,

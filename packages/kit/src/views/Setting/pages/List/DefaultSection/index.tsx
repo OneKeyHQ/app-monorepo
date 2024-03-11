@@ -4,8 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAddressBookList } from '@onekeyhq/kit/src/common/hooks/useAddressBook';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 const AddressBookItem = () => {

@@ -6,7 +6,7 @@ import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
   IAddressItem,
   ISectionItem,
-} from '@onekeyhq/kit/src/common/components/AddressBook/type';
+} from '@onekeyhq/kit/src/views/AddressBook/type';
 import {
   backgroundClass,
   backgroundMethod,
