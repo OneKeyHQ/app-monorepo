@@ -13,7 +13,7 @@ import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '../dbs/local/consts';
+} from '@onekeyhq/shared/src/consts/dbConsts';
 
 import { VaultFactory } from './base/VaultFactory';
 

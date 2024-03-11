@@ -639,4 +639,6 @@ module.exports = [
   'Accum',
   'coinselect',
   'vsize',
+  'consts',
+  'Consts',
 ];

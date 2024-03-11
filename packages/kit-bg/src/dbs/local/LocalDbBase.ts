@@ -30,13 +30,17 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
-  EDBAccountType,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+
+import {
+  EDBAccountType,
 } from './consts';
+
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {

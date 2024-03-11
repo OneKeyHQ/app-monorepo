@@ -4,16 +4,19 @@ import type {
 } from '@onekeyhq/core/src/secret';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
 import type {
-  EDBAccountType,
-  EDBCredentialType,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+
+import type {
+  EDBAccountType,
+  EDBCredentialType,
 } from './consts';
+
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAccountDerivation';
