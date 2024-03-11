@@ -9,7 +9,7 @@ export const PageLoading = () => {
       <Page.Header title={intl.formatMessage({ id: 'title__address_book' })} />
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignItems="center">
-          <Spinner />
+          <Spinner size="large" />
         </Stack>
       </Page.Body>
     </Page>
