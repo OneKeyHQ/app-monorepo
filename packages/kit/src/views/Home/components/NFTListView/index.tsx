@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -72,7 +73,13 @@ function NFTListView(props: IProps) {
   }
 
   return (
-    <ScrollView h="100%" py="$3">
+    <ScrollView
+      h="100%"
+      py="$3"
+      scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
+      onContentSizeChange={onContentSizeChange}
+    >
       <NFTListHeader
         nfts={data}
         filteredNfts={filteredNfts}
