@@ -14,7 +14,7 @@ import {
 import {
   AddressInput,
   type IAddressInputValue,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 
 import { Layout } from './utils/Layout';
 
