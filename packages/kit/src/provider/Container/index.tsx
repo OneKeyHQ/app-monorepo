@@ -26,6 +26,7 @@ const PageTrackerContainer = LazyLoad(
 function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       Toast[p.method](p);
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
