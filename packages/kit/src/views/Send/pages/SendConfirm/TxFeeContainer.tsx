@@ -87,10 +87,14 @@ function TxFeeContainer(props: IProps) {
         });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
-          encodedTx: unsignedTxs[0].encodedTx,
+          encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
+            {
+              accountId,
+              networkId,
+              encodedTx: unsignedTxs[0].encodedTx,
+            },
+          ),
         });
-
-        console.log('estimateFee', r);
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
@@ -113,7 +117,7 @@ function TxFeeContainer(props: IProps) {
         });
       }
     },
-    [networkId, unsignedTxs, updateSendFeeStatus],
+    [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       pollingInterval: 6000,
     },
@@ -236,6 +240,7 @@ function TxFeeContainer(props: IProps) {
     } = calculateFeeForSend({
       feeInfo: selectedFeeInfo,
       nativeTokenPrice: gasFee?.common.nativeTokenPrice ?? 0,
+      txSize: unsignedTxs[0]?.txSize,
     });
 
     return {
@@ -250,10 +255,11 @@ function TxFeeContainer(props: IProps) {
       feeSelectorValue: selectorValue,
     };
   }, [
-    gasFee?.common.nativeTokenPrice,
     feeSelectorItems,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
+    gasFee?.common.nativeTokenPrice,
+    unsignedTxs,
   ]);
 
   const handleSelectedFeeOnChange = useCallback(
@@ -300,8 +306,6 @@ function TxFeeContainer(props: IProps) {
 
   useEffect(() => {
     if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
-
-    console.log(nativeTokenTransferAmountToUpdate);
 
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend

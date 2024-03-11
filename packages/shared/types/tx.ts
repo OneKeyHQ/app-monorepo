@@ -70,7 +70,7 @@ export type IDecodedTx = {
 
   owner: string; // tx belongs to both receiver and sender
   signer: string; // creator, sender, fromAddress
-  // receiver: string; // receiver, toAddress
+  to?: string;
 
   nonce: number;
   actions: IDecodedTxAction[]; // inputActions
@@ -119,10 +119,12 @@ export type IDecodedTxTransferInfo = {
   to: string;
   amount: string;
   icon: string;
+  name: string;
   symbol: string;
   tokenIdOnNetwork: string;
   isNative?: boolean;
   isNFT?: boolean;
+  isOwn?: boolean; // for UTXO
   label?: string;
   price?: string;
 };

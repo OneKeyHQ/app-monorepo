@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -76,7 +77,7 @@ function TabItemView({
 function DownloadButton() {
   const intl = useIntl();
   const onPress = useCallback(() => {
-    openUrlExternal('https://onekey.so/download');
+    openUrlExternal(DOWNLOAD_URL);
   }, []);
   if (!platformEnv.isWeb) {
     return null;

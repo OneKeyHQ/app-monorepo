@@ -111,6 +111,7 @@ class ServiceSend extends ServiceBase {
     const txid = await this.broadcastTransactionLegacy({
       accountId,
       networkId,
+      accountAddress: '',
       signedTx: signedTxWithoutBroadcast,
     });
 
@@ -154,6 +155,7 @@ class ServiceSend extends ServiceBase {
                 tokenIdOnNetwork: '',
                 label: '',
                 amount: '1',
+                name: 'Ethereum',
                 symbol: 'ETH',
                 icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
               },
@@ -204,9 +206,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
-      utxosInfo,
       specifiedFeeRate,
-      feeUTXO,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -214,9 +214,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
-      utxosInfo,
       specifiedFeeRate,
-      feeUTXO,
     });
   }
 
@@ -231,12 +229,13 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx } = params;
+    const { networkId, signedTx, accountAddress } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
     }>('/wallet/v1/account/send-transaction', {
       networkId,
+      accountAddress,
       tx: signedTx.rawTx,
     });
 
@@ -286,12 +285,22 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
     const { networkId, accountId, unsignedTx } = params;
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
       unsignedTx,
     });
-    const txid = await this.broadcastTransaction({ networkId, signedTx });
+    const txid = await this.broadcastTransaction({
+      networkId,
+      signedTx,
+      accountAddress: account.address,
+    });
     return { ...signedTx, txid, swapInfo: unsignedTx.swapInfo };
   }
 
@@ -386,7 +395,6 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
-        withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
@@ -464,39 +472,11 @@ class ServiceSend extends ServiceBase {
     } = params;
 
     let newUnsignedTx = unsignedTx;
-    let utxosInfo;
-    let feeUTXO;
-
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
 
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
       networkId,
     });
-
-    if (vaultSettings.isUtxo) {
-      const { feeUTXORequired } = vaultSettings;
-      const [accountDetail, feeInfo] = await Promise.all([
-        this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId,
-          accountAddress: account.address,
-          withUTXOList: true,
-        }),
-        this.backgroundApi.serviceGas.estimateFee({ networkId }),
-      ]);
-
-      if (!accountDetail.utxoList) {
-        throw new Error('Failed to get UTXOs of the account.');
-      }
-
-      if (feeUTXORequired && !feeInfo.feeUTXO) {
-        throw new Error('Failed to get fee rate.');
-      }
-
-      utxosInfo = accountDetail.utxoList;
-      feeUTXO = feeInfo.feeUTXO;
-    }
 
     if (!newUnsignedTx) {
       newUnsignedTx = await this.buildUnsignedTx({
@@ -506,8 +486,6 @@ class ServiceSend extends ServiceBase {
         approveInfo,
         transfersInfo,
         wrappedInfo,
-        utxosInfo,
-        feeUTXO,
         specifiedFeeRate,
       });
     }

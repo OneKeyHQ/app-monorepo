@@ -1,3 +1,4 @@
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
@@ -88,6 +89,8 @@ export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   swapInfo?: ISwapTxInfo | undefined;
+  txSize?: number;
+  transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];

@@ -12,7 +12,6 @@ import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUt
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
-  IFeeUTXO,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
@@ -299,9 +298,6 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
-
-  utxosInfo?: IUtxoInfo[];
-  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
@@ -315,9 +311,6 @@ export interface IBuildUnsignedTxParams {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
-
-  utxosInfo?: IUtxoInfo[];
-  feeUTXO?: IFeeUTXO[];
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -329,6 +322,7 @@ export interface IUpdateUnsignedTxParams {
 }
 export interface IBroadcastTransactionParams {
   networkId: string;
+  accountAddress: string;
   signedTx: ISignedTxPro;
 }
 
