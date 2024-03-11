@@ -6,6 +6,11 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import * as Errors from '@onekeyhq/shared/src/errors';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -184,6 +189,11 @@ class ServiceApp extends ServiceBase {
     await localDb.reset();
     await appStorage.clear();
     this.restartApp();
+  }
+
+  @backgroundMethod()
+  async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
+    appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
 }
 
