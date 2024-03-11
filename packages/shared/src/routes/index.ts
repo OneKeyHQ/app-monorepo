@@ -13,4 +13,4 @@ export * from './root';
 export * from './scanQrCode';
 export * from './send';
 export * from './setting';
-export * from './test';
+export * from './testModal';

@@ -11,7 +11,7 @@ import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
-import type { ITestModalPagesParam } from './test';
+import type { ITestModalPagesParam } from './testModal';
 
 export enum EModalRoutes {
   MainModal = 'MainModal',
