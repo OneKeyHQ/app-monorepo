@@ -27,6 +27,6 @@
   },
   "devDependencies": {
     "folderslint": "^1.2.0",
-    "fetch:locale": "rimraf ./src/locale/jsons/*.json && npx lokalise-client fetch"
+    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
   }
 }
