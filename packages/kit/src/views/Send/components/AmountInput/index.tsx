@@ -3,7 +3,7 @@ import { type ComponentProps, memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Badge, IconButton, SizableText, XStack } from '@onekeyhq/components';
-import { BaseInput } from '@onekeyhq/kit/src/common/components/BaseInput';
+import { BaseInput } from '@onekeyhq/kit/src/components/BaseInput';
 
 type IAmountInputProps = {
   isUseFiat: boolean;
