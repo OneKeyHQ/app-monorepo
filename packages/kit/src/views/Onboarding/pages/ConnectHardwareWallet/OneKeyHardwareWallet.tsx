@@ -22,7 +22,7 @@ export function OneKeyHardwareWallet() {
   // If the `@expo/video` had added the `autoPlay` property in the future, we can remove the entire `useEffect`
   useEffect(() => {
     player.isMuted = true;
-    // On the web platform, we must add the setTimeout
+    // On the web platform, we must add the setTimeout because of empty `mountedVideos`
     setTimeout(() => {
       player.play();
     });
