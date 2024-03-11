@@ -44,7 +44,7 @@ const HardwareBridgeListItems = () => {
       </ListItem>
       <ListItem
         onPress={onPressBridgeStatus}
-        icon="ChartTrendingOutline"
+        icon="ApiConnectionOutline"
         title={intl.formatMessage({ id: 'form__hardware_bridge_status' })}
       >
         <ListItem.IconButton
@@ -78,7 +78,7 @@ export const AdvancedSection = () => {
     <Section title="Advanced">
       <ListItem
         onPress={onAccountDerivation}
-        icon="AlbumsOutline"
+        icon="OrganisationOutline"
         title="Account Derivation Path"
         drillIn
       />

@@ -25,3 +25,7 @@ export const HELP_CENTER_URL = 'https://help.onekey.so/hc';
 export const LITE_CARD_URL = 'https://lite.onekey.so/';
 export const BRIDGE_STATUS_URL = 'http://127.0.0.1:21320/status/';
 export const DOWNLOAD_URL = 'https://onekey.so/download';
+export const DISCORD_URL = 'https://www.discord.gg/onekey';
+export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
+export const GITHUB_URL = 'https://github.com/OneKeyHQ';
+export const ONEKEY_URL = 'https://onekey.so';
