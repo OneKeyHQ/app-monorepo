@@ -98,6 +98,11 @@ class ProviderApiWalletConnect {
         id: proposal.id,
         reason: getSdkError('UNSUPPORTED_CHAINS'),
       });
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: `ChainId: ${notSupportedChains[0]}`,
+        message: 'Unsupported yet',
+      });
       return;
     }
 
@@ -152,6 +157,11 @@ class ProviderApiWalletConnect {
           jsonrpc: '2.0',
           error: getSdkError('UNSUPPORTED_CHAINS'),
         },
+      });
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: `ChainId: ${request.params.chainId}`,
+        message: 'Unsupported yet',
       });
       return;
     }
