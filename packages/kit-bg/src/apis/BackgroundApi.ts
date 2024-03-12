@@ -182,6 +182,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceLiteCardMnemonic() {
+    const ServiceLiteCardMnemonic =
+      require('../services/ServiceLiteCardMnemonic') as typeof import('../services/ServiceLiteCardMnemonic');
+    const value = new ServiceLiteCardMnemonic.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLiteCardMnemonic', { value });
+    return value;
+  }
+
   get serviceValidator() {
     const ServiceValidator =
       require('../services/ServiceValidator') as typeof import('../services/ServiceValidator');
