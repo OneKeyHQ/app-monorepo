@@ -11,6 +11,10 @@ import {
   useSendConfirmActions,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
@@ -18,7 +22,6 @@ import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
 import TxSimulationContainer from './TxSimulationContainer';
 
-import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {

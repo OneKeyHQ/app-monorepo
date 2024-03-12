@@ -309,5 +309,32 @@ module.exports = {
         ],
       },
     },
+    {
+      files: [
+        'packages/kit-bg/src/**/*.ts',
+        'packages/kit-bg/src/**/*.tsx',
+        'packages/kit/src/**/*.ts',
+        'packages/kit/src/**/*.tsx',
+        'packages/core/src/**/*.ts',
+        'packages/core/src/**/*.tsx',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                allowTypeImports: true,
+                group: [
+                  'tamagui',
+                ],
+                message:
+                  'Please avoid using tamagui in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 };

@@ -1,9 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-
-import { EScanQrCodeModalPages } from './type';
-
-import type { IScanQrCodeModalParamList } from './type';
+import type { IScanQrCodeModalParamList } from '@onekeyhq/shared/src/routes';
+import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 
 const ScanQrCodeModal = LazyLoadPage(() => import('../pages/ScanQrCodeModal'));
 

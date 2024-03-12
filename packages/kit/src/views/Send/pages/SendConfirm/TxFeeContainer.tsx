@@ -10,7 +10,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useCustomFeeAtom,
   useNativeTokenInfoAtom,
@@ -27,13 +26,12 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 import { GasSelector } from '../../components/GasSelector';
-import { EModalSendRoutes } from '../../router';
-
-import type { IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;

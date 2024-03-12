@@ -1,7 +1,6 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
-import type { ILocaleSymbol } from '@onekeyhq/components';
-
+import type { ILocaleSymbol } from './type';
 import type { ResolvedIntlConfig } from '@formatjs/intl';
 import type { IntlShape } from 'react-intl';
 

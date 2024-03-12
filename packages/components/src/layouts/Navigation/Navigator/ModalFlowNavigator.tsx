@@ -2,6 +2,8 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+
 import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
@@ -11,7 +13,6 @@ import { createStackNavigator } from '../StackNavigator';
 import { hasStackNavigatorModal } from './CommonConfig';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
-import type { ILocaleIds } from '../../../locale';
 import type { IModalNavigationOptions } from '../ScreenProps';
 import type { ParamListBase } from '@react-navigation/routers';
 

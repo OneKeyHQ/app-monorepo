@@ -6,7 +6,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import type { IWalletProps } from '../../views/AccountManagerStacks/router/types';
+import type { IWalletProps } from '../../views/AccountManagerStacks/type';
 
 export type IWalletAvatarBaseProps = {
   size?: SizeTokens;

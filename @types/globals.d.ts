@@ -1,8 +1,8 @@
 /* eslint-disable no-var,vars-on-top */
-import type { ILocaleIds } from '@onekeyhq/components/src/locale';
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';

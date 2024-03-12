@@ -2,10 +2,9 @@ import { memo, useCallback, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EModalSettingRoutes } from '../../../views/Setting/router/types';
 
 import type { ITabMeParamList } from '../../../routes/Tab/Me/type';
 

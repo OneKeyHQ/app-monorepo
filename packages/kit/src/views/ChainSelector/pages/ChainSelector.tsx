@@ -4,6 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Page } from '@onekeyhq/components';
+import type {
+  EChainSelectorPages,
+  IChainSelectorParamList,
+} from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,11 +20,6 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { ListNetworkView } from '../components/ListNetworkView';
-
-import type {
-  EChainSelectorPages,
-  IChainSelectorParamList,
-} from '../router/type';
 
 function getHeaderRightComponent(
   isEditMode: boolean,

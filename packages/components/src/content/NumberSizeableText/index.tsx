@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IFormatterOptions } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatBalance,

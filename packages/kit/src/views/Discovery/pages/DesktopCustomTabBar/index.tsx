@@ -6,7 +6,6 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
@@ -17,15 +16,16 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { ScrollView as RNScrollView } from 'react-native';

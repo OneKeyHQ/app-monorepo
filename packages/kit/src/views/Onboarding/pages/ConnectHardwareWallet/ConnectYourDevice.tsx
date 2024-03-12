@@ -36,10 +36,9 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { EOnboardingPages } from '../../router/type';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';

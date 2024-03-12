@@ -1,6 +1,6 @@
 import { isString, isUndefined, omitBy } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';

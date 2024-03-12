@@ -19,7 +19,7 @@ import {
   zhHK,
 } from 'date-fns/locale';
 
-import type { ILocaleSymbol } from '@onekeyhq/components';
+import type { ILocaleSymbol } from './type';
 
 const DateLocaleMap: Record<Exclude<ILocaleSymbol, 'system'>, Locale> = {
   'en-US': enUS,

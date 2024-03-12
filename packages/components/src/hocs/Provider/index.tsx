@@ -4,19 +4,18 @@ import { memo, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
+import { LOCALES } from '@onekeyhq/shared/src/locale';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../../tamagui.config';
 import Toaster from '../../actions/Toast/Toaster';
-import { LOCALES } from '../../locale';
 
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
 import SidebarStateProvider from './SidebarStateProvider';
-
-import type { ILocaleSymbol } from '../../locale';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**

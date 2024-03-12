@@ -2,11 +2,9 @@ import { Core } from '@walletconnect/core';
 import { getSdkError } from '@walletconnect/utils';
 import { Web3Wallet } from '@walletconnect/web3wallet';
 
-// TODO: move to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,

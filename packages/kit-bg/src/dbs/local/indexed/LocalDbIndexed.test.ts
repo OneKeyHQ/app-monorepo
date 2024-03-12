@@ -1,5 +1,9 @@
+import {
+  DB_MAIN_CONTEXT_ID,
+  INDEXED_DB_VERSION,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+
 import * as consts from '../consts';
-import { DB_MAIN_CONTEXT_ID, INDEXED_DB_VERSION } from '../consts';
 
 import { LocalDbIndexed } from './LocalDbIndexed';
 

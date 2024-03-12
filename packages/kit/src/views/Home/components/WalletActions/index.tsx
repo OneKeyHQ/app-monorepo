@@ -17,7 +17,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { NetworkSelectorTriggerLegacy } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -26,17 +25,18 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EAssetSelectorRoutes,
+  EModalRoutes,
+  EModalSendRoutes,
+} from '@onekeyhq/shared/src/routes';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
 import { EModalReceiveRoutes } from '../../../Receive/router/type';
-import {
-  EModalSendRoutes,
-  type IModalSendParamList,
-} from '../../../Send/router';
 
 import { RawActions } from './RawActions';
 

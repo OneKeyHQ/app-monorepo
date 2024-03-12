@@ -1,4 +1,4 @@
-import type { IAddressItem } from '../type';
+import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 
 export enum EModalAddressBookRoutes {
   ListItemModal = 'ListItemModal',

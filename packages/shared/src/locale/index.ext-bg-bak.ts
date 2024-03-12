@@ -18,8 +18,5 @@ if (platformEnv.isExtensionBackground) {
   // throw new Error('components/locale is not allowed imported from background');
 }
 
-export type ILocaleSymbol = keyof typeof LOCALES;
-export type ILocaleIds = keyof typeof enUS;
-
 export default LOCALES;
 export { LOCALES_OPTION };

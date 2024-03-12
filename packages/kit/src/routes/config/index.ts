@@ -15,9 +15,9 @@ import {
   WALLET_CONNECT_DEEP_LINK,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
-import { ERootRoutes } from '../enum';
 import { rootRouter } from '../router';
 
 import { buildAllowList } from './allowList';

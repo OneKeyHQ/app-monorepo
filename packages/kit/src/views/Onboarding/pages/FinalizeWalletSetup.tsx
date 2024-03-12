@@ -15,13 +15,15 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-
-import type { EOnboardingPages, IOnboardingParamList } from '../router/type';
 
 function FinalizeWalletSetupPage({
   route,

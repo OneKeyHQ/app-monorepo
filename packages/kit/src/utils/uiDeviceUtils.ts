@@ -4,13 +4,13 @@ import { HardwareErrorCode, createDeferred } from '@onekeyfe/hd-shared';
 import BleManager from 'react-native-ble-manager';
 import semver from 'semver';
 
-import type { ILocaleIds } from '@onekeyhq/components';
 import { Toast } from '@onekeyhq/components';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';

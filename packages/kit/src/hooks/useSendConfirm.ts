@@ -6,10 +6,9 @@ import type {
   IApproveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { EModalRoutes } from '../routes/Modal/type';
-import { EModalSendRoutes } from '../views/Send/router';
 
 import useAppNavigation from './useAppNavigation';
 

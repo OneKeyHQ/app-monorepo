@@ -12,11 +12,11 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type { IBtcUTXO } from '@onekeyhq/kit-bg/src/vaults/impls/btc/types';
-
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
-} from '../router/types';
+} from '@onekeyhq/shared/src/routes/assetDetails';
+
 import type { RouteProp } from '@react-navigation/core';
 
 function UTXODetails() {

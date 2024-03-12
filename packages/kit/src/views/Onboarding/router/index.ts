@@ -1,9 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-
-import { EOnboardingPages } from './type';
-
-import type { IOnboardingParamList } from './type';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),

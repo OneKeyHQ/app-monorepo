@@ -1,8 +1,7 @@
 import { Empty } from '@onekeyhq/components';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
-import { EOnboardingPages } from '../../views/Onboarding/router/type';
 
 function EmptyWallet() {
   const navigation = useAppNavigation();

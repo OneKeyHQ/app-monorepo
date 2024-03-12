@@ -13,12 +13,12 @@ import {
   useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import type { IToken } from '@onekeyhq/shared/types/token';
-
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
-} from '../router/types';
+} from '@onekeyhq/shared/src/routes';
+import type { IToken } from '@onekeyhq/shared/types/token';
+
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
 

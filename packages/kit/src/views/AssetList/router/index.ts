@@ -1,10 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
+import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TokenListWithProvider } from '../pages/TokenList';
-
-import { EModalAssetListRoutes } from './types';
-
-import type { IModalAssetListParamList } from './types';
 
 export const ModalAssetListStack: IModalFlowNavigatorConfig<
   EModalAssetListRoutes,

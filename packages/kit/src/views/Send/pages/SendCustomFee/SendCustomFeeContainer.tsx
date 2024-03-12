@@ -17,12 +17,15 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
 import type { IGasEIP1559 } from '@onekeyhq/shared/types/fee';
 
 import { FeeOverviewContainer } from './FeeOverviewContainer';
 import { FeePredictionContainer } from './FeePredictionContainer';
 
-import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendCustomFeeContainer() {

@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import type { ILocaleIds } from '@onekeyhq/components';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import {
   EFeeType,
   type IFeeInfoUnit,

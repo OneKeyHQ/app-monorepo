@@ -8,9 +8,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 export function AccountSelectorCreateWalletButton() {
   const media = useMedia();
