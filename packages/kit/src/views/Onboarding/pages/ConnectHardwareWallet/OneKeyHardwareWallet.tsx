@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 
 import { Linking, StyleSheet } from 'react-native';
 
@@ -9,12 +9,9 @@ import {
   Page,
   SizableText,
   Stack,
-  ThemeableStack,
-  Video,
-  VideoResizeMode,
+  VideoView,
   XStack,
   useSafeAreaInsets,
-  VideoView,
 } from '@onekeyhq/components';
 
 const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
