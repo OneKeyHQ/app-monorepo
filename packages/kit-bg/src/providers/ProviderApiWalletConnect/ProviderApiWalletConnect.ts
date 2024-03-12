@@ -62,31 +62,31 @@ class ProviderApiWalletConnect {
     if (!this.web3Wallet) {
       throw new Error('web3Wallet is not initialized');
     }
-    this.web3Wallet.on('session_proposal', this.onSessionProposal.bind(this));
-    this.web3Wallet.on('session_request', this.onSessionRequest.bind(this));
-    this.web3Wallet.on('session_delete', this.onSessionDelete.bind(this));
+    this.web3Wallet.on('session_proposal', this.onSessionProposal);
+    this.web3Wallet.on('session_request', this.onSessionRequest);
+    this.web3Wallet.on('session_delete', this.onSessionDelete);
     this.web3Wallet.engine.signClient.events.on(
       'session_ping',
-      this.onSessionPing.bind(this),
+      this.onSessionPing,
     );
-    this.web3Wallet.on('auth_request', this.onAuthRequest.bind(this));
+    this.web3Wallet.on('auth_request', this.onAuthRequest);
   }
 
   unregisterEvents() {
     if (!this.web3Wallet) {
       throw new Error('web3Wallet is not initialized');
     }
-    this.web3Wallet.off('session_proposal', this.onSessionProposal.bind(this));
-    this.web3Wallet.off('session_request', this.onSessionRequest.bind(this));
-    this.web3Wallet.off('session_delete', this.onSessionDelete.bind(this));
+    this.web3Wallet.off('session_proposal', this.onSessionProposal);
+    this.web3Wallet.off('session_request', this.onSessionRequest);
+    this.web3Wallet.off('session_delete', this.onSessionDelete);
     this.web3Wallet.engine.signClient.events.off(
       'session_ping',
-      this.onSessionPing.bind(this),
+      this.onSessionPing,
     );
-    this.web3Wallet.off('auth_request', this.onAuthRequest.bind(this));
+    this.web3Wallet.off('auth_request', this.onAuthRequest);
   }
 
-  async onSessionProposal(proposal: Web3WalletTypes.SessionProposal) {
+  onSessionProposal = async (proposal: Web3WalletTypes.SessionProposal) => {
     console.log('onSessionProposal: ', JSON.stringify(proposal));
     // check if all required networks are supported
     const notSupportedChains =
@@ -133,9 +133,9 @@ class ProviderApiWalletConnect {
         reason: getSdkError('USER_REJECTED'),
       });
     }
-  }
+  };
 
-  async onSessionRequest(request: Web3WalletTypes.SessionRequest) {
+  onSessionRequest = async (request: Web3WalletTypes.SessionRequest) => {
     console.log('onSessionRequest: ', request);
     const { topic, id } = request;
     const { serviceWalletConnect } = this.backgroundApi;
@@ -208,23 +208,23 @@ class ProviderApiWalletConnect {
         },
       });
     }
-  }
+  };
 
-  onSessionDelete(args: Web3WalletTypes.SessionDelete) {
+  onSessionDelete = (args: Web3WalletTypes.SessionDelete) => {
     console.log('onSessionDelete: ', args);
     console.log(this.web3Wallet?.getActiveSessions());
     void this.backgroundApi.serviceWalletConnect.handleSessionDelete(
       args.topic,
     );
-  }
+  };
 
-  onAuthRequest(args: Web3WalletTypes.AuthRequest) {
+  onAuthRequest = (args: Web3WalletTypes.AuthRequest) => {
     console.log('onAuthRequest: ', args);
-  }
+  };
 
-  onSessionPing() {
+  onSessionPing = () => {
     console.log('ping');
-  }
+  };
 
   @backgroundMethod()
   async switchNetwork({
