@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type {
   IBaseValue,
@@ -37,7 +37,5 @@ export default function useScanQrCode() {
       }),
     [navigation, parseQRCode],
   );
-  return {
-    start,
-  };
+  return useMemo(() => ({ start }), [start]);
 }

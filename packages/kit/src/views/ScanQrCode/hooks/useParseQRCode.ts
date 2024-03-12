@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -108,7 +108,7 @@ const useParseQRCode = () => {
     },
     [navigation, clipboard, intl, account],
   );
-  return { parse };
+  return useMemo(() => ({ parse }), [parse]);
 };
 
 export default useParseQRCode;
