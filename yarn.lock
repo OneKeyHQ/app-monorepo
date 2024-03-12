@@ -4795,13 +4795,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.1":
-  version: 1.0.1
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.1"
+"@onekeyfe/react-native-lite-card@npm:1.0.3":
+  version: 1.0.3
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.3"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 5ec9fba49b6b5cb0b65b2de037d0bb250c36ada71cd26f771755451a407333cbe28e838e2827b1c993e8e7f259e816147bf0cd80465d59d5cf8e4995cf5e45c9
+  checksum: ef94055c15541d746a3ed3afdd1e983a7df67973a9b745ce752a4fce5ab4cbe14acdba6fba35c35d547e9224ca3abc9c4394a657411a902379cd877bb8e69a43
   languageName: node
   linkType: hard
 
@@ -5088,7 +5088,7 @@ __metadata:
     eth-chains: "npm:^1.0.0"
     expo-camera: "npm:14.0.3"
     folderslint: "npm:^1.2.0"
-    fuse.js: "npm:^6.5.3"
+    fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
     react-async-hook: "npm:^4.0.0"
@@ -5115,7 +5115,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.1"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.3"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.2"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -17596,10 +17596,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fuse.js@npm:^6.5.3":
-  version: 6.6.2
-  resolution: "fuse.js@npm:6.6.2"
-  checksum: 4768725963ee07dacfcb4abb001a12ea5e6e44c95d4e0918fcbfe0469107c5ad3ece2f1930396eb6c210383edf4c14ca083b91a2fc54950c5d021935a63d89de
+"fuse.js@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "fuse.js@npm:7.0.0"
+  checksum: d75d35f2d61afa85b8248f9cbfc7d4df29ae47ea574a15ad5c3c2a41930c5ed78668346295508b59ec4929fcb1a5cd6d9a8c649b5a3bc8b18e515f4e4cb9809d
   languageName: node
   linkType: hard
 

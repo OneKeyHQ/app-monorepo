@@ -1,3 +1,4 @@
+import Fuse from 'fuse.js';
 import { isNumber } from 'lodash';
 
 import type {
@@ -176,23 +177,32 @@ class ServiceDiscovery extends ServiceBase {
       | {
           generateIcon?: boolean;
           sliceCount?: number;
+          keyword?: string;
         }
       | undefined,
   ): Promise<IBrowserHistory[]> {
-    const { generateIcon, sliceCount } = options ?? {};
+    const { generateIcon, sliceCount, keyword } = options ?? {};
     const data = await this.backgroundApi.simpleDb.browserHistory.getRawData();
     let dataSource = data?.data ?? [];
+    if (keyword) {
+      const fuse = new Fuse(dataSource, {
+        keys: ['title', 'url'],
+      });
+      dataSource = fuse
+        .search(options?.keyword ?? 'uniswap')
+        .map((i) => i.item);
+    }
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);
     }
-    const bookmarks = await Promise.all(
+    const histories = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
         logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
       })),
     );
 
-    return bookmarks;
+    return histories;
   }
 
   @backgroundMethod()
