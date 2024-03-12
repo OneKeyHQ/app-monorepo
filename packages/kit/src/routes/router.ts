@@ -1,8 +1,8 @@
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ERootRoutes } from './enum';
 import { ModalNavigator } from './Modal/Navigator';
 import { TabNavigator } from './Tab/Navigator';
 

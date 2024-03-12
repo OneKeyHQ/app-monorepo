@@ -9,6 +9,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -19,10 +20,8 @@ import {
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
-import { EModalSettingRoutes } from '../../Setting/router/types';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 

@@ -1,9 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-
-import { EModalAddressBookRoutes } from './types';
-
-import type { IModalAddressBookParamList } from './types';
+import type { IModalAddressBookParamList } from '@onekeyhq/shared/src/routes/addressBook';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
 const AddressBookListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AddressBook/pages/ListItem'),

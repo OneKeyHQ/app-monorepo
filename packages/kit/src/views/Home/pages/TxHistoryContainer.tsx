@@ -7,14 +7,16 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 
 type IProps = {
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;

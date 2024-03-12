@@ -1,7 +1,7 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IKeyOfIcons, ILocaleIds } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   DescriptionList,
@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 export type ITxDetailsProps = {
   details: {

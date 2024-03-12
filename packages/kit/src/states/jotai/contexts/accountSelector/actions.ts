@@ -5,15 +5,6 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EAccountManagerStacksRoutes } from '@onekeyhq/kit/src/views/AccountManagerStacks/router/types';
-import type { IChainSelectorRouteParams } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
-import { EChainSelectorPages } from '@onekeyhq/kit/src/views/ChainSelector/router/type';
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -28,10 +19,21 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
+import {
+  EAccountManagerStacksRoutes,
+  EChainSelectorPages,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
