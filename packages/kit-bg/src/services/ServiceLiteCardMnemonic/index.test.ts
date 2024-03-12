@@ -36,4 +36,34 @@ describe('liteCardMnemonicEncodeDecode', () => {
       'juice nurse nasty ship hole deal device emerge easy head true fade',
     );
   });
+  it('should encode v01 correctly when the mnemonic ends with abandon', async () => {
+    expect(
+      await encodeMnemonic(
+        'oxygen vanish install dinner abandon drum abandon garage kid abandon abandon abandon',
+      ),
+    ).toEqual('302791640924776777142343849202ffff0100');
+  });
+  it('should decode v01 correctly when the mnemonic ends with abandon', async () => {
+    expect(
+      await decodeMnemonic('302791640924776777142343849202ffff0100'),
+    ).toEqual(
+      'oxygen vanish install dinner abandon drum abandon garage kid abandon abandon abandon',
+    );
+  });
+  it('should decode v02 correctly when the mnemonic ends with abandon', async () => {
+    expect(
+      await decodeMnemonic('9e5e29d59f2000870002fb7a40000000ffff0200'),
+    ).toEqual(
+      'oxygen vanish install dinner abandon drum abandon garage kid abandon abandon abandon',
+    );
+  });
+  it('should decode v00 correctly when the mnemonic ends with abandon', async () => {
+    expect(
+      await decodeMnemonic(
+        '6f787967656e2076616e69736820696e7374616c6c2064696e6e6572206162616e646f6e206472756d206162616e646f6e20676172616765206b6964206162616e646f6e206162616e646f6e206162616e646f6e',
+      ),
+    ).toEqual(
+      'oxygen vanish install dinner abandon drum abandon garage kid abandon abandon abandon',
+    );
+  });
 });
