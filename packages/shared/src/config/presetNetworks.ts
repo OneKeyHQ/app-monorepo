@@ -265,6 +265,165 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const doge: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'doge',
+    'decimals': 8,
+    'id': 'doge--0',
+    'impl': 'doge',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/doge/doge.png',
+    'name': 'Dogecoin',
+    'rpcURLs': [
+      {
+        'url': 'https://fiat.onekeycn.com/book/doge',
+      },
+      {
+        'url': 'https://node.onekey.so/doge',
+      },
+    ],
+    'shortcode': 'doge',
+    'shortname': 'DOGE',
+    'symbol': 'DOGE',
+    'feeMeta': {
+      'code': 'doge',
+      'decimals': 8,
+      'symbol': 'DOGE',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'dogecoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://dogeblocks.com/address/{address}',
+        'block': 'https://dogeblocks.com/block/{block}',
+        'name': 'https://dogeblocks.com/',
+        'transaction': 'https://dogeblocks.com/tx/{transaction}',
+      },
+      {
+        'address': 'https://dogechain.info/address/{address}',
+        'block': 'https://dogechain.info/block/{block}',
+        'name': 'https://dogechain.info/',
+        'transaction': 'https://dogechain.info/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+  const bch: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'bch',
+    'decimals': 8,
+    'id': 'bch--0',
+    'impl': 'bch',
+    'isTestnet': false,
+    'logoURI': 'https://common.onekey-asset.com/chain/bch.png',
+    'name': 'Bitcoin Cash',
+    'rpcURLs': [
+      {
+        'url': 'https://fiat.onekeycn.com/book/bch',
+      },
+      {
+        'url': 'https://node.onekey.so/bch',
+      },
+    ],
+    'shortcode': 'bch',
+    'shortname': 'BCH',
+    'symbol': 'BCH',
+    'feeMeta': {
+      'code': 'bch',
+      'decimals': 8,
+      'symbol': 'BCH',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin-cash',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://bchblockexplorer.com/address/{address}',
+        'block': 'https://bchblockexplorer.com/block/{block}',
+        'name': 'https://bchblockexplorer.com/',
+        'transaction': 'https://bchblockexplorer.com/tx/{transaction}',
+      },
+      {
+        'address':
+          'https://blockexplorer.one/bitcoin-cash/mainnet/address/{address}',
+        'block':
+          'https://blockexplorer.one/bitcoin-cash/mainnet/blockHash/{block}',
+        'name': 'https://blockexplorer.one/bitcoin-cash/mainnet',
+        'transaction':
+          'https://blockexplorer.one/bitcoin-cash/mainnet/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+  const ltc: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'ltc',
+    'decimals': 8,
+    'id': 'ltc--0',
+    'impl': 'ltc',
+    'isTestnet': false,
+    'logoURI': 'https://common.onekey-asset.com/chain/ltc.png',
+    'name': 'Litecoin',
+    'rpcURLs': [
+      {
+        'url': 'https://fiat.onekeycn.com/book/ltc',
+      },
+      {
+        'url': 'https://node.onekey.so/ltc',
+      },
+    ],
+    'shortcode': 'ltc',
+    'shortname': 'LTC',
+    'symbol': 'LTC',
+    'feeMeta': {
+      'code': 'ltc',
+      'decimals': 8,
+      'symbol': 'LTC',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'litecoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://litecoinblockexplorer.net/address/{address}',
+        'block': 'https://litecoinblockexplorer.net/block/{block}',
+        'name': 'https://litecoinblockexplorer.net/',
+        'transaction': 'https://litecoinblockexplorer.net/tx/{transaction}',
+      },
+      {
+        'address':
+          'https://blockexplorer.one/litecoin/mainnet/address/{address}',
+        'block': 'https://blockexplorer.one/litecoin/mainnet/blockHash/{block}',
+        'name': 'https://blockexplorer.one/litecoin/mainnet',
+        'transaction':
+          'https://blockexplorer.one/litecoin/mainnet/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const tatom: IServerNetwork = {
     'balance2FeeDecimals': 0,
     'chainId': 'theta-testnet-001',
@@ -544,5 +703,17 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  return [eth, goerli, btc, tbtc, tatom, cosmoshub, osmosis, polygon];
+  return [
+    eth,
+    goerli,
+    btc,
+    tbtc,
+    doge,
+    bch,
+    ltc,
+    tatom,
+    cosmoshub,
+    osmosis,
+    polygon,
+  ];
 });

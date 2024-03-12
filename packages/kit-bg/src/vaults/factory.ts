@@ -8,6 +8,7 @@ import {
 import {
   IMPL_BTC,
   IMPL_COSMOS,
+  IMPL_DOGE,
   IMPL_EVM,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -68,6 +69,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_EVM]: () => import('./impls/evm/Vault') as any,
     [IMPL_BTC]: () => import('./impls/btc/Vault') as any,
     [IMPL_TBTC]: () => import('./impls/tbtc/Vault') as any,
+    [IMPL_DOGE]: () => import('./impls/doge/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
   };
   const loader = vaultsLoader[network.impl];
