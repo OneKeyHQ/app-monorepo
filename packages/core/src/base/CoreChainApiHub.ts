@@ -27,19 +27,13 @@ export class CoreChainApiHub {
 
   btc = new CoreChainBtc();
 
-  doge = new CoreChainDoge();
+  cosmos = new CoreChainCosmos();
 
   bch = new CoreChainBch();
 
   ltc = new CoreChainLtc();
 
-  cosmos = new CoreChainCosmos();
-
-  // bch = new CoreChainBch();
-
-  // ltc = new CoreChainLtc();
-
-  // doge = new CoreChainDoge();
+  doge = new CoreChainDoge();
 
   // algo = new CoreChainAlgo();
 
