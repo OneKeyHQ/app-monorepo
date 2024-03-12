@@ -99,7 +99,6 @@ const ImageGallery = () => (
           </YStack>
         ),
       },
-
       {
         title: 'Loading Fallback',
         element: (
@@ -108,6 +107,20 @@ const ImageGallery = () => (
               <Image.Source
                 delayMs={2500}
                 src="https://onekey-asset.com/assets/btc/btc.png"
+              />
+              <Image.Skeleton />
+            </Image>
+          </YStack>
+        ),
+      },
+      {
+        title: 'onError',
+        element: (
+          <YStack>
+            <Image height="$10" width="$10">
+              <Image.Source
+                delayMs={2500}
+                src="https://onekey-asset.com/assets/btc/bt"
               />
               <Image.Skeleton />
             </Image>

@@ -15,6 +15,7 @@ export function ImageSource({
   delayMs,
   ...props
 }: IImageSourceProps) {
+  const hasError = useRef(false);
   const startTime = useRef(Date.now());
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -26,7 +27,14 @@ export function ImageSource({
     setLoading?.(true);
   }, [setLoading]);
 
+  const handleError = useCallback(() => {
+    hasError.current = true;
+  }, []);
+
   const handleLoadEnd = useCallback(() => {
+    if (hasError.current) {
+      return;
+    }
     if (delayMs) {
       const diff = Date.now() - startTime.current;
       setTimeout(
@@ -53,6 +61,7 @@ export function ImageSource({
       borderRadius={style.borderRadius as number}
       width={undefined}
       height={undefined}
+      onError={handleError}
       onLoadStart={handleLoadStart}
       onLoadEnd={handleLoadEnd}
       style={style as StyleProp<ImageStyle>}
