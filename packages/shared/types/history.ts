@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/components';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import type { IAccountNFT } from './nft';
 import type { IToken } from './token';

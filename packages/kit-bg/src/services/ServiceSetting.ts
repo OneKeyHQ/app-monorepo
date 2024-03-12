@@ -1,9 +1,5 @@
 import { isFunction } from 'lodash';
 
-import type { ILocaleSymbol } from '@onekeyhq/components';
-// TODO: move locale to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { LOCALES } from '@onekeyhq/components/src/locale';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -11,14 +7,15 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-// TODO: move locale to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
@@ -44,7 +41,8 @@ class ServiceSetting extends ServiceBase {
 
   async refreshLocaleMessages() {
     const { locale: rawLocale } = await settingsPersistAtom.get();
-    const locale = rawLocale === 'system' ? getDefaultLocale() : rawLocale;
+    const locale: ILocaleSymbol =
+      rawLocale === 'system' ? getDefaultLocale() : rawLocale;
 
     const messagesBuilder = await (LOCALES[locale] as unknown as Promise<
       (() => Promise<Record<string, string>>) | Promise<Record<string, string>>
@@ -209,6 +207,26 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+  }
+
+  @backgroundMethod()
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
+  ): Promise<boolean> {
+    const isPasswordSet =
+      await this.backgroundApi.servicePassword.checkPasswordSet();
+    if (!reason || !isPasswordSet) {
+      return false;
+    }
+    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+      await settingsPersistAtom.get();
+
+    return (
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction)
+    );
   }
 }
 

@@ -19,6 +19,7 @@ import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -85,6 +86,10 @@ class BackgroundApiProxy
   serviceScanQRCode = this._createProxyService(
     'serviceScanQRCode',
   ) as ServiceScanQRCode;
+
+  serviceLiteCardMnemonic = this._createProxyService(
+    'serviceLiteCardMnemonic',
+  ) as ServiceLiteCardMnemonic;
 
   serviceNameResolver = this._createProxyService(
     'serviceNameResolver',

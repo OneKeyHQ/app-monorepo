@@ -1,13 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import type {
   IBaseValue,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import {
+  EModalRoutes,
+  EScanQrCodeModalPages,
+} from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EScanQrCodeModalPages } from '../router/type';
 
 import useParseQRCode from './useParseQRCode';
 
@@ -35,7 +37,5 @@ export default function useScanQrCode() {
       }),
     [navigation, parseQRCode],
   );
-  return {
-    start,
-  };
+  return useMemo(() => ({ start }), [start]);
 }

@@ -52,6 +52,7 @@ function TokenListView(props: IProps) {
       py="$3"
       estimatedItemSize={48}
       scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
       data={filteredTokens}
       ListHeaderComponent={
         withHeader && tokens.length > 0 ? (

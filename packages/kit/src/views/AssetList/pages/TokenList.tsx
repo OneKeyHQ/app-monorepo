@@ -4,6 +4,11 @@ import { useRoute } from '@react-navigation/core';
 
 import { Page, Popover, SizableText, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type {
+  EModalAssetListRoutes,
+  IModalAssetListParamList,
+} from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -12,12 +17,7 @@ import {
   useTokenListActions,
   withTokenListProvider,
 } from '../../../states/jotai/contexts/tokenList';
-import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 
-import type {
-  EModalAssetListRoutes,
-  IModalAssetListParamList,
-} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 function TokenList() {

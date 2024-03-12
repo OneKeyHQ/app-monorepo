@@ -9,10 +9,9 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { EModalRoutes } from '../routes/Modal/type';
-import { EModalSendRoutes } from '../views/Send/router';
 
 import useAppNavigation from './useAppNavigation';
 

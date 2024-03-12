@@ -15,10 +15,9 @@ import {
   useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
-
-import { type IModalSendParamList } from '../../router';
 
 type IProps = {
   accountId: string;

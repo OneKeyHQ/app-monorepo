@@ -11,22 +11,25 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
+import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EDAppConnectionModal,
+  ELiteCardRoutes,
+  EModalRoutes,
+  EModalSettingRoutes,
+  EOnboardingPages,
+} from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { useAddressBookList } from '../../../common/hooks/useAddressBook';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { EDAppConnectionModal } from '../../../views/DAppConnection/router/type';
-import { EOnboardingPages } from '../../../views/Onboarding/router/type';
-import { EModalRoutes } from '../../Modal/type';
 import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
@@ -171,6 +174,15 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.LiteCardModal, {
+                screen: ELiteCardRoutes.LiteCardHome,
+              });
+            }}
+          >
+            Lite 卡片
           </Button>
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}

@@ -16,6 +16,19 @@ export const ResourceSection = () => {
   const intl = useIntl();
   return (
     <Section title="Resources">
+      <ListItem
+        onPress={onPress}
+        icon="SpeakerPromoteOutline"
+        title="What’s New"
+        drillIn
+      >
+        <ListItem.Text>4.17</ListItem.Text>
+      </ListItem>
+      <ListItem
+        onPress={onPress}
+        icon="HelpSupportOutline"
+        title="Help Center"
+      />
       <UrlExternalListItem
         icon="EditOutline"
         title="Submit a Request"
@@ -23,21 +36,21 @@ export const ResourceSection = () => {
       />
       <ListItem
         onPress={onPress}
-        icon="ThumbUpOutline"
+        icon="StarOutline"
         title={intl.formatMessage({ id: 'form__rate_our_app' })}
       />
       <UrlExternalListItem
-        icon="AddedPeopleOutline"
+        icon="PeopleOutline"
         title={intl.formatMessage({ id: 'form__user_agreement' })}
         url={userAgreementUrl}
       />
       <UrlExternalListItem
-        icon="Shield2CheckOutline"
+        icon="FileTextOutline"
         title={intl.formatMessage({ id: 'terms__privacy_policy' })}
         url={privacyPolicyUrl}
       />
       <ListItem
-        icon="Document2Outline"
+        icon="FileDownloadOutline"
         onPress={onPress}
         title={intl.formatMessage({ id: 'content__state_logs' })}
       />

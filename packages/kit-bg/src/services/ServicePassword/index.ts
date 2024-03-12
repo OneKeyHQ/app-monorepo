@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import {
@@ -310,7 +311,9 @@ export default class ServicePassword extends ServiceBase {
 
   // ui ------------------------------
   @backgroundMethod()
-  async promptPasswordVerify(): Promise<IPasswordRes> {
+  async promptPasswordVerify(
+    reason?: EReasonForNeedPassword,
+  ): Promise<IPasswordRes> {
     // check ext ui open
     if (
       platformEnv.isExtension &&
@@ -320,14 +323,18 @@ export default class ServicePassword extends ServiceBase {
       throw new OneKeyError.OneKeyInternalError();
     }
 
-    // TODO check field(settings protection)
-    const cachedPassword = await this.getCachedPassword();
-    if (cachedPassword) {
-      ensureSensitiveTextEncoded(cachedPassword);
-      return Promise.resolve({
-        password: cachedPassword,
-      });
+    const needReenterPassword =
+      await this.backgroundApi.serviceSetting.isAlwaysReenterPassword(reason);
+    if (!needReenterPassword) {
+      const cachedPassword = await this.getCachedPassword();
+      if (cachedPassword) {
+        ensureSensitiveTextEncoded(cachedPassword);
+        return Promise.resolve({
+          password: cachedPassword,
+        });
+      }
     }
+
     const isPasswordSet = await this.checkPasswordSet();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
@@ -347,7 +354,13 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async promptPasswordVerifyByWallet({ walletId }: { walletId: string }) {
+  async promptPasswordVerifyByWallet({
+    walletId,
+    reason = EReasonForNeedPassword.CreateOrRemoveWallet,
+  }: {
+    walletId: string;
+    reason?: EReasonForNeedPassword;
+  }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     let password = '';
     let deviceParams: IDeviceSharedCallParams | undefined;
@@ -359,7 +372,7 @@ export default class ServicePassword extends ServiceBase {
         });
     } else {
       // if (isHdWallet || walletId === WALLET_TYPE_IMPORTED) {
-      ({ password } = await this.promptPasswordVerify());
+      ({ password } = await this.promptPasswordVerify(reason));
     }
     return {
       password,
@@ -369,9 +382,15 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async promptPasswordVerifyByAccount({ accountId }: { accountId: string }) {
+  async promptPasswordVerifyByAccount({
+    accountId,
+    reason,
+  }: {
+    accountId: string;
+    reason?: EReasonForNeedPassword;
+  }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    return this.promptPasswordVerifyByWallet({ walletId });
+    return this.promptPasswordVerifyByWallet({ walletId, reason });
   }
 
   async showPasswordPromptDialog(params: {

@@ -1,8 +1,6 @@
 import { deleteDB, openDB } from 'idb';
 import { difference, isNil } from 'lodash';
 
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
@@ -11,7 +9,9 @@ import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '../consts';
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
