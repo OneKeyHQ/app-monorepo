@@ -14,6 +14,8 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 type IOptionItem = {
@@ -31,6 +33,7 @@ type IOptionSection = {
 
 export function ImportWalletOptions() {
   const navigation = useAppNavigation();
+  const liteCard = useLiteCard();
 
   const handleConnectHardwareWalletPress = () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -92,12 +95,16 @@ export function ImportWalletOptions() {
             });
           },
         },
-        {
-          icon: 'OnekeyLiteOutline',
-          title: 'OneKey Lite',
-          description: 'Import recovery phrase from your OneKey Lite',
-          onPress: () => console.log('pressed'),
-        },
+        ...(platformEnv.isNative
+          ? [
+              {
+                title: 'OneKey Lite',
+                icon: 'OnekeyLiteOutline',
+                description: 'Import recovery phrase from your OneKey Lite',
+                onPress: liteCard.importWallet,
+              } as IOptionItem,
+            ]
+          : []),
         {
           icon: 'OnekeyKeytagOutline',
           title: 'OneKey KeyTag',
