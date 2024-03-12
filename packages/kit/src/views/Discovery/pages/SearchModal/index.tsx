@@ -47,19 +47,22 @@ function SearchModal() {
         generateIcon: true,
         sliceCount: 8,
       });
-      const historyData = await serviceDiscovery.getHistoryData({
-        generateIcon: true,
-        sliceCount: 8,
-      });
       return {
         bookmarkData,
-        historyData,
       };
     }, [serviceDiscovery]);
 
   const { result: searchResult } = usePromiseResult(async () => {
-    const ret = await serviceDiscovery.searchDApp(searchValue);
-    return ret;
+    const res = await serviceDiscovery.searchDApp(searchValue);
+    const historyData = await serviceDiscovery.getHistoryData({
+      generateIcon: true,
+      sliceCount: 8,
+      keyword: searchValue ?? undefined,
+    });
+    return {
+      remoteData: res,
+      historyData,
+    };
   }, [searchValue, serviceDiscovery]);
 
   const jumpPageRef = useRef(false);
@@ -91,7 +94,7 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult ?? []),
+        ...(searchResult?.remoteData ?? []),
       ]);
     })();
   }, [searchValue, searchResult]);
@@ -99,8 +102,7 @@ function SearchModal() {
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
-  const displayHistoryList =
-    (localData?.historyData ?? []).length > 0 && !displaySearchList;
+  const displayHistoryList = (searchResult?.historyData ?? []).length > 0;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
@@ -237,7 +239,7 @@ function SearchModal() {
                 });
               }}
             />
-            {localData?.historyData?.map((item, index) => (
+            {searchResult?.historyData?.map((item, index) => (
               <ListItem
                 key={index}
                 avatarProps={{

@@ -25,11 +25,11 @@
     "rimraf": "^3"
   },
   "dependencies": {
-    "@expo/video": "^0.3.1",
+    "@expo/video": "^0.0.1-canary-20240308-6715875",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
-    "@onekeyfe/react-native-lite-card": "1.0.1",
+    "@onekeyfe/react-native-lite-card": "1.0.3",
     "@onekeyfe/react-native-tab-page-view": "1.0.2",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
@@ -42,7 +42,6 @@
     "burnt": "0.12.2",
     "expo": "50.0.5",
     "expo-application": "5.8.3",
-    "expo-av": "13.6.0",
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
     "expo-clipboard": "5.0.1",
@@ -109,14 +108,12 @@
     "autolinking": {
       "android": {
         "exclude": [
-          "expo-camera",
-          "@expo/video"
+          "expo-camera"
         ]
       },
       "ios": {
         "exclude": [
-          "expo-camera",
-          "expo-av"
+          "expo-camera"
         ]
       }
     }

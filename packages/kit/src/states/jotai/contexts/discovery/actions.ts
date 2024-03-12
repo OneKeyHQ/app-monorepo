@@ -4,6 +4,7 @@ import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -222,10 +223,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
-      if (pinnedTabs.length) {
-        pinnedTabs[pinnedTabs.length - 1].isActive = true;
-        this.setCurrentWebTab.call(set, pinnedTabs[pinnedTabs.length - 1].id);
-      }
+      this.setCurrentWebTab.call(set, null);
     }
     for (const id of Object.getOwnPropertyNames(webviewRefs)) {
       if (!pinnedTabs.find((tab) => tab.id === id)) {
@@ -576,6 +574,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           handlePhishingUrl?.(url);
           return;
         }
+        if (uriUtils.isValidDeepLink(url)) {
+          handleDeepLinkUrl({ url });
+          return;
+        }
       }
 
       if (isValidNewUrl) {
@@ -685,6 +687,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
     },
   );
+
+  validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
+    if (!url) return false;
+    const cache = get(phishingLruCacheAtom());
+    const { action } = uriUtils.parseDappRedirect(
+      url,
+      Array.from(cache.keys()),
+    );
+    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+      return false;
+    }
+    if (uriUtils.isValidDeepLink(url)) {
+      return true;
+    }
+    return true;
+  });
 }
 
 const createActions = memoFn(() => {
@@ -762,6 +780,7 @@ export function useBrowserAction() {
   const addUrlToPhishingCache = actions.addUrlToPhishingCache.use();
   const pauseDappInteraction = actions.pauseDappInteraction.use();
   const resumeDappInteraction = actions.resumeDappInteraction.use();
+  const validateWebviewSrc = actions.validateWebviewSrc.use();
 
   return useRef({
     gotoSite,
@@ -771,5 +790,6 @@ export function useBrowserAction() {
     addUrlToPhishingCache,
     pauseDappInteraction,
     resumeDappInteraction,
+    validateWebviewSrc,
   });
 }

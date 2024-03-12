@@ -6,6 +6,7 @@ import type { IAssetSelectorParamList } from './assetSelector';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
+import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
@@ -25,6 +26,7 @@ export enum EModalRoutes {
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
+  LiteCardModal = 'LiteCardModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
 }
@@ -42,6 +44,7 @@ export type IModalParamList = {
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
+  [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
 };
