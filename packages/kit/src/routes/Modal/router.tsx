@@ -9,6 +9,7 @@ import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
+import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -61,6 +62,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.ScanQrCodeModal,
     children: ScanQrCodeModalRouter,
+  },
+  {
+    name: EModalRoutes.LiteCardModal,
+    children: LiteCardPages,
   },
   {
     name: EModalRoutes.AddressBookModal,
