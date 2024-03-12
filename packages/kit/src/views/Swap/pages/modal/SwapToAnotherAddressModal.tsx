@@ -1,11 +1,10 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Form, Page, useForm } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/common/components/AddressInput';
 import {
   AddressInput,
@@ -36,12 +35,9 @@ const SwapToAnotherAddressPage = () => {
 
   const route =
     useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
-  const type = useMemo(
-    () => route.params?.type ?? ESwapDirectionType.FROM,
-    [route.params?.type],
-  );
+  const paramAddress = route.params?.address;
   const { accountInfo, networkId, address } = useSwapAddressInfo(
     ESwapDirectionType.TO,
   );
@@ -61,20 +57,10 @@ const SwapToAnotherAddressPage = () => {
   });
 
   useEffect(() => {
-    if (address) {
+    if (address && address !== paramAddress) {
       form.setValue('address', { raw: address });
     }
-  }, [address, form]);
-
-  const handleOnCreateAddress = useCallback(async () => {
-    if (!accountInfo) return;
-    await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
-      walletId: accountInfo.wallet?.id,
-      indexedAccountId: accountInfo.indexedAccount?.id,
-      deriveType: accountInfo.deriveType,
-      networkId: accountInfo.network?.id,
-    });
-  }, [accountInfo]);
+  }, [address, form, paramAddress]);
 
   const handleOnOpenAccountSelector = useCallback(() => {
     setSettings((v) => ({
@@ -106,57 +92,46 @@ const SwapToAnotherAddressPage = () => {
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
-      <Page.Body px="$5">
-        <Button onPress={handleOnCreateAddress} variant="tertiary">{`Create ${
-          accountInfo.network?.name ?? 'unknown'
-        } address for ${accountInfo.wallet?.name ?? 'unknown'} - ${
-          accountInfo.accountName
-        }`}</Button>
-        {type === ESwapDirectionType.TO ? (
-          <>
-            <Button
-              mt="$4"
-              onPress={handleOnOpenAccountSelector}
-              variant="tertiary"
-            >
-              Select Another Account
-            </Button>
-            <Form form={form}>
-              <Form.Field
-                label="Enter a address"
-                name="address"
-                rules={{
-                  required: true,
-                  validate: (value: IAddressInputValue) => {
-                    if (value.pending) {
-                      return;
-                    }
-                    if (!value.resolved) {
-                      return intl.formatMessage({
-                        id: 'form__address_invalid',
-                      });
-                    }
-                  },
-                }}
-              >
-                <AddressInput
-                  networkId={accountInfo?.network?.id}
-                  enableAddressBook
-                  plugins={allAddressInputPlugins}
-                />
-              </Form.Field>
-            </Form>
-          </>
-        ) : null}
+      <Page.Body px="$5" space="$4">
+        <Button
+          mt="$4"
+          onPress={handleOnOpenAccountSelector}
+          variant="tertiary"
+        >
+          Select Another Account
+        </Button>
+        <Form form={form}>
+          <Form.Field
+            label="Enter a address"
+            name="address"
+            rules={{
+              required: true,
+              validate: (value: IAddressInputValue) => {
+                if (value.pending) {
+                  return;
+                }
+                if (!value.resolved) {
+                  return intl.formatMessage({
+                    id: 'form__address_invalid',
+                  });
+                }
+              },
+            }}
+          >
+            <AddressInput
+              networkId={accountInfo?.network?.id}
+              enableAddressBook
+              plugins={allAddressInputPlugins}
+            />
+          </Form.Field>
+        </Form>
       </Page.Body>
-      {type === ESwapDirectionType.TO ? (
-        <Page.Footer
-          onConfirm={() => form.handleSubmit(handleOnConfirm)()}
-          onConfirmText={intl.formatMessage({
-            id: 'action__confirm',
-          })}
-        />
-      ) : null}
+      <Page.Footer
+        onConfirm={() => form.handleSubmit(handleOnConfirm)()}
+        onConfirmText={intl.formatMessage({
+          id: 'action__confirm',
+        })}
+      />
     </Page>
   ) : (
     <Button

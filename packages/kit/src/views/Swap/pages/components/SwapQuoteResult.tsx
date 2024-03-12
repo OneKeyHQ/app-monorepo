@@ -63,7 +63,7 @@ const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
   );
 
   return !quoteResult ? null : (
-    <YStack m="$4" p="$2" space="$4">
+    <YStack space="$4">
       {quoteResult.allowanceResult ? (
         <SwapApproveAllowanceSelect
           onSelectAllowanceValue={onSelectAllowanceValue}
@@ -91,23 +91,28 @@ const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
             onOpenChange={(open) => {
               setSwapSlippagePopOverOpening(open);
             }}
-            renderTrigger={<SwapSlippageTriggerContainer />}
+            renderTrigger={
+              <SwapSlippageTriggerContainer isLoading={quoteFetching} />
+            }
             renderContent={() => <SwapSlippageContentContainer />}
             keepChildrenMounted
           />
-          <SwapCommonInfoItem
-            title="Est network fee"
-            valueComponent={
-              <NumberSizeableText
-                formatter="value"
-                formatterOptions={{
-                  currency: settingsPersistAtom.currencyInfo.symbol,
-                }}
-              >
-                {quoteResult.fee.estimatedFeeFiatValue ?? '0'}
-              </NumberSizeableText>
-            }
-          />
+          {quoteResult.fee.estimatedFeeFiatValue ? (
+            <SwapCommonInfoItem
+              title="Est network fee"
+              isLoading={quoteFetching}
+              valueComponent={
+                <NumberSizeableText
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settingsPersistAtom.currencyInfo.symbol,
+                  }}
+                >
+                  {quoteResult.fee.estimatedFeeFiatValue}
+                </NumberSizeableText>
+              }
+            />
+          ) : null}
         </YStack>
       ) : null}
     </YStack>

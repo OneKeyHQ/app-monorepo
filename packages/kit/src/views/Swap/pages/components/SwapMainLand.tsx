@@ -59,7 +59,13 @@ const SwapMainLoad = () => {
   }, [wrappedTx]);
 
   return (
-    <YStack marginHorizontal="auto" maxWidth="100%" width={576} space="$4">
+    <YStack
+      px="$4"
+      marginHorizontal="auto"
+      maxWidth="100%"
+      width={576}
+      space="$4"
+    >
       <SwapQuoteInput onSelectToken={onSelectToken} />
       <SwapAlertContainer />
       <SwapQuoteResult onOpenProviderList={onOpenProviderList} />

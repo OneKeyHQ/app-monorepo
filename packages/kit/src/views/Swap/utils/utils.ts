@@ -13,7 +13,7 @@ export function validateAmountInput(text: string) {
   return true;
 }
 
-export function shortContractAddress(address: string) {
+export function getShortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 

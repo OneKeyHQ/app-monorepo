@@ -56,7 +56,7 @@ const SwapInputContainer = ({
   }, [amountValue, settingsPersistAtom.currencyInfo.symbol, token?.price]);
 
   return (
-    <YStack mx="$10">
+    <YStack>
       {token ? <SwapAccountAddressContainer type={direction} /> : null}
       <AmountInput
         onChange={onAmountChange}

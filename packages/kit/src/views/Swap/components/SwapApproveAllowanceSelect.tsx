@@ -1,7 +1,7 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
+import type { ISelectItem } from '@onekeyhq/components';
 import {
-  ISelectItem,
   Icon,
   Select,
   SizableText,
@@ -25,18 +25,20 @@ const SwapApproveAllowanceSelect = ({
   const renderTrigger = useCallback(
     () => (
       <XStack justifyContent="space-between">
-        <SizableText>{'Authorization Limit'}</SizableText>
-        <XStack>
-          <SizableText h="$5">{currentAllowanceValue?.label}</SizableText>
-          <Icon size="$5" name="ChevronRightSmallOutline" />
-        </XStack>
+        <SizableText>Authorization Limit</SizableText>
+        {isLoading && selectItems.length ? (
+          <Skeleton w="$20" />
+        ) : (
+          <XStack>
+            <SizableText h="$5">{currentAllowanceValue?.label}</SizableText>
+            <Icon size="$5" name="ChevronRightSmallOutline" />
+          </XStack>
+        )}
       </XStack>
     ),
-    [currentAllowanceValue],
+    [currentAllowanceValue?.label, isLoading, selectItems.length],
   );
-  return isLoading && selectItems.length ? (
-    <Skeleton w="$20" />
-  ) : (
+  return (
     <Select
       items={selectItems}
       value={currentAllowanceValue?.value}

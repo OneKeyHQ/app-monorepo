@@ -6,7 +6,9 @@ import { useSwapStepState } from '../../hooks/useSwapStepState';
 
 const SwapAlertContainer = () => {
   const swapStepState = useSwapStepState();
-  const hasWrongMsg = swapStepState.wrongMsg || swapStepState.rateWarning;
+  const hasWrongMsg =
+    (swapStepState.wrongMsg || swapStepState.rateWarning) &&
+    !swapStepState.isLoading;
   return hasWrongMsg ? (
     <YStack>
       {swapStepState.wrongMsg ? (

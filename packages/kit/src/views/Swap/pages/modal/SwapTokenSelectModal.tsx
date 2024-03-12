@@ -43,7 +43,7 @@ import {
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { EModalSwapRoutes } from '../../router/types';
-import { shortContractAddress } from '../../utils/utils';
+import { getShortAddress } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { IModalSwapParamList } from '../../router/types';
@@ -120,7 +120,7 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
         tokenSymbol: item.symbol,
-        tokenContrastAddress: shortContractAddress(item.contractAddress),
+        tokenContrastAddress: getShortAddress(item.contractAddress),
         networkImageSrc: item.networkLogoURI,
         balance: item.balanceParsed,
         value: item.fiatValue

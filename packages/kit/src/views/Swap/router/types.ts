@@ -23,5 +23,5 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistory: ISwapTxHistory;
   };
-  [EModalSwapRoutes.SwapToAnotherAddress]: { type: ESwapDirectionType };
+  [EModalSwapRoutes.SwapToAnotherAddress]: { address?: string };
 };

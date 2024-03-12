@@ -45,9 +45,7 @@ const SwapCommonInfoItem = ({
       ),
     [questionMarkContent, title],
   );
-  return isLoading ? (
-    <Skeleton w="$20" />
-  ) : (
+  return (
     <XStack
       onPress={onPress}
       justifyContent="space-between"
@@ -57,9 +55,16 @@ const SwapCommonInfoItem = ({
         <SizableText mr="$1">{title}</SizableText>
         {questionMarkContent ? questionMarkComponent : null}
       </XStack>
+
       <XStack space="$2">
-        {valueComponent || <SizableText>{value}</SizableText>}
-        {onPress && <Icon name="ChevronRightSmallOutline" />}
+        {isLoading ? (
+          <Skeleton w="$20" />
+        ) : (
+          <>
+            {valueComponent || <SizableText>{value}</SizableText>}
+            {onPress && <Icon name="ChevronRightSmallOutline" />}
+          </>
+        )}
       </XStack>
     </XStack>
   );

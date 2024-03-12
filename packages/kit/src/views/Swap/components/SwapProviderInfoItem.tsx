@@ -42,9 +42,7 @@ const SwapProviderInfoItem = ({
     const rateBN = new BigNumber(rate ?? 0);
     return `1 ${fromToken.symbol.toUpperCase()} = ${rateBN.toFixed()} ${toToken.symbol.toUpperCase()}`;
   }, [fromToken, rate, rateIsExit, toToken]);
-  return isLoading ? (
-    <Skeleton w="$20" />
-  ) : (
+  return (
     <XStack
       justifyContent="space-between"
       onPress={onPress}
@@ -52,11 +50,17 @@ const SwapProviderInfoItem = ({
     >
       <SizableText>Provider</SizableText>
       <XStack space="$2">
-        {showBest && <SizableText>Best</SizableText>}
-        <Image source={{ uri: providerIcon }} w="$5" h="$5" />
-        <SizableText>{rate ? rateContent : providerName}</SizableText>
-        {showLock && <Icon name="LockOutline" />}
-        {onPress && <Icon name="ChevronRightSmallOutline" />}
+        {isLoading ? (
+          <Skeleton w="$20" />
+        ) : (
+          <>
+            {showBest && <SizableText>Best</SizableText>}
+            <Image source={{ uri: providerIcon }} w="$5" h="$5" />
+            <SizableText>{rate ? rateContent : providerName}</SizableText>
+            {showLock && <Icon name="LockOutline" />}
+            {onPress && <Icon name="ChevronRightSmallOutline" />}
+          </>
+        )}
       </XStack>
     </XStack>
   );

@@ -13,6 +13,7 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToAnotherAccountAddressAtom,
@@ -25,10 +26,13 @@ export function useSwapFromAccountNetworkSync() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [swapToAnotherAccount, setSwapToAnotherAccount] =
     useSwapToAnotherAccountAddressAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsPersistAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const fromTokenRef = useRef<ISwapToken | undefined>();
   const toTokenRef = useRef<ISwapToken | undefined>();
+  const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>();
   const swapToAnotherAccountRef = useRef(swapToAnotherAccount);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
@@ -38,6 +42,13 @@ export function useSwapFromAccountNetworkSync() {
   }
   if (swapToAnotherAccountRef.current !== swapToAnotherAccount) {
     swapToAnotherAccountRef.current = swapToAnotherAccount;
+  }
+  if (
+    swapProviderSupportReceiveAddressRef.current !==
+    swapProviderSupportReceiveAddress
+  ) {
+    swapProviderSupportReceiveAddressRef.current =
+      swapProviderSupportReceiveAddress;
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkTokenForAccountNetworkDebounce = useCallback(
@@ -56,10 +67,11 @@ export function useSwapFromAccountNetworkSync() {
         });
       }
       if (
-        fromTokenRef.current &&
-        toTokenRef.current &&
-        toTokenRef.current?.networkId !==
-          swapToAnotherAccountRef.current.networkId
+        (fromTokenRef.current &&
+          toTokenRef.current &&
+          toTokenRef.current?.networkId !==
+            swapToAnotherAccountRef.current.networkId) ||
+        swapProviderSupportReceiveAddressRef.current === false
       ) {
         setSettings((v) => ({
           ...v,

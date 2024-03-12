@@ -7,7 +7,13 @@ import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 
-const SwapSlippageTriggerContainer = () => {
+interface ISwapSlippageTriggerContainerProps {
+  isLoading: boolean;
+}
+
+const SwapSlippageTriggerContainer = ({
+  isLoading,
+}: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
   const [swapSlippage] = useSwapSlippagePercentageAtom();
   const slippageDisplayValue = useMemo(() => {
@@ -23,6 +29,7 @@ const SwapSlippageTriggerContainer = () => {
   return (
     <SwapCommonInfoItem
       title="Slippage tolerance"
+      isLoading={isLoading}
       onPress={() => {}}
       questionMarkContent="Slippage tolerance is a setting for the amount of price slippage you are willing to accept for a trade."
       value={slippageDisplayValue}

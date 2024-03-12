@@ -73,27 +73,32 @@ const SwapsSlippageContentContainer = () => {
 
   return (
     <YStack p="$4" space="$4">
-      <XStack>
-        <SegmentControl
-          value={swapSlippage.key}
-          options={swapSlippageItems.map((item) => ({
-            label: intl.formatMessage({
-              id:
-                item.key === ESwapSlippageSegmentKey.AUTO
-                  ? 'form__auto'
-                  : 'content__custom',
-            }),
-            value: item.value,
-          }))}
-          onChange={(value) => {
-            const keyValue = value as ESwapSlippageSegmentKey;
-            setSwapSlippage({
-              key: keyValue,
-              value: swapSlippageAutoValue,
-            });
-          }}
-        />
+      <XStack flex={1} space="$4">
+        <XStack w={167}>
+          <SegmentControl
+            fullWidth
+            value={swapSlippage.key}
+            options={swapSlippageItems.map((item) => ({
+              label: intl.formatMessage({
+                id:
+                  item.key === ESwapSlippageSegmentKey.AUTO
+                    ? 'form__auto'
+                    : 'content__custom',
+              }),
+              value: item.value,
+            }))}
+            onChange={(value) => {
+              const keyValue = value as ESwapSlippageSegmentKey;
+              setSwapSlippage({
+                key: keyValue,
+                value: swapSlippageAutoValue,
+              });
+            }}
+          />
+        </XStack>
+
         <Input
+          w={120}
           value={inputValue}
           autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
           addOns={[{ label: '%' }]}
