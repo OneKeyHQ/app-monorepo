@@ -13,7 +13,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { isSendNativeToken } from '@onekeyhq/kit/src/utils/txAction';
+import { isSendNativeToken } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 
 type IProps = {

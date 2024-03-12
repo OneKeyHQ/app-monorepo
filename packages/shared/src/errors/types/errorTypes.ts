@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/components/src/locale';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,

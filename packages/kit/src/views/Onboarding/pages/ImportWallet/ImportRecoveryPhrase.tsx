@@ -1,8 +1,8 @@
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
-import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [
   {

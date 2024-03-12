@@ -1,14 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EAssetSelectorRoutes } from '@onekeyhq/kit/src/views/AssetSelector/router/types';
-import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
@@ -17,6 +14,11 @@ import type {
   IQRCodeHandlerParse,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import {
+  EAssetSelectorRoutes,
+  EModalRoutes,
+  EModalSendRoutes,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useParseQRCode = () => {
@@ -106,7 +108,7 @@ const useParseQRCode = () => {
     },
     [navigation, clipboard, intl, account],
   );
-  return { parse };
+  return useMemo(() => ({ parse }), [parse]);
 };
 
 export default useParseQRCode;

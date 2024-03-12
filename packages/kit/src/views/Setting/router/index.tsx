@@ -1,9 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-
-import { EModalSettingRoutes } from './types';
-
-import type { IModalSettingParamList } from './types';
+import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 const SettingAccountDerivationModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),

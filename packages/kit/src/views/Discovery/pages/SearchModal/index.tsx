@@ -14,16 +14,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
 
-import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type { RouteProp } from '@react-navigation/core';
 
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
@@ -45,19 +47,22 @@ function SearchModal() {
         generateIcon: true,
         sliceCount: 8,
       });
-      const historyData = await serviceDiscovery.getHistoryData({
-        generateIcon: true,
-        sliceCount: 8,
-      });
       return {
         bookmarkData,
-        historyData,
       };
     }, [serviceDiscovery]);
 
   const { result: searchResult } = usePromiseResult(async () => {
-    const ret = await serviceDiscovery.searchDApp(searchValue);
-    return ret;
+    const res = await serviceDiscovery.searchDApp(searchValue);
+    const historyData = await serviceDiscovery.getHistoryData({
+      generateIcon: true,
+      sliceCount: 8,
+      keyword: searchValue ?? undefined,
+    });
+    return {
+      remoteData: res,
+      historyData,
+    };
   }, [searchValue, serviceDiscovery]);
 
   const jumpPageRef = useRef(false);
@@ -89,7 +94,7 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult ?? []),
+        ...(searchResult?.remoteData ?? []),
       ]);
     })();
   }, [searchValue, searchResult]);
@@ -97,8 +102,7 @@ function SearchModal() {
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
-  const displayHistoryList =
-    (localData?.historyData ?? []).length > 0 && !displaySearchList;
+  const displayHistoryList = (searchResult?.historyData ?? []).length > 0;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
@@ -235,7 +239,7 @@ function SearchModal() {
                 });
               }}
             />
-            {localData?.historyData?.map((item, index) => (
+            {searchResult?.historyData?.map((item, index) => (
               <ListItem
                 key={index}
                 avatarProps={{

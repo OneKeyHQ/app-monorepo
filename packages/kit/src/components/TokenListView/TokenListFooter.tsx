@@ -3,9 +3,12 @@ import { useCallback } from 'react';
 import { Divider, Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EModalAssetListRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../routes/Modal/type';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useRiskyTokenListAtom,
@@ -14,7 +17,6 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
-import { EModalAssetListRoutes } from '../../views/AssetList/router/types';
 
 type IProps = {
   tableLayout?: boolean;
