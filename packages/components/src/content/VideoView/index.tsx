@@ -26,13 +26,15 @@ export function VideoView({ source }: { source: number }) {
       allowsFullscreen={false}
       showsTimecodes={false}
       contentPosition={undefined}
+      allowsPictureInPicture={false}
+      startsPictureInPictureAutomatically={false}
       requiresLinearPlayback={false}
       style={{
         width: '100%',
         height: '100%',
       }}
       player={player}
-      contentFit="cover"
+      contentFit={platformEnv.isNativeAndroid ? 'fill' : 'cover'}
     />
   );
 }
