@@ -243,7 +243,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     return (
       this.#getCharsetFromContentTypeHeader(
         this.#getFinalMIMEType(),
-      )?.toLocaleLowerCase() ?? null
+      )?.toLowerCase() ?? null
     );
   }
 
