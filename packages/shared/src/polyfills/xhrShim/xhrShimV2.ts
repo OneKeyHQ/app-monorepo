@@ -243,7 +243,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     return (
       this.#getCharsetFromContentTypeHeader(
         this.#getFinalMIMEType(),
-      )?.toLocaleLowerCase() ?? null
+      )?.toLowerCase() ?? null
     );
   }
 
@@ -542,7 +542,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     password: string | null = null,
   ): void {
     // eslint-disable-next-line no-param-reassign
-    method = method.toLocaleUpperCase();
+    method = method.toUpperCase();
     if (!METHODS.includes(method)) {
       throw new DOMException(
         `The method "${method}" is not allowed.`,

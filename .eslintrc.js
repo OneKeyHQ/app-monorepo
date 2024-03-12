@@ -29,6 +29,17 @@ const jsRules = {
   'import/no-cycle': 'error',
   'require-await': 'off',
   'no-void': 'off',
+  'ban/ban': [
+    'error',
+    {
+      'name': ['*', 'toLocaleUpperCase'],
+      'message': 'Prefer use toUpperCase',
+    },
+    {
+      'name': ['*', 'toLocaleLowerCase'],
+      'message': 'Prefer use toLowerCase',
+    },
+  ],
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
@@ -115,7 +126,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps'],
+  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps', 'ban'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
@@ -218,26 +229,7 @@ module.exports = {
         ...tsRules,
       },
     },
-    // test files rules must be at LAST
-    {
-      files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
-      extends: ['plugin:jest/recommended'],
-      env: {
-        jest: true,
-      },
-      rules: {
-        'jest/expect-expect': 'off',
-        'jest/no-disabled-tests': 'off',
-        'jest/no-conditional-expect': 'off',
-        'jest/valid-title': 'off',
-        'jest/no-interpolation-in-snapshots': 'off',
-        'jest/no-export': 'off',
-        '@typescript-eslint/no-unsafe-member-access': 'off',
-        '@typescript-eslint/no-use-before-define': 'off',
-        '@typescript-eslint/no-unsafe-assignment': 'off',
-        '@typescript-eslint/no-unsafe-call': 'off',
-      },
-    },
+    // specific rules for packages
     {
       files: [
         'packages/components/src/**/*.ts',
@@ -325,15 +317,32 @@ module.exports = {
             patterns: [
               {
                 allowTypeImports: true,
-                group: [
-                  'tamagui',
-                ],
-                message:
-                  'Please avoid using tamagui in this folder',
+                group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
               },
             ],
           },
         ],
+      },
+    },
+    // test files rules must be at LAST
+    {
+      files: ['test/**/*.js', 'test/**/*.ts', '**/*.test.ts'],
+      extends: ['plugin:jest/recommended'],
+      env: {
+        jest: true,
+      },
+      rules: {
+        'jest/expect-expect': 'off',
+        'jest/no-disabled-tests': 'off',
+        'jest/no-conditional-expect': 'off',
+        'jest/valid-title': 'off',
+        'jest/no-interpolation-in-snapshots': 'off',
+        'jest/no-export': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-use-before-define': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
       },
     },
   ],
