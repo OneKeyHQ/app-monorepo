@@ -11,9 +11,6 @@ PODS:
   - DoubleConversion (1.1.6)
   - EXApplication (5.8.3):
     - ExpoModulesCore
-  - EXAV (13.6.0):
-    - ExpoModulesCore
-    - ReactCommon/turbomodule/core
   - EXBarCodeScanner (12.7.0):
     - EXImageLoader
     - ExpoModulesCore
@@ -61,6 +58,8 @@ PODS:
     - React-RCTAppDelegate
     - ReactCommon/turbomodule/core
   - ExpoSecureStore (12.5.0):
+    - ExpoModulesCore
+  - ExpoVideo (0.0.1-canary-20240308-6715875):
     - ExpoModulesCore
   - EXSplashScreen (0.26.4):
     - ExpoModulesCore
@@ -1025,7 +1024,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.1):
+  - react-native-lite-card (1.0.3):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1281,7 +1280,6 @@ DEPENDENCIES:
   - Burnt (from `../../../node_modules/burnt/ios`)
   - DoubleConversion (from `../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - EXApplication (from `../../../node_modules/expo-application/ios`)
-  - EXAV (from `../../../node_modules/expo-av/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXFont (from `../../../node_modules/expo-font/ios`)
@@ -1301,6 +1299,7 @@ DEPENDENCIES:
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
+  - "ExpoVideo (from `../../../node_modules/@expo/video/ios`)"
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
@@ -1438,8 +1437,6 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
     :path: "../../../node_modules/expo-application/ios"
-  EXAV:
-    :path: "../../../node_modules/expo-av/ios"
   EXBarCodeScanner:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
   EXConstants:
@@ -1478,6 +1475,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../../../node_modules/expo-secure-store/ios"
+  ExpoVideo:
+    :path: "../../../node_modules/@expo/video/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
   FBLazyVector:
@@ -1641,7 +1640,6 @@ SPEC CHECKSUMS:
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
-  EXAV: 523cd6969ca53b3b2762f18fb5450b76f84df44f
   EXBarCodeScanner: 296dd50f6c03928d1d71d37ea17473b304cfdb00
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
   EXFont: 21b9c760abd593ce8f0d5386b558ced76018506f
@@ -1661,6 +1659,7 @@ SPEC CHECKSUMS:
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 96d1751929ad10622773bb729ab28a8423f0dd0c
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
+  ExpoVideo: 7d5c176eae539c89cd64b9cc58cb9c83e4cf3fe0
   EXSplashScreen: 39244885abfb1b12765aae89edb90f8c88db6bbd
   FBLazyVector: fbc4957d9aa695250b55d879c1d86f79d7e69ab4
   FBReactNativeSpec: 396bb4b383339b01795f676aa0192bd394ef6589
@@ -1706,7 +1705,7 @@ SPEC CHECKSUMS:
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: fbd9da7a3e47081aaf201ce1e9640d9cf293de89
+  react-native-lite-card: cad45547780afda43bfbb7c6d3ae51ca2d842ce0
   react-native-metrix: b1aab1cb911f555b57812eed5d38c5942c6d99af
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8

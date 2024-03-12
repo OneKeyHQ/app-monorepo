@@ -2,15 +2,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { debounce } from 'lodash';
 
 import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
-// TODO: move to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import {
   backgroundClass,
   backgroundMethod,
@@ -21,6 +12,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSendRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -464,9 +461,9 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedAccountsByOrigin(origin: string) {
+  async findInjectedAccountByOrigin(origin: string) {
     const result =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+      await this.backgroundApi.simpleDb.dappConnection.findInjectedAccountsInfoByOrigin(
         origin,
       );
     if (!result) {
@@ -513,7 +510,20 @@ class ServiceDApp extends ServiceBase {
         .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
 
-    return [...injectedProviders, ...walletConnects];
+    // Combine all connected lists and build availableNetworksMap
+    const allConnectedList = [...injectedProviders, ...walletConnects];
+    for (const item of allConnectedList) {
+      const networksMap: Record<string, { networkIds: string[] }> = {};
+      for (const [num, accountInfo] of Object.entries(item.connectionMap)) {
+        const { networkIds } =
+          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        networksMap[num] = { networkIds };
+      }
+      item.availableNetworksMap = networksMap;
+    }
+    return allConnectedList;
   }
 
   async disconnectInactiveSessions(

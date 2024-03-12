@@ -457,10 +457,16 @@ function createMainWindow() {
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
-          console.log(
-            '====>>>>>>>reject navigate main process will-frame-navigate: ',
+          logger.info(
+            'reject navigate main process will-frame-navigate: ',
             url,
           );
+          return false;
+        }
+
+        if (uriUtils.isValidDeepLink(url)) {
+          e.preventDefault();
+          logger.info('reject deeplink in main process:', url);
           return false;
         }
       });

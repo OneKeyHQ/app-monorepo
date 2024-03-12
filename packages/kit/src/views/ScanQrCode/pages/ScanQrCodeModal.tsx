@@ -7,14 +7,14 @@ import { useIntl } from 'react-intl';
 import { Page } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EScanQrCodeModalPages,
+  IScanQrCodeModalParamList,
+} from '@onekeyhq/shared/src/routes';
 
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
-import type {
-  EScanQrCodeModalPages,
-  IScanQrCodeModalParamList,
-} from '../router/type';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function ScanQrCodeModal() {

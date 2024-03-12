@@ -1,4 +1,11 @@
-import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  createRef,
+  forwardRef,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ReactElement } from 'react';
 
 import {
@@ -13,9 +20,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives';
 import { ScrollView } from '../ScrollView';
 
+import { FreezeContainer } from './FreezeContainer';
 import { Header } from './Header';
 import { Page } from './Page';
 
+import type { IFreezeContainerRef } from './FreezeContainer';
 import type { IHeaderProps } from './Header';
 import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
 import type { LayoutChangeEvent } from 'react-native';
@@ -64,6 +73,7 @@ const TabComponent = (
       data: new Array(dataCount).fill({}).map(() => ({
         contentHeight: 0,
         contentOffsetY: 0,
+        freezeRef: createRef<IFreezeContainerRef>(),
       })),
     }),
     [dataCount, initialScrollIndex],
@@ -102,6 +112,7 @@ const TabComponent = (
           return;
         }
         onSelectedPageIndex?.(index);
+        stickyConfig.data[index].freezeRef.current?.setFreeze(false);
         reloadContentHeight(index);
         const { contentOffsetY } = stickyConfig.data[index];
         const lastContentOffsetY =
@@ -154,18 +165,29 @@ const TabComponent = (
           height: '100%',
         }}
       >
-        <item.page
-          // eslint-disable-next-line @typescript-eslint/no-shadow
-          onContentSizeChange={(_: number, height: number) => {
-            stickyConfig.data[index].contentHeight = height;
-            if (index === pageManager.pageIndex) {
-              reloadContentHeight(index);
-            }
-          }}
-        />
+        <FreezeContainer
+          initialFreeze={index !== (initialScrollIndex ?? 0)}
+          ref={stickyConfig.data[index].freezeRef}
+        >
+          <item.page
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            onContentSizeChange={(_: number, height: number) => {
+              stickyConfig.data[index].contentHeight = height;
+              if (index === pageManager.pageIndex) {
+                reloadContentHeight(index);
+              }
+            }}
+          />
+        </FreezeContainer>
       </Animated.View>
     ),
-    [stickyConfig.data, contentItemWidth, pageManager, reloadContentHeight],
+    [
+      stickyConfig.data,
+      contentItemWidth,
+      pageManager,
+      reloadContentHeight,
+      initialScrollIndex,
+    ],
   );
   const Content = pageManager.renderContentView;
   return (

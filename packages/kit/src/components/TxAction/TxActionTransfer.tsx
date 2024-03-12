@@ -70,7 +70,6 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
   } else if (isUTXO) {
     if (type === EOnChainHistoryTxType.Send) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
-      console.log(filteredReceives[0]);
       transferTarget =
         filteredReceives.length > 1
           ? `${filteredReceives.length} addresses`
@@ -323,7 +322,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         size: '$bodyMdMedium',
       })}
     >
-      {change}
+      {change as string}
     </NumberSizeableText>
   );
   changeDescription = (
@@ -338,7 +337,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {changeDescription}
+      {changeDescription as string}
     </NumberSizeableText>
   );
 

@@ -28,6 +28,7 @@ function DefiListView(props: IProps) {
       h="100%"
       estimatedItemSize={76}
       scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
       data={data}
       onContentSizeChange={onContentSizeChange}
       ListEmptyComponent={DefiListEmpty}
