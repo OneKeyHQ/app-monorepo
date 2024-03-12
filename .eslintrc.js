@@ -35,6 +35,10 @@ const jsRules = {
       'name': ['*', 'toLocaleUpperCase'],
       'message': 'Prefer use toUpperCase',
     },
+    {
+      'name': ['*', 'toLocaleLowerCase'],
+      'message': 'Prefer use toLowerCase',
+    },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
@@ -122,7 +126,7 @@ const tsRules = {
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
 module.exports = {
-  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps'],
+  plugins: ['spellcheck', 'import-path', 'use-effect-no-deps', 'ban'],
   settings: {
     'import/extensions': [
       ...resolveExtensions('web'),
