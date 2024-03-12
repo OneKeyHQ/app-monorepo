@@ -1,5 +1,6 @@
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
+  COINNAME_DOGE,
   COINTYPE_DOGE,
   IMPL_DOGE,
   INDEX_PLACEHOLDER,
@@ -15,6 +16,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
     label: 'Legacy',
     template: `m/44'/${COINTYPE_DOGE}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_DOGE,
+    coinName: COINNAME_DOGE,
     addressEncoding: EAddressEncodings.P2PKH,
     desc: 'BIP44, P2PKH, Base58.',
   },
