@@ -1,14 +1,13 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-
-import { WalletDetails } from './WalletDetails';
-import { WalletList } from './WalletList';
-
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
-} from '../../router/types';
+} from '@onekeyhq/shared/src/routes';
+
+import { WalletDetails } from './WalletDetails';
+import { WalletList } from './WalletList';
 
 export function AccountSelectorStack({ num }: { num: number }) {
   return (

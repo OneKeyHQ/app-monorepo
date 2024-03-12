@@ -8,7 +8,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
-} from '@onekeyhq/kit/src/views/AddressBook/router/types';
+} from '@onekeyhq/shared/src/routes/addressBook';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
 import { PageLoading } from '../../components/PageLoading';
