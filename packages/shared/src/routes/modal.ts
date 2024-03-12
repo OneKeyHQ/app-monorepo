@@ -1,17 +1,17 @@
-import type { IAccountManagerStacksParamList } from '../../views/AccountManagerStacks/router/types';
-import type { IModalAddressBookParamList } from '../../views/AddressBook/router/types';
-import type { IModalAssetDetailsParamList } from '../../views/AssetDetails/router/types';
-import type { IModalAssetListParamList } from '../../views/AssetList/router/types';
-import type { IAssetSelectorParamList } from '../../views/AssetSelector/router/types';
-import type { IChainSelectorParamList } from '../../views/ChainSelector/router/type';
-import type { IDAppConnectionModalParamList } from '../../views/DAppConnection/router';
-import type { IDiscoveryModalParamList } from '../../views/Discovery/router/Routes';
-import type { IOnboardingParamList } from '../../views/Onboarding/router/type';
-import type { IModalReceiveParamList } from '../../views/Receive/router/type';
-import type { IScanQrCodeModalParamList } from '../../views/ScanQrCode/router/type';
-import type { IModalSendParamList } from '../../views/Send/router';
-import type { IModalSettingParamList } from '../../views/Setting/router/types';
-import type { ITestModalPagesParam } from '../../views/TestModal/router/type';
+import type { IAccountManagerStacksParamList } from './accountManagerStacks';
+import type { IModalAddressBookParamList } from './addressBook';
+import type { IModalAssetDetailsParamList } from './assetDetails';
+import type { IModalAssetListParamList } from './assetList';
+import type { IAssetSelectorParamList } from './assetSelector';
+import type { IChainSelectorParamList } from './chainSelector';
+import type { IDAppConnectionModalParamList } from './dAppConnection';
+import type { IDiscoveryModalParamList } from './discovery';
+import type { IOnboardingParamList } from './onboarding';
+import type { IModalReceiveParamList } from './receive';
+import type { IScanQrCodeModalParamList } from './scanQrCode';
+import type { IModalSendParamList } from './send';
+import type { IModalSettingParamList } from './setting';
+import type { ITestModalPagesParam } from './testModal';
 
 export enum EModalRoutes {
   MainModal = 'MainModal',

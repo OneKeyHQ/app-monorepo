@@ -4,13 +4,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LOCALES as _LOCALES } from './localeJsonMap';
 
-import type { enUS } from './localeJsonMap';
+import type { ILocaleIds, ILocaleSymbol } from './type';
 
-export type ILocaleSymbol = keyof typeof _LOCALES | 'system';
-export type ILocaleIds = keyof typeof enUS;
 export const LOCALES = _LOCALES as Record<
   ILocaleSymbol,
-  Record<keyof typeof enUS, string> | (() => Promise<any>)
+  Record<ILocaleIds, string> | (() => Promise<any>)
 >;
 
 const defaultLanguage: Record<string, string> = {
@@ -45,3 +43,5 @@ if (platformEnv.isExtensionBackground) {
 }
 
 export { LOCALES_OPTION };
+
+export * from './type';

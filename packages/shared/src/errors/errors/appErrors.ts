@@ -1,7 +1,7 @@
 /* eslint max-classes-per-file: "off" */
 
-import type { ILocaleIds } from '@onekeyhq/components/src/locale';
-// import type { LocaleKeyInfoMap } from '@onekeyhq/components/src/locale/LocaleKeyInfoMap';
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+// import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';

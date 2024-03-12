@@ -70,7 +70,6 @@ function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
   } else if (isUTXO) {
     if (type === EOnChainHistoryTxType.Send) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
-      console.log(filteredReceives[0]);
       transferTarget =
         filteredReceives.length > 1
           ? `${filteredReceives.length} addresses`
