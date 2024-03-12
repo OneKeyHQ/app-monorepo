@@ -1,16 +1,16 @@
 // import CoreChainAda from '../chains/ada';
 // import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
-// import CoreChainBch from '../chains/bch';
+import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 // import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
-// import CoreChainDoge from '../chains/doge';
+import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 // import CoreChainFil from '../chains/fil';
 // import CoreChainKaspa from '../chains/kaspa';
-// import CoreChainLtc from '../chains/ltc';
+import CoreChainLtc from '../chains/ltc';
 // import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
 // import CoreChainSol from '../chains/sol';
@@ -26,6 +26,12 @@ export class CoreChainApiHub {
   evm = new CoreChainEvm();
 
   btc = new CoreChainBtc();
+
+  doge = new CoreChainDoge();
+
+  bch = new CoreChainBch();
+
+  ltc = new CoreChainLtc();
 
   cosmos = new CoreChainCosmos();
 

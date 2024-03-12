@@ -10,11 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type {
-  IEstimateGasResp,
-  IFeeInfoUnit,
-  IFeeUTXO,
-} from '@onekeyhq/shared/types/fee';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
