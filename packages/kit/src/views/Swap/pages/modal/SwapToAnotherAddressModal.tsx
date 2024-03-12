@@ -23,7 +23,7 @@ import {
   AddressInput,
   IAddressInputValue,
   allAddressInputPlugins,
-} from '../../../../components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 
 interface IFormType {
   address: IAddressInputValue;
