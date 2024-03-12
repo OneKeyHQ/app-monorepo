@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

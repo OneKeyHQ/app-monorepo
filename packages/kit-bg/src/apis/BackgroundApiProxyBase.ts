@@ -9,7 +9,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import {
-  type EAppEventBusNames,
+  EAppEventBusNames,
   EEventBusBroadcastMethodNames,
   type IAppEventBusPayload,
   appEventBus,
@@ -65,11 +65,12 @@ export class BackgroundApiProxyBase
     );
     globalErrorHandler.addListener((error) => {
       // TODO log error to file if developer mode on
-      // if (error && error?.autoToast) {
-      //   Toast.error({
-      //     title: error?.message ?? 'Error',
-      //   });
-      // }
+      if (error && error?.autoToast) {
+        appEventBus.emit(EAppEventBusNames.ShowToast, {
+          method: 'error',
+          title: error?.message ?? 'Error',
+        });
+      }
     });
   }
 

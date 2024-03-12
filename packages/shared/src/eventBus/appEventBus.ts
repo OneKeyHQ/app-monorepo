@@ -23,6 +23,10 @@ export enum EAppEventBusNames {
   GlobalDeriveTypeUpdate = 'GlobalDeriveTypeUpdate',
   AccountSelectorSelectedAccountUpdate = 'AccountSelectorSelectedAccountUpdate',
   FinalizeWalletSetupStep = 'FinalizeWalletSetupStep',
+  WalletConnectOpenModal = 'WalletConnectOpenModal',
+  WalletConnectCloseModal = 'WalletConnectCloseModal',
+  WalletConnectModalState = 'WalletConnectModalState',
+  ShowToast = 'ShowToast',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -53,6 +57,20 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
+  };
+  [EAppEventBusNames.WalletConnectOpenModal]: {
+    uri: string;
+  };
+  [EAppEventBusNames.WalletConnectCloseModal]: undefined;
+  [EAppEventBusNames.WalletConnectModalState]: {
+    open: boolean;
+  };
+  [EAppEventBusNames.ShowToast]: {
+    // IToastProps
+    method: 'success' | 'error' | 'message';
+    title: string;
+    message?: string;
+    duration?: number;
   };
 }
 

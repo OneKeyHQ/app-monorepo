@@ -12,14 +12,13 @@ import {
   AddressInput,
   type IAddressInputValue,
   allAddressInputPlugins,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
+} from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -28,14 +27,20 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EAssetSelectorRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { EAssetSelectorRoutes } from '../../../AssetSelector/router/types';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
 
-import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendDataInputContainer() {

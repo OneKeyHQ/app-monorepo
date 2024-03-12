@@ -15,6 +15,10 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   InvalidMnemonic,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
@@ -33,11 +37,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-import {
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '../../dbs/local/consts';
-import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';

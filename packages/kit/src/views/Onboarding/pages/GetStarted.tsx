@@ -16,9 +16,9 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EOnboardingPages } from '../router/type';
 
 export function GetStarted() {
   const { bottom } = useSafeAreaInsets();

@@ -5,10 +5,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EOnboardingPages } from '../router/type';
 
 function OnboardingOnMountCmp() {
   const navigation = useAppNavigation();

@@ -1,0 +1,47 @@
+import type { IAccountManagerStacksParamList } from './accountManagerStacks';
+import type { IModalAddressBookParamList } from './addressBook';
+import type { IModalAssetDetailsParamList } from './assetDetails';
+import type { IModalAssetListParamList } from './assetList';
+import type { IAssetSelectorParamList } from './assetSelector';
+import type { IChainSelectorParamList } from './chainSelector';
+import type { IDAppConnectionModalParamList } from './dAppConnection';
+import type { IDiscoveryModalParamList } from './discovery';
+import type { IOnboardingParamList } from './onboarding';
+import type { IModalReceiveParamList } from './receive';
+import type { IScanQrCodeModalParamList } from './scanQrCode';
+import type { IModalSendParamList } from './send';
+import type { IModalSettingParamList } from './setting';
+import type { ITestModalPagesParam } from './testModal';
+
+export enum EModalRoutes {
+  MainModal = 'MainModal',
+  DiscoveryModal = 'DiscoveryModal',
+  SettingModal = 'SettingModal',
+  TestModal = 'TestModal',
+  AccountManagerStacks = 'AccountManagerStacks',
+  OnboardingModal = 'OnboardingModal',
+  AssetSelectorModal = 'AssetSelectorModal',
+  ChainSelectorModal = 'ChainSelectorModal',
+  SendModal = 'SendModal',
+  ReceiveModal = 'ReceiveModal',
+  ScanQrCodeModal = 'ScanQrCodeModal',
+  AddressBookModal = 'AddressBookModal',
+  DAppConnectionModal = 'DAppConnectionModal',
+}
+
+export type IModalParamList = {
+  [EModalRoutes.MainModal]: IModalAssetListParamList &
+    IModalAssetDetailsParamList;
+  [EModalRoutes.TestModal]: ITestModalPagesParam;
+  [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
+  [EModalRoutes.SettingModal]: IModalSettingParamList;
+  [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
+  [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
+  [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
+  [EModalRoutes.SendModal]: IModalSendParamList;
+  [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
+  [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
+  [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
+  [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
+};

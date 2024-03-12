@@ -1,6 +1,5 @@
 import { useOnRouterChange } from '@onekeyhq/components';
-
-import { ERootRoutes } from '../routes/enum';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { ETabRoutes } from '../routes/Tab/type';
 
