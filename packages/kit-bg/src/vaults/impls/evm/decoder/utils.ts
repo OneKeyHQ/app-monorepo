@@ -40,8 +40,8 @@ export function parseToNativeTx({
     ethersTx = ethers.utils.parseTransaction(encodedTx);
     ethersTx = {
       ...ethersTx,
-      from: ethersTx.from?.toLocaleLowerCase(),
-      to: ethersTx.to?.toLocaleLowerCase(),
+      from: ethersTx.from?.toLowerCase(),
+      to: ethersTx.to?.toLowerCase(),
     };
   } else {
     // @ts-ignore
