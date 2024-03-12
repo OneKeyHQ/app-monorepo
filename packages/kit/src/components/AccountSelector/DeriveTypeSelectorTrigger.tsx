@@ -14,8 +14,6 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
-import type { MessageDescriptor } from 'react-intl';
-
 const renderMiniModeTrigger = () => (
   <IconButton
     title="Derivation Path"
@@ -59,23 +57,10 @@ export function DeriveTypeSelectorTrigger({
     ({ label, value, item: { desc } }) => ({
       label,
       value,
-      description: (
-        desc as {
-          // LocaleIds
-          id: MessageDescriptor['id'];
-          placeholder?: any;
-        }
-      )?.id
-        ? intl.formatMessage({
-            id: (
-              desc as {
-                // LocaleIds
-                id: MessageDescriptor['id'];
-                placeholder?: any;
-              }
-            )?.id,
-          })
-        : (desc as string),
+      description:
+        typeof desc === 'string'
+          ? desc
+          : intl.formatMessage({ id: desc?.id }, desc?.placeholder),
     }),
   );
 

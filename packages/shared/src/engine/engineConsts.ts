@@ -40,12 +40,15 @@ const COINTYPE_APTOS = '637';
 
 const IMPL_DOGE = 'doge';
 const COINTYPE_DOGE = '3';
+export const COINNAME_DOGE = 'DOGE';
 
 const IMPL_LTC = 'ltc';
 const COINTYPE_LTC = '2';
+export const COINNAME_LTC = 'LTC';
 
 const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
+export const COINNAME_BCH = 'BCH';
 
 const IMPL_XRP = 'xrp';
 const COINTYPE_XRP = '144';
