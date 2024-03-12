@@ -15,7 +15,7 @@
     "clean:build": "rimraf ./dist && rimraf ./expo && rimraf .tamagui && rimraf ./node_modules/.cache",
     "split-bundle": "SPLIT_BUNDLE=1 react-native start",
     "native-bundle:analyze": "react-native-bundle-visualizer",
-    "postinstall": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret",
+    "eas-build-post-install": "echo $KEY_SECRET | base64 -d > ../../node_modules/@onekeyfe/react-native-lite-card/keys/keys.secret",
     "_folderslint": "yarn folderslint"
   },
   "devDependencies": {
