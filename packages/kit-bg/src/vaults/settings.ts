@@ -1,4 +1,5 @@
 import {
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
   IMPL_DOGE,
@@ -43,6 +44,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_BTC]: () => import('./impls/btc/settings'),
     [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
     [IMPL_DOGE]: () => import('./impls/doge/settings'),
+    [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
   };
   const loader = settingsLoader[impl];
