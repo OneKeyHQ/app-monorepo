@@ -4,9 +4,9 @@ import {
   ETrackEventNames,
   trackEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
-import { EOnboardingPages } from '../../router/type';
 
 const tutorials = [
   {

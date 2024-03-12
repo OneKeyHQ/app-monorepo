@@ -1,7 +1,7 @@
 import type {
   IAccountSelectorAvailableNetworks,
   IAccountSelectorRouteParams,
-} from '../../../states/jotai/contexts/accountSelector';
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 export enum EChainSelectorPages {
   ChainSelector = 'ChainSelector',

@@ -15,8 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-
-import { EModalAddressBookRoutes } from '../router/types';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { IAddressItem, ISectionItem } from '../type';
 
