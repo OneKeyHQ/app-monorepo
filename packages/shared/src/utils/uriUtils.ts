@@ -1,6 +1,9 @@
 // import { openURL as LinkingOpenURL } from 'expo-linking';
 
-import { PROTOCOLS_SUPPORTED_TO_OPEN } from '../consts/urlProtocolConsts';
+import {
+  PROTOCOLS_SUPPORTED_TO_OPEN,
+  VALID_DEEP_LINK,
+} from '../consts/urlProtocolConsts';
 // import platformEnv from '../platformEnv';
 
 import type { IServerNetwork } from '../../types';
@@ -130,9 +133,16 @@ export function buildExplorerAddressUrl({
   return addressUrl.replace('{address}', address);
 }
 
+export function isValidDeepLink(url: string) {
+  return VALID_DEEP_LINK.some((protocol) =>
+    url.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
+  );
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
   parseDappRedirect,
+  isValidDeepLink,
   EDAppOpenActionEnum,
 };

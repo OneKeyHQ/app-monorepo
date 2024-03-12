@@ -5088,7 +5088,7 @@ __metadata:
     eth-chains: "npm:^1.0.0"
     expo-camera: "npm:14.0.3"
     folderslint: "npm:^1.2.0"
-    fuse.js: "npm:^6.5.3"
+    fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:^3.8.0"
     mime: "npm:^3.0.0"
     react-async-hook: "npm:^4.0.0"
@@ -17596,10 +17596,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fuse.js@npm:^6.5.3":
-  version: 6.6.2
-  resolution: "fuse.js@npm:6.6.2"
-  checksum: 4768725963ee07dacfcb4abb001a12ea5e6e44c95d4e0918fcbfe0469107c5ad3ece2f1930396eb6c210383edf4c14ca083b91a2fc54950c5d021935a63d89de
+"fuse.js@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "fuse.js@npm:7.0.0"
+  checksum: d75d35f2d61afa85b8248f9cbfc7d4df29ae47ea574a15ad5c3c2a41930c5ed78668346295508b59ec4929fcb1a5cd6d9a8c649b5a3bc8b18e515f4e4cb9809d
   languageName: node
   linkType: hard
 

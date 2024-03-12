@@ -13,7 +13,7 @@
     "dotbit": "^0.4.1",
     "eth-chains": "^1.0.0",
     "expo-camera": "14.0.3",
-    "fuse.js": "^6.5.3",
+    "fuse.js": "^7.0.0",
     "lightweight-charts": "^3.8.0",
     "mime": "^3.0.0",
     "react-async-hook": "^4.0.0",
