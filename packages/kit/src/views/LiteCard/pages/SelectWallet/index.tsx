@@ -5,9 +5,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { WALLET_TYPE_HD } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
+import type {
+  ELiteCardRoutes,
+  ILiteCardParamList,
+} from '@onekeyhq/shared/src/routes';
 
-import type { ELiteCardRoutes, ILiteCardParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function SelectWallet() {

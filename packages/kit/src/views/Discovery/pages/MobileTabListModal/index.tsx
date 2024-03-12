@@ -17,11 +17,15 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
@@ -32,10 +36,6 @@ import {
   useDisabledAddedNewTab,
   useWebTabs,
 } from '../../hooks/useWebTabs';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IWebTab } from '../../types';

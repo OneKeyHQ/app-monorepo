@@ -18,7 +18,6 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorEditModeAtom,
@@ -26,11 +25,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
-import {
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
 import type {
   IDBAccount,
   IDBDevice,
@@ -40,17 +34,22 @@ import type {
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletOptions } from './WalletOptions';
 
-import type {
-  EAccountManagerStacksRoutes,
-  IAccountManagerStacksParamList,
-} from '../../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export interface IWalletDetailsProps {

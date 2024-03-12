@@ -1,10 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ELiteCardRoutes } from '../router/types';
 
 export default function useReadMnemonic() {
   const navigation = useAppNavigation();

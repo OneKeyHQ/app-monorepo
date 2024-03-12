@@ -1,9 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-
-import { ELiteCardRoutes } from './types';
-
-import type { ILiteCardParamList } from './types';
+import { ELiteCardRoutes } from '@onekeyhq/shared/src/routes';
+import type { ILiteCardParamList } from '@onekeyhq/shared/src/routes';
 
 const LiteCardHome = LazyLoad(
   () => import('@onekeyhq/kit/src/views/LiteCard/pages/Home'),

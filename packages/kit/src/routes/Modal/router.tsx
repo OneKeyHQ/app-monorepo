@@ -1,22 +1,22 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
+import { ModalDiscoveryStack } from '../../views/Discovery/router';
+import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
-import { LiteCardPages } from '../../views/LiteCard/router';
-import { ModalSendStack } from '../../views/Send/router/types';
+import { ModalSendStack } from '../../views/Send/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 
-import { ModalDiscoveryStack } from './Discovery';
 import { ModalMainStack } from './Main';
-import { EModalRoutes } from './type';
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
