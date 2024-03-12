@@ -257,6 +257,21 @@ class ServiceWalletConnect extends ServiceBase {
         }
       }
       await this.updateSession(topic, updatedNamespaces);
+
+      // Push the first address change of each namespace to the dApp
+      for (const value of Object.values(updatedNamespaces)) {
+        const address = value.accounts?.[0]?.split(':')[2];
+        const chainId = value.chains?.[0];
+        if (address && chainId) {
+          setTimeout(() => {
+            void this.emitAccountsChangedEvent({
+              topic,
+              chainId,
+              address,
+            });
+          }, 500);
+        }
+      }
     }
   }
 
@@ -266,6 +281,26 @@ class ServiceWalletConnect extends ServiceBase {
     return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
       topic,
       namespaces,
+    });
+  }
+
+  @backgroundMethod()
+  async emitAccountsChangedEvent({
+    topic,
+    chainId,
+    address,
+  }: {
+    topic: string;
+    chainId: string;
+    address: string;
+  }) {
+    return this.backgroundApi.walletConnect.web3Wallet?.emitSessionEvent({
+      topic,
+      event: {
+        name: 'accountsChanged',
+        data: [address],
+      },
+      chainId,
     });
   }
 

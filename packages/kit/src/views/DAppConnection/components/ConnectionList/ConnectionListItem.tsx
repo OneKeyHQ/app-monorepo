@@ -73,6 +73,7 @@ function ConnectionListItem({
             <AccountListItem
               key={num}
               num={Number(num)}
+              networkReadonly={!!item.walletConnectTopic}
               handleAccountChanged={(handleAccountChangedParams) => {
                 handleAccountChanged({
                   handleAccountChangedParams,

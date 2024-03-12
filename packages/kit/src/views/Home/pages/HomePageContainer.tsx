@@ -22,6 +22,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { OnboardingOnMount } from '../../Onboarding/components';
+import useScanQrCode from '../../ScanQrCode/hooks/useScanQrCode';
 import { EModalSettingRoutes } from '../../Setting/router/types';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
@@ -121,11 +122,21 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     });
   }, [navigation]);
 
+  const scanQrCode = useScanQrCode();
+  const openScanQrCodeModal = useCallback(async () => {
+    const result = await scanQrCode.start(true);
+    console.log(result);
+  }, [scanQrCode]);
+
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        {/* <HeaderIconButton title="Scan" icon="ScanOutline" />
-        <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
+        <HeaderIconButton
+          title="Scan"
+          icon="ScanOutline"
+          onPress={openScanQrCodeModal}
+        />
+        <HeaderIconButton title="Lock Now" icon="LockOutline" />
 
         <HeaderIconButton
           title="Scan"
