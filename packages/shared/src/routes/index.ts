@@ -11,6 +11,7 @@ export * from './onboarding';
 export * from './receive';
 export * from './root';
 export * from './scanQrCode';
+export * from './liteCard';
 export * from './send';
 export * from './setting';
 export * from './testModal';
