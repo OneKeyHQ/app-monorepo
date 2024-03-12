@@ -175,7 +175,7 @@ function HardwareUiStateContainerCmp() {
       // TODO do not cancel device here
       const closePrevActions = async () => {
         await dialogRef.current?.close({ flag: autoClosedFlag });
-        await toastRef.current?.close({ flag: autoClosedFlag });
+        // await toastRef.current?.close({ flag: autoClosedFlag });
         await timerUtils.wait(300);
       };
       await closePrevActions();
@@ -196,6 +196,7 @@ function HardwareUiStateContainerCmp() {
           });
         } else {
           dialogRef.current = Dialog.show({
+            dismissOnOverlayPress: false,
             showFooter: false,
             dialogContainer: HardwareSingletonDialogRender,
             async onClose(params) {
