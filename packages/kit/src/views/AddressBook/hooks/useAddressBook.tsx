@@ -3,9 +3,11 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalAddressBookRoutes } from '@onekeyhq/kit/src/views/AddressBook/router/types';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/addressBooks';
+import {
+  EModalAddressBookRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import type { IAddressItem } from '../type';
 

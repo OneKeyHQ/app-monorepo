@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
-import { YStack } from 'tamagui';
-
-import { Divider, Page, Stack, Switch } from '@onekeyhq/components';
+import { Divider, Page, Stack, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {

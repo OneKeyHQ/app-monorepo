@@ -8,10 +8,12 @@ import type {
   IPageNavigationProp,
   IStackNavigationOptions,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import type {
+  EModalRoutes,
+  IModalParamList,
+} from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ERootRoutes } from '../routes/enum';
-
-import type { EModalRoutes, IModalParamList } from '../routes/Modal/type';
 import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 
 function useAppNavigation<

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 
-import { Empty, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   POLLING_DEBOUNCE_INTERVAL,

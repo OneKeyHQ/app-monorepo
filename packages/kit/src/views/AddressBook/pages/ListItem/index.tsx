@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl';
 
 import { IconButton, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
 import { PageLoading } from '../../components/PageLoading';
 import { UnsafeContent } from '../../components/UnsafeContent';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
-import { EModalAddressBookRoutes } from '../../router/types';
 
 const HeaderRightComponent = () => {
   const navigation = useAppNavigation();
