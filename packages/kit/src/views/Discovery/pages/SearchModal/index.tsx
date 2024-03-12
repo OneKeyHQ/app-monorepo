@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 
 import {
   Image,
@@ -14,20 +14,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
-  useBrowserAction,
-  useBrowserBookmarkAction,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-import { EDiscoveryModalRoutes } from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
 
-import type { IDiscoveryModalParamList } from '../../router/Routes';
 import type { RouteProp } from '@react-navigation/core';
 
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
@@ -40,38 +38,39 @@ function SearchModal() {
     >();
   const { useCurrentWindow, tabId } = route.params ?? {};
   const [searchValue, setSearchValue] = useState('');
-  const { getBookmarkData } = useBrowserBookmarkAction().current;
-  const { getHistoryData } = useBrowserHistoryAction().current;
   const { handleOpenWebSite } = useBrowserAction().current;
 
-  const { result: bookmarkData } = usePromiseResult(async () => {
-    const bookmarks = await getBookmarkData();
-    const slicedBookmarks = bookmarks.slice(0, 8);
-    return Promise.all(
-      slicedBookmarks.map(async (i) => ({
-        ...i,
-        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-      })),
-    );
-  }, [getBookmarkData]);
-
-  const { result: historyData } = usePromiseResult(async () => {
-    const histories = await getHistoryData();
-    const slicedHistory = histories.slice(0, 8);
-    return Promise.all(
-      slicedHistory.map(async (i) => ({
-        ...i,
-        logo: await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(i.url),
-      })),
-    );
-  }, [getHistoryData]);
+  const { serviceDiscovery } = backgroundApiProxy;
+  const { result: localData, run: refreshLocalData } =
+    usePromiseResult(async () => {
+      const bookmarkData = await serviceDiscovery.getBookmarkData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
+      const historyData = await serviceDiscovery.getHistoryData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
+      return {
+        bookmarkData,
+        historyData,
+      };
+    }, [serviceDiscovery]);
 
   const { result: searchResult } = usePromiseResult(async () => {
-    const ret = await backgroundApiProxy.serviceDiscovery.searchDApp(
-      searchValue,
-    );
+    const ret = await serviceDiscovery.searchDApp(searchValue);
     return ret;
-  }, [searchValue]);
+  }, [searchValue, serviceDiscovery]);
+
+  const jumpPageRef = useRef(false);
+  useFocusEffect(() => {
+    if (jumpPageRef.current) {
+      setTimeout(() => {
+        void refreshLocalData();
+      }, 300);
+      jumpPageRef.current = false;
+    }
+  });
 
   const [searchList, setSearchList] = useState<IDApp[]>([]);
   useEffect(() => {
@@ -80,9 +79,10 @@ function SearchModal() {
         setSearchList([]);
         return;
       }
-      const logo = await backgroundApiProxy.serviceDiscovery.getWebsiteIcon(
-        'https://google.com',
-      );
+      const logo =
+        await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+          'https://google.com',
+        );
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,
@@ -97,8 +97,10 @@ function SearchModal() {
   }, [searchValue, searchResult]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
-  const displayBookmarkList = (bookmarkData ?? []).length > 0;
-  const displayHistoryList = (historyData ?? []).length > 0;
+  const displayBookmarkList =
+    (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
+  const displayHistoryList =
+    (localData?.historyData ?? []).length > 0 && !displaySearchList;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
@@ -172,13 +174,14 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="Bookmarks"
               onMorePress={() => {
+                jumpPageRef.current = true;
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
                   screen: EDiscoveryModalRoutes.BookmarkListModal,
                 });
               }}
             />
             <XStack>
-              {bookmarkData?.map((item, index) => (
+              {localData?.bookmarkData?.map((item, index) => (
                 <Stack
                   key={index}
                   flexBasis="25%"
@@ -228,12 +231,13 @@ function SearchModal() {
             <DappSearchModalSectionHeader
               title="History"
               onMorePress={() => {
+                jumpPageRef.current = true;
                 navigation.pushModal(EModalRoutes.DiscoveryModal, {
                   screen: EDiscoveryModalRoutes.HistoryListModal,
                 });
               }}
             />
-            {historyData?.map((item, index) => (
+            {localData?.historyData?.map((item, index) => (
               <ListItem
                 key={index}
                 avatarProps={{

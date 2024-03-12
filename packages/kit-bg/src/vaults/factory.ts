@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable new-cap */
 import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   IMPL_BTC,
   IMPL_COSMOS,
   IMPL_EVM,
@@ -8,12 +13,6 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
-
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '../dbs/local/consts';
 
 import { VaultFactory } from './base/VaultFactory';
 

@@ -1,3 +1,4 @@
+import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   COINTYPE_ETC,
   COINTYPE_ETH,
@@ -27,6 +28,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     labelKey: 'form__bip44_standard',
     template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETH,
+    desc: 'OneKey, MetaMask, Trezor, imToken, m/44’/60’/0’/0/*',
   },
   // TODO
   etcNative: {
@@ -35,10 +37,11 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     labelKey: 'form__bip44_standard_cointype_61',
     template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_ETC,
+    desc: 'm’/44’/61’/0’/*',
     // ETC only, hide in other EVM chains
     enableConditions: [
       {
-        networkId: ['evm--61'], // ETC
+        networkId: [NETWORK_ID_ETC], // ETC
       },
     ],
   },
@@ -49,6 +52,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     idSuffix: 'LedgerLive', // hd-1--m/44'/60'/0'/0/0--LedgerLive
     template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_ETH,
+    desc: 'm/44’/60’/*’/0/0',
   },
 };
 
@@ -66,6 +70,7 @@ const settings: IVaultSettings = {
   isSingleToken: false,
   NFTEnabled: true,
   nonceRequired: true,
+  feeUTXORequired: false,
   editFeeEnabled: true,
 
   accountDeriveInfo,

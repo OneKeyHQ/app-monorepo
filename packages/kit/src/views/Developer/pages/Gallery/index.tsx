@@ -347,6 +347,20 @@ const AmountInputGallery = LazyLoadPage(
     ),
 );
 
+const NumberSizeableTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NumberSizeableTextGallery'
+    ),
+);
+
+const TokenGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Token'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -363,6 +377,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentPortal,
     component: PortalGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentToken,
+    component: TokenGallery,
   },
   { name: EGalleryRoutes.ComponentIcon, component: IconGallery },
   { name: EGalleryRoutes.ComponentToast, component: ToastGallery },
@@ -418,6 +436,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentIconButton,
     component: IconButtonGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNumberSizeableTextGallery,
+    component: NumberSizeableTextGallery,
   },
   { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },

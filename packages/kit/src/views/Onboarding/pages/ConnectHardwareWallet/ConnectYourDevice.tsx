@@ -36,11 +36,9 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
-import { EOnboardingPages } from '../../router/type';
 
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
@@ -58,9 +56,11 @@ type IFirmwareAuthenticationState =
 const FirmwareAuthenticationDialogContent = ({
   onContinue,
   device,
+  skipDeviceCancel,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice;
+  skipDeviceCancel?: boolean;
 }) => {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
 
@@ -69,6 +69,7 @@ const FirmwareAuthenticationDialogContent = ({
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
+          skipDeviceCancel,
         });
       console.log('firmwareAuthenticate >>>> ', authResult);
       if (authResult.verified) {
@@ -83,9 +84,10 @@ const FirmwareAuthenticationDialogContent = ({
     } finally {
       await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
         connectId: device.connectId || '',
+        skipDeviceCancel,
       });
     }
-  }, [device]);
+  }, [device, skipDeviceCancel]);
 
   useEffect(() => {
     void verify();
@@ -357,14 +359,23 @@ export function ConnectYourDevicePage() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
-      await Promise.all([
-        await actions.current.createHWWalletWithHidden({
-          device,
-          features: (device as KnownDevice).features,
-          isFirmwareVerified,
-        }),
-      ]);
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
+      try {
+        await Promise.all([
+          await actions.current.createHWWalletWithHidden({
+            device,
+            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
+            features: (device as KnownDevice).features,
+            isFirmwareVerified,
+          }),
+        ]);
+      } catch (error) {
+        navigation.pop();
+      } finally {
+        await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
+          connectId: device.connectId || '',
+        });
+      }
     },
     [actions, navigation],
   );
@@ -378,8 +389,10 @@ export function ConnectYourDevicePage() {
             device={device}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
-              await timerUtils.wait(1000);
               await createHwWallet({ device, isFirmwareVerified: checked });
+            }}
+            {...{
+              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent
             }}
           />
         ),
@@ -389,7 +402,7 @@ export function ConnectYourDevicePage() {
             await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog(
               {
                 connectId: device.connectId,
-                skipCancel: true,
+                skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
               },
             );
           }

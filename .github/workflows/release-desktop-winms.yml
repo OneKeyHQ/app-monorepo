@@ -146,16 +146,14 @@ jobs:
             !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/notice-slack-app-update@main
+        if: ${{ github.event.workflow_run }}
+        uses: onekeyhq/actions/slack-notify-webhook@main
         with:
-          web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-Win-Store
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          change-log: 'Download [Artifacts] at the bottom of page.'
-          custom-issue-url: ''
-          custom-message-title: ''
-          custom-message-payload: ''

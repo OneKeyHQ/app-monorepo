@@ -5,17 +5,20 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EAssetSelectorRoutes } from '@onekeyhq/kit/src/views/AssetSelector/router/types';
-import { EModalSendRoutes } from '@onekeyhq/kit/src/views/Send/router';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
+  IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import {
+  EAssetSelectorRoutes,
+  EModalRoutes,
+  EModalSendRoutes,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 const useParseQRCode = () => {
@@ -43,40 +46,47 @@ const useParseQRCode = () => {
       }
       switch (result.type) {
         case EQRCodeHandlerType.BITCOIN:
-        case EQRCodeHandlerType.ETHEREUM: {
-          if (!account) {
-            break;
-          }
-          const chainValue = result.data as IChainValue;
-          const network = chainValue?.network;
-          if (!network) {
-            break;
-          }
-          navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-            screen: EAssetSelectorRoutes.TokenSelector,
-            params: {
-              networkId: network.id,
-              accountId: account.id,
-              networkName: network.name,
-              // tokens,
-              onSelect: async (token) => {
-                await timerUtils.wait(600);
-                navigation.pushModal(EModalRoutes.SendModal, {
-                  screen: EModalSendRoutes.SendDataInput,
-                  params: {
-                    accountId: account.id,
-                    networkId: network.id,
-                    isNFT: false,
-                    token,
-                    address: chainValue?.address,
-                    amount: chainValue?.amount,
-                  },
-                });
+        case EQRCodeHandlerType.ETHEREUM:
+          {
+            if (!account) {
+              break;
+            }
+            const chainValue = result.data as IChainValue;
+            const network = chainValue?.network;
+            if (!network) {
+              break;
+            }
+            navigation.pushModal(EModalRoutes.AssetSelectorModal, {
+              screen: EAssetSelectorRoutes.TokenSelector,
+              params: {
+                networkId: network.id,
+                accountId: account.id,
+                networkName: network.name,
+                // tokens,
+                onSelect: async (token) => {
+                  await timerUtils.wait(600);
+                  navigation.pushModal(EModalRoutes.SendModal, {
+                    screen: EModalSendRoutes.SendDataInput,
+                    params: {
+                      accountId: account.id,
+                      networkId: network.id,
+                      isNFT: false,
+                      token,
+                      address: chainValue?.address,
+                      amount: chainValue?.amount,
+                    },
+                  });
+                },
               },
-            },
-          });
+            });
+          }
           break;
-        }
+        case EQRCodeHandlerType.WALLET_CONNECT:
+          {
+            const wcValue = result.data as IWalletConnectValue;
+            void backgroundApiProxy.walletConnect.connect(wcValue.wcUri);
+          }
+          break;
         default: {
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),
@@ -92,7 +102,6 @@ const useParseQRCode = () => {
               clipboard?.copyText(value);
             },
           });
-          break;
         }
       }
       return result;

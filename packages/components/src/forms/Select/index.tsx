@@ -1,9 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
@@ -138,6 +135,7 @@ function SelectItem({
           <Icon
             flexShrink={0}
             ml="$2"
+            alignSelf="center"
             name="CheckLargeOutline"
             size="$4"
             color="$iconActive"
@@ -250,7 +248,6 @@ function SelectContent() {
   const renderContent = useMemo(
     () => {
       const listProps = {
-        contentContainerStyle: { flex: 1 },
         keyExtractor,
         estimatedItemSize: '$6',
         extraData: value,
@@ -374,10 +371,11 @@ function SelectFrame<T extends string | ISelectItem>({
 
 function BasicSelect<T extends string | ISelectItem>({
   renderTrigger,
+  testID = '',
   ...props
 }: ISelectProps<T>) {
   const defaultRenderTrigger = useCallback(
-    ({ label, value, placeholder, disabled }: ISelectRenderTriggerProps) => (
+    ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
       <>
         <Input
           value={label}
@@ -385,7 +383,7 @@ function BasicSelect<T extends string | ISelectItem>({
           placeholder={placeholder}
           readonly
           flex={1}
-          testID={`${props.testID || ''}-input`}
+          testID={`${testID}-input`}
         />
         <Icon
           name="ChevronBottomSolid"
@@ -395,7 +393,7 @@ function BasicSelect<T extends string | ISelectItem>({
         />
       </>
     ),
-    [],
+    [testID],
   );
   return (
     <SelectFrame {...props}>

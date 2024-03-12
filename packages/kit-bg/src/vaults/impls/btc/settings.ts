@@ -30,6 +30,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
+    desc: "P2WPKH (m/49'/0'/0'), Starts with '3'",
   },
   BIP86: {
     namePrefix: 'BTC Taproot',
@@ -38,6 +39,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2TR,
+    desc: "P2TR (m/86'/0'/0'), Starts with 'bc1p’",
   },
   BIP84: {
     namePrefix: 'BTC Native SegWit',
@@ -46,6 +48,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2WPKH,
+    desc: "P2SH-P2WPKH (m/84'/0'/0'), Starts with 'bc1q'",
   },
   BIP44: {
     namePrefix: 'BTC Legacy',
@@ -54,6 +57,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2PKH,
+    desc: "P2PKH (m/44'/0'/0'), Starts with '1'",
     // notRecommended: true,
   },
 };
@@ -72,6 +76,7 @@ const settings: IVaultSettings = {
   isSingleToken: true,
   NFTEnabled: false,
   nonceRequired: false,
+  feeUTXORequired: true,
   editFeeEnabled: true,
 
   accountDeriveInfo,

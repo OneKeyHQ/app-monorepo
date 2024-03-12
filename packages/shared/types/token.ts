@@ -27,6 +27,8 @@ export type IFetchAccountTokensParams = {
   hideSmallBalanceTokens?: boolean;
   hideRiskTokens?: boolean;
   contractList?: string[];
+  blockedTokens?: string[];
+  unblockedTokens?: string[];
   flag?: string;
 };
 
@@ -46,6 +48,7 @@ export type IFetchAccountTokensResp = {
 
 export type IFetchTokenDetailParams = {
   networkId: string;
+  xpub?: string;
   contractList: string[];
   accountAddress?: string;
 };

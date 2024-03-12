@@ -57,12 +57,20 @@ export type IDecodedTxInteractInfo = {
   provider?: string;
 };
 
+export type IUtxoAddressInfo = {
+  address: string;
+  balance: string;
+  balanceValue: string;
+  symbol: string;
+  isMine: boolean;
+};
+
 export type IDecodedTx = {
   txid: string; // blockHash
 
   owner: string; // tx belongs to both receiver and sender
   signer: string; // creator, sender, fromAddress
-  // receiver: string; // receiver, toAddress
+  to?: string;
 
   nonce: number;
   actions: IDecodedTxAction[]; // inputActions
@@ -80,6 +88,7 @@ export type IDecodedTx = {
 
   feeInfo?: IFeeInfoUnit;
   totalFeeInNative?: string;
+  totalFeeFiatValue?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
 
@@ -110,11 +119,14 @@ export type IDecodedTxTransferInfo = {
   to: string;
   amount: string;
   icon: string;
+  name: string;
   symbol: string;
   tokenIdOnNetwork: string;
   isNative?: boolean;
   isNFT?: boolean;
+  isOwn?: boolean; // for UTXO
   label?: string;
+  price?: string;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
@@ -127,12 +139,15 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
+  utxoFrom?: IUtxoAddressInfo[];
+  utxoTo?: IUtxoAddressInfo[];
   label?: string;
 };
 
 export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   amount: string;
   symbol: string;
+  name: string;
   isMax: boolean;
   tokenIdOnNetwork: string;
   label?: string;

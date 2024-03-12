@@ -3,26 +3,19 @@ import { useCallback, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
-  ActionList,
-  IconButton,
   ListView,
   Page,
-  SizableText,
   Stack,
   XStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
@@ -32,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
 
 function ListItemSeparator() {
@@ -67,28 +61,7 @@ function OthersWalletItem({
 }
 
 export function WalletList({ num }: IWalletListProps) {
-  const navigation = useAppNavigation();
-
-  const handleConnectHardwareWalletPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
-  }, [navigation]);
-
-  const handleCreateWalletPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.BeforeShowRecoveryPhrase,
-    });
-  }, [navigation]);
-
-  const handleImportWalletPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportRecoveryPhrase,
-    });
-  }, [navigation]);
-
   const { serviceAccount } = backgroundApiProxy;
-  const media = useMedia();
   const { bottom } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
 
@@ -115,7 +88,7 @@ export function WalletList({ num }: IWalletListProps) {
 
   const onWalletPress = useCallback(
     (focusedWallet: IAccountSelectorFocusedWallet) => {
-      actions.current.updateSelectedAccount({
+      void actions.current.updateSelectedAccount({
         num,
         builder: (account) => ({
           ...account,
@@ -165,39 +138,7 @@ export function WalletList({ num }: IWalletListProps) {
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
-        ListFooterComponent={
-          <Stack p="$1" alignItems="center" mt="$3">
-            <ActionList
-              placement="right-start"
-              renderTrigger={<IconButton icon="PlusSmallOutline" />}
-              title="Add wallet"
-              items={[
-                {
-                  label: 'Connect hardware wallet',
-                  icon: platformEnv.isNative
-                    ? 'BluetoothOutline'
-                    : 'UsbOutline',
-                  onPress: handleConnectHardwareWalletPress,
-                },
-                {
-                  label: 'Create new wallet',
-                  icon: 'Ai2StarOutline',
-                  onPress: handleCreateWalletPress,
-                },
-                {
-                  label: 'Import wallet',
-                  icon: 'DownloadOutline',
-                  onPress: handleImportWalletPress,
-                },
-              ]}
-            />
-            {media.gtMd && (
-              <SizableText size="$bodySm" color="$textSubdued" mt="$1">
-                Add wallet
-              </SizableText>
-            )}
-          </Stack>
-        }
+        ListFooterComponent={<AccountSelectorCreateWalletButton />}
       />
       {/* Others */}
       <Stack pb={bottom}>

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   Button,
@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -32,6 +33,19 @@ const GalleryLayout = () => (
             <AmountInput
               value={amountValue}
               onChange={setAmountValue}
+              currency="$"
+              valueProps={{
+                value: '1.00',
+                onPress: () => {
+                  alert('onSwitchPress');
+                },
+              }}
+              balanceProps={{
+                value: '0.5',
+                onPress: () => {
+                  alert('onBalancePress');
+                },
+              }}
               inputProps={{
                 placeholder: '0',
               }}
@@ -40,7 +54,6 @@ const GalleryLayout = () => (
                   'https://onekey-asset.com/assets/btc/btc.png',
                 selectedTokenSymbol: 'BTC',
               }}
-              balance="0.5"
               enableMaxAmount
               reversible
             />
@@ -48,11 +61,102 @@ const GalleryLayout = () => (
         },
       },
       {
-        title: 'Example 2 (Swap - Empty)',
+        title: 'Example 2 (fallback element)',
+        element: () => {
+          const [value, setValue] = useState('');
+          const [tokenSelectorTriggerProps, setTokenSelectorTriggerProps] =
+            useState({
+              selectedTokenImageUri:
+                'https://onekey-asset.com/assets/btc/btc.png',
+              selectedTokenSymbol: 'BTC',
+            });
+          const [balanceProps, setBalanceProps] = useState({
+            balance: '',
+            onPress: () => {
+              alert('onBalancePress');
+            },
+          });
+          const [valueProps, setValueProps] = useState({
+            value: '1.00',
+            onPress: () => {
+              alert('onAmountPress');
+            },
+          });
+          const [loading, setLoading] = useState(false);
+          const fetchValue = useCallback(() => {
+            setLoading(true);
+            setTimeout(() => {
+              setLoading(false);
+            }, 3000);
+          }, []);
+          const fetchToken = useCallback(() => {
+            setTokenSelectorTriggerProps((v) => ({
+              ...v,
+              loading: true,
+            }));
+            setTimeout(() => {
+              setTokenSelectorTriggerProps((v) => ({
+                ...v,
+                loading: false,
+              }));
+            }, 3000);
+          }, []);
+          const fetchAmount = useCallback(() => {
+            setValueProps((v) => ({
+              ...v,
+              loading: true,
+            }));
+            setTimeout(() => {
+              setValueProps((v) => ({
+                ...v,
+                value: '131231.123123',
+                loading: false,
+              }));
+            }, 3000);
+          }, []);
+          const fetchBalance = useCallback(() => {
+            setBalanceProps((v) => ({
+              ...v,
+              loading: true,
+            }));
+            setTimeout(() => {
+              setBalanceProps((v) => ({
+                ...v,
+                balance: '111111.2222',
+                loading: false,
+              }));
+            }, 3000);
+          }, []);
+          return (
+            <YStack space="$5">
+              <AmountInput
+                value={value}
+                onChange={setValue}
+                valueProps={valueProps}
+                balanceProps={balanceProps}
+                inputProps={{
+                  placeholder: '0',
+                  loading,
+                }}
+                tokenSelectorTriggerProps={tokenSelectorTriggerProps}
+                enableMaxAmount
+                reversible
+              />
+              <Button onPress={fetchValue}>Amount loading</Button>
+              <Button onPress={fetchToken}>Token loading</Button>
+              <Button onPress={fetchAmount}>Value loading</Button>
+              <Button onPress={fetchBalance}>Balance loading</Button>
+            </YStack>
+          );
+        },
+      },
+      {
+        title: 'Example 3 (Swap - Empty)',
         element: () => {
           const [amountValue, setAmountValue] = useState('123');
           return (
             <AmountInput
+              valueProps={{}}
               value={amountValue}
               onChange={setAmountValue}
               tokenSelectorTriggerProps={{
@@ -66,12 +170,13 @@ const GalleryLayout = () => (
         },
       },
       {
-        title: 'Example 3 (Swap - From Token)',
+        title: 'Example 4 (Swap - From Token)',
         element: (
           <AmountInput
             inputProps={{
               placeholder: '0',
             }}
+            valueProps={{}}
             tokenSelectorTriggerProps={{
               selectedTokenImageUri:
                 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
@@ -80,16 +185,19 @@ const GalleryLayout = () => (
               selectedTokenSymbol: 'BTC',
               onPress: () => alert('TokenSelectorModal'),
             }}
-            balance="0.5"
+            balanceProps={{
+              value: '0.5',
+            }}
             enableMaxAmount
           />
         ),
       },
       {
-        title: 'Example 4 (Swap - To Token)',
+        title: 'Example 5 (Swap - To Token)',
         element: (
           <AmountInput
             value="0.5"
+            valueProps={{}}
             inputProps={{
               placeholder: '0',
               readOnly: true,
@@ -102,12 +210,14 @@ const GalleryLayout = () => (
               selectedTokenSymbol: 'BTC',
               onPress: () => alert('TokenSelectorModal'),
             }}
-            balance="0.5"
+            balanceProps={{
+              value: '0.5',
+            }}
           />
         ),
       },
       {
-        title: 'Example 5 (Error)',
+        title: 'Example 6 (Error)',
         element: () => {
           const form = useForm({ defaultValues: { amount: '' } });
           return (
@@ -118,21 +228,31 @@ const GalleryLayout = () => (
                   required: true,
                 }}
               >
-                <AmountInput />
+                <AmountInput
+                  valueProps={{}}
+                  balanceProps={{
+                    value: '0.5',
+                  }}
+                />
               </Form.Field>
             </Form>
           );
         },
       },
       {
-        title: 'Example 6 (Form)',
+        title: 'Example 7 (Form)',
         element: () => {
           const form = useForm({ defaultValues: { amount: '' } });
           return (
             <Stack space="$2">
               <Form form={form}>
                 <Form.Field name="amount">
-                  <AmountInput />
+                  <AmountInput
+                    valueProps={{}}
+                    balanceProps={{
+                      value: '0.5',
+                    }}
+                  />
                 </Form.Field>
               </Form>
               <Button

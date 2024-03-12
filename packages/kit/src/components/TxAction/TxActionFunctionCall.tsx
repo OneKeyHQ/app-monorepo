@@ -2,6 +2,8 @@ import { useIntl } from 'react-intl';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
+
 import {
   TxActionCommonDetailView,
   TxActionCommonListView,
@@ -32,28 +34,35 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 }
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
-  const intl = useIntl();
-  const { tableLayout } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
+
   const { functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
 
   const title = functionName;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: true,
     src: functionIcon,
     fallbackIcon: 'ImageMountainSolid',
   };
   const description = {
-    prefix: intl.formatMessage({ id: 'content__to' }),
     children: accountUtils.shortenAddress({ address: functionTo }),
   };
 
   return (
     <TxActionCommonListView
+      showIcon={showIcon}
       title={title}
       avatar={avatar}
       description={description}
       tableLayout={tableLayout}
+      timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
+      fee={txFee}
+      feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
+      {...componentProps}
     />
   );
 }

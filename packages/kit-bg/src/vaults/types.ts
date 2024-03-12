@@ -8,12 +8,18 @@ import type {
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateGasResp,
+  IFeeInfoUnit,
+  IFeeUTXO,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
-  IOnChainHistoryTxAsset,
+  IOnChainHistoryTxNFT,
+  IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
 import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -66,13 +72,13 @@ export interface IAccountDeriveInfo {
   //       id: MessageDescriptor['id'];
   //     }
   //   | string;
-  // desc?:
-  //   | {
-  //       // LocaleIds
-  //       id: MessageDescriptor['id'];
-  //       placeholder?: any;
-  //     }
-  //   | string;
+  desc?:
+    | {
+        // LocaleIds
+        id: MessageDescriptor['id'];
+        placeholder?: any;
+      }
+    | string;
   // subDesc?: string;
   // recommended?: boolean;
   // notRecommended?: boolean;
@@ -110,6 +116,7 @@ export type IVaultSettings = {
   isSingleToken: boolean;
   NFTEnabled: boolean;
   nonceRequired: boolean;
+  feeUTXORequired: boolean;
   editFeeEnabled: boolean;
 
   accountType: EDBAccountType;
@@ -227,6 +234,10 @@ export type ITransferInfo = {
     nftType: ENFTType;
     nftAddress: string;
   };
+
+  useCustomAddressesBalance?: boolean;
+  opReturn?: string;
+  coinSelectAlgorithm?: ICoinSelectAlgorithm;
 };
 
 export type IApproveInfo = {
@@ -246,6 +257,16 @@ export type IWrappedInfo = {
   amount: string;
   contract: string;
   type: EWrappedType;
+};
+
+export type IUtxoInfo = {
+  txid: string;
+  vout: number;
+  value: string;
+  height: number;
+  confirmations: number;
+  address: string;
+  path: string;
 };
 
 export type INativeAmountInfo = {
@@ -276,6 +297,7 @@ export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  specifiedFeeRate?: string;
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
@@ -286,6 +308,7 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
   unsignedTx: IUnsignedTxPro;
@@ -296,6 +319,7 @@ export interface IUpdateUnsignedTxParams {
 }
 export interface IBroadcastTransactionParams {
   networkId: string;
+  accountAddress: string;
   signedTx: ISignedTxPro;
 }
 
@@ -313,6 +337,7 @@ export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
   feeInfo?: IFeeInfoUnit;
   nativeAmountInfo?: INativeAmountInfo;
+  signOnly?: boolean;
 }
 
 export interface ISignMessageParams {
@@ -324,7 +349,8 @@ export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
   onChainHistoryTx: IOnChainHistoryTx;
-  tokens: Record<string, IOnChainHistoryTxAsset>;
+  tokens: Record<string, IOnChainHistoryTxToken>;
+  nfts: Record<string, IOnChainHistoryTxNFT>;
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
 }

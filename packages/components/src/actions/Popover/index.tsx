@@ -7,15 +7,14 @@ import {
   useState,
 } from 'react';
 
-import { Popover as TMPopover } from 'tamagui';
+import { Popover as TMPopover, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite';
-import { Divider } from '../../content';
 import { Portal } from '../../hocs';
 import { useBackHandler, useSafeAreaInsets } from '../../hooks';
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -274,13 +273,13 @@ function RawPopover({
               </XStack>
 
               {/* divider */}
-              <YStack
+              {/* <YStack
                 backgroundColor="$bg"
                 marginHorizontal="$5"
                 paddingHorizontal="$5"
               >
                 <Divider />
-              </YStack>
+              </YStack> */}
 
               <TMPopover.Sheet.ScrollView
                 borderBottomLeftRadius="$6"
@@ -314,6 +313,7 @@ const Popover = ({
     open,
     onOpenChangeFunc,
   );
+  const { md } = useMedia();
   const memoPopover = useMemo(
     () => (
       <RawPopover
@@ -340,10 +340,13 @@ const Popover = ({
     );
   }
 
-  // on web and WAP, we add the popover to the RNRootView
+  // on web, we add the popover into the RNRootView
   return (
     <RawPopover
       open={isOpen}
+      // On the web platform of md size,
+      //  the sheet needs to use the onOpenChange function to close the popover
+      onOpenChange={md ? onOpenChange : undefined}
       openPopover={openPopover}
       closePopover={closePopover}
       sheetProps={{ ...sheetProps, modal: true }}

@@ -1,25 +1,21 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
-// TODO: move db consts to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import type {
+  IDBAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+} from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { EAccountSelectorSceneName } from '../../types';
 import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
 
 import networkUtils from './networkUtils';
-import uriUtils from './uriUtils';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -35,14 +31,26 @@ function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
 }
 
-function shortenAddress({ address }: { address: string | undefined }) {
+function shortenAddress({
+  address,
+  minLength = 14,
+  leadingLength = 8,
+  trailingLength = 6,
+}: {
+  address: string | undefined;
+  leadingLength?: number;
+  trailingLength?: number;
+  minLength?: number;
+}) {
   if (!address) {
     return '';
   }
-  if (address.length <= 10) {
+  if (address.length <= minLength) {
     return address;
   }
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  return `${address.slice(0, leadingLength)}...${address.slice(
+    -trailingLength,
+  )}`;
 }
 
 function isHdWallet({ walletId }: { walletId: string | undefined }) {
@@ -120,32 +128,6 @@ function buildHDAccountId({
     id = id.replace(/\/0\/0$/i, '');
   }
   return id;
-}
-
-function buildAccountSelectorSceneId({
-  sceneName,
-  sceneUrl,
-}: {
-  sceneName: EAccountSelectorSceneName;
-  sceneUrl?: string;
-}): string {
-  if (sceneName === EAccountSelectorSceneName.discover) {
-    if (!sceneUrl) {
-      throw new Error('buildSceneId ERROR: sceneUrl is required');
-    }
-    const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
-    if (origin !== sceneUrl) {
-      throw new Error(
-        'buildSceneId ERROR: sceneUrl should be equal to origin, full url is not allowed',
-      );
-    }
-    return `${sceneName}--${origin}`;
-  }
-
-  if (!sceneName) {
-    throw new Error('buildSceneId ERROR: sceneName is required');
-  }
-  return sceneName;
 }
 
 function buildIndexedAccountId({
@@ -303,7 +285,6 @@ export default {
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
-  buildAccountSelectorSceneId,
   getDeviceIdFromWallet,
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,

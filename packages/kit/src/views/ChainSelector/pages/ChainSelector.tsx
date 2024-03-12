@@ -4,6 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Page } from '@onekeyhq/components';
+import type {
+  EChainSelectorPages,
+  IChainSelectorParamList,
+} from '@onekeyhq/shared/src/routes';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,11 +20,6 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { ListNetworkView } from '../components/ListNetworkView';
-
-import type {
-  EChainSelectorPages,
-  IChainSelectorParamList,
-} from '../router/type';
 
 function getHeaderRightComponent(
   isEditMode: boolean,
@@ -62,12 +61,9 @@ function ChainSelector({ num }: { num: number }) {
   );
 
   const handleListItemPress = (networkId: string) => {
-    actions.current.updateSelectedAccount({
+    void actions.current.updateSelectedAccountNetwork({
       num,
-      builder: (v) => ({
-        ...v,
-        networkId,
-      }),
+      networkId,
     });
     navigation.popStack();
   };
@@ -88,12 +84,12 @@ function ChainSelector({ num }: { num: number }) {
   return (
     <Page>
       <Page.Header
-        title="Select Chain"
+        title="Networks"
         headerRight={() =>
           getHeaderRightComponent(isEditMode, handleEditButtonPress)
         }
         headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
+          placeholder: 'Search',
           onChangeText: (e) => setSearchText(e.nativeEvent.text),
         }}
       />

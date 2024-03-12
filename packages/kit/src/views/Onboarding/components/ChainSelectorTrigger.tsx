@@ -1,9 +1,8 @@
 import { Icon } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { EChainSelectorPages } from '../../ChainSelector/router/type';
 
 export function ChainSelectorTrigger() {
   const navigation = useAppNavigation();

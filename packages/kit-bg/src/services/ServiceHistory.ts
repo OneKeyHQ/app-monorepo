@@ -10,7 +10,10 @@ import type {
   IFetchHistoryTxDetailsParams,
   IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
-import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxStatus,
+  type ISendTxOnSuccessData,
+} from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -42,11 +45,17 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId } = params;
+    const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
+      params;
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
       '/wallet/v1/account/history/list',
-      params,
+      {
+        networkId,
+        accountAddress,
+        xpub,
+        tokenAddress: tokenIdOnNetwork,
+      },
     );
 
     const vault = await vaultFactory.getVault({
@@ -54,7 +63,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const { data: onChainHistoryTxs, tokens } = resp.data.data;
+    const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
 
     const txs = (
       await Promise.all(
@@ -64,6 +73,7 @@ class ServiceHistory extends ServiceBase {
             networkId,
             onChainHistoryTx: tx,
             tokens,
+            nfts,
             index,
           }),
         ),
@@ -75,11 +85,17 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
+    const { networkId, txid, accountAddress, status } = params;
+    if (status === EDecodedTxStatus.Pending) return;
     const client = await this.getClient();
     const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
       '/wallet/v1/account/history/detail',
       {
-        params,
+        params: {
+          networkId,
+          txid,
+          accountAddress,
+        },
       },
     );
     return resp.data.data;

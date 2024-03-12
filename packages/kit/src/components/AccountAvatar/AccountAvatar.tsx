@@ -1,9 +1,12 @@
 import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
-import { Image, Skeleton, Stack } from '@onekeyhq/components';
+import {
+  Image,
+  Skeleton,
+  Stack,
+  withStaticProperties,
+} from '@onekeyhq/components';
 import type {
   IImageFallbackProps,
   IImageProps,
@@ -50,7 +53,7 @@ export interface IAccountAvatarProps extends IImageProps {
 }
 
 function HashImageSource({ id }: { id: string }) {
-  const { uri } = useBlockieImageUri(id);
+  const uri = useBlockieImageUri(id);
   return uri ? <Image.Source src={uri} /> : null;
 }
 

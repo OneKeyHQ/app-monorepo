@@ -7,12 +7,11 @@ import {
   parseISO,
 } from 'date-fns';
 
-import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
-
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
+import type { ILocaleSymbol } from '../locale';
 import type { Duration } from 'date-fns';
 
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
@@ -33,6 +32,7 @@ export type IFormatDateOptions = {
   hideYear?: boolean;
   hideMonth?: boolean;
   hideTimeForever?: boolean;
+  hideSeconds?: boolean;
 };
 
 export type IFormatMonthOptions = {
@@ -162,4 +162,21 @@ export function formatRelativeDate(date: Date | number) {
     console.error(error);
     return `ParseError:${date.toString()}`;
   }
+}
+
+export function formatTime(date: Date | string, options?: IFormatDateOptions) {
+  let parsedDate: Date;
+  if (typeof date === 'string') {
+    parsedDate = parseISO(date);
+  } else {
+    parsedDate = date;
+  }
+
+  let formatTemplate = 'HH:mm:ss';
+
+  if (options?.hideSeconds) {
+    formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
+  }
+
+  return format(parsedDate, formatTemplate) ?? '';
 }

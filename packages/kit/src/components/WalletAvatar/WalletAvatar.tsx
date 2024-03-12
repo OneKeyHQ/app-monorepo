@@ -1,4 +1,4 @@
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -6,8 +6,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import type { IWalletProps } from '../../views/AccountManagerStacks/router/types';
-import type { SizeTokens } from 'tamagui';
+import type { IWalletProps } from '../../views/AccountManagerStacks/type';
 
 export type IWalletAvatarBaseProps = {
   size?: SizeTokens;

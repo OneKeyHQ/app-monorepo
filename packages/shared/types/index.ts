@@ -14,6 +14,7 @@ export type IDappSourceInfo = {
   hostname: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
+  isWalletConnectRequest: boolean;
 };
 
 export enum ENetworkStatus {
@@ -80,6 +81,7 @@ export enum EAccountSelectorSceneName {
   home = 'home',
   swap = 'swap',
   discover = 'discover',
+  settings = 'settings',
 }
 
 export type INotPromise<T> = T extends Promise<any> ? never : T;

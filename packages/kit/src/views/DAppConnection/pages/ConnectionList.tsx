@@ -1,10 +1,11 @@
 import { useCallback } from 'react';
 
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
-import type { IStorageType } from '@onekeyhq/shared/types/dappConnection';
+import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useShouldUpdateConnectedAccount } from '../../Discovery/hooks/useDAppNotifyChanges';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
 
 const ItemSeparatorComponent = () => <Divider />;
@@ -21,20 +22,24 @@ function ConnectionListEmpty() {
 }
 
 function ConnectionList() {
+  const { serviceDApp } = backgroundApiProxy;
   const { result, run } = usePromiseResult(
-    async () => backgroundApiProxy.serviceDApp.getAllConnectedList(),
-    [],
+    async () => serviceDApp.getAllConnectedList(),
+    [serviceDApp],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const handleDAppDisconnect = useCallback(
-    async (origin: string, storageType: IStorageType) => {
-      await backgroundApiProxy.serviceDApp.disconnectWebsite({
+    async (origin: string, storageType: IConnectionStorageType) => {
+      await serviceDApp.disconnectWebsite({
         origin,
         storageType,
       });
       void run();
     },
-    [run],
+    [run, serviceDApp],
   );
 
   const renderHeaderRight = useCallback(
@@ -43,15 +48,17 @@ function ConnectionList() {
         variant="tertiary"
         size="medium"
         onPress={async () => {
-          await backgroundApiProxy.serviceDApp.disconnectAllWebsites();
+          await serviceDApp.disconnectAllWebsites();
           void run();
         }}
       >
         Remove All
       </Button>
     ),
-    [run],
+    [run, serviceDApp],
   );
+
+  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
 
   return (
     <Page>
@@ -73,6 +80,21 @@ function ConnectionList() {
             <ConnectionListItem
               item={item}
               handleDisconnect={handleDAppDisconnect}
+              handleAccountChanged={({
+                origin,
+                num,
+                handleAccountChangedParams,
+                prevAccountInfo,
+              }) => {
+                void handleAccountInfoChanged({
+                  origin,
+                  accountSelectorNum: num,
+                  prevAccountInfo,
+                  selectedAccount: handleAccountChangedParams,
+                  storageType: prevAccountInfo.storageType,
+                  afterUpdate: () => run(),
+                });
+              }}
             />
           )}
           ItemSeparatorComponent={ItemSeparatorComponent}

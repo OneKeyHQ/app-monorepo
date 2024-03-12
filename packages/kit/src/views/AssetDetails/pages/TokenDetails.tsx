@@ -1,50 +1,41 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import type { IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
-  Button,
   Divider,
-  Heading,
-  HeightTransition,
   Icon,
-  Image,
+  NumberSizeableText,
   Page,
-  SizableText,
+  Skeleton,
   Stack,
   Toast,
-  XGroup,
   XStack,
-  useMedia,
+  YStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { Token } from '../../../components/Token';
 import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
-import { getFormattedNumber } from '../../../utils/format';
+import { RawActions } from '../../Home/components/WalletActions/RawActions';
 import { EModalReceiveRoutes } from '../../Receive/router/type';
-import { EModalSendRoutes } from '../../Send/router';
-import { EModalAssetDetailRoutes } from '../router/types';
 
-import type { IModalAssetDetailsParamList } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export function TokenDetails() {
-  const intl = useIntl();
-  const [isBlocked, setIsBlocked] = useState(false);
   const navigation = useAppNavigation();
-  const media = useMedia();
 
   const route =
     useRoute<
@@ -56,40 +47,54 @@ export function TokenDetails() {
 
   const [settings] = useSettingsPersistAtom();
 
-  const { accountId, networkId, tokenInfo } = route.params;
+  const {
+    accountId,
+    networkId,
+    tokenInfo,
+    isBlocked: tokenIsBlocked,
+  } = route.params;
 
-  const { result: [tokenHistory, tokenDetails] = [] } =
-    usePromiseResult(async () => {
-      const account = await backgroundApiProxy.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-      if (!account) return;
+  const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
+  const [initialized, setInitialized] = useState(false);
 
-      const [history, details] = await Promise.all([
-        backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId: account.id,
-          accountAddress: account.address,
+  const { result: [tokenHistory, tokenDetails, account] = [], isLoading } =
+    usePromiseResult(
+      async () => {
+        const a = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
           networkId,
-          tokenIdOnNetwork: tokenInfo.address,
-        }),
-        backgroundApiProxy.serviceToken.fetchTokensDetails({
+        });
+
+        if (!a) return;
+        const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
           networkId,
-          accountAddress: account.address,
-          contractList: [tokenInfo.address],
-        }),
-      ]);
+        });
+        const [history, details] = await Promise.all([
+          backgroundApiProxy.serviceHistory.fetchAccountHistory({
+            accountId: a.id,
+            accountAddress: a.address,
+            xpub,
+            networkId,
+            tokenIdOnNetwork: tokenInfo.address,
+          }),
+          backgroundApiProxy.serviceToken.fetchTokensDetails({
+            networkId,
+            xpub,
+            accountAddress: a.address,
+            contractList: [tokenInfo.address],
+          }),
+        ]);
 
-      return [history, details[0]];
-    }, [accountId, networkId, tokenInfo.address]);
+        setInitialized(true);
 
-  const tokenValue = useMemo(
-    () =>
-      `${settings.currencyInfo.symbol}${intl.formatNumber(
-        new BigNumber(tokenDetails?.fiatValue ?? 0).toNumber(),
-      )}`,
-    [intl, settings.currencyInfo.symbol, tokenDetails?.fiatValue],
-  );
+        return [history, details[0], a];
+      },
+      [accountId, networkId, tokenInfo.address],
+      {
+        watchLoading: true,
+      },
+    );
 
   const handleReceivePress = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.ReceiveModal, {
@@ -97,9 +102,16 @@ export function TokenDetails() {
     });
   }, [navigation]);
 
-  const handleHistoryItemPress = useCallback(() => {
-    navigation.push(EModalAssetDetailRoutes.HistoryDetails);
-  }, [navigation]);
+  const handleHistoryItemPress = useCallback(
+    (tx: IAccountHistoryTx) => {
+      navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+        networkId,
+        accountAddress: account?.address,
+        historyTx: tx,
+      });
+    },
+    [account?.address, navigation, networkId],
+  );
 
   const handleSendPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SendModal, {
@@ -113,29 +125,20 @@ export function TokenDetails() {
     });
   }, [accountId, navigation, networkId, tokenDetails?.info, tokenInfo]);
 
-  const headerTitle = useCallback(
-    () => (
-      <XStack alignItems="center">
-        <Image
-          circular
-          width="$6"
-          height="$6"
-          source={{
-            uri: tokenInfo.logoURI ?? tokenDetails?.info.logoURI,
-          }}
-        />
-        <Heading pl="$2" size="$headingLg">
-          {tokenInfo.symbol ?? tokenDetails?.info.symbol}
-        </Heading>
-      </XStack>
-    ),
-    [
-      tokenDetails?.info.logoURI,
-      tokenDetails?.info.symbol,
-      tokenInfo.logoURI,
-      tokenInfo.symbol,
-    ],
-  );
+  const handleToggleBlockedToken = useCallback(async () => {
+    setIsBlocked(!isBlocked);
+    if (isBlocked) {
+      await backgroundApiProxy.serviceToken.unblockToken({
+        networkId,
+        tokenId: tokenInfo.address,
+      });
+    } else {
+      await backgroundApiProxy.serviceToken.blockToken({
+        networkId,
+        tokenId: tokenInfo.address,
+      });
+    }
+  }, [isBlocked, networkId, tokenInfo.address]);
 
   const headerRight = useCallback(
     () => (
@@ -159,165 +162,198 @@ export function TokenDetails() {
           {
             items: [
               {
-                label: isBlocked ? 'Unblock' : 'Block',
+                label: isBlocked ? 'Unhide' : 'Hide',
                 icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-                onPress: () => {
-                  setIsBlocked(!isBlocked);
-                },
+                onPress: handleToggleBlockedToken,
               },
             ],
           },
         ]}
       />
     ),
-    [isBlocked],
+    [handleToggleBlockedToken, isBlocked],
   );
 
-  const renderTokenAddress = useCallback(() => {
-    if (!tokenInfo.address) return null;
-    return (
-      <XGroup
-        bg="$bgStrong"
-        borderRadius="$2"
-        separator={<Divider vertical borderColor="$bgApp" />}
-      >
-        <XStack
-          alignItems="center"
-          py="$0.5"
-          px="$1.5"
-          userSelect="none"
-          style={{
-            borderCurve: 'continuous',
-          }}
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          $platform-native={{
-            hitSlop: {
-              top: 8,
-              bottom: 8,
-            },
-          }}
-          onPress={() =>
-            Toast.success({
-              title: 'Copied',
-            })
-          }
-        >
-          <Image
-            width="$4"
-            height="$4"
-            source={{
-              uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-            }}
-          />
-          <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
-            {accountUtils.shortenAddress({ address: tokenInfo.address })}
-          </SizableText>
-        </XStack>
-        {media.gtMd && (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            py="$0.5"
-            px="$1.5"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            style={{
-              borderCurve: 'continuous',
-            }}
-            $platform-native={
-              {
-                hitSlop: {
-                  top: 8,
-                  bottom: 8,
-                  right: 8,
-                },
-              } as IStackProps
-            }
-          >
-            <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
-          </Stack>
-        )}
-      </XGroup>
-    );
-  }, [media.gtMd, tokenInfo.address]);
+  // const renderTokenAddress = useCallback(() => {
+  //   if (!tokenInfo.address) return null;
+  //   return (
+  //     <XGroup
+  //       bg="$bgStrong"
+  //       borderRadius="$2"
+  //       separator={<Divider vertical borderColor="$bgApp" />}
+  //     >
+  //       <XStack
+  //         alignItems="center"
+  //         py="$0.5"
+  //         px="$1.5"
+  //         userSelect="none"
+  //         style={{
+  //           borderCurve: 'continuous',
+  //         }}
+  //         hoverStyle={{
+  //           bg: '$bgHover',
+  //         }}
+  //         pressStyle={{
+  //           bg: '$bgActive',
+  //         }}
+  //         $platform-native={{
+  //           hitSlop: {
+  //             top: 8,
+  //             bottom: 8,
+  //           },
+  //         }}
+  //         onPress={() =>
+  //           Toast.success({
+  //             title: 'Copied',
+  //           })
+  //         }
+  //       >
+  //         <Image
+  //           width="$4"
+  //           height="$4"
+  //           source={{
+  //             uri: network?.logoURI,
+  //           }}
+  //         />
+  //         <SizableText pl="$1" size="$bodyMd" color="$textSubdued">
+  //           {accountUtils.shortenAddress({ address: tokenInfo.address })}
+  //         </SizableText>
+  //       </XStack>
+  //       {media.gtMd && (
+  //         <Stack
+  //           alignItems="center"
+  //           justifyContent="center"
+  //           py="$0.5"
+  //           px="$1.5"
+  //           hoverStyle={{
+  //             bg: '$bgHover',
+  //           }}
+  //           pressStyle={{
+  //             bg: '$bgActive',
+  //           }}
+  //           style={{
+  //             borderCurve: 'continuous',
+  //           }}
+  //           $platform-native={
+  //             {
+  //               hitSlop: {
+  //                 top: 8,
+  //                 bottom: 8,
+  //                 right: 8,
+  //               },
+  //             } as IStackProps
+  //           }
+  //         >
+  //           <Icon size="$4" name="ShareOutline" color="$iconSubdued" />
+  //         </Stack>
+  //       )}
+  //     </XGroup>
+  //   );
+  // }, [media.gtMd, network?.logoURI, tokenInfo.address]);
+
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      <Page.Header
+        headerTitle={tokenInfo.name ?? tokenDetails?.info.name}
+        headerRight={headerRight}
+      />
       <Page.Body>
-        <HeightTransition>
-          {isBlocked && (
-            <Stack key="alert">
-              <Alert
-                icon="EyeOffOutline"
-                fullBleed
-                type="info"
-                title="This token is currently blocked and won't appear in the list"
-                action={{
-                  primary: 'Unblock',
-                  onPrimaryPress: () => {
-                    setIsBlocked(false);
-                  },
-                }}
-              />
-              <Stack h="$5" />
-            </Stack>
-          )}
-        </HeightTransition>
-        <Stack px="$5" pb="$5">
-          <XStack alignItems="center">
-            <SizableText flex={1} color="$textSubdued">
-              {intl.formatMessage({ id: 'content__balance' })}
-            </SizableText>
-            {renderTokenAddress()}
-          </XStack>
-          <Stack
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'baseline',
-              space: '$2',
+        {isBlocked && (
+          <Alert
+            icon="EyeOffOutline"
+            fullBleed
+            type="warning"
+            title="This token is currently hidden and won't appear in the list"
+            action={{
+              primary: 'Unhide',
+              onPrimaryPress: handleToggleBlockedToken,
             }}
-          >
-            <Heading size="$heading5xl">
-              {getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}
-            </Heading>
-            <SizableText size="$bodyLgMedium">{tokenValue}</SizableText>
-          </Stack>
-          <XStack pt="$5" space="$2.5">
-            <Button onPress={handleSendPress}>Send</Button>
-            <Button onPress={handleReceivePress}>Receive</Button>
-            <Button>Swap</Button>
-            <Button icon="DotHorOutline" pl="$2.5" pr="$0.5" />
+            mb="$5"
+          />
+        )}
+
+        {/* Overview */}
+        <Stack px="$5" pb="$5">
+          {/* Balance */}
+          <XStack alignItems="center" mb="$5">
+            <Token
+              tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
+              size="xl"
+            />
+            <Stack ml="$3">
+              {isLoading ? (
+                <YStack>
+                  <Stack py="$1.5">
+                    <Skeleton h="$6" w="$40" />
+                  </Stack>
+                  <Stack py="$1">
+                    <Skeleton h="$4" w="$28" />
+                  </Stack>
+                </YStack>
+              ) : (
+                <>
+                  <NumberSizeableText
+                    size="$heading3xl"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                  >
+                    {tokenDetails?.balanceParsed ?? '0'}
+                  </NumberSizeableText>
+                  <NumberSizeableText
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    color="$textSubdued"
+                    size="$bodyLgMedium"
+                  >
+                    {tokenDetails?.fiatValue ?? '0'}
+                  </NumberSizeableText>
+                </>
+              )}
+            </Stack>
           </XStack>
+          {/* Actions */}
+          <RawActions>
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive onPress={handleReceivePress} />
+            <RawActions.Swap onPress={() => {}} />
+            <RawActions.Buy onPress={() => {}} />
+            <RawActions.Sell onPress={() => {}} />
+          </RawActions>
         </Stack>
-        <Divider />
+
+        {/* Banner – if this token can be staked */}
         <ListItem
-          py="$3.5"
-          avatarProps={{
-            src: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/usdc.png',
-          }}
-          title="USDC"
-          titleProps={{
-            size: '$bodyMdMedium',
-          }}
-          subtitle="3.77% APR"
-          subtitleProps={{
-            size: '$bodyLgMedium',
-            color: '$textSuccess',
-          }}
+          drillIn
+          onPress={() => console.log('clicked')}
+          py="$3"
+          px="$5"
+          mx="$0"
+          bg="$bgSuccessSubdued"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderRadius="$0"
         >
-          <Button variant="primary">Stake</Button>
+          <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+            <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+          </Stack>
+          <ListItem.Text
+            flex={1}
+            primary="Stake and Earn"
+            secondary="Up to 3.77% in Annual Rewards"
+            secondaryTextProps={{
+              size: '$bodyMdMedium',
+              color: '$textSuccess',
+            }}
+          />
         </ListItem>
-        <Divider mb="$2.5" />
+
+        {/* History */}
+        <Divider />
         <TxHistoryListView
+          initialized={initialized}
+          isLoading={isLoading}
           data={tokenHistory ?? []}
           onPressHistory={handleHistoryItemPress}
         />

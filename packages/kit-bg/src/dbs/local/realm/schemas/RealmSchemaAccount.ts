@@ -2,7 +2,6 @@ import { EDBAccountType } from '../../consts';
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
-import type { RealmSchemaWallet } from './RealmSchemaWallet';
 import type {
   IDBAccount,
   IDBUtxoAccount,
@@ -45,8 +44,6 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public customAddresses?: Realm.Dictionary<string>;
 
-  public assignee!: Realm.Results<RealmSchemaWallet>;
-
   public template?: string;
 
   public static override schema: Realm.ObjectSchema = {
@@ -74,11 +71,6 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
         default: {},
         objectType: 'string',
       },
-      assignee: {
-        type: 'linkingObjects',
-        objectType: 'Wallet',
-        property: 'accounts',
-      },
       template: 'string?',
     },
   };
@@ -97,7 +89,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       template: this.template || '',
       pub: '',
       impl: this.impl,
-      networks: this.networks,
+      networks: Array.from(this.networks || []),
       createAtNetwork: this.createAtNetwork,
     };
     if (this.type === EDBAccountType.SIMPLE) {
@@ -105,14 +97,17 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
     }
     if (this.type === EDBAccountType.VARIANT) {
       (ret as IDBVariantAccount).pub = this.pub || '';
-      (ret as IDBVariantAccount).addresses = this.addresses || {};
+      (ret as IDBVariantAccount).addresses =
+        (this.addresses?.toJSON() as any) || {};
     }
     if (this.type === EDBAccountType.UTXO) {
       (ret as IDBUtxoAccount).pub = this.pub || '';
       (ret as IDBUtxoAccount).xpub = this.xpub || '';
       (ret as IDBUtxoAccount).xpubSegwit = this.xpubSegwit || '';
-      (ret as IDBUtxoAccount).addresses = this.addresses || {};
-      (ret as IDBUtxoAccount).customAddresses = this.customAddresses || {};
+      (ret as IDBUtxoAccount).addresses =
+        (this.addresses?.toJSON() as any) || {};
+      (ret as IDBUtxoAccount).customAddresses =
+        (this.customAddresses?.toJSON() as any) || {};
     }
     return ret;
   }

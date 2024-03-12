@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
+import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
@@ -16,16 +16,19 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
-import {
-  EDiscoveryModalRoutes,
-  type IDiscoveryModalParamList,
-} from '../../router/Routes';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+
+import type { ScrollView as RNScrollView } from 'react-native';
 
 function DesktopCustomTabBar() {
   // register desktop shortcuts for browser tab
@@ -50,6 +53,15 @@ function DesktopCustomTabBar() {
     () => (tabs ?? []).filter((t) => t.isPinned),
     [tabs],
   );
+
+  // scroll to top when new tab is added
+  const scrollViewRef = useRef<RNScrollView>(null);
+  const previousTabsLength = usePrevious(tabs?.length);
+  useEffect(() => {
+    if (previousTabsLength && tabs?.length > previousTabsLength) {
+      scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    }
+  }, [previousTabsLength, tabs?.length]);
 
   const handlePinnedPress = useCallback(
     (id: string, pinned: boolean) => {
@@ -90,6 +102,14 @@ function DesktopCustomTabBar() {
     };
   }, [closeAllWebTabs]);
 
+  const onTabPress = useCallback(
+    (id: string) => {
+      navigation.switchTab(ETabRoutes.MultiTabBrowser);
+      setCurrentWebTab(id);
+    },
+    [setCurrentWebTab, navigation],
+  );
+
   return (
     <Stack flex={1}>
       <HandleRebuildBrowserData />
@@ -99,9 +119,7 @@ function DesktopCustomTabBar() {
           id={t.id}
           key={t.id}
           activeTabId={activeTabId}
-          onPress={(id) => {
-            setCurrentWebTab(id);
-          }}
+          onPress={onTabPress}
           onBookmarkPress={handleBookmarkPress}
           onPinnedPress={handlePinnedPress}
           onClose={handleCloseTab}
@@ -122,17 +140,14 @@ function DesktopCustomTabBar() {
           });
         }}
       />
-      <ScrollView mx="$-5" px="$5">
+      <ScrollView mx="$-5" px="$5" ref={scrollViewRef}>
         {/* Tabs */}
         {data.map((t) => (
           <DesktopCustomTabBarItem
             key={t.id}
             id={t.id}
             activeTabId={activeTabId}
-            onPress={(id) => {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser);
-              setCurrentWebTab(id);
-            }}
+            onPress={onTabPress}
             onBookmarkPress={handleBookmarkPress}
             onPinnedPress={handlePinnedPress}
             onClose={handleCloseTab}

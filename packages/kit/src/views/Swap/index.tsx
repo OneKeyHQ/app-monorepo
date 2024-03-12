@@ -1,13 +1,36 @@
 import { memo } from 'react';
 
-import { Page, SizableText } from '@onekeyhq/components';
+import {
+  Page,
+  ScrollView,
+  SizableText,
+  Stack,
+  Switch,
+} from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerLegacy,
 } from '../../components/AccountSelector';
+import { AccountSelectorTriggerSwap } from '../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
+
+const SwapToAnotherAccountSwitch = () => {
+  const [settings, setSettings] = useSettingsPersistAtom();
+
+  return (
+    <Switch
+      value={!!settings.swapToAnotherAccountSwitchOn}
+      onChange={() => {
+        setSettings((v) => ({
+          ...v,
+          swapToAnotherAccountSwitchOn: !v.swapToAnotherAccountSwitchOn,
+        }));
+      }}
+    />
+  );
+};
 
 const Swap = () => {
   console.log('swap');
@@ -15,20 +38,27 @@ const Swap = () => {
   return (
     <Page>
       <Page.Body space="$4">
-        <SizableText>Swap</SizableText>
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.swap,
-            sceneUrl: '',
-          }}
-          enabledNum={[0, 1]}
-        >
-          <AccountSelectorTriggerLegacy num={0} />
-          <AccountSelectorActiveAccountLegacy num={0} />
+        <ScrollView>
+          <SizableText>Swap</SizableText>
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.swap,
+              sceneUrl: '',
+            }}
+            enabledNum={[0, 1]}
+          >
+            <AccountSelectorTriggerSwap num={0} showNetworkSelector />
+            <AccountSelectorActiveAccountLegacy num={0} />
 
-          <AccountSelectorTriggerLegacy num={1} />
-          <AccountSelectorActiveAccountLegacy num={1} />
-        </AccountSelectorProviderMirror>
+            <AccountSelectorTriggerSwap num={1} showNetworkSelector />
+            <AccountSelectorActiveAccountLegacy num={1} />
+
+            <Stack flexDirection="row" alignItems="center" space="$2">
+              <SwapToAnotherAccountSwitch />
+              <SizableText>Swap to another account</SizableText>
+            </Stack>
+          </AccountSelectorProviderMirror>
+        </ScrollView>
       </Page.Body>
     </Page>
   );

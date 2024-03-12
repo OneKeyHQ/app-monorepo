@@ -2,18 +2,17 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
-import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-
 import type {
-  EDBAccountType,
-  EDBCredentialType,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
-} from './consts';
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
 import type { RealmSchemaAccountDerivation } from './realm/schemas/RealmSchemaAccountDerivation';
@@ -128,6 +127,7 @@ export type IDBCreateHWWalletParamsBase = {
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
+  skipDeviceCancel?: boolean;
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;

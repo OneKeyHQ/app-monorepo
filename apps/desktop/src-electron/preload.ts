@@ -2,17 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
 
+import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+
 import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
-
-export type IPrefType =
-  | 'camera'
-  | 'bluetooth'
-  | 'location'
-  | 'notification'
-  | 'locationService'
-  | 'localNetwork';
 
 export type IDesktopAppState = 'active' | 'background' | 'blur';
 
@@ -80,6 +74,7 @@ export type IDesktopAPI = {
   quitApp: () => void;
   clearWebViewData: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
+  setAllowedPhishingUrls: (urls: string[]) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -270,6 +265,9 @@ const desktopApi = {
       cb?.();
     });
     ipcRenderer.send(ipcMessageKeys.APP_SET_IDLE_TIME, idleTime);
+  },
+  setAllowedPhishingUrls: (urls: string[]) => {
+    ipcRenderer.send(ipcMessageKeys.SET_ALLOWED_PHISHING_URLS, urls);
   },
 };
 

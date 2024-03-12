@@ -1,6 +1,8 @@
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { ERootRoutes } from './enum';
 import { ModalNavigator } from './Modal/Navigator';
 import { TabNavigator } from './Tab/Navigator';
 
@@ -21,3 +23,11 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     type: 'iOSFullScreen',
   },
 ];
+
+if (platformEnv.isDev) {
+  const NotFound = LazyLoad(() => import('../components/NotFound'));
+  rootRouter.push({
+    name: ERootRoutes.NotFound,
+    component: NotFound,
+  });
+}

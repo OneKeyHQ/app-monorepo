@@ -1,16 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Heading, Icon, Page, Spinner, Stack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Heading,
+  Icon,
+  Page,
+  Spinner,
+  Stack,
+} from '@onekeyhq/components';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  EFinalizeWalletSetupSteps,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-
-import type { EOnboardingPages, IOnboardingParamList } from '../router/type';
 
 function FinalizeWalletSetupPage({
   route,
@@ -18,18 +31,20 @@ function FinalizeWalletSetupPage({
   IOnboardingParamList,
   EOnboardingPages.FinalizeWalletSetup
 >) {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
+    EFinalizeWalletSetupSteps.CreatingWallet,
+  );
   const [showStep, setShowStep] = useState(false);
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
 
   const actions = useAccountSelectorActions();
-  const steps = [
-    'Creating your wallet',
-    'Generating your accounts',
-    'Encrypting your data',
-    'Your wallet is now ready',
-  ];
+  const steps: Record<EFinalizeWalletSetupSteps, string> = {
+    [EFinalizeWalletSetupSteps.CreatingWallet]: 'Creating your wallet',
+    [EFinalizeWalletSetupSteps.GeneratingAccounts]: 'Generating your accounts',
+    [EFinalizeWalletSetupSteps.EncryptingData]: 'Encrypting your data',
+    [EFinalizeWalletSetupSteps.Ready]: 'Your wallet is now ready',
+  };
 
   const created = useRef(false);
 
@@ -53,27 +68,28 @@ function FinalizeWalletSetupPage({
   }, [actions, mnemonic, navigation]);
 
   useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupStep],
+    ) => {
+      setCurrentStep(event.step);
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupStep, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupStep, fn);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!showStep) {
       return;
     }
-    const interval = setInterval(() => {
-      setCurrentStep((prevStep) => {
-        if (prevStep < steps.length - 1) {
-          return prevStep + 1;
-        }
-        clearInterval(interval);
-        return prevStep;
-      });
-    }, 1000);
-
-    if (currentStep === steps.length - 1) {
+    if (currentStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         navigation.popStack();
       }, 1000);
     }
-
-    return () => clearInterval(interval);
-  }, [currentStep, navigation, showStep, steps.length]);
+  }, [currentStep, navigation, showStep]);
 
   return (
     <Page>
@@ -81,7 +97,7 @@ function FinalizeWalletSetupPage({
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack w="$16" h="$16" justifyContent="center" alignItems="center">
           <AnimatePresence exitBeforeEnter>
-            {currentStep === steps.length - 1 ? (
+            {currentStep === EFinalizeWalletSetupSteps.Ready ? (
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
@@ -106,23 +122,19 @@ function FinalizeWalletSetupPage({
           </AnimatePresence>
         </Stack>
         <AnimatePresence exitBeforeEnter>
-          {steps.map((item, index) => (
-            <Stack key={item}>
-              {currentStep === index && (
-                <Heading
-                  mt="$5"
-                  size="$headingMd"
-                  animation="quick"
-                  enterStyle={{
-                    opacity: 0,
-                    x: 12,
-                  }}
-                >
-                  {steps[currentStep]}
-                </Heading>
-              )}
-            </Stack>
-          ))}
+          <Stack key={currentStep}>
+            <Heading
+              mt="$5"
+              size="$headingMd"
+              animation="quick"
+              enterStyle={{
+                opacity: 0,
+                x: 12,
+              }}
+            >
+              {steps[currentStep]}
+            </Heading>
+          </Stack>
         </AnimatePresence>
       </Page.Body>
     </Page>

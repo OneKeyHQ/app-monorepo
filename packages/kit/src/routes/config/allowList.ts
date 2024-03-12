@@ -1,12 +1,14 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+  ETestModalPages,
+} from '@onekeyhq/shared/src/routes';
 
 import { EGalleryRoutes } from '../../views/Developer/pages/routes';
 import { ETabDeveloperRoutes } from '../../views/Developer/type';
 import { ETabHomeRoutes } from '../../views/Home/router';
-import { EModalSettingRoutes } from '../../views/Setting/router/types';
-import { ETestModalPages } from '../../views/TestModal/router/type';
-import { ERootRoutes } from '../enum';
-import { EModalRoutes } from '../Modal/type';
 import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
 import { ETabMeRoutes } from '../Tab/Me/type';
 import { ETabSwapRoutes } from '../Tab/Swap/type';
@@ -51,6 +53,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         if (!screen) {
           throw new Error(`screen ${screenName} not found`);
         }
+      }
+      if (!screen) {
+        return '';
       }
       const nextScreenConfig = screen.screens;
       if (nextScreenConfig) {

@@ -10,6 +10,7 @@ import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
+import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -31,6 +32,7 @@ import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -89,6 +91,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
+  serviceAccountSelector: ServiceAccountSelector;
   serviceToken: ServiceToken;
   serviceNFT: ServiceNFT;
   serviceHistory: ServiceHistory;
@@ -98,6 +101,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
+  serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
 

@@ -12,6 +12,15 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { ICoreImportedCredentialEncryptHex } from '@onekeyhq/core/src/types';
 import {
+  DB_MAIN_CONTEXT_ID,
+  DEFAULT_VERIFY_STRING,
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   OneKeyInternalError,
   PasswordNotSet,
   WrongPassword,
@@ -27,16 +36,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import {
-  DB_MAIN_CONTEXT_ID,
-  DEFAULT_VERIFY_STRING,
-  EDBAccountType,
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from './consts';
+import { EDBAccountType } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {
@@ -961,6 +961,7 @@ ssphrase wallet
     });
   }
 
+  // TODO remove associate indexedAccount and account
   async removeWallet({
     walletId,
     password,
@@ -1339,7 +1340,7 @@ ssphrase wallet
       ids: wallet.accounts, // filter by ids for better performance
     });
     return {
-      accounts,
+      accounts: accounts.filter(Boolean),
     };
   }
 
@@ -1377,14 +1378,60 @@ ssphrase wallet
     throw new Error('Method not implemented.');
   }
 
-  removeAccount(
-    walletId: string,
-    accountId: string,
-    password: string,
-    rollbackNextAccountIds: Record<string, number>,
-    skipPasswordCheck?: boolean | undefined,
-  ): Promise<void> {
-    throw new Error('Method not implemented.');
+  async removeAccount({
+    accountId,
+    walletId,
+  }: {
+    accountId: string;
+    walletId: string;
+  }): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+      });
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater(item) {
+          item.accounts = (item.accounts || ([] as string[])).filter(
+            (id) => id !== accountId,
+          );
+          return item;
+        },
+      });
+      if (
+        accountUtils.isImportedWallet({
+          walletId,
+        })
+      ) {
+        await this.txRemoveRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          ids: [accountId],
+        });
+      }
+    });
+  }
+
+  // TODO remove associated account
+  async removeIndexedAccount({
+    indexedAccountId,
+    walletId,
+  }: {
+    indexedAccountId: string;
+    walletId: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: [indexedAccountId],
+      });
+    });
   }
 
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {

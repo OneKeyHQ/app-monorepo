@@ -11,6 +11,10 @@ import {
   useSendConfirmActions,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 import SendConfirmActionsContainer from './SendConfirmActionsContainer';
@@ -18,7 +22,6 @@ import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
 import TxSimulationContainer from './TxSimulationContainer';
 
-import type { EModalSendRoutes, IModalSendParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
 
 function SendConfirmContainer() {
@@ -28,7 +31,15 @@ function SendConfirmContainer() {
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
     useSendConfirmActions().current;
-  const { accountId, networkId, unsignedTxs, onSuccess, onFail } = route.params;
+  const {
+    accountId,
+    networkId,
+    unsignedTxs,
+    onSuccess,
+    onFail,
+    sourceInfo,
+    signOnly,
+  } = route.params;
 
   usePromiseResult(async () => {
     updateUnsignedTxs(unsignedTxs);
@@ -92,6 +103,8 @@ function SendConfirmContainer() {
                   tableLayout={tableLayout}
                 />
                 <SendConfirmActionsContainer
+                  sourceInfo={sourceInfo}
+                  signOnly={signOnly}
                   accountId={accountId}
                   networkId={networkId}
                   onSuccess={onSuccess}
@@ -113,6 +126,8 @@ function SendConfirmContainer() {
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
+          sourceInfo={sourceInfo}
+          signOnly={signOnly}
           accountId={accountId}
           networkId={networkId}
           onSuccess={onSuccess}
@@ -120,7 +135,15 @@ function SendConfirmContainer() {
         />
       </>
     );
-  }, [accountId, networkId, onFail, onSuccess, tableLayout]);
+  }, [
+    accountId,
+    networkId,
+    onFail,
+    onSuccess,
+    signOnly,
+    sourceInfo,
+    tableLayout,
+  ]);
 
   return (
     <Page scrollEnabled={!tableLayout}>

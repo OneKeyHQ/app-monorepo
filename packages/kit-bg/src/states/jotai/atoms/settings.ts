@@ -1,4 +1,4 @@
-import type { ILocaleSymbol } from '@onekeyhq/components';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
@@ -24,6 +24,7 @@ export type ISettingsPersistAtom = {
     symbol: string;
     id: string;
   };
+  swapToAnotherAccountSwitchOn: boolean;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -36,6 +37,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
+      swapToAnotherAccountSwitchOn: false,
       isBiologyAuthSwitchOn: false,
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
@@ -80,3 +82,11 @@ export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
       timeNow.length > 0
     );
   });
+
+export const {
+  target: swapToAnotherAccountSwitchOnAtom,
+  use: useSwapToAnotherAccountSwitchOnAtom,
+} = globalAtomComputed<boolean>((get) => {
+  const settings = get(settingsPersistAtom.atom());
+  return Boolean(settings.swapToAnotherAccountSwitchOn);
+});

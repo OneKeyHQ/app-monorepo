@@ -367,6 +367,7 @@ export default class Vault extends VaultBase {
       txid: '',
       owner: accountAddress,
       signer: encodedTx.from ?? accountAddress,
+      to: encodedTx.to,
       nonce: Number(encodedTx.nonce) ?? 0,
       actions: finalActions,
       status: EDecodedTxStatus.Pending,
@@ -575,7 +576,7 @@ export default class Vault extends VaultBase {
     const { encodedTx, nonceInfo } = params;
     const tx = {
       ...encodedTx,
-      nonce: String(nonceInfo.nonce),
+      nonce: nonceInfo.nonce,
     };
 
     return Promise.resolve(tx);
@@ -618,7 +619,7 @@ export default class Vault extends VaultBase {
       ...encodedTx,
     };
     const chainIdHex = await this.getNetworkChainId({ hex: true });
-    const chainIdNum = new BigNumber(chainIdHex).toNumber();
+    const chainIdNum = chainIdHex;
 
     tx.chainId = chainIdNum;
     return Promise.resolve({
@@ -723,6 +724,7 @@ export default class Vault extends VaultBase {
       to: recipient,
       tokenIdOnNetwork: token.address,
       icon: token.logoURI ?? '',
+      name: token.name,
       symbol: token.symbol,
       amount,
       isNFT: false,
@@ -755,6 +757,7 @@ export default class Vault extends VaultBase {
         to: spender,
         amount,
         icon: token.logoURI ?? '',
+        name: token.name,
         symbol: token.symbol,
         tokenIdOnNetwork: token.address,
         isMax: amount === InfiniteAmountText,
@@ -781,6 +784,7 @@ export default class Vault extends VaultBase {
       to: encodedTx.to,
       tokenIdOnNetwork: nativeToken.address,
       icon: nativeToken.logoURI ?? '',
+      name: nativeToken.name,
       symbol: nativeToken.symbol,
       amount: new BigNumber(encodedTx.value)
         .shiftedBy(-nativeToken.decimals)
@@ -889,6 +893,7 @@ export default class Vault extends VaultBase {
       to,
       tokenIdOnNetwork: nftId,
       amount: nftAmount,
+      name: nft.metadata?.name ?? '',
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',
       isNFT: true,
@@ -926,5 +931,22 @@ export default class Vault extends VaultBase {
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     return super.baseGetPrivateKeyFromImported(params);
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm | undefined;
+  }) {
+    if (!encodedTx) return;
+    const { chainId, nonce, from, to, data, value } = encodedTx;
+    return Promise.resolve({
+      chainId,
+      nonce,
+      from,
+      to,
+      data,
+      value,
+    });
   }
 }

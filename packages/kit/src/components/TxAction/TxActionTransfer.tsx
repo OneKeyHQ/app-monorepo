@@ -1,21 +1,32 @@
+/* eslint-disable no-nested-ternary */
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { forOwn, groupBy, isEmpty, isNil, map, uniq } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  Image,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
-import { getFormattedNumber } from '../../utils/format';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
 import { Container } from '../Container';
+import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
 
@@ -27,11 +38,13 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
 };
 
-function getTxActionTransferInfo(props: ITxActionProps) {
-  const { action } = props;
+function getTxActionTransferInfo(props: ITxActionProps & { isUTXO?: boolean }) {
+  const { action, decodedTx, isUTXO } = props;
 
   const { from, to, sends, receives, label } =
     action.assetTransfer as IDecodedTxActionAssetTransfer;
+
+  const { type } = decodedTx.payload ?? {};
 
   let transferTarget = '';
 
@@ -54,6 +67,25 @@ function getTxActionTransferInfo(props: ITxActionProps) {
     } else {
       transferTarget = from;
     }
+  } else if (isUTXO) {
+    if (type === EOnChainHistoryTxType.Send) {
+      const filteredReceives = receives.filter((receive) => !receive.isOwn);
+      console.log(filteredReceives[0]);
+      transferTarget =
+        filteredReceives.length > 1
+          ? `${filteredReceives.length} addresses`
+          : filteredReceives[0]
+          ? filteredReceives[0].to
+          : receives[0].to;
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      const filteredSends = sends.filter((send) => !send.isOwn);
+      transferTarget =
+        filteredSends.length > 1
+          ? `${filteredSends.length} addresses`
+          : filteredSends[0]
+          ? filteredSends[0].from
+          : sends[0].from;
+    }
   } else {
     transferTarget = to;
   }
@@ -73,35 +105,56 @@ function getTxActionTransferInfo(props: ITxActionProps) {
 }
 
 function buildTransferChangeInfo({
-  changeSymbol,
+  changePrefix,
   transfers,
   intl,
+  nativeAmount,
+  isUTXO,
 }: {
-  changeSymbol: string;
+  changePrefix: string;
   transfers: IDecodedTxTransferInfo[];
   intl: IntlShape;
+  nativeAmount?: string;
+  isUTXO?: boolean;
 }) {
   let change = '';
+  let changeSymbol = '';
   let changeDescription = '';
 
+  if (isUTXO) {
+    const amountBN = new BigNumber(nativeAmount ?? 0).abs();
+    change = amountBN.toFixed();
+    changeSymbol = transfers[0].symbol;
+    changeDescription = amountBN
+      .multipliedBy(transfers[0].price ?? 0)
+      .toFixed();
+    return {
+      change: `${changePrefix}${change}`,
+      changeSymbol,
+      changeDescription,
+    };
+  }
+
   if (transfers.length === 1) {
-    change = `${
-      getFormattedNumber(new BigNumber(transfers[0].amount).abs().toFixed()) ??
-      '0'
-    } ${transfers[0].symbol}`;
+    const amountBN = new BigNumber(transfers[0].amount).abs();
+    change = amountBN.toFixed();
+    changeSymbol = transfers[0].symbol;
+    changeDescription = amountBN
+      .multipliedBy(transfers[0].price ?? 0)
+      .toFixed();
   } else {
     const tokens = uniq(map(transfers, 'token'));
     if (tokens.length === 1) {
-      const totalAmount =
-        getFormattedNumber(
-          transfers
-            .reduce(
-              (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
-              new BigNumber(0),
-            )
-            .toFixed(),
-        ) || '0';
-      change = `${totalAmount} ${transfers[0].symbol}`;
+      const totalAmountBN = transfers.reduce(
+        (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
+        new BigNumber(0),
+      );
+      change = totalAmountBN.toFixed();
+      changeSymbol = transfers[0].symbol;
+
+      changeDescription = totalAmountBN
+        .multipliedBy(transfers[0].price ?? 0)
+        .toFixed();
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
@@ -111,35 +164,43 @@ function buildTransferChangeInfo({
         })}`;
         changeDescription = `${transfersWithToken[0].symbol} and more`;
       } else if (transfersWithNFT.length === 1) {
-        change = `${new BigNumber(transfersWithNFT[0].amount)
-          .abs()
-          .toFixed()} ${transfersWithNFT[0].symbol}`;
+        change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
+        changeSymbol = transfersWithNFT[0].symbol;
       } else {
-        const totalNFTs =
-          getFormattedNumber(
-            transfersWithNFT
-              .reduce(
-                (acc, transfer) =>
-                  acc.plus(new BigNumber(transfer.amount).abs()),
-                new BigNumber(0),
-              )
-              .toFixed(),
-          ) || '0';
-        change = `${totalNFTs} NFTs`;
+        const totalNFTs = transfersWithNFT
+          .reduce(
+            (acc, transfer) => acc.plus(new BigNumber(transfer.amount).abs()),
+            new BigNumber(0),
+          )
+          .toFixed();
+        change = totalNFTs;
+        changeSymbol = 'NFTs';
         changeDescription = `${transfersWithNFT[0].symbol} and more`;
       }
     }
   }
 
   return {
-    change: `${changeSymbol} ${change}`,
+    change: `${changePrefix}${change}`,
+    changeSymbol,
     changeDescription,
   };
 }
 
 function TxActionTransferListView(props: ITxActionProps) {
-  const { tableLayout } = props;
+  const { tableLayout, decodedTx, componentProps, showIcon } = props;
+  const { networkId, payload, nativeAmount } = decodedTx;
+  const { type } = payload ?? {};
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
+    decodedTx,
+  });
+  const vaultSettings = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  ).result;
+  const isUTXO = vaultSettings?.isUtxo;
   const {
     sends,
     receives,
@@ -149,66 +210,137 @@ function TxActionTransferListView(props: ITxActionProps) {
     sendTokenIcon,
     receiveNFTIcon,
     receiveTokenIcon,
-  } = getTxActionTransferInfo(props);
+  } = getTxActionTransferInfo({
+    ...props,
+    isUTXO,
+  });
   const description = {
     prefix: '',
     children: accountUtils.shortenAddress({
       address: transferTarget,
     }),
   };
+
   const avatar: ITxActionCommonListViewProps['avatar'] = {
-    circular: !(sendNFTIcon || receiveNFTIcon),
-    fallbackIcon: !(sendNFTIcon || receiveNFTIcon)
-      ? 'QuestionmarkSolid'
-      : 'ImageMountainSolid',
+    isNFT: !!(sendNFTIcon || receiveNFTIcon),
+    fallbackIcon:
+      sendNFTIcon || receiveNFTIcon
+        ? 'ImageMountainSolid'
+        : 'QuestionmarkSolid',
   };
   let title = '';
-  let change = '';
-  let changeDescription = '';
+  let change: React.ReactNode = '';
+  let changeSymbol = '';
+  let changeDescription: React.ReactNode = '';
+  let changeDescriptionSymbol = '';
 
   title = label;
 
   if (!isEmpty(sends) && isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
-      changeSymbol: '-',
+      changePrefix: '-',
       transfers: sends,
       intl,
     });
     change = changeInfo.change;
+    changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
-    description.prefix = intl.formatMessage({ id: 'content__to' });
     avatar.src = sendNFTIcon || sendTokenIcon;
     title = intl.formatMessage({ id: 'action__send' });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
-      changeSymbol: '+',
+      changePrefix: '+',
       transfers: receives,
       intl,
     });
     change = changeInfo.change;
+    changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
-    description.prefix = intl.formatMessage({ id: 'content__from' });
     avatar.src = receiveNFTIcon || receiveTokenIcon;
     title = intl.formatMessage({ id: 'action__receive' });
+  } else if (vaultSettings?.isUtxo) {
+    if (type === EOnChainHistoryTxType.Send) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: sends,
+        nativeAmount,
+        intl,
+        isUTXO,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendTokenIcon;
+      title = intl.formatMessage({ id: 'action__send' });
+    } else if (type === EOnChainHistoryTxType.Receive) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '+',
+        transfers: receives,
+        nativeAmount,
+        intl,
+        isUTXO,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = receiveTokenIcon;
+      title = intl.formatMessage({ id: 'action__receive' });
+    }
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
-      changeSymbol: '-',
+      changePrefix: '-',
       transfers: sends,
       intl,
     });
     const receiveChangeInfo = buildTransferChangeInfo({
-      changeSymbol: '+',
+      changePrefix: '+',
       transfers: receives,
       intl,
     });
     change = receiveChangeInfo.change;
+    changeSymbol = receiveChangeInfo.changeSymbol;
     changeDescription = sendChangeInfo.change;
-    description.prefix = intl.formatMessage({ id: 'content__to' });
+    changeDescriptionSymbol = sendChangeInfo.changeSymbol;
     avatar.src = [
       sendNFTIcon || sendTokenIcon,
       receiveNFTIcon || receiveTokenIcon,
     ].filter(Boolean);
   }
+
+  change = (
+    <NumberSizeableText
+      formatter="balance"
+      formatterOptions={{
+        tokenSymbol: changeSymbol,
+        showPlusMinusSigns: true,
+      }}
+      numberOfLines={1}
+      size="$bodyLgMedium"
+      {...((change as string)?.includes('+') && {
+        color: '$textSuccess',
+      })}
+      {...(tableLayout && {
+        size: '$bodyMdMedium',
+      })}
+    >
+      {change as string}
+    </NumberSizeableText>
+  );
+  changeDescription = (
+    <NumberSizeableText
+      formatter={changeDescriptionSymbol ? 'balance' : 'value'}
+      formatterOptions={{
+        tokenSymbol: changeDescriptionSymbol,
+        currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
+        showPlusMinusSigns: !!changeDescriptionSymbol,
+      }}
+      size="$bodyMd"
+      color="$textSubdued"
+      numberOfLines={1}
+    >
+      {changeDescription as string}
+    </NumberSizeableText>
+  );
 
   return (
     <TxActionCommonListView
@@ -218,6 +350,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       change={change}
       changeDescription={changeDescription}
       tableLayout={tableLayout}
+      fee={txFee}
+      feeFiatValue={txFeeFiatValue}
+      feeSymbol={txFeeSymbol}
+      timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
+      showIcon={showIcon}
+      {...componentProps}
     />
   );
 }
@@ -252,14 +390,14 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { networkId, nativeTokenTransferAmountToUpdate } = props;
+  const { decodedTx, nativeTokenTransferAmountToUpdate } = props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
   const receivesBlock = buildTransfersBlock(groupBy(receives, 'from'));
 
   const { network } = useAccountData({
-    networkId,
+    networkId: decodedTx.networkId,
   });
 
   const renderTransferBlock = useCallback(
@@ -279,29 +417,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 key={transfer.tokenIdOnNetwork}
                 overflow="hidden"
               >
-                <ListItem.Avatar
-                  src={transfer.icon}
-                  size="$7"
-                  circular={!transfer.isNFT}
-                  fallbackProps={{
-                    bg: '$bgStrong',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    children: (
-                      <Icon
-                        name={
-                          transfer.isNFT
-                            ? 'QuestionmarkOutline'
-                            : 'ImageMountainSolid'
-                        }
-                        color="$iconSubdued"
-                      />
-                    ),
-                  }}
+                <Token
+                  size="md"
+                  isNFT={transfer.isNFT}
+                  tokenImageUri={transfer.icon}
                 />
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
-                } ${
+                }${
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
                   direction === EDecodedTxDirection.OUT

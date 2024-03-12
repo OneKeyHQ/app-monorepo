@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { AnimatePresence } from 'tamagui';
 
 import {
   ActionList,
+  AnimatePresence,
   Button,
   Icon,
   IconButton,
   SectionList,
+  SizableText,
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -17,19 +18,13 @@ import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useAccountSelectorActions,
   useAccountSelectorEditModeAtom,
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { AccountRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountRename';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
-import {
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
 import type {
   IDBAccount,
   IDBDevice,
@@ -39,18 +34,22 @@ import type {
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import type {
+  EAccountManagerStacksRoutes,
+  IAccountManagerStacksParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletOptions } from './WalletOptions';
 
-import type {
-  EAccountManagerStacksRoutes,
-  IAccountGroupProps,
-  IAccountManagerStacksParamList,
-} from '../../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export interface IWalletDetailsProps {
@@ -225,6 +224,34 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     [isOthers, linkNetwork],
   );
 
+  // const isEmptyData = useMemo(() => {
+  //   let count = 0;
+  //   sectionData?.forEach((section) => {
+  //     count += section.data.length;
+  //   });
+  //   return count <= 0;
+  // }, [sectionData]);
+
+  const shouldShowEditButton = useMemo(() => {
+    if (selectedAccount.focusedWallet === '$$others') {
+      if (
+        sectionData?.some((section) => {
+          if (section.data.length) {
+            return true;
+          }
+          return false;
+        })
+      ) {
+        return true;
+      }
+      return false;
+    }
+    if (!sectionData || sectionData.length === 0) {
+      return false;
+    }
+    return true;
+  }, [sectionData, selectedAccount.focusedWallet]);
+
   return (
     <Stack flex={1} pb={bottom}>
       <ListItem
@@ -232,20 +259,28 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         title={isOthers ? 'Others' : focusedWalletInfo?.wallet?.name}
         titleProps={{
           animation: 'quick',
-          opacity: editMode ? 0 : 1,
+          opacity: editMode && shouldShowEditButton ? 0 : 1, // hide when edit mode
         }}
       >
-        <Button
-          variant="tertiary"
-          onPress={() => {
-            setEditMode((v) => !v);
-          }}
-        >
-          {editMode ? 'Done' : 'Edit'}
-        </Button>
+        {shouldShowEditButton ? (
+          <Button
+            testID="AccountSelectorModal-EditButton"
+            variant="tertiary"
+            onPress={() => {
+              setEditMode((v) => !v);
+            }}
+          >
+            {editMode ? 'Done' : 'Edit'}
+          </Button>
+        ) : null}
       </ListItem>
 
       <SectionList
+        ListEmptyComponent={
+          <Stack p="$3">
+            <SizableText>No Wallets</SizableText>
+          </Stack>
+        }
         contentContainerStyle={{ pb: '$3' }}
         estimatedItemSize="$14"
         extraData={[selectedAccount.indexedAccountId, editMode, remember]}
@@ -258,7 +293,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           isOthers ? null : <WalletOptions wallet={focusedWalletInfo?.wallet} />
         }
         sections={sectionData ?? (emptyArray as any)}
-        renderSectionHeader={({ section }: { section: IAccountGroupProps }) => (
+        renderSectionHeader={({
+          section,
+        }: {
+          section: IAccountSelectorAccountsListSectionData;
+        }) => (
           <>
             {/* If better performance is needed,  */
             /*  a header component should be extracted and data updates should be subscribed to through context" */}
@@ -325,58 +364,69 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           item,
         }: {
           item: IDBIndexedAccount | IDBAccount;
-          section: IAccountGroupProps;
-        }) => (
-          <ListItem
-            key={item.id}
-            renderAvatar={
-              <AccountAvatar
-                fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
-                indexedAccount={isOthers ? undefined : (item as any)}
-                account={isOthers ? (item as any) : undefined}
-              />
-            }
-            title={item.name}
-            titleProps={{
-              numberOfLines: 1,
-            }}
-            subtitle={renderSubTitle(item)}
-            {...(!editMode && {
-              onPress: async () => {
-                if (isOthers) {
-                  await actions.current.confirmAccountSelect({
-                    num,
-                    indexedAccount: undefined,
-                    othersWalletAccount: item as IDBAccount,
-                    autoChangeToAccountMatchedNetwork: true,
-                  });
-                } else if (focusedWalletInfo) {
-                  await actions.current.confirmAccountSelect({
-                    num,
-                    indexedAccount: item as IDBIndexedAccount,
-                    othersWalletAccount: undefined,
-                    autoChangeToAccountMatchedNetwork: true,
-                  });
-                }
-                navigation.popStack();
-              },
-              checkMark: isOthers
-                ? selectedAccount.othersWalletAccountId === item.id
-                : selectedAccount.indexedAccountId === item.id,
-            })}
-          >
-            <AnimatePresence>
-              {editMode && (
-                <AccountRenameButton
-                  account={isOthers ? (item as IDBAccount) : undefined}
-                  indexedAccount={
-                    isOthers ? undefined : (item as IDBIndexedAccount)
-                  }
+          section: IAccountSelectorAccountsListSectionData;
+        }) => {
+          const account = isOthers ? (item as IDBAccount) : undefined;
+          const indexedAccount = isOthers
+            ? undefined
+            : (item as IDBIndexedAccount);
+
+          return (
+            <ListItem
+              key={item.id}
+              renderAvatar={
+                <AccountAvatar
+                  fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
+                  indexedAccount={isOthers ? undefined : (item as any)}
+                  account={isOthers ? (item as any) : undefined}
                 />
-              )}
-            </AnimatePresence>
-          </ListItem>
-        )}
+              }
+              title={item.name}
+              titleProps={{
+                numberOfLines: 1,
+              }}
+              subtitle={renderSubTitle(item)}
+              {...(!editMode && {
+                onPress: async () => {
+                  if (isOthers) {
+                    await actions.current.confirmAccountSelect({
+                      num,
+                      indexedAccount: undefined,
+                      othersWalletAccount: item as IDBAccount,
+                      autoChangeToAccountMatchedNetwork: true,
+                    });
+                  } else if (focusedWalletInfo) {
+                    await actions.current.confirmAccountSelect({
+                      num,
+                      indexedAccount: item as IDBIndexedAccount,
+                      othersWalletAccount: undefined,
+                      autoChangeToAccountMatchedNetwork: true,
+                    });
+                  }
+                  navigation.popStack();
+                },
+                checkMark: isOthers
+                  ? selectedAccount.othersWalletAccountId === item.id
+                  : selectedAccount.indexedAccountId === item.id,
+              })}
+            >
+              <AnimatePresence>
+                {editMode && (
+                  <>
+                    <AccountEditButton
+                      account={account}
+                      indexedAccount={indexedAccount}
+                    />
+                    {/* <AccountRemoveButton
+                      account={account}
+                      indexedAccount={indexedAccount}
+                    /> */}
+                  </>
+                )}
+              </AnimatePresence>
+            </ListItem>
+          );
+        }}
         renderSectionFooter={({
           section,
         }: {
@@ -401,7 +451,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 walletId: section.walletId,
               });
               console.log('addHDNextIndexedAccount>>>', c);
-              actions.current.updateSelectedAccount({
+              void actions.current.updateSelectedAccount({
                 num,
                 builder: (v) => ({
                   ...v,

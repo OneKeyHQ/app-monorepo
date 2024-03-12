@@ -1,15 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
-import { getSdkError } from '@walletconnect/utils';
 import { debounce } from 'lodash';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
-// TODO: move to shared
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router';
+import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -20,7 +12,14 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSendRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EAccountSelectorSceneName,
@@ -29,15 +28,16 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
+  IConnectionItem,
+  IConnectionItemWithStorageType,
+  IConnectionStorageType,
   IGetDAppAccountInfoParams,
-  IStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import type { SessionTypes } from '@walletconnect/types';
 
 function buildModalRouteParams({
   screens = [],
@@ -65,7 +65,7 @@ function buildModalRouteParams({
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
 
-  const storageType: IStorageType = isWalletConnectRequest
+  const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
   let networkImpl: string | undefined = '';
@@ -124,6 +124,7 @@ class ServiceDApp extends ServiceBase {
         hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
         scope: request.scope,
         data: request.data as any,
+        isWalletConnectRequest: !!request.isWalletConnectRequest,
       };
 
       const routeParams = {
@@ -165,12 +166,10 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
-      // TODO: openStandaloneWindow
-      // extUtils.openStandaloneWindow({
-      //   routes: routeNames,
-      //   params: routeParams,
-      // });
-      throw new Error('not implemented');
+      void extUtils.openStandaloneWindow({
+        routes: routeNames,
+        params: routeParams,
+      });
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -234,27 +233,26 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWalletConnectActiveSessions() {
-    await this.backgroundApi.walletConnect.initialize();
-    return this.backgroundApi.walletConnect.web3Wallet?.getActiveSessions();
-  }
-
-  @backgroundMethod()
-  async walletConnectDisconnect(topic: string) {
-    return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
-      topic,
-      reason: getSdkError('USER_DISCONNECTED'),
-    });
-  }
-
-  @backgroundMethod()
-  async updateWalletConnectSession(
-    topic: string,
-    namespaces: SessionTypes.Namespaces,
-  ) {
-    return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
-      topic,
-      namespaces,
+  async openSignAndSendTransactionModal({
+    request,
+    encodedTx,
+    accountId,
+    networkId,
+  }: {
+    request: IJsBridgeMessagePayload;
+    encodedTx: IEncodedTx;
+    accountId: string;
+    networkId: string;
+  }) {
+    return this.openModal({
+      request,
+      screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
+      params: {
+        encodedTx,
+        accountId,
+        networkId,
+      },
+      fullScreen: true,
     });
   }
 
@@ -270,39 +268,64 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async deleteExistSessionBeforeConnect({
+    origin,
+    storageType,
+  }: {
+    origin: string;
+    storageType: IConnectionStorageType;
+  }) {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    if (
+      storageType === 'walletConnect' &&
+      rawData?.data.injectedProvider?.[origin]
+    ) {
+      await this.disconnectWebsite({ origin, storageType: 'injectedProvider' });
+    } else if (rawData?.data.walletConnect?.[origin]) {
+      await this.disconnectWebsite({ origin, storageType: 'walletConnect' });
+    }
+  }
+
+  @backgroundMethod()
   async saveConnectionSession({
     origin,
     accountsInfo,
     storageType,
+    walletConnectTopic,
   }: {
     origin: string;
     accountsInfo: IConnectionAccountInfo[];
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
+    walletConnectTopic?: string;
   }) {
-    await this.backgroundApi.simpleDb.dappConnection.upsertConnection({
+    if (storageType === 'walletConnect' && !walletConnectTopic) {
+      throw new Error('walletConnectTopic is required');
+    }
+    const { simpleDb, serviceDiscovery } = this.backgroundApi;
+    await this.deleteExistSessionBeforeConnect({ origin, storageType });
+    await simpleDb.dappConnection.upsertConnection({
       origin,
       accountsInfo,
-      imageURL: await this.backgroundApi.serviceDiscovery.getWebsiteIcon(
-        origin,
-        128,
-      ),
+      imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
       storageType,
+      walletConnectTopic,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   @backgroundMethod()
-  async updateConnectionSession({
-    origin,
-    accountSelectorNum,
-    updatedAccountInfo,
-    storageType,
-  }: {
+  async updateConnectionSession(params: {
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
+    const { origin, accountSelectorNum, updatedAccountInfo, storageType } =
+      params;
+    if (storageType === 'walletConnect') {
+      await this.updateWalletConnectSession(params);
+    }
     await this.backgroundApi.simpleDb.dappConnection.updateConnectionAccountInfo(
       {
         origin,
@@ -314,22 +337,60 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateWalletConnectSession({
+    origin,
+    accountSelectorNum,
+    updatedAccountInfo,
+  }: {
+    origin: string;
+    accountSelectorNum: number;
+    updatedAccountInfo: IConnectionAccountInfo;
+    storageType: IConnectionStorageType;
+  }) {
+    const rawData =
+      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    const connectionItem = rawData?.data?.walletConnect?.[origin];
+    if (connectionItem && connectionItem.walletConnectTopic) {
+      const updatedConnectionMap = {
+        ...connectionItem.connectionMap,
+        [accountSelectorNum]: updatedAccountInfo,
+      };
+      console.log('===>updatedConnectionMap: ', updatedConnectionMap);
+      await this.backgroundApi.serviceWalletConnect.updateNamespaceAndSession(
+        connectionItem.walletConnectTopic,
+        Object.values(updatedConnectionMap),
+      );
+    }
+  }
+
+  @backgroundMethod()
   async disconnectWebsite({
     origin,
     storageType,
   }: {
     origin: string;
-    storageType: IStorageType;
+    storageType: IConnectionStorageType;
   }) {
-    return this.backgroundApi.simpleDb.dappConnection.deleteConnection(
-      origin,
-      storageType,
-    );
+    const { simpleDb, serviceWalletConnect } = this.backgroundApi;
+    // disconnect walletConnect
+    if (storageType === 'walletConnect') {
+      const rawData =
+        await this.backgroundApi.simpleDb.dappConnection.getRawData();
+      const walletConnectTopic =
+        rawData?.data?.walletConnect?.[origin].walletConnectTopic;
+      if (walletConnectTopic) {
+        await serviceWalletConnect.walletConnectDisconnect(walletConnectTopic);
+      }
+    }
+    await simpleDb.dappConnection.deleteConnection(origin, storageType);
+    appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   @backgroundMethod()
   async disconnectAllWebsites() {
-    return this.backgroundApi.simpleDb.dappConnection.clearRawData();
+    await this.backgroundApi.serviceWalletConnect.disconnectAllSessions();
+    await this.backgroundApi.simpleDb.dappConnection.clearRawData();
+    appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
   async getConnectedAccountsInfo({
@@ -388,6 +449,7 @@ class ServiceDApp extends ServiceBase {
     const accountsInfo = await this.getConnectedAccounts({
       origin: request.origin ?? '',
       scope: request.scope,
+      isWalletConnectRequest: request.isWalletConnectRequest,
     });
     if (
       !accountsInfo ||
@@ -399,9 +461,9 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedAccountsByOrigin(origin: string) {
+  async findInjectedAccountByOrigin(origin: string) {
     const result =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOrigin(
+      await this.backgroundApi.simpleDb.dappConnection.findInjectedAccountsInfoByOrigin(
         origin,
       );
     if (!result) {
@@ -419,13 +481,75 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllConnectedList() {
+  async getAllConnectedList(): Promise<IConnectionItemWithStorageType[]> {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
-    if (!rawData || !rawData.data || !rawData.data.injectedProvider) {
-      return [];
+    const injectedProviders: IConnectionItemWithStorageType[] = rawData?.data
+      ?.injectedProvider
+      ? Object.values(rawData.data.injectedProvider).map((i) => ({
+          ...i,
+          storageType: 'injectedProvider',
+        }))
+      : [];
+
+    const activeSessions =
+      await this.backgroundApi.serviceWalletConnect.getActiveSessions();
+    const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
+
+    let walletConnects: IConnectionItemWithStorageType[] = [];
+    if (rawData?.data?.walletConnect) {
+      await this.disconnectInactiveSessions(
+        rawData.data.walletConnect,
+        activeSessionTopics,
+      );
+      // Re-filter walletConnects to only retain active sessions
+      walletConnects = Object.entries(rawData.data.walletConnect)
+        .filter(([, value]) =>
+          activeSessionTopics.has(value.walletConnectTopic ?? ''),
+        )
+        .map(([, value]) => ({ ...value, storageType: 'walletConnect' }));
     }
-    return Object.values(rawData.data.injectedProvider);
+
+    // Combine all connected lists and build availableNetworksMap
+    const allConnectedList = [...injectedProviders, ...walletConnects];
+    for (const item of allConnectedList) {
+      const networksMap: Record<string, { networkIds: string[] }> = {};
+      for (const [num, accountInfo] of Object.entries(item.connectionMap)) {
+        const { networkIds } =
+          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+            impls: [accountInfo.networkImpl],
+          });
+        networksMap[num] = { networkIds };
+      }
+      item.availableNetworksMap = networksMap;
+    }
+    return allConnectedList;
+  }
+
+  async disconnectInactiveSessions(
+    walletConnectData: Record<string, IConnectionItem>,
+    activeSessionTopics: Set<string>,
+  ) {
+    const disconnectPromises = Object.entries(walletConnectData)
+      .filter(
+        ([, value]) =>
+          value.walletConnectTopic &&
+          !activeSessionTopics.has(value.walletConnectTopic),
+      )
+      .map(([key]) =>
+        this.disconnectWebsite({
+          origin: key,
+          storageType: 'walletConnect',
+        }).catch((error) =>
+          console.error(`Failed to disconnect ${key}:`, error),
+        ),
+      );
+
+    try {
+      await Promise.all(disconnectPromises);
+    } catch {
+      // Errors have been individually handled in each disconnect operation, no further action is required here.
+    }
   }
 
   @backgroundMethod()
@@ -463,6 +587,7 @@ class ServiceDApp extends ServiceBase {
     if (!(await this.shouldSwitchNetwork(params))) {
       return;
     }
+
     const { storageType, networkImpl } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
@@ -479,17 +604,11 @@ class ServiceDApp extends ServiceBase {
       });
     if (selectedAccount) {
       const { selectedAccount: newSelectedAccount } =
-        await this.backgroundApi.serviceAccount.buildActiveAccountInfoFromSelectedAccount(
+        await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
           {
             selectedAccount: { ...selectedAccount, networkId: newNetworkId },
           },
         );
-      await this.backgroundApi.simpleDb.accountSelector.saveSelectedAccount({
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: params.origin,
-        num: 0,
-        selectedAccount: { ...selectedAccount, networkId: newNetworkId },
-      });
       console.log('===>newSelectedAccount: ', newSelectedAccount);
     }
 

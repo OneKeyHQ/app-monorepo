@@ -9,6 +9,7 @@ import {
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -108,6 +109,7 @@ class ServiceSend extends ServiceBase {
     const txid = await this.broadcastTransactionLegacy({
       accountId,
       networkId,
+      accountAddress: '',
       signedTx: signedTxWithoutBroadcast,
     });
 
@@ -151,6 +153,7 @@ class ServiceSend extends ServiceBase {
                 tokenIdOnNetwork: '',
                 label: '',
                 amount: '1',
+                name: 'Ethereum',
                 symbol: 'ETH',
                 icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
               },
@@ -194,6 +197,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      specifiedFeeRate,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -201,6 +205,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       approveInfo,
       wrappedInfo,
+      specifiedFeeRate,
     });
   }
 
@@ -215,12 +220,13 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx } = params;
+    const { networkId, signedTx, accountAddress } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
     }>('/wallet/v1/account/send-transaction', {
       networkId,
+      accountAddress,
       tx: signedTx.rawTx,
     });
 
@@ -246,6 +252,7 @@ class ServiceSend extends ServiceBase {
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
       });
     // signTransaction
     const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
@@ -270,12 +277,22 @@ class ServiceSend extends ServiceBase {
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
     const { networkId, accountId, unsignedTx } = params;
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
       unsignedTx,
     });
-    const txid = await this.broadcastTransaction({ networkId, signedTx });
+    const txid = await this.broadcastTransaction({
+      networkId,
+      accountAddress: account.address,
+      signedTx,
+    });
     return { ...signedTx, txid };
   }
 
@@ -283,8 +300,14 @@ class ServiceSend extends ServiceBase {
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
-    const { networkId, accountId, unsignedTxs, feeInfo, nativeAmountInfo } =
-      params;
+    const {
+      networkId,
+      accountId,
+      unsignedTxs,
+      feeInfo,
+      nativeAmountInfo,
+      signOnly,
+    } = params;
 
     const newUnsignedTxs = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -304,15 +327,17 @@ class ServiceSend extends ServiceBase {
 
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
-      const signedTx = await this.signAndSendTransaction({
-        networkId,
-        accountId,
-        unsignedTx,
-      });
+      const signedTx = signOnly
+        ? await this.signTransaction({ unsignedTx, accountId, networkId })
+        : await this.signAndSendTransaction({
+            unsignedTx,
+            networkId,
+            accountId,
+          });
 
       signedTxs.push(signedTx);
 
-      if (signedTx) {
+      if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
           accountId,
@@ -345,7 +370,6 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
-        withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
@@ -418,9 +442,15 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       transfersInfo,
       wrappedInfo,
+      specifiedFeeRate,
     } = params;
 
     let newUnsignedTx = unsignedTx;
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
 
     if (!newUnsignedTx) {
       newUnsignedTx = await this.buildUnsignedTx({
@@ -430,6 +460,7 @@ class ServiceSend extends ServiceBase {
         approveInfo,
         transfersInfo,
         wrappedInfo,
+        specifiedFeeRate,
       });
     }
 
@@ -438,11 +469,8 @@ class ServiceSend extends ServiceBase {
         networkId,
       })
     ).nonceRequired;
+
     if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
@@ -485,7 +513,9 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
+      await this.backgroundApi.servicePassword.promptPasswordVerify(
+        EReasonForNeedPassword.CreateTransaction,
+      );
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,

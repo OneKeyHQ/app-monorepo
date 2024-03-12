@@ -19,20 +19,17 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IPrefType } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process';
-
-import type { IPrefType } from './preload';
 
 // https://github.com/sindresorhus/electron-context-menu
 const disposeContextMenu = contextMenu({
@@ -405,6 +402,16 @@ function createMainWindow() {
     systemIdleHandler(setIdleTime, event);
   });
 
+  let templatePhishingUrls: string[] = [];
+  ipcMain.on(
+    ipcMessageKeys.SET_ALLOWED_PHISHING_URLS,
+    (event, urls: string[]) => {
+      if (Array.isArray(urls)) {
+        templatePhishingUrls = urls;
+      }
+    },
+  );
+
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
@@ -444,7 +451,10 @@ function createMainWindow() {
       });
       contents.on('will-frame-navigate', (e) => {
         const { url } = e;
-        const { action } = uriUtils.parseDappRedirect(url);
+        const { action } = uriUtils.parseDappRedirect(
+          url,
+          templatePhishingUrls,
+        );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
           console.log(

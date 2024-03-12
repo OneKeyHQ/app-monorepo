@@ -4,7 +4,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
@@ -60,7 +60,7 @@ function ImportAddress() {
           });
           console.log(r, values);
 
-          actions.current.updateSelectedAccount({
+          void actions.current.updateSelectedAccount({
             num: 0,
             builder: (v) => ({
               ...v,
