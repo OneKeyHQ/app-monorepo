@@ -29,6 +29,13 @@ const jsRules = {
   'import/no-cycle': 'error',
   'require-await': 'off',
   'no-void': 'off',
+  'ban/ban': [
+    'error',
+    {
+      'name': ['*', 'toLocaleUpperCase'],
+      'message': 'Prefer use toUpperCase',
+    },
+  ],
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {
@@ -325,11 +332,8 @@ module.exports = {
             patterns: [
               {
                 allowTypeImports: true,
-                group: [
-                  'tamagui',
-                ],
-                message:
-                  'Please avoid using tamagui in this folder',
+                group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
               },
             ],
           },
