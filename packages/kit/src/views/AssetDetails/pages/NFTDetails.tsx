@@ -5,18 +5,17 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Button, Page, Spinner, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalAssetDetailRoutes,
+  IModalAssetDetailsParamList,
+} from '@onekeyhq/shared/src/routes/assetDetails';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
 import { getNFTDetailsComponents } from '../../../utils/getNFTDetailsComponents';
-import { EModalSendRoutes } from '../../Send/router';
 
-import type {
-  EModalAssetDetailRoutes,
-  IModalAssetDetailsParamList,
-} from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export function NFTDetails() {

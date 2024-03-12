@@ -1,41 +1,32 @@
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import {
+  SendConfirmWithProvider,
+  SendCustomFee,
+  SendDataInputWithProvider,
+} from '@onekeyhq/kit/src/views/Send';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
-export enum EModalSendRoutes {
-  SendDataInput = 'SendDataInput',
-  SendConfirmFromDApp = 'SendConfirmFromDApp',
-  SendConfirm = 'SendConfirm',
-  SendFeedback = 'SendFeedback',
-  SendCustomFee = 'SendCustomFee',
-}
+import { SendConfirmFromDApp } from '../pages/SendConfirmFromDApp/SendConfirmFromDApp';
 
-export type IModalSendParamList = {
-  [EModalSendRoutes.SendDataInput]: {
-    networkId: string;
-    accountId: string;
-    isNFT: boolean;
-    nfts?: IAccountNFT[];
-    token?: IToken;
-    address?: string;
-    amount?: string;
-  };
-  [EModalSendRoutes.SendConfirm]: {
-    networkId: string;
-    accountId: string;
-    unsignedTxs: IUnsignedTxPro[];
-    sourceInfo?: IDappSourceInfo;
-    signOnly?: boolean;
-    onSuccess?: (txs: ISignedTxPro[]) => void;
-    onFail?: (error: Error) => void;
-  };
-  [EModalSendRoutes.SendConfirmFromDApp]: undefined;
-  [EModalSendRoutes.SendCustomFee]: {
-    networkId: string;
-    accountId: string;
-    customFee: IFeeInfoUnit;
-    onApply: (feeInfo: IFeeInfoUnit) => void;
-  };
-};
+export const ModalSendStack: IModalFlowNavigatorConfig<
+  EModalSendRoutes,
+  IModalSendParamList
+>[] = [
+  {
+    name: EModalSendRoutes.SendDataInput,
+    component: SendDataInputWithProvider,
+  },
+  {
+    name: EModalSendRoutes.SendConfirm,
+    component: SendConfirmWithProvider,
+  },
+  {
+    name: EModalSendRoutes.SendConfirmFromDApp,
+    component: SendConfirmFromDApp,
+  },
+  {
+    name: EModalSendRoutes.SendCustomFee,
+    component: SendCustomFee,
+  },
+];

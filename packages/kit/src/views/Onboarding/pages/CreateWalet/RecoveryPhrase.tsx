@@ -13,10 +13,10 @@ import {
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { Tutorials } from '../../components';
 import { useShowCopyPasteButton } from '../../components/hooks';
-import { EOnboardingPages } from '../../router/type';
 
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();

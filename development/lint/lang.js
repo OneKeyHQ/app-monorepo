@@ -2,11 +2,7 @@ const path = require('path');
 const fs = require('fs-extra');
 const { exit } = require('process');
 
-const langDir = path.join(
-  __dirname,
-  '../../',
-  'packages/components/src/locale',
-);
+const langDir = path.join(__dirname, '../../', 'packages/shared/src/locale');
 
 const readJson = (langFile) => fs.readJsonSync(path.join(langDir, langFile));
 

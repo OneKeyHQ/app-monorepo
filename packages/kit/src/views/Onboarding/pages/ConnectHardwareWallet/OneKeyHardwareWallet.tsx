@@ -14,8 +14,10 @@ import {
   VideoResizeMode,
   XStack,
   useSafeAreaInsets,
+  VideoView,
 } from '@onekeyhq/components';
-import OneKeyAllProductsVideo from '@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4';
+
+const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
 export function OneKeyHardwareWallet() {
   const { bottom } = useSafeAreaInsets();
@@ -36,26 +38,16 @@ export function OneKeyHardwareWallet() {
     <Page safeAreaEnabled={false}>
       <Page.Header title="OneKey Hardware Wallet" headerTransparent />
       <Page.Body>
-        <Video
-          usePoster
-          posterSource={require('@onekeyhq/kit/assets/onboarding/onekey-all-products.png')}
-          posterStyle={{
-            resizeMode: VideoResizeMode.COVER,
-          }}
-          delayMs={550}
-          style={{
-            flex: 1,
-          }}
-          videoStyle={{
-            width: '100%',
-            height: '100%',
-          }}
-          resizeMode={VideoResizeMode.COVER}
-          shouldPlay
-          isLooping
-          source={OneKeyAllProductsVideo}
-        />
-        <ThemeableStack fullscreen justifyContent="flex-end" zIndex={1}>
+        <VideoView source={source} />
+        <Stack
+          position="absolute"
+          left={0}
+          top={0}
+          right={0}
+          bottom={0}
+          zIndex={1}
+          justifyContent="flex-end"
+        >
           <Stack p="$5" pt="$10">
             <LinearGradient
               colors={['transparent', '$blackA11']}
@@ -119,7 +111,7 @@ export function OneKeyHardwareWallet() {
               </XStack>
             </Stack>
           </Stack>
-        </ThemeableStack>
+        </Stack>
       </Page.Body>
     </Page>
   );

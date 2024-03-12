@@ -27,11 +27,12 @@ export const NUMBER_FORMATTER = {
   marketCap: formatMarketCap,
 };
 
-export interface INumberSizeableTextProps extends ISizableTextProps {
+export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
   formatter: keyof typeof NUMBER_FORMATTER;
   subTextStyle?: Omit<ISizableTextProps, 'children'>;
   formatterOptions?: IFormatterOptions;
-}
+  children: string | number | undefined;
+};
 
 const subTextStyles = {
   sup: undefined,
@@ -50,9 +51,9 @@ export function NumberSizeableText({
 }: INumberSizeableTextProps) {
   const result = useMemo(
     () =>
-      typeof children === 'string'
+      ['string', 'number'].includes(typeof children)
         ? formatDisplayNumber(
-            NUMBER_FORMATTER[formatter](children, formatterOptions),
+            NUMBER_FORMATTER[formatter](String(children), formatterOptions),
           )
         : '',
     [formatter, formatterOptions, children],

@@ -14,9 +14,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { EOnboardingPages } from '../router/type';
 
 type IActionsGroupItem = {
   iconName: IKeyOfIcons;

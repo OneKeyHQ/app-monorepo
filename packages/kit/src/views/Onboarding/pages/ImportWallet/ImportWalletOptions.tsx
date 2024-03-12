@@ -14,8 +14,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-
-import { EOnboardingPages } from '../../router/type';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 type IOptionItem = {
   title?: string;

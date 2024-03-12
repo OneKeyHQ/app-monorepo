@@ -5,16 +5,14 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Section } from '../Section';
-
-import type { IModalSettingParamList } from '../../../router/types';
 
 const HardwareBridgeListItems = () => {
   const navigation =
@@ -44,7 +42,7 @@ const HardwareBridgeListItems = () => {
       </ListItem>
       <ListItem
         onPress={onPressBridgeStatus}
-        icon="ChartTrendingOutline"
+        icon="ApiConnectionOutline"
         title={intl.formatMessage({ id: 'form__hardware_bridge_status' })}
       >
         <ListItem.IconButton
@@ -78,7 +76,7 @@ export const AdvancedSection = () => {
     <Section title="Advanced">
       <ListItem
         onPress={onAccountDerivation}
-        icon="AlbumsOutline"
+        icon="OrganisationOutline"
         title="Account Derivation Path"
         drillIn
       />
