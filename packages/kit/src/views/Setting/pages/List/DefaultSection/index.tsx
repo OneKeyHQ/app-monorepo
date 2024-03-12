@@ -40,6 +40,7 @@ const AddressBookItem = () => {
       title={intl.formatMessage({ id: 'title__address_book' })}
       drillIn
       onPress={onPress}
+      testID="setting-address-book"
     />
   );
 };

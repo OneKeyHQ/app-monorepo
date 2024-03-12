@@ -102,7 +102,7 @@ export const DevSettingsSection = () => {
                   title="Clear Password"
                   testID="clear-password"
                   onPress={() => {
-                    void backgroundApiProxy.servicePassword.clearCachedPassword();
+                    void backgroundApiProxy.servicePassword.resetPasswordSetStatus();
                     void dialog.close();
                   }}
                 />

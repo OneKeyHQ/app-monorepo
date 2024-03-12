@@ -130,6 +130,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         <HeaderIconButton
           title="Setting"
           icon="SettingsOutline"
+          testID="setting"
           onPress={openSettingPage}
         />
       </HeaderButtonGroup>
