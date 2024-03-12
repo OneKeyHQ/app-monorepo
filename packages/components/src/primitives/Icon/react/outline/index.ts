@@ -563,6 +563,8 @@ export { default as Notification } from './Notification';
 export { default as NumberedList } from './NumberedList';
 export { default as Oculus } from './Oculus';
 export { default as OfficeBuilding } from './OfficeBuilding';
+export { default as OnekeyKeytag } from './OnekeyKeytag';
+export { default as OnekeyLite } from './OnekeyLite';
 export { default as OpenQuote } from './OpenQuote';
 export { default as Open } from './Open';
 export { default as Option1 } from './Option1';

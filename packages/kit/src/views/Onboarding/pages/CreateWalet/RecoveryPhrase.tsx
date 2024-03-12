@@ -18,19 +18,6 @@ import { Tutorials } from '../../components';
 import { useShowCopyPasteButton } from '../../components/hooks';
 import { EOnboardingPages } from '../../router/type';
 
-const tutorials = [
-  {
-    title: "Why Can't I Copy All Phrases Together?",
-    description:
-      'To prevent malware from capturing clipboard contents, mass copying is disabled for enhanced security.',
-  },
-  {
-    title: 'Why One Word at a Time?',
-    description:
-      'Limiting display to one word at a time safeguards against screen recording threats.',
-  },
-];
-
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
   const [isFocused, setIsFocused] = useState(false);
@@ -90,7 +77,7 @@ export function RecoveryPhrase() {
     <Page scrollEnabled>
       <Page.Header title="Write Down Your Phrases" />
       <Page.Body p="$5" pt="$0">
-        <SizableText pt="$2" pb="$4" px="$1" size="$bodyLgMedium">
+        <SizableText pt="$2" pb="$4" px="$1" size="$headingMd">
           Tap to display words and write down your phrases in order
         </SizableText>
 
@@ -123,7 +110,18 @@ export function RecoveryPhrase() {
           </XStack>
         ) : null}
 
-        <Tutorials list={tutorials} />
+        <Tutorials
+          list={[
+            {
+              title: "Why Can't I Copy Multiple Phrases?",
+              description: 'Mass copying is disabled for clipboard security.',
+            },
+            {
+              title: 'Why One Word at a Time?',
+              description: 'One-word display combats screen recording threats.',
+            },
+          ]}
+        />
       </Page.Body>
       <Page.Footer
         onConfirmText="I've Saved the Phrase"

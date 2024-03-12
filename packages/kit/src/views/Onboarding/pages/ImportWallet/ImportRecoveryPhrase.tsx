@@ -4,23 +4,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { EOnboardingPages } from '../../router/type';
 
-const tutorials = [
-  {
-    title: 'What is a recovery phrase?',
-    description:
-      'It is a 12, 18 or 24-word phrase that can be used to restore your wallet.',
-  },
-  {
-    title: 'Is it safe to enter it into OneKey?',
-    description:
-      'Yes. It will be stored locally and never leave your device without your explicit permission.',
-  },
-  {
-    title: "Why can't I type full words?",
-    description:
-      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
-  },
-];
 export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
@@ -36,7 +19,32 @@ export function ImportRecoveryPhrase() {
       <PhaseInputArea
         defaultPhrases={[]}
         onConfirm={handleConfirmPress}
-        tutorials={tutorials}
+        tutorials={[
+          {
+            iconName: 'QuestionmarkOutline',
+            title: 'What is a recovery phrase?',
+            description:
+              'A series of 12, 18, or 24 words to restore your wallet.',
+          },
+          {
+            iconName: 'ShieldCheckDoneOutline',
+            title: 'Is it safe to enter it into OneKey?',
+            description:
+              "Yes, it's stored locally and never shared without consent.",
+          },
+          {
+            iconName: 'InputOutline',
+            title: "Why can't I type full words?",
+            description:
+              'To prevent keylogger attacks. Use suggested words for security.',
+          },
+          {
+            iconName: 'ClipboardOutline',
+            title: "Why can't I paste directly?",
+            description:
+              "Pasting sensitive information is discouraged due to potential clipboard data breaches, which could risk asset loss. We'll enable pasting in specific, secure scenarios as identified.",
+          },
+        ]}
       />
     </Page>
   );

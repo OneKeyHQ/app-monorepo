@@ -112,7 +112,7 @@ export function OneKeyHardwareWallet() {
                 userSelect="none"
                 onPress={handleBuyButtonPress}
               >
-                <Icon name="CartOutline" color="$whiteA12" />
+                <Icon name="BagSmileOutline" color="$whiteA12" />
                 <SizableText color="$whiteA12" pl="$2.5" size="$bodyLgMedium">
                   Buy One
                 </SizableText>

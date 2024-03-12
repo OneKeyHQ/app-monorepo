@@ -16,7 +16,8 @@ const Index = () => {
     <Page>
       <Page.Body>
         <ListView
-          estimatedItemSize="$7"
+          estimatedItemSize="$11"
+          flex={1}
           paddingVertical={20}
           data={componentsRoute}
           renderItem={({ item }) => (

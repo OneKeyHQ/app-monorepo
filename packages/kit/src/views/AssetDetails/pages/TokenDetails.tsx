@@ -19,6 +19,7 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
@@ -57,35 +58,38 @@ export function TokenDetails() {
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
-  const { result: [tokenHistory, tokenDetails] = [], isLoading } =
+  const { result: [tokenHistory, tokenDetails, account] = [], isLoading } =
     usePromiseResult(
       async () => {
-        const [account, serverNetwork] = await Promise.all([
-          backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        ]);
-        if (!account) return;
+        const a = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
 
+        if (!a) return;
+        const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        });
         const [history, details] = await Promise.all([
           backgroundApiProxy.serviceHistory.fetchAccountHistory({
-            accountId: account.id,
-            accountAddress: account.address,
+            accountId: a.id,
+            accountAddress: a.address,
+            xpub,
             networkId,
             tokenIdOnNetwork: tokenInfo.address,
           }),
           backgroundApiProxy.serviceToken.fetchTokensDetails({
             networkId,
-            accountAddress: account.address,
+            xpub,
+            accountAddress: a.address,
             contractList: [tokenInfo.address],
           }),
         ]);
 
         setInitialized(true);
 
-        return [history, details[0], serverNetwork];
+        return [history, details[0], a];
       },
       [accountId, networkId, tokenInfo.address],
       {
@@ -99,9 +103,16 @@ export function TokenDetails() {
     });
   }, [navigation]);
 
-  const handleHistoryItemPress = useCallback(() => {
-    navigation.push(EModalAssetDetailRoutes.HistoryDetails);
-  }, [navigation]);
+  const handleHistoryItemPress = useCallback(
+    (tx: IAccountHistoryTx) => {
+      navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
+        networkId,
+        accountAddress: account?.address,
+        historyTx: tx,
+      });
+    },
+    [account?.address, navigation, networkId],
+  );
 
   const handleSendPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SendModal, {

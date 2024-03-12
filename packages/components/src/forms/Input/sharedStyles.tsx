@@ -28,7 +28,7 @@ export function getSharedInputStyles({
   const SIZE_MAPPINGS = {
     'large': {
       verticalPadding: '$2.5',
-      horizontalPadding: '$4',
+      horizontalPadding: '$3.5',
     },
     'medium': {
       verticalPadding: '$1.5',

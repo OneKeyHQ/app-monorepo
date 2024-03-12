@@ -29,7 +29,10 @@ function TokenListItem(props: IProps) {
       onPress={() => {
         onPress?.(token);
       }}
-      backgroundColor={tableLayout && index % 2 === 1 ? '$bgSubdued' : ''}
+      // {...(tableLayout &&
+      //   index % 2 === 1 && {
+      //     bg: '$bgSubdued',
+      //   })}
       {...rest}
     >
       <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={token.logoURI} />
@@ -100,7 +103,7 @@ function TokenListItem(props: IProps) {
           {...(tableLayout && {
             flexGrow: 1,
             flexBasis: 0,
-            size: '$bodyMd',
+            size: '$bodyMdMedium',
           })}
         />
       </Stack>

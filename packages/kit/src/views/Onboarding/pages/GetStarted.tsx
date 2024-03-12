@@ -1,71 +1,89 @@
-import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Anchor,
-  Button,
   Divider,
   Group,
   Heading,
   Icon,
   Image,
+  LinearGradient,
   Page,
   SizableText,
   Stack,
   ThemeableStack,
   XStack,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { EOnboardingPages } from '../router/type';
 
-const ActionsItem = XStack.styleable<{
+type IActionsGroupItem = {
   iconName: IKeyOfIcons;
   label: string;
   primary?: boolean;
-}>(({ iconName, label, primary, ...rest }) => (
-  <XStack
-    flexDirection="row"
-    py="$3.5"
-    px="$4"
-    space="$3"
-    borderRadius="$3"
-    bg={primary ? '$bgPrimary' : '$bgStrong'}
-    $gtMd={{
-      py: '$3',
-    }}
-    hoverStyle={{
-      bg: primary ? '$bgPrimaryHover' : '$bgStrongHover',
-    }}
-    pressStyle={{
-      bg: primary ? '$bgPrimaryActive' : '$bgStrongActive',
-    }}
-    focusStyle={{
-      outlineColor: '$focusRing',
-      outlineOffset: 2,
-      outlineStyle: 'solid',
-      outlineWidth: 2,
-    }}
-    focusable
-    userSelect="none"
-    style={{
-      borderCurve: 'continuous',
-    }}
-    {...rest}
-  >
-    <Icon name={iconName} color={primary ? '$iconInverse' : '$icon'} />
-    <SizableText
-      size="$bodyLgMedium"
-      color={primary ? '$textInverse' : '$text'}
+} & IXStackProps;
+
+type IActionsProp = {
+  items: IActionsGroupItem[];
+};
+
+function ActionsGroup({ items }: IActionsProp) {
+  return (
+    <Group
+      borderRadius="$3"
+      $gtMd={{
+        borderRadius: '$2',
+      }}
+      separator={<Divider />}
     >
-      {label}
-    </SizableText>
-  </XStack>
-));
+      {items.map((item) => (
+        <Group.Item>
+          <XStack
+            flexDirection="row"
+            py="$3.5"
+            px="$4"
+            bg={item.primary ? '$bgPrimary' : '$bgStrong'}
+            $gtMd={{
+              py: '$2',
+            }}
+            hoverStyle={{
+              bg: item.primary ? '$bgPrimaryHover' : '$bgStrongHover',
+            }}
+            pressStyle={{
+              bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
+            }}
+            focusStyle={{
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+              outlineWidth: 2,
+            }}
+            focusable
+            userSelect="none"
+            style={{
+              borderCurve: 'continuous',
+            }}
+            onPress={item.onPress}
+          >
+            <Icon
+              name={item.iconName}
+              color={item.primary ? '$iconInverse' : '$icon'}
+            />
+            <SizableText
+              pl="$3"
+              size="$bodyLgMedium"
+              color={item.primary ? '$textInverse' : '$text'}
+            >
+              {item.label}
+            </SizableText>
+          </XStack>
+        </Group.Item>
+      ))}
+    </Group>
+  );
+}
 
 export function GetStarted() {
-  const { bottom } = useSafeAreaInsets();
-
   const navigation = useAppNavigation();
 
   const handleCreateWalletPress = () => {
@@ -101,13 +119,30 @@ export function GetStarted() {
             />
           </ThemeableStack>
 
-          <Stack px="$5" mt="auto">
-            <Heading size="$heading4xl" textAlign="center">
-              Welcome to OneKey
-            </Heading>
-            <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
-              Simple, Secure Crypto Management
-            </SizableText>
+          <Stack px="$5" pt="$10" mt="auto">
+            <LinearGradient
+              position="absolute"
+              top="$0"
+              left="$0"
+              right="$0"
+              bottom="$0"
+              colors={['transparent', '$bgApp']}
+              $platform-native={{
+                display: 'none',
+              }}
+            />
+            <Stack zIndex={1}>
+              <Heading size="$heading4xl" textAlign="center">
+                Welcome to OneKey
+              </Heading>
+              <SizableText
+                size="$bodyLg"
+                textAlign="center"
+                color="$textSubdued"
+              >
+                Simple, Secure Crypto Management
+              </SizableText>
+            </Stack>
           </Stack>
         </Stack>
         <Stack
@@ -120,45 +155,40 @@ export function GetStarted() {
           alignSelf="center"
           w="100%"
         >
-          <ActionsItem
-            $gtMd={{
-              borderRadius: '$2',
-            }}
-            iconName={platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline'}
-            label="Connect Hardware Wallet"
-            onPress={handleConnectHardwareWallet}
-            primary
+          <ActionsGroup
+            items={[
+              {
+                iconName: platformEnv.isNative
+                  ? 'BluetoothOutline'
+                  : 'UsbOutline',
+                label: 'Connect Hardware Wallet',
+                primary: true,
+                onPress: handleConnectHardwareWallet,
+              },
+            ]}
           />
-          <Group
-            borderRadius="$3"
-            $gtMd={{
-              borderRadius: '$2',
-            }}
-            separator={<Divider />}
-          >
-            <Group.Item>
-              <ActionsItem
-                iconName="PlusCircleOutline"
-                label="Create Wallet"
-                onPress={handleCreateWalletPress}
-              />
-            </Group.Item>
-            <Group.Item>
-              <ActionsItem
-                iconName="ArrowBottomCircleOutline"
-                label="Import Wallet"
-                onPress={handleImportWalletPress}
-              />
-            </Group.Item>
-          </Group>
-
-          <ActionsItem
-            $gtMd={{
-              borderRadius: '$2',
-            }}
-            iconName="LinkOutline"
-            label="Link External Wallet"
-            onPress={handleConnectWalletPress}
+          <ActionsGroup
+            items={[
+              {
+                iconName: 'PlusCircleOutline',
+                label: 'Create Wallet',
+                onPress: handleCreateWalletPress,
+              },
+              {
+                iconName: 'ArrowBottomCircleOutline',
+                label: 'Import Wallet',
+                onPress: handleImportWalletPress,
+              },
+            ]}
+          />
+          <ActionsGroup
+            items={[
+              {
+                iconName: 'LinkOutline',
+                label: 'Link External Wallet',
+                onPress: handleConnectWalletPress,
+              },
+            ]}
           />
         </Stack>
         <SizableText

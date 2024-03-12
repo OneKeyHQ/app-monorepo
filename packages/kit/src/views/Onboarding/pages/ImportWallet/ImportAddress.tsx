@@ -22,10 +22,10 @@ function ImportAddress() {
 
   return (
     <Page>
-      <Page.Header title="Import Address" />
+      <Page.Header title="Add to Watchlist" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Chain" name="networkId">
+          <Form.Field label="Network" name="networkId">
             <ControlledNetworkSelectorTrigger />
           </Form.Field>
           <Form.Field label="Address" name="input">
@@ -44,6 +44,7 @@ function ImportAddress() {
         <Tutorials
           list={[
             {
+              iconName: 'QuestionmarkOutline',
               title: 'What is a watch-only account?',
               description:
                 "Watch-only account in OneKey allows monitoring of a specific address but cannot send or receive funds. It's useful for tracking transactions or monitoring holdings.",

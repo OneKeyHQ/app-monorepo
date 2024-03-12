@@ -2,7 +2,7 @@ import type { ILocaleIds } from '@onekeyhq/components';
 
 import type { IAccountNFT } from './nft';
 import type { IToken } from './token';
-import type { IDecodedTx, IReplacedTxType } from './tx';
+import type { EDecodedTxStatus, IDecodedTx, IReplacedTxType } from './tx';
 
 export enum EOnChainHistoryTransferType {
   Transfer,
@@ -14,6 +14,11 @@ export enum EOnChainHistoryTxStatus {
   Success = '1',
 }
 
+export enum EOnChainHistoryTxType {
+  Send = 'Send',
+  Receive = 'Receive',
+}
+
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
   from: string;
@@ -22,6 +27,7 @@ export type IOnChainHistoryTxTransfer = {
   amount: string;
   label: string;
   isNative?: boolean;
+  isOwn?: boolean; // for UTXO
 };
 
 export type IOnChainHistoryTxUTXOInput = {
@@ -50,7 +56,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 export type IOnChainHistoryTx = {
   tx: string;
   riskLevel: number;
-  type: string;
+  type: EOnChainHistoryTxType;
   sends: IOnChainHistoryTxTransfer[];
   receives: IOnChainHistoryTxTransfer[];
   status: EOnChainHistoryTxStatus;
@@ -63,7 +69,7 @@ export type IOnChainHistoryTx = {
   functionCode: string;
   params: string[];
   value: string;
-  label: string;
+  label: { label: string };
   confirmations?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
@@ -93,6 +99,7 @@ export type IFetchAccountHistoryParams = {
   accountId: string;
   networkId: string;
   accountAddress: string;
+  xpub?: string;
   tokenIdOnNetwork?: string;
 };
 
@@ -113,6 +120,7 @@ export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
   accountAddress: string;
+  status: EDecodedTxStatus;
 };
 
 export type IFetchHistoryTxDetailsResp = {

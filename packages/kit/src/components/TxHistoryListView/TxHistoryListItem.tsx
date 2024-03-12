@@ -21,8 +21,11 @@ function TxHistoryListItem(props: IProps) {
       showIcon={showIcon}
       componentType={ETxActionComponentType.ListView}
       componentProps={{
-        backgroundColor: tableLayout && index % 2 === 1 ? '$bgSubdued' : '',
         onPress: () => onPress?.(historyTx),
+        // ...(tableLayout &&
+        //   index % 2 && {
+        //     bg: '$bgSubdued',
+        //   }),
       }}
     />
   );
