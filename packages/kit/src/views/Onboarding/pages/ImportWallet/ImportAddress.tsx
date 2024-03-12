@@ -44,7 +44,6 @@ function ImportAddress() {
         <Tutorials
           list={[
             {
-              iconName: 'QuestionmarkOutline',
               title: 'What is a watch-only account?',
               description:
                 "Watch-only account in OneKey allows monitoring of a specific address but cannot send or receive funds. It's useful for tracking transactions or monitoring holdings.",

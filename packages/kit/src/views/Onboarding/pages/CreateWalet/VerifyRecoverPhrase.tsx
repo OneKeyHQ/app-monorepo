@@ -70,7 +70,7 @@ export function VerifyRecoveryPhrase({
             {
               title: "Why can't I paste directly?",
               description:
-                "Pasting sensitive information is discouraged due to potential clipboard data breaches, which could risk asset loss. We'll enable pasting in specific, secure scenarios as identified.",
+                'To reduce risk of asset loss, avoid pasting sensitive information.',
             },
           ]}
         />

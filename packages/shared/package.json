@@ -4,15 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "_folderslint": "yarn folderslint",
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
   },
   "author": "",
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
   "private": true,
-  "scripts": {
-    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
-  },
   "dependencies": {
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
