@@ -7,10 +7,9 @@ import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
-import { EModalSendRoutes } from '../../router';
-
-import type { IModalSendParamList } from '../../router';
 import type { StackActionType } from '@react-navigation/native';
 
 function SendConfirmFromDApp() {

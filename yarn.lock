@@ -3141,6 +3141,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/video@npm:^0.3.1":
+  version: 0.3.1
+  resolution: "@expo/video@npm:0.3.1"
+  peerDependencies:
+    expo: "*"
+  checksum: dcc20ee26f924979aae7f1382f29e80071a829d3ad1fa248387841d90e1b935c5129544de3376f91df6f94c288106ad5be883d49413a662e8a9caef0b7ff7c0d
+  languageName: node
+  linkType: hard
+
 "@expo/webpack-config@npm:~19.0.1":
   version: 19.0.1
   resolution: "@expo/webpack-config@npm:19.0.1"
@@ -4858,6 +4867,7 @@ __metadata:
     babel-plugin-react-native-web: "npm:^0.19.9"
     babel-plugin-transform-define: "npm:^2.1.2"
     babel-plugin-transform-inline-environment-variables: "npm:^0.4.4"
+    bignumber.js: "npm:9.1.2"
     browserify-zlib: "npm:^0.2.0"
     cheerio: "npm:^1.0.0-rc.12"
     copy-webpack-plugin: "npm:^6.0.2"
@@ -4872,6 +4882,7 @@ __metadata:
     eslint-config-airbnb-typescript: "npm:^17.0.0"
     eslint-config-prettier: "npm:^8.5.0"
     eslint-config-wesbos: "npm:^3.1.4"
+    eslint-plugin-ban: "npm:1.5.2"
     eslint-plugin-html: "npm:^7.1.0"
     eslint-plugin-import: "npm:^2.26.0"
     eslint-plugin-import-path: "npm:^0.0.2"
@@ -5100,6 +5111,7 @@ __metadata:
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
     "@babel/core": "npm:^7.20.0"
+    "@expo/video": "npm:^0.3.1"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
@@ -11401,17 +11413,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bignumber.js@npm:9.1.2, bignumber.js@npm:^9.0.0, bignumber.js@npm:^9.0.1, bignumber.js@npm:^9.0.2":
+  version: 9.1.2
+  resolution: "bignumber.js@npm:9.1.2"
+  checksum: d89b8800a987225d2c00dcbf8a69dc08e92aa0880157c851c287b307d31ceb2fc2acb0c62c3e3a3d42b6c5fcae9b004035f13eb4386e56d529d7edac18d5c9d8
+  languageName: node
+  linkType: hard
+
 "bignumber.js@npm:^7.2.1":
   version: 7.2.1
   resolution: "bignumber.js@npm:7.2.1"
   checksum: 9bfd02d93cba7d61607b9d52ffb3176844af5712f7f6a0530350daf7852894215fbaa8e6090a9fc841b297b39d475abb90451d3533bc939d1e96a4bfe293e226
-  languageName: node
-  linkType: hard
-
-"bignumber.js@npm:^9.0.0, bignumber.js@npm:^9.0.1, bignumber.js@npm:^9.0.2":
-  version: 9.1.2
-  resolution: "bignumber.js@npm:9.1.2"
-  checksum: d89b8800a987225d2c00dcbf8a69dc08e92aa0880157c851c287b307d31ceb2fc2acb0c62c3e3a3d42b6c5fcae9b004035f13eb4386e56d529d7edac18d5c9d8
   languageName: node
   linkType: hard
 
@@ -15652,6 +15664,15 @@ __metadata:
     eslint:
       optional: true
   checksum: a9a7ed93eb858092e3cdc797357d4ead2b3ea06959b0eada31ab13862d46a59eb064b9cb82302214232e547980ce33618c2992f6821138a4934e65710ed9cc29
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-ban@npm:1.5.2":
+  version: 1.5.2
+  resolution: "eslint-plugin-ban@npm:1.5.2"
+  dependencies:
+    requireindex: "npm:~1.2.0"
+  checksum: c2b787425b6274c9ce813ae22ab33beff842369c790c38ece25d26486bbcd5eb006ccd2f34bdce8ed130a92f6048c5e79276757a30f3c647aa9c870039f6c332
   languageName: node
   linkType: hard
 

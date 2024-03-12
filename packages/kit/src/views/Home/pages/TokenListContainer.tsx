@@ -8,15 +8,17 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { EModalRoutes } from '../../../routes/Modal/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
-import { EModalAssetDetailRoutes } from '../../AssetDetails/router/types';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 

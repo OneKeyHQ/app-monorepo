@@ -7,12 +7,11 @@ import {
   parseISO,
 } from 'date-fns';
 
-import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
-
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
+import type { ILocaleSymbol } from '../locale';
 import type { Duration } from 'date-fns';
 
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
