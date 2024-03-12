@@ -27,6 +27,7 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
+  ComputeBudgetProgram,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemInstruction,
@@ -84,6 +85,7 @@ import {
 import { ClientSol, PARAMS_ENCODINGS } from './sdk';
 import settings from './settings';
 import {
+  MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
   TOKEN_METADATA_PROGRAM_ID,
   masterEditionAddress,
@@ -121,6 +123,7 @@ import type {
 } from '../../types';
 import type {
   AssociatedTokenInfo,
+  IEncodedTxSol,
   INativeTxSol,
   ParsedAccountInfo,
 } from './types';
@@ -584,16 +587,16 @@ export default class Vault extends VaultBase {
     let lastRpcErrorMessage = '';
     const maxRetryTimes = 5;
     const client = await this.getClient();
+    const accountAddress = await this.getAccountAddress();
     const transferInfo = transferInfos[0];
     const { from, to: firstReceiver, isNFT } = transferInfo;
 
     const source = new PublicKey(from);
     const nativeTx = new Transaction();
 
-    const doGetFee = async () => {
+    const doGetRecentBlockHash = async () => {
       try {
-        const [, recentBlockhash] = await client.getFees();
-        return recentBlockhash;
+        return await client.getLatestBlockHash();
       } catch (error: any) {
         const rpcErrorData = error?.data as
           | {
@@ -612,15 +615,29 @@ export default class Vault extends VaultBase {
       retryTime += 1;
       if (retryTime > maxRetryTimes) {
         throw new Error(
-          `Solana getFees retry times exceeded: ${lastRpcErrorMessage || ''}`,
+          `Solana getLatestBlockHash retry times exceeded: ${
+            lastRpcErrorMessage || ''
+          }`,
         );
       }
-      const recentBlockhash = await doGetFee();
-      nativeTx.recentBlockhash = recentBlockhash;
+      const resp = await doGetRecentBlockHash();
+      nativeTx.recentBlockhash = resp?.blockhash;
+      nativeTx.lastValidBlockHeight = resp?.lastValidBlockHeight;
       await wait(1000);
     } while (!nativeTx.recentBlockhash);
 
     nativeTx.feePayer = source;
+
+    // To make sure tx can be processed
+    const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+      accountAddress,
+    ]);
+
+    const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: Math.max(MIN_PRIORITY_FEE, prioritizationFee),
+    });
+
+    nativeTx.add(addPriorityFee);
 
     for (let i = 0; i < transferInfos.length; i += 1) {
       const {
@@ -1237,12 +1254,27 @@ export default class Vault extends VaultBase {
     return client.getFeePricePerUnit();
   }
 
-  override async fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo> {
-    const [network, { prices }, nativeTx] = await Promise.all([
+  override async fetchFeeInfo(encodedTx: IEncodedTxSol): Promise<IFeeInfo> {
+    const client = await this.getClient();
+    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+    let message = '';
+    if (isVersionedTransaction) {
+      message = Buffer.from(nativeTx.message.serialize()).toString('base64');
+    } else {
+      message = (nativeTx as Transaction)
+        .compileMessage()
+        .serialize()
+        .toString('base64');
+    }
+    const [network, feePerSig] = await Promise.all([
       this.getNetwork(),
-      this.engine.getGasInfo(this.networkId),
-      this.helper.parseToNativeTx(encodedTx),
+      client.getFeesForMessage(message),
     ]);
+
+    const prices = [
+      new BigNumber(feePerSig).shiftedBy(-network.feeDecimals).toFixed(),
+    ];
 
     return {
       nativeSymbol: network.symbol,
@@ -1486,7 +1518,11 @@ export default class Vault extends VaultBase {
       transaction,
     );
     const client = await this.getClient();
-    [, nativeTx.recentBlockhash] = await client.getFees();
+    const { blockhash, lastValidBlockHeight } =
+      await client.getLatestBlockHash();
+
+    nativeTx.recentBlockhash = blockhash;
+    nativeTx.lastValidBlockHeight = lastValidBlockHeight;
 
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
