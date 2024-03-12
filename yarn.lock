@@ -4881,6 +4881,7 @@ __metadata:
     eslint-config-airbnb-typescript: "npm:^17.0.0"
     eslint-config-prettier: "npm:^8.5.0"
     eslint-config-wesbos: "npm:^3.1.4"
+    eslint-plugin-ban: "npm:1.5.2"
     eslint-plugin-html: "npm:^7.1.0"
     eslint-plugin-import: "npm:^2.26.0"
     eslint-plugin-import-path: "npm:^0.0.2"
@@ -15662,6 +15663,15 @@ __metadata:
     eslint:
       optional: true
   checksum: a9a7ed93eb858092e3cdc797357d4ead2b3ea06959b0eada31ab13862d46a59eb064b9cb82302214232e547980ce33618c2992f6821138a4934e65710ed9cc29
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-ban@npm:1.5.2":
+  version: 1.5.2
+  resolution: "eslint-plugin-ban@npm:1.5.2"
+  dependencies:
+    requireindex: "npm:~1.2.0"
+  checksum: c2b787425b6274c9ce813ae22ab33beff842369c790c38ece25d26486bbcd5eb006ccd2f34bdce8ed130a92f6048c5e79276757a30f3c647aa9c870039f6c332
   languageName: node
   linkType: hard
 
