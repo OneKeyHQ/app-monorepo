@@ -4,13 +4,13 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { useSwapProviderSupportReceiveAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { getShortAddress } from '../../utils/utils';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;

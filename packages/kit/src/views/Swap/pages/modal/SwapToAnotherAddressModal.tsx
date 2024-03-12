@@ -5,11 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Form, Page, useForm } from '@onekeyhq/components';
-import type { IAddressInputValue } from '@onekeyhq/kit/src/common/components/AddressInput';
-import {
-  AddressInput,
-  allAddressInputPlugins,
-} from '@onekeyhq/kit/src/common/components/AddressInput';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -24,6 +19,11 @@ import { withSwapProvider } from '../WithSwapProvider';
 import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
+import {
+  AddressInput,
+  IAddressInputValue,
+  allAddressInputPlugins,
+} from '../../../../components/AddressInput';
 
 interface IFormType {
   address: IAddressInputValue;
