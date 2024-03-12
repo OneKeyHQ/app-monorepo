@@ -25,6 +25,7 @@ export function ImportPrivateKey() {
           </Form.Field>
           <Form.Field label="Private Key" name="input">
             <Input
+              secureTextEntry
               placeholder="Enter your private key"
               size={media.gtMd ? 'medium' : 'large'}
               addOns={[
