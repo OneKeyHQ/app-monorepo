@@ -60,6 +60,7 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_LTC,
   coinTypeDefault: COINTYPE_LTC,
+  minTransferAmount: '0.00000546',
 };
 
 export default Object.freeze(settings);

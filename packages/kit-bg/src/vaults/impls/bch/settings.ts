@@ -27,6 +27,7 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_BCH,
   coinTypeDefault: COINTYPE_BCH,
+  minTransferAmount: '0.00000546',
 };
 
 export default Object.freeze(settings);

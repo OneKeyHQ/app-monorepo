@@ -119,6 +119,9 @@ export type IVaultSettings = {
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
 
+  minTransferAmount?: string;
+  utxoDustAmount?: string;
+
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {

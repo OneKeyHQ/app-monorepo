@@ -27,6 +27,8 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_DOGE,
   coinTypeDefault: COINTYPE_DOGE,
+  minTransferAmount: '0.01',
+  utxoDustAmount: '0.0099999',
 };
 
 export default Object.freeze(settings);
