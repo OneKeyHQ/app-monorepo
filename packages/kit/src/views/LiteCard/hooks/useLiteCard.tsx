@@ -5,8 +5,7 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EOnboardingPages } from '@onekeyhq/kit/src/views/Onboarding/router/type';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 

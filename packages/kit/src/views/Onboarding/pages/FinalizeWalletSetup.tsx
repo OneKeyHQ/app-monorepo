@@ -9,13 +9,13 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
-import { ERootRoutes } from '@onekeyhq/kit/src/routes/enum';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
