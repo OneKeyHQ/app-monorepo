@@ -93,7 +93,7 @@ function FinalizeWalletSetupPage({
 
   return (
     <Page>
-      <Page.Header title="Finalize Wallet Setup" />
+      <Page.Header disableClose title="Finalize Wallet Setup" />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack w="$16" h="$16" justifyContent="center" alignItems="center">
           <AnimatePresence exitBeforeEnter>
