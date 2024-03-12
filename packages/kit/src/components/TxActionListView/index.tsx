@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
 
+import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { getTxActionMeta } from '../../utils/getTxActionMeta';
-import { getDisplayedActions } from '../../utils/txAction';
 
 import type { ListItem } from '../ListItem';
 
