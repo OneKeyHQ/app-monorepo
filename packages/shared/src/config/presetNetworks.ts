@@ -2,6 +2,8 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 
+import platformEnv from '../platformEnv';
+
 export const NETWORK_ID_ETC = 'evm--61';
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
@@ -1952,6 +1954,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const chainsOnlyEnabledInDev = [osmosis, cosmoshub, tatom];
+
   return [
     eth,
     goerli,
@@ -1960,9 +1964,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     doge,
     bch,
     ltc,
-    tatom,
-    cosmoshub,
-    osmosis,
     polygon,
     bsc,
     ftm,
@@ -1985,5 +1986,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     mnt,
     mvm,
     fevm,
+    ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
