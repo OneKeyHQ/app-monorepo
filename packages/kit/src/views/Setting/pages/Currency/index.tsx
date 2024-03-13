@@ -1,5 +1,7 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Page,
   SearchBar,
@@ -34,11 +36,18 @@ type IListHeaderComponentProps = {
 const ListHeaderComponent: FC<IListHeaderComponentProps> = ({
   text,
   onChangeText,
-}) => (
-  <Stack px="$4" pt="$4">
-    <SearchBar value={text} onChangeText={onChangeText} />
-  </Stack>
-);
+}) => {
+  const intl = useIntl();
+  return (
+    <Stack px="$4" pt="$4">
+      <SearchBar
+        value={text}
+        onChangeText={onChangeText}
+        placeholder={intl.formatMessage({ id: 'form__search' })}
+      />
+    </Stack>
+  );
+};
 
 const emptySections: ISectionItem[] = [];
 const currencyFilterFn = (keyword: string, item: ICurrencyItem) => {
