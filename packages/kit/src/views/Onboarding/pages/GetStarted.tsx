@@ -64,6 +64,7 @@ function ActionsGroup({ items }: IActionsProp) {
               borderCurve: 'continuous',
             }}
             onPress={item.onPress}
+            testID={item.testID}
           >
             <Icon
               name={item.iconName}
