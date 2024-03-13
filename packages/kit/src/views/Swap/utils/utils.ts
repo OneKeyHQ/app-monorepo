@@ -1,9 +1,13 @@
+import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import { SingleChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapProviders,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+
+import type { ColorValue } from 'react-native';
 
 export function validateAmountInput(text: string) {
   const regex = /^$|^0(\.\d{0,6})?$|^[1-9]\d*(\.\d{0,6})?$|^[1-9]\d*\.$|^0\.$/;
@@ -44,4 +48,28 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
     networks.splice(1, 0, item);
   }
   return networks;
+}
+
+export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
+  key: ILocaleIds;
+  color: ColorValue;
+} {
+  if (status === ESwapTxHistoryStatus.PENDING) {
+    return {
+      key: 'transaction__pending',
+      color: '$textCaution',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
+    return {
+      key: 'transaction__success',
+      color: '$textSuccess',
+    };
+  }
+
+  return {
+    key: 'transaction__failed',
+    color: '$textCritical',
+  };
 }

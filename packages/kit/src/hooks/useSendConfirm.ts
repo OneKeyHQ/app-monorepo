@@ -7,9 +7,9 @@ import type {
   ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 

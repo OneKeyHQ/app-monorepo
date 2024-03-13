@@ -43,7 +43,7 @@ const SwapTxHistoryListCell = ({
     const dateObj = new Date(created);
     const dateStr = formatDate(dateObj, {
       hideYear: true,
-      hideMonth: item.status !== ESwapTxHistoryStatus.PENDING,
+      onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
     });
 
     return (

@@ -38,6 +38,7 @@ export type IFormatDateOptions = {
   hideYear?: boolean;
   hideMonth?: boolean;
   hideTimeForever?: boolean;
+  onlyTime?: boolean;
 };
 
 export type IFormatMonthOptions = {
@@ -95,6 +96,9 @@ export default function useFormatDate() {
       }
       if (options?.hideTimeForever) {
         formatTemplate = formatTemplate.replace(', HH:mm', '');
+      }
+      if (options?.onlyTime) {
+        formatTemplate = 'HH:mm';
       }
 
       return format(parsedDate, formatTemplate) ?? '';

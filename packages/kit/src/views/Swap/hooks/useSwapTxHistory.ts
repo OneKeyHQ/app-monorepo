@@ -181,6 +181,7 @@ export function useSwapTxHistoryActions() {
             txId,
             gasFeeFiatValue,
             gasFeeInNative,
+            orderId: swapTxInfo.swapBuildResData.swftOrder?.orderId,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -191,6 +192,7 @@ export function useSwapTxHistoryActions() {
           swapInfo: {
             instantRate: swapTxInfo.swapBuildResData.result.instantRate,
             provider: swapTxInfo.swapBuildResData.result.info,
+            oneKeyFee: swapTxInfo.swapBuildResData.result.fee.percentageFee,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };

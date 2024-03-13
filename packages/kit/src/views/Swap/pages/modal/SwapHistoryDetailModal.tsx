@@ -1,57 +1,55 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
-import ViewShot from 'react-native-view-shot';
 
 import {
-  Button,
-  Icon,
+  Divider,
+  IconButton,
   Image,
+  NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   Toast,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
-import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
-import SwapHistoryTokenInfoItem from '../../components/SwapHistoryTokenInfoItem';
-import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
-import SwapOnChainInfoItem from '../../components/SwapOnChainInfoItem';
-import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
-import SwapRateInfoItem from '../../components/SwapRateInfoItem';
-import SwapTxHistoryStatusItem from '../../components/SwapTxHistoryStatusItem';
 import {
-  useSwapTxHistoryActions,
-  useSwapTxHistoryDetailParser,
-  useSwapTxHistoryShare,
-} from '../../hooks/useSwapTxHistory';
+  AssetItem,
+  InfoItem,
+  InfoItemGroup,
+} from '../../../AssetDetails/pages/HistoryDetails';
+import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
+import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { getSwapHistoryStatusTextProps } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapHistoryDetailModal = () => {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  // const navigation =
+  //   useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
   const { txHistory } = route.params ?? {};
-  const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
+  // const { swapAgainUseHistoryItem } = useSwapTxHistoryActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const onSwapAgain = useCallback(() => {
-    swapAgainUseHistoryItem(txHistory);
-    navigation.popStack();
-  }, [navigation, swapAgainUseHistoryItem, txHistory]);
+  const { formatDate } = useFormatDate();
+  // const onSwapAgain = useCallback(() => {
+  //   swapAgainUseHistoryItem(txHistory);
+  //   navigation.popStack();
+  // }, [navigation, swapAgainUseHistoryItem, txHistory]);
   const onCopy = useCallback(async (copyText: string) => {
     await Clipboard.setStringAsync(copyText);
     Toast.success({ title: 'success', message: 'copied' });
@@ -59,140 +57,229 @@ const SwapHistoryDetailModal = () => {
   const onViewInBrowser = useCallback((url: string) => {
     openUrl(url);
   }, []);
-  const onSupport = useCallback(() => {}, []);
-  const {
-    statusLabel,
-    usedTime,
-    onCopyDetailInfo,
-    createDateTime,
-    updateDateTime,
-    networkFee,
-    protocolFee,
-    oneKeyFee,
-  } = useSwapTxHistoryDetailParser(txHistory);
 
-  const { onShare, captureViewRef, enableShare } = useSwapTxHistoryShare();
+  const durationTime = useMemo(() => {
+    const { created, updated } = txHistory.date;
+    const usedTimeMinusRes = new BigNumber(updated)
+      .minus(new BigNumber(created))
+      .dividedBy(1000)
+      .dividedBy(60)
+      .decimalPlaces(0, BigNumber.ROUND_UP)
+      .toFixed(0);
+    return `${usedTimeMinusRes} min`;
+  }, [txHistory.date]);
+
+  const renderSwapAssetsChange = useCallback(() => {
+    const fromAsset = {
+      name: txHistory.baseInfo.fromToken.name ?? '',
+      symbol: txHistory.baseInfo.fromToken.symbol,
+      icon: txHistory.baseInfo.fromToken.logoURI ?? '',
+      isNFT: false,
+      isNative: !!txHistory.baseInfo.fromToken.isNative,
+      price: txHistory.baseInfo.fromToken.price.toString(),
+    };
+
+    const toAsset = {
+      name: txHistory.baseInfo.toToken.name ?? '',
+      symbol: txHistory.baseInfo.toToken.symbol,
+      icon: txHistory.baseInfo.toToken.logoURI ?? '',
+      isNFT: false,
+      isNative: !!txHistory.baseInfo.toToken.isNative,
+      price: txHistory.baseInfo.toToken.price.toString(),
+    };
+
+    return (
+      <>
+        <AssetItem
+          index={0}
+          direction={EDecodedTxDirection.IN}
+          asset={toAsset}
+          amount={txHistory.baseInfo.toAmount}
+          networkIcon={txHistory.baseInfo.toNetwork?.logoURI ?? ''}
+          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
+        />
+        <AssetItem
+          index={1}
+          direction={EDecodedTxDirection.OUT}
+          asset={fromAsset}
+          amount={txHistory.baseInfo.fromAmount}
+          networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
+          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
+        />
+      </>
+    );
+  }, [settingsPersistAtom.currencyInfo.symbol, txHistory]);
+
+  const renderSwapOrderStatus = useCallback(() => {
+    const { status } = txHistory;
+    const { key, color } = getSwapHistoryStatusTextProps(status);
+    return (
+      <SizableText size={16} color={color}>
+        {intl.formatMessage({ id: key })}
+      </SizableText>
+    );
+  }, [intl, txHistory]);
+
+  const renderSwapDate = useCallback(() => {
+    const { created } = txHistory.date;
+    const dateObj = new Date(created);
+    const dateStr = formatDate(dateObj);
+    return (
+      <SizableText size={14} color="$textSubdued">
+        {dateStr}
+      </SizableText>
+    );
+  }, [formatDate, txHistory.date]);
+
+  const renderCanCopyText = useCallback(
+    (text: string) => (
+      <XStack flex={1}>
+        <SizableText
+          w="95%"
+          wordWrap="break-word"
+          size={14}
+          color="$textSubdued"
+        >
+          {text}
+        </SizableText>
+        <IconButton
+          w="$6"
+          h="$6"
+          size="small"
+          icon="Copy1Outline"
+          onPress={() => onCopy(text)}
+        />
+      </XStack>
+    ),
+    [onCopy],
+  );
+
+  const renderNetworkFee = useCallback(() => {
+    const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
+    const gasFeeDisplay = gasFeeInNativeBN
+      .decimalPlaces(6, BigNumber.ROUND_DOWN)
+      .toFixed();
+    return (
+      <SizableText size={14} color="$textSubdued">
+        {gasFeeDisplay}
+        {txHistory.baseInfo.fromNetwork?.symbol ?? ''}(
+        <NumberSizeableText
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settingsPersistAtom.currencyInfo.symbol,
+          }}
+        >
+          {gasFeeFiatValue ?? 0}
+        </NumberSizeableText>
+        )
+      </SizableText>
+    );
+  }, [
+    settingsPersistAtom.currencyInfo.symbol,
+    txHistory.baseInfo.fromNetwork?.symbol,
+    txHistory.txInfo,
+  ]);
+
+  const renderRate = useCallback(
+    () => (
+      <SwapRateInfoItem
+        rate={txHistory.swapInfo.instantRate}
+        fromToken={txHistory.baseInfo.fromToken}
+        toToken={txHistory.baseInfo.toToken}
+        providerUrl={txHistory.swapInfo.provider.providerLogo ?? ''}
+      />
+    ),
+    [
+      txHistory.baseInfo.fromToken,
+      txHistory.baseInfo.toToken,
+      txHistory.swapInfo.instantRate,
+      txHistory.swapInfo.provider.providerLogo,
+    ],
+  );
+  console.log('txHistory', txHistory);
+  const renderSwapHistoryDetails = useCallback(() => {
+    if (!txHistory) {
+      return null;
+    }
+
+    return (
+      <>
+        <Stack>{renderSwapAssetsChange()}</Stack>
+        <Stack>
+          <InfoItemGroup>
+            <InfoItem
+              label="Order status"
+              renderContent={renderSwapOrderStatus()}
+              compact
+            />
+            <InfoItem label="Date" renderContent={renderSwapDate()} compact />
+          </InfoItemGroup>
+          <Divider mx="$5" />
+          <InfoItemGroup>
+            <InfoItem
+              label="From"
+              renderContent={renderCanCopyText(txHistory.txInfo.sender)}
+            />
+            <InfoItem
+              label="To"
+              renderContent={renderCanCopyText(txHistory.txInfo.receiver)}
+            />
+            <InfoItem
+              label="Transaction hash"
+              renderContent={renderCanCopyText(txHistory.txInfo.txId)}
+            />
+            <InfoItem label="Network Fee" renderContent={renderNetworkFee()} />
+          </InfoItemGroup>
+          <Divider mx="$5" />
+          <InfoItemGroup>
+            {txHistory.txInfo.orderId ? (
+              <InfoItem
+                label="Order ID"
+                renderContent={renderCanCopyText(txHistory.txInfo.orderId)}
+              />
+            ) : null}
+            <InfoItem label="Rate" renderContent={renderRate()} />
+            <InfoItem label="Swap duration" renderContent={durationTime} />
+            {txHistory.swapInfo.oneKeyFee ? (
+              <InfoItem
+                label="Service Fee"
+                renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
+              />
+            ) : null}
+          </InfoItemGroup>
+          <XStack justifyContent="space-between" py="$4" mx="$5">
+            <Image
+              resizeMode="contain"
+              w={100}
+              h={28}
+              source={require('../../../../../assets/swap_history_logo.png')}
+            />
+            <SwapTxHistoryViewInBrowser
+              item={txHistory}
+              onViewInBrowser={onViewInBrowser}
+            />
+          </XStack>
+        </Stack>
+      </>
+    );
+  }, [
+    durationTime,
+    onViewInBrowser,
+    renderCanCopyText,
+    renderNetworkFee,
+    renderRate,
+    renderSwapAssetsChange,
+    renderSwapDate,
+    renderSwapOrderStatus,
+    txHistory,
+  ]);
 
   return (
     <Page scrollEnabled>
-      {txHistory ? (
-        <ViewShot
-          ref={captureViewRef}
-          options={{ format: 'jpg', quality: 0.9 }}
-          captureMode="mount"
-        >
-          <>
-            <YStack separator space="$4" px="$4">
-              <SwapTxHistoryStatusItem
-                status={txHistory.status}
-                statusTitle={statusLabel}
-                usedTime={usedTime}
-                onSwapAgain={onSwapAgain}
-              />
-              <YStack>
-                <SwapHistoryTokenInfoItem
-                  currencySymbol={settingsPersistAtom.currencyInfo.symbol}
-                  token={txHistory.baseInfo.fromToken}
-                  network={txHistory.baseInfo.fromNetwork}
-                  amount={txHistory.baseInfo.fromAmount}
-                />
-                <Icon name="ChevronDoubleDownOutline" size="$10" />
-                <SwapHistoryTokenInfoItem
-                  currencySymbol={settingsPersistAtom.currencyInfo.symbol}
-                  token={txHistory.baseInfo.toToken}
-                  network={txHistory.baseInfo.toNetwork}
-                  amount={txHistory.baseInfo.toAmount}
-                />
-              </YStack>
-              <YStack>
-                <SizableText>ON-CHAIN INFO</SizableText>
-                <SwapOnChainInfoItem
-                  title="Send"
-                  value={txHistory.txInfo.sender}
-                  onCopy={() => {
-                    void onCopy(txHistory.txInfo.sender);
-                  }}
-                />
-                <SwapOnChainInfoItem
-                  title="Receive"
-                  value={txHistory.txInfo.receiver}
-                  onCopy={() => {
-                    void onCopy(txHistory.txInfo.receiver);
-                  }}
-                />
-                <SwapOnChainInfoItem
-                  title="Hash"
-                  value={txHistory.txInfo.txId}
-                  onCopy={() => {
-                    void onCopy(txHistory.txInfo.txId);
-                  }}
-                />
-                {networkFee.gasFeeFiatValueDisplay &&
-                networkFee.gasFeeInNativeDisplay ? (
-                  <SwapCommonInfoItem
-                    title="Network Fee"
-                    value={`${networkFee.gasFeeInNativeDisplay} ${networkFee.gasFeeFiatValueDisplay}`}
-                  />
-                ) : null}
-              </YStack>
-              <YStack>
-                <SizableText>SWAP INFO</SizableText>
-                <SwapRateInfoItem
-                  rate={txHistory.swapInfo.instantRate}
-                  fromToken={txHistory.baseInfo.fromToken}
-                  toToken={txHistory.baseInfo.toToken}
-                />
-                <SwapProviderInfoItem
-                  providerIcon={txHistory.swapInfo.provider.providerLogo ?? ''}
-                  providerName={txHistory.swapInfo.provider.providerName}
-                />
-                {protocolFee && (
-                  <SwapCommonInfoItem
-                    title="Protocol Fee"
-                    value={protocolFee}
-                  />
-                )}
-                {oneKeyFee && (
-                  <SwapCommonInfoItem title="OneKey Fee" value={oneKeyFee} />
-                )}
-              </YStack>
-              <YStack>
-                <SizableText>TIME</SizableText>
-                <SwapCommonInfoItem title="Created" value={createDateTime} />
-                <SwapCommonInfoItem title="updated" value={updateDateTime} />
-              </YStack>
-              <XStack justifyContent="space-between">
-                <XStack>
-                  <Image
-                    resizeMode="contain"
-                    source={require('../../../../../assets/logo.png')}
-                  />
-                  <SizableText>OneKey</SizableText>
-                </XStack>
-                <SwapTxHistoryViewInBrowser
-                  item={txHistory}
-                  onViewInBrowser={onViewInBrowser}
-                />
-              </XStack>
-            </YStack>
-            <XStack space="$2" my="$4" flex={1} px="$4">
-              <Button flex={1} icon="HelpSupportOutline" onPress={onSupport}>
-                {intl.formatMessage({ id: 'action__support' })}
-              </Button>
-              {enableShare && (
-                <Button
-                  flex={1}
-                  icon="ShareArrowSolid"
-                  onPress={onShare}
-                  onLongPress={onCopyDetailInfo}
-                >
-                  {intl.formatMessage({ id: 'action__share' })}
-                </Button>
-              )}
-            </XStack>
-          </>
-        </ViewShot>
-      ) : null}
+      <Page.Header headerTitle="Transaction" />
+      <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
     </Page>
   );
 };

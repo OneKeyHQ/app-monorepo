@@ -11,7 +11,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import {
-  SingleChainSwapProviders,
   networkTransactionExplorerReplaceStr,
   socketBridgeScanUrl,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -30,8 +29,10 @@ const SwapTxHistoryViewInBrowser = ({
 }: ISwapTxHistoryViewInBrowserProps) => {
   const intl = useIntl();
   const isSingleChainSwap = useMemo(
-    () => SingleChainSwapProviders.includes(item.swapInfo.provider.provider),
-    [item.swapInfo.provider.provider],
+    () =>
+      item.baseInfo.fromNetwork?.networkId ===
+      item.baseInfo.toNetwork?.networkId,
+    [item.baseInfo.fromNetwork?.networkId, item.baseInfo.toNetwork?.networkId],
   );
   const isSocketBridgeSwap = useMemo(
     () => item.swapInfo.provider.provider === ESwapProviders.SOCKET_BRIDGE,
@@ -72,7 +73,7 @@ const SwapTxHistoryViewInBrowser = ({
     } else {
       Toast.error({
         title: 'error',
-        message: 'no explorer',
+        message: 'no transaction hash',
       });
     }
   }, [onViewInBrowser, toTxExplorerUrl]);
@@ -89,11 +90,12 @@ const SwapTxHistoryViewInBrowser = ({
             onHandleFromTxExplorer();
           }
         }}
+        space="$2"
       >
-        <SizableText>
+        <SizableText color="$textSubdued">
           {intl.formatMessage({ id: 'action__view_in_browser' })}
         </SizableText>
-        <Icon name="LinkOutline" size="$4" />
+        <Icon color="$iconSubdued" name="OpenOutline" size={20} />
       </XStack>
     ),
     [intl, isSingleChainSwap, onHandleFromTxExplorer],

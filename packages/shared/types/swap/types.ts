@@ -252,6 +252,7 @@ export interface ISwapTxHistory {
   };
   txInfo: {
     txId: string;
+    orderId?: string;
     sender: string;
     receiver: string;
     gasFeeInNative?: string;
