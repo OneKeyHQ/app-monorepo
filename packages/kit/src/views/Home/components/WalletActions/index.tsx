@@ -120,15 +120,7 @@ function WalletActionReceive() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
-  const handleOnReceive = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.LightningCreateInvoice,
-      params: {
-        accountId: account?.id ?? '',
-        networkId: network?.id ?? '',
-      },
-    });
-  }, [navigation, network, account]);
+  const handleOnReceive = useCallback(() => {}, []);
 
   return (
     <RawActions.Receive
