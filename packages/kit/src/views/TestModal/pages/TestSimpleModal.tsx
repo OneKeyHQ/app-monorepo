@@ -159,10 +159,10 @@ export function TestSimpleModal() {
             close();
           }}
           confirmButton={
-            showConfirmAndCancelButton ? <CustomConfirmButton /> : null
+            showConfirmAndCancelButton ? <CustomConfirmButton /> : undefined
           }
           cancelButton={
-            showConfirmAndCancelButton ? <CustomCancelButton /> : null
+            showConfirmAndCancelButton ? <CustomCancelButton /> : undefined
           }
           onConfirmText="YES"
           confirmButtonProps={{
