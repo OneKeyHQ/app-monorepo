@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
   AnimatePresence,
@@ -12,6 +13,7 @@ import {
   SizableText,
   Stack,
   useSafeAreaInsets,
+  useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -64,7 +66,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-
+  const listRef = useRef<ISectionListRef<any> | null>(null);
   const route =
     useRoute<
       RouteProp<
@@ -174,6 +176,30 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     };
   }, [reloadAccounts]);
 
+  const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
+  // scroll into selected account
+  useEffect(() => {
+    if (sectionData?.[0]?.data) {
+      const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
+        isOthers
+          ? selectedAccount.othersWalletAccountId === id
+          : selectedAccount.indexedAccountId === id,
+      );
+      console.log('itemIndex----', itemIndex);
+      scrollToLocation({
+        animated: true,
+        sectionIndex: 0,
+        itemIndex: Math.max(itemIndex, 0),
+      });
+    }
+  }, [
+    isOthers,
+    scrollToLocation,
+    sectionData,
+    selectedAccount.indexedAccountId,
+    selectedAccount.othersWalletAccountId,
+  ]);
+
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
 
@@ -276,6 +302,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       </ListItem>
 
       <SectionList
+        ref={listRef}
+        onLayout={onLayout}
         ListEmptyComponent={
           <Stack p="$3">
             <SizableText>No Wallets</SizableText>

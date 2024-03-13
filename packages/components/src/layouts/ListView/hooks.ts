@@ -55,7 +55,7 @@ export const useSafelyScrollToLocation = (
   sectionListRef: MutableRefObject<ISectionListRef<any> | null>,
   onLayout?: (e: LayoutChangeEvent) => void,
 ) => {
-  const isListViewVisible = useRef(false);
+  const isSectionListViewVisible = useRef(false);
   const scrollToLocation = useCallback(
     (
       params: {
@@ -70,7 +70,7 @@ export const useSafelyScrollToLocation = (
       if (retryTimes > 20) {
         return;
       }
-      if (!sectionListRef.current || !sectionListRef.current) {
+      if (!sectionListRef.current || !isSectionListViewVisible.current) {
         setTimeout(() => {
           scrollToLocation(params, retryTimes + 1);
         }, 30);
@@ -85,7 +85,7 @@ export const useSafelyScrollToLocation = (
     (e: LayoutChangeEvent) => {
       const { height } = e.nativeEvent.layout;
       if (height) {
-        isListViewVisible.current = true;
+        isSectionListViewVisible.current = true;
       }
       onLayout?.(e);
     },
