@@ -35,15 +35,16 @@ export function WalletAvatarBase({
   const isHidden = accountUtils.isHwHiddenWallet({
     wallet,
   });
+
+  if (isHidden) {
+    return <Icon size="$10" name="LockSolid" color="$iconSubdued" />;
+  }
+
   return (
     <Image size={size}>
-      {isHidden ? (
-        <Icon size="$9" name="LockOutline" />
-      ) : (
-        <Image.Source
-          source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
-        />
-      )}
+      <Image.Source
+        source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
+      />
 
       <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
         <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>

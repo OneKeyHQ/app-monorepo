@@ -136,10 +136,15 @@ export function WalletList({ num }: IWalletListProps) {
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
-        ListFooterComponent={<AccountSelectorCreateWalletButton />}
       />
+      <AccountSelectorCreateWalletButton />
       {/* Others */}
-      <Stack py="$2" mb={bottom}>
+      <Stack
+        py="$2"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="$borderSubdued"
+        mb={bottom}
+      >
         <OthersWalletItem onWalletPress={onWalletPress} num={num} />
       </Stack>
     </Stack>

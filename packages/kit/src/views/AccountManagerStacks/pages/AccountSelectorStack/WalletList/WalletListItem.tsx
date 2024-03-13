@@ -9,7 +9,11 @@ interface IWalletListItemProps extends IStackProps {
   selected?: boolean;
   walletAvatarProps?: IWalletAvatarProps;
   walletName?: string;
-  wallet: IDBWallet | undefined;
+  wallet:
+    | (IDBWallet & {
+        hiddenWallet?: IDBWallet[];
+      })
+    | undefined;
 }
 
 export function WalletListItem({
@@ -23,6 +27,7 @@ export function WalletListItem({
 
   return (
     <Stack
+      role="button"
       alignItems="center"
       mx="$2"
       p="$1"
@@ -32,8 +37,7 @@ export function WalletListItem({
       }}
       userSelect="none"
       // hidden wallet use dark bg
-      // @ts-expect-error
-      bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
+      // bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
       {...(selected
         ? {
             bg: '$bgActive',
@@ -46,6 +50,13 @@ export function WalletListItem({
               bg: '$bgActive',
             },
           })}
+      focusable
+      focusStyle={{
+        outlineOffset: 2,
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
       {...rest}
     >
       {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
@@ -62,4 +73,23 @@ export function WalletListItem({
       )}
     </Stack>
   );
+}
+
+// TODO Grouping Wallet
+{
+  /* <Stack
+  borderRadius="$3"
+  borderWidth={1}
+  borderColor="$borderSubdued"
+  space="$3"
+  style={{
+    borderCurve: 'continuous',
+  }}
+>
+  <WalletListItem />
+  {hiddenWallets.map((hiddenWallet) => (
+    <WalletListItem />
+  ))}
+  ...
+</Stack>; */
 }

@@ -137,7 +137,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
 
         <HeaderIconButton
-          title="Scan"
+          title="Settings"
           icon="SettingsOutline"
           onPress={openSettingPage}
         />

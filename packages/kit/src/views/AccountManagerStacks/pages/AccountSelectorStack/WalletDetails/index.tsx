@@ -475,9 +475,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             {/* Add account */}
             <ListItem.Text
               userSelect="none"
-              primary="Add account"
+              primary="Add Account"
               primaryTextProps={{
-                size: '$bodyLg',
+                color: '$textSubdued',
               }}
             />
           </ListItem>
