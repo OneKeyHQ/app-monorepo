@@ -1,4 +1,4 @@
-import { IPropsWithTestId } from '@onekeyhq/components';
+import type { IPropsWithTestId } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 interface ISectionPressItem {

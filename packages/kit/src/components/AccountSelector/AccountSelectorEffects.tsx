@@ -96,7 +96,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
 
   useEffect(() => {
     const fn = () => {
-      actions.current.updateSelectedAccount({
+      void actions.current.updateSelectedAccount({
         num,
         builder: (v) => ({
           ...v,

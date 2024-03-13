@@ -62,6 +62,8 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
 
   abstract withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T>;
 
+  abstract clearRecords(params: { name: ELocalDBStoreNames }): Promise<void>;
+
   abstract getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult>;

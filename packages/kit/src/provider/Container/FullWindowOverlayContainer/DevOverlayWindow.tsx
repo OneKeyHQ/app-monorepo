@@ -5,9 +5,9 @@ import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ETabRoutes } from '../../../routes/Tab/type';
 
 import type { ITabMeParamList } from '../../../routes/Tab/Me/type';
-import { ETabRoutes } from '../../../routes/Tab/type';
 
 function DevOverlayWindow() {
   const [position, setPosition] = useState<{
