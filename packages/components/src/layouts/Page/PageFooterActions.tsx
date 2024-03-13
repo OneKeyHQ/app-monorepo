@@ -101,8 +101,8 @@ export function FooterActions({
             }
             variant="primary"
             onPress={handleConfirm}
-            {...confirmButtonProps}
             testID="footer-confirm"
+            {...confirmButtonProps}
           >
             {onConfirmText || 'Confirm'}
           </Button>

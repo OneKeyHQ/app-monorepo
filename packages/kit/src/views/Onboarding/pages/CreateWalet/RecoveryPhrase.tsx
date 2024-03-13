@@ -138,6 +138,7 @@ export function RecoveryPhrase() {
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
         onConfirm={handleConfirmPress}
+        confirmButtonProps={{ testID: 'saved-the-phrase' }}
       />
     </Page>
   );
