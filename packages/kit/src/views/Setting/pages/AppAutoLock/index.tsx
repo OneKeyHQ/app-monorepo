@@ -7,6 +7,7 @@ import {
   usePasswordPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ListItemSelect } from '../../components/ListItemSelect';
 
@@ -15,8 +16,7 @@ import { useOptions } from './useOptions';
 const EnableSystemIdleTimeItem = () => {
   const [{ enableSystemIdleLock }] = usePasswordPersistAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
-
-  return supportSystemIdle ? (
+  return (
     <YStack>
       <Divider mx="$5" />
       <ListItem
@@ -24,7 +24,8 @@ const EnableSystemIdleTimeItem = () => {
         subtitle="Include system idle time for locking."
       >
         <Switch
-          value={enableSystemIdleLock}
+          disabled={!supportSystemIdle}
+          value={supportSystemIdle ? enableSystemIdleLock : false}
           onChange={async (checked) => {
             await backgroundApiProxy.servicePassword.setEnableSystemIdleLock(
               checked,
@@ -33,7 +34,7 @@ const EnableSystemIdleTimeItem = () => {
         />
       </ListItem>
     </YStack>
-  ) : null;
+  );
 };
 
 const AppAutoLock = () => {
@@ -53,7 +54,9 @@ const AppAutoLock = () => {
           options={options}
         />
       </Stack>
-      <EnableSystemIdleTimeItem />
+      {platformEnv.isExtension || platformEnv.isDesktop ? (
+        <EnableSystemIdleTimeItem />
+      ) : null}
     </Page>
   );
 };
