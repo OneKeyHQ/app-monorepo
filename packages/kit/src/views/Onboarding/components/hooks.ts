@@ -4,7 +4,7 @@ import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 import { InteractionManager, Keyboard } from 'react-native';
 
-import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import { Toast, type useForm, useKeyboardEvent } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -111,6 +111,9 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       }
       if (!value) {
         resetSuggestions();
+      }
+      if (value.length > 4) {
+        Toast.message({ title: 'Max 4 chars' });
       }
       const text = value.toLowerCase().trim().slice(0, 4);
       const words = fetchSuggestions(text);

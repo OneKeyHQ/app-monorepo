@@ -22,10 +22,10 @@ function ImportAddress() {
 
   return (
     <Page>
-      <Page.Header title="Import Address" />
+      <Page.Header title="Add to Watchlist" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Chain" name="networkId">
+          <Form.Field label="Network" name="networkId">
             <ControlledNetworkSelectorTrigger />
           </Form.Field>
           <Form.Field label="Address" name="input">

@@ -12,11 +12,11 @@ import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../hooks';
-import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
+import { Icon } from '../../primitives';
 
+import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IInputAddOnProps } from './InputAddOnItem';
 import type { IKeyOfIcons } from '../../primitives';
 import type {
   HostComponent,
@@ -46,17 +46,17 @@ export type IInputRef = {
 const SIZE_MAPPINGS = {
   'large': {
     paddingLeftWithIcon: '$10',
-    height: 46,
+    height: 44,
     iconLeftPosition: 13,
   },
   'medium': {
     paddingLeftWithIcon: '$9',
-    height: 38,
+    height: 36,
     iconLeftPosition: 9,
   },
   'small': {
     paddingLeftWithIcon: '$8',
-    height: 30,
+    height: 28,
     iconLeftPosition: 5,
   },
 };
@@ -149,61 +149,29 @@ function BaseInput(
   return (
     <Group
       orientation="horizontal"
+      borderWidth={sharedStyles.borderWidth}
+      borderColor={sharedStyles.borderColor}
+      bg={sharedStyles.backgroundColor}
       borderRadius={sharedStyles.borderRadius}
-      disablePassBorderRadius={!addOns?.length && !leftAddOnProps}
       disabled={disabled}
+      style={{
+        borderCurve: 'continuous',
+      }}
       {...containerProps}
     >
       {/* left addon */}
       {leftAddOnProps && (
         <Group.Item>
-          <XStack
-            bg="$bgSubdued"
-            borderWidth={sharedStyles.borderWidth}
-            borderColor={sharedStyles.borderColor}
-            alignItems="center"
-            px={size === 'large' ? '$2.5' : '$2'}
-            style={{
-              borderCurve: 'continuous',
-            }}
-            {...(leftAddOnProps.onPress &&
-              !disabled && {
-                hoverStyle: {
-                  bg: '$bgHover',
-                },
-                pressStyle: {
-                  bg: '$bgActive',
-                },
-              })}
-            {...(leftAddOnProps.onPress && {
-              focusable: !disabled || !leftAddOnProps.loading,
-            })}
-            focusStyle={sharedStyles.focusStyle}
-            {...leftAddOnProps}
-          >
-            {leftAddOnProps.loading ? (
-              <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                <Spinner size="small" />
-              </YStack>
-            ) : (
-              leftAddOnProps.iconName && (
-                <Icon
-                  name={leftAddOnProps.iconName}
-                  color={leftAddOnProps.iconColor}
-                  size={size === 'small' ? '$5' : '$6'}
-                />
-              )
-            )}
-            {leftAddOnProps.label && (
-              <SizableText
-                size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                ml={leftAddOnProps.iconName ? '$2' : '$0'}
-                color={disabled ? '$textDisabled' : '$textSubdued'}
-              >
-                {leftAddOnProps.label}
-              </SizableText>
-            )}
-          </XStack>
+          <InputAddOnItem
+            size={size}
+            error={error}
+            loading={leftAddOnProps.loading}
+            label={leftAddOnProps.label}
+            iconName={leftAddOnProps.iconName}
+            iconColor={leftAddOnProps.iconColor}
+            onPress={leftAddOnProps.onPress}
+            testID={leftAddOnProps.testID}
+          />
         </Group.Item>
       )}
 
@@ -228,14 +196,7 @@ function BaseInput(
           }
           color={sharedStyles.color}
           placeholderTextColor={sharedStyles.placeholderTextColor}
-          borderWidth={sharedStyles.borderWidth}
-          borderColor={sharedStyles.borderColor}
-          bg={sharedStyles.backgroundColor}
           selectionColor={selectionColor}
-          borderRadius={size === 'large' ? '$3' : '$2'}
-          borderRightWidth={addOns?.length ? '$0' : '$px'}
-          borderLeftWidth={leftAddOnProps ? '$0' : '$px'}
-          focusStyle={sharedStyles.focusStyle}
           cursor={sharedStyles.cursor}
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           style={{
@@ -265,12 +226,8 @@ function BaseInput(
       {addOns?.length && (
         <Group.Item>
           <Group
-            borderRadius={size === 'large' ? '$3' : '$2'}
+            borderRadius={sharedStyles.borderRadius}
             orientation="horizontal"
-            borderWidth="$px"
-            borderLeftWidth="$0"
-            borderColor={sharedStyles.borderColor}
-            bg={sharedStyles.backgroundColor}
             disabled={disabled}
             disablePassBorderRadius="start"
           >
@@ -291,52 +248,17 @@ function BaseInput(
 
                 return (
                   <Group.Item key={`${iconName || index}-${label || index}`}>
-                    <XStack
-                      onPress={onPress}
-                      key={`${iconName || ''}-${label || ''}`}
-                      alignItems="center"
-                      px={size === 'large' ? '$2.5' : '$2'}
-                      {...(onPress &&
-                        !disabled &&
-                        !loading && {
-                          userSelect: 'none',
-                          hoverStyle: {
-                            bg: '$bgHover',
-                          },
-                          pressStyle: {
-                            bg: '$bgActive',
-                          },
-                          focusable: !(disabled || loading),
-                          focusStyle: sharedStyles.focusStyle,
-                        })}
-                      style={{
-                        borderCurve: 'continuous',
-                      }}
+                    <InputAddOnItem
                       testID={testID}
-                    >
-                      {loading ? (
-                        <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                          <Spinner size="small" />
-                        </YStack>
-                      ) : (
-                        iconName && (
-                          <Icon
-                            name={iconName}
-                            color={getIconColor()}
-                            size={size === 'small' ? '$5' : '$6'}
-                          />
-                        )
-                      )}
-                      {label && (
-                        <SizableText
-                          size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                          ml={iconName ? '$2' : '$0'}
-                          color={disabled ? '$textDisabled' : '$textSubdued'}
-                        >
-                          {label}
-                        </SizableText>
-                      )}
-                    </XStack>
+                      key={`${iconName || ''}-${label || ''}`}
+                      label={label}
+                      loading={loading}
+                      size={size}
+                      iconName={iconName}
+                      iconColor={getIconColor()}
+                      error={error}
+                      onPress={onPress}
+                    />
                   </Group.Item>
                 );
               },

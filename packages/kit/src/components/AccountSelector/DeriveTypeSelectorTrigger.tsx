@@ -16,7 +16,7 @@ import {
 
 const renderMiniModeTrigger = () => (
   <IconButton
-    title="Derivation Path"
+    title="Switch Address"
     icon="RepeatOutline"
     size="small"
     variant="tertiary"

@@ -4,7 +4,7 @@
 import { Button, Stack } from '@onekeyhq/components';
 import {
   confirmByPin,
-  confirmOnClassic,
+  ConfirmOnDeviceToast,
   confirmOnDevice,
   confirmPassphrase,
   confirmPhrase,
@@ -34,10 +34,18 @@ const HardwareGallery = () => (
 
             <Button
               onPress={() => {
-                void confirmOnClassic();
+                void ConfirmOnDeviceToast({ deviceType: 'classic' });
               }}
             >
-              Confirm On Device(legacy)
+              Confirm On Classic (Toast)
+            </Button>
+
+            <Button
+              onPress={() => {
+                void ConfirmOnDeviceToast({ deviceType: 'touch' });
+              }}
+            >
+              Confirm On Touch (Toast)
             </Button>
 
             <Button

@@ -11,13 +11,6 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 
-const tutorials = [
-  {
-    title: "Why can't I type full words?",
-    description:
-      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
-  },
-];
 export function VerifyRecoveryPhrase({
   route,
 }: IPageScreenProps<
@@ -68,7 +61,18 @@ export function VerifyRecoveryPhrase({
           onConfirm={handleConfirmPress}
           showPhraseLengthSelector={false}
           showClearAllButton={false}
-          tutorials={tutorials}
+          tutorials={[
+            {
+              title: "Why can't I type full words?",
+              description:
+                'To prevent keylogger attacks. Use suggested words for security.',
+            },
+            {
+              title: "Why can't I paste directly?",
+              description:
+                'To reduce risk of asset loss, avoid pasting sensitive information.',
+            },
+          ]}
         />
       ) : null}
     </Page>

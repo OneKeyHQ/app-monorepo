@@ -10,7 +10,10 @@ import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
-import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import type {
+  IKeyOfIcons,
+  IXStackProps,
+} from '@onekeyhq/components/src/primitives';
 import {
   Icon,
   SizableText,
@@ -74,7 +77,7 @@ function TabItemView({
   return contentMemo;
 }
 
-function DownloadButton() {
+function DownloadButton(props: IXStackProps) {
   const intl = useIntl();
   const onPress = useCallback(() => {
     openUrlExternal(DOWNLOAD_URL);
@@ -85,21 +88,22 @@ function DownloadButton() {
   return (
     <XStack
       borderWidth="$px"
-      padding="$space.2"
+      px="$3"
+      py="$2"
       backgroundColor="$bgStrong"
       borderColor="$borderSubdued"
-      borderRadius="$radius.2"
-      justifyContent="space-between"
-      alignItems="center"
+      borderRadius="$2"
+      userSelect="none"
       onPress={onPress}
+      {...props}
     >
-      <SizableText size="$bodyMdMedium">
+      <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({ id: 'action__download' })}
       </SizableText>
       <XStack space="$1">
-        <Icon name="AppleBrand" color="$iconSubdued" />
-        <Icon name="GooglePlayBrand" color="$iconSubdued" />
-        <Icon name="ChromeBrand" color="$iconSubdued" />
+        <Icon name="AppleBrand" color="$iconSubdued" size="$5" />
+        <Icon name="GooglePlayBrand" color="$iconSubdued" size="$5" />
+        <Icon name="ChromeBrand" color="$iconSubdued" size="$5" />
       </XStack>
     </XStack>
   );
@@ -110,8 +114,8 @@ function OneKeyLogo() {
     return null;
   }
   return (
-    <XStack pb="$3">
-      <Icon name="OnekeyTextIllus" width={112} height={28} color="$text" />
+    <XStack px="$4" py="$3">
+      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
     </XStack>
   );
 }
@@ -209,18 +213,17 @@ export function DesktopLeftSideBar({
       )}
       <YStack
         flex={1}
-        px="$3"
-        pb="$3"
         testID="Desktop-AppSideBar-Content-Container"
         // Need to replaced by HeaderHeightContext
-        pt={platformEnv.isDesktopMac ? undefined : '$3'}
         $platform-web={{
           h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
         }}
       >
         <OneKeyLogo />
-        <YStack flex={1}>{tabs}</YStack>
-        <DownloadButton />
+        <YStack flex={1} p="$3">
+          {tabs}
+          <DownloadButton mt="auto" />
+        </YStack>
       </YStack>
     </MotiView>
   );

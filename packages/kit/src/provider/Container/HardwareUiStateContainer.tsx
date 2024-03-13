@@ -17,7 +17,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   CommonDeviceLoading,
-  ConfirmOnClassic,
+  ConfirmOnDeviceToastContent,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -175,18 +175,18 @@ function HardwareUiStateContainerCmp() {
       // TODO do not cancel device here
       const closePrevActions = async () => {
         await dialogRef.current?.close({ flag: autoClosedFlag });
-        await toastRef.current?.close({ flag: autoClosedFlag });
+        // await toastRef.current?.close({ flag: autoClosedFlag });
         await timerUtils.wait(300);
       };
       await closePrevActions();
       if (shouldShowAction && connectId) {
         if (isToastAction) {
           toastRef.current = Toast.show({
-            children: <ConfirmOnClassic />,
+            children: <ConfirmOnDeviceToastContent deviceType="classic" />,
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
-              console.log('close ConfirmOnClassic');
+              console.log('close ConfirmOnDeviceToastContent');
               if (params?.flag !== autoClosedFlag) {
                 await serviceHardware.closeHardwareUiStateDialog({
                   connectId,
@@ -196,6 +196,7 @@ function HardwareUiStateContainerCmp() {
           });
         } else {
           dialogRef.current = Dialog.show({
+            dismissOnOverlayPress: false,
             showFooter: false,
             dialogContainer: HardwareSingletonDialogRender,
             async onClose(params) {

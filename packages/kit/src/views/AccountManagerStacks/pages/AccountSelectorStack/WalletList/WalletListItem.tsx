@@ -30,6 +30,7 @@ export function WalletListItem({
       style={{
         borderCurve: 'continuous',
       }}
+      userSelect="none"
       // hidden wallet use dark bg
       // @ts-expect-error
       bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
