@@ -15,6 +15,7 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -86,14 +87,14 @@ function FinalizeWalletSetupPage({
     }
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
-        navigation.popStack();
+        navigation.navigate(ERootRoutes.Main);
       }, 1000);
     }
   }, [currentStep, navigation, showStep]);
 
   return (
     <Page>
-      <Page.Header title="Finalize Wallet Setup" />
+      <Page.Header disableClose title="Finalize Wallet Setup" />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack
           w="$16"

@@ -19,6 +19,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
+  ELiteCardRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPages,
@@ -180,6 +181,15 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.LiteCardModal, {
+                screen: ELiteCardRoutes.LiteCardHome,
+              });
+            }}
+          >
+            Lite 卡片
           </Button>
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}

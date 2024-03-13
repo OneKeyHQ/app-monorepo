@@ -8,6 +8,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -43,7 +44,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     }
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
-      duration: 350,
+      duration: 400,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
@@ -114,17 +115,26 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   );
 
   const navigation = useAppNavigation();
+  const scanQrCode = useScanQrCode();
   const openSettingPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+  const onScanButtonPressed = useCallback(
+    () => scanQrCode.start(),
+    [scanQrCode],
+  );
 
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        {/* <HeaderIconButton title="Scan" icon="ScanOutline" />
-        <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
+        <HeaderIconButton
+          title="Scan"
+          icon="ScanOutline"
+          onPress={onScanButtonPressed}
+        />
+        {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
 
         <HeaderIconButton
           title="Setting"
@@ -134,7 +144,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         />
       </HeaderButtonGroup>
     ),
-    [],
+    [openSettingPage, onScanButtonPressed],
   );
 
   const renderHomePage = useCallback(() => {
