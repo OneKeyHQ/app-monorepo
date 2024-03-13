@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { AuthenticationType } from 'expo-local-authentication';
 
 import { Dialog } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -107,8 +108,9 @@ const FaceIdItem = () => {
 
   let title = intl.formatMessage({ id: 'form__touch_id' });
   let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
+
   if (biologyAuthIsSupport) {
-    if (authType.includes(2)) {
+    if (authType.includes(AuthenticationType.FACIAL_RECOGNITION)) {
       title = intl.formatMessage({ id: 'content__face_id' });
       icon = 'FaceIdSolid';
     }
