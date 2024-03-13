@@ -3,18 +3,8 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  Dialog,
-  Form,
-  Input,
-  Stack,
-  TextArea,
-  useClipboard,
-  useForm,
-} from '@onekeyhq/components';
+import { useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { NetworkSelectorTriggerLegacy } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -27,16 +17,14 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
-
-import { EModalReceiveRoutes } from '../../../Receive/router/type';
 
 import { RawActions } from './RawActions';
 
@@ -124,16 +112,22 @@ function WalletActionSend() {
 }
 
 function WalletActionReceive() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const handleOnReceive = useCallback(
-    () =>
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveToken,
-      }),
-    [],
-  );
+  const handleOnReceive = useCallback(() => {
+    if (!account || !network) return;
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId: network.id,
+        accountId: account.id,
+      },
+    });
+  }, [account, navigation, network]);
 
   return (
     <RawActions.Receive
