@@ -113,16 +113,22 @@ function WalletActionSend() {
 }
 
 function WalletActionReceive() {
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const handleOnReceive = useCallback(
-    () =>
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveToken,
-      }),
-    [],
-  );
+  const handleOnReceive = useCallback(() => {
+    if (!account || !network) return;
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId: network.id,
+        accountId: account.id,
+      },
+    });
+  }, [account, navigation, network]);
 
   return (
     <RawActions.Receive

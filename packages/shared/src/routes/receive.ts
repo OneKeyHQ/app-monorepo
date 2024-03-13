@@ -5,10 +5,13 @@ export enum EModalReceiveRoutes {
 }
 
 export type IModalReceiveParamList = {
-  [EModalReceiveRoutes.ReceiveToken]: undefined;
   [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;
+  };
+  [EModalReceiveRoutes.ReceiveToken]: {
+    networkId: string;
+    accountId: string;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: undefined;
 };

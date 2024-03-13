@@ -8,7 +8,7 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EEndpointName } from '@onekeyhq/shared/types/endpoint';
+import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpoints } from '../endpoints';
 
@@ -19,7 +19,10 @@ export type IServiceBaseProps = {
   backgroundApi: any;
 };
 
-let client: AxiosInstance | null = null;
+const clients: Record<EEndpointName, AxiosInstance | null> = {
+  [EEndpointName.Http]: null,
+  [EEndpointName.WebSocket]: null,
+};
 
 @backgroundClass()
 export default class ServiceBase {
@@ -30,18 +33,13 @@ export default class ServiceBase {
   backgroundApi: IBackgroundApi;
 
   getClient = memoizee(
-    async (endpointName?: EEndpointName) => {
-      if (client && !endpointName) return client;
+    async (endpointName: EEndpointName = EEndpointName.Http) => {
+      if (clients[endpointName]) return clients[endpointName] as AxiosInstance;
 
-      let endpoint = '';
       const endpoints = await getEndpoints();
-      if (endpointName) {
-        endpoint = endpoints[endpointName];
-        if (!endpoint) {
-          throw new OneKeyError('Invalid endpoint name.');
-        }
-      } else {
-        endpoint = endpoints.http;
+      const endpoint = endpoints[endpointName];
+      if (!endpoint) {
+        throw new OneKeyError('Invalid endpoint name.');
       }
       const options =
         platformEnv.isDev && process.env.ONEKEY_PROXY
@@ -56,7 +54,8 @@ export default class ServiceBase {
               baseURL: endpoint,
               timeout: 60 * 1000,
             };
-      client = axios.create(options);
+      const client = axios.create(options);
+      clients[endpointName] = client;
 
       return client;
     },
