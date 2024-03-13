@@ -7,38 +7,50 @@ import type { RPC } from '@ckb-lumos/rpc';
 
 export const DEFAULT_CONFIRM_BLOCK = 20;
 
-export async function loadCellsByAddress(indexer: Indexer, address: string) {
+export async function fetchCellsByAddress({
+  indexer,
+  address,
+  client,
+  confirmBlock,
+}: {
+  indexer: Indexer;
+  address: string;
+  client?: RPC;
+  confirmBlock?: number;
+}) {
   const script = parseAddress(address);
-
+  const blockNumber = await client?.getTipBlockNumber();
   const collector = indexer.collector({ lock: script, type: 'empty' });
   const collected: Cell[] = [];
   for await (const cell of collector.collect()) {
-    collected.push(cell);
-  }
-
-  return collected;
-}
-
-export async function fetchConfirmCellsByAddress(
-  client: RPC,
-  indexer: Indexer,
-  address: string,
-) {
-  const script = parseAddress(address);
-  const blockNumber = await client.getTipBlockNumber();
-  const collector = indexer.collector({ lock: script, type: 'empty' });
-  const collected: Cell[] = [];
-  for await (const cell of collector.collect()) {
-    if (
+    if (!confirmBlock || !client) {
+      // no confirm block, just collect all cells
+      collected.push(cell);
+    } else if (
+      // has confirm block, only collect cells that has enough confirmations
+      blockNumber &&
       new BigNumber(blockNumber, 16)
         .minus(new BigNumber(cell.blockNumber ?? '0x0', 16))
-        .isGreaterThan(DEFAULT_CONFIRM_BLOCK)
+        .isGreaterThan(confirmBlock)
     ) {
       collected.push(cell);
     }
   }
 
   return collected;
+}
+
+export async function fetchConfirmCellsByAddress(
+  indexer: Indexer,
+  address: string,
+  client: RPC,
+) {
+  return fetchCellsByAddress({
+    indexer,
+    address,
+    client,
+    confirmBlock: DEFAULT_CONFIRM_BLOCK,
+  });
 }
 
 export function selectCellsByAddress(
@@ -60,7 +72,7 @@ export function selectCellsByAddress(
 }
 
 export async function getBalancesByAddress(indexer: Indexer, address: string) {
-  const cells = await loadCellsByAddress(indexer, address);
+  const cells = await fetchCellsByAddress({ indexer, address });
 
   return cells.reduce(
     (acc, cell) => acc.plus(new BigNumber(cell.cellOutput.capacity, 16)),
