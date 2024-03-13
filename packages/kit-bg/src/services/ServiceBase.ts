@@ -34,7 +34,8 @@ export default class ServiceBase {
 
   getClient = memoizee(
     async (endpointName: EEndpointName = EEndpointName.Http) => {
-      if (clients[endpointName]) return clients[endpointName] as AxiosInstance;
+      const existingClient = clients[endpointName];
+      if (existingClient) return existingClient;
 
       const endpoints = await getEndpoints();
       const endpoint = endpoints[endpointName];
