@@ -7,6 +7,10 @@ import { Page, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -33,6 +37,7 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+  const { closeWebTab } = useBrowserTabActions().current;
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -62,6 +67,19 @@ function MobileBrowser() {
   useEffect(() => {
     void checkAndCreateFolder();
   }, []);
+
+  // For risk detection
+  useEffect(() => {
+    const listener = () => {
+      if (activeTabId) {
+        void closeWebTab(activeTabId);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    };
+  }, [closeWebTab, activeTabId]);
 
   const content = useMemo(
     () =>
