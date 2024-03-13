@@ -42,6 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useShowCopyPasteButton, useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
+import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
 const phraseLengthOptions = [
@@ -367,7 +368,7 @@ export function PhaseInputArea({
   onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
-  tutorials: { title: string; description: string }[];
+  tutorials: ITutorialsListItemProps[];
   defaultPhrases?: string[];
 }) {
   const { serviceAccount, servicePassword } = backgroundApiProxy;
@@ -449,36 +450,38 @@ export function PhaseInputArea({
   return (
     <>
       <Page.Body>
-        <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
-          {showPhraseLengthSelector ? (
-            <Select
-              title="Select a length"
-              placement="bottom-start"
-              items={phraseLengthOptions}
-              value={phraseLength}
-              onChange={setPhraseLength}
-              renderTrigger={({ value }) => (
-                <Button
-                  iconAfter="ChevronDownSmallOutline"
-                  size="small"
-                  variant="tertiary"
-                >
-                  {value} words
-                </Button>
-              )}
-            />
-          ) : null}
-          {showClearAllButton ? (
-            <Button
-              icon="BroomOutline"
-              size="small"
-              variant="tertiary"
-              onPress={handleClear}
-            >
-              Clear
-            </Button>
-          ) : null}
-        </XStack>
+        {(showPhraseLengthSelector || showClearAllButton) && (
+          <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
+            {showPhraseLengthSelector ? (
+              <Select
+                title="Select a length"
+                placement="bottom-start"
+                items={phraseLengthOptions}
+                value={phraseLength}
+                onChange={setPhraseLength}
+                renderTrigger={({ value }) => (
+                  <Button
+                    iconAfter="ChevronDownSmallOutline"
+                    size="small"
+                    variant="tertiary"
+                  >
+                    {value} words
+                  </Button>
+                )}
+              />
+            ) : null}
+            {showClearAllButton ? (
+              <Button
+                icon="BroomOutline"
+                size="small"
+                variant="tertiary"
+                onPress={handleClear}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </XStack>
+        )}
 
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">

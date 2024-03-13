@@ -104,16 +104,13 @@ export function WalletList({ num }: IWalletListProps) {
       $gtMd={{
         w: '$32',
       }}
-      py="$2"
       bg="$bgSubdued"
       borderRightWidth={StyleSheet.hairlineWidth}
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {(platformEnv.isExtension ||
-        platformEnv.isNativeAndroid ||
-        platformEnv.isWeb) && (
-        <XStack px="$5" py="$3.5">
+      {(platformEnv.isExtension || platformEnv.isNativeAndroid) && (
+        <XStack py="$4" justifyContent="center">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>
@@ -121,6 +118,7 @@ export function WalletList({ num }: IWalletListProps) {
       )}
       {/* Primary wallets */}
       <ListView
+        py="$2"
         estimatedItemSize="$10"
         data={wallets}
         extraData={selectedAccount.focusedWallet}
@@ -141,7 +139,7 @@ export function WalletList({ num }: IWalletListProps) {
         ListFooterComponent={<AccountSelectorCreateWalletButton />}
       />
       {/* Others */}
-      <Stack pb={bottom}>
+      <Stack py="$2" mb={bottom}>
         <OthersWalletItem onWalletPress={onWalletPress} num={num} />
       </Stack>
     </Stack>
