@@ -319,6 +319,8 @@ function BasicPhaseInput(
     onBlur: handleInputBlur,
     returnKeyLabel: keyLabel.toUpperCase(),
     returnKeyType: keyLabel,
+    // auto focus on the first input when entering the page.
+    autoFocus: index === 0,
   };
   if (platformEnv.isNative) {
     return (
