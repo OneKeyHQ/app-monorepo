@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -13,10 +15,11 @@ function DAppRiskyAlert({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
 }) {
-  const isScamLevel = urlSecurityInfo?.level === EHostSecurityLevel.High;
   const riskStyle = useMemo(() => {
     const defaultStyle = {
-      titleTextColor: '$text',
+      type: 'success',
+      alertIcon: 'InfoCircleSolid',
+      titleTextColor: '$textSuccess',
       descTextColor: '$textSubdued',
     };
     if (!urlSecurityInfo?.level) {
@@ -24,12 +27,16 @@ function DAppRiskyAlert({
     }
     if (urlSecurityInfo?.level === EHostSecurityLevel.High) {
       return {
+        type: 'critical',
+        alertIcon: 'ErrorSolid',
         titleTextColor: '$textCritical',
         descTextColor: '$textCriticalStrong',
       };
     }
     if (urlSecurityInfo?.level === EHostSecurityLevel.Medium) {
       return {
+        type: 'warning',
+        alertIcon: 'InfoSquareSolid',
         titleTextColor: '$textCaution',
         descTextColor: '$textCautionStrong',
       };
@@ -55,16 +62,16 @@ function DAppRiskyAlert({
     ],
   );
 
-  if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
+  if (!urlSecurityInfo?.alert) {
     return null;
   }
 
   return (
     <Alert
       fullBleed
-      type={isScamLevel ? 'critical' : 'warning'}
+      type={riskStyle.type as IAlertType}
       title={urlSecurityInfo?.alert ?? ''}
-      icon={isScamLevel ? 'ErrorSolid' : 'InfoSquareSolid'}
+      icon={riskStyle.alertIcon as IKeyOfIcons}
       action={{
         primary: 'Details',
         onPrimaryPress: () => {
