@@ -17,7 +17,11 @@ const SwapHistoryButtonContainer = ({
   return swapTxHistoryPending.length > 0 ? (
     <Button
       onPress={onHistoryButtonPress}
-    >{`${swapTxHistoryPending.length} pending swap`}</Button>
+      variant="secondary"
+      size="medium"
+      icon="Ai3StarOutline"
+      backgroundColor="$bgInfo"
+    >{`${swapTxHistoryPending.length} Pending `}</Button>
   ) : (
     <IconButton icon="ClockTimeHistorySolid" onPress={onHistoryButtonPress} />
   );

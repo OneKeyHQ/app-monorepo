@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { BigNumber } from 'bignumber.js';
 
 import {
+  Badge,
   Icon,
   Image,
   SizableText,
@@ -49,17 +50,26 @@ const SwapProviderInfoItem = ({
       alignItems="center"
     >
       <SizableText>Provider</SizableText>
-      <XStack space="$2">
+      <XStack>
         {isLoading ? (
           <Skeleton w="$20" />
         ) : (
-          <>
-            {showBest && <SizableText>Best</SizableText>}
-            <Image source={{ uri: providerIcon }} w="$5" h="$5" />
+          <XStack space="$1" alignItems="center">
+            {showBest && (
+              <Badge badgeType="success" badgeSize="sm" w="$10">
+                Best
+              </Badge>
+            )}
+            <Image
+              source={{ uri: providerIcon }}
+              w="$5"
+              h="$5"
+              borderRadius="$full"
+            />
             <SizableText>{rate ? rateContent : providerName}</SizableText>
             {showLock && <Icon name="LockOutline" />}
             {onPress && <Icon name="ChevronRightSmallOutline" />}
-          </>
+          </XStack>
         )}
       </XStack>
     </XStack>

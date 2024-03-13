@@ -9,10 +9,11 @@ import {
 } from 'date-fns';
 import { enUS, ja, ko, zhCN, zhHK } from 'date-fns/locale';
 
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+
 import { useLocaleVariant } from './useLocaleVariant';
 
 import type { Duration } from 'date-fns';
-import { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
   switch (localeSymbol) {
