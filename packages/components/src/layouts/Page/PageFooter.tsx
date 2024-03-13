@@ -69,7 +69,13 @@ function PageFooterContext(props: IPageFooterProps) {
 
   useEffect(() => {
     footerRef.current.props = props;
-    footerRef.current.notifyUpdate?.();
+    const { notifyUpdate } = footerRef.current;
+    notifyUpdate?.();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.props = undefined;
+      notifyUpdate?.();
+    };
   }, [footerRef, props]);
   return null;
 }
@@ -83,6 +89,7 @@ export function BasicPageFooter() {
       setCount((i) => i + 1);
     };
   }, [footerRef]);
+
   return footerProps ? (
     <PageFooterContainer>
       {footerProps.children ? (
