@@ -195,20 +195,20 @@ function HardwareUiStateContainerCmp() {
             },
           });
         } else {
-          // dialogRef.current = Dialog.show({
-          //   dismissOnOverlayPress: false,
-          //   showFooter: false,
-          //   dialogContainer: HardwareSingletonDialogRender,
-          //   async onClose(params) {
-          //     console.log('HardwareUiStateContainer onDismiss');
-          //     if (params?.flag !== autoClosedFlag) {
-          //       await serviceHardware.closeHardwareUiStateDialog({
-          //         connectId,
-          //         reason: 'HardwareUiStateContainer onClose',
-          //       });
-          //     }
-          //   },
-          // });
+          dialogRef.current = Dialog.show({
+            dismissOnOverlayPress: false,
+            showFooter: false,
+            dialogContainer: HardwareSingletonDialogRender,
+            async onClose(params) {
+              console.log('HardwareUiStateContainer onDismiss');
+              if (params?.flag !== autoClosedFlag) {
+                await serviceHardware.closeHardwareUiStateDialog({
+                  connectId,
+                  reason: 'HardwareUiStateContainer onClose',
+                });
+              }
+            },
+          });
         }
       }
     })();
