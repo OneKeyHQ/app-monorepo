@@ -17,6 +17,7 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -24,8 +25,6 @@ import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
-
-import { EModalReceiveRoutes } from '../../../Receive/router/type';
 
 import { RawActions } from './RawActions';
 
@@ -116,11 +115,14 @@ function WalletActionSend() {
 function WalletActionReceive() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
 
-  const handleOnReceive = useCallback(() => {}, []);
+  const handleOnReceive = useCallback(
+    () =>
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveToken,
+      }),
+    [],
+  );
 
   return (
     <RawActions.Receive

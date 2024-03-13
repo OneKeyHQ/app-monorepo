@@ -1,12 +1,14 @@
 export enum EModalReceiveRoutes {
-  QrCode = 'QrCode',
-  LightningCreateInvoice = 'LightningCreateInvoice',
+  ReceiveToken = 'ReceiveToken',
+  CreateInvoice = 'CreateInvoice',
+  ReceiveInvoice = 'ReceiveInvoice',
 }
 
 export type IModalReceiveParamList = {
-  [EModalReceiveRoutes.QrCode]: undefined;
-  [EModalReceiveRoutes.LightningCreateInvoice]: {
+  [EModalReceiveRoutes.ReceiveToken]: undefined;
+  [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;
   };
+  [EModalReceiveRoutes.ReceiveInvoice]: undefined;
 };
