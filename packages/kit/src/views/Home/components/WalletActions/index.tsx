@@ -127,9 +127,13 @@ function WalletActionReceive() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
-  const form = useForm();
-
-  const handleOnReceive = useCallback(() => {}, []);
+  const handleOnReceive = useCallback(
+    () =>
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveToken,
+      }),
+    [],
+  );
 
   return (
     <RawActions.Receive
