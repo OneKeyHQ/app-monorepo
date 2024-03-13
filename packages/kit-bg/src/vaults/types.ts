@@ -10,10 +10,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type {
-  IFeeInfoUnit,
-  ISendSelectedFeeInfo,
-} from '@onekeyhq/shared/types/fee';
+import type { IFeeInfoUnit, ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -118,6 +115,9 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+
+  minTransferAmount?: string;
+  utxoDustAmount?: string;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
