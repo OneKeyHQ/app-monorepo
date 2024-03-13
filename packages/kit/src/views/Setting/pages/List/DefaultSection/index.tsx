@@ -61,13 +61,13 @@ export const DefaultSection = () => {
         onPress={() => {}}
       />
       <ListItem
-        icon="OnekeyLiteIllus"
+        icon="OnekeyLiteOutline"
         title="OneKey Lite"
         drillIn
         onPress={() => {}}
       />
       <ListItem
-        icon="OnekeyKeyTagIllus"
+        icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
         drillIn
         onPress={() => {}}
