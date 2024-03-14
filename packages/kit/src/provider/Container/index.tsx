@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -35,25 +35,24 @@ function ErrorToastContainer() {
 
 function FlipperPluginsContainer() {
   console.log('FlipperPluginsContainer render');
-  const [, setRealmReady] = useState(false);
+  const [realmReady, setRealmReady] = useState(false);
   useEffect(() => {
-    if (global.$$realm) {
-      return;
-    }
     const fn = () => {
       console.log('FlipperPluginsContainer realm ready');
       setRealmReady(true);
     };
+    if (global.$$realm) {
+      fn();
+    }
     appEventBus.on(EAppEventBusNames.RealmInit, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.RealmInit, fn);
     };
   }, []);
-  const realmPlugin = (() => {
+  const realmPlugin = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
-      const realm = global.$$realm;
-      if (realm && platformEnv.isNative) {
-        console.log('render realm plugin');
+      if (realmReady && global.$$realm && platformEnv.isNative) {
+        console.log('FlipperPluginsContainer render realm plugin');
         const RealmFlipperPlugin = (
           require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device')
         ).default;
@@ -61,7 +60,7 @@ function FlipperPluginsContainer() {
       }
     }
     return null;
-  })();
+  }, [realmReady]);
   return <>{realmPlugin}</>;
 }
 
