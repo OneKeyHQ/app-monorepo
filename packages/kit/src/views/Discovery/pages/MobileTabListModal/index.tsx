@@ -59,6 +59,7 @@ const useFixAndroidListViewWidth = platformEnv.isNativeAndroid
         }
       }, []);
 
+      // estimatedItemSize="$28"
       const width = webTabs.length * 112;
       return useMemo(
         () => ({
