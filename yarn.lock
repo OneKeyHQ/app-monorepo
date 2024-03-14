@@ -4805,13 +4805,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-tab-page-view@npm:1.0.2":
-  version: 1.0.2
-  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.2"
+"@onekeyfe/react-native-tab-page-view@npm:1.0.3":
+  version: 1.0.3
+  resolution: "@onekeyfe/react-native-tab-page-view@npm:1.0.3"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 068a2b5e830d9b81a9188c690fa5053ab3ee2b7b906f2091a5182b6df9a978644f87beaaf37266fe27cf9f466c8fd1c49283d4d43faad29d23e3bef160b54ebc
+  checksum: 4f8faa11e2f14ae3de8163836899a1d55da0d6a19517e2239a76b1d4d8408151158a2d0e1f89ec34fb8e67ee67edacab5804ec088e8d239dfda728671490b993
   languageName: node
   linkType: hard
 
@@ -5116,7 +5116,7 @@ __metadata:
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-lite-card": "npm:1.0.3"
-    "@onekeyfe/react-native-tab-page-view": "npm:1.0.2"
+    "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"

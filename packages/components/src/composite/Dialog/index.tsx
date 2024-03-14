@@ -48,9 +48,7 @@ export type {
   IDialogShowProps,
 } from './type';
 
-// Fix the issue of the overlay layer in tamagui being too low
 export const FIX_SHEET_PROPS: IStackProps = {
-  zIndex: 100001,
   display: 'block',
 };
 
