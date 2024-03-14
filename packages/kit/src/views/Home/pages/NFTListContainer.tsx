@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 
+import { useTabIsRefreshingFocused } from '@onekeyhq/components';
+import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -10,12 +12,9 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { NFTListView } from '../components/NFTListView';
 
-type IProps = {
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
-};
-
-function NFTListContainer(props: IProps) {
+function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
+  const { isFocused } = useTabIsRefreshingFocused();
   const [initialized, setInitialized] = useState(false);
 
   const {
@@ -47,6 +46,7 @@ function NFTListContainer(props: IProps) {
     [account, network],
     {
       watchLoading: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
