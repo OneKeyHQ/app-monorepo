@@ -638,6 +638,7 @@ module.exports = [
   'sats',
   'Accum',
   'coinselect',
+  'fav',
   'nfc',
   'vsize',
   'consts',
