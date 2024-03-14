@@ -79,15 +79,11 @@ export function AmountInput({
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
-        borderTopWidth="$0"
-        borderRightWidth="$0"
-        borderBottomWidth="$0"
-        borderLeftWidth="$0"
         size="large"
-        bg="$transparent"
         focusStyle={undefined}
         containerProps={{
           flex: 1,
+          borderWidth: 0,
         }}
         value={value}
         onChangeText={onChange}

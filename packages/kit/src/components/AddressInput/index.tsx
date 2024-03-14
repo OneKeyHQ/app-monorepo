@@ -230,7 +230,6 @@ function AddressInput(props: IAddressInputProps) {
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
-  const isDirty = useRef(false);
   const rawAddress = watch([name, 'raw'].join('.'));
   const debounceText = useDebounce(inputText, 300, { trailing: true });
 
@@ -241,16 +240,10 @@ function AddressInput(props: IAddressInputProps) {
   }, []);
 
   const onChangeText = useCallback((text: string) => {
-    isDirty.current = true;
+    textRef.current = text;
     setInputText(text);
+    onChange?.({ raw: text, pending: true });
   }, []);
-
-  useEffect(() => {
-    textRef.current = inputText;
-    if (isDirty.current) {
-      onChange?.({ raw: inputText, pending: true });
-    }
-  }, [inputText, onChange]);
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
