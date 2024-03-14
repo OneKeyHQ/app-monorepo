@@ -85,7 +85,7 @@ function RawRefreshingFocusedContainer(
 export function useTabIsRefreshingFocused() {
   const tabRefreshingFocusedContext = useContext(TabRefreshingFocusedContext);
   const [isFocused, setIsFocused] = useState(
-    tabRefreshingFocusedContext?.initialFocused,
+    tabRefreshingFocusedContext?.initialFocused ?? false,
   );
   const [isHeaderRefreshing, setIsHeaderRefreshing] = useState(false);
   const [isFooterRefreshing, setIsFooterRefreshing] = useState(false);

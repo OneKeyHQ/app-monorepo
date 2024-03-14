@@ -64,7 +64,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     [account, network],
     {
       watchLoading: true,
-      overrideIsFocused: isFocused,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },

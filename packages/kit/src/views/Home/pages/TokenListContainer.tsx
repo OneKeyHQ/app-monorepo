@@ -153,7 +153,7 @@ function TokenListContainer(props: ITabPageProps) {
       refreshAllTokenListMap,
     ],
     {
-      overrideIsFocused: isFocused,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
