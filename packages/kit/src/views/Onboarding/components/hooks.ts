@@ -141,7 +141,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       updateByPressLock.current = true;
       updateInputValue(word);
       resetSuggestions();
-      if (word.length > 0) {
+      if (word && word.length > 0) {
         await focusNextInput();
         setTimeout(
           () => {
