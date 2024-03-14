@@ -65,7 +65,7 @@ export function SendConfirmFromDapp() {
         sourceInfo,
         encodedTx,
         feeInfoEditable: !isPsbt,
-        feeInfoUseFeeInTx: !!isPsbt,
+        feeInfoUseFeeInTx: true,
         ignoreFetchFeeCalling: !!isPsbt,
         signOnly,
         // @ts-ignore
