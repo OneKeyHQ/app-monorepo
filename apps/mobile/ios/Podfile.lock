@@ -59,7 +59,7 @@ PODS:
     - ReactCommon/turbomodule/core
   - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
-  - ExpoVideo (0.3.1):
+  - ExpoVideo (0.0.1-canary-20240308-6715875):
     - ExpoModulesCore
   - EXSplashScreen (0.26.4):
     - ExpoModulesCore
@@ -1024,7 +1024,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.1):
+  - react-native-lite-card (1.0.3):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1045,7 +1045,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.2):
+  - react-native-tab-page-view (1.0.3):
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1659,7 +1659,7 @@ SPEC CHECKSUMS:
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 96d1751929ad10622773bb729ab28a8423f0dd0c
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
-  ExpoVideo: 5c7f090a003df15ab6a0e73184995cc22529b4dd
+  ExpoVideo: 7d5c176eae539c89cd64b9cc58cb9c83e4cf3fe0
   EXSplashScreen: 39244885abfb1b12765aae89edb90f8c88db6bbd
   FBLazyVector: fbc4957d9aa695250b55d879c1d86f79d7e69ab4
   FBReactNativeSpec: 396bb4b383339b01795f676aa0192bd394ef6589
@@ -1705,7 +1705,7 @@ SPEC CHECKSUMS:
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: fbd9da7a3e47081aaf201ce1e9640d9cf293de89
+  react-native-lite-card: cad45547780afda43bfbb7c6d3ae51ca2d842ce0
   react-native-metrix: b1aab1cb911f555b57812eed5d38c5942c6d99af
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
@@ -1713,7 +1713,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 4e83bc6a08f57dafdd30960eb76d0b3103c237f8
+  react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
@@ -1755,9 +1755,9 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
-  Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
+  Yoga: 13c8ef87792450193e117976337b8527b49e8c03
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1

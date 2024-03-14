@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
@@ -32,7 +32,16 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
-  const { onNavigation } = useBrowserAction().current;
+  const { onNavigation,  validateWebviewSrc } =
+    useBrowserAction().current;
+
+  useEffect(() => {
+    const isValidate = validateWebviewSrc(url);
+    if (!isValidate) {
+      setShowBlockAccessView(true);
+    }
+  }, [url, validateWebviewSrc]);
+
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -114,33 +123,38 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     ref.__domReady = true;
   }, [id]);
   const webview = useMemo(
-    () => (
-      <WebView
-        id={id}
-        src={url}
-        onWebViewRef={(ref) => {
-          if (ref && ref.innerRef) {
-            if (!webviewRefs[id]) {
-              void setWebTabData({
-                id,
-                refReady: true,
-              });
+    () => {
+      const isValidate = validateWebviewSrc(url);
+      if (!isValidate) {
+        return null;
+      }
+      return (
+        <WebView
+          id={id}
+          src={url}
+          onWebViewRef={(ref) => {
+            if (ref && ref.innerRef) {
+              if (!webviewRefs[id]) {
+                void setWebTabData({
+                  id,
+                  refReady: true,
+                });
+              }
+              webviewRefs[id] = ref;
             }
-            webviewRefs[id] = ref;
-          }
-        }}
-        allowpopups
-        onDidStartLoading={onDidStartLoading}
-        onDidStartNavigation={onDidStartNavigation}
-        onDidFinishLoad={onDidFinishLoad}
-        onDidStopLoading={onDidFinishLoad}
-        onDidFailLoad={onDidFinishLoad}
-        onPageTitleUpdated={onPageTitleUpdated}
-        onPageFaviconUpdated={onPageFaviconUpdated}
-        // onNewWindow={onNewWindow}
-        onDomReady={onDomReady}
-      />
-    ),
+          }}
+          allowpopups
+          onDidStartLoading={onDidStartLoading}
+          onDidStartNavigation={onDidStartNavigation}
+          onDidFinishLoad={onDidFinishLoad}
+          onDidStopLoading={onDidFinishLoad}
+          onDidFailLoad={onDidFinishLoad}
+          onPageTitleUpdated={onPageTitleUpdated}
+          onPageFaviconUpdated={onPageFaviconUpdated}
+          onDomReady={onDomReady}
+        />
+      );
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       id,
@@ -148,7 +162,6 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
-      // onNewWindow,
       onPageFaviconUpdated,
       onPageTitleUpdated,
     ],

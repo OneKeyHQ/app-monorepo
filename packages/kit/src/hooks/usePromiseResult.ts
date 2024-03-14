@@ -18,6 +18,7 @@ export type IPromiseResultOptions<T> = {
   loadingDelay?: number;
   checkIsMounted?: boolean;
   checkIsFocused?: boolean;
+  overrideIsFocused?: (isFocused: boolean) => boolean; // override the value of useIsFocused
   debounced?: number;
   undefinedResultIfError?: boolean;
   pollingInterval?: number;
@@ -56,10 +57,13 @@ export function usePromiseResult<T>(
   );
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const isFocused = useIsFocused();
-  const isFocusedRef = useRef<boolean>(isFocused);
+  const _isFocused = useIsFocused();
+  const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
-  isFocusedRef.current = isFocused;
+  isFocusedRef.current = _isFocused;
+  if (options?.overrideIsFocused !== undefined) {
+    isFocusedRef.current = options?.overrideIsFocused?.(_isFocused);
+  }
   const methodRef = useRef<typeof method>(method);
   methodRef.current = method;
   const optionsRef = useRef(options);
@@ -189,16 +193,17 @@ export function usePromiseResult<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
+  const isFocusedRefValue = isFocusedRef.current;
   useEffect(() => {
     if (
-      isFocused &&
+      isFocusedRefValue &&
       optionsRef.current.checkIsFocused &&
       isDepsChangedOnBlur.current
     ) {
       isDepsChangedOnBlur.current = false;
       void runRef.current({ pollingNonce: pollingNonceRef.current });
     }
-  }, [isFocused]);
+  }, [isFocusedRefValue]);
 
   return { result, isLoading, run };
 }

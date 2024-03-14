@@ -10,6 +10,7 @@ import {
   Stack,
   useBackHandler,
 } from '@onekeyhq/components';
+import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
   homeTab,
   useBrowserAction,
@@ -145,8 +146,12 @@ function WebContent({
         if (forbiddenRequest) {
           phishingUrlRef.current = navUrl;
           setShowBlockAccessView(true);
+          return false;
         }
-        return !forbiddenRequest;
+        if (uriUtils.isValidDeepLink(navUrl)) {
+          handleDeepLinkUrl({ url: navUrl });
+          return false;
+        }
       }
       return true;
     },

@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "_folderslint": "yarn folderslint",
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
   },
   "author": "",

@@ -1,15 +1,21 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  ActionList,
   AnimatePresence,
   Divider,
   HeightTransition,
   Stack,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
+import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -27,12 +33,47 @@ type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
 export function WalletOptions({ wallet }: IWalletOptionsProps) {
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const liteCard = useLiteCard();
 
-  const handleBackupPress = useCallback(() => {
+  const handleBackupPhrase = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.BeforeShowRecoveryPhrase,
     });
   }, [navigation]);
+  const handleBackupLiteCard = useCallback(() => {
+    void liteCard.backupWallet(wallet?.id);
+  }, [liteCard, wallet?.id]);
+
+  const handleBackupPress = useCallback(() => {
+    ActionList.show({
+      title: 'Backup',
+      sections: [
+        {
+          items: [
+            {
+              label: intl.formatMessage({
+                id: 'backup__manual_backup',
+              }),
+              icon: 'PenOutline',
+              onPress: handleBackupPhrase,
+            },
+            ...(platformEnv.isNative
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'app__hardware_name_onekey_lite',
+                    }),
+                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    onPress: handleBackupLiteCard,
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
+    });
+  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
 
   const [editMode] = useAccountSelectorEditModeAtom();
 

@@ -1,13 +1,22 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, RefreshControl } from 'react-native';
+import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
+import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -43,7 +52,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     }
     Animated.timing(CONTENT_ITEM_WIDTH, {
       toValue: pageWidth,
-      duration: 350,
+      duration: 400,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
@@ -53,10 +62,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
   const [isHide, setIsHide] = useState(false);
-
-  const onRefresh = useCallback(() => {
-    // tabsViewRef?.current?.setRefreshing(true);
-  }, []);
 
   const isNFTEnabled = usePromiseResult(
     () =>
@@ -97,6 +102,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [intl, isNFTEnabled],
   );
 
+  const { top } = useSafeAreaInsets();
+
   const headerLeft = useCallback(
     () =>
       isHide ? null : (
@@ -114,17 +121,26 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   );
 
   const navigation = useAppNavigation();
+  const scanQrCode = useScanQrCode();
   const openSettingPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
+  const onScanButtonPressed = useCallback(
+    () => scanQrCode.start(),
+    [scanQrCode],
+  );
 
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        {/* <HeaderIconButton title="Scan" icon="ScanOutline" />
-        <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
+        <HeaderIconButton
+          title="Scan"
+          icon="ScanOutline"
+          onPress={onScanButtonPressed}
+        />
+        {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
 
         <HeaderIconButton
           title="Scan"
@@ -133,7 +149,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         />
       </HeaderButtonGroup>
     ),
-    [],
+    [openSettingPage, onScanButtonPressed],
   );
 
   const renderHomePage = useCallback(() => {
@@ -149,11 +165,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           />
           <Page.Body>
             {platformEnv.isNative && (
-              <XStack
-                justifyContent="space-between"
-                px="$4"
-                pt={platformEnv.isNativeIOS ? '$20' : 0}
-              >
+              <XStack justifyContent="space-between" px="$4" pt={top}>
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
@@ -176,9 +188,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 initialScrollIndex={0}
                 contentItemWidth={CONTENT_ITEM_WIDTH}
                 contentWidth={screenWidth}
-                refreshControl={
-                  <RefreshControl refreshing={false} onRefresh={onRefresh} />
-                }
                 showsVerticalScrollIndicator={false}
               />
             ) : (
@@ -219,7 +228,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     account,
     tabs,
     screenWidth,
-    onRefresh,
     accountName,
     network?.name,
     deriveInfo?.labelKey,
@@ -246,6 +254,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
+      <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );

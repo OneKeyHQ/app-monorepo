@@ -1,4 +1,11 @@
-import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  createRef,
+  forwardRef,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ReactElement } from 'react';
 
 import {
@@ -11,21 +18,31 @@ import { withStaticProperties } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Stack } from '../../primitives';
+import { RefreshControl } from '../RefreshControl';
 import { ScrollView } from '../ScrollView';
 
+import { FreezeContainer } from './FreezeContainer';
 import { Header } from './Header';
 import { Page } from './Page';
+import {
+  RefreshingFocusedContainer,
+  useTabIsRefreshingFocused,
+} from './RefreshingFocused';
 
+import type { IFreezeContainerRef } from './FreezeContainer';
 import type { IHeaderProps } from './Header';
+import type { IRefreshingFocusedContainerRef } from './RefreshingFocused';
 import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
 import type { LayoutChangeEvent } from 'react-native';
 
-type IPageType = ComponentType<{
+export type ITabPageProps = {
   onContentSizeChange: (width: number, height: number) => void;
-}>;
+};
+
+export type ITabPageType = ComponentType<ITabPageProps>;
 
 export interface ITabProps extends IScrollViewProps {
-  data: { title: string; page: IPageType }[];
+  data: { title: string; page: ITabPageType }[];
   initialScrollIndex?: number;
   ListHeaderComponent?: ReactElement;
   headerProps?: Omit<IHeaderProps, 'data'>;
@@ -38,7 +55,7 @@ export interface ITabProps extends IScrollViewProps {
 const TabComponent = (
   {
     data,
-    initialScrollIndex,
+    initialScrollIndex = 0,
     ListHeaderComponent,
     headerProps,
     contentItemWidth,
@@ -51,19 +68,22 @@ const TabComponent = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _: any,
 ) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [contentHeight, setContentHeight] = useState<number | undefined>(1);
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
   const dataCount = useMemo(() => data.length, [data]);
   const stickyConfig = useMemo(
     () => ({
-      lastIndex: initialScrollIndex ?? 0,
+      lastIndex: initialScrollIndex,
       scrollViewHeight: 0,
       headerViewY: 0,
       headerViewHeight: 0,
       data: new Array(dataCount).fill({}).map(() => ({
         contentHeight: 0,
         contentOffsetY: 0,
+        freezeRef: createRef<IFreezeContainerRef>(),
+        refreshingFocusedRef: createRef<IRefreshingFocusedContainerRef>(),
       })),
     }),
     [dataCount, initialScrollIndex],
@@ -102,6 +122,10 @@ const TabComponent = (
           return;
         }
         onSelectedPageIndex?.(index);
+        stickyConfig.data.forEach((_item, _index) => {
+          _item.refreshingFocusedRef.current?.setFocused(_index === index);
+        });
+        stickyConfig.data[index].freezeRef.current?.setFreeze(false);
         reloadContentHeight(index);
         const { contentOffsetY } = stickyConfig.data[index];
         const lastContentOffsetY =
@@ -144,7 +168,7 @@ const TabComponent = (
       index,
     }: {
       item: {
-        page: IPageType;
+        page: ITabPageType;
       };
       index: number;
     }) => (
@@ -154,22 +178,44 @@ const TabComponent = (
           height: '100%',
         }}
       >
-        <item.page
-          // eslint-disable-next-line @typescript-eslint/no-shadow
-          onContentSizeChange={(_: number, height: number) => {
-            stickyConfig.data[index].contentHeight = height;
-            if (index === pageManager.pageIndex) {
-              reloadContentHeight(index);
-            }
-          }}
-        />
+        <RefreshingFocusedContainer
+          initialFocused={index === initialScrollIndex}
+          ref={stickyConfig.data[index].refreshingFocusedRef}
+          setScrollHeaderIsRefreshing={setIsRefreshing}
+        >
+          <FreezeContainer
+            initialFreeze={index !== initialScrollIndex}
+            ref={stickyConfig.data[index].freezeRef}
+          >
+            <item.page
+              onContentSizeChange={(_width: number, height: number) => {
+                stickyConfig.data[index].contentHeight = height;
+                if (index === pageManager.pageIndex) {
+                  reloadContentHeight(index);
+                }
+              }}
+            />
+          </FreezeContainer>
+        </RefreshingFocusedContainer>
       </Animated.View>
     ),
-    [stickyConfig.data, contentItemWidth, pageManager, reloadContentHeight],
+    [
+      stickyConfig.data,
+      contentItemWidth,
+      initialScrollIndex,
+      reloadContentHeight,
+      pageManager.pageIndex,
+    ],
   );
   const Content = pageManager.renderContentView;
+  const onRefresh = useCallback(() => {
+    stickyConfig.data[
+      pageManager.pageIndex
+    ].refreshingFocusedRef.current?.setIsRefreshing(true, true);
+  }, [pageManager.pageIndex, stickyConfig.data]);
   return (
     <ScrollView
+      key={data.map((item) => item.title).join('')}
       ref={scrollViewRef}
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
@@ -184,6 +230,9 @@ const TabComponent = (
       }}
       stickyHeaderIndices={[1]}
       nestedScrollEnabled
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+      }
       {...props}
     >
       <>{ListHeaderComponent}</>
@@ -225,3 +274,5 @@ export const Tab = withStaticProperties(forwardRef(TabComponent), {
   Manager: PageManager,
   Content: PageContentView,
 });
+
+export { useTabIsRefreshingFocused };

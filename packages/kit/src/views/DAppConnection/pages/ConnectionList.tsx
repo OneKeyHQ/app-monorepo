@@ -90,7 +90,7 @@ function ConnectionList() {
                   origin,
                   accountSelectorNum: num,
                   prevAccountInfo,
-                  selectedAccount: handleAccountChangedParams,
+                  accountChangedParams: handleAccountChangedParams,
                   storageType: prevAccountInfo.storageType,
                   afterUpdate: () => run(),
                 });

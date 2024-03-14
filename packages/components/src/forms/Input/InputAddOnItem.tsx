@@ -1,47 +1,63 @@
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 
+import { getSharedInputStyles } from './sharedStyles';
+
 import type { IInputProps } from '.';
 import type { IKeyOfIcons, IXStackProps } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
-export interface IInputAddOnProps extends IXStackProps {
+type IExtraProps = {
   label?: string;
   iconName?: IKeyOfIcons;
   iconColor?: ColorTokens;
-  addOnSize?: IInputProps['size'];
+  size?: IInputProps['size'];
+  error?: boolean;
   loading?: boolean;
-  isAddOnDisabled?: IInputProps['disabled'];
-  testID?: string;
-}
+};
 
-export function InputAddOnItem({
-  label,
-  addOnSize,
-  isAddOnDisabled,
-  iconColor,
-  iconName,
-  onPress,
-  loading,
-  ...rest
-}: IInputAddOnProps) {
+export type IInputAddOnProps = IExtraProps & IXStackProps;
+
+export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
+  const {
+    label,
+    size,
+    loading,
+    iconName,
+    iconColor,
+    disabled,
+    error,
+    onPress,
+    ...rest
+  } = props;
+
+  const sharedStyles = getSharedInputStyles({ disabled, error });
+
   return (
     <XStack
+      ref={ref}
       alignItems="center"
-      px={addOnSize === 'large' ? '$2.5' : '$2'}
+      px={size === 'large' ? '$2.5' : '$2'}
+      onPress={onPress}
+      style={{
+        borderCurve: 'continuous',
+      }}
       {...(onPress &&
-        !isAddOnDisabled && {
+        !disabled &&
+        !loading && {
+          userSelect: 'none',
           hoverStyle: {
             bg: '$bgHover',
           },
           pressStyle: {
             bg: '$bgActive',
           },
+          focusable: !(disabled || loading),
+          focusStyle: sharedStyles.focusStyle,
         })}
-      focusable={!(isAddOnDisabled || loading)}
       {...rest}
     >
       {loading ? (
-        <YStack {...(addOnSize !== 'small' && { p: '$0.5' })}>
+        <YStack {...(size !== 'small' && { p: '$0.5' })}>
           <Spinner size="small" />
         </YStack>
       ) : (
@@ -49,20 +65,19 @@ export function InputAddOnItem({
           <Icon
             name={iconName}
             color={iconColor}
-            size={addOnSize === 'small' ? '$5' : '$6'}
+            size={size === 'small' ? '$5' : '$6'}
           />
         )
       )}
       {label && (
         <SizableText
-          userSelect="none"
-          size={addOnSize === 'small' ? '$bodyMd' : '$bodyLg'}
+          size={size === 'small' ? '$bodyMd' : '$bodyLg'}
           ml={iconName ? '$2' : '$0'}
-          color={isAddOnDisabled ? '$textDisabled' : '$textSubdued'}
+          color={disabled ? '$textDisabled' : '$textSubdued'}
         >
           {label}
         </SizableText>
       )}
     </XStack>
   );
-}
+});

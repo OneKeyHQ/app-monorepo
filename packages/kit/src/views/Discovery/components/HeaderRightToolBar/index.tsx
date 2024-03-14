@@ -45,12 +45,12 @@ function SingleAccountAndNetworkSelectorTrigger({
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
-    async (selectedAccount: IHandleAccountChangedParams) => {
+    async (accountChangedParams: IHandleAccountChangedParams) => {
       await handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
         prevAccountInfo: account,
-        selectedAccount,
+        accountChangedParams,
         storageType: account.storageType,
         afterUpdate: afterChangeAccount,
       });
@@ -160,12 +160,12 @@ function AccountSelectorPopoverContent({
             num={account.num}
             compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
-            handleAccountChanged={async (selectedAccount) => {
+            handleAccountChanged={async (accountChangedParams) => {
               await handleAccountInfoChanged({
                 origin,
                 accountSelectorNum: account.num,
                 prevAccountInfo: account,
-                selectedAccount,
+                accountChangedParams,
                 storageType: account.storageType,
                 afterUpdate: afterChangeAccount,
               });
