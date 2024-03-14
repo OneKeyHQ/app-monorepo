@@ -47,14 +47,14 @@ export function useBtcCustomFeeForm({
       highValue: string;
     }) => {
       const min = 0;
-      const max = 2000;
+      const max = 1000000;
       const valueBN = new BigNumber(value);
       if (valueBN.isLessThanOrEqualTo(min) || valueBN.isGreaterThan(max)) {
         throw new OneKeyValidatorError(
           'msg__enter_a_fee_rate_between_str_and_str',
           {
             min: '0',
-            max: '2000',
+            max: '1000000',
           },
         );
       }

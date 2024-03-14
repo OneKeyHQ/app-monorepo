@@ -8,7 +8,7 @@ export default class Provider extends BaseProvider {
   override getPsbt(): Psbt {
     return new BitcoinJS.Psbt({
       network: this.network,
-      maximumFeeRate: 10000,
+      maximumFeeRate: 1000000,
     });
   }
 }
