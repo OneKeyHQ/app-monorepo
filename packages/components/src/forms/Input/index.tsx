@@ -102,8 +102,9 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
-function BaseInput(
-  {
+function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
+  const {
+    size = 'medium',
     leftAddOnProps,
     leftIconName,
     addOns,
@@ -114,10 +115,7 @@ function BaseInput(
     readonly,
     autoFocus,
     ...props
-  }: IInputProps,
-  ref: ForwardedRef<IInputRef>,
-) {
-  const { size = 'medium' } = useProps(props);
+  } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
