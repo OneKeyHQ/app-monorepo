@@ -174,7 +174,7 @@ function PageFooter({
 }
 
 const { height: windowHeight } = Dimensions.get('window');
-const visibleHeight = windowHeight / 3;
+const visibleHeight = windowHeight / 5;
 
 function BasicPhaseInput(
   {
@@ -237,11 +237,12 @@ function BasicPhaseInput(
           pageX: number,
           pageY: number,
         ) => {
-          console.log(x, y, pageX, pageY, getContentOffset());
+          const contentOffset = getContentOffset();
+          console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
             pageRef.scrollTo({
               x: 0,
-              y: getContentOffset().y + pageY - visibleHeight,
+              y: contentOffset.y + pageY - visibleHeight,
               animated: true,
             });
           }
