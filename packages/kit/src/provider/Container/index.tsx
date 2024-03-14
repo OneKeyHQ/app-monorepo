@@ -55,7 +55,7 @@ function FlipperPluginsContainer() {
       if (realm && platformEnv.isNative) {
         console.log('render realm plugin');
         const RealmFlipperPlugin = (
-          require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device/index.native')
+          require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device')
         ).default;
         return <RealmFlipperPlugin realms={[global.$$realm]} />;
       }
