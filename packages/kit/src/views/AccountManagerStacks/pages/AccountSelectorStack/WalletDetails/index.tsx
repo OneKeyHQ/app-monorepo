@@ -433,20 +433,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   : selectedAccount.indexedAccountId === item.id,
               })}
             >
-              <AnimatePresence>
-                {editMode && (
-                  <>
-                    <AccountEditButton
-                      account={account}
-                      indexedAccount={indexedAccount}
-                    />
-                    {/* <AccountRemoveButton
+              {editMode && (
+                <>
+                  <AccountEditButton
+                    account={account}
+                    indexedAccount={indexedAccount}
+                  />
+                  {/* <AccountRemoveButton
                       account={account}
                       indexedAccount={indexedAccount}
                     /> */}
-                  </>
-                )}
-              </AnimatePresence>
+                </>
+              )}
             </ListItem>
           );
         }}

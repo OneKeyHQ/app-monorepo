@@ -28,6 +28,7 @@ export function WalletRemoveDialog({
       />
 
       <Dialog.Footer
+        onConfirmText="Remove"
         confirmButtonProps={{
           disabled: !value,
           variant: 'destructive',

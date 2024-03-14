@@ -9,7 +9,7 @@ function getTitleAndDescription({ wallet }: { wallet?: IDBWallet }) {
     return {
       title: 'Remove Device',
       description:
-        'Device removal will permanently delete its data. Data can be recovered with a hardware wallet and recovery phrase.',
+        'This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.',
     };
   }
 

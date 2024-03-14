@@ -5,24 +5,27 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
-interface IWalletListItemProps extends IStackProps {
+type IWalletListItemProps = {
   isOthers?: boolean;
   focusedWallet: IAccountSelectorFocusedWallet;
   wallet: IDBWallet | undefined;
   onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
-}
+} & IStackProps &
+  Partial<IWalletAvatarProps>;
 
 export function WalletListItem({
   wallet,
   focusedWallet,
   onWalletPress,
   isOthers,
+  badge,
   ...rest
 }: IWalletListItemProps) {
   const media = useMedia();
   let walletAvatarProps: IWalletAvatarProps = {
     wallet,
     status: 'default', // 'default' | 'connected';
+    badge,
   };
   let walletName = wallet?.name;
   let selected = focusedWallet === wallet?.id;
@@ -96,11 +99,14 @@ export function WalletListItem({
         }}
       >
         {walletElement}
-        {hiddenWallets.map((hiddenWallet) => (
+        {hiddenWallets.map((hiddenWallet, index) => (
           <WalletListItem
             wallet={hiddenWallet}
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
+            {...(media.md && {
+              badge: Number(index) + 1,
+            })}
           />
         ))}
       </Stack>

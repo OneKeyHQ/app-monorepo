@@ -10,13 +10,11 @@ import {
 import type { ForwardedRef, PropsWithChildren } from 'react';
 
 import { Toast, ToastViewport } from '@tamagui/toast';
-import { getTokenValue } from 'tamagui';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { useSafeAreaInsets } from '../../hooks/useLayout';
-import { Stack } from '../../primitives';
+import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
 export type IShowToasterProps = PropsWithChildren<{
@@ -80,8 +78,6 @@ function BasicShowToaster(
     [handleContainerClose],
   );
   const { top } = useSafeAreaInsets();
-  const mdPadding = '$10';
-  const mdPaddingValue = getTokenValue(mdPadding, 'space') as number;
   return (
     <>
       <ToastViewport
@@ -90,12 +86,8 @@ function BasicShowToaster(
         alignContent="center"
         multipleToasts={false}
         justifyContent="center"
-        $md={{
-          px: mdPadding,
-        }}
-        $gtMd={{
-          top: '$5',
-        }}
+        px="$8"
+        py={top || '$12'}
       />
 
       <Stack
@@ -108,27 +100,26 @@ function BasicShowToaster(
       />
       <Toast
         unstyled
-        width="100%"
         onSwipeEnd={handleSwipeEnd}
-        $md={{
-          width: platformEnv.isRuntimeBrowser
-            ? `calc(100vw - ${mdPaddingValue * 2}px)`
-            : '100%',
-        }}
         justifyContent="center"
         open={isOpen}
         borderRadius={0}
-        enterStyle={{ opacity: 0, scale: 0.5, y: -25 }}
-        exitStyle={{ opacity: 0, scale: 1, y: -20 }}
+        enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
+        exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
         duration={duration}
-        opacity={1}
-        scale={1}
         animation="quick"
         viewportName={SHOW_TOAST_VIEWPORT_NAME}
       >
         <CustomToasterContext.Provider value={value}>
-          <Stack mt={top} bg="$bg" br="$3">
-            {children}
+          <Stack
+            testID="confirm-on-device-toast-container"
+            borderRadius="$2.5"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+          >
+            <ThemeableStack bg="$bg" borderRadius="$2.5" elevation={44}>
+              {children}
+            </ThemeableStack>
           </Stack>
         </CustomToasterContext.Provider>
       </Toast>
