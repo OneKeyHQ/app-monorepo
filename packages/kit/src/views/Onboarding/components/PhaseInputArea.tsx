@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { compact } from 'lodash';
-import { Dimensions } from 'react-native';
+import { Dimensions, View } from 'react-native';
 
 import type {
   IButtonProps,
@@ -271,6 +271,22 @@ function BasicPhaseInput(
     [closePopover],
   );
 
+  const handleSelectSuggestionByNumber = useCallback(
+    (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => {
+      if (suggestionsRef.current && e.keyCode > 48 && e.keyCode < 58) {
+        const suggestionIndex = e.keyCode - 48;
+        updateInputValue(suggestionsRef.current[suggestionIndex - 1]);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    [suggestionsRef, updateInputValue],
+  );
+
   const handleKeyPress = useCallback(
     (e: {
       keyCode: number;
@@ -284,14 +300,11 @@ function BasicPhaseInput(
           e.preventDefault();
           e.stopPropagation();
         }
-      } else if (e.keyCode > 48 && e.keyCode < 58) {
-        const suggestionIndex = e.keyCode - 48;
-        updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
-        e.preventDefault();
-        e.stopPropagation();
+      } else {
+        handleSelectSuggestionByNumber(e);
       }
     },
-    [openStatusRef, suggestionsRef, updateInputValue],
+    [handleSelectSuggestionByNumber, openStatusRef],
   ) as unknown as IInputProps['onKeyPress'];
 
   const handleSubmitEnding = useCallback(() => {
@@ -343,12 +356,14 @@ function BasicPhaseInput(
       onOpenChange={handleOpenChange}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <SuggestionList
-          firstButtonRef={firstButtonRef}
-          suggestions={suggestions}
-          onPressItem={updateInputValue}
-          isFocusable={tabFocusable}
-        />
+        <View onKeyDown={handleSelectSuggestionByNumber}>
+          <SuggestionList
+            firstButtonRef={firstButtonRef}
+            suggestions={suggestions}
+            onPressItem={updateInputValue}
+            isFocusable={tabFocusable}
+          />
+        </View>
       }
       renderTrigger={
         <Stack>
