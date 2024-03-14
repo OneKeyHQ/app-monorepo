@@ -7,7 +7,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
-import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAddressBookPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -47,16 +50,34 @@ const AddressBookItem = () => {
   );
 };
 
+const LockNowButton = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const [passwordSetting] = usePasswordPersistAtom();
+  const onLock = useCallback(async () => {
+    if (passwordSetting.isPasswordSet) {
+      await backgroundApiProxy.servicePassword.lockApp();
+    } else {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
+    }
+    navigation.popStack();
+  }, [passwordSetting.isPasswordSet, navigation]);
+  return (
+    <ListItem
+      icon="LockOutline"
+      title={intl.formatMessage({ id: 'action__lock_now' })}
+      onPress={onLock}
+    />
+  );
+};
+
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   return (
     <YStack>
-      <ListItem
-        icon="LockOutline"
-        title={intl.formatMessage({ id: 'action__lock_now' })}
-        onPress={() => backgroundApiProxy.servicePassword.lockApp()}
-      />
+      <LockNowButton />
       <AddressBookItem />
       <ListItem
         icon="RepeatOutline"
@@ -66,7 +87,7 @@ export const DefaultSection = () => {
       />
       {platformEnv.isNative && (
         <ListItem
-          icon="OnekeyLiteIllus"
+          icon="OnekeyLiteOutline"
           title="OneKey Lite"
           drillIn
           onPress={() => {
@@ -77,7 +98,7 @@ export const DefaultSection = () => {
         />
       )}
       <ListItem
-        icon="OnekeyKeyTagIllus"
+        icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
         drillIn
         onPress={() => {}}
