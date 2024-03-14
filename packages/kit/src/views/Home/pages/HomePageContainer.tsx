@@ -165,7 +165,12 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           />
           <Page.Body>
             {platformEnv.isNative && (
-              <XStack justifyContent="space-between" px="$4" pt={top}>
+              <XStack
+                justifyContent="space-between"
+                px="$4"
+                pt={top}
+                mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+              >
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>

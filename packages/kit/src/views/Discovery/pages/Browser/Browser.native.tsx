@@ -83,7 +83,11 @@ function MobileBrowser() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <XStack pt={top} mx="$5">
+      <XStack
+        pt={top}
+        mx="$5"
+        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+      >
         <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         <HeaderRightToolBar />
       </XStack>
