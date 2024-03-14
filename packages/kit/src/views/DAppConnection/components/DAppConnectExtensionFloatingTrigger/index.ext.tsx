@@ -4,14 +4,13 @@ import { Image, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
+import { EModalRoutes, EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
 
-import { EDAppConnectionModal } from '../../router/type';
 
 export default function DAppConnectExtensionFloatingTrigger() {
   const { result, run } = usePromiseResult(

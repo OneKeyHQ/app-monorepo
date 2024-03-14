@@ -15,16 +15,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
 import { AccountListItem } from '../../components/DAppAccountList';
-import { EDAppConnectionModal } from '../../router/type';
-
-import type { IDAppConnectionModalParamList } from '../../router';
 import type { RouteProp } from '@react-navigation/core';
+import { IDAppConnectionModalParamList, EDAppConnectionModal, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 function CurrentConnectionModal() {
   const navigation = useAppNavigation();
