@@ -72,30 +72,33 @@ function WordItem({
     onPress(word);
   }, [onPress, word]);
   return (
-    <Button
-      size="small"
-      ref={buttonRef}
-      onPress={handlePress}
-      focusable
-      tabIndex={tabIndex}
-      {...rest}
-    >
-      {word}
-      {!platformEnv.isNative && (
-        <SizableText
-          position="absolute"
-          size="$bodySmMedium"
-          right="$-2"
-          top="$-1.5"
-          bg="$bg"
-          color="$textSubdued"
-          px="$1"
-          borderRadius="$full"
-        >
+    <Stack position="relative">
+      <Button
+        size="small"
+        ref={buttonRef}
+        onPress={handlePress}
+        focusable
+        tabIndex={tabIndex}
+        {...rest}
+      >
+        {word}
+      </Button>
+      <Stack
+        bg="$bg"
+        position="absolute"
+        right="$px"
+        top="$0"
+        height="$4"
+        width="$4"
+        justifyContent="center"
+        alignItems="center"
+        borderRadius="$full"
+      >
+        <SizableText size="$bodySmMedium" color="$textSubdued">
           {number}
         </SizableText>
-      )}
-    </Button>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -159,13 +162,13 @@ function PageFooter({
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
+      <Page.FooterActions onConfirm={onConfirm} />
       {isShow ? (
         <SuggestionList
           suggestions={suggestions}
           onPressItem={updateInputValue}
         />
       ) : null}
-      <Page.FooterActions onConfirm={onConfirm} />
     </Page.Footer>
   );
 }
