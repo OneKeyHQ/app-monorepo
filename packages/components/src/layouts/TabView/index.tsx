@@ -231,7 +231,7 @@ const TabComponent = (
       nestedScrollEnabled
       refreshControl={
         platformEnv.isNative ? (
-          <RefreshControl refreshing={false} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         ) : undefined
       }
       {...props}
