@@ -45,8 +45,11 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 import { isValidateAddress, scriptToAddress } from './utils/address';
 import {
+  DEFAULT_CONFIRM_BLOCK,
   fetchConfirmCellsByAddress,
   getBalancesByAddress,
+  getConfirmBalancesByAddress,
+  getFrozenBalancesByAddress,
 } from './utils/balance';
 import { getConfig } from './utils/config';
 import {
@@ -162,6 +165,27 @@ export default class Vault extends VaultBase {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
+  override async getFrozenBalance({
+    password,
+  }: {
+    password?: string;
+    useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
+  } = {}): Promise<number | Record<string, number>> {
+    const indexer = await this.getIndexer();
+    const client = await this.getClient();
+    const dbAccount = await this.getDbAccount();
+    const balance = await getFrozenBalancesByAddress({
+      indexer,
+      address: dbAccount.address,
+      client,
+    });
+
+    const network = await this.engine.getNetwork(this.networkId);
+    return balance.shiftedBy(-network.decimals).toNumber();
+  }
+
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
@@ -174,7 +198,10 @@ export default class Vault extends VaultBase {
       Object.entries(requestAddress).map(async ([address, tokens]) => {
         try {
           try {
-            balances.set(address, await getBalancesByAddress(indexer, address));
+            balances.set(
+              address,
+              await getBalancesByAddress({ indexer, address }),
+            );
           } catch (e) {
             // ignore
           }
@@ -207,11 +234,11 @@ export default class Vault extends VaultBase {
     const { address: from } = await this.getDbAccount();
 
     const network = await this.getNetwork();
-    const confirmCellsByAddress = await fetchConfirmCellsByAddress(
+    const confirmCellsByAddress = await fetchConfirmCellsByAddress({
       indexer,
-      from,
+      address: from,
       client,
-    );
+    });
     const transaction = prepareAndBuildTx({
       confirmCells: confirmCellsByAddress,
       from,
@@ -468,13 +495,27 @@ export default class Vault extends VaultBase {
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
     const client = await this.getClient();
+    const currentBlockNumber = new BigNumber(
+      await client.getTipBlockNumber(),
+      16,
+    );
 
     const txStatuses = new Map<string, TransactionStatus>();
     for (const txid of txids) {
       const tx = await client.getTransaction(txid);
+
       let status = TransactionStatus.PENDING;
-      if (tx.txStatus.status === 'committed') {
-        status = TransactionStatus.CONFIRM_AND_SUCCESS;
+      if (tx.txStatus.blockHash) {
+        const blockHeader = await client.getHeader(
+          tx.txStatus.blockHash,
+          '0x1',
+        );
+        const isConfirmed = currentBlockNumber
+          .minus(new BigNumber(blockHeader.number, 16))
+          .isGreaterThanOrEqualTo(DEFAULT_CONFIRM_BLOCK);
+        if (tx.txStatus.status === 'committed' && isConfirmed) {
+          status = TransactionStatus.CONFIRM_AND_SUCCESS;
+        }
       }
       txStatuses.set(txid, status);
     }
@@ -506,6 +547,10 @@ export default class Vault extends VaultBase {
     });
 
     const config = getConfig(await this.getNetworkChainId());
+    const currentBlockNumber = new BigNumber(
+      await client.getTipBlockNumber(),
+      16,
+    );
 
     const txs = history.map(async (tx) => {
       try {
@@ -521,7 +566,7 @@ export default class Vault extends VaultBase {
           txStatus: { status },
           transaction: { hash: txHash },
         } = tx.txWithStatus;
-        const { timestamp } = tx.txBlockHeader;
+        const { timestamp, number: blockNumber } = tx.txBlockHeader;
         const { inputs, outputs } = tx.txSkeleton;
 
         const txid = txHash;
@@ -630,6 +675,10 @@ export default class Vault extends VaultBase {
           .shiftedBy(-network.decimals)
           .toFixed();
 
+        const isConfirmed = currentBlockNumber
+          .minus(new BigNumber(blockNumber, 16))
+          .isGreaterThanOrEqualTo(DEFAULT_CONFIRM_BLOCK);
+
         const decodedTx: IDecodedTx = {
           txid: txid ?? '',
           owner: dbAccount.address,
@@ -637,7 +686,7 @@ export default class Vault extends VaultBase {
           nonce: 0,
           actions,
           status:
-            status === 'committed'
+            status === 'committed' && isConfirmed
               ? IDecodedTxStatus.Confirmed
               : IDecodedTxStatus.Pending,
           networkId: this.networkId,

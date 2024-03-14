@@ -1,56 +1,119 @@
 import { parseAddress } from '@ckb-lumos/helpers';
 import BigNumber from 'bignumber.js';
 
-import type { Cell } from '@ckb-lumos/base';
+import type { Cell, Script } from '@ckb-lumos/base';
 import type { Indexer } from '@ckb-lumos/ckb-indexer';
 import type { RPC } from '@ckb-lumos/rpc';
 
-export const DEFAULT_CONFIRM_BLOCK = 20;
+export const DEFAULT_CONFIRM_BLOCK = 24;
+
+async function collectFilteredCellsByAddress({
+  indexer,
+  address,
+  onAllowCollect = () => true,
+}: {
+  indexer: Indexer;
+  address: string;
+  type?: Script | string;
+  onAllowCollect?: (cell: Cell) => Promise<boolean> | boolean;
+}) {
+  const script = parseAddress(address);
+  const collector = indexer.collector({ lock: script, type: 'empty' });
+  const collected: Cell[] = [];
+  for await (const cell of collector.collect()) {
+    if (await onAllowCollect?.(cell)) {
+      collected.push(cell);
+    }
+  }
+  return collected;
+}
 
 export async function fetchCellsByAddress({
   indexer,
   address,
-  client,
-  confirmBlock,
+  type,
 }: {
   indexer: Indexer;
   address: string;
-  client?: RPC;
-  confirmBlock?: number;
+  type?: Script | string;
 }) {
-  const script = parseAddress(address);
-  const blockNumber = await client?.getTipBlockNumber();
-  const collector = indexer.collector({ lock: script, type: 'empty' });
-  const collected: Cell[] = [];
-  for await (const cell of collector.collect()) {
-    if (!confirmBlock || !client) {
-      // no confirm block, just collect all cells
-      collected.push(cell);
-    } else if (
-      // has confirm block, only collect cells that has enough confirmations
-      blockNumber &&
-      new BigNumber(blockNumber, 16)
-        .minus(new BigNumber(cell.blockNumber ?? '0x0', 16))
-        .isGreaterThan(confirmBlock)
-    ) {
-      collected.push(cell);
-    }
-  }
-
-  return collected;
+  return collectFilteredCellsByAddress({
+    indexer,
+    address,
+    type,
+  });
 }
 
-export async function fetchConfirmCellsByAddress(
-  indexer: Indexer,
-  address: string,
-  client: RPC,
-) {
-  return fetchCellsByAddress({
+export async function fetchConfirmCellsByAddress({
+  indexer,
+  address,
+  type,
+  client,
+}: {
+  indexer: Indexer;
+  address: string;
+  client: RPC;
+  type?: Script | string;
+}) {
+  const blockNumber = await client.getTipBlockNumber();
+
+  return collectFilteredCellsByAddress({
+    indexer,
+    address,
+    type,
+    onAllowCollect: (cell) =>
+      new BigNumber(blockNumber, 16)
+        .minus(new BigNumber(cell.blockNumber ?? '0x0', 16))
+        .isGreaterThan(DEFAULT_CONFIRM_BLOCK),
+  });
+}
+
+export async function fetchFrozenCellsByAddress({
+  indexer,
+  address,
+  client,
+  type,
+}: {
+  indexer: Indexer;
+  address: string;
+  client: RPC;
+  type?: Script | string;
+}) {
+  const blockNumber = await client.getTipBlockNumber();
+
+  return collectFilteredCellsByAddress({
+    indexer,
+    address,
+    type,
+    onAllowCollect: (cell) =>
+      new BigNumber(blockNumber, 16)
+        .minus(new BigNumber(cell.blockNumber ?? '0x0', 16))
+        .isLessThan(DEFAULT_CONFIRM_BLOCK),
+  });
+}
+
+export async function getFrozenBalancesByAddress({
+  indexer,
+  address,
+  client,
+  type,
+}: {
+  indexer: Indexer;
+  address: string;
+  client: RPC;
+  type?: Script | string;
+}) {
+  const cells = await fetchFrozenCellsByAddress({
     indexer,
     address,
     client,
-    confirmBlock: DEFAULT_CONFIRM_BLOCK,
+    type,
   });
+
+  return cells.reduce(
+    (acc, cell) => acc.plus(new BigNumber(cell.cellOutput.capacity, 16)),
+    new BigNumber(0),
+  );
 }
 
 export function selectCellsByAddress(
@@ -71,8 +134,31 @@ export function selectCellsByAddress(
   return { collected, collectedSum };
 }
 
-export async function getBalancesByAddress(indexer: Indexer, address: string) {
+export async function getBalancesByAddress({
+  indexer,
+  address,
+}: {
+  indexer: Indexer;
+  address: string;
+}) {
   const cells = await fetchCellsByAddress({ indexer, address });
+
+  return cells.reduce(
+    (acc, cell) => acc.plus(new BigNumber(cell.cellOutput.capacity, 16)),
+    new BigNumber(0),
+  );
+}
+
+export async function getConfirmBalancesByAddress({
+  indexer,
+  address,
+  client,
+}: {
+  indexer: Indexer;
+  address: string;
+  client: RPC;
+}) {
+  const cells = await fetchConfirmCellsByAddress({ indexer, address, client });
 
   return cells.reduce(
     (acc, cell) => acc.plus(new BigNumber(cell.cellOutput.capacity, 16)),

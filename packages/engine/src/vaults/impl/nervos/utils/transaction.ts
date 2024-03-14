@@ -1,4 +1,4 @@
-import { blockchain } from '@ckb-lumos/base';
+import { Script, blockchain } from '@ckb-lumos/base';
 import { BI } from '@ckb-lumos/bi';
 import { bytes } from '@ckb-lumos/codec';
 import { common } from '@ckb-lumos/common-scripts';

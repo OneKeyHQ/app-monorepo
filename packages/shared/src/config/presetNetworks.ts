@@ -4434,6 +4434,48 @@ const serverPresetNetworks = [
     'createdAt': '2024-03-05T00:00:00.002Z',
     'updatedAt': '2024-03-05T00:00:00.002Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'neurai',
+    'decimals': 8,
+    'id': 'neurai--0',
+    'impl': 'neurai',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/neurai/neurai.png',
+    'name': 'Neurai',
+    'rpcURLs': [
+      {
+        'url': 'https://blockbook-new-01.neurai.org/',
+      },
+    ],
+    'shortcode': 'xna',
+    'shortname': 'XNA',
+    'symbol': 'XNA',
+    'feeMeta': {
+      'code': 'xna',
+      'decimals': 8,
+      'symbol': 'XNA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'neurai',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://neuraiexplorer.com/address/{address}',
+        'block': 'https://neuraiexplorer.com/block/{block}',
+        'name': 'https://neuraiexplorer.com',
+        'transaction': 'https://neuraiexplorer.com/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-10T00:00:00.001Z',
+    'updatedAt': '2024-03-10T00:00:00.001Z',
+  },
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);

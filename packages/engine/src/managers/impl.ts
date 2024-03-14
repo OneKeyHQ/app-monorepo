@@ -19,6 +19,7 @@ import {
   COINTYPE_LTC,
   COINTYPE_NEAR,
   COINTYPE_NERVOS,
+  COINTYPE_NEURAI,
   COINTYPE_NEXA,
   COINTYPE_NOSTR,
   COINTYPE_SOL,
@@ -45,6 +46,7 @@ import {
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_NERVOS,
+  IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
@@ -96,6 +98,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_LIGHTNING_TESTNET]: COINTYPE_LIGHTNING_TESTNET,
   [IMPL_NOSTR]: COINTYPE_NOSTR,
   [IMPL_NERVOS]: COINTYPE_NERVOS,
+  [IMPL_NEURAI]: COINTYPE_NEURAI,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -136,6 +139,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_LIGHTNING_TESTNET]: AccountType.VARIANT,
   [IMPL_NOSTR]: AccountType.VARIANT,
   [IMPL_NERVOS]: AccountType.SIMPLE,
+  [IMPL_NEURAI]: AccountType.UTXO,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -171,6 +175,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_LIGHTNING_TESTNET]: Curve.SECP256K1,
   [IMPL_NOSTR]: Curve.SECP256K1,
   [IMPL_NERVOS]: Curve.SECP256K1,
+  [IMPL_NEURAI]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
@@ -284,7 +289,14 @@ function migrateNextAccountIds(nextAccountIds: Record<string, number>) {
 }
 
 function isBtcLikeImpl(impl: string): boolean {
-  return [IMPL_BTC, IMPL_TBTC, IMPL_LTC, IMPL_BCH, IMPL_DOGE].includes(impl);
+  return [
+    IMPL_BTC,
+    IMPL_TBTC,
+    IMPL_LTC,
+    IMPL_BCH,
+    IMPL_DOGE,
+    IMPL_NEURAI,
+  ].includes(impl);
 }
 
 export {
