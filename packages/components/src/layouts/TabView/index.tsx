@@ -215,6 +215,7 @@ const TabComponent = (
   }, [pageManager.pageIndex, stickyConfig.data]);
   return (
     <ScrollView
+      key={data.map((item) => item.title).join('')}
       ref={scrollViewRef}
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
@@ -230,9 +231,7 @@ const TabComponent = (
       stickyHeaderIndices={[1]}
       nestedScrollEnabled
       refreshControl={
-        platformEnv.isNative ? (
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        ) : undefined
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
       {...props}
     >
@@ -257,9 +256,6 @@ const TabComponent = (
         }}
         w={contentWidth}
         h={contentHeight}
-        minHeight={
-          stickyConfig.scrollViewHeight - stickyConfig.headerViewHeight
-        }
       >
         <Content
           windowSize={5}
