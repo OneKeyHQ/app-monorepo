@@ -2,7 +2,12 @@ import { memo, useCallback, useRef } from 'react';
 
 import { CanceledError } from 'axios';
 
-import { Portal, useMedia } from '@onekeyhq/components';
+import {
+  Portal,
+  useMedia,
+  useTabIsRefreshingFocused,
+} from '@onekeyhq/components';
+import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -22,12 +27,9 @@ import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 
-type IProps = {
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
-};
-
-function TokenListContainer(props: IProps) {
+function TokenListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
+  const { isFocused } = useTabIsRefreshingFocused();
 
   const {
     activeAccount: { account, network },
@@ -151,6 +153,7 @@ function TokenListContainer(props: IProps) {
       refreshAllTokenListMap,
     ],
     {
+      overrideIsFocused: isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
@@ -190,7 +193,7 @@ function TokenListContainer(props: IProps) {
   );
 }
 
-const TokenListContainerWithProvider = memo((props: IProps) => (
+const TokenListContainerWithProvider = memo((props: ITabPageProps) => (
   <HomeTokenListProviderMirror>
     <TokenListContainer {...props} />
   </HomeTokenListProviderMirror>
