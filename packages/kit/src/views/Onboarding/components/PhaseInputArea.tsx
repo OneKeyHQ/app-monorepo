@@ -240,10 +240,12 @@ function BasicPhaseInput(
           const contentOffset = getContentOffset();
           console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
-            pageRef.scrollTo({
-              x: 0,
-              y: contentOffset.y + pageY - visibleHeight,
-              animated: true,
+            setTimeout(() => {
+              pageRef.scrollTo({
+                x: 0,
+                y: contentOffset.y + pageY - visibleHeight,
+                animated: true,
+              });
             });
           }
         },
