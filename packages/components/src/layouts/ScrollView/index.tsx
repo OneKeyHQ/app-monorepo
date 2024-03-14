@@ -4,6 +4,8 @@ import { forwardRef } from 'react';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { ScrollView as ScrollViewNative } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { StackProps } from '@tamagui/web/types';
 import type {
   ScrollViewProps as ScrollViewNativeProps,
@@ -40,6 +42,7 @@ function BaseScrollView(
       style={style as StyleProp<ViewStyle>}
       contentContainerStyle={contentStyle}
       {...restProps}
+      refreshControl={platformEnv.isNative ? props.refreshControl : undefined}
     >
       {children}
     </ScrollViewNative>
