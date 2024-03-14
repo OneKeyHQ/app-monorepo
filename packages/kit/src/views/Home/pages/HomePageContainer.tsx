@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, RefreshControl } from 'react-native';
+import { Animated, Easing } from 'react-native';
 
 import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
 import {
@@ -54,10 +54,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
   const [isHide, setIsHide] = useState(false);
-
-  const onRefresh = useCallback(() => {
-    // tabsViewRef?.current?.setRefreshing(true);
-  }, []);
 
   const isNFTEnabled = usePromiseResult(
     () =>
@@ -186,9 +182,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 initialScrollIndex={0}
                 contentItemWidth={CONTENT_ITEM_WIDTH}
                 contentWidth={screenWidth}
-                refreshControl={
-                  <RefreshControl refreshing={false} onRefresh={onRefresh} />
-                }
                 showsVerticalScrollIndicator={false}
               />
             ) : (
