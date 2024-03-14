@@ -1,6 +1,11 @@
 import { useCallback, useState } from 'react';
 
-import { RefreshControl, ScrollView, SizableText } from '@onekeyhq/components';
+import {
+  RefreshControl,
+  ScrollView,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -15,12 +20,14 @@ const Demo = () => {
   }, []);
   return (
     <ScrollView
-      h="$20"
+      h={200}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <SizableText>Pull down to see RefreshControl indicator</SizableText>
+      <Stack h={250} alignItems="center" justifyContent="center">
+        <SizableText>Pull down to see RefreshControl indicator</SizableText>
+      </Stack>
     </ScrollView>
   );
 };
