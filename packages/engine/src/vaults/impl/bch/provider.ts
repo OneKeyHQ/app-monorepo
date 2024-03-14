@@ -32,6 +32,10 @@ export default class Provider extends BaseProvider {
 
   override getPsbt(): Psbt {
     // @ts-expect-error
-    return new BitcoinForkJS.Psbt({ network: this.network, forkCoin: 'bch' });
+    return new BitcoinForkJS.Psbt({
+      network: this.network,
+      forkCoin: 'bch',
+      maximumFeeRate: 10000,
+    });
   }
 }
