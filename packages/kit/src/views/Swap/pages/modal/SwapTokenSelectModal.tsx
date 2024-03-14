@@ -31,6 +31,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   swapNetworksCommonCount,
@@ -44,7 +45,6 @@ import {
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { getShortAddress } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -120,7 +120,9 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
         tokenSymbol: item.symbol,
-        tokenContrastAddress: getShortAddress(item.contractAddress),
+        tokenContrastAddress: accountUtils.shortenAddress({
+          address: item.contractAddress,
+        }),
         networkImageSrc: item.networkLogoURI,
         balance: item.balanceParsed,
         value: item.fiatValue

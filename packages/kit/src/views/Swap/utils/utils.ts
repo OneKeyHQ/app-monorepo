@@ -17,10 +17,6 @@ export function validateAmountInput(text: string) {
   return true;
 }
 
-export function getShortAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
 export function swapTokenPairsSupportedProviders(
   from: ISwapToken,
   to: ISwapToken,

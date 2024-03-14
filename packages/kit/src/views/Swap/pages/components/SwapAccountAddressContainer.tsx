@@ -16,10 +16,10 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
-import { getShortAddress } from '../../utils/utils';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -77,7 +77,9 @@ const SwapAccountAddressContainer = ({
           }}
           variant="tertiary"
         >
-          {getShortAddress(swapAddressInfo.address ?? '')}
+          {accountUtils.shortenAddress({
+            address: swapAddressInfo.address ?? '',
+          })}
         </Button>
       );
     }
@@ -92,7 +94,9 @@ const SwapAccountAddressContainer = ({
         variant="tertiary"
         iconAfter="PencilOutline"
       >
-        {getShortAddress(swapAddressInfo.address ?? '')}
+        {accountUtils.shortenAddress({
+          address: swapAddressInfo.address ?? '',
+        })}
       </Button>
     );
   }, [

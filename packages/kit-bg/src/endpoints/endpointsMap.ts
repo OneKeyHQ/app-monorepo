@@ -4,11 +4,13 @@ import type { IEndpoint, IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 const endpointsMap: Record<IEndpointEnv, IEndpoint> = {
   test: {
     http: 'https://rest.onekeytest.com',
+    // http: 'https://wallet.onekeytest.com',
     websocket: '',
   },
   prod: {
     // TODO: change to prod endpoint
     http: 'https://rest.onekeytest.com',
+    // http: 'https://wallet.onekeytest.com',
     websocket: '',
   },
 };
