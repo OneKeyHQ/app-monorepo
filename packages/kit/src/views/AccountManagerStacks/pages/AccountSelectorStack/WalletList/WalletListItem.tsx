@@ -3,29 +3,41 @@ import { SizableText, Stack, useMedia } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 interface IWalletListItemProps extends IStackProps {
-  selected?: boolean;
-  walletAvatarProps?: IWalletAvatarProps;
-  walletName?: string;
-  wallet:
-    | (IDBWallet & {
-        hiddenWallet?: IDBWallet[];
-      })
-    | undefined;
+  isOthers?: boolean;
+  focusedWallet: IAccountSelectorFocusedWallet;
+  wallet: IDBWallet | undefined;
+  onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
 }
 
 export function WalletListItem({
-  selected,
-  walletAvatarProps,
   wallet,
-  walletName,
+  focusedWallet,
+  onWalletPress,
+  isOthers,
   ...rest
 }: IWalletListItemProps) {
   const media = useMedia();
+  let walletAvatarProps: IWalletAvatarProps = {
+    wallet,
+    status: 'default', // 'default' | 'connected';
+  };
+  let walletName = wallet?.name;
+  let selected = focusedWallet === wallet?.id;
+  let onPress = () => wallet?.id && onWalletPress(wallet?.id);
+  if (isOthers) {
+    walletName = 'Others';
+    selected = focusedWallet === '$$others';
+    walletAvatarProps = {
+      img: 'cardDividers',
+      wallet: undefined,
+    };
+    onPress = () => onWalletPress('$$others');
+  }
 
-  return (
+  const walletElement = (
     <Stack
       role="button"
       alignItems="center"
@@ -58,6 +70,7 @@ export function WalletListItem({
         outlineStyle: 'solid',
       }}
       {...rest}
+      onPress={onPress}
     >
       {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
       {media.gtMd && (
@@ -73,23 +86,30 @@ export function WalletListItem({
       )}
     </Stack>
   );
-}
 
-// TODO Grouping Wallet
-{
-  /* <Stack
-  borderRadius="$3"
-  borderWidth={1}
-  borderColor="$borderSubdued"
-  space="$3"
-  style={{
-    borderCurve: 'continuous',
-  }}
->
-  <WalletListItem />
-  {hiddenWallets.map((hiddenWallet) => (
-    <WalletListItem />
-  ))}
-  ...
-</Stack>; */
+  const hiddenWallets = wallet?.hiddenWallets;
+  if (hiddenWallets && hiddenWallets.length > 0) {
+    return (
+      <Stack
+        borderRadius="$3"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        space="$3"
+        style={{
+          borderCurve: 'continuous',
+        }}
+      >
+        {walletElement}
+        {hiddenWallets.map((hiddenWallet) => (
+          <WalletListItem
+            wallet={hiddenWallet}
+            focusedWallet={focusedWallet}
+            onWalletPress={onWalletPress}
+          />
+        ))}
+      </Stack>
+    );
+  }
+
+  return walletElement;
 }

@@ -10,14 +10,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -48,14 +48,10 @@ function OthersWalletItem({
   } = useSelectedAccount({ num });
   return (
     <WalletListItem
-      walletName="Others"
-      selected={focusedWallet === '$$others'}
+      isOthers
       wallet={undefined}
-      onPress={() => onWalletPress && onWalletPress('$$others')}
-      walletAvatarProps={{
-        img: 'cardDividers',
-        wallet: undefined,
-      }}
+      focusedWallet={focusedWallet}
+      onWalletPress={onWalletPress}
     />
   );
 }
@@ -68,7 +64,10 @@ export function WalletList({ num }: IWalletListProps) {
   const { selectedAccount } = useSelectedAccount({ num });
 
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
-    () => serviceAccount.getHDAndHWWallets(),
+    () =>
+      serviceAccount.getHDAndHWWallets({
+        nestedHiddenWallets: true,
+      }),
     [serviceAccount],
     {
       checkIsFocused: false,
@@ -125,14 +124,9 @@ export function WalletList({ num }: IWalletListProps) {
         renderItem={({ item }: { item: IDBWallet }) => (
           <WalletListItem
             key={item.id}
-            walletName={item.name}
             wallet={item}
-            selected={item.id === selectedAccount.focusedWallet}
-            onPress={() => onWalletPress && onWalletPress(item.id)}
-            walletAvatarProps={{
-              wallet: item,
-              status: 'default', // 'default' | 'connected';
-            }}
+            focusedWallet={selectedAccount.focusedWallet}
+            onWalletPress={onWalletPress}
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
