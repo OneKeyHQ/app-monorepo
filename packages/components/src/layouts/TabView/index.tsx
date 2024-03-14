@@ -230,7 +230,9 @@ const TabComponent = (
       stickyHeaderIndices={[1]}
       nestedScrollEnabled
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        platformEnv.isNative ? (
+          <RefreshControl refreshing={false} onRefresh={onRefresh} />
+        ) : undefined
       }
       {...props}
     >
