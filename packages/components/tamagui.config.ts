@@ -570,6 +570,10 @@ declare module 'tamagui' {
 
   // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
   interface TamaguiCustomConfig extends IAppConfig {}
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface TypeOverride {
+    groupNames(): 'nftItem';
+  }
 }
 
 export default config;
