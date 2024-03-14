@@ -18,7 +18,7 @@ function DefiListContainer(props: ITabPageProps) {
       return r.data;
     },
     [],
-    { overrideIsFocused: isFocused },
+    { overrideIsFocused: (isPageFocused) => isPageFocused && isFocused },
   );
   return (
     <DefiListView

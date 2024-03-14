@@ -18,7 +18,7 @@ export type IPromiseResultOptions<T> = {
   loadingDelay?: number;
   checkIsMounted?: boolean;
   checkIsFocused?: boolean;
-  overrideIsFocused?: boolean; // override the value of useIsFocused
+  overrideIsFocused?: (isFocused: boolean) => boolean; // override the value of useIsFocused
   debounced?: number;
   undefinedResultIfError?: boolean;
   pollingInterval?: number;
@@ -62,7 +62,7 @@ export function usePromiseResult<T>(
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;
   if (options?.overrideIsFocused !== undefined) {
-    isFocusedRef.current = options?.overrideIsFocused;
+    isFocusedRef.current = options?.overrideIsFocused?.(_isFocused);
   }
   const methodRef = useRef<typeof method>(method);
   methodRef.current = method;
