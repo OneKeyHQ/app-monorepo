@@ -45,36 +45,6 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
 
-  const handleBackupPress = useCallback(() => {
-    ActionList.show({
-      title: 'Backup',
-      sections: [
-        {
-          items: [
-            {
-              label: intl.formatMessage({
-                id: 'backup__manual_backup',
-              }),
-              icon: 'PenOutline',
-              onPress: handleBackupPhrase,
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    });
-  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
-
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -94,19 +64,49 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
       );
     }
     return (
-      <WalletOptionItem
-        icon="Shield2CheckOutline"
-        label="Backup"
-        onPress={handleBackupPress}
+      <ActionList
+        offset={{ mainAxis: 0, crossAxis: 18 }}
+        placement="bottom-start"
+        title="Backup"
+        items={[
+          {
+            label: intl.formatMessage({
+              id: 'backup__manual_backup',
+            }),
+            icon: 'SignatureOutline',
+            onPress: handleBackupPhrase,
+          },
+          ...(platformEnv.isNative
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: 'app__hardware_name_onekey_lite',
+                  }),
+                  icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                  onPress: handleBackupLiteCard,
+                },
+              ]
+            : []),
+
+          {
+            label: 'OneKey KeyTag',
+            icon: 'OnekeyKeytagOutline',
+            onPress: () => console.log('clicked'),
+          },
+        ]}
+        renderTrigger={
+          <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+        }
       />
     );
-  }, [handleBackupPress, wallet]);
+  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>
       <AnimatePresence>
         {editMode && (
           <Stack
+            testID="wallet-edit-options"
             animation="quick"
             exitStyle={{
               opacity: 0,

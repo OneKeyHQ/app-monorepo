@@ -30,6 +30,7 @@ export function WalletRemoveDialog({
       <Dialog.Footer
         confirmButtonProps={{
           disabled: !value,
+          variant: 'destructive',
         }}
         onConfirm={async () => {
           await actions.current.removeWallet({
