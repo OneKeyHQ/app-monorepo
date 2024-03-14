@@ -12,6 +12,7 @@ import {
   Icon,
   LottieView,
   Page,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -281,6 +282,7 @@ export function ConnectYourDevicePage() {
       icon: 'WalletCryptoOutline',
       title: 'Activate Your Device',
       description: 'Set up your hardware wallet to get started.',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack>
           <ListItem
@@ -310,6 +312,7 @@ export function ConnectYourDevicePage() {
               const packageAlertDialog = Dialog.show({
                 icon: 'PackageDeliveryOutline',
                 title: 'Package Security Check',
+                dismissOnOverlayPress: false,
                 description:
                   'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
                 onCancel: () =>
@@ -337,6 +340,7 @@ export function ConnectYourDevicePage() {
 
   const handleFirmwareAuthenticationDemo = useCallback(() => {
     const firmwareAuthenticationDialog = Dialog.show({
+      dismissOnOverlayPress: false,
       title: 'Firmware Authentication',
       renderContent: (
         <FirmwareAuthenticationDialogContent
@@ -384,6 +388,7 @@ export function ConnectYourDevicePage() {
     async ({ device }: { device: SearchDevice }) => {
       const firmwareAuthenticationDialog = Dialog.show({
         title: 'Firmware Authentication',
+        dismissOnOverlayPress: false,
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
@@ -431,6 +436,7 @@ export function ConnectYourDevicePage() {
   const handleCheckingDevice = useCallback(() => {
     const checkingDeviceDialog = Dialog.show({
       title: 'Checking Device',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack
           borderRadius="$3"
@@ -524,7 +530,7 @@ export function ConnectYourDevicePage() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={
           platformEnv.isNative ? 'Looking for Devices' : 'Connect Your Device'
@@ -533,7 +539,7 @@ export function ConnectYourDevicePage() {
       />
       <Page.Body>
         {/* animation */}
-        <Stack p="$5" pt="$0" mb="$4" alignItems="center" bg="$bgSubdued">
+        <Stack alignItems="center" bg="$bgSubdued">
           <LottieView
             width="100%"
             height="$56"
@@ -541,31 +547,34 @@ export function ConnectYourDevicePage() {
               platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
             }
           />
-          <SizableText textAlign="center" color="$textSubdued" mt="$1.5">
+        </Stack>
+
+        {/* devices */}
+        <ScrollView flex={1}>
+          <SizableText
+            textAlign="center"
+            color="$textSubdued"
+            pt="$2.5"
+            pb="$5"
+          >
             {platformEnv.isNative
               ? 'Please make sure your Bluetooth is enabled'
               : 'Connect your device via USB'}
           </SizableText>
-        </Stack>
-
-        {/* devices */}
-        <HeightTransition>
-          <Stack>
-            {devicesData.map((item, index) => (
-              <ListItem
-                opacity={item.opacity ?? 0.5}
-                avatarProps={{
-                  source: item.src,
-                }}
-                key={index}
-                title={item.title}
-                drillIn
-                onPress={item.onPress}
-                focusable={false}
-              />
-            ))}
-          </Stack>
-        </HeightTransition>
+          {devicesData.map((item, index) => (
+            <ListItem
+              opacity={item.opacity ?? 0.5}
+              avatarProps={{
+                source: item.src,
+              }}
+              key={index}
+              title={item.title}
+              drillIn
+              onPress={item.onPress}
+              focusable={false}
+            />
+          ))}
+        </ScrollView>
 
         {/* buy link */}
         <XStack

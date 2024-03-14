@@ -12,14 +12,10 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
-import {
-  useAddressBookPersistAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
-  ELiteCardRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPages,
@@ -33,24 +29,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { ETabRoutes } from '../type';
 
 import type { ITabMeParamList } from './type';
-
-const LockNowButton = () => {
-  const intl = useIntl();
-  const [passwordSetting] = usePasswordPersistAtom();
-  const onLock = useCallback(async () => {
-    if (passwordSetting.isPasswordSet) {
-      await backgroundApiProxy.servicePassword.lockApp();
-    } else {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
-      await backgroundApiProxy.servicePassword.lockApp();
-    }
-  }, [passwordSetting.isPasswordSet]);
-  return (
-    <Button onPress={onLock}>
-      {intl.formatMessage({ id: 'action__lock_now' })}
-    </Button>
-  );
-};
 
 const AddressBookButton = () => {
   const intl = useIntl();
@@ -142,7 +120,6 @@ const TabMe = () => {
           </Button>
           <AddressBookButton />
           <AddressBookHashButton />
-          <LockNowButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
               {intl.formatMessage({ id: 'action__expand' })}
@@ -174,15 +151,6 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
-          </Button>
-          <Button
-            onPress={() => {
-              navigation.pushModal(EModalRoutes.LiteCardModal, {
-                screen: ELiteCardRoutes.LiteCardHome,
-              });
-            }}
-          >
-            Lite 卡片
           </Button>
           <SizableText>
             {activeAccount.network?.id}, {activeAccount.account?.id}

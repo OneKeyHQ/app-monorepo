@@ -16,7 +16,7 @@ import {
 
 const renderMiniModeTrigger = () => (
   <IconButton
-    title="Derivation Path"
+    title="Switch Address"
     icon="RepeatOutline"
     size="small"
     variant="tertiary"
@@ -60,7 +60,7 @@ export function DeriveTypeSelectorTrigger({
       description:
         typeof desc === 'string'
           ? desc
-          : intl.formatMessage({ id: desc?.id }, desc?.placeholder),
+          : desc?.id && intl.formatMessage({ id: desc?.id }, desc?.placeholder),
     }),
   );
 
