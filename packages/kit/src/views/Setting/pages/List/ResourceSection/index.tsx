@@ -8,6 +8,8 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
 import { Section } from '../Section';
 
+import { StateLogsItem } from './StateLogsItem';
+
 export const ResourceSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
@@ -49,11 +51,7 @@ export const ResourceSection = () => {
         title={intl.formatMessage({ id: 'terms__privacy_policy' })}
         url={privacyPolicyUrl}
       />
-      <ListItem
-        icon="FileDownloadOutline"
-        onPress={onPress}
-        title={intl.formatMessage({ id: 'content__state_logs' })}
-      />
+      <StateLogsItem />
     </Section>
   );
 };
