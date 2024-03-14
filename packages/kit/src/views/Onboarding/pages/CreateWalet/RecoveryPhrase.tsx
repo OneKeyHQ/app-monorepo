@@ -31,6 +31,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   return (
     <Input
       caretHidden
+      autoFocus={index === 0}
       showSoftInputOnFocus={false}
       keyboardType="numeric"
       onFocus={handleFocus}

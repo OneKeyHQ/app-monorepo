@@ -12,6 +12,8 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { DBSchema, IDBPObjectStore } from 'idb';
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
@@ -22,8 +24,6 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -109,6 +109,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
+  hiddenWallets?: IDBWallet[]; // readonly field
   deviceType?: string;
   isTemp?: boolean;
   passphraseState?: string;
@@ -147,7 +148,9 @@ export type IDBSetAccountNameParams = {
   indexedAccountId?: string;
   name: string;
 };
-
+export type IDBGetWalletsParams = {
+  nestedHiddenWallets?: boolean | undefined;
+};
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;

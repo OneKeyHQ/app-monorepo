@@ -15,10 +15,10 @@ const ClearCacheOnAppContent = () => (
   <Dialog.Form
     formProps={{
       defaultValues: {
-        tokenAndNFT: false,
-        transactionHistory: false,
-        swapHistory: false,
-        browserCache: false,
+        tokenAndNFT: true,
+        transactionHistory: true,
+        swapHistory: true,
+        browserCache: true,
         browserHistory: false,
         connectSites: false,
       },
