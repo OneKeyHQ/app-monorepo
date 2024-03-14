@@ -27,12 +27,15 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
+  ComputeBudgetInstruction,
   ComputeBudgetProgram,
+  MessageAccountKeys,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemInstruction,
   SystemProgram,
   Transaction,
+  TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
 import axios from 'axios';
@@ -1037,14 +1040,71 @@ export default class Vault extends VaultBase {
       return Promise.resolve(encodedTx);
     }
 
-    const nativeTx = (await this.helper.parseToNativeTx(
-      encodedTx,
-    )) as Transaction;
-    const [instruction] = nativeTx.instructions;
+    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+
+    // apply priority fees for DApp tx by default
+    try {
+      if (options.type === IEncodedTxUpdateType.priorityFees) {
+        const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+        let instructions: TransactionInstruction[] = [];
+        let unitPrice;
+        let transactionMessage;
+        if (isVersionedTransaction) {
+          transactionMessage = TransactionMessage.decompile(nativeTx.message);
+          instructions = transactionMessage.instructions;
+        } else {
+          instructions = nativeTx.instructions;
+        }
+
+        try {
+          for (const instruction of instructions) {
+            unitPrice =
+              ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
+          }
+        } catch {
+          // pass
+        }
+
+        if (isNil(unitPrice)) {
+          const client = await this.getClient();
+          const accountAddress = await this.getAccountAddress();
+          const prioritizationFee = await client.getRecentMaxPrioritizationFees(
+            [accountAddress],
+          );
+
+          const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+            microLamports: Math.max(MIN_PRIORITY_FEE, prioritizationFee),
+          });
+
+          if (isVersionedTransaction) {
+            transactionMessage?.instructions.push(addPriorityFee);
+          } else {
+            (nativeTx as Transaction).add(addPriorityFee);
+          }
+        }
+
+        if (isVersionedTransaction) {
+          return bs58.encode(
+            new VersionedTransaction(
+              (transactionMessage as TransactionMessage).compileToV0Message(),
+            ).serialize(),
+          );
+        }
+
+        return bs58.encode(
+          (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
+        );
+      }
+    } catch (e) {
+      return encodedTx;
+    }
+
+    const nativeTxForUpdateTransfer = nativeTx as Transaction;
+    const [instruction] = nativeTxForUpdateTransfer.instructions;
     // max native token transfer update
     if (
       options.type === 'transfer' &&
-      nativeTx.instructions.length === 1 &&
+      nativeTxForUpdateTransfer.instructions.length === 1 &&
       instruction.programId.toString() === SystemProgram.programId.toString()
     ) {
       const instructionType =
@@ -1056,7 +1116,7 @@ export default class Vault extends VaultBase {
           this.networkId,
         );
         const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
-        nativeTx.instructions = [
+        nativeTxForUpdateTransfer.instructions = [
           SystemProgram.transfer({
             fromPubkey,
             toPubkey,
@@ -1065,7 +1125,9 @@ export default class Vault extends VaultBase {
             ),
           }),
         ];
-        return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+        return bs58.encode(
+          nativeTxForUpdateTransfer.serialize({ requireAllSignatures: false }),
+        );
       }
     }
     return Promise.resolve(encodedTx);
