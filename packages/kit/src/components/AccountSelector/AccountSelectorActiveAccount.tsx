@@ -156,6 +156,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   return (
     <Button
       size="small"
+      borderWidth={0}
       variant="tertiary"
       onPress={async () => {
         console.log({
