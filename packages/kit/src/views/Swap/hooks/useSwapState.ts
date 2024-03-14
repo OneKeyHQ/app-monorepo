@@ -121,7 +121,9 @@ function useSwapWarningCheck() {
             swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
           } - ${
             swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } does not have a Ethereum address. Please complete the creation.`,
+          } does not have a ${
+            swapFromAddressInfo.accountInfo.network?.name ?? 'unknown'
+          } address. Please complete the creation.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -130,7 +132,8 @@ function useSwapWarningCheck() {
     if (
       !swapToAddressInfo.address &&
       (swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW)
+        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW) &&
+      swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
     ) {
       alerts = [
         ...alerts,
@@ -139,7 +142,9 @@ function useSwapWarningCheck() {
             swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
           } - ${
             swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } does not have a Ethereum address. Please complete the creation.`,
+          } does not have a ${
+            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
+          } address. Please complete the creation.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -247,11 +252,13 @@ function useSwapWarningCheck() {
     quoteResult,
     swapFromAddressInfo.accountInfo,
     swapFromAddressInfo.address,
+    swapFromAddressInfo.networkId,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
     swapToAddressInfo.accountInfo?.wallet?.name,
     swapToAddressInfo.accountInfo?.wallet?.type,
     swapToAddressInfo.address,
+    swapToAddressInfo.networkId,
     toToken,
   ]);
   return {

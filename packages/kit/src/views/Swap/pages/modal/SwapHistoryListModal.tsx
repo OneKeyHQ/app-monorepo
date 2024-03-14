@@ -113,9 +113,14 @@ const SwapHistoryListModal = () => {
         renderItem={renderItem}
         sections={sectionData}
         renderSectionHeader={({ section: { title } }) => (
-          <XStack px="$4" py="$2" space="$4">
+          <XStack px="$4" py="$2" space="$4" alignItems="center">
             {title === 'Pending' ? (
-              <Stack w="$2" h="$2" backgroundColor="$textCaution" />
+              <Stack
+                w="$2"
+                h="$2"
+                backgroundColor="$textCaution"
+                borderRadius="$full"
+              />
             ) : null}
             <SizableText color="$textSubdued">{title}</SizableText>
           </XStack>
