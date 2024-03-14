@@ -175,7 +175,7 @@ function HardwareUiStateContainerCmp() {
       // TODO do not cancel device here
       const closePrevActions = async () => {
         await dialogRef.current?.close({ flag: autoClosedFlag });
-        // await toastRef.current?.close({ flag: autoClosedFlag });
+        await toastRef.current?.close({ flag: autoClosedFlag });
         await timerUtils.wait(300);
       };
       await closePrevActions();

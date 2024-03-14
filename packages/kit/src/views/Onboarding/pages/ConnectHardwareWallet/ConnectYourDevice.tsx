@@ -282,6 +282,7 @@ export function ConnectYourDevicePage() {
       icon: 'WalletCryptoOutline',
       title: 'Activate Your Device',
       description: 'Set up your hardware wallet to get started.',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack>
           <ListItem
@@ -311,6 +312,7 @@ export function ConnectYourDevicePage() {
               const packageAlertDialog = Dialog.show({
                 icon: 'PackageDeliveryOutline',
                 title: 'Package Security Check',
+                dismissOnOverlayPress: false,
                 description:
                   'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
                 onCancel: () =>
@@ -338,6 +340,7 @@ export function ConnectYourDevicePage() {
 
   const handleFirmwareAuthenticationDemo = useCallback(() => {
     const firmwareAuthenticationDialog = Dialog.show({
+      dismissOnOverlayPress: false,
       title: 'Firmware Authentication',
       renderContent: (
         <FirmwareAuthenticationDialogContent
@@ -385,6 +388,7 @@ export function ConnectYourDevicePage() {
     async ({ device }: { device: SearchDevice }) => {
       const firmwareAuthenticationDialog = Dialog.show({
         title: 'Firmware Authentication',
+        dismissOnOverlayPress: false,
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
@@ -432,6 +436,7 @@ export function ConnectYourDevicePage() {
   const handleCheckingDevice = useCallback(() => {
     const checkingDeviceDialog = Dialog.show({
       title: 'Checking Device',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack
           borderRadius="$3"
