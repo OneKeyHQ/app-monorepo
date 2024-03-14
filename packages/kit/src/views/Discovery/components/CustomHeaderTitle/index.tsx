@@ -34,8 +34,6 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       borderRadius="$3"
       $md={{
         flex: 1,
-        maxWidth: screenWidth - 40,
-        ml: '$-1.5',
       }}
       hoverStyle={{
         bg: '$bgHover',
