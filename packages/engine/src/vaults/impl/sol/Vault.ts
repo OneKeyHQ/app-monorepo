@@ -1056,6 +1056,7 @@ export default class Vault extends VaultBase {
           instructions = nativeTx.instructions;
         }
 
+        // try to find if the transaction has already set the compute unit price(priority fee)
         try {
           for (const instruction of instructions) {
             unitPrice =
@@ -1065,6 +1066,7 @@ export default class Vault extends VaultBase {
           // pass
         }
 
+        // if not set, add the compute unit price(priority fee) to the transaction
         if (isNil(unitPrice)) {
           const client = await this.getClient();
           const accountAddress = await this.getAccountAddress();
