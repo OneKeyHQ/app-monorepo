@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   ESwapReceiveAddressType,
@@ -109,36 +107,6 @@ export const {
           item.info.provider === manualSelectQuoteProviders.info.provider,
       )
     : list[0];
-});
-
-export const {
-  atom: swapQuoteTokenMarketingRateWarningAtom,
-  use: useSwapQuoteTokenMarketingRateWarningAtom,
-} = contextAtomComputed((get) => {
-  const fromToken = get(swapSelectFromTokenAtom());
-  const toToken = get(swapSelectToTokenAtom());
-  const quoteResult = get(swapQuoteCurrentSelectAtom());
-  if (!quoteResult) {
-    return '';
-  }
-  if (!fromToken?.price || !toToken?.price) {
-    return 'no price';
-  }
-  const fromTokenPrice = new BigNumber(fromToken.price);
-  const toTokenPrice = new BigNumber(toToken.price);
-  const marketingRate = fromTokenPrice.dividedBy(toTokenPrice).decimalPlaces(6);
-  const quoteRateBN = new BigNumber(quoteResult.instantRate);
-  const difference = marketingRate
-    .dividedBy(quoteRateBN)
-    .minus(1)
-    .multipliedBy(100);
-  if (quoteRateBN.isZero()) {
-    return 'amount too small to quote rate is zero';
-  }
-  if (difference.comparedTo(5) === 1) {
-    return `rate difference high ${difference.decimalPlaces(2).toFixed()}%`;
-  }
-  return '';
 });
 
 export const {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   Button,
@@ -11,12 +11,10 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { ESwapStepStateType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapStepState } from '../../hooks/useSwapStepState';
+import { useSwapActionState } from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
@@ -33,58 +31,17 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
 }: ISwapActionsStateProps) => {
-  const swapStepState = useSwapStepState();
+  const swapActionState = useSwapActionState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval } = useSwapActions().current;
-  const [selectCurrentProvider] = useSwapQuoteCurrentSelectAtom();
-  const isApproveStepStatus = useMemo(
-    () => swapStepState.type === ESwapStepStateType.APPROVE,
-    [swapStepState.type],
-  );
-
-  const actionText = useMemo(() => {
-    if (swapStepState.type === ESwapStepStateType.APPROVE) {
-      return swapStepState.approveUnLimit
-        ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
-            selectCurrentProvider?.info.providerName ?? ''
-          }`
-        : `Approve  ${fromAmount} ${fromToken?.symbol ?? ''} to ${
-            selectCurrentProvider?.info.providerName ?? ''
-          }`;
-    }
-    if (
-      swapStepState.type === ESwapStepStateType.BUILD_TX &&
-      swapStepState.isCrossChain
-    ) {
-      return swapStepState.isLoading ? 'Build Transaction' : 'Cross-Chain Swap';
-    }
-    if (
-      swapStepState.type === ESwapStepStateType.QUOTE &&
-      swapStepState.isLoading
-    ) {
-      return 'Finding Best Price...';
-    }
-    if (swapStepState.type === ESwapStepStateType.ACCOUNT_CHECK) {
-      return 'Insufficient Balance';
-    }
-    if (swapStepState.isWrapped) {
-      return 'Wrap';
-    }
-    return 'Swap';
-  }, [
-    fromAmount,
-    fromToken?.symbol,
-    selectCurrentProvider?.info.providerName,
-    swapStepState,
-  ]);
 
   const handleApprove = useCallback(() => {
-    if (swapStepState.shoutResetApprove) {
+    if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
         onConfirmText: 'Continue',
         onConfirm: () => {
-          onApprove(fromAmount, swapStepState.approveUnLimit, true);
+          onApprove(fromAmount, swapActionState.approveUnLimit, true);
         },
         showCancelButton: true,
         title: 'Need to Send 2 Transactions to Change Allowance',
@@ -93,40 +50,39 @@ const SwapActionsState = ({
         icon: 'TxStatusWarningCircleIllus',
       });
     } else {
-      onApprove(fromAmount, swapStepState.approveUnLimit);
+      onApprove(fromAmount, swapActionState.approveUnLimit);
     }
   }, [
     fromAmount,
     onApprove,
-    swapStepState.approveUnLimit,
-    swapStepState.shoutResetApprove,
+    swapActionState.approveUnLimit,
+    swapActionState.shoutResetApprove,
   ]);
 
   const onActionHandler = useCallback(() => {
     cleanQuoteInterval();
-    if (swapStepState.type === ESwapStepStateType.APPROVE) {
+    if (swapActionState.isApprove) {
       handleApprove();
       return;
     }
-    if (swapStepState.type === ESwapStepStateType.BUILD_TX) {
-      if (swapStepState.isWrapped) {
-        onWrapped();
-        return;
-      }
-      onBuildTx();
+
+    if (swapActionState.isWrapped) {
+      onWrapped();
+      return;
     }
+    onBuildTx();
   }, [
     cleanQuoteInterval,
     handleApprove,
     onBuildTx,
     onWrapped,
-    swapStepState.isWrapped,
-    swapStepState.type,
+    swapActionState.isApprove,
+    swapActionState.isWrapped,
   ]);
 
   return (
     <YStack space="$4">
-      {isApproveStepStatus ? (
+      {swapActionState.isApprove ? (
         <XStack justifyContent="center">
           <SizableText>{`Step 1: Approve ${
             fromToken?.symbol ?? ''
@@ -137,11 +93,11 @@ const SwapActionsState = ({
       <Button
         onPress={onActionHandler}
         variant="primary"
-        disabled={swapStepState.disabled}
+        disabled={swapActionState.disabled || swapActionState.isLoading}
       >
-        <XStack>
-          {swapStepState.isLoading && <Spinner size="small" />}
-          <SizableText color="white">{actionText}</SizableText>
+        <XStack space="$2">
+          {swapActionState.isLoading && <Spinner size="small" />}
+          <SizableText color="white">{swapActionState.label}</SizableText>
         </XStack>
       </Button>
     </YStack>

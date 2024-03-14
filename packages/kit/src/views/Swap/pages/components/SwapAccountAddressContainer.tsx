@@ -5,12 +5,18 @@ import { Button, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapProviderSupportReceiveAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
 import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { getShortAddress } from '../../utils/utils';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -37,13 +43,26 @@ const SwapAccountAddressContainer = ({
   }, [swapAddressInfo.accountInfo]);
 
   const addressComponent = useMemo(() => {
-    if (!swapAddressInfo.accountInfo) {
-      return <Button variant="tertiary">No Account</Button>;
+    if (
+      !swapAddressInfo.accountInfo ||
+      swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_WATCHING ||
+      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
+        !swapAddressInfo.address)
+    ) {
+      return null;
     }
-    if (!swapAddressInfo.address) {
+    if (
+      !swapAddressInfo.address &&
+      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HD ||
+        swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HW)
+    ) {
       return (
-        <Button onPress={handleOnCreateAddress} variant="tertiary">
-          Create Address
+        <Button
+          iconAfter="PlusCircleOutline"
+          onPress={handleOnCreateAddress}
+          variant="tertiary"
+        >
+          No Address
         </Button>
       );
     }
@@ -55,7 +74,7 @@ const SwapAccountAddressContainer = ({
           }}
           variant="tertiary"
         >
-          {getShortAddress(swapAddressInfo.address)}
+          {getShortAddress(swapAddressInfo.address ?? '')}
         </Button>
       );
     }
@@ -70,7 +89,7 @@ const SwapAccountAddressContainer = ({
         variant="tertiary"
         iconAfter="PencilOutline"
       >
-        {getShortAddress(swapAddressInfo.address)}
+        {getShortAddress(swapAddressInfo.address ?? '')}
       </Button>
     );
   }, [

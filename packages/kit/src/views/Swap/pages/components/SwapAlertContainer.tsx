@@ -1,25 +1,24 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Alert, YStack } from '@onekeyhq/components';
 
-import { useSwapStepState } from '../../hooks/useSwapStepState';
+import { useSwapActionState } from '../../hooks/useSwapState';
 
 const SwapAlertContainer = () => {
-  const swapStepState = useSwapStepState();
-  const hasWrongMsg =
-    (swapStepState.wrongMsg || swapStepState.rateWarning) &&
-    !swapStepState.isLoading;
+  const swapActionState = useSwapActionState();
+  const hasWrongMsg = useMemo(
+    () => swapActionState?.alerts?.length,
+    [swapActionState?.alerts?.length],
+  );
   return hasWrongMsg ? (
-    <YStack>
-      {swapStepState.wrongMsg ? (
-        <Alert description={swapStepState.wrongMsg} icon="PlaceholderOutline" />
-      ) : null}
-      {swapStepState.rateWarning ? (
+    <YStack space="$2">
+      {swapActionState.alerts?.map((item) => (
         <Alert
-          description={swapStepState.rateWarning}
-          icon="PlaceholderOutline"
+          type="warning"
+          description={item.message}
+          icon="InfoCircleOutline"
         />
-      ) : null}
+      ))}
     </YStack>
   ) : null;
 };

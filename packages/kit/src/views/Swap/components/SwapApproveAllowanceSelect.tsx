@@ -26,14 +26,17 @@ const SwapApproveAllowanceSelect = ({
     () => (
       <XStack justifyContent="space-between">
         <SizableText>Authorization Limit</SizableText>
-        {isLoading && selectItems.length ? (
-          <Skeleton w="$20" />
-        ) : (
-          <XStack>
-            <SizableText h="$5">{currentAllowanceValue?.label}</SizableText>
-            <Icon size="$5" name="ChevronRightSmallOutline" />
-          </XStack>
-        )}
+
+        <XStack>
+          {isLoading && selectItems.length ? (
+            <Skeleton w="$20" />
+          ) : (
+            <>
+              <SizableText h="$5">{currentAllowanceValue?.label}</SizableText>
+              <Icon size="$5" name="ChevronRightSmallOutline" />
+            </>
+          )}
+        </XStack>
       </XStack>
     ),
     [currentAllowanceValue?.label, isLoading, selectItems.length],

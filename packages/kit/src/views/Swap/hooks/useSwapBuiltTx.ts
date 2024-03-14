@@ -11,11 +11,11 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSendConfirm } from '../../../hooks/useSendConfirm';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapApprovingTransactionAtom,
   useSwapBuildTxFetchingAtom,
@@ -26,8 +26,8 @@ import {
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { useSwapReceiverAddress } from './useSwapReceiverAddress';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
+import { useSwapAddressInfo } from './uswSwapAccount';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -38,12 +38,12 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const receiverAddress = useSwapReceiverAddress();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const { navigationToSendConfirm } = useSendConfirm({
-    accountId: activeAccount.account?.id ?? '',
-    networkId: activeAccount.network?.id ?? '',
+    accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+    networkId: swapFromAddressInfo.networkId ?? '',
   });
   const handleBuildTxSuccess = useCallback(
     async (data: ISendTxOnSuccessData[]) => {
@@ -108,16 +108,16 @@ export function useSwapBuildTx() {
       toToken &&
       fromTokenAmount &&
       selectQuote &&
-      activeAccount.account?.address &&
-      receiverAddress &&
-      activeAccount.network?.id
+      swapFromAddressInfo.address &&
+      swapToAddressInfo.address &&
+      swapFromAddressInfo.networkId
     ) {
       setSwapBuildTxFetching(true);
       const wrappedType = fromToken.contractAddress
         ? EWrappedType.WITHDRAW
         : EWrappedType.DEPOSIT;
       const wrappedInfo: IWrappedInfo = {
-        from: activeAccount.account?.address,
+        from: swapFromAddressInfo.address,
         type: wrappedType,
         contract:
           wrappedType === EWrappedType.WITHDRAW
@@ -134,8 +134,8 @@ export function useSwapBuildTx() {
           amount: selectQuote.toAmount,
           token: toToken,
         },
-        accountAddress: activeAccount.account?.address,
-        receivingAddress: receiverAddress,
+        accountAddress: swapFromAddressInfo.address,
+        receivingAddress: swapToAddressInfo.address,
         swapBuildResData: { result: selectQuote },
       };
       await navigationToSendConfirm({
@@ -146,16 +146,16 @@ export function useSwapBuildTx() {
       });
     }
   }, [
-    activeAccount.account?.address,
-    activeAccount.network?.id,
     fromToken,
-    fromTokenAmount,
-    handleWrappedTxSuccess,
-    navigationToSendConfirm,
-    receiverAddress,
-    selectQuote,
-    setSwapBuildTxFetching,
     toToken,
+    fromTokenAmount,
+    selectQuote,
+    swapFromAddressInfo.address,
+    swapFromAddressInfo.networkId,
+    swapToAddressInfo.address,
+    setSwapBuildTxFetching,
+    navigationToSendConfirm,
+    handleWrappedTxSuccess,
     handleTxFail,
   ]);
 
@@ -166,13 +166,13 @@ export function useSwapBuildTx() {
         allowanceInfo &&
         fromToken &&
         toToken &&
-        activeAccount.network?.id &&
-        activeAccount.account?.id &&
-        activeAccount.account?.address
+        swapFromAddressInfo.networkId &&
+        swapFromAddressInfo.accountInfo?.account?.id &&
+        swapFromAddressInfo.address
       ) {
         setSwapBuildTxFetching(true);
         const approveInfo: IApproveInfo = {
-          owner: activeAccount.account.address,
+          owner: swapFromAddressInfo.address,
           spender: allowanceInfo.allowanceTarget,
           amount,
           isMax,
@@ -188,7 +188,7 @@ export function useSwapBuildTx() {
             fromToken,
             toToken,
             amount,
-            useAddress: activeAccount.account.address,
+            useAddress: swapFromAddressInfo.address,
             spenderAddress: allowanceInfo.allowanceTarget,
           });
         }
@@ -204,14 +204,14 @@ export function useSwapBuildTx() {
       selectQuote?.info.provider,
       fromToken,
       toToken,
-      activeAccount.network?.id,
-      activeAccount.account?.id,
-      activeAccount.account?.address,
+      swapFromAddressInfo.networkId,
+      swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.address,
       setSwapBuildTxFetching,
-      setSwapApprovingTransaction,
       navigationToSendConfirm,
-      handleTxFail,
       handleApproveTxSuccess,
+      handleTxFail,
+      setSwapApprovingTransaction,
     ],
   );
 
@@ -222,9 +222,9 @@ export function useSwapBuildTx() {
       fromTokenAmount &&
       slippagePercentage &&
       selectQuote &&
-      activeAccount.account?.address &&
-      receiverAddress &&
-      activeAccount.network?.id
+      swapFromAddressInfo.address &&
+      swapToAddressInfo.address &&
+      swapFromAddressInfo.networkId
     ) {
       setSwapBuildTxFetching(true);
       const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
@@ -233,8 +233,8 @@ export function useSwapBuildTx() {
         toTokenAmount: selectQuote.toAmount,
         fromTokenAmount,
         slippagePercentage: slippagePercentage.value,
-        receivingAddress: receiverAddress,
-        userAddress: activeAccount.account?.address,
+        receivingAddress: swapToAddressInfo.address,
+        userAddress: swapFromAddressInfo.address,
         provider: selectQuote.info.provider,
       });
       if (res) {
@@ -244,7 +244,7 @@ export function useSwapBuildTx() {
           encodedTx = undefined;
           // swft order
           transferInfo = {
-            from: activeAccount.account?.address,
+            from: swapFromAddressInfo.address,
             tokenInfo: {
               ...fromToken,
               address: fromToken.contractAddress,
@@ -260,7 +260,7 @@ export function useSwapBuildTx() {
           encodedTx = {
             ...res?.tx,
             value: valueHex,
-            from: activeAccount.account?.address,
+            from: swapFromAddressInfo.address,
           };
         }
         const swapInfo = {
@@ -272,8 +272,8 @@ export function useSwapBuildTx() {
             amount: selectQuote.toAmount,
             token: toToken,
           },
-          accountAddress: activeAccount.account?.address,
-          receivingAddress: receiverAddress,
+          accountAddress: swapFromAddressInfo.address,
+          receivingAddress: swapToAddressInfo.address,
           swapBuildResData: res,
         };
 
@@ -289,18 +289,18 @@ export function useSwapBuildTx() {
       }
     }
   }, [
-    activeAccount.account?.address,
-    activeAccount.network?.id,
     fromToken,
-    fromTokenAmount,
-    handleTxFail,
-    handleBuildTxSuccess,
-    navigationToSendConfirm,
-    receiverAddress,
-    selectQuote,
-    setSwapBuildTxFetching,
-    slippagePercentage,
     toToken,
+    fromTokenAmount,
+    slippagePercentage,
+    selectQuote,
+    swapFromAddressInfo.address,
+    swapFromAddressInfo.networkId,
+    swapToAddressInfo.address,
+    setSwapBuildTxFetching,
+    navigationToSendConfirm,
+    handleBuildTxSuccess,
+    handleTxFail,
   ]);
 
   return { buildTx, wrappedTx, approveTx };

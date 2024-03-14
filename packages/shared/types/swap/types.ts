@@ -152,30 +152,34 @@ export interface IFetchQuoteFee {
   estimatedFeeFiatValue?: number;
 }
 
-// swap action state
-export enum ESwapStepStateType {
-  PRE = 'pre', // no select token & no input fromAmount
-  QUOTE = 'quote',
-  ACCOUNT_CHECK = 'account_check', // check account connect & balance
-  APPROVE = 'approve', // need approve
-  BUILD_TX = 'build_tx', // build tx
-}
-
 export enum ESwapApproveAllowanceType {
   UN_LIMIT = 'unLimit',
   PRECISION = 'precision',
 }
 
-export interface ISwapStepState {
-  type: ESwapStepStateType;
+// swap action&alert state
+export interface ISwapState {
+  label: string;
   isLoading: boolean;
   isWrapped?: boolean;
+  isApprove?: boolean;
   disabled: boolean;
   isCrossChain: boolean;
-  wrongMsg?: string;
-  rateWarning?: string;
   shoutResetApprove?: boolean;
   approveUnLimit?: boolean;
+  alerts?: ISwapAlertState[];
+}
+
+export enum ESwapAlertLevel {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+}
+export interface ISwapAlertState {
+  message?: string;
+  alertLevel?: ESwapAlertLevel;
+  cb?: () => void;
+  cbLabel?: string;
 }
 
 // build_tx

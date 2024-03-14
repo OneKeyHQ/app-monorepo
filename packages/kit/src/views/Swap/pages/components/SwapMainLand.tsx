@@ -3,7 +3,7 @@ import { memo, useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
@@ -15,7 +15,6 @@ import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 const SwapMainLoad = () => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
