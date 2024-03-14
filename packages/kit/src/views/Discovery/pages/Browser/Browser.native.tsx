@@ -3,10 +3,11 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 
-import { Page, Stack } from '@onekeyhq/components';
+import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -76,15 +77,16 @@ function MobileBrowser() {
       screen: EDiscoveryModalRoutes.SearchModal,
     });
   }, [navigation]);
-  const headerTitle = useCallback(
-    () => <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />,
-    [handleSearchBarPress],
-  );
-  const headerRight = useCallback(() => <HeaderRightToolBar />, []);
+
+  const { top } = useSafeAreaInsets();
 
   return (
     <Page>
-      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      <Page.Header headerShown={false} />
+      <XStack pt={top} mx="$5">
+        <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+        <HeaderRightToolBar />
+      </XStack>
       <Page.Body>
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
@@ -93,7 +95,9 @@ function MobileBrowser() {
               <DashboardContent onScroll={handleScroll} />
             </Stack>
           ) : null}
-          <Freeze freeze={displayHomePage}>{content}</Freeze>
+          <Stack pt="$3">
+            <Freeze freeze={displayHomePage}>{content}</Freeze>
+          </Stack>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
               style={[

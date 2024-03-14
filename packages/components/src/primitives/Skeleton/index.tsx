@@ -22,7 +22,7 @@ function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
   });
   const { theme } = useSettingConfig();
   return (
-    <Stack ref={ref} flex={1}>
+    <Stack ref={ref}>
       <MotiSkeleton colorMode={theme} {...(style as any)} {...restProps}>
         {children}
       </MotiSkeleton>

@@ -3,7 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -95,6 +102,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [intl, isNFTEnabled],
   );
 
+  const { top } = useSafeAreaInsets();
+
   const headerLeft = useCallback(
     () =>
       isHide ? null : (
@@ -156,11 +165,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           />
           <Page.Body>
             {platformEnv.isNative && (
-              <XStack
-                justifyContent="space-between"
-                px="$4"
-                pt={platformEnv.isNativeIOS ? '$20' : 0}
-              >
+              <XStack justifyContent="space-between" px="$4" pt={top}>
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
