@@ -21,7 +21,7 @@ function init() {
     // console.log('jsBridgeReceiveHandler Ext-UI', payload);
     const { method, params } = payload.data as IJsonRpcRequest;
     if (method === GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME) {
-      console.log('background states sync', params);
+      // console.log('background states sync', params);
       await jotaiUpdateFromUiByBgBroadcast(
         params as IGlobalStatesSyncBroadcastParams,
       );

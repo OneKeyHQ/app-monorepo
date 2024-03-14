@@ -29,19 +29,28 @@ export function useHandleDiscoveryAccountChanged({
   const { activeAccount } = useActiveAccount({ num });
   const { selectedAccount } = useSelectedAccount({ num });
 
-  // // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
+  // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
   const debouncedActiveAccount = useDebounce(activeAccount, 200);
   const debouncedSelectedAccount = useDebounce(selectedAccount, 200);
 
   useEffect(() => {
     if (handleAccountChanged) {
-      handleAccountChanged(
-        {
-          activeAccount: debouncedActiveAccount,
-          selectedAccount: debouncedSelectedAccount,
-        },
-        num,
-      );
+      // ensure the selected account is the same as the active account
+      if (
+        (debouncedActiveAccount.isOthersWallet &&
+          debouncedActiveAccount.account?.id ===
+            debouncedSelectedAccount.othersWalletAccountId) ||
+        debouncedActiveAccount.indexedAccount?.id ===
+          debouncedSelectedAccount.indexedAccountId
+      ) {
+        handleAccountChanged(
+          {
+            activeAccount: debouncedActiveAccount,
+            selectedAccount: debouncedSelectedAccount,
+          },
+          num,
+        );
+      }
     }
   }, [
     debouncedActiveAccount,

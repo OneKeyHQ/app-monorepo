@@ -7,6 +7,7 @@ export enum EDAppConnectionModal {
   'ConnectionList' = 'ConnectionList',
   'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
   'SignMessageModal' = 'SignMessageModal',
+  'CurrentConnectionModal' = 'CurrentConnectionModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -20,4 +21,8 @@ export type IDAppConnectionModalParamList = {
     accountId: string;
     networkId: string;
   };
+  [EDAppConnectionModal.CurrentConnectionModal]: {
+    origin: string;
+    faviconUrl: string;
+  }
 };

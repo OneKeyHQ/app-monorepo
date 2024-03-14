@@ -145,19 +145,19 @@ export function useShouldUpdateConnectedAccount() {
       origin,
       accountSelectorNum,
       prevAccountInfo,
-      selectedAccount,
+      accountChangedParams,
       storageType,
       afterUpdate,
     }: {
       origin: string;
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
-      selectedAccount: IHandleAccountChangedParams;
+      accountChangedParams: IHandleAccountChangedParams;
       storageType: IConnectionStorageType;
       afterUpdate: () => void;
     }) => {
       const willUpdateAccountInfo =
-        getAccountInfoByActiveAccount(selectedAccount);
+        getAccountInfoByActiveAccount(accountChangedParams);
       if (
         !shouldUpdateConnectedAccount(prevAccountInfo, willUpdateAccountInfo)
       ) {
@@ -175,7 +175,7 @@ export function useShouldUpdateConnectedAccount() {
         'useShouldUpdateConnectedAccount handleAccountChanged: ',
         accountSelectorNum,
         prevAccountInfo,
-        selectedAccount,
+        accountChangedParams,
       );
 
       afterUpdate();

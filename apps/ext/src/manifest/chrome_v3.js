@@ -108,6 +108,7 @@ module.exports = {
     // '*://*.onekeycn.com/*',
     // '*://*.onekeytest.com/*',
     // '*://*.eth/',
+    'tabs',
     'storage',
     'unlimitedStorage',
     'webRequest',
