@@ -50,6 +50,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -258,7 +259,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   //   return count <= 0;
   // }, [sectionData]);
 
-  const shouldShowEditButton = useMemo(() => {
+  const editable = useMemo(() => {
     if (selectedAccount.focusedWallet === '$$others') {
       if (
         sectionData?.some((section) => {
@@ -280,26 +281,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   return (
     <Stack flex={1} pb={bottom}>
-      <ListItem
-        mt="$1.5"
-        title={isOthers ? 'Others' : focusedWalletInfo?.wallet?.name}
+      <WalletDetailsHeader
+        wallet={focusedWalletInfo?.wallet}
         titleProps={{
-          animation: 'quick',
-          opacity: editMode && shouldShowEditButton ? 0 : 1, // hide when edit mode
+          opacity: editMode && editable ? 0 : 1,
         }}
-      >
-        {shouldShowEditButton ? (
-          <Button
-            testID="AccountSelectorModal-EditButton"
-            variant="tertiary"
-            onPress={() => {
-              setEditMode((v) => !v);
-            }}
-          >
-            {editMode ? 'Done' : 'Edit'}
-          </Button>
-        ) : null}
-      </ListItem>
+        editMode={editMode}
+        editable={editable}
+        onEditButtonPress={() => {
+          setEditMode((v) => !v);
+        }}
+        {...(!editMode && {
+          title: isOthers ? 'Others' : focusedWalletInfo?.wallet?.name,
+        })}
+      />
 
       <SectionList
         ref={listRef}

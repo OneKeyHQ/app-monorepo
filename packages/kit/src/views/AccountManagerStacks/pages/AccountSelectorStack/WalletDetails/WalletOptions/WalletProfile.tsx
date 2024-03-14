@@ -13,21 +13,23 @@ export function WalletProfile({ wallet }: { wallet: IDBWallet }) {
       renderAvatar={
         <Stack
           role="button"
-          onPress={() => showWalletAvatarEditDialog({ wallet })}
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          focusable
-          focusStyle={{
-            outlineOffset: 2,
-            outlineWidth: 2,
-            outlineColor: '$focusRing',
-            outlineStyle: 'solid',
-          }}
           borderRadius="$2"
+          {...(accountUtils.isHdWallet({ walletId: wallet.id }) && {
+            onPress: () => showWalletAvatarEditDialog({ wallet }),
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            focusable: true,
+            focusStyle: {
+              outlineOffset: 2,
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+            },
+          })}
         >
           <Stack>
             <WalletAvatar size="$10" wallet={wallet} />

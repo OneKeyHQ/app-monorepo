@@ -1,7 +1,6 @@
+import { IconButton } from '@onekeyhq/components';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
-import { WalletOptionItem } from '../../pages/AccountSelectorStack/WalletDetails/WalletOptions/WalletOptionItem';
 
 import { showWalletRemoveDialog } from './WalletRemoveDialog';
 
@@ -25,9 +24,10 @@ export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
   const { title, description } = getTitleAndDescription({ wallet });
   const { config } = useAccountSelectorContextData();
   return (
-    <WalletOptionItem
+    <IconButton
+      title="Remove"
       icon="DeleteOutline"
-      label="Remove"
+      variant="tertiary"
       onPress={() => {
         showWalletRemoveDialog({
           config,

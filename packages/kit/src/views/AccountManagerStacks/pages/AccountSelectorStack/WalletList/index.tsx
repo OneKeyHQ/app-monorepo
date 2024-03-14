@@ -10,14 +10,14 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -117,7 +117,7 @@ export function WalletList({ num }: IWalletListProps) {
       )}
       {/* Primary wallets */}
       <ListView
-        py="$2"
+        p="$2"
         estimatedItemSize="$10"
         data={wallets}
         extraData={selectedAccount.focusedWallet}
@@ -134,7 +134,7 @@ export function WalletList({ num }: IWalletListProps) {
       <AccountSelectorCreateWalletButton />
       {/* Others */}
       <Stack
-        py="$2"
+        p="$2"
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
         mb={bottom}

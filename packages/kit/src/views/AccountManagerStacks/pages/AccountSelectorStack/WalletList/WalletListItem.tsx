@@ -41,15 +41,12 @@ export function WalletListItem({
     <Stack
       role="button"
       alignItems="center"
-      mx="$2"
       p="$1"
       borderRadius="$3"
       style={{
         borderCurve: 'continuous',
       }}
       userSelect="none"
-      // hidden wallet use dark bg
-      // bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
       {...(selected
         ? {
             bg: '$bgActive',
@@ -64,7 +61,6 @@ export function WalletListItem({
           })}
       focusable
       focusStyle={{
-        outlineOffset: 2,
         outlineWidth: 2,
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
