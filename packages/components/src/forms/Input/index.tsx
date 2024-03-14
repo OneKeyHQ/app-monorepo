@@ -7,7 +7,13 @@ import {
 } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -98,7 +104,6 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
 
 function BaseInput(
   {
-    size = 'medium',
     leftAddOnProps,
     leftIconName,
     addOns,
@@ -112,6 +117,7 @@ function BaseInput(
   }: IInputProps,
   ref: ForwardedRef<IInputRef>,
 ) {
+  const { size = 'medium' } = useProps(props);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
