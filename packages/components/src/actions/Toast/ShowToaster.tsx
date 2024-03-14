@@ -102,9 +102,9 @@ function BasicShowToaster(
         width="100%"
         height="100%"
         flex={1}
-        pointerEvents={dismissOnOverlayPress ? 'auto' : 'none'}
+        pointerEvents="auto"
         position="absolute"
-        onPress={handleContainerClose}
+        onPress={dismissOnOverlayPress ? handleContainerClose : undefined}
       />
       <Toast
         unstyled
