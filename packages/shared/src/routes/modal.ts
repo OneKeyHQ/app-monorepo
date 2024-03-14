@@ -1,4 +1,3 @@
-import { IModalSwapParamList } from '@onekeyhq/kit/src/views/Swap/router/types';
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
 import type { IModalAssetDetailsParamList } from './assetDetails';
@@ -13,6 +12,7 @@ import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
+import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
 
 export enum EModalRoutes {
