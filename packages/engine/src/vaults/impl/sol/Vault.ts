@@ -1042,7 +1042,7 @@ export default class Vault extends VaultBase {
 
     const nativeTx = await this.helper.parseToNativeTx(encodedTx);
 
-    // apply priority fees for DApp tx by default
+    // add priority fees to DApp tx by default
     try {
       if (options.type === IEncodedTxUpdateType.priorityFees) {
         const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
