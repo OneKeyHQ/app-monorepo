@@ -29,6 +29,7 @@ type IBuildUnsignedTxParams = {
   swapInfo?: ISwapTxInfo;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
+  onCancel?: () => void;
   sameModal?: boolean;
 };
 
@@ -39,7 +40,7 @@ function useSendConfirm(params: IParams) {
 
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, onSuccess, onFail, ...rest } = params;
+      const { sameModal, onSuccess, onFail, onCancel, ...rest } = params;
       try {
         const unsignedTx =
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
@@ -54,6 +55,7 @@ function useSendConfirm(params: IParams) {
             unsignedTxs: [unsignedTx],
             onSuccess,
             onFail,
+            onCancel,
           });
         } else {
           navigation.pushModal(EModalRoutes.SendModal, {
@@ -64,6 +66,7 @@ function useSendConfirm(params: IParams) {
               unsignedTxs: [unsignedTx],
               onSuccess,
               onFail,
+              onCancel,
             },
           });
         }

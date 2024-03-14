@@ -24,6 +24,7 @@ type IProps = {
   networkId: string;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
+  onCancel?: () => void;
   tableLayout?: boolean;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
@@ -35,6 +36,7 @@ function SendConfirmActionsContainer(props: IProps) {
     networkId,
     onSuccess,
     onFail,
+    onCancel,
     tableLayout,
     sourceInfo,
     signOnly,
@@ -111,8 +113,9 @@ function SendConfirmActionsContainer(props: IProps) {
       if (!sourceInfo) {
         closePageStack();
       }
+      onCancel?.();
     },
-    [dappApprove, sourceInfo],
+    [dappApprove, onCancel, sourceInfo],
   );
 
   const isSubmitDisabled = useMemo(() => {

@@ -199,8 +199,7 @@ function useSwapWarningCheck() {
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
-      }
-      if (difference.comparedTo(5) === 1) {
+      } else if (difference.comparedTo(5) === 1) {
         alerts = [
           ...alerts,
           {

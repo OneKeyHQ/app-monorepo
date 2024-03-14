@@ -37,6 +37,7 @@ function SendConfirmContainer() {
     unsignedTxs,
     onSuccess,
     onFail,
+    onCancel,
     sourceInfo,
     signOnly,
   } = route.params;
@@ -109,6 +110,7 @@ function SendConfirmContainer() {
                   networkId={networkId}
                   onSuccess={onSuccess}
                   onFail={onFail}
+                  onCancel={onCancel}
                   tableLayout={tableLayout}
                 />
               </YStack>
@@ -132,6 +134,7 @@ function SendConfirmContainer() {
           networkId={networkId}
           onSuccess={onSuccess}
           onFail={onFail}
+          onCancel={onCancel}
         />
       </>
     );
@@ -140,6 +143,7 @@ function SendConfirmContainer() {
     networkId,
     onFail,
     onSuccess,
+    onCancel,
     signOnly,
     sourceInfo,
     tableLayout,

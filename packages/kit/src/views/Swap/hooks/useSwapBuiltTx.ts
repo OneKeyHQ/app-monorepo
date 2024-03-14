@@ -143,6 +143,7 @@ export function useSwapBuildTx() {
         swapInfo,
         onSuccess: handleWrappedTxSuccess,
         onFail: handleTxFail,
+        onCancel: handleTxFail,
       });
     }
   }, [
@@ -196,6 +197,7 @@ export function useSwapBuildTx() {
           approveInfo,
           onSuccess: onApproveSuccess || handleApproveTxSuccess,
           onFail: handleTxFail,
+          onCancel: handleTxFail,
         });
       }
     },
@@ -283,6 +285,7 @@ export function useSwapBuildTx() {
           swapInfo,
           onSuccess: handleBuildTxSuccess,
           onFail: handleTxFail,
+          onCancel: handleTxFail,
         });
       } else {
         setSwapBuildTxFetching(false);
