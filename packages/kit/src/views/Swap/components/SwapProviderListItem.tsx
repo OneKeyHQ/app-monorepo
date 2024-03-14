@@ -32,12 +32,12 @@ const SwapProviderListItem = ({
     <ListItem.Text
       flex={1}
       primary={
-        <>
+        <XStack space="$1">
           <SizableText color="$text">
             {providerResult.info.providerName}
           </SizableText>
           {providerResult.allowanceResult ? <Icon name="LockOutline" /> : null}
-        </>
+        </XStack>
       }
       secondary={
         providerResult.fee.estimatedFeeFiatValue ? (
