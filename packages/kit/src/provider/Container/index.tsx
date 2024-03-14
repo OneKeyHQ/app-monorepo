@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
@@ -32,6 +33,38 @@ function ErrorToastContainer() {
   return null;
 }
 
+function FlipperPluginsContainer() {
+  console.log('FlipperPluginsContainer render');
+  const [, setRealmReady] = useState(false);
+  useEffect(() => {
+    if (global.$$realm) {
+      return;
+    }
+    const fn = () => {
+      console.log('FlipperPluginsContainer realm ready');
+      setRealmReady(true);
+    };
+    appEventBus.on(EAppEventBusNames.RealmInit, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RealmInit, fn);
+    };
+  }, []);
+  const realmPlugin = (() => {
+    if (process.env.NODE_ENV !== 'production') {
+      const realm = global.$$realm;
+      if (realm && platformEnv.isNative) {
+        console.log('render realm plugin');
+        const RealmFlipperPlugin = (
+          require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device/index.native')
+        ).default;
+        return <RealmFlipperPlugin realms={[global.$$realm]} />;
+      }
+    }
+    return null;
+  })();
+  return <>{realmPlugin}</>;
+}
+
 export function Container() {
   return (
     <RootSiblingParent>
@@ -43,6 +76,11 @@ export function Container() {
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <ErrorToastContainer />
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <FlipperPluginsContainer />
+            </>
+          ) : null}
         </NavigationContainer>
       </AppStateLockContainer>
     </RootSiblingParent>

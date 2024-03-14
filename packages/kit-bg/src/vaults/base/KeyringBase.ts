@@ -30,6 +30,12 @@ export abstract class KeyringBase extends VaultContext {
   constructor(vault: VaultBase) {
     super(vault.options);
     this.vault = vault;
+    if (this.vault.networkId !== vault.options.networkId) {
+      throw new Error('KeyringBase ERROR: networkId not match1');
+    }
+    if (this.networkId !== vault.options.networkId) {
+      throw new Error('KeyringBase ERROR: networkId not match2');
+    }
   }
 
   vault: VaultBase;

@@ -26,9 +26,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Nested SegWit',
-    desc: {
+    descI18n: {
       id: 'form__bitcoin__nested_segwit_desc',
-      placeholder: { 0: 'M' },
+      data: { 0: 'M' },
     },
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
   },
@@ -38,9 +38,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Native SegWit',
-    desc: {
+    descI18n: {
       id: 'form__bitcoin__native_segwit_desc',
-      placeholder: { 0: 'ltc1' },
+      data: { 0: 'ltc1' },
     },
     addressEncoding: EAddressEncodings.P2WPKH,
   },
@@ -50,7 +50,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Legacy',
-    desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'L' } },
+    descI18n: { id: 'form__bitcoin__legacy_desc', data: { 0: 'L' } },
     addressEncoding: EAddressEncodings.P2PKH,
   },
 };

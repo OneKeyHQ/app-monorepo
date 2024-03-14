@@ -14,7 +14,7 @@ const jsRules = {
   'react/jsx-props-no-spreading': 'off',
   'react/no-unused-prop-types': 'off',
   'react/no-unstable-nested-components': 'warn',
-  'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
     'warn',

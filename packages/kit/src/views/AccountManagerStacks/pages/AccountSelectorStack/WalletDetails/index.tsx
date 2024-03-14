@@ -43,11 +43,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { WalletDetailsHeader } from './WalletDetailsHeader';
@@ -106,21 +106,27 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           walletId: selectedAccount?.focusedWallet,
         });
         if (isHd || isHw) {
-          const wallet = await serviceAccount.getWallet({
-            walletId: selectedAccount?.focusedWallet,
-          });
-
-          let device: IDBDevice | undefined;
-          if (isHw) {
-            device = await serviceAccount.getWalletDevice({
+          try {
+            const wallet = await serviceAccount.getWallet({
               walletId: selectedAccount?.focusedWallet,
             });
-          }
 
-          return {
-            wallet,
-            device,
-          };
+            let device: IDBDevice | undefined;
+            if (isHw) {
+              device = await serviceAccount.getWalletDevice({
+                walletId: selectedAccount?.focusedWallet,
+              });
+            }
+
+            return {
+              wallet,
+              device,
+            };
+          } catch (error) {
+            // wallet may be removed
+            console.error(error);
+            return undefined;
+          }
         }
       },
       [selectedAccount?.focusedWallet, serviceAccount],
@@ -172,8 +178,10 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       await reloadAccounts();
     };
     appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
   }, [reloadAccounts]);
 

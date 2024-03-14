@@ -97,7 +97,7 @@ export type IDBWalletType =
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
-  nextIndex: number; // TODO optional
+  nextIndex: number; // TODO optional, merge with nextAccountIds
   // only for singleton wallet
   accounts: Array<string>;
   // only for singleton wallet
@@ -129,6 +129,7 @@ export type IDBCreateHWWalletParamsBase = {
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
+  hideCheckingDeviceLoading?: boolean;
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
@@ -140,8 +141,6 @@ export type IDBSetWalletNameAndAvatarParams = {
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
-  password: string;
-  isHardware: boolean;
 };
 export type IDBSetAccountNameParams = {
   accountId?: string;
@@ -443,6 +442,7 @@ export interface ILocalDBTxRemoveRecordsParams<T extends ELocalDBStoreNames> {
   name: T;
   recordPairs?: ILocalDBRecordPair<T>[];
   ids?: string[];
+  ignoreNotFound?: boolean;
 }
 
 export type ILocalDBRecordUpdater<T extends ELocalDBStoreNames> = <
