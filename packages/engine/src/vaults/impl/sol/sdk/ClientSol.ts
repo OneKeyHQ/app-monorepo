@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import BigNumber from 'bignumber.js';
+import { map, max } from 'lodash';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
@@ -24,8 +25,11 @@ export enum RPC_METHODS {
   GET_ACCOUNT_INFO = 'getAccountInfo',
   GET_TOKEN_ACCOUNTS_BY_OWNER = 'getTokenAccountsByOwner',
   GET_FEES = 'getFees',
+  GET_FEES_FOR_MESSAGE = 'getFeeForMessage',
+  GET_RECENT_PRIORITIZATION_FEES = 'getRecentPrioritizationFees',
   GET_TRANSACTION = 'getTransaction',
   GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION = 'getMinimumBalanceForRentExemption',
+  GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -212,6 +216,47 @@ export class ClientSol extends BaseClient {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const recentBlockhash = feeInfo.value.blockhash;
     return [feePerSig, recentBlockhash];
+  }
+
+  async getFeesForMessage(message: string) {
+    const resp = await this.rpc.call<{
+      value: number;
+    }>(RPC_METHODS.GET_FEES_FOR_MESSAGE, [
+      message,
+      {
+        commitment: 'confirmed',
+      },
+    ]);
+
+    return resp.value;
+  }
+
+  async getRecentPrioritizationFees(accountAddresses: string[]) {
+    const resp = await this.rpc.call<
+      { slot: number; prioritizationFee: number }[]
+    >(RPC_METHODS.GET_RECENT_PRIORITIZATION_FEES, [accountAddresses]);
+
+    return resp;
+  }
+
+  async getRecentMaxPrioritizationFees(accountAddress: string[]) {
+    const resp = await this.getRecentPrioritizationFees(accountAddress);
+    return max(map(resp, 'prioritizationFee')) || 0;
+  }
+
+  async getLatestBlockHash() {
+    const resp = await this.rpc.call<{
+      value: { blockhash: string; lastValidBlockHeight: number };
+    }>(RPC_METHODS.GET_LATEST_BLOCK_HASH, [
+      {
+        commitment: 'confirmed',
+      },
+    ]);
+
+    return {
+      blockhash: resp.value.blockhash,
+      lastValidBlockHeight: resp.value.lastValidBlockHeight,
+    };
   }
 
   async getTransactionStatuses(

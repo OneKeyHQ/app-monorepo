@@ -42,7 +42,7 @@ export async function parseTransactionGasPayment(params: {
     if (paymentObject.status !== 'VersionNotFound') {
       const regex = /<([^>]+)>/;
 
-      const match = paymentObject.details.type.match(regex);
+      const match = paymentObject.details.type?.match(regex);
 
       if (match) {
         const extracted = match[1];

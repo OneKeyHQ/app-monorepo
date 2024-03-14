@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
@@ -163,7 +164,6 @@ export function useFeeInfoPayload({
             gasPrice,
           } = encodedTx as IEncodedTxEvm;
           const limit = gasLimit || gas;
-
           if (maxFeePerGas && maxPriorityFeePerGas) {
             const price1559 = {
               baseFee: new BigNumber(gasPrice ?? 0)
@@ -177,22 +177,38 @@ export function useFeeInfoPayload({
                 .toFixed(),
             };
             info.eip1559 = true;
-            info.limit = limit;
+            info.limit = limit || info.limit;
             info.prices = [price1559];
             info.tx = {
               eip1559: true,
               limit,
               price1559,
             };
-          } else {
+          } else if (gasPrice) {
             const price = new BigNumber(gasPrice ?? 0)
               .shiftedBy(-(feeDecimals ?? 0))
               .toFixed();
-            info.limit = limit;
+            info.limit = limit || info.limit;
             info.prices = [price];
             info.tx = {
               limit,
               price,
+            };
+          } else if (limit) {
+            info.tx = {
+              limit,
+              eip1559: info.eip1559,
+              ...(info.eip1559
+                ? {
+                    price1559: info.prices[
+                      Number(info.defaultPresetIndex)
+                    ] as EIP1559Fee,
+                  }
+                : {
+                    price: info.prices[
+                      Number(info.defaultPresetIndex)
+                    ] as string,
+                  }),
             };
           }
         }
