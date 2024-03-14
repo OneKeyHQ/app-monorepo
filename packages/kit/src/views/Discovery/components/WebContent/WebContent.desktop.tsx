@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import { webviewRefs } from '../../utils/explorerUtils';
-import PhishingView from '../PhishingView';
+import BlockAccessView from '../BlockAccessView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
@@ -29,10 +29,10 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
-  const [showPhishingView, setShowPhishingView] = useState(false);
+  const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
-  const { onNavigation, addUrlToPhishingCache } = useBrowserAction().current;
+  const { onNavigation } = useBrowserAction().current;
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
     const webviewRef = ref.innerRef as IElectronWebView;
@@ -67,7 +67,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);
-            setShowPhishingView(true);
+            setShowBlockAccessView(true);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -154,27 +154,27 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     ],
   );
 
-  const phishingView = useMemo(
+  const blockAccessView = useMemo(
     () => (
-      <PhishingView
+      <BlockAccessView
         onCloseTab={() => {
           closeWebTab(id);
           setCurrentWebTab(null);
           navigation.switchTab(ETabRoutes.Discovery);
         }}
-        onContinue={() => {
-          addUrlToPhishingCache({ url: phishingUrlRef.current });
-          setShowPhishingView(false);
-        }}
+        // onContinue={() => {
+        //   addUrlToPhishingCache({ url: phishingUrlRef.current });
+        //   setShowPhishingView(false);
+        // }}
       />
     ),
-    [closeWebTab, setCurrentWebTab, addUrlToPhishingCache, id, navigation],
+    [closeWebTab, setCurrentWebTab, id, navigation],
   );
 
   return (
     <>
       {webview}
-      {showPhishingView && phishingView}
+      {showBlockAccessView && blockAccessView}
     </>
   );
 }
