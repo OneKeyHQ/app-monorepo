@@ -77,10 +77,11 @@ export async function prepareSendConfirmEncodedTx({
     // routeParams is not editable, so should create new one
     let tx = { ...encodedTxEvm };
     tx.from = tx.from || address;
-    // remove gas price if encodedTx build by DAPP
-    if (sendConfirmParams.sourceInfo) {
-      tx = removeFeeInfoInTx(tx);
-    }
+    // keep gas price if encodedTx build by DAPP
+
+    // if (sendConfirmParams.sourceInfo) {
+    //   tx = removeFeeInfoInTx(tx);
+    // }
 
     // Ensure IEncodedTxEvm's value is hex string.
     if (tx.value && tx.value.startsWith && !tx.value.startsWith('0x')) {
