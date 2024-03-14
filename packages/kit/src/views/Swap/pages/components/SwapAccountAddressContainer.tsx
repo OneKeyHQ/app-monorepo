@@ -12,10 +12,13 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalSwapRoutes,
+  type IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
-import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { getShortAddress } from '../../utils/utils';
 
 interface ISwapAccountAddressContainerProps {

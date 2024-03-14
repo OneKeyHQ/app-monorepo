@@ -28,17 +28,15 @@ import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
 
-import type { CancelTokenSource } from 'axios';
-
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _quoteCancelSource?: CancelTokenSource;
+  private _quoteAbortController?: AbortController;
 
   // --------------------- fetch
   @backgroundMethod()
-  async cancelQuoteFetchQuotes() {
-    if (this._quoteCancelSource) {
-      this._quoteCancelSource.cancel('quote request canceled');
+  async cancelFetchQuotes() {
+    if (this._quoteAbortController) {
+      this._quoteAbortController.abort();
     }
   }
 
@@ -54,15 +52,12 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/networks',
         { params },
       );
-      if (data?.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+      return data.data ?? [];
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return [];
     }
-    return [];
   }
 
   @backgroundMethod()
@@ -104,15 +99,13 @@ export default class ServiceSwap extends ServiceBase {
       >('/swap/v1/tokens', {
         params,
       });
-      if (data?.data) {
-        return { result: data.data.data, next: data.data.next };
-      }
-      Toast.error({ title: 'error', message: data?.message });
+
+      return { result: data?.data?.data ?? [], next: data?.data?.next };
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return { result: [], next: undefined };
     }
-    return { result: [], next: undefined };
   }
 
   @backgroundMethod()
@@ -139,15 +132,12 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/token/detail',
         { params },
       );
-      if (data?.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+      return data?.data;
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return undefined;
     }
-    return undefined;
   }
 
   @backgroundMethod()
@@ -164,8 +154,8 @@ export default class ServiceSwap extends ServiceBase {
     userAddress?: string;
     slippagePercentage: number;
   }): Promise<IFetchQuoteResult[]> {
-    if (this._quoteCancelSource) {
-      this._quoteCancelSource.cancel('quote request canceled');
+    if (this._quoteAbortController) {
+      this._quoteAbortController.abort();
     }
     const fromProvidersArr = fromToken.providers.split(',');
     const toProvidersArr = toToken.providers.split(',');
@@ -194,7 +184,7 @@ export default class ServiceSwap extends ServiceBase {
       userAddress,
       slippagePercentage,
     };
-    this._quoteCancelSource = axios.CancelToken.source();
+    this._quoteAbortController = new AbortController();
     const endpoints = await getEndpoints();
     const fetchUrl = '/swap/v1/quote';
     try {
@@ -202,24 +192,21 @@ export default class ServiceSwap extends ServiceBase {
         fetchUrl,
         {
           params,
-          cancelToken: this._quoteCancelSource.token,
+          signal: this._quoteAbortController.signal,
           baseURL: endpoints.http,
         },
       );
-      this._quoteCancelSource = undefined;
-      if (data.code === 0 && data.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+      this._quoteAbortController = undefined;
+      return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
         throw new Error('cancel');
       } else {
         const error = e as { message: string };
         Toast.error({ title: 'error', message: error?.message });
+        return [];
       }
     }
-    return [];
   }
 
   @backgroundMethod()
@@ -265,15 +252,12 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/build-tx',
         { params },
       );
-      if (data?.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+      return data?.data;
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return undefined;
     }
-    return undefined;
   }
 
   @backgroundMethod()
@@ -308,15 +292,12 @@ export default class ServiceSwap extends ServiceBase {
       const { data } = await client.post<
         IFetchResponse<IFetchSwapTxHistoryStatusResponse>
       >('/swap/v1/state-tx', params);
-      if (data?.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+      return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return { state: ESwapTxHistoryStatus.PENDING };
     }
-    return { state: ESwapTxHistoryStatus.PENDING };
   }
 
   @backgroundMethod()
@@ -343,14 +324,12 @@ export default class ServiceSwap extends ServiceBase {
         '/swap/v1/allowance',
         { params },
       );
-      if (data?.data) {
-        return data.data;
-      }
-      Toast.error({ title: 'error', message: data?.message });
+
+      return data?.data;
     } catch (e) {
       const error = e as { message: string };
       Toast.error({ title: 'error', message: error?.message });
+      return undefined;
     }
-    return undefined;
   }
 }

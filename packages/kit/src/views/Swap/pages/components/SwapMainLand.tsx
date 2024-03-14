@@ -4,11 +4,14 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalSwapRoutes,
+  type IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
-import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';

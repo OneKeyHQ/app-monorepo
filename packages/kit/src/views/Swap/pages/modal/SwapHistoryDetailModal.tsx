@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import * as Clipboard from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,12 +12,16 @@ import {
   Page,
   SizableText,
   Stack,
-  Toast,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -31,7 +34,6 @@ import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapHistoryDetailModal = () => {
@@ -50,10 +52,14 @@ const SwapHistoryDetailModal = () => {
   //   swapAgainUseHistoryItem(txHistory);
   //   navigation.popStack();
   // }, [navigation, swapAgainUseHistoryItem, txHistory]);
-  const onCopy = useCallback(async (copyText: string) => {
-    await Clipboard.setStringAsync(copyText);
-    Toast.success({ title: 'success', message: 'copied' });
-  }, []);
+
+  const { copyText } = useClipboard();
+  const onCopy = useCallback(
+    async (text: string) => {
+      copyText(text, 'msg__success');
+    },
+    [copyText],
+  );
   const onViewInBrowser = useCallback((url: string) => {
     openUrl(url);
   }, []);
@@ -198,7 +204,6 @@ const SwapHistoryDetailModal = () => {
       txHistory.swapInfo.provider.providerLogo,
     ],
   );
-  console.log('txHistory', txHistory);
   const renderSwapHistoryDetails = useCallback(() => {
     if (!txHistory) {
       return null;

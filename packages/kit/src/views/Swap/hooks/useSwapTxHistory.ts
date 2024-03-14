@@ -1,14 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
-import * as Clipboard from 'expo-clipboard';
 import { debounce } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import Share from '@onekeyhq/shared/src/modules3rdParty/react-native-share';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EExchangeProtocol,
   ESwapTxHistoryStatus,
@@ -19,7 +12,6 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useFormatDate from '../../../hooks/useFormatDate';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ETabRoutes } from '../../../routes/Tab/type';
@@ -32,8 +24,6 @@ import {
   useSwapTxHistoryAtom,
   useSwapTxHistoryPendingAtom,
 } from '../../../states/jotai/contexts/swap';
-
-import type ViewShot from 'react-native-view-shot';
 
 export function useSwapTxHistoryListSyncFromSimpleDb() {
   const [, setSwapHistory] = useSwapTxHistoryAtom();
@@ -211,144 +201,4 @@ export function useSwapTxHistoryActions() {
     [setFromToken, setFromTokenAmount, setToken],
   );
   return { generateSwapHistoryItem, swapAgainUseHistoryItem };
-}
-
-export function useSwapTxHistoryDetailParser(item: ISwapTxHistory) {
-  const intl = useIntl();
-  const { formatDate } = useFormatDate();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-  const statusLabel = useMemo(() => {
-    if (item?.status === ESwapTxHistoryStatus.FAILED) {
-      return intl.formatMessage({ id: 'transaction__failed' });
-    }
-    if (item?.status === ESwapTxHistoryStatus.SUCCESS) {
-      return intl.formatMessage({ id: 'transaction__success' });
-    }
-    return intl.formatMessage({ id: 'transaction__pending' });
-  }, [intl, item?.status]);
-
-  const usedTime = useMemo(() => {
-    if (!item || item?.status === ESwapTxHistoryStatus.PENDING) {
-      return '';
-    }
-    const { created, updated } = item.date;
-    const usedTimeMinusRes = new BigNumber(updated)
-      .minus(new BigNumber(created))
-      .dividedBy(1000)
-      .dividedBy(60)
-      .decimalPlaces(0, BigNumber.ROUND_UP)
-      .toFixed(0);
-    return `${usedTimeMinusRes} minutes used`;
-  }, [item]);
-
-  const createDateTime = useMemo(() => {
-    const date = new Date(item?.date.created);
-    return formatDate(date);
-  }, [formatDate, item?.date.created]);
-
-  const updateDateTime = useMemo(() => {
-    const date = new Date(item?.date.updated);
-    return formatDate(date);
-  }, [formatDate, item?.date.updated]);
-
-  const networkFee = useMemo(() => {
-    const gasFeeInNativeParse = new BigNumber(item?.txInfo?.gasFeeInNative ?? 0)
-      .decimalPlaces(6, BigNumber.ROUND_DOWN)
-      .toFixed();
-    const gasFeeFiatValueParse = new BigNumber(
-      item?.txInfo?.gasFeeFiatValue ?? 0,
-    )
-      .decimalPlaces(6, BigNumber.ROUND_DOWN)
-      .toFixed();
-    const gasFeeInNativeDisplay = gasFeeInNativeParse
-      ? `${gasFeeInNativeParse} ${item?.baseInfo.fromNetwork?.symbol ?? ''}`
-      : '';
-    const gasFeeFiatValueDisplay = gasFeeFiatValueParse
-      ? `(${settingsPersistAtom.currencyInfo.symbol}${gasFeeFiatValueParse})`
-      : '';
-    return { gasFeeFiatValueDisplay, gasFeeInNativeDisplay };
-  }, [
-    item?.baseInfo.fromNetwork?.symbol,
-    item?.txInfo?.gasFeeFiatValue,
-    item?.txInfo?.gasFeeInNative,
-    settingsPersistAtom.currencyInfo.symbol,
-  ]);
-
-  // todo protocolFee currency symbol
-  const protocolFee = useMemo(
-    () => (item?.swapInfo?.protocolFee ? `$${item?.swapInfo.protocolFee}` : ''),
-    [item?.swapInfo.protocolFee],
-  );
-
-  const oneKeyFee = useMemo(
-    () => (item?.swapInfo.oneKeyFee ? `${item?.swapInfo.oneKeyFee}%` : ''),
-    [item?.swapInfo.oneKeyFee],
-  );
-
-  const onCopyDetailInfo = useCallback(async () => {
-    const detailInfo = `${statusLabel}\n${usedTime}\n${
-      item?.baseInfo.fromAmount
-    }${item?.baseInfo.fromToken.symbol}(${
-      item?.baseInfo.fromNetwork?.name ?? '-'
-    })\n${item?.baseInfo.toAmount}${item?.baseInfo.toToken.symbol}(${
-      item?.baseInfo.toNetwork?.name ?? '-'
-    })\nON-CHAIN INFO\n${intl.formatMessage({ id: 'action__send' })} ${
-      item?.txInfo.sender
-    }\n${intl.formatMessage({ id: 'action__receive' })} ${
-      item?.txInfo.receiver
-    }\n${intl.formatMessage({ id: 'content__hash' })} ${
-      item?.txInfo.txId
-    }\n${intl.formatMessage({
-      id: 'form__network_fee',
-    })} ${networkFee.gasFeeInNativeDisplay} ${
-      networkFee.gasFeeFiatValueDisplay
-    }\nSWAP INFO\n${intl.formatMessage({
-      id: 'form__rate',
-    })} 1 ${item?.baseInfo.fromToken.symbol} = ${item?.swapInfo.instantRate} ${
-      item?.baseInfo.toToken.symbol
-    }\nProvider ${
-      item?.swapInfo.provider.providerName
-    }\nProtocol Fee ${protocolFee}\nOneKey Fee ${oneKeyFee}\nCreated ${createDateTime}\nUpdated ${updateDateTime}`;
-    await Clipboard.setStringAsync(detailInfo);
-    Toast.success({ title: 'sucess', message: 'copy success' });
-  }, [
-    statusLabel,
-    item,
-    intl,
-    usedTime,
-    createDateTime,
-    updateDateTime,
-    oneKeyFee,
-    networkFee,
-    protocolFee,
-  ]);
-  return {
-    statusLabel,
-    usedTime,
-    onCopyDetailInfo,
-    createDateTime,
-    updateDateTime,
-    networkFee,
-    protocolFee,
-    oneKeyFee,
-  };
-}
-
-export function useSwapTxHistoryShare() {
-  const captureViewRef = useRef<ViewShot>(null);
-  const enableShare = useMemo(() => platformEnv.isNative, []);
-  const onShare = useCallback(async () => {
-    if (captureViewRef.current) {
-      const uri = await captureViewRef.current.capture?.();
-      // todo share
-      if (uri && enableShare) {
-        // Sharing.shareAsync(`file://${uri}`);
-        await Share.open({ url: uri });
-      }
-      // Sharing.shareAsync(`file://${uri}`, options);
-      Toast.success({ title: 'sucess', message: 'copy success' });
-    }
-  }, [enableShare]);
-
-  return { onShare, captureViewRef, enableShare };
 }

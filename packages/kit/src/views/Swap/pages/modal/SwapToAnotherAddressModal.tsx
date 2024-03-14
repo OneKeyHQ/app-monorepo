@@ -6,24 +6,27 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Form, Page, useForm } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
+import {
+  AddressInput,
+  allAddressInputPlugins,
+} from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { EModalSwapRoutes, IModalSwapParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
-import {
-  AddressInput,
-  IAddressInputValue,
-  allAddressInputPlugins,
-} from '@onekeyhq/kit/src/components/AddressInput';
 
 interface IFormType {
   address: IAddressInputValue;

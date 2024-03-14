@@ -13,7 +13,6 @@ import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTok
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
-import type { SimpleDbEntitySwapSlippage } from '../entity/simpleDbEntitySwapSlippage';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -60,10 +59,6 @@ export class SimpleDbProxy
   swapHistory = this._createProxyService(
     'swapHistory',
   ) as SimpleDbEntitySwapHistory;
-
-  swapSlippage = this._createProxyService(
-    'swapSlipage',
-  ) as SimpleDbEntitySwapSlippage;
 
   localTokens = this._createProxyService(
     'localTokens',

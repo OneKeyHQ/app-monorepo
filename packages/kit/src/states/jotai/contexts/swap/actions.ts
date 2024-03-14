@@ -270,7 +270,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         );
       }, swapQuoteFetchInterval);
     } else {
-      await backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
+      await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
       set(swapQuoteFetchingAtom(), false);
       set(swapQuoteListAtom(), []);
     }
@@ -280,7 +280,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (this.quoteInterval) {
       clearInterval(this.quoteInterval);
     }
-    void backgroundApiProxy.serviceSwap.cancelQuoteFetchQuotes();
+    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
   };
 
   approvingStateRunSync = contextAtomMethod(

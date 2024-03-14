@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Button, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapTxHistoryStatusItemProps {

@@ -17,12 +17,15 @@ import {
   useSwapTxHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  EModalSwapRoutes,
+  type IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
+import {
   ESwapTxHistoryStatus,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { EModalSwapRoutes, type IModalSwapParamList } from '../../router/types';
 import { withSwapProvider } from '../WithSwapProvider';
 
 interface ISectionData {

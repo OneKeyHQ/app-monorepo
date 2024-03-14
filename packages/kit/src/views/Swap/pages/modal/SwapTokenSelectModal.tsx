@@ -29,6 +29,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   swapNetworksCommonCount,
@@ -42,11 +44,9 @@ import {
 
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { EModalSwapRoutes } from '../../router/types';
 import { getShortAddress } from '../../utils/utils';
 import { withSwapProvider } from '../WithSwapProvider';
 
-import type { IModalSwapParamList } from '../../router/types';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapTokenSelectPage = () => {

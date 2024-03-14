@@ -10,6 +10,8 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import {
   ESwapAlertLevel,
   ESwapDirectionType,
@@ -30,11 +32,8 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
-import { EModalSwapRoutes } from '../router/types';
 
 import { useSwapAddressInfo } from './uswSwapAccount';
-
-import type { IModalSwapParamList } from '../router/types';
 
 function useSwapWarningCheck() {
   const navigation =

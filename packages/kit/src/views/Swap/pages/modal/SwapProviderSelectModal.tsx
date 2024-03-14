@@ -9,12 +9,11 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
 import { withSwapProvider } from '../WithSwapProvider';
-
-import type { IModalSwapParamList } from '../../router/types';
 
 const SwapProviderSelectModal = () => {
   const navigation =
