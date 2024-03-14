@@ -11,7 +11,7 @@ import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
+import { useSelectionColor, useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
@@ -145,7 +145,8 @@ function BaseInput(
       inputRef.current?.measure(callback),
   }));
 
-  const selectionColor = useThemeValue('bgPrimary');
+  const selectionColor = useSelectionColor();
+
   return (
     <Group
       orientation="horizontal"
