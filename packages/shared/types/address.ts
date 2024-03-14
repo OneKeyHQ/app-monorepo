@@ -48,3 +48,8 @@ export type INetworkAccountAddressDetail = {
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
 };
+
+export type IAddressInteractionStatus =
+  | 'interacted'
+  | 'not-interacted'
+  | 'unknown';

@@ -466,7 +466,7 @@ function SendDataInputContainer() {
               networkId={networkId}
               enableAddressBook
               enableWalletName
-              enableFirstTransferCheck
+              enableAddressInteractionStatus
               plugins={allAddressInputPlugins}
             />
           </Form.Field>

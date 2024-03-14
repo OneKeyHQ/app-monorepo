@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
+  IAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
 } from '@onekeyhq/shared/types/address';
@@ -23,7 +24,7 @@ type IQueryAddressArgs = {
   enableNameResolve?: boolean;
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
-  enableFirstTransferCheck?: boolean;
+  enableAddressInteractionStatus?: boolean;
 };
 
 @backgroundClass()
@@ -63,7 +64,7 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
-  private async isFirstTransfer({
+  private async getAddressInteractionStatus({
     networkId,
     fromAddress,
     toAddress,
@@ -71,7 +72,7 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     fromAddress: string;
     toAddress: string;
-  }): Promise<boolean> {
+  }): Promise<IAddressInteractionStatus> {
     try {
       const client = await this.getClient();
       const resp = await client.get<{
@@ -85,14 +86,14 @@ class ServiceAccountProfile extends ServiceBase {
           toAccountAddress: toAddress,
         },
       });
-      return !resp.data.data.interacted;
+      return resp.data.data.interacted ? 'interacted' : 'not-interacted';
     } catch {
-      return false;
+      return 'unknown';
     }
   }
 
   @backgroundMethod()
-  private async accountIsFirstTransferTo({
+  private async checkAccountInteractionStatus({
     networkId,
     accountId,
     toAddress,
@@ -100,12 +101,12 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     accountId: string;
     toAddress: string;
-  }): Promise<boolean> {
+  }): Promise<IAddressInteractionStatus> {
     const acc = await this.backgroundApi.serviceAccount.getAccount({
       networkId,
       accountId,
     });
-    return this.isFirstTransfer({
+    return this.getAddressInteractionStatus({
       networkId,
       fromAddress: acc.address,
       toAddress,
@@ -120,7 +121,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
-    enableFirstTransferCheck,
+    enableAddressInteractionStatus,
   }: IQueryAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
@@ -159,13 +160,13 @@ class ServiceAccountProfile extends ServiceBase {
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
       }
     }
-    if (enableFirstTransferCheck && resolveAddress && accountId) {
-      const isFirstTransfer = await this.accountIsFirstTransferTo({
-        networkId,
-        accountId,
-        toAddress: resolveAddress,
-      });
-      result.isFirstTransfer = isFirstTransfer;
+    if (enableAddressInteractionStatus && resolveAddress && accountId) {
+      result.addressInteractionStatus =
+        await this.checkAccountInteractionStatus({
+          networkId,
+          accountId,
+          toAddress: resolveAddress,
+        });
     }
     return result;
   }

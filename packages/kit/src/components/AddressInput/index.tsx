@@ -29,6 +29,7 @@ import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
 import { BaseInput } from '../BaseInput';
 
@@ -162,6 +163,30 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   );
 };
 
+type IAddressInteractionStatusProps = {
+  status?: IAddressInteractionStatus;
+};
+
+const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
+  status,
+}) => {
+  if (status === 'not-interacted') {
+    return (
+      <Badge badgeType="warning" badgeSize="sm">
+        First Transfer
+      </Badge>
+    );
+  }
+  if (status === 'unknown') {
+    return (
+      <Badge badgeType="warning" badgeSize="sm">
+        Unknown
+      </Badge>
+    );
+  }
+  return null;
+};
+
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
@@ -184,7 +209,7 @@ type IAddressInputProps = Omit<
   enableWalletName?: boolean;
   //
   accountId?: string;
-  enableFirstTransferCheck?: boolean;
+  enableAddressInteractionStatus?: boolean;
 };
 
 export type IAddressQueryResult = {
@@ -194,7 +219,7 @@ export type IAddressQueryResult = {
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
-  isFirstTransfer?: boolean;
+  addressInteractionStatus?: IAddressInteractionStatus;
 };
 
 const defaultAddressInputPlugins: IAddressPluginsOptions = {
@@ -222,7 +247,7 @@ function AddressInput(props: IAddressInputProps) {
     enableAddressBook,
     enableWalletName,
     accountId,
-    enableFirstTransferCheck,
+    enableAddressInteractionStatus,
     ...rest
   } = props;
   const intl = useIntl();
@@ -239,11 +264,14 @@ function AddressInput(props: IAddressInputProps) {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
   }, []);
 
-  const onChangeText = useCallback((text: string) => {
-    textRef.current = text;
-    setInputText(text);
-    onChange?.({ raw: text, pending: true });
-  }, []);
+  const onChangeText = useCallback(
+    (text: string) => {
+      textRef.current = text;
+      setInputText(text);
+      onChange?.({ raw: text, pending: true });
+    },
+    [onChange],
+  );
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
@@ -267,7 +295,7 @@ function AddressInput(props: IAddressInputProps) {
             enableNameResolve,
             enableAddressBook,
             enableWalletName,
-            enableFirstTransferCheck,
+            enableAddressInteractionStatus,
           });
         if (result.input === textRef.current) {
           setQueryResult(result);
@@ -284,7 +312,7 @@ function AddressInput(props: IAddressInputProps) {
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
-    enableFirstTransferCheck,
+    enableAddressInteractionStatus,
   ]);
 
   useEffect(() => {
@@ -335,11 +363,9 @@ function AddressInput(props: IAddressInputProps) {
                   onChange={setResolveAddress}
                 />
               ) : null}
-              {queryResult.isFirstTransfer ? (
-                <Badge badgeType="warning" badgeSize="sm">
-                  First Transfer
-                </Badge>
-              ) : null}
+              <AddressInteractionStatus
+                status={queryResult.addressInteractionStatus}
+              />
             </XStack>
           )}
         </XStack>
@@ -372,7 +398,7 @@ function AddressInput(props: IAddressInputProps) {
       plugins.clipboard,
       plugins.contacts,
       plugins.scan,
-      queryResult.isFirstTransfer,
+      queryResult.addressInteractionStatus,
       queryResult.resolveAddress,
       queryResult.resolveOptions,
       queryResult.walletAccountName,
