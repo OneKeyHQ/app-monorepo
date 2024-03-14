@@ -5,8 +5,13 @@ import { useIntl } from 'react-intl';
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
-import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAddressBookPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AddressBookItem = () => {
   const pick = useAddressBookList();
@@ -45,28 +50,45 @@ const AddressBookItem = () => {
   );
 };
 
-export const DefaultSection = () => {
+const LockNowButton = () => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const [passwordSetting] = usePasswordPersistAtom();
+  const onLock = useCallback(async () => {
+    if (passwordSetting.isPasswordSet) {
+      await backgroundApiProxy.servicePassword.lockApp();
+    } else {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
+    }
+    navigation.popStack();
+  }, [passwordSetting.isPasswordSet, navigation]);
   return (
-    <YStack>
-      <ListItem
-        icon="LockOutline"
-        title={intl.formatMessage({ id: 'action__lock_now' })}
-        onPress={() => backgroundApiProxy.servicePassword.lockApp()}
-      />
-      <AddressBookItem />
-      <ListItem
-        icon="RepeatOutline"
-        title="Migration"
-        drillIn
-        onPress={() => {}}
-      />
+    <ListItem
+      icon="LockOutline"
+      title={intl.formatMessage({ id: 'action__lock_now' })}
+      onPress={onLock}
+    />
+  );
+};
+
+export const DefaultSection = () => (
+  <YStack>
+    <LockNowButton />
+    <AddressBookItem />
+    <ListItem
+      icon="RepeatOutline"
+      title="Migration"
+      drillIn
+      onPress={() => {}}
+    />
+    {platformEnv.isNative ? (
       <ListItem
         icon="OnekeyLiteOutline"
         title="OneKey Lite"
         drillIn
         onPress={() => {}}
-      />
+      />): null}
       <ListItem
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
@@ -75,4 +97,4 @@ export const DefaultSection = () => {
       />
     </YStack>
   );
-};
+;
