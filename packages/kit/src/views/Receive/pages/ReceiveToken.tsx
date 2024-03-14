@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -19,14 +20,37 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type {
+  EModalReceiveRoutes,
+  IModalReceiveParamList,
+} from '@onekeyhq/shared/src/routes';
+
+import { useAccountData } from '../../../hooks/useAccountData';
+
+import type { RouteProp } from '@react-navigation/core';
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 
 type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
 function ReceiveToken() {
+  const route =
+    useRoute<
+      RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
+    >();
+
+  const { networkId, accountId, walletId } = route.params;
+
+  const { account, network, wallet } = useAccountData({
+    accountId,
+    networkId,
+    walletId,
+  });
+
   const [chain] = useState('Bitcoin');
   const [addressType] = useState('Nested SegWit');
-  const [isHardwareWallet] = useState(true);
   const [addressState, setAddressState] = useState<IAddressState>('unverified');
+
+  const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
 
   const isShowAddress =
     !isHardwareWallet ||
@@ -106,9 +130,9 @@ function ReceiveToken() {
             borderCurve="continuous"
           >
             <QRCode
-              value="https://onekey.so/"
+              value={account?.address}
               logo={{
-                uri: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/btc.png',
+                uri: network?.logoURI,
               }}
               size={240}
             />
