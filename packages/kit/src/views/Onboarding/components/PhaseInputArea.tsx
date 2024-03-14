@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ComponentType, PropsWithChildren, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -44,6 +44,16 @@ import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
+
+const KeyDownView = View as unknown as ComponentType<
+  PropsWithChildren<{
+    onKeyDown: (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => void;
+  }>
+>;
 
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
@@ -361,14 +371,14 @@ function BasicPhaseInput(
       onOpenChange={handleOpenChange}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <View onKeyDown={handleSelectSuggestionByNumber}>
+        <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
           <SuggestionList
             firstButtonRef={firstButtonRef}
             suggestions={suggestions}
             onPressItem={updateInputValue}
             isFocusable={tabFocusable}
           />
-        </View>
+        </KeyDownView>
       }
       renderTrigger={
         <Stack>
