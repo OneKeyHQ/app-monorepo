@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { Suspense, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { AuthenticationType } from 'expo-local-authentication';
 
 import { Dialog } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -10,21 +11,22 @@ import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/Bio
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EDAppConnectionModal } from '@onekeyhq/kit/src/views/DAppConnection/router/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSettingRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { useOptions } from '../../AppAutoLock/useOptions';
 import { Section } from '../Section';
 
 import { CleanDataItem } from './CleanDataItem';
-
-import type { IModalSettingParamList } from '../../../router/types';
 
 const AppAutoLockItem = () => {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
@@ -106,8 +108,9 @@ const FaceIdItem = () => {
 
   let title = intl.formatMessage({ id: 'form__touch_id' });
   let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
+
   if (biologyAuthIsSupport) {
-    if (authType.includes(2)) {
+    if (authType.includes(AuthenticationType.FACIAL_RECOGNITION)) {
       title = intl.formatMessage({ id: 'content__face_id' });
       icon = 'FaceIdSolid';
     }

@@ -5,18 +5,16 @@ import { useIntl } from 'react-intl';
 import type { ISelectItem } from '@onekeyhq/components';
 import { Select, XStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import type { ILocaleSymbol } from '@onekeyhq/components/src/locale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { EModalSettingRoutes } from '@onekeyhq/kit/src/views/Setting/router/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useLocaleOptions } from '../../../hooks';
 import { Section } from '../Section';
-
-import type { IModalSettingParamList } from '../../../router/types';
 
 type IThemeValue = 'light' | 'dark' | 'system';
 
@@ -104,9 +102,7 @@ const CurrencyListItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingCurrencyModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingCurrencyModal);
   }, [navigation]);
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();

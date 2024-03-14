@@ -4,7 +4,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
@@ -22,10 +22,10 @@ function ImportAddress() {
 
   return (
     <Page>
-      <Page.Header title="Import Address" />
+      <Page.Header title="Add to Watchlist" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Chain" name="networkId">
+          <Form.Field label="Network" name="networkId">
             <ControlledNetworkSelectorTrigger />
           </Form.Field>
           <Form.Field label="Address" name="input">

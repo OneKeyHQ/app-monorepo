@@ -19,8 +19,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
-import { ETestModalPages } from '@onekeyhq/kit/src/views/TestModal/router/type';
+import { EModalRoutes, ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 import { EGalleryRoutes } from '../../../routes';
 

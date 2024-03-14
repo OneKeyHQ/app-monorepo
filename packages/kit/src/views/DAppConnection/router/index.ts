@@ -1,11 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
+import { EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-import { EDAppConnectionModal } from './type';
-
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 const ConnectionList = LazyLoadPage(() => import('../pages/ConnectionList'));
 
@@ -22,23 +19,6 @@ const SignMessageModal = LazyLoadPage(
 const WalletConnectSessionProposalModal = LazyLoadPage(
   () => import('../pages/WalletConnect/WCSessionProposalModal'),
 );
-
-export type IDAppConnectionModalParamList = {
-  [EDAppConnectionModal.ConnectionModal]: undefined;
-  [EDAppConnectionModal.ConnectionList]: undefined;
-  [EDAppConnectionModal.WalletConnectSessionProposalModal]: {
-    proposal: Web3WalletTypes.SessionProposal;
-  };
-  [EDAppConnectionModal.SignMessageModal]: {
-    unsignedMessage: IUnsignedMessage;
-    accountId: string;
-    networkId: string;
-  };
-  [EDAppConnectionModal.CurrentConnectionModal]: {
-    origin: string;
-    faviconUrl: string;
-  };
-};
 
 export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   EDAppConnectionModal,

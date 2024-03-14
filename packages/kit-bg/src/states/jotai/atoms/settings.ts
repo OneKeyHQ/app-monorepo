@@ -1,4 +1,4 @@
-import type { ILocaleSymbol } from '@onekeyhq/components';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 

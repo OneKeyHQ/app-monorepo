@@ -3,12 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Freeze } from 'react-freeze';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalRoutes } from '@onekeyhq/kit/src/routes/Modal/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { EDiscoveryModalRoutes } from '@onekeyhq/kit/src/views/Discovery/router/Routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import DesktopBrowserInfoBar from '../../components/DesktopBrowser/DesktopBrowserInfoBar';
 import {

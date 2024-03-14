@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "_folderslint": "yarn folderslint",
-    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
+    "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
+    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
   },
   "author": "",
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",

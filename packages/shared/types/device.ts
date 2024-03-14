@@ -1,5 +1,5 @@
-import type { ILocaleSymbol } from '@onekeyhq/components';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
 import type { IOneKeyDeviceType } from '.';
 import type {

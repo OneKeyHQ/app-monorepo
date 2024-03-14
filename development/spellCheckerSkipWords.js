@@ -639,4 +639,8 @@ module.exports = [
   'Accum',
   'coinselect',
   'fav',
+  'nfc',
+  'vsize',
+  'consts',
+  'Consts',
 ];

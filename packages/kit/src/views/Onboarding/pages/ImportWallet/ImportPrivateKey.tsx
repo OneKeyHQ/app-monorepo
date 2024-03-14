@@ -1,15 +1,16 @@
-import { Form, Input, Page, useForm } from '@onekeyhq/components';
+import { Form, Input, Page, useForm, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { WALLET_TYPE_IMPORTED } from '@onekeyhq/kit-bg/src/dbs/local/consts';
+import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
 
 export function ImportPrivateKey() {
+  const media = useMedia();
   const form = useForm();
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -19,11 +20,21 @@ export function ImportPrivateKey() {
       <Page.Header title="Import Private Key" />
       <Page.Body px="$5">
         <Form form={form}>
-          <Form.Field label="Chain" name="networkId">
+          <Form.Field label="Network" name="networkId">
             <ControlledNetworkSelectorTrigger />
           </Form.Field>
           <Form.Field label="Private Key" name="input">
-            <Input placeholder="Enter your private key" size="large" />
+            <Input
+              secureTextEntry
+              placeholder="Enter your private key"
+              size={media.gtMd ? 'medium' : 'large'}
+              addOns={[
+                {
+                  iconName: 'ScanOutline',
+                  onPress: () => console.log('scan'),
+                },
+              ]}
+            />
           </Form.Field>
         </Form>
         <Tutorials

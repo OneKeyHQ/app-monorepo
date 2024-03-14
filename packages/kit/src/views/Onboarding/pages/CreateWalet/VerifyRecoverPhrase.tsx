@@ -6,19 +6,11 @@ import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
-import { EOnboardingPages } from '../../router/type';
 
-import type { IOnboardingParamList } from '../../router/type';
-
-const tutorials = [
-  {
-    title: "Why can't I type full words?",
-    description:
-      'Full word typing is off to block keyloggers. Pick words from our suggestions to ensure your recovery phrase stays secure.',
-  },
-];
 export function VerifyRecoveryPhrase({
   route,
 }: IPageScreenProps<
@@ -69,7 +61,18 @@ export function VerifyRecoveryPhrase({
           onConfirm={handleConfirmPress}
           showPhraseLengthSelector={false}
           showClearAllButton={false}
-          tutorials={tutorials}
+          tutorials={[
+            {
+              title: "Why can't I type full words?",
+              description:
+                'To prevent keylogger attacks. Use suggested words for security.',
+            },
+            {
+              title: "Why can't I paste directly?",
+              description:
+                'To reduce risk of asset loss, avoid pasting sensitive information.',
+            },
+          ]}
         />
       ) : null}
     </Page>
