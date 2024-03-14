@@ -102,6 +102,19 @@ function DesktopCustomTabBar() {
     };
   }, [closeAllWebTabs]);
 
+  // For risk detection
+  useEffect(() => {
+    const listener = () => {
+      if (activeTabId) {
+        handleCloseTab(activeTabId);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    };
+  }, [handleCloseTab, activeTabId]);
+
   const onTabPress = useCallback(
     (id: string) => {
       navigation.switchTab(ETabRoutes.MultiTabBrowser);

@@ -40,6 +40,8 @@ export function isPrivateAllowedMethod(method?: string) {
       'wallet_getConnectWalletInfo',
       'wallet_sendSiteMetadata',
       'wallet_scanQrcode',
+      'wallet_detectRiskLevel',
+      'wallet_closeCurrentBrowserTab',
     ].includes(method || '')
   );
 }

@@ -70,7 +70,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         code += `
         ;(function() {
             ;
-            ${nativeInjectedJavaScriptBeforeContentLoaded}
+            ${nativeInjectedJavaScriptBeforeContentLoaded ?? ''}
             ;
         })();
         `;

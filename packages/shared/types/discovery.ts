@@ -62,4 +62,8 @@ export interface IHostSecurity {
   attackTypes: IAttackType[];
   phishingSite: boolean;
   alert: string;
+  detail?: {
+    title: string;
+    content: string;
+  };
 }

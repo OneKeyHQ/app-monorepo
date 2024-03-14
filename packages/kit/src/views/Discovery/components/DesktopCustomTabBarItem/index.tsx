@@ -29,7 +29,7 @@ function DesktopCustomTabBarItem({
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}
-      label={tab.title}
+      label={tab?.title}
       avatarSrc={tab?.favicon}
       testID={testID}
       actionList={[
@@ -37,27 +37,27 @@ function DesktopCustomTabBarItem({
           items: [
             {
               label: intl.formatMessage({
-                id: tab.isBookmark
+                id: tab?.isBookmark
                   ? 'actionn__remove_bookmark'
                   : 'actionn__bookmark',
               }),
-              icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
+              icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => {
-                onBookmarkPress(!tab.isBookmark, tab.url, tab.title ?? '');
+                onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
               },
               testID: `action-list-item-${
-                !tab.isBookmark ? 'bookmark' : 'remove-bookmark'
+                !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
               }`,
             },
             {
               label: intl.formatMessage({
-                id: tab.isPinned ? 'action__unpin' : 'action__pin',
+                id: tab?.isPinned ? 'action__unpin' : 'action__pin',
               }),
-              icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+              icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => {
-                onPinnedPress(tab.id, !tab.isPinned);
+                onPinnedPress(tab?.id, !tab?.isPinned);
               },
-              testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
+              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
             },
           ],
         },
@@ -65,14 +65,14 @@ function DesktopCustomTabBarItem({
           items: [
             {
               label: intl.formatMessage({
-                id: tab.isPinned ? 'action__close_pin_tab' : 'form__close_tab',
+                id: tab?.isPinned ? 'action__close_pin_tab' : 'form__close_tab',
               }),
               icon: 'CrossedLargeOutline',
               onPress: () => {
                 onClose(id);
               },
               testID: `action-list-item-close-${
-                tab.isPinned ? 'close-pin-tab' : 'close-tab'
+                tab?.isPinned ? 'close-pin-tab' : 'close-tab'
               }`,
             },
           ],
