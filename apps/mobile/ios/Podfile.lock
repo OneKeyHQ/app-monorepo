@@ -1051,7 +1051,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.2):
+  - react-native-tab-page-view (1.0.3):
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1725,7 +1725,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 4e83bc6a08f57dafdd30960eb76d0b3103c237f8
+  react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
