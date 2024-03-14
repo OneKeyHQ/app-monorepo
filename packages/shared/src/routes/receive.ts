@@ -8,6 +8,7 @@ export type IModalReceiveParamList = {
   [EModalReceiveRoutes.ReceiveToken]: {
     networkId: string;
     accountId: string;
+    walletId: string;
   };
   [EModalReceiveRoutes.CreateInvoice]: undefined;
   [EModalReceiveRoutes.ReceiveInvoice]: undefined;
