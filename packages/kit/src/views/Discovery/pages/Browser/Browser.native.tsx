@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
