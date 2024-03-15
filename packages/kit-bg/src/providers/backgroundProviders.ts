@@ -9,7 +9,7 @@ import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiEthereum from './ProviderApiEthereum';
 // import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
-// import ProviderApiPrivate from './ProviderApiPrivate';
+import ProviderApiPrivate from './ProviderApiPrivate';
 // import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
@@ -28,9 +28,9 @@ function createBackgroundProviders({
   backgroundApi: IBackgroundApiBridge | IBackgroundApi;
 }) {
   const backgroundProviders: Record<string, ProviderApiBase> = {
-    // [IInjectedProviderNames.$private]: new ProviderApiPrivate({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.$private]: new ProviderApiPrivate({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi,
     }),

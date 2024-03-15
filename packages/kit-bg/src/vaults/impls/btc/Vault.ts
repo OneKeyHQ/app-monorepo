@@ -86,6 +86,7 @@ export default class VaultBtc extends VaultBase {
       displayAddress: address,
       address,
       baseAddress: address,
+      isValid: true,
     };
   }
 

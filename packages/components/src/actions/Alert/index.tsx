@@ -16,7 +16,12 @@ import { IconButton } from '../IconButton';
 import type { IKeyOfIcons } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
-type IAlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
+export type IAlertType =
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'success'
+  | 'default';
 
 type IAlertActionProps = {
   primary: string;

@@ -91,18 +91,34 @@ function isHwAccount({ accountId }: { accountId: string }) {
   return isHwWallet({ walletId });
 }
 
+function buildImportedAccountId({
+  coinType,
+  pub,
+  xpub,
+}: {
+  coinType: string;
+  pub?: string;
+  xpub?: string;
+}) {
+  const publicKey = xpub || pub;
+  if (!publicKey) {
+    throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
+  }
+  return `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+}
+
 function buildHDAccountId({
   walletId,
-  index,
-  template,
   path,
+  template,
+  index,
   idSuffix,
   isUtxo,
 }: {
   walletId: string;
-  index?: number;
-  template?: string;
   path?: string;
+  template?: string;
+  index?: number;
   idSuffix?: string;
   isUtxo?: boolean;
 }): string {
@@ -246,6 +262,9 @@ function getAccountCompatibleNetwork({
 }
 
 function isOthersWallet({ walletId }: { walletId: string }) {
+  if (!walletId) {
+    return false;
+  }
   return (
     walletId === WALLET_TYPE_WATCHING ||
     walletId === WALLET_TYPE_EXTERNAL ||
@@ -268,6 +287,7 @@ function buildHwWalletId({
 }
 
 export default {
+  buildImportedAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,

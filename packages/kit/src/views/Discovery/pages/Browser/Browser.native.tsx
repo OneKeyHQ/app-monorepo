@@ -7,6 +7,10 @@ import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -34,6 +38,7 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+  const { closeWebTab } = useBrowserTabActions().current;
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -64,6 +69,19 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, []);
 
+  // For risk detection
+  useEffect(() => {
+    const listener = () => {
+      if (activeTabId) {
+        void closeWebTab(activeTabId);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    };
+  }, [closeWebTab, activeTabId]);
+
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -83,7 +101,11 @@ function MobileBrowser() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <XStack pt={top} mx="$5">
+      <XStack
+        pt={top}
+        mx="$5"
+        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+      >
         <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         <HeaderRightToolBar />
       </XStack>
