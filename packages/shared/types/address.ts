@@ -42,6 +42,7 @@ export type IXpubValidation = {
 };
 
 export type INetworkAccountAddressDetail = {
+  isValid: boolean;
   networkId: string;
   address: string; // real address at certain subnetwork, alias for displayAddress
   baseAddress: string; // base address shared with all subnetworks

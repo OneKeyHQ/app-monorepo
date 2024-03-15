@@ -35,15 +35,17 @@ export function ConfirmOnDeviceToastContent({
 }: IConfirmOnDeviceToastContentProps) {
   return (
     <XStack alignItems="center">
-      <Stack bg="$bgStrong">
+      <Stack bg="$bgStrong" btlr="$2" bblr="$2">
         <LottieView
           width={72}
           height={72}
           source={CONFIRM_ON_DEVICES[deviceType]}
         />
       </Stack>
-      <XStack alignItems="center" px="$3" space="$5">
-        <SizableText size="$bodyLgMedium">Confirm on Device</SizableText>
+      <XStack flex={1} alignItems="center" px="$3" space="$5">
+        <SizableText flex={1} size="$bodyLgMedium">
+          Confirm on Device
+        </SizableText>
         <Toast.Close>
           <IconButton size="small" icon="CrossedSmallOutline" />
         </Toast.Close>

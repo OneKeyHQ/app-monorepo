@@ -7,11 +7,17 @@ import {
 } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
+import { useSelectionColor, useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
@@ -96,8 +102,8 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
-function BaseInput(
-  {
+function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
+  const {
     size = 'medium',
     leftAddOnProps,
     leftIconName,
@@ -109,9 +115,7 @@ function BaseInput(
     readonly,
     autoFocus,
     ...props
-  }: IInputProps,
-  ref: ForwardedRef<IInputRef>,
-) {
+  } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -145,7 +149,8 @@ function BaseInput(
       inputRef.current?.measure(callback),
   }));
 
-  const selectionColor = useThemeValue('bgPrimary');
+  const selectionColor = useSelectionColor();
+
   return (
     <Group
       orientation="horizontal"

@@ -5115,6 +5115,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
+    "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.3"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
     "@onekeyhq/components": "npm:*"

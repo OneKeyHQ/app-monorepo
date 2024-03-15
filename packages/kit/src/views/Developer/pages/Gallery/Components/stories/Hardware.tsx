@@ -3,8 +3,8 @@
 
 import { Button, Stack } from '@onekeyhq/components';
 import {
-  confirmByPin,
   ConfirmOnDeviceToast,
+  confirmByPin,
   confirmOnDevice,
   confirmPassphrase,
   confirmPhrase,
