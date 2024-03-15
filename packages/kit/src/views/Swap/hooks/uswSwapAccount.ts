@@ -111,7 +111,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
   const addressInfo = useMemo(() => {
-    let res: {
+    const res: {
       address: undefined | string;
       networkId: undefined | string;
       accountInfo: IAccountSelectorActiveAccountInfo | undefined;
@@ -125,15 +125,16 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       settingsPersistAtom.swapToAnotherAccountSwitchOn &&
       swapToAnotherAccountAddressAtom.address &&
       swapToAnotherAccountAddressAtom.networkId
-    )
-      res = {
+    ) {
+      return {
         ...res,
         address: swapToAnotherAccountAddressAtom.address,
         networkId: swapToAnotherAccountAddressAtom.networkId,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
       };
+    }
     if (activeAccount) {
-      res = {
+      return {
         ...res,
         address: activeAccount.account?.address,
         networkId: activeAccount.network?.id,

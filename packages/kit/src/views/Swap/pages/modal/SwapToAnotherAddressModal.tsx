@@ -82,6 +82,10 @@ const SwapToAnotherAddressPage = () => {
     (data) => {
       const finallyAddress = data.address.resolved;
       if (!finallyAddress) return;
+      setSettings((v) => ({
+        ...v,
+        swapToAnotherAccountSwitchOn: true,
+      }));
       setSwapToAddress((v) => ({
         ...v,
         address: finallyAddress,
@@ -90,7 +94,7 @@ const SwapToAnotherAddressPage = () => {
       }));
       navigation.pop();
     },
-    [accountInfo, navigation, networkId, setSwapToAddress],
+    [accountInfo, navigation, networkId, setSettings, setSwapToAddress],
   );
 
   return accountInfo && accountInfo?.network?.id ? (

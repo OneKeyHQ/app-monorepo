@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { NumberSizeableText, Popover, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteFetchingAtom,
@@ -90,16 +90,12 @@ const SwapQuoteResult = ({
       />
       {!quoteResult.allowanceResult ? (
         <YStack space="$4">
-          <Popover
-            title="Slippage tolerance"
-            onOpenChange={(open) => {
+          <SwapSlippageTriggerContainer
+            isLoading={quoteFetching}
+            renderPopoverContent={() => <SwapSlippageContentContainer />}
+            popoverOnOpenChange={(open) => {
               setSwapSlippagePopOverOpening(open);
             }}
-            renderTrigger={
-              <SwapSlippageTriggerContainer isLoading={quoteFetching} />
-            }
-            renderContent={() => <SwapSlippageContentContainer />}
-            keepChildrenMounted
           />
           {quoteResult.fee.estimatedFeeFiatValue ? (
             <SwapCommonInfoItem

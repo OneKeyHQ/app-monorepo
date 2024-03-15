@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   Icon,
@@ -7,10 +7,8 @@ import {
   Popover,
   SizableText,
   Skeleton,
-  Tooltip,
   XStack,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISwapCommonInfoItemProps {
   title: string;
@@ -19,6 +17,8 @@ interface ISwapCommonInfoItemProps {
   onPress?: () => void;
   questionMarkContent?: string;
   isLoading?: boolean;
+  renderPopoverContent?: () => ReactNode;
+  popoverOnOpenChange?: (open: boolean) => void;
 }
 
 const SwapCommonInfoItem = ({
@@ -28,23 +28,45 @@ const SwapCommonInfoItem = ({
   isLoading,
   valueComponent,
   questionMarkContent,
+  renderPopoverContent,
+  popoverOnOpenChange,
 }: ISwapCommonInfoItemProps) => {
   const questionMarkComponent = useMemo(
-    () =>
-      platformEnv.isNative ? (
-        <Popover
-          title={title}
-          renderTrigger={<IconButton size="small" icon="QuestionmarkOutline" />}
-          renderContent={<SizableText>{questionMarkContent}</SizableText>}
-        />
-      ) : (
-        <Tooltip
-          renderTrigger={<IconButton size="small" icon="QuestionmarkOutline" />}
-          renderContent={<SizableText>{questionMarkContent}</SizableText>}
-        />
-      ),
+    () => (
+      <Popover
+        title={title}
+        renderTrigger={<IconButton size="small" icon="QuestionmarkOutline" />}
+        renderContent={<SizableText m="$2">{questionMarkContent}</SizableText>}
+      />
+    ),
     [questionMarkContent, title],
   );
+
+  const rightTrigger = useMemo(
+    () => (
+      <XStack>
+        {valueComponent || <SizableText>{value}</SizableText>}
+        {onPress || renderPopoverContent ? (
+          <Icon name="ChevronRightSmallOutline" />
+        ) : null}
+      </XStack>
+    ),
+    [onPress, renderPopoverContent, value, valueComponent],
+  );
+  const popoverContent = useCallback(() => {
+    if (renderPopoverContent) {
+      return (
+        <Popover
+          renderTrigger={rightTrigger}
+          renderContent={renderPopoverContent}
+          title={title}
+          keepChildrenMounted
+          onOpenChange={popoverOnOpenChange}
+        />
+      );
+    }
+    return rightTrigger;
+  }, [popoverOnOpenChange, renderPopoverContent, rightTrigger, title]);
   return (
     <XStack
       onPress={onPress}
@@ -57,14 +79,7 @@ const SwapCommonInfoItem = ({
       </XStack>
 
       <XStack space="$2">
-        {isLoading ? (
-          <Skeleton w="$20" />
-        ) : (
-          <>
-            {valueComponent || <SizableText>{value}</SizableText>}
-            {onPress && <Icon name="ChevronRightSmallOutline" />}
-          </>
-        )}
+        {isLoading ? <Skeleton w="$20" /> : popoverContent()}
       </XStack>
     </XStack>
   );
