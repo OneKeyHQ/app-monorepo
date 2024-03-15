@@ -555,6 +555,25 @@ class ServiceSend extends ServiceBase {
 
     return signedMessage;
   }
+
+  @backgroundMethod()
+  async getRawTransactions({
+    networkId,
+    txids,
+  }: {
+    networkId: string;
+    txids: string[];
+  }) {
+    const client = await this.getClient();
+    const resp = await client.post<{
+      data: { transactionMap: Record<string, { rawTx: string }> };
+    }>('/wallet/v1/network/raw-transaction/list', {
+      networkId,
+      hashList: txids,
+    });
+
+    return resp.data.data.transactionMap;
+  }
 }
 
 export default ServiceSend;
