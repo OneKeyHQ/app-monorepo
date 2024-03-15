@@ -6,11 +6,6 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  CERTIFICATE_URL,
-  CERTIFICATE_URL_LOCAL_DEV_PROXY,
-  CERTIFICATE_URL_PATH,
-} from '@onekeyhq/shared/src/config/appConfig';
-import {
   BridgeTimeoutError,
   InitIframeLoadFail,
   InitIframeTimeout,
@@ -23,7 +18,8 @@ import {
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   EOnekeyDomain,
@@ -40,8 +36,6 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBDevice } from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -53,6 +47,8 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type { IDBDevice } from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -110,7 +106,14 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (type !== EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+        if (
+          ![
+            // skip events
+            EHardwareUiStateAction.CLOSE_UI_WINDOW,
+            EHardwareUiStateAction.PREVIOUS_ADDRESS,
+          ].includes(type)
+        ) {
+          // show hardware ui dialog
           await hardwareUiStateAtom.set({
             action: type,
             connectId,
@@ -156,6 +159,7 @@ class ServiceHardware extends ServiceBase {
   async searchDevices() {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.searchDevices();
+    console.log('searchDevices response: ', response);
     return response;
     // if (response.success) {
     //   return response.payload;
@@ -186,8 +190,10 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async getFeatures(connectId: string): Promise<Features> {
+    if (!connectId) {
+      throw new Error('hardware getFeatures ERROR: connectId is undefined');
+    }
     const hardwareSDK = await this.getSDKInstance();
-
     return convertDeviceResponse(() => hardwareSDK?.getFeatures(connectId));
   }
 
@@ -312,15 +318,15 @@ class ServiceHardware extends ServiceBase {
     verified: boolean;
     device: SearchDevice;
     payload: {
+      deviceType: IDeviceType;
+      data: string;
       cert: string;
       signature: string;
-      model: IDeviceType;
-      data: string;
     };
     result: {
-      success: boolean;
-      sn?: string | undefined;
-      code?: string | undefined;
+      message?: string;
+      data?: string;
+      code?: number;
     };
   }> {
     const { connectId, deviceType } = device;
@@ -332,11 +338,17 @@ class ServiceHardware extends ServiceBase {
     return this.withHardwareProcessing(
       async () => {
         const ts = Date.now();
-        const dataHex = hexUtils.hexlify(ts, { noPrefix: true });
-        const verifySig = await this.getDeviceCertWithSig({
-          connectId,
-          dataHex,
-        });
+        const settings = await settingsPersistAtom.get();
+        const data = `${settings.instanceId}_${ts}_${stringUtils.randomString(
+          12,
+        )}`;
+        const dataHex = bufferUtils.textToHex(data, 'utf-8');
+        const verifySig: DeviceVerifySignature =
+          await this.getDeviceCertWithSig({
+            connectId,
+            dataHex,
+          });
+        const { cert, signature } = verifySig;
         // always close dialog only without cancel device
         await this.closeHardwareUiStateDialog({
           skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
@@ -346,24 +358,33 @@ class ServiceHardware extends ServiceBase {
         const shouldUseProxy =
           platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
         const payload = {
-          model: deviceType,
-          data: dataHex,
-          ...verifySig,
+          deviceType,
+          data,
+          cert,
+          signature,
         };
         const resp = await client.post<{
-          success: boolean;
-          sn?: string;
-          code?: string;
-        }>(shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL, payload, {
-          headers: shouldUseProxy
-            ? {
-                'X-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
-              }
-            : {},
-        });
+          message?: string;
+          data?: string;
+          code?: number;
+        }>(
+          '/wallet/v1/hardware/verify',
+          // shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL,
+
+          payload,
+          {
+            headers: shouldUseProxy
+              ? {
+                  // 'X-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
+                }
+              : {},
+          },
+        );
         const result = resp.data;
-        // result.success = false;
-        const verified = result.success && result.sn === connectId;
+        // result.message = 'false';
+
+        const verified =
+          result.message === 'success' && result.data === connectId;
 
         return {
           verified,
@@ -657,6 +678,10 @@ class ServiceHardware extends ServiceBase {
       return r;
     } catch (error) {
       console.error('withHardwareProcessing ERROR: ', error);
+      console.error(
+        'withHardwareProcessing ERROR stack: ',
+        (error as Error)?.stack,
+      );
       throw error;
     } finally {
       if (connectId) {

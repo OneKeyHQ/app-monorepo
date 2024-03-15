@@ -107,6 +107,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
               copyText(account.address);
               console.log({
                 selectedAccount,
+                addressDetail: activeAccount?.account?.addressDetail,
                 activeAccount,
                 walletAvatar: activeAccount?.wallet?.avatar,
               });
