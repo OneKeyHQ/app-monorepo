@@ -75,6 +75,7 @@ export default class VaultCosmos extends VaultBase {
       displayAddress: address,
       address,
       baseAddress,
+      isValid: true,
     };
   }
 

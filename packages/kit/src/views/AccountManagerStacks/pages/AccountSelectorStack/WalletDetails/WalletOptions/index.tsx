@@ -2,14 +2,15 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   AnimatePresence,
   Divider,
   HeightTransition,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
@@ -35,6 +36,9 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
   const liteCard = useLiteCard();
 
   const handleBackupPhrase = useCallback(() => {
+    Toast.error({
+      title: '功能未实现',
+    });
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.BeforeShowRecoveryPhrase,
     });
@@ -42,6 +46,37 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleBackupPress = useCallback(() => {
+    ActionList.show({
+      title: 'Backup',
+      sections: [
+        {
+          items: [
+            {
+              label: `${intl.formatMessage({
+                id: 'backup__manual_backup',
+              })}`,
+              icon: 'PenOutline',
+              onPress: handleBackupPhrase,
+            },
+            ...(platformEnv.isNative
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'app__hardware_name_onekey_lite',
+                    }),
+                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    onPress: handleBackupLiteCard,
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
+    });
+  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
 
   const [editMode] = useAccountSelectorEditModeAtom();
 

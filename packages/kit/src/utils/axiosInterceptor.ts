@@ -16,9 +16,35 @@ import { defaultColorScheme } from '../hooks/useSystemColorScheme';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
+async function checkAxiosRequestIsOneKeyDomain(config: AxiosRequestConfig) {
+  let isOneKeyDomain = false;
+
+  try {
+    isOneKeyDomain = await checkIsOneKeyDomain(config.baseURL ?? '');
+  } catch (error) {
+    isOneKeyDomain = false;
+  }
+
+  if (!isOneKeyDomain) {
+    if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
+      const proxyHeader =
+        config?.headers?.['X-Proxy'] || config?.headers?.['x-proxy'];
+      if (proxyHeader) {
+        try {
+          isOneKeyDomain = await checkIsOneKeyDomain(proxyHeader);
+        } catch (error) {
+          isOneKeyDomain = false;
+        }
+      }
+    }
+  }
+
+  return isOneKeyDomain;
+}
+
 axios.interceptors.request.use(async (config) => {
   try {
-    const isOneKeyDomain = await checkIsOneKeyDomain(config.baseURL ?? '');
+    const isOneKeyDomain = await checkAxiosRequestIsOneKeyDomain(config);
     if (!isOneKeyDomain) return config;
   } catch (e) {
     return config;
@@ -56,7 +82,7 @@ axios.interceptors.request.use(async (config) => {
 axios.interceptors.response.use(async (response) => {
   const { config } = response;
   try {
-    const isOneKeyDomain = await checkIsOneKeyDomain(config.baseURL ?? '');
+    const isOneKeyDomain = await checkAxiosRequestIsOneKeyDomain(config);
     if (!isOneKeyDomain) return response;
   } catch (e) {
     return response;
@@ -68,6 +94,8 @@ axios.interceptors.response.use(async (response) => {
     throw new OneKeyError({
       autoToast: false,
       message: data.message,
+      code: data.code,
+      data,
     });
   }
   return response;

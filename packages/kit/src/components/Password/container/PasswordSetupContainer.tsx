@@ -1,5 +1,8 @@
 import { Suspense, memo, useCallback, useMemo, useState } from 'react';
+
 import { AuthenticationType } from 'expo-local-authentication';
+import { useIntl } from 'react-intl';
+
 import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -11,7 +14,6 @@ import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/conta
 import PasswordSetup from '../components/PasswordSetup';
 
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
-import { useIntl } from 'react-intl';
 
 interface IPasswordSetupProps {
   onSetupRes: (password: string) => void;

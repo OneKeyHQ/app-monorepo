@@ -454,11 +454,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         walletId,
         skipDeviceCancel,
-      }: { walletId: string; skipDeviceCancel?: boolean },
+        hideCheckingDeviceLoading,
+      }: {
+        walletId: string;
+        skipDeviceCancel?: boolean;
+        hideCheckingDeviceLoading?: boolean;
+      },
     ) => {
       const res = await serviceAccount.createHWHiddenWallet({
         walletId,
         skipDeviceCancel,
+        hideCheckingDeviceLoading,
       });
       const { wallet, indexedAccount } = res;
       await this.autoSelectToCreatedWallet.call(set, {
@@ -478,14 +484,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // add hidden wallet if device passphrase enabled
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
-            await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog({
-              connectId: device.connectId,
-            });
+            if (!params.hideCheckingDeviceLoading) {
+              await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog(
+                {
+                  connectId: device.connectId,
+                },
+              );
+            }
             await timerUtils.wait(3000);
+
             ({ wallet, device, indexedAccount } =
               await this.createHWHiddenWallet.call(set, {
                 walletId: wallet.id,
                 skipDeviceCancel: params.skipDeviceCancel,
+                hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
               }));
           }
           return {
@@ -498,6 +510,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             walletId: wallet.id,
             indexedAccountId: indexedAccount.id,
             skipDeviceCancel: params.skipDeviceCancel,
+            hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
           });
         },
       }),

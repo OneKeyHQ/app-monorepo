@@ -62,20 +62,14 @@ export interface IAccountDeriveInfo {
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
-  // label?:
-  //   | {
-  //       // LocaleIds
-  //       id: MessageDescriptor['id'];
-  //     }
-  //   | string;
-  desc?:
-    | {
-        // LocaleIds
-        id: MessageDescriptor['id'];
-        placeholder?: any;
-      }
-    | string;
-  // subDesc?: string;
+
+  descI18n?: {
+    id: MessageDescriptor['id'];
+    data: Record<string | number, string>;
+  };
+  desc?: string;
+  subDesc?: string;
+
   // recommended?: boolean;
   // notRecommended?: boolean;
   enableConditions?: {

@@ -52,7 +52,7 @@ export const ConfirmOnDeviceToast = async ({
 export const confirmOnDevice = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
-    title: 'Confirm on Device',
+    title: 'Confirm on Device Sample',
     dismissOnOverlayPress: false,
     showFooter: false,
     renderContent: <ConfirmOnDevice />,

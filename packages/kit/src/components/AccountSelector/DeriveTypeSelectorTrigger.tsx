@@ -54,14 +54,17 @@ export function DeriveTypeSelectorTrigger({
   } = useActiveAccount({ num });
 
   const selectItems = deriveInfoItems.map(
-    ({ label, value, item: { desc } }) => ({
-      label,
-      value,
-      description:
-        typeof desc === 'string'
-          ? desc
-          : desc?.id && intl.formatMessage({ id: desc?.id }, desc?.placeholder),
-    }),
+    ({ label, value, item: { descI18n, desc, subDesc } }) => {
+      let description = desc || subDesc;
+      if (descI18n?.id) {
+        description = intl.formatMessage({ id: descI18n?.id }, descI18n?.data);
+      }
+      return {
+        label,
+        value,
+        description,
+      };
+    },
   );
 
   const renderTriggerElement = useMemo(() => {

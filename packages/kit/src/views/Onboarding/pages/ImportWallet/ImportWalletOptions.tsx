@@ -1,18 +1,15 @@
-import { StyleSheet } from 'react-native';
-
 import type { IIconProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
-  Divider,
-  Group,
   Icon,
   Page,
   SectionList,
   Stack,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -35,19 +32,21 @@ export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
 
-  const handleConnectHardwareWalletPress = () => {
+  const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
   };
 
-  const handleImportRecoveryPhrasePress = () => {
+  const handleImportRecoveryPhrasePress = async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
 
-  const handleImportPrivateKeyPress = () => {
+  const handleImportPrivateKeyPress = async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportPrivateKey);
   };
 
-  const handleImportAddressPress = () => {
+  const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
   };
 
@@ -73,7 +72,7 @@ export function ImportWalletOptions() {
                     variant="secondary"
                     onPress={async () => {
                       await dialog.close();
-                      handleImportRecoveryPhrasePress();
+                      await handleImportRecoveryPhrasePress();
                     }}
                   >
                     Acknowledged
@@ -84,7 +83,7 @@ export function ImportWalletOptions() {
                     mt="$2.5"
                     onPress={async () => {
                       await dialog.close();
-                      handleConnectHardwareWalletPress();
+                      await handleConnectHardwareWalletPress();
                     }}
                   >
                     Connect Hardware Wallet

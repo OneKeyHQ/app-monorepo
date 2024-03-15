@@ -11,7 +11,12 @@ import { Tutorials } from '../../components';
 
 export function ImportPrivateKey() {
   const media = useMedia();
-  const form = useForm();
+  const form = useForm({
+    values: {
+      networkId: 'evm--1',
+      input: '',
+    },
+  });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
 

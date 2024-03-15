@@ -10,6 +10,10 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { LocalDbBase } from '../LocalDbBase';
@@ -41,6 +45,12 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
         // do nothing here, add migration logic on service layer
       },
     });
+    if (process.env.NODE_ENV !== 'production') {
+      global.$$realm = realm;
+      setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.RealmInit, undefined);
+      }, 3000);
+    }
     const db = new RealmDBAgent(realm);
     // init db records here
     await this._initDBRecords(db);

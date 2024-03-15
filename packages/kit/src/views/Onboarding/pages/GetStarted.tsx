@@ -16,6 +16,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 type IActionsGroupItem = {
@@ -86,19 +87,20 @@ function ActionsGroup({ items }: IActionsProp) {
 export function GetStarted() {
   const navigation = useAppNavigation();
 
-  const handleCreateWalletPress = () => {
+  const handleCreateWalletPress = async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
   };
 
-  const handleImportWalletPress = () => {
+  const handleImportWalletPress = async () => {
     navigation.push(EOnboardingPages.ImportWalletOptions);
   };
 
-  const handleConnectHardwareWallet = () => {
+  const handleConnectHardwareWallet = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
   };
 
-  const handleConnectWalletPress = () => {
+  const handleConnectWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectWallet);
   };
 

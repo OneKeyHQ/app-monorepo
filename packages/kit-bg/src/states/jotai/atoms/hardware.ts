@@ -25,6 +25,8 @@ export enum EHardwareUiStateAction {
   LOCATION_SERVICE_PERMISSION = 'ui-location_service_permission',
 
   FIRMWARE_PROGRESS = 'ui-firmware-progress',
+
+  PREVIOUS_ADDRESS = 'ui-previous_address_result',
 }
 
 export type IHardwareUiPayload = {

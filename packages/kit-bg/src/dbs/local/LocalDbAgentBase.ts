@@ -10,7 +10,6 @@ import type {
   ILocalDBGetRecordsCountParams,
   ILocalDBGetRecordsCountResult,
   ILocalDBRecordPair,
-  ILocalDBTransaction,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
@@ -29,12 +28,8 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     ids,
     tx,
     name,
-  }: {
-    recordPairs?: ILocalDBRecordPair<T>[];
-    ids?: string[];
-    tx: ILocalDBTransaction;
-    name: T;
-  }) {
+    ignoreNotFound,
+  }: ILocalDBTxRemoveRecordsParams<T>) {
     if (isNil(ids) && isNil(recordPairs)) {
       throw new Error(
         'dbUpdateRecord ERROR: ids and recordPairs both not found',
@@ -43,15 +38,23 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     let pairs: ILocalDBRecordPair<T>[] = [];
     if (!isNil(ids)) {
       const pairsFromIds = await Promise.all(
-        ids.map((id) =>
-          this.txGetRecordById({
-            id,
-            name,
-            tx,
-          }),
-        ),
+        ids.map(async (id) => {
+          try {
+            // TODO use txGetRecordByIdSafe
+            return await this.txGetRecordById({
+              id,
+              name,
+              tx,
+            });
+          } catch (error) {
+            if (ignoreNotFound) {
+              return Promise.resolve(null);
+            }
+            throw error;
+          }
+        }),
       );
-      pairs = pairs.concat(pairsFromIds);
+      pairs = pairs.concat(pairsFromIds.filter(Boolean));
     }
     if (!isNil(recordPairs)) {
       pairs = pairs.concat(recordPairs);

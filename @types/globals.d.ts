@@ -1,4 +1,5 @@
 /* eslint-disable no-var,vars-on-top */
+
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
@@ -9,6 +10,7 @@ import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { EnhancedStore } from '@reduxjs/toolkit';
 import type WebView from 'react-native-webview';
+import type Realm from 'realm';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -34,6 +36,7 @@ declare global {
   var $$appUIEventBus: any;
   var $$appStore: EnhancedStore;
   var $$appDispatch: any;
+  var $$realm: Realm;
   var $$appSelector: any;
   var $$appStorage: any;
   var $$allAtoms: any; // jotai global atoms

@@ -14,7 +14,9 @@ const PasswordVerifyPromptMount = () => {
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
   const onClose = useCallback((id: number) => {
-    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id);
+    void backgroundApiProxy.servicePassword.rejectPasswordPromptDialog(id, {
+      message: 'User Cancelled Password Verify',
+    });
   }, []);
 
   const showPasswordSetupPrompt = useCallback(

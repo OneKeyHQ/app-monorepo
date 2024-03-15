@@ -15,3 +15,20 @@ export function stableStringify(
 ): string {
   return safeStringify.stableStringify(value, replacer, space, options);
 }
+
+function randomString(
+  length: number,
+  chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+) {
+  let result = '';
+  // eslint-disable-next-line no-plusplus
+  for (let i = length; i > 0; --i)
+    result += chars[Math.floor(Math.random() * chars.length)];
+  return result;
+}
+
+export default {
+  stableStringify,
+  randomString,
+  equalsIgnoreCase,
+};

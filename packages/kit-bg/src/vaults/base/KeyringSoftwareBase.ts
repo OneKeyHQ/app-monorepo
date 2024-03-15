@@ -9,6 +9,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -202,9 +203,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         privateKeyRaw,
       });
 
+    const accountId = accountUtils.buildImportedAccountId({
+      coinType,
+      pub: publicKey,
+    });
     return Promise.resolve([
       {
-        id: `imported--${coinType}--${publicKey}`,
+        id: accountId,
         name: name || '',
         type: accountType,
         path: '',
@@ -250,9 +255,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       throw new Error('path or xpub or addresses is undefined');
     }
 
+    const accountId = accountUtils.buildImportedAccountId({
+      coinType,
+      xpub,
+    });
     return Promise.resolve([
       {
-        id: `imported--${coinType}--${xpub || address}`,
+        id: accountId,
         name: name || '',
         type: accountType,
         path,

@@ -86,21 +86,29 @@ import type { KeyringBase } from '../../base/KeyringBase';
 export default class Vault extends VaultBase {
   override settings: IVaultSettings = settings;
 
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+    hd: KeyringHd,
+    hw: KeyringHardware,
+    imported: KeyringImported,
+    watching: KeyringWatching,
+    external: KeyringWatching,
+  };
+
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
     // all evm chain shared same db account and same address, so we just validate db address only,
     // do not need recalculate address for each sub chain
-    const { normalizedAddress, displayAddress } = await this.validateAddress(
-      account.address,
-    );
+    const { normalizedAddress, displayAddress, isValid } =
+      await this.validateAddress(account.address);
     return {
       networkId,
       normalizedAddress,
       displayAddress,
       address: displayAddress,
       baseAddress: normalizedAddress,
+      isValid,
     };
   }
 
@@ -327,14 +335,6 @@ export default class Vault extends VaultBase {
   override async validateAddress(address: string): Promise<IAddressValidation> {
     return validateEvmAddress(address);
   }
-
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
-    hd: KeyringHd,
-    hw: KeyringHardware,
-    imported: KeyringImported,
-    watching: KeyringWatching,
-    external: KeyringWatching,
-  };
 
   async _buildDecodedTx(params: {
     encodedTx: IEncodedTxEvm;
