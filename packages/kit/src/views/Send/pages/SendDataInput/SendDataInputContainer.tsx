@@ -462,9 +462,11 @@ function SendDataInputContainer() {
             }}
           >
             <AddressInput
+              accountId={accountId}
               networkId={networkId}
               enableAddressBook
               enableWalletName
+              enableAddressInteractionStatus
               plugins={allAddressInputPlugins}
             />
           </Form.Field>
