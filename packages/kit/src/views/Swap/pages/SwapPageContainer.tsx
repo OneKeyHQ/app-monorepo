@@ -3,10 +3,8 @@ import { useCallback } from 'react';
 import { Page } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerSwap,
-} from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { AccountSelectorTriggerSwap } from '../../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
 
 import SwapHeaderRightActionContainer from './components/SwapHeaderRightActionContainer';
 import SwapMainLand from './components/SwapMainLand';

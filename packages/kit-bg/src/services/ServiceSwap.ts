@@ -19,7 +19,7 @@ import type {
   ISwapTokenDetailInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  EExchangeProtocol,
+  EProtocolOfExchange,
   ESwapProviders,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -42,7 +42,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
-    const protocol = EExchangeProtocol.SWAP;
+    const protocol = EProtocolOfExchange.SWAP;
     const params = {
       protocol,
     };
@@ -77,7 +77,7 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenNetworkId: fromToken?.networkId,
       fromTokenProviders: fromToken?.providers,
       fromTokenAddress: fromToken?.contractAddress,
-      protocol: EExchangeProtocol.SWAP,
+      protocol: EProtocolOfExchange.SWAP,
       networkId: networkId === 'all' ? undefined : networkId,
       keywords,
       fromTokenSwapSwftUnSupportCode: providersArr?.every(
@@ -179,7 +179,7 @@ export default class ServiceSwap extends ServiceBase {
       toTokenDecimals: toToken.decimals,
       fromTokenSwftCode: fromToken.swapSwftCode,
       toTokenSwftCode: toToken.swapSwftCode,
-      protocol: EExchangeProtocol.SWAP,
+      protocol: EProtocolOfExchange.SWAP,
       providers: supportedProviders.join(','),
       userAddress,
       slippagePercentage,
@@ -240,7 +240,7 @@ export default class ServiceSwap extends ServiceBase {
       toTokenDecimals: toToken.decimals,
       fromTokenSwftCode: fromToken.swapSwftCode,
       toTokenSwftCode: toToken.swapSwftCode,
-      protocol: EExchangeProtocol.SWAP,
+      protocol: EProtocolOfExchange.SWAP,
       provider,
       userAddress,
       receivingAddress,
@@ -274,7 +274,7 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAddress?: string;
     receivedAddress?: string;
     networkId: string;
-    protocol?: EExchangeProtocol;
+    protocol?: EProtocolOfExchange;
     provider?: ESwapProviders;
     ctx?: any;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {

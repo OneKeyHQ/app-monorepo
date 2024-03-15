@@ -40,8 +40,7 @@ const SwapTxHistoryListCell = ({
   const { formatDate } = useFormatDate();
   const subContent = useMemo(() => {
     const { created } = item.date;
-    const dateObj = new Date(created);
-    const dateStr = formatDate(dateObj, {
+    const dateStr = formatDate(new Date(created), {
       hideYear: true,
       onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
     });

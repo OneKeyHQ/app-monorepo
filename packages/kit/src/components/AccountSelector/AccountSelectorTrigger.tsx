@@ -75,51 +75,6 @@ export function AccountSelectorTriggerHome({
   );
 }
 
-export function AccountSelectorTriggerSwap({ num }: { num: number }) {
-  const navigation = useAppNavigation();
-  const {
-    activeAccount: { wallet, account, accountName },
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-  return (
-    <XStack
-      role="button"
-      alignItems="center"
-      p="$1.5"
-      mx="$-1.5"
-      borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      onPress={() =>
-        actions.current.showAccountSelector({
-          activeWallet: wallet,
-          num,
-          navigation,
-          sceneName: EAccountSelectorSceneName.swap,
-        })
-      }
-      maxWidth="$40"
-    >
-      <AccountAvatar size="$6" borderRadius="$1" account={account} />
-
-      <SizableText
-        flex={1}
-        size="$bodyMdMedium"
-        pl="$2"
-        pr="$1"
-        numberOfLines={1}
-      >
-        {accountName}
-      </SizableText>
-      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
-    </XStack>
-  );
-}
-
 export function AccountSelectorTriggerLegacy({
   num,
   onlyAccountSelector,

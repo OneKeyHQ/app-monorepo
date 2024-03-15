@@ -37,9 +37,9 @@ import {
 } from './atoms';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
-  private quoteInterval: NodeJS.Timeout | undefined;
+  private quoteInterval: ReturnType<typeof setTimeout> | undefined;
 
-  private approvingInterval: NodeJS.Timeout | undefined;
+  private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());

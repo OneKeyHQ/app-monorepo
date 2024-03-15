@@ -8,6 +8,4 @@ export interface ISwapNetworks {
 
 export class SimpleDbEntitySwapNetworksSort extends SimpleDbEntityBase<ISwapNetworks> {
   entityName = 'swapNetworksSort';
-
-  override enableCache = true;
 }

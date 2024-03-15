@@ -1,4 +1,4 @@
-export enum EExchangeProtocol {
+export enum EProtocolOfExchange {
   SWAP = 'swap',
   LIMIT = 'limit', // TODO
 }
