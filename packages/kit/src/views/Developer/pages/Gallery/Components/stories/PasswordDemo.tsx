@@ -48,7 +48,7 @@ const PasswordDemoGallery = () => {
                     await handlePasswordVerify();
                   } else {
                     const dialog = Dialog.show({
-                      title: 'SetupPassword',
+                      title: 'Setup Password',
                       renderContent: (
                         <PasswordSetupContainer
                           onSetupRes={async (data) => {

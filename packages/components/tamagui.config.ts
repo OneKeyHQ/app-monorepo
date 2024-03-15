@@ -200,7 +200,7 @@ const lightColors = {
   bgPrimary: primary.primary12,
   bgPrimaryActive: primary.primary10,
   bgPrimaryHover: primary.primary11,
-  bgSubdued: neutral.neutral2,
+  bgSubdued: gray.gray2,
   bgStrong: neutral.neutral3,
   bgStrongHover: neutral.neutral4,
   bgStrongActive: neutral.neutral5,
@@ -293,7 +293,7 @@ const darkColors: typeof lightColors = {
   bgPrimary: primaryDark.primary12,
   bgPrimaryActive: primaryDark.primary10,
   bgPrimaryHover: primaryDark.primary11,
-  bgSubdued: neutralDark.neutral2,
+  bgSubdued: grayDark.gray2,
   bgStrong: neutralDark.neutral3,
   bgStrongHover: neutralDark.neutral4,
   bgStrongActive: neutralDark.neutral5,
@@ -570,6 +570,12 @@ declare module 'tamagui' {
 
   // eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/naming-convention
   interface TamaguiCustomConfig extends IAppConfig {}
+
+  // override groupNames
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface TypeOverride {
+    groupNames(): 'nftItem';
+  }
 }
 
 export default config;
