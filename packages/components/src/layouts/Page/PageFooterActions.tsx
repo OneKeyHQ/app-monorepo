@@ -21,7 +21,9 @@ export type IFooterActionsProps = {
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
   cancelButtonProps?: IActionButtonProps;
+  /** use Page.cancelButton */
   cancelButton?: ReactElement;
+  /** use Page.confirmButton */
   confirmButton?: ReactElement;
   buttonContainerProps?: IStackProps;
 } & IStackProps;
