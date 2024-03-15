@@ -5,6 +5,7 @@ import { Web3Wallet } from '@walletconnect/web3wallet';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
@@ -85,12 +86,12 @@ class ProviderApiWalletConnect {
   }
 
   onSessionProposal = async (proposal: Web3WalletTypes.SessionProposal) => {
+    const { serviceWalletConnect, serviceDApp } = this.backgroundApi;
     console.log('onSessionProposal: ', JSON.stringify(proposal));
     // check if all required networks are supported
-    const notSupportedChains =
-      await this.backgroundApi.serviceWalletConnect.getNotSupportedChains(
-        proposal,
-      );
+    const notSupportedChains = await serviceWalletConnect.getNotSupportedChains(
+      proposal,
+    );
     if (notSupportedChains.length > 0) {
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
@@ -106,7 +107,7 @@ class ProviderApiWalletConnect {
 
     try {
       const { origin } = new URL(proposal.params.proposer.metadata.url);
-      const result = (await this.backgroundApi.serviceDApp.openModal({
+      const result = (await serviceDApp.openModal({
         request: {
           scope: '$walletConnect',
           origin,
@@ -123,12 +124,28 @@ class ProviderApiWalletConnect {
         id: proposal.id,
         namespaces: result.supportedNamespaces,
       });
-      await this.backgroundApi.serviceDApp.saveConnectionSession({
+      await serviceDApp.saveConnectionSession({
         origin,
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,
       });
+      for (const accountInfo of result.accountsInfo) {
+        if (accountInfo.networkId) {
+          const chainData = await serviceWalletConnect.getChainDataByNetworkId(
+            accountInfo.networkId,
+          );
+          if (newSession?.topic && chainData?.chainId && chainData?.namespace) {
+            void serviceWalletConnect.emitNetworkChangedEvent({
+              topic: newSession?.topic,
+              walletConnectChainId: `${chainData?.namespace}:${chainData?.chainId}`,
+              chainId: networkUtils.getNetworkChainId({
+                networkId: accountInfo.networkId,
+              }),
+            });
+          }
+        }
+      }
     } catch (e) {
       console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
