@@ -63,10 +63,13 @@ export const registerWebAuth = async () => {
       },
     },
   };
-
-  const cred = await navigator.credentials.create(createCredentialOptions);
-  if (cred) {
-    return cred.id;
+  try {
+    const cred = await navigator.credentials.create(createCredentialOptions);
+    if (cred) {
+      return cred.id;
+    }
+  } catch (e) {
+    return undefined;
   }
 };
 
@@ -87,5 +90,9 @@ export const verifiedWebAuth = async (credId: string) => {
       timeout: 60000,
     },
   };
-  return navigator.credentials.get(getCredentialOptions);
+  try {
+    return await navigator.credentials.get(getCredentialOptions);
+  } catch (e) {
+    return undefined;
+  }
 };
