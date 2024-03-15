@@ -130,22 +130,10 @@ class ProviderApiWalletConnect {
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,
       });
-      for (const accountInfo of result.accountsInfo) {
-        if (accountInfo.networkId) {
-          const chainData = await serviceWalletConnect.getChainDataByNetworkId(
-            accountInfo.networkId,
-          );
-          if (newSession?.topic && chainData?.chainId && chainData?.namespace) {
-            void serviceWalletConnect.emitNetworkChangedEvent({
-              topic: newSession?.topic,
-              walletConnectChainId: `${chainData?.namespace}:${chainData?.chainId}`,
-              chainId: networkUtils.getNetworkChainId({
-                networkId: accountInfo.networkId,
-              }),
-            });
-          }
-        }
-      }
+      void serviceWalletConnect.batchEmitNetworkChangedEvent({
+        topic: newSession?.topic ?? '',
+        accountsInfo: result.accountsInfo,
+      });
     } catch (e) {
       console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({

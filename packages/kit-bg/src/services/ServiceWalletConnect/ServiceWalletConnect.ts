@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WalletConnectStartAccountSelectorNumber,
@@ -283,6 +284,12 @@ class ServiceWalletConnect extends ServiceBase {
           }, 500);
         }
       }
+
+      // Push network change of each namespace to the dApp
+      void this.batchEmitNetworkChangedEvent({
+        topic,
+        accountsInfo,
+      });
     }
   }
 
@@ -333,6 +340,35 @@ class ServiceWalletConnect extends ServiceBase {
       },
       chainId: walletConnectChainId,
     });
+  }
+
+  @backgroundMethod()
+  async batchEmitNetworkChangedEvent({
+    topic,
+    accountsInfo,
+  }: {
+    topic: string;
+    accountsInfo: IConnectionAccountInfo[];
+  }) {
+    if (!topic || !accountsInfo.length) {
+      return;
+    }
+    for (const accountInfo of accountsInfo) {
+      if (accountInfo.networkId) {
+        const chainData = await this.getChainDataByNetworkId(
+          accountInfo.networkId,
+        );
+        if (chainData?.chainId && chainData?.namespace) {
+          void this.emitNetworkChangedEvent({
+            topic,
+            walletConnectChainId: `${chainData?.namespace}:${chainData?.chainId}`,
+            chainId: networkUtils.getNetworkChainId({
+              networkId: accountInfo.networkId,
+            }),
+          });
+        }
+      }
+    }
   }
 
   @backgroundMethod()
