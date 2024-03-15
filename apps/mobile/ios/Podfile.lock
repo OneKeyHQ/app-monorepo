@@ -1052,7 +1052,9 @@ PODS:
     - React-Core
   - react-native-view-shot (3.1.2):
     - React
-  - react-native-webview (11.24.0):
+  - react-native-webview (13.8.1):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
   - React-nativeconfig (0.73.2)
   - React-NativeModulesApple (0.73.2):
@@ -1716,7 +1718,7 @@ SPEC CHECKSUMS:
   react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
-  react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
+  react-native-webview: 0f93dc8f4208ae5365884922c3cd14da5037ca4c
   React-nativeconfig: d753fbbc8cecc8ae413d615599ac378bbf6999bb
   React-NativeModulesApple: 964f4eeab1b4325e8b6a799cf4444c3fd4eb0a9c
   React-perflogger: 29efe63b7ef5fbaaa50ef6eaa92482f98a24b97e
