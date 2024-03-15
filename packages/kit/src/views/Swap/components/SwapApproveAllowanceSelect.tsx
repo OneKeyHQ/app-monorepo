@@ -6,6 +6,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
 
@@ -22,38 +23,52 @@ const SwapApproveAllowanceSelect = ({
   const [currentAllowanceValue, setCurrentAllowanceValue] = useState<
     ISelectItem | undefined
   >(() => selectItems?.[0]);
-  const renderTrigger = useCallback(
-    () => (
-      <XStack justifyContent="space-between">
-        <SizableText>Authorization Limit</SizableText>
+  const renderTrigger = useCallback(() => {
+    if (isLoading && !selectItems.length)
+      return (
+        <Stack py="$1">
+          <Skeleton h="$3" w="$24" />
+        </Stack>
+      );
 
-        <XStack>
-          {isLoading && selectItems.length ? (
-            <Skeleton w="$20" />
-          ) : (
-            <>
-              <SizableText h="$5">{currentAllowanceValue?.label}</SizableText>
-              <Icon size="$5" name="ChevronRightSmallOutline" />
-            </>
-          )}
-        </XStack>
+    return (
+      <XStack
+        userSelect="none"
+        hoverStyle={{
+          opacity: 0.5,
+        }}
+      >
+        <SizableText size="$bodyMdMedium">
+          {currentAllowanceValue?.label}
+        </SizableText>
+        <Icon
+          size="$5"
+          color="$iconSubdued"
+          name="ChevronRightSmallOutline"
+          mr="$-1"
+        />
       </XStack>
-    ),
-    [currentAllowanceValue?.label, isLoading, selectItems.length],
-  );
+    );
+  }, [currentAllowanceValue?.label, isLoading, selectItems.length]);
   return (
-    <Select
-      items={selectItems}
-      value={currentAllowanceValue?.value}
-      onChange={(value: string) => {
-        setCurrentAllowanceValue(
-          selectItems?.find((item) => item.value === value),
-        );
-        onSelectAllowanceValue(value);
-      }}
-      title="Authorization Limit"
-      renderTrigger={renderTrigger}
-    />
+    <XStack justifyContent="space-between">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Authorization Limit
+      </SizableText>
+      <Select
+        placement="bottom-end"
+        items={selectItems}
+        value={currentAllowanceValue?.value}
+        onChange={(value: string) => {
+          setCurrentAllowanceValue(
+            selectItems?.find((item) => item.value === value),
+          );
+          onSelectAllowanceValue(value);
+        }}
+        title="Authorization Limit"
+        renderTrigger={renderTrigger}
+      />
+    </XStack>
   );
 };
 

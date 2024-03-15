@@ -5,11 +5,12 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Empty,
   Image,
   ListView,
   Page,
   SizableText,
-  Spinner,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -42,6 +43,7 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { ListItem } from '../../../../components/ListItem';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { withSwapProvider } from '../WithSwapProvider';
@@ -217,13 +219,33 @@ const SwapTokenSelectPage = () => {
           </XStack>
         </XStack>
         {fetchLoading ? (
-          <Spinner flex={1} justifyContent="center" alignItems="center" />
+          Array.from({ length: 5 }).map((_, index) => (
+            <ListItem key={index}>
+              <Skeleton w="$10" h="$10" radius="round" />
+              <YStack>
+                <YStack py="$1">
+                  <Skeleton h="$4" w="$32" />
+                </YStack>
+                <YStack py="$1">
+                  <Skeleton h="$3" w="$24" />
+                </YStack>
+              </YStack>
+            </ListItem>
+          ))
         ) : (
           <YStack flex={1}>
             <ListView
+              pb="$2"
               data={currentTokens}
               renderItem={renderItem}
               estimatedItemSize={60}
+              ListEmptyComponent={
+                <Empty
+                  icon="SearchOutline"
+                  title="No Results"
+                  description="The token you searched for was not found"
+                />
+              }
             />
           </YStack>
         )}
