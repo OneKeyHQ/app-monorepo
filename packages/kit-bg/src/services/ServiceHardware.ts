@@ -36,6 +36,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBDevice } from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -47,8 +49,6 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type { IDBDevice } from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
