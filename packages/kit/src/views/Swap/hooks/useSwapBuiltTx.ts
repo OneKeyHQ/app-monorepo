@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
@@ -93,14 +92,9 @@ export function useSwapBuildTx() {
     [setSwapBuildTxFetching, setSwapFromTokenAmount],
   );
 
-  const handleTxFail = useCallback(
-    (error?: any) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      Toast.error({ title: 'error', message: error?.message ?? '' });
-      setSwapBuildTxFetching(false);
-    },
-    [setSwapBuildTxFetching],
-  );
+  const handleTxFail = useCallback(() => {
+    setSwapBuildTxFetching(false);
+  }, [setSwapBuildTxFetching]);
 
   const wrappedTx = useCallback(async () => {
     if (
