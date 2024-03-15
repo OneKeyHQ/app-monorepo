@@ -159,7 +159,7 @@ export function BookmarksAndHistoriesSection({
         >
           History
         </DashboardSectionHeader.Heading>
-        {dataSource.length > 0 && (
+        {dataSource.length > 0 ? (
           <DashboardSectionHeader.Button
             onPress={() => {
               onPressMore(isHistoriesView);
@@ -167,7 +167,7 @@ export function BookmarksAndHistoriesSection({
           >
             See All
           </DashboardSectionHeader.Button>
-        )}
+        ) : null}
       </DashboardSectionHeader>
       {dataSource.length > 0 ? (
         <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />

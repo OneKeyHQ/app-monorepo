@@ -104,8 +104,12 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
   return (
     <Stack>
       {avatar || <AccountAvatar {...restProps} />}
-      {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
-      {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
+      {cornerIconProps ? (
+        <ListItemAvatarCornerIcon {...cornerIconProps} />
+      ) : null}
+      {cornerImageProps ? (
+        <ListItemAvatarCornerImage {...cornerImageProps} />
+      ) : null}
       {children}
     </Stack>
   );
@@ -143,8 +147,8 @@ const ListItemText = (props: IListItemTextProps) => {
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
       <>
-        {primary &&
-          (isValidElement(primary) ? (
+        {primary ? (
+          isValidElement(primary) ? (
             primary
           ) : (
             <SizableText
@@ -154,9 +158,10 @@ const ListItemText = (props: IListItemTextProps) => {
             >
               {primary}
             </SizableText>
-          ))}
-        {secondary &&
-          (isValidElement(secondary) ? (
+          )
+        ) : null}
+        {secondary ? (
+          isValidElement(secondary) ? (
             secondary
           ) : (
             <SizableText
@@ -167,7 +172,8 @@ const ListItemText = (props: IListItemTextProps) => {
             >
               {secondary}
             </SizableText>
-          ))}
+          )
+        ) : null}
       </>
     </Stack>
   );
@@ -329,10 +335,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         renderItemText,
       )}
       {children}
-      {drillIn && <ListItemDrillIn />}
+      {drillIn ? <ListItemDrillIn /> : null}
       <Unspaced>
         <AnimatePresence>
-          {checkMark && <ListItemCheckMark key="checkmark" />}
+          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
         </AnimatePresence>
       </Unspaced>
     </Stack>

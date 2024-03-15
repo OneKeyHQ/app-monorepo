@@ -78,11 +78,11 @@ function ContainerItem(props: IProps) {
           </XStack>
           {contentAdd}
         </XStack>
-        {description && (
+        {description ? (
           <XStack alignItems="center">
-            {description.icon && (
+            {description.icon ? (
               <Icon color="$iconSubdued" size="$4" name={description.icon} />
-            )}
+            ) : null}
             {typeof description.content === 'string' ? (
               <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {description.content}
@@ -91,9 +91,9 @@ function ContainerItem(props: IProps) {
               description.content
             )}
           </XStack>
-        )}
+        ) : null}
       </YStack>
-      <Stack>{hasDivider && <Divider />}</Stack>
+      <Stack>{hasDivider ? <Divider /> : null}</Stack>
     </Group.Item>
   );
 }

@@ -15,7 +15,7 @@ const ScanQrCameraDemo = () => {
       <Button onPress={() => setIsShow(!isShow)}>
         {isShow ? '关闭' : '打开'}
       </Button>
-      {isShow && (
+      {isShow ? (
         <Stack mt={20} w={360} h={600}>
           <ScanQrCode
             handleBarCodeScanned={(value) => {
@@ -23,7 +23,7 @@ const ScanQrCameraDemo = () => {
             }}
           />
         </Stack>
-      )}
+      ) : null}
     </>
   );
 };
