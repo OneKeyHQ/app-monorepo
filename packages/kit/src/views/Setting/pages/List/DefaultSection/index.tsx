@@ -5,8 +5,14 @@ import { useIntl } from 'react-intl';
 import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
-import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAddressBookPersistAtom,
+  usePasswordPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 const AddressBookItem = () => {
   const pick = useAddressBookList();
@@ -44,15 +50,34 @@ const AddressBookItem = () => {
   );
 };
 
+const LockNowButton = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const [passwordSetting] = usePasswordPersistAtom();
+  const onLock = useCallback(async () => {
+    if (passwordSetting.isPasswordSet) {
+      await backgroundApiProxy.servicePassword.lockApp();
+    } else {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.servicePassword.lockApp();
+    }
+    navigation.popStack();
+  }, [passwordSetting.isPasswordSet, navigation]);
+  return (
+    <ListItem
+      icon="LockOutline"
+      title={intl.formatMessage({ id: 'action__lock_now' })}
+      onPress={onLock}
+    />
+  );
+};
+
 export const DefaultSection = () => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   return (
     <YStack>
-      <ListItem
-        icon="LockOutline"
-        title={intl.formatMessage({ id: 'action__lock_now' })}
-        onPress={() => backgroundApiProxy.servicePassword.lockApp()}
-      />
+      <LockNowButton />
       <AddressBookItem />
       <ListItem
         icon="RepeatOutline"
@@ -60,12 +85,18 @@ export const DefaultSection = () => {
         drillIn
         onPress={() => {}}
       />
-      <ListItem
-        icon="OnekeyLiteOutline"
-        title="OneKey Lite"
-        drillIn
-        onPress={() => {}}
-      />
+      {platformEnv.isNative && (
+        <ListItem
+          icon="OnekeyLiteOutline"
+          title="OneKey Lite"
+          drillIn
+          onPress={() => {
+            navigation.pushModal(EModalRoutes.LiteCardModal, {
+              screen: ELiteCardRoutes.LiteCardHome,
+            });
+          }}
+        />
+      )}
       <ListItem
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
