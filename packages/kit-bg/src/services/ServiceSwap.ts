@@ -6,7 +6,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { CrossChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
@@ -24,8 +23,6 @@ import {
   ESwapProviders,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
-
-import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
 
@@ -186,24 +183,12 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
     };
     this._quoteAbortController = new AbortController();
-    const endpoints = await getEndpoints();
+    const client = await this.getClient();
     const fetchUrl = '/swap/v1/quote';
     try {
-      const options =
-        platformEnv.isDev && process.env.ONEKEY_PROXY
-          ? {
-              baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
-              timeout: 60 * 1000,
-              headers: { 'x-proxy': endpoints.http },
-            }
-          : {
-              baseURL: endpoints.http,
-              timeout: 60 * 1000,
-            };
-      const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
+      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
         {
-          ...options,
           params,
           signal: this._quoteAbortController.signal,
         },
