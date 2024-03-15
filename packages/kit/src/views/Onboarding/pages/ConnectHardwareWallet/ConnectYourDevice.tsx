@@ -282,6 +282,7 @@ export function ConnectYourDevicePage() {
       icon: 'WalletCryptoOutline',
       title: 'Activate Your Device',
       description: 'Set up your hardware wallet to get started.',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack>
           <ListItem
@@ -311,6 +312,7 @@ export function ConnectYourDevicePage() {
               const packageAlertDialog = Dialog.show({
                 icon: 'PackageDeliveryOutline',
                 title: 'Package Security Check',
+                dismissOnOverlayPress: false,
                 description:
                   'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
                 onCancel: () =>
@@ -338,6 +340,7 @@ export function ConnectYourDevicePage() {
 
   const handleFirmwareAuthenticationDemo = useCallback(() => {
     const firmwareAuthenticationDialog = Dialog.show({
+      dismissOnOverlayPress: false,
       title: 'Firmware Authentication',
       renderContent: (
         <FirmwareAuthenticationDialogContent
@@ -362,16 +365,25 @@ export function ConnectYourDevicePage() {
     }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
       try {
+        console.log('ConnectYourDevice -> createHwWallet', device);
+        let { features } = device as KnownDevice;
+        if (!features) {
+          features = await backgroundApiProxy.serviceHardware.getFeatures(
+            device.connectId || '',
+          );
+        }
         await Promise.all([
           await actions.current.createHWWalletWithHidden({
             device,
+            hideCheckingDeviceLoading: true, // device checking loading is not need for onboarding
             skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
-            features: (device as KnownDevice).features,
+            features,
             isFirmwareVerified,
           }),
         ]);
       } catch (error) {
         navigation.pop();
+        throw error;
       } finally {
         await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
           connectId: device.connectId || '',
@@ -385,6 +397,7 @@ export function ConnectYourDevicePage() {
     async ({ device }: { device: SearchDevice }) => {
       const firmwareAuthenticationDialog = Dialog.show({
         title: 'Firmware Authentication',
+        dismissOnOverlayPress: false,
         renderContent: (
           <FirmwareAuthenticationDialogContent
             device={device}
@@ -432,6 +445,7 @@ export function ConnectYourDevicePage() {
   const handleCheckingDevice = useCallback(() => {
     const checkingDeviceDialog = Dialog.show({
       title: 'Checking Device',
+      dismissOnOverlayPress: false,
       renderContent: (
         <Stack
           borderRadius="$3"
@@ -481,36 +495,40 @@ export function ConnectYourDevicePage() {
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
-      {
-        title: 'OneKey Classic(Checking)',
-        src: HwWalletAvatarImages.classic,
-        onPress: handleCheckingDevice,
-      },
-      {
-        title: 'OneKey Classic(Firmware Verify)',
-        src: HwWalletAvatarImages.classic,
-        onPress: handleFirmwareAuthenticationDemo,
-      },
-      {
-        title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
-        src: HwWalletAvatarImages.classic1s,
-        onPress: handleNotActivatedDevicePress,
-      },
-      {
-        title: 'OneKey Pro(Activate Your Device)',
-        src: HwWalletAvatarImages.pro,
-        onPress: handleSetupNewWalletPress,
-      },
-      {
-        title: 'OneKey Touch(Finalize Wallet Setup)',
-        src: HwWalletAvatarImages.touch,
-        onPress: handleWalletItemPress,
-      },
-      {
-        title: 'OneKey Touch2(buy)',
-        src: HwWalletAvatarImages.touch,
-        onPress: handleHeaderRightPress,
-      },
+      ...(process.env.NODE_ENV !== 'production'
+        ? [
+            {
+              title: 'OneKey Classic(Checking)',
+              src: HwWalletAvatarImages.classic,
+              onPress: handleCheckingDevice,
+            },
+            {
+              title: 'OneKey Classic(Firmware Verify)',
+              src: HwWalletAvatarImages.classic,
+              onPress: handleFirmwareAuthenticationDemo,
+            },
+            {
+              title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
+              src: HwWalletAvatarImages.classic1s,
+              onPress: handleNotActivatedDevicePress,
+            },
+            {
+              title: 'OneKey Pro(Activate Your Device)',
+              src: HwWalletAvatarImages.pro,
+              onPress: handleSetupNewWalletPress,
+            },
+            {
+              title: 'OneKey Touch(Finalize Wallet Setup)',
+              src: HwWalletAvatarImages.touch,
+              onPress: handleWalletItemPress,
+            },
+            {
+              title: 'OneKey Touch2(buy)',
+              src: HwWalletAvatarImages.touch,
+              onPress: handleHeaderRightPress,
+            },
+          ]
+        : []),
     ],
     [
       handleCheckingDevice,

@@ -16,6 +16,7 @@ export enum EFinalizeWalletSetupSteps {
 export enum EAppEventBusNames {
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
+  CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
   DAppNetworkUpdate = 'DAppNetworkUpdate',
@@ -26,6 +27,7 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
+  RealmInit = 'RealmInit',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -38,6 +40,7 @@ export enum EAppEventBusNames {
 export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;
+  [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
@@ -70,6 +73,7 @@ export interface IAppEventBusPayload {
     message?: string;
     duration?: number;
   };
+  [EAppEventBusNames.RealmInit]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

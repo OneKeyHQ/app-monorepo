@@ -24,5 +24,5 @@ export type IDAppConnectionModalParamList = {
   [EDAppConnectionModal.CurrentConnectionModal]: {
     origin: string;
     faviconUrl: string;
-  }
+  };
 };

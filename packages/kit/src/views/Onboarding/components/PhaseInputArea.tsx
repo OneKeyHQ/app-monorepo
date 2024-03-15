@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ComponentType, PropsWithChildren, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -44,6 +44,16 @@ import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
+
+const KeyDownView = View as unknown as ComponentType<
+  PropsWithChildren<{
+    onKeyDown: (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => void;
+  }>
+>;
 
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
@@ -174,7 +184,7 @@ function PageFooter({
 }
 
 const { height: windowHeight } = Dimensions.get('window');
-const visibleHeight = windowHeight / 3;
+const visibleHeight = windowHeight / 5;
 
 function BasicPhaseInput(
   {
@@ -237,12 +247,15 @@ function BasicPhaseInput(
           pageX: number,
           pageY: number,
         ) => {
-          console.log(x, y, pageX, pageY, getContentOffset());
+          const contentOffset = getContentOffset();
+          console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
-            pageRef.scrollTo({
-              x: 0,
-              y: getContentOffset().y + pageY - visibleHeight,
-              animated: true,
+            setTimeout(() => {
+              pageRef.scrollTo({
+                x: 0,
+                y: contentOffset.y + pageY - visibleHeight,
+                animated: true,
+              });
             });
           }
         },
@@ -335,6 +348,8 @@ function BasicPhaseInput(
     onBlur: handleInputBlur,
     returnKeyLabel: keyLabel.toUpperCase(),
     returnKeyType: keyLabel,
+    // auto focus on the first input when entering the page.
+    autoFocus: index === 0,
   };
   if (platformEnv.isNative) {
     return (
@@ -356,14 +371,14 @@ function BasicPhaseInput(
       onOpenChange={handleOpenChange}
       open={!!openStatusRef.current && selectInputIndex === index}
       renderContent={
-        <View onKeyDown={handleSelectSuggestionByNumber}>
+        <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
           <SuggestionList
             firstButtonRef={firstButtonRef}
             suggestions={suggestions}
             onPressItem={updateInputValue}
             isFocusable={tabFocusable}
           />
-        </View>
+        </KeyDownView>
       }
       renderTrigger={
         <Stack>

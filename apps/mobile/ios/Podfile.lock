@@ -144,6 +144,7 @@ PODS:
   - MMKV (1.3.1):
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
+  - MultiplatformBleAdapter (0.1.9)
   - OpenSSL-Universal (1.1.1100)
   - RCT-Folly (2022.05.16.00):
     - boost
@@ -1018,6 +1019,9 @@ PODS:
     - React-debug
   - react-native-ble-manager (10.1.5):
     - React-Core
+  - react-native-ble-plx (3.0.0):
+    - MultiplatformBleAdapter (= 0.1.9)
+    - React-Core
   - react-native-compat (2.11.1):
     - glog
     - RCT-Folly (= 2022.05.16.00)
@@ -1045,7 +1049,7 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.2):
+  - react-native-tab-page-view (1.0.3):
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
@@ -1353,6 +1357,7 @@ DEPENDENCIES:
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
+  - "react-native-ble-plx (from `../../../node_modules/@onekeyfe/react-native-ble-plx`)"
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
@@ -1421,6 +1426,7 @@ SPEC REPOS:
     - lottie-ios
     - MMKV
     - MMKVCore
+    - MultiplatformBleAdapter
     - OpenSSL-Universal
     - SocketRocket
     - SPAlert
@@ -1534,6 +1540,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon"
   react-native-ble-manager:
     :path: "../../../node_modules/react-native-ble-manager"
+  react-native-ble-plx:
+    :path: "../../../node_modules/@onekeyfe/react-native-ble-plx"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-get-random-values:
@@ -1680,6 +1688,7 @@ SPEC CHECKSUMS:
   lottie-react-native: c9f1db4f4124dcce9f8159e65d8dc6e8bcb11fb4
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
+  MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   OpenSSL-Universal: ebc357f1e6bc71fa463ccb2fe676756aff50e88c
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 9b1e7e262745fb671e33c51c1078d093bd30e322
@@ -1703,6 +1712,7 @@ SPEC CHECKSUMS:
   React-logger: 66b168e2b2bee57bd8ce9e69f739d805732a5570
   React-Mapbuffer: 9ee041e1d7be96da6d76a251f92e72b711c651d6
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
+  react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
   react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: cad45547780afda43bfbb7c6d3ae51ca2d842ce0
@@ -1713,7 +1723,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: 4e83bc6a08f57dafdd30960eb76d0b3103c237f8
+  react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
@@ -1755,9 +1765,9 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
-  Yoga: 13c8ef87792450193e117976337b8527b49e8c03
+  Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.14.2

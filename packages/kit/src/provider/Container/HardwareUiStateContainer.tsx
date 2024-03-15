@@ -1,6 +1,8 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, memo, useCallback, useEffect, useRef } from 'react';
 
+import { Semaphore } from 'async-mutex';
+
 import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
 import {
   Dialog,
@@ -169,16 +171,18 @@ function HardwareUiStateContainerCmp() {
 
   const autoClosedFlag = 'autoClosed';
 
+  const showOrHideMutex = useRef(new Semaphore(1));
+
   // TODO support multiple connectId dialog show
   useEffect(() => {
-    void (async () => {
+    void showOrHideMutex.current.runExclusive(async () => {
       // TODO do not cancel device here
       const closePrevActions = async () => {
         await dialogRef.current?.close({ flag: autoClosedFlag });
-        // await toastRef.current?.close({ flag: autoClosedFlag });
-        await timerUtils.wait(300);
+        await toastRef.current?.close({ flag: autoClosedFlag });
       };
       await closePrevActions();
+      await timerUtils.wait(300);
       if (shouldShowAction && connectId) {
         if (isToastAction) {
           toastRef.current = Toast.show({
@@ -210,8 +214,10 @@ function HardwareUiStateContainerCmp() {
             },
           });
         }
+      } else {
+        await closePrevActions();
       }
-    })();
+    });
 
     return () => {};
   }, [

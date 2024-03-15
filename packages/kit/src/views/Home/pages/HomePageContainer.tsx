@@ -1,9 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, RefreshControl } from 'react-native';
+import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -56,10 +63,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   } = useActiveAccount({ num: 0 });
   const [isHide, setIsHide] = useState(false);
 
-  const onRefresh = useCallback(() => {
-    // tabsViewRef?.current?.setRefreshing(true);
-  }, []);
-
   const isNFTEnabled = usePromiseResult(
     () =>
       backgroundApiProxy.serviceNetwork.getVaultSettings({
@@ -98,6 +101,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
       ].filter(Boolean),
     [intl, isNFTEnabled],
   );
+
+  const { top } = useSafeAreaInsets();
 
   const headerLeft = useCallback(
     () =>
@@ -138,7 +143,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
 
         <HeaderIconButton
-          title="Scan"
+          title="Settings"
           icon="SettingsOutline"
           onPress={openSettingPage}
         />
@@ -163,7 +168,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
               <XStack
                 justifyContent="space-between"
                 px="$4"
-                pt={platformEnv.isNativeIOS ? '$20' : 0}
+                pt={top}
+                mt={platformEnv.isNativeAndroid ? '$3' : undefined}
               >
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
@@ -187,9 +193,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 initialScrollIndex={0}
                 contentItemWidth={CONTENT_ITEM_WIDTH}
                 contentWidth={screenWidth}
-                refreshControl={
-                  <RefreshControl refreshing={false} onRefresh={onRefresh} />
-                }
                 showsVerticalScrollIndicator={false}
               />
             ) : (
@@ -230,7 +233,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     account,
     tabs,
     screenWidth,
-    onRefresh,
     accountName,
     network?.name,
     deriveInfo?.labelKey,
