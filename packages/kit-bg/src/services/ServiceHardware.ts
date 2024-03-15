@@ -36,8 +36,6 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBDevice } from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -49,6 +47,8 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type { IDBDevice } from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -324,9 +324,9 @@ class ServiceHardware extends ServiceBase {
       signature: string;
     };
     result: {
-      success: boolean;
-      sn?: string | undefined;
-      code?: string | undefined;
+      message?: string;
+      data?: string;
+      code?: number;
     };
   }> {
     const { connectId, deviceType } = device;
@@ -364,9 +364,9 @@ class ServiceHardware extends ServiceBase {
           signature,
         };
         const resp = await client.post<{
-          success: boolean;
-          sn?: string;
-          code?: string;
+          message?: string;
+          data?: string;
+          code?: number;
         }>(
           '/wallet/v1/hardware/verify',
           // shouldUseProxy ? CERTIFICATE_URL_PATH : CERTIFICATE_URL,
@@ -381,8 +381,10 @@ class ServiceHardware extends ServiceBase {
           },
         );
         const result = resp.data;
-        // result.success = false;
-        const verified = result.success && result.sn === connectId;
+        // result.message = 'false';
+
+        const verified =
+          result.message === 'success' && result.data === connectId;
 
         return {
           verified,
