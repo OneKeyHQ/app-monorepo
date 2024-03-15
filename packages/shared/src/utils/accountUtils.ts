@@ -246,6 +246,9 @@ function getAccountCompatibleNetwork({
 }
 
 function isOthersWallet({ walletId }: { walletId: string }) {
+  if (!walletId) {
+    return false;
+  }
   return (
     walletId === WALLET_TYPE_WATCHING ||
     walletId === WALLET_TYPE_EXTERNAL ||

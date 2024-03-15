@@ -83,7 +83,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
 export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   Dialog.show({
     title: 'Edit Avatar',
-    estimatedContentHeight: 340,
+    estimatedContentHeight: 276,
     renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });
 }

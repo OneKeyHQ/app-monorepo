@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -100,7 +101,11 @@ function MobileBrowser() {
   return (
     <Page>
       <Page.Header headerShown={false} />
-      <XStack pt={top} mx="$5">
+      <XStack
+        pt={top}
+        mx="$5"
+        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+      >
         <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         <HeaderRightToolBar />
       </XStack>

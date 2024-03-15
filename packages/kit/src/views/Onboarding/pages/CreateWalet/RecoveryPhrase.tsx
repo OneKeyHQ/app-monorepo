@@ -20,7 +20,8 @@ import { useShowCopyPasteButton } from '../../components/hooks';
 
 function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   const media = useMedia();
-  const [isFocused, setIsFocused] = useState(false);
+  // Show the first word when entering the page
+  const [isFocused, setIsFocused] = useState(index === 0);
   const handleFocus = useCallback(() => {
     setIsFocused(true);
   }, []);
@@ -30,6 +31,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
   return (
     <Input
       caretHidden
+      autoFocus={index === 0}
       showSoftInputOnFocus={false}
       keyboardType="numeric"
       onFocus={handleFocus}

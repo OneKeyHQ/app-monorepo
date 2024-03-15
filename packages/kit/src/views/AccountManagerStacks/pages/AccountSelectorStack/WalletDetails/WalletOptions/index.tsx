@@ -13,13 +13,11 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
-import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { AboutDevice } from './AboutDevice';
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
 import { HomeScreen } from './HomeScreen';
@@ -45,36 +43,6 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
 
-  const handleBackupPress = useCallback(() => {
-    ActionList.show({
-      title: 'Backup',
-      sections: [
-        {
-          items: [
-            {
-              label: intl.formatMessage({
-                id: 'backup__manual_backup',
-              }),
-              icon: 'PenOutline',
-              onPress: handleBackupPhrase,
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    });
-  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
-
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -88,25 +56,54 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
           <Verification />
           <HomeScreen />
           <Advance />
-          <AboutDevice />
           <HiddenWalletAddButton wallet={wallet} />
         </>
       );
     }
     return (
-      <WalletOptionItem
-        icon="Shield2CheckOutline"
-        label="Backup"
-        onPress={handleBackupPress}
+      <ActionList
+        offset={{ mainAxis: 0, crossAxis: 18 }}
+        placement="bottom-start"
+        title="Backup"
+        items={[
+          {
+            label: intl.formatMessage({
+              id: 'backup__manual_backup',
+            }),
+            icon: 'SignatureOutline',
+            onPress: handleBackupPhrase,
+          },
+          ...(platformEnv.isNative
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: 'app__hardware_name_onekey_lite',
+                  }),
+                  icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                  onPress: handleBackupLiteCard,
+                },
+              ]
+            : []),
+
+          {
+            label: 'OneKey KeyTag',
+            icon: 'OnekeyKeytagOutline',
+            onPress: () => console.log('clicked'),
+          },
+        ]}
+        renderTrigger={
+          <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+        }
       />
     );
-  }, [handleBackupPress, wallet]);
+  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>
       <AnimatePresence>
         {editMode && (
           <Stack
+            testID="wallet-edit-options"
             animation="quick"
             exitStyle={{
               opacity: 0,
@@ -120,7 +117,6 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
 
             {/* Options */}
             {walletSpecifiedOptions}
-            <WalletRemoveButton wallet={wallet} />
 
             <Stack py="$2.5">
               <Divider mt="auto" />
