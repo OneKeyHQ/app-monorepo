@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import { Alert, YStack } from '@onekeyhq/components';
+import { Alert } from '@onekeyhq/components';
 
 import { useSwapActionState } from '../../hooks/useSwapState';
 
@@ -11,7 +11,7 @@ const SwapAlertContainer = () => {
     [swapActionState?.alerts?.length],
   );
   return hasWrongMsg ? (
-    <YStack space="$2">
+    <>
       {swapActionState.alerts?.map((item) => (
         <Alert
           type="warning"
@@ -19,7 +19,7 @@ const SwapAlertContainer = () => {
           icon="InfoCircleOutline"
         />
       ))}
-    </YStack>
+    </>
   ) : null;
 };
 

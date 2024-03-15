@@ -1,7 +1,18 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, IconButton, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Button,
+  Icon,
+  IconButton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
+import {
+  HeaderButtonGroup,
+  HeaderIconButton,
+} from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -24,22 +35,22 @@ const SwapHeaderRightActionContainer = () => {
     });
   }, [navigation]);
   return (
-    <XStack justifyContent="flex-end">
+    <HeaderButtonGroup>
       {swapTxHistoryPending.length > 0 ? (
-        <Button
-          onPress={onOpenHistoryListModal}
-          variant="secondary"
-          size="medium"
-          icon="Ai3StarOutline"
-          backgroundColor="$bgInfo"
-        >{`${swapTxHistoryPending.length} Pending `}</Button>
+        <Badge badgeSize="lg" badgeType="info" onPress={onOpenHistoryListModal}>
+          <Stack borderRadius="$full" p={3} bg="$borderInfo">
+            <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
+          </Stack>
+          <Badge.Text pl="$2">{`${swapTxHistoryPending.length} Pending `}</Badge.Text>
+        </Badge>
       ) : (
-        <IconButton
-          icon="ClockTimeHistorySolid"
+        <HeaderIconButton
+          icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
         />
       )}
-    </XStack>
+      <HeaderIconButton icon="QuestionmarkOutline" />
+    </HeaderButtonGroup>
   );
 };
 

@@ -81,7 +81,7 @@ const SwapActionsState = ({
   ]);
 
   return (
-    <YStack space="$4">
+    <YStack space="$5" p="$5">
       {swapActionState.isApprove ? (
         <XStack justifyContent="center">
           <SizableText>{`Step 1: Approve ${
@@ -92,13 +92,12 @@ const SwapActionsState = ({
       ) : null}
       <Button
         onPress={onActionHandler}
+        size="large"
         variant="primary"
         disabled={swapActionState.disabled || swapActionState.isLoading}
+        loading={swapActionState.isLoading}
       >
-        <XStack space="$2">
-          {swapActionState.isLoading && <Spinner size="small" />}
-          <SizableText color="white">{swapActionState.label}</SizableText>
-        </XStack>
+        {swapActionState.label}
       </Button>
     </YStack>
   );

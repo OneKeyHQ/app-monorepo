@@ -63,15 +63,24 @@ const SwapMainLoad = () => {
 
   return (
     <YStack
-      px="$4"
+      testID="swap-content-container"
+      flex={1}
       marginHorizontal="auto"
-      maxWidth="100%"
-      width={576}
-      space="$4"
+      width="100%"
+      maxWidth={480}
     >
-      <SwapQuoteInput onSelectToken={onSelectToken} />
-      <SwapAlertContainer />
-      <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
+      <YStack
+        p="$5"
+        space="$5"
+        flex={1}
+        $gtMd={{
+          flex: 'unset',
+        }}
+      >
+        <SwapQuoteInput onSelectToken={onSelectToken} />
+        <SwapAlertContainer />
+        <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
+      </YStack>
       <SwapActionsState
         onBuildTx={onBuildTx}
         onApprove={onApprove}

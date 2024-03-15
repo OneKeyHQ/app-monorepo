@@ -57,18 +57,24 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
       />
-      <XStack justifyContent="flex-end" mr="$10" my="$2">
-        <IconButton icon="SwitchVerOutline" onPress={alternationToken} />
-      </XStack>
-      <SwapInputContainer
-        token={toToken}
-        inputLoading={quoteFetching}
-        selectTokenLoading={fetchLoading}
-        direction={ESwapDirectionType.TO}
-        amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
-        onSelectToken={onSelectToken}
-        balance={toTokenBalance}
-      />
+      <YStack pt="$3.5">
+        <IconButton
+          alignSelf="flex-end"
+          icon="SwitchVerOutline"
+          size="small"
+          onPress={alternationToken}
+          mb="$-3"
+        />
+        <SwapInputContainer
+          token={toToken}
+          inputLoading={quoteFetching}
+          selectTokenLoading={fetchLoading}
+          direction={ESwapDirectionType.TO}
+          amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
+          onSelectToken={onSelectToken}
+          balance={toTokenBalance}
+        />
+      </YStack>
     </YStack>
   );
 };

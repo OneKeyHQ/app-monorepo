@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Button, SizableText, XStack } from '@onekeyhq/components';
+import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapProviderSupportReceiveAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -20,6 +20,78 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
+
+function AddressButton({
+  address,
+  empty,
+  edited,
+  onPress,
+}: {
+  address?: string;
+  empty?: boolean;
+  edited?: boolean;
+} & IXStackProps) {
+  return (
+    <XStack
+      alignItems="center"
+      space="$1"
+      py="$0.5"
+      px="$1.5"
+      my="$-0.5"
+      mx="$-1.5"
+      borderRadius="$2"
+      onPress={onPress}
+      {...(onPress && {
+        role: 'button',
+        userSelect: 'none',
+        focusable: true,
+        hoverStyle: { bg: '$bgHover' },
+        pressStyle: { bg: '$bgActive' },
+        focusStyle: {
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        },
+        '$platform-native': {
+          hitSlop: {
+            top: 8,
+            right: 8,
+          },
+        },
+      })}
+    >
+      <XStack>
+        <SizableText
+          size="$bodyMd"
+          color={empty ? '$textCaution' : '$textSubdued'}
+        >
+          {empty ? 'No Addreses' : address}
+        </SizableText>
+        {edited && (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            (Edited)
+          </SizableText>
+        )}
+      </XStack>
+      {onPress && empty && (
+        <Icon
+          name="PlusCircleOutline"
+          size="$4.5"
+          color="$iconSubdued"
+          mr="$-0.5"
+        />
+      )}
+      {onPress && !empty && (
+        <Icon
+          name="PencilOutline"
+          size="$4.5"
+          color="$iconSubdued"
+          mr="$-0.5"
+        />
+      )}
+    </XStack>
+  );
+}
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -59,45 +131,29 @@ const SwapAccountAddressContainer = ({
       (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HD ||
         swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HW)
     ) {
-      return (
-        <Button
-          iconAfter="PlusCircleOutline"
-          onPress={handleOnCreateAddress}
-          variant="tertiary"
-        >
-          No Address
-        </Button>
-      );
+      return <AddressButton empty onPress={handleOnCreateAddress} />;
     }
     if (type === ESwapDirectionType.FROM || !swapSupportReceiveAddress) {
       return (
-        <Button
-          onPress={() => {
-            // copy address
-          }}
-          variant="tertiary"
-        >
-          {accountUtils.shortenAddress({
+        <AddressButton
+          address={accountUtils.shortenAddress({
             address: swapAddressInfo.address ?? '',
           })}
-        </Button>
+        />
       );
     }
     return (
-      <Button
+      <AddressButton
         onPress={() => {
           navigation.pushModal(EModalRoutes.SwapModal, {
             screen: EModalSwapRoutes.SwapToAnotherAddress,
             params: { address: swapAddressInfo.address },
           });
         }}
-        variant="tertiary"
-        iconAfter="PencilOutline"
-      >
-        {accountUtils.shortenAddress({
+        address={accountUtils.shortenAddress({
           address: swapAddressInfo.address ?? '',
         })}
-      </Button>
+      />
     );
   }, [
     handleOnCreateAddress,
@@ -109,8 +165,8 @@ const SwapAccountAddressContainer = ({
   ]);
 
   return (
-    <XStack py="$2">
-      <SizableText mr="$2">
+    <XStack pb="$1.5">
+      <SizableText size="$bodyMdMedium" mr="$2">
         {type === ESwapDirectionType.FROM ? 'From' : 'To'}
       </SizableText>
       {addressComponent}

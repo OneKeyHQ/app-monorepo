@@ -25,7 +25,7 @@ const SwapPageContainer = () => {
   return (
     <Page>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
-      <Page.Body space="$4">
+      <Page.Body>
         <SwapMainLand />
       </Page.Body>
     </Page>

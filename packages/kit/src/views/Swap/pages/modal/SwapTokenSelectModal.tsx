@@ -169,41 +169,45 @@ const SwapTokenSelectPage = () => {
 
   return (
     <Page>
-      <Page.Body px="$4">
-        <SearchBar
-          h="$12"
-          w="100%"
-          value={searchKeyword}
-          clearTextOnFocus
-          onChangeText={(text) => {
-            const afterTrim = text.trim();
-            setSearchKeyword(afterTrim);
+      <Page.Header
+        title="Select Token"
+        headerSearchBarOptions={{
+          placeholder: 'Search symbol or contract address',
+        }}
+      />
+      {/* <SearchBar
+        h="$12"
+        w="100%"
+        value={searchKeyword}
+        clearTextOnFocus
+        onChangeText={(text) => {
+          const afterTrim = text.trim();
+          setSearchKeyword(afterTrim);
+        }}
+      /> */}
+      <Page.Body>
+        <NetworkToggleGroup
+          type={type}
+          onMoreNetwork={() => {
+            setSearchKeyword('');
+            navigation.pushModal(EModalRoutes.SwapModal, {
+              screen: EModalSwapRoutes.SwapNetworkSelect,
+              params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
+            });
           }}
+          onlySupportSingleNetWork={onlySupportSingleNetWork}
+          networks={networkFilterData.swapNetworksCommon}
+          moreNetworksCount={networkFilterData.swapNetworksMoreCount}
+          selectedNetwork={currentSelectNetwork}
+          onSelectNetwork={onSelectCurrentNetwork}
         />
-        <YStack my="$4">
-          <NetworkToggleGroup
-            type={type}
-            onMoreNetwork={() => {
-              setSearchKeyword('');
-              navigation.pushModal(EModalRoutes.SwapModal, {
-                screen: EModalSwapRoutes.SwapNetworkSelect,
-                params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
-              });
-            }}
-            onlySupportSingleNetWork={onlySupportSingleNetWork}
-            networks={networkFilterData.swapNetworksCommon}
-            moreNetworksCount={networkFilterData.swapNetworksMoreCount}
-            selectedNetwork={currentSelectNetwork}
-            onSelectNetwork={onSelectCurrentNetwork}
-          />
-        </YStack>
-        <XStack mb="$1">
-          <SizableText size="$headingSm" mr="$1">
+        <XStack px="$5" py="$2">
+          <SizableText size="$headingSm" pr="$2">
             {`${intl.formatMessage({ id: 'network__network' })}:`}
           </SizableText>
           <XStack>
             {currentSelectNetwork?.networkId !== 'all' ? (
-              <Image height="$5" width="$5" borderRadius="$full">
+              <Image height="$5" width="$5" borderRadius="$full" mr="$2">
                 <Image.Source
                   source={{
                     uri: currentSelectNetwork?.logoURI,
@@ -211,7 +215,7 @@ const SwapTokenSelectPage = () => {
                 />
               </Image>
             ) : null}
-            <SizableText size="$bodyMd" pl="$2">
+            <SizableText size="$bodyMd">
               {currentSelectNetwork?.name ??
                 currentSelectNetwork?.symbol ??
                 currentSelectNetwork?.shortcode ??

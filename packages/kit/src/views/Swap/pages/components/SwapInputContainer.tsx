@@ -57,7 +57,8 @@ const SwapInputContainer = ({
 
   return (
     <YStack>
-      {token ? <SwapAccountAddressContainer type={direction} /> : null}
+      {/* {token ? <SwapAccountAddressContainer type={direction} /> : null} */}
+      <SwapAccountAddressContainer type={direction} />
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
