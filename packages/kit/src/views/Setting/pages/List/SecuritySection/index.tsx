@@ -1,8 +1,8 @@
 import type { ComponentProps } from 'react';
 import { Suspense, useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
 import { AuthenticationType } from 'expo-local-authentication';
+import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';

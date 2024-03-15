@@ -8,9 +8,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
-import { EModalRoutes, EDAppConnectionModal } from '@onekeyhq/shared/src/routes';
-
 
 export default function DAppConnectExtensionFloatingTrigger() {
   const { result, run } = usePromiseResult(
