@@ -369,7 +369,7 @@ function BasicPhaseInput(
       placement="bottom-start"
       usingSheet={false}
       onOpenChange={handleOpenChange}
-      open={openStatusRef.current ? selectInputIndex === index : null}
+      open={openStatusRef.current ? selectInputIndex === index : undefined}
       renderContent={
         <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
           <SuggestionList
