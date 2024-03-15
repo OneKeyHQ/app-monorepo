@@ -6,6 +6,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { CrossChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
@@ -188,12 +189,23 @@ export default class ServiceSwap extends ServiceBase {
     const endpoints = await getEndpoints();
     const fetchUrl = '/swap/v1/quote';
     try {
+      const options =
+        platformEnv.isDev && process.env.ONEKEY_PROXY
+          ? {
+              baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
+              timeout: 60 * 1000,
+              headers: { 'x-proxy': endpoints.http },
+            }
+          : {
+              baseURL: endpoints.http,
+              timeout: 60 * 1000,
+            };
       const { data } = await axios.get<IFetchResponse<IFetchQuoteResult[]>>(
         fetchUrl,
         {
+          ...options,
           params,
           signal: this._quoteAbortController.signal,
-          baseURL: endpoints.http,
         },
       );
       this._quoteAbortController = undefined;
