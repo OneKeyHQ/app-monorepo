@@ -22,9 +22,8 @@ type IFirstParameterOrUndefined<T> = T extends (
 
 export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
 
-export type IWebViewOnScrollEvent = IFirstParameterOrUndefined<
-  WebViewSharedProps['onScroll']
->;
+export type IWebViewOnScrollEvent =
+  IFirstParameterOrUndefined<IWebViewOnScroll>;
 
 export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents,
