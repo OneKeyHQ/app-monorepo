@@ -4,7 +4,7 @@ import type {
   PropsWithChildren,
   ReactElement,
 } from 'react';
-import { isValidElement } from 'react';
+import { isValidElement, useCallback } from 'react';
 
 import {
   AnimatePresence,
@@ -144,36 +144,44 @@ const ListItemText = (props: IListItemTextProps) => {
     return 'flex-end';
   };
 
+  const renderPrimary = useCallback(
+    () =>
+      isValidElement(primary) ? (
+        primary
+      ) : (
+        <SizableText
+          textAlign={align}
+          size="$bodyLgMedium"
+          {...primaryTextProps}
+        >
+          {primary}
+        </SizableText>
+      ),
+    [align, primary, primaryTextProps],
+  );
+
+  const renderSecondary = useCallback(
+    () =>
+      isValidElement(secondary) ? (
+        secondary
+      ) : (
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          textAlign={align}
+          {...secondaryTextProps}
+        >
+          {secondary}
+        </SizableText>
+      ),
+    [align, secondary, secondaryTextProps],
+  );
+
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
       <>
-        {primary ? (
-          isValidElement(primary) ? (
-            primary
-          ) : (
-            <SizableText
-              textAlign={align}
-              size="$bodyLgMedium"
-              {...primaryTextProps}
-            >
-              {primary}
-            </SizableText>
-          )
-        ) : null}
-        {secondary ? (
-          isValidElement(secondary) ? (
-            secondary
-          ) : (
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              textAlign={align}
-              {...secondaryTextProps}
-            >
-              {secondary}
-            </SizableText>
-          )
-        ) : null}
+        {primary ? renderPrimary() : null}
+        {secondary ? renderSecondary() : null}
       </>
     </Stack>
   );
