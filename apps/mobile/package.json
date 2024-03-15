@@ -71,7 +71,6 @@
     "react-native-crypto": "^2.2.0",
     "react-native-device-info": "10.11.0",
     "react-native-file-logger": "^0.4.1",
-    "react-native-flipper": "0.212.0",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "2.14.1",
     "react-native-get-random-values": "1.9.0",
