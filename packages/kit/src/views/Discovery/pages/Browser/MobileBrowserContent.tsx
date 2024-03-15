@@ -14,14 +14,14 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
-import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
+import type { IWebViewOScrollEvent } from '../../components/WebView/types';
 
 function MobileBrowserContent({
   id,
   onScroll,
 }: {
   id: string;
-  onScroll?: (event: WebViewScrollEvent) => void;
+  onScroll?: (event: IWebViewOScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
   const { addBrowserHistory } = useBrowserHistoryAction().current;

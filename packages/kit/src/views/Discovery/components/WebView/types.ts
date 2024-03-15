@@ -13,6 +13,19 @@ import type {
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
 
+type IFirstParameterOrUndefined<T> = T extends (
+  first: infer P,
+  ...rest: any[]
+) => any
+  ? P
+  : never;
+
+export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
+
+export type IWebViewOScrollEvent = IFirstParameterOrUndefined<
+  WebViewSharedProps['onScroll']
+>;
+
 export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents,
     InpageWebViewProps {
@@ -29,7 +42,7 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
-  onScroll?: WebViewSharedProps['onScroll'];
+  onScroll?: IWebViewOnScroll;
   webviewHeight?: number;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
