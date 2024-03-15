@@ -12,6 +12,7 @@ function NFTListItem(props: IProps) {
   return (
     <Stack
       key={nft.itemId}
+      group="nftItem"
       flexBasis="50%"
       $gtSm={{
         flexBasis: '33.333333%',

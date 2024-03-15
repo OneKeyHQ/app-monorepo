@@ -1,6 +1,4 @@
-import { Dialog, SizableText, XStack } from '@onekeyhq/components';
-
-import { WalletOptionItem } from './WalletOptionItem';
+import { Dialog, IconButton, SizableText, XStack } from '@onekeyhq/components';
 
 function DescriptionList({
   label,
@@ -40,9 +38,10 @@ const ListData = [
 
 export function AboutDevice() {
   return (
-    <WalletOptionItem
+    <IconButton
+      title="About"
       icon="InfoCircleOutline"
-      label="About"
+      variant="tertiary"
       onPress={() =>
         Dialog.show({
           title: 'About',
