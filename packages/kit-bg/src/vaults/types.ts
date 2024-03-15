@@ -10,14 +10,17 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit, ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
-import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -270,24 +273,6 @@ export type INativeAmountInfo = {
 };
 
 // Send ------------
-export interface IBuildTxHelperParams {
-  getToken: ({
-    networkId,
-    tokenIdOnNetwork,
-  }: {
-    networkId: string;
-    tokenIdOnNetwork: string;
-  }) => Promise<IToken | undefined>;
-  getNFT: ({
-    networkId,
-    nftId,
-    collectionAddress,
-  }: {
-    networkId: string;
-    collectionAddress: string;
-    nftId: string;
-  }) => Promise<IAccountNFT | undefined>;
-}
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;

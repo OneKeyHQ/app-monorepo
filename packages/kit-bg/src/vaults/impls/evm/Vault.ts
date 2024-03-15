@@ -25,6 +25,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -46,7 +47,6 @@ import {
   type IBuildAccountAddressDetailParams,
   type IBuildDecodedTxParams,
   type IBuildEncodedTxParams,
-  type IBuildTxHelperParams,
   type IBuildUnsignedTxParams,
   type IGetPrivateKeyFromImportedParams,
   type IGetPrivateKeyFromImportedResult,
@@ -167,11 +167,12 @@ export default class Vault extends VaultBase {
   }
 
   override async buildDecodedTx(
-    params: IBuildDecodedTxParams & IBuildTxHelperParams,
+    params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx, getToken, getNFT } = params;
+    const { unsignedTx } = params;
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
+    const { swapInfo } = unsignedTx;
 
     const [network, accountAddress, nativeTx] = await Promise.all([
       this.getNetwork(),
@@ -189,37 +190,39 @@ export default class Vault extends VaultBase {
     };
 
     let extraNativeTransferAction: IDecodedTxAction | undefined;
-    if (encodedTx.value) {
-      const valueBn = new BigNumber(encodedTx.value);
-      if (!valueBn.isNaN() && valueBn.gt(0)) {
-        extraNativeTransferAction =
+
+    if (swapInfo) {
+      action = await this._buildTxActionFromSwap({
+        encodedTx,
+        swapInfo,
+      });
+    } else {
+      if (encodedTx.value) {
+        const valueBn = new BigNumber(encodedTx.value);
+        if (!valueBn.isNaN() && valueBn.gt(0)) {
+          extraNativeTransferAction =
+            await this._buildTxTransferNativeTokenAction({
+              encodedTx,
+            });
+        }
+      }
+
+      if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
+        const actionFromNativeTransfer =
           await this._buildTxTransferNativeTokenAction({
             encodedTx,
-            getNFT,
-            getToken,
           });
-      }
-    }
-
-    if (checkIsEvmNativeTransfer({ tx: nativeTx })) {
-      const actionFromNativeTransfer =
-        await this._buildTxTransferNativeTokenAction({
+        if (actionFromNativeTransfer) {
+          action = actionFromNativeTransfer;
+        }
+        extraNativeTransferAction = undefined;
+      } else {
+        const actionFromContract = await this._buildTxActionFromContract({
           encodedTx,
-          getNFT,
-          getToken,
         });
-      if (actionFromNativeTransfer) {
-        action = actionFromNativeTransfer;
-      }
-      extraNativeTransferAction = undefined;
-    } else {
-      const actionFromContract = await this._buildTxActionFromContract({
-        encodedTx,
-        getToken,
-        getNFT,
-      });
-      if (actionFromContract) {
-        action = actionFromContract;
+        if (actionFromContract) {
+          action = actionFromContract;
+        }
       }
     }
 
@@ -230,11 +233,9 @@ export default class Vault extends VaultBase {
     });
   }
 
-  async _buildTxActionFromContract(
-    params: { encodedTx: IEncodedTxEvm } & IBuildTxHelperParams,
-  ) {
+  async _buildTxActionFromContract(params: { encodedTx: IEncodedTxEvm }) {
     let action: IDecodedTxAction | undefined;
-    const { encodedTx, getToken, getNFT } = params;
+    const { encodedTx } = params;
     const nativeTx = await parseToNativeTx({
       encodedTx,
     });
@@ -244,8 +245,6 @@ export default class Vault extends VaultBase {
       action = await this._buildTxTokenAction({
         encodedTx,
         txDesc: erc20TxDesc,
-        getNFT,
-        getToken,
       });
       if (action) return action;
     }
@@ -255,8 +254,6 @@ export default class Vault extends VaultBase {
       action = await this._buildTxTransferNFTAction({
         encodedTx,
         txDesc: erc721TxDesc,
-        getToken,
-        getNFT,
       });
       if (action) return action;
     }
@@ -266,8 +263,6 @@ export default class Vault extends VaultBase {
       action = await this._buildTxTransferNFTAction({
         encodedTx,
         txDesc: erc1155TxDesc,
-        getToken,
-        getNFT,
       });
       if (action) return action;
     }
@@ -653,15 +648,13 @@ export default class Vault extends VaultBase {
     return action;
   }
 
-  async _buildTxTokenAction(
-    params: {
-      encodedTx: IEncodedTxEvm;
-      txDesc: ethers.utils.TransactionDescription;
-    } & IBuildTxHelperParams,
-  ) {
-    const { encodedTx, txDesc, getToken } = params;
+  async _buildTxTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+    txDesc: ethers.utils.TransactionDescription;
+  }) {
+    const { encodedTx, txDesc } = params;
 
-    const token = await getToken({
+    const token = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
       tokenIdOnNetwork: encodedTx.to,
     });
@@ -766,12 +759,38 @@ export default class Vault extends VaultBase {
     return action;
   }
 
-  async _buildTxTransferNativeTokenAction(
-    params: { encodedTx: IEncodedTxEvm } & IBuildTxHelperParams,
-  ) {
-    const { encodedTx, getToken } = params;
+  async _buildTxActionFromSwap(params: {
+    encodedTx: IEncodedTxEvm;
+    swapInfo: ISwapTxInfo;
+  }) {
+    const { encodedTx, swapInfo } = params;
+    const swapSendToken = swapInfo.sender.token;
+    const action = await this._buildTxTransferAssetAction({
+      from: swapInfo.accountAddress,
+      to: encodedTx.to,
+      transfers: [
+        {
+          from: swapInfo.accountAddress,
+          to: encodedTx.to,
+          tokenIdOnNetwork: swapSendToken.contractAddress,
+          icon: swapSendToken.logoURI ?? '',
+          name: swapSendToken.name ?? '',
+          symbol: swapSendToken.symbol,
+          amount: swapInfo.sender.amount,
+          isNFT: false,
+          isNative: swapSendToken.isNative,
+        },
+      ],
+    });
+    return action;
+  }
+
+  async _buildTxTransferNativeTokenAction(params: {
+    encodedTx: IEncodedTxEvm;
+  }) {
+    const { encodedTx } = params;
     const accountAddress = await this.getAccountAddress();
-    const nativeToken = await getToken({
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
       tokenIdOnNetwork: '',
     });
@@ -854,13 +873,11 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async _buildTxTransferNFTAction(
-    params: {
-      encodedTx: IEncodedTxEvm;
-      txDesc: ethers.utils.TransactionDescription;
-    } & IBuildTxHelperParams,
-  ) {
-    const { encodedTx, txDesc, getNFT } = params;
+  async _buildTxTransferNFTAction(params: {
+    encodedTx: IEncodedTxEvm;
+    txDesc: ethers.utils.TransactionDescription;
+  }) {
+    const { encodedTx, txDesc } = params;
     const accountAddress = await this.getAccountAddress();
 
     if (
@@ -872,7 +889,7 @@ export default class Vault extends VaultBase {
     const [from, to, nftId, amount] =
       txDesc?.args.map((arg) => String(arg)) || [];
 
-    const nft = await getNFT({
+    const nft = await this.backgroundApi.serviceNFT.getNFT({
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,
