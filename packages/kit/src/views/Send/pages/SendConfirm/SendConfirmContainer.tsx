@@ -89,7 +89,10 @@ function SendConfirmContainer() {
                 justifyContent: 'space-between',
               }}
             >
-              <TxSimulationContainer tableLayout={tableLayout} />
+              <TxSimulationContainer
+                networkId={networkId}
+                tableLayout={tableLayout}
+              />
             </Container.Box>
             <YStack flex={1} justifyContent="space-between" mr="$-5">
               <TxActionsContainer
@@ -125,7 +128,7 @@ function SendConfirmContainer() {
         <Page.Body px="$5">
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
-          <TxSimulationContainer />
+          <TxSimulationContainer networkId={networkId} />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}
