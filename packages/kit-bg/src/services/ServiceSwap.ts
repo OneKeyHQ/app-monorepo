@@ -45,17 +45,11 @@ export default class ServiceSwap extends ServiceBase {
       protocol,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
-        '/swap/v1/networks',
-        { params },
-      );
-      return data.data ?? [];
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return [];
-    }
+    const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
+      '/swap/v1/networks',
+      { params },
+    );
+    return data.data ?? [];
   }
 
   @backgroundMethod()
@@ -91,19 +85,12 @@ export default class ServiceSwap extends ServiceBase {
       accountXpub,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<
-        IFetchResponse<{ next?: string; data: ISwapToken[] }>
-      >('/swap/v1/tokens', {
-        params,
-      });
-
-      return { result: data?.data?.data ?? [], next: data?.data?.next };
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return { result: [], next: undefined };
-    }
+    const { data } = await client.get<
+      IFetchResponse<{ next?: string; data: ISwapToken[] }>
+    >('/swap/v1/tokens', {
+      params,
+    });
+    return { result: data?.data?.data ?? [], next: data?.data?.next };
   }
 
   @backgroundMethod()
@@ -125,17 +112,11 @@ export default class ServiceSwap extends ServiceBase {
       contractAddress,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<IFetchResponse<ISwapTokenDetailInfo>>(
-        '/swap/v1/token/detail',
-        { params },
-      );
-      return data?.data;
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return undefined;
-    }
+    const { data } = await client.get<IFetchResponse<ISwapTokenDetailInfo>>(
+      '/swap/v1/token/detail',
+      { params },
+    );
+    return data?.data;
   }
 
   @backgroundMethod()
@@ -244,17 +225,11 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-        '/swap/v1/build-tx',
-        { params },
-      );
-      return data?.data;
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return undefined;
-    }
+    const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+      '/swap/v1/build-tx',
+      { params },
+    );
+    return data?.data;
   }
 
   @backgroundMethod()
@@ -285,16 +260,11 @@ export default class ServiceSwap extends ServiceBase {
       receivedAddress,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.post<
-        IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-      >('/swap/v1/state-tx', params);
-      return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return { state: ESwapTxHistoryStatus.PENDING };
-    }
+
+    const { data } = await client.post<
+      IFetchResponse<IFetchSwapTxHistoryStatusResponse>
+    >('/swap/v1/state-tx', params);
+    return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
   @backgroundMethod()
@@ -316,17 +286,11 @@ export default class ServiceSwap extends ServiceBase {
       walletAddress,
     };
     const client = await this.getClient();
-    try {
-      const { data } = await client.get<IFetchResponse<string>>(
-        '/swap/v1/allowance',
-        { params },
-      );
 
-      return data?.data;
-    } catch (e) {
-      const error = e as { message: string };
-      Toast.error({ title: 'error', message: error?.message });
-      return undefined;
-    }
+    const { data } = await client.get<IFetchResponse<string>>(
+      '/swap/v1/allowance',
+      { params },
+    );
+    return data?.data;
   }
 }
