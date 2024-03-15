@@ -8,7 +8,6 @@ import {
   Image,
   ListView,
   Page,
-  SearchBar,
   SizableText,
   Spinner,
   XStack,
@@ -173,18 +172,12 @@ const SwapTokenSelectPage = () => {
         title="Select Token"
         headerSearchBarOptions={{
           placeholder: 'Search symbol or contract address',
+          onChangeText: ({ nativeEvent }) => {
+            const afterTrim = nativeEvent.text.trim();
+            setSearchKeyword(afterTrim);
+          },
         }}
       />
-      {/* <SearchBar
-        h="$12"
-        w="100%"
-        value={searchKeyword}
-        clearTextOnFocus
-        onChangeText={(text) => {
-          const afterTrim = text.trim();
-          setSearchKeyword(afterTrim);
-        }}
-      /> */}
       <Page.Body>
         <NetworkToggleGroup
           type={type}

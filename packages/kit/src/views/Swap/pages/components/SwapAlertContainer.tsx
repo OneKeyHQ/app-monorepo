@@ -1,26 +1,15 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 
 import { Alert } from '@onekeyhq/components';
+import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapActionState } from '../../hooks/useSwapState';
+interface ISwapAlertContainerProps {
+  alerts?: ISwapAlertState[];
+}
 
-const SwapAlertContainer = () => {
-  const swapActionState = useSwapActionState();
-  const hasWrongMsg = useMemo(
-    () => swapActionState?.alerts?.length,
-    [swapActionState?.alerts?.length],
-  );
-  return hasWrongMsg ? (
-    <>
-      {swapActionState.alerts?.map((item) => (
-        <Alert
-          type="warning"
-          description={item.message}
-          icon="InfoCircleOutline"
-        />
-      ))}
-    </>
-  ) : null;
-};
+const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) =>
+  alerts?.map((item) => (
+    <Alert type="warning" description={item.message} icon="InfoCircleOutline" />
+  ));
 
 export default memo(SwapAlertContainer);

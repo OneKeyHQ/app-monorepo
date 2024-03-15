@@ -3,13 +3,13 @@ import { memo, useCallback, useMemo } from 'react';
 import { NumberSizeableText, Popover, YStack } from '@onekeyhq/components';
 import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
-  useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
@@ -21,14 +21,18 @@ import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
   receivedAddress?: string;
+  quoteResult: IFetchQuoteResult;
   onOpenProviderList?: () => void;
 }
 
-const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
+const SwapQuoteResult = ({
+  onOpenProviderList,
+  quoteResult,
+}: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+
   const [quoteFetching] = useSwapQuoteFetchingAtom();
   const [, setSwapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -62,7 +66,7 @@ const SwapQuoteResult = ({ onOpenProviderList }: ISwapQuoteResultProps) => {
     [setSwapQuoteApproveAllowanceUnLimit],
   );
 
-  return !quoteResult ? null : (
+  return (
     <YStack space="$4">
       {quoteResult.allowanceResult ? (
         <SwapApproveAllowanceSelect

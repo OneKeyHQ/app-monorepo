@@ -4,7 +4,11 @@ import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapProviderSupportReceiveAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapProviderSupportReceiveAddressAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -103,7 +107,8 @@ const SwapAccountAddressContainer = ({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const swapAddressInfo = useSwapAddressInfo(type);
-
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
 
@@ -118,6 +123,12 @@ const SwapAccountAddressContainer = ({
   }, [swapAddressInfo.accountInfo]);
 
   const addressComponent = useMemo(() => {
+    if (!fromToken && type === ESwapDirectionType.FROM) {
+      return null;
+    }
+    if (!toToken && type === ESwapDirectionType.TO) {
+      return null;
+    }
     if (
       !swapAddressInfo.accountInfo ||
       swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_WATCHING ||
@@ -156,11 +167,13 @@ const SwapAccountAddressContainer = ({
       />
     );
   }, [
+    fromToken,
     handleOnCreateAddress,
     navigation,
     swapAddressInfo.accountInfo,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
+    toToken,
     type,
   ]);
 

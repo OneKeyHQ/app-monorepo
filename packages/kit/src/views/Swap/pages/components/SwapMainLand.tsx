@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapQuoteCurrentSelectAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -12,6 +13,7 @@ import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapActionState } from '../../hooks/useSwapState';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
@@ -23,7 +25,8 @@ const SwapMainLoad = () => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-
+  const swapActionState = useSwapActionState();
+  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -78,8 +81,15 @@ const SwapMainLoad = () => {
         }}
       >
         <SwapQuoteInput onSelectToken={onSelectToken} />
-        <SwapAlertContainer />
-        <SwapQuoteResult onOpenProviderList={onOpenProviderList} />
+        {swapActionState.alerts?.length ? (
+          <SwapAlertContainer alerts={swapActionState.alerts} />
+        ) : null}
+        {quoteResult ? (
+          <SwapQuoteResult
+            onOpenProviderList={onOpenProviderList}
+            quoteResult={quoteResult}
+          />
+        ) : null}
       </YStack>
       <SwapActionsState
         onBuildTx={onBuildTx}
