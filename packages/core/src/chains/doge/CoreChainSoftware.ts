@@ -20,7 +20,7 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   override getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({
       network,
-      maximumFeeRate: 10000,
+      maximumFeeRate: 1000000,
     });
   }
 

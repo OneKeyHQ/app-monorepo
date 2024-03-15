@@ -61,7 +61,7 @@ function NFTListView(props: IProps) {
         {filteredNfts.map((item) => (
           <NFTListItem
             nft={item}
-            key={item.itemId}
+            key={`${item.collectionAddress}-${item.itemId}`}
             onPress={handleOnPressNFT}
           />
         ))}

@@ -12,11 +12,12 @@ type IProps = {
 
 function TxHistoryListItem(props: IProps) {
   const { historyTx, tableLayout, onPress, index, showIcon } = props;
-  const { decodedTx } = historyTx;
+
+  if (!historyTx || !historyTx.decodedTx) return null;
 
   return (
     <TxActionsListView
-      decodedTx={decodedTx}
+      decodedTx={historyTx.decodedTx}
       tableLayout={tableLayout}
       showIcon={showIcon}
       componentType={ETxActionComponentType.ListView}
