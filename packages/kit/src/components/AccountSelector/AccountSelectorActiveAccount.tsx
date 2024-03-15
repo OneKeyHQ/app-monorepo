@@ -98,7 +98,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   if (account?.address) {
     return (
       <Tooltip
-        renderContent="Address"
+        renderContent="Copy Address"
         placement="top"
         renderTrigger={
           <XStack
@@ -156,6 +156,8 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   return (
     <Button
       size="small"
+      borderWidth={0}
+      variant="tertiary"
       onPress={async () => {
         console.log({
           selectedAccount,
@@ -175,7 +177,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         actions.current.refresh({ num });
       }}
     >
-      Create
+      Create Address
     </Button>
   );
 }

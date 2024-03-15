@@ -51,6 +51,7 @@ import type {
   IDBCredentialBase,
   IDBDevice,
   IDBDevicePayload,
+  IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
@@ -436,6 +437,9 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  walletSortFn = (a: IDBWallet, b: IDBWallet) =>
+    (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
+
   // eslint-disable-next-line spellcheck/spell-checker
   /**
    * Get all wallets
@@ -447,31 +451,45 @@ ssphrase wallet
    */
 
   async getWallets(
-    option?:
-      | {
-          includeAllPassphraseWallet?: boolean | undefined;
-          displayPassphraseWalletIds?: string[] | undefined;
-        }
-      | undefined,
+    option?: IDBGetWalletsParams,
   ): Promise<{ wallets: IDBWallet[] }> {
+    const nestedHiddenWallets = option?.nestedHiddenWallets;
     const db = await this.readyDb;
 
     // get all wallets for account selector
     let { records } = await db.getAllRecords({
       name: ELocalDBStoreNames.Wallet,
     });
+    const hiddenWalletsMap: {
+      [dbDeviceId: string]: IDBWallet[];
+    } = {};
     records = records.filter((wallet) => {
       if (this.isTempWalletRemoved({ wallet })) {
+        return false;
+      }
+      if (
+        nestedHiddenWallets &&
+        accountUtils.isHwHiddenWallet({ wallet }) &&
+        wallet.associatedDevice
+      ) {
+        hiddenWalletsMap[wallet.associatedDevice] =
+          hiddenWalletsMap[wallet.associatedDevice] || [];
+        hiddenWalletsMap[wallet.associatedDevice].push(wallet);
         return false;
       }
       return true;
     });
     records = await Promise.all(
-      records.map((w) => this.refillWalletInfo({ wallet: w })),
+      records.map((w) =>
+        this.refillWalletInfo({
+          wallet: w,
+          hiddenWallets: w.associatedDevice
+            ? hiddenWalletsMap[w.associatedDevice]
+            : undefined,
+        }),
+      ),
     );
-    records = records.sort(
-      (a, b) => (a.walletOrder ?? 0) - (b.walletOrder ?? 0),
-    );
+    records = records.sort(this.walletSortFn);
 
     return {
       wallets: records,
@@ -487,7 +505,13 @@ ssphrase wallet
     return this.refillWalletInfo({ wallet });
   }
 
-  async refillWalletInfo({ wallet }: { wallet: IDBWallet }) {
+  async refillWalletInfo({
+    wallet,
+    hiddenWallets,
+  }: {
+    wallet: IDBWallet;
+    hiddenWallets?: IDBWallet[];
+  }): Promise<IDBWallet> {
     const db = await this.readyDb;
     let avatarInfo: IAvatarInfo | undefined;
     const parsedAvatar: IAvatarInfo = JSON.parse(wallet.avatar || '{}');
@@ -506,6 +530,14 @@ ssphrase wallet
       });
       wallet.walletOrder = parentWallet.walletNo + wallet.walletNo / 1000000;
     }
+
+    if (hiddenWallets && hiddenWallets.length > 0) {
+      wallet.hiddenWallets = await Promise.all(
+        hiddenWallets.map((item) => this.refillWalletInfo({ wallet: item })),
+      );
+      wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
+    }
+
     return wallet;
   }
 

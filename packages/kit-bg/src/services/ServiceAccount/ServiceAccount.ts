@@ -47,6 +47,7 @@ import type {
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
   IDBDevice,
+  IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
@@ -114,8 +115,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets() {
-    return localDb.getWallets();
+  async getWallets(options?: IDBGetWalletsParams) {
+    return localDb.getWallets(options);
   }
 
   @backgroundMethod()
@@ -133,8 +134,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHDAndHWWallets() {
-    const r = await this.getWallets();
+  async getHDAndHWWallets(options?: IDBGetWalletsParams) {
+    const r = await this.getWallets(options);
     const wallets = r.wallets.filter(
       (wallet) =>
         accountUtils.isHdWallet({ walletId: wallet.id }) ||

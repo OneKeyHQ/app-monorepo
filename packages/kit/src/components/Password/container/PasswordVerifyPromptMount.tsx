@@ -20,7 +20,7 @@ const PasswordVerifyPromptMount = () => {
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
       const dialog = Dialog.show({
-        title: 'SetupPassword',
+        title: 'Setup Password',
         onClose() {
           onClose(id);
         },
