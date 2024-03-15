@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -57,7 +58,10 @@ export async function createKeyringInstance(vault: VaultBase) {
 
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
-  const network = await options.backgroundApi.serviceNetwork.getNetwork({
+  if (!options.networkId) {
+    throw new Error('createVaultInstance ERROR: networkId is required');
+  }
+  const impl = networkUtils.getNetworkImpl({
     networkId: options.networkId,
   });
   let vault: VaultBase | null = null as unknown as VaultBase;
@@ -76,9 +80,9 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
   };
-  const loader = vaultsLoader[network.impl];
+  const loader = vaultsLoader[impl];
   if (!loader) {
-    throw new Error(`no vault found: impl=${network.impl}`);
+    throw new Error(`no vault found: impl=${impl}`);
   }
   const VaultClass = (await loader()).default;
 

@@ -12,8 +12,8 @@
   },
   "scripts": {
     "setup:env": "bash -c 'if [ ! -f .env ]; then cp .env.example .env; fi'",
-    "postinstall": "yarn setup:env && patch-package && yarn copy:inject",
-    "copy:inject": "bash development/copy-injected.sh",
+    "postinstall": "bash development/scripts/postinstall.sh",
+    "copy:inject": "bash development/scripts/copy-injected.sh",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:ext": "yarn workspace @onekeyhq/ext start:v3",
     "app:ext:proxy": "yarn workspace @onekeyhq/ext start:v3:proxy",
