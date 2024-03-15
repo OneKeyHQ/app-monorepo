@@ -631,18 +631,17 @@ export default class VaultBtc extends VaultBase {
     [txid: string]: string; // rawTx string
   }> {
     console.log(txids);
-    // const blockbook = await this.blockbook;
     const lookup: {
       [txid: string]: string; // rawTx string
     } = {};
 
-    // for (let i = 0, batchSize = 5; i < txids.length; i += batchSize) {
-    //   const batchTxids = txids.slice(i, i + batchSize);
-    //   const txs = await Promise.all(
-    //     batchTxids.map((txid) => blockbook.getRawTransaction(txid)),
-    //   );
-    //   batchTxids.forEach((txid, index) => (lookup[txid] = txs[index]));
-    // }
+    const txs = await this.backgroundApi.serviceSend.getRawTransactions({
+      networkId: this.networkId,
+      txids,
+    });
+
+    Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
+
     return lookup;
   }
 
