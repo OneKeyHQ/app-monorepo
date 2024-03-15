@@ -14,14 +14,14 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
-import type { IWebViewOScrollEvent } from '../../components/WebView/types';
+import type { IWebViewOnScrollEvent } from '../../components/WebView/types';
 
 function MobileBrowserContent({
   id,
   onScroll,
 }: {
   id: string;
-  onScroll?: (event: IWebViewOScrollEvent) => void;
+  onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
   const { addBrowserHistory } = useBrowserHistoryAction().current;

@@ -22,7 +22,7 @@ type IFirstParameterOrUndefined<T> = T extends (
 
 export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
 
-export type IWebViewOScrollEvent = IFirstParameterOrUndefined<
+export type IWebViewOnScrollEvent = IFirstParameterOrUndefined<
   WebViewSharedProps['onScroll']
 >;
 

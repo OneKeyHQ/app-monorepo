@@ -15,7 +15,7 @@ import {
   THROTTLE_TIME_WHEN_REACH_BOTTOM,
 } from '../config/Animation.constants';
 
-import type { IWebViewOScrollEvent } from '../components/WebView/types';
+import type { IWebViewOnScrollEvent } from '../components/WebView/types';
 
 function useMobileBottomBarAnimation(activeTabId: string | null) {
   const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
@@ -25,7 +25,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   const initialEventsCounterRef = useRef(0);
 
   const handleScroll = useCallback(
-    ({ nativeEvent }: IWebViewOScrollEvent) => {
+    ({ nativeEvent }: IWebViewOnScrollEvent) => {
       const { contentSize, contentOffset, layoutMeasurement } = nativeEvent;
       const contentOffsetY = contentOffset.y;
       let throttleTime = THROTTLE_TIME;
