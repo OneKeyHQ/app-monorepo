@@ -5159,6 +5159,7 @@ __metadata:
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-file-logger: "npm:^0.4.1"
+    react-native-flipper: "npm:0.201.0"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
     react-native-get-random-values: "npm:1.9.0"
@@ -25147,6 +25148,16 @@ __metadata:
   dependencies:
     prop-types: "npm:^15.5.10"
   checksum: f12effdf21af83eaaff510635eb076a8d069650496ed9c3286a38e8ca43d47393a99769b339e69244d57a0cb566f96dd315ee8d99443302499174298129ca688
+  languageName: node
+  linkType: hard
+
+"react-native-flipper@npm:0.201.0":
+  version: 0.201.0
+  resolution: "react-native-flipper@npm:0.201.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    react-native: ">0.62.0"
+  checksum: f2a8b8fda50d31d6e94f7cccafc18784c5c0f405552c34b872024fb70efa5274c550954230cc0bf2bfd217503a4aa22f6298953ca553c7b5c5e737b529d4c19e
   languageName: node
   linkType: hard
 
