@@ -3,8 +3,9 @@ import { memo, useCallback } from 'react';
 import {
   Button,
   Dialog,
+  Icon,
+  Popover,
   SizableText,
-  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -81,13 +82,47 @@ const SwapActionsState = ({
   ]);
 
   return (
-    <YStack space="$5" p="$5">
+    <YStack p="$5">
       {swapActionState.isApprove ? (
-        <XStack justifyContent="center">
-          <SizableText>{`Step 1: Approve ${
-            fromToken?.symbol ?? ''
-          }`}</SizableText>
-          <SizableText>{'-> Setp 2: Swap'}</SizableText>
+        <XStack pb="$5" space="$1">
+          <Popover
+            title="Approve"
+            placement="top-start"
+            renderContent={
+              <SizableText
+                size="$bodyLg"
+                $gtMd={{
+                  size: '$bodyMd',
+                }}
+                p="$5"
+              >
+                The first time you swap or add liquidity, you have to approve
+                the token to be swapped. This gives the Provider permission to
+                swap that token from your wallet.
+              </SizableText>
+            }
+            renderTrigger={
+              <XStack
+                userSelect="none"
+                hoverStyle={{
+                  opacity: 0.5,
+                }}
+              >
+                <SizableText size="$bodyMdMedium" pr="$1">{`Step 1: Approve ${
+                  fromToken?.symbol ?? ''
+                }`}</SizableText>
+                <Icon
+                  size="$5"
+                  color="$iconSubdued"
+                  name="QuestionmarkOutline"
+                />
+              </XStack>
+            }
+          />
+          <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Setp 2: Swap
+          </SizableText>
         </XStack>
       ) : null}
       <Button

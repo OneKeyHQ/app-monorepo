@@ -8,8 +8,8 @@ import {
   Input,
   SegmentControl,
   SizableText,
-  XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -30,6 +30,7 @@ const SwapsSlippageContentContainer = () => {
   const [inputValue, setInputValue] = useState('');
   const [swapSlippage, setSwapSlippage] = useSwapSlippagePercentageAtom();
   const intl = useIntl();
+  const media = useMedia();
 
   const [customValueState, setCustomValueState] = useState<{
     status: ESwapSlippageCustomStatus;
@@ -73,32 +74,40 @@ const SwapsSlippageContentContainer = () => {
 
   return (
     <YStack p="$4" space="$4">
-      <XStack flex={1} space="$4">
-        <XStack w={167}>
-          <SegmentControl
-            fullWidth
-            value={swapSlippage.key}
-            options={swapSlippageItems.map((item) => ({
-              label: intl.formatMessage({
-                id:
-                  item.key === ESwapSlippageSegmentKey.AUTO
-                    ? 'form__auto'
-                    : 'content__custom',
-              }),
-              value: item.value,
-            }))}
-            onChange={(value) => {
-              const keyValue = value as ESwapSlippageSegmentKey;
-              setSwapSlippage({
-                key: keyValue,
-                value: swapSlippageAutoValue,
-              });
-            }}
-          />
-        </XStack>
+      <YStack
+        space="$5"
+        $gtMd={{
+          flexDirection: 'row',
+        }}
+      >
+        <SegmentControl
+          fullWidth={!media.gtMd}
+          value={swapSlippage.key}
+          options={swapSlippageItems.map((item) => ({
+            label: intl.formatMessage({
+              id:
+                item.key === ESwapSlippageSegmentKey.AUTO
+                  ? 'form__auto'
+                  : 'content__custom',
+            }),
+            value: item.value,
+          }))}
+          onChange={(value) => {
+            const keyValue = value as ESwapSlippageSegmentKey;
+            setSwapSlippage({
+              key: keyValue,
+              value: swapSlippageAutoValue,
+            });
+          }}
+        />
 
         <Input
-          w={120}
+          $gtMd={{
+            size: 'small',
+            containerProps: {
+              w: '$40',
+            },
+          }}
           value={inputValue}
           autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
           addOns={[{ label: '%' }]}
@@ -112,7 +121,7 @@ const SwapsSlippageContentContainer = () => {
             }
           }}
         />
-      </XStack>
+      </YStack>
       {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
       customValueState.status !== ESwapSlippageCustomStatus.NORMAL ? (
         <SizableText

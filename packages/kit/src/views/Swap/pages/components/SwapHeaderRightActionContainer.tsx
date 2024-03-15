@@ -1,14 +1,7 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import {
-  Badge,
-  Button,
-  Icon,
-  IconButton,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Badge, Stack } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,

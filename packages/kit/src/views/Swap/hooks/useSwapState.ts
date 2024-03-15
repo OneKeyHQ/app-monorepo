@@ -289,7 +289,7 @@ export function useSwapActionState() {
       label: 'Swap',
     };
     if (quoteFetching) {
-      infoRes.label = 'Finding Best Price';
+      infoRes.label = 'Fetching quotes';
     } else {
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit

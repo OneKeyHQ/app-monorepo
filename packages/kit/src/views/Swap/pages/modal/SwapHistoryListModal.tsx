@@ -2,14 +2,14 @@ import { useCallback, useMemo } from 'react';
 
 import {
   Dialog,
+  Heading,
   type IPageNavigationProp,
-  IconButton,
   Page,
   SectionList,
-  SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import {
@@ -89,7 +89,7 @@ const SwapHistoryListModal = () => {
   }, [cleanSwapHistoryItems]);
 
   const deleteButton = useCallback(
-    () => <IconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
+    () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
     [onDeleteHistory],
   );
 
@@ -113,7 +113,7 @@ const SwapHistoryListModal = () => {
         renderItem={renderItem}
         sections={sectionData}
         renderSectionHeader={({ section: { title } }) => (
-          <XStack px="$4" py="$2" space="$4" alignItems="center">
+          <XStack px="$5" py="$2" space="$3" alignItems="center">
             {title === 'Pending' ? (
               <Stack
                 w="$2"
@@ -122,7 +122,12 @@ const SwapHistoryListModal = () => {
                 borderRadius="$full"
               />
             ) : null}
-            <SizableText color="$textSubdued">{title}</SizableText>
+            <Heading
+              size="$headingSm"
+              color={title === 'Pending' ? '$textCaution' : '$textSubdued'}
+            >
+              {title}
+            </Heading>
           </XStack>
         )}
         estimatedItemSize="$10"

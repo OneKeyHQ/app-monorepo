@@ -7,6 +7,7 @@ import {
   Popover,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
 
@@ -35,8 +36,23 @@ const SwapCommonInfoItem = ({
     () => (
       <Popover
         title={title}
-        renderTrigger={<IconButton size="small" icon="QuestionmarkOutline" />}
-        renderContent={<SizableText m="$2">{questionMarkContent}</SizableText>}
+        renderTrigger={
+          <IconButton
+            variant="tertiary"
+            size="small"
+            icon="QuestionmarkOutline"
+          />
+        }
+        renderContent={
+          <SizableText
+            p="$5"
+            $gtMd={{
+              size: '$bodyMd',
+            }}
+          >
+            {questionMarkContent}
+          </SizableText>
+        }
       />
     ),
     [questionMarkContent, title],
@@ -44,10 +60,22 @@ const SwapCommonInfoItem = ({
 
   const rightTrigger = useMemo(
     () => (
-      <XStack>
-        {valueComponent || <SizableText>{value}</SizableText>}
+      <XStack
+        userSelect="none"
+        hoverStyle={{
+          opacity: 0.5,
+        }}
+      >
+        {valueComponent || (
+          <SizableText size="$bodyMdMedium">{value}</SizableText>
+        )}
         {onPress || renderPopoverContent ? (
-          <Icon name="ChevronRightSmallOutline" />
+          <Icon
+            name="ChevronRightSmallOutline"
+            mr="$-1"
+            size="$5"
+            color="$iconSubdued"
+          />
         ) : null}
       </XStack>
     ),
@@ -62,6 +90,9 @@ const SwapCommonInfoItem = ({
           title={title}
           keepChildrenMounted
           onOpenChange={popoverOnOpenChange}
+          floatingPanelProps={{
+            w: 'unset',
+          }}
         />
       );
     }
@@ -74,12 +105,20 @@ const SwapCommonInfoItem = ({
       alignItems="center"
     >
       <XStack>
-        <SizableText mr="$1">{title}</SizableText>
+        <SizableText mr="$1" size="$bodyMd" color="$textSubdued">
+          {title}
+        </SizableText>
         {questionMarkContent ? questionMarkComponent : null}
       </XStack>
 
       <XStack space="$2">
-        {isLoading ? <Skeleton w="$20" /> : popoverContent()}
+        {isLoading ? (
+          <Stack py="$1">
+            <Skeleton h="$3" w="$24" />
+          </Stack>
+        ) : (
+          popoverContent()
+        )}
       </XStack>
     </XStack>
   );

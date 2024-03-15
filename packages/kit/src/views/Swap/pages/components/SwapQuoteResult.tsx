@@ -103,6 +103,7 @@ const SwapQuoteResult = ({
               isLoading={quoteFetching}
               valueComponent={
                 <NumberSizeableText
+                  size="$bodyMdMedium"
                   formatter="value"
                   formatterOptions={{
                     currency: settingsPersistAtom.currencyInfo.symbol,

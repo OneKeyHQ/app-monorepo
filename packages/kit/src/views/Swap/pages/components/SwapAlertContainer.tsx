@@ -8,8 +8,15 @@ interface ISwapAlertContainerProps {
 }
 
 const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) =>
-  alerts?.map((item) => (
-    <Alert type="warning" description={item.message} icon="InfoCircleOutline" />
+  alerts?.map((item, index) => (
+    <Alert
+      type="warning"
+      description={item.message}
+      icon="InfoCircleOutline"
+      {...(index !== 0 && {
+        mt: '$2.5',
+      })}
+    />
   ));
 
 export default memo(SwapAlertContainer);

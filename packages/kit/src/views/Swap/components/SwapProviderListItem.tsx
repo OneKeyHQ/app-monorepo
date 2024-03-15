@@ -32,18 +32,22 @@ const SwapProviderListItem = ({
     <ListItem.Text
       flex={1}
       primary={
-        <XStack space="$1">
-          <SizableText color="$text">
+        <XStack space="$1.5" alignItems="center">
+          <SizableText color="$text" size="$bodyLgMedium">
             {providerResult.info.providerName}
           </SizableText>
-          {providerResult.allowanceResult ? <Icon name="LockOutline" /> : null}
+          {providerResult.allowanceResult ? (
+            <Icon size="$5" color="$iconSubdued" name="LockOutline" />
+          ) : null}
         </XStack>
       }
       secondary={
         providerResult.fee.estimatedFeeFiatValue ? (
-          <XStack>
-            <Icon name="GasSolid" size="4" />
+          <XStack py="$0.5" space="$1" alignItems="center">
+            <Icon name="GasSolid" size="$4" color="$iconSubdued" />
             <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
               formatter="value"
               formatterOptions={{
                 currency: currencySymbol,
@@ -61,7 +65,7 @@ const SwapProviderListItem = ({
       secondary={
         providerResult.isBest ? (
           <XStack justifyContent="flex-end">
-            <Badge badgeType="success" badgeSize="sm" w="$10">
+            <Badge badgeType="success" badgeSize="lg">
               Best
             </Badge>
           </XStack>

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { IconButton, XStack, YStack } from '@onekeyhq/components';
+import { IconButton, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Badge, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
@@ -47,7 +47,9 @@ const SwapTxHistoryListCell = ({
 
     return (
       <XStack space="$2">
-        <SizableText color="$textSubdued">{dateStr}</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {dateStr}
+        </SizableText>
         {item.status === ESwapTxHistoryStatus.FAILED ? (
           <Badge badgeType="critical" badgeSize="lg">
             {intl.formatMessage({ id: 'transaction__failed' })}
@@ -59,7 +61,15 @@ const SwapTxHistoryListCell = ({
 
   const title = useMemo(
     () => (
-      <SizableText>{`${item.baseInfo.fromToken.symbol.toUpperCase()} -> ${item.baseInfo.toToken.symbol.toUpperCase()}`}</SizableText>
+      <XStack alignItems="center" space="$1">
+        <SizableText size="$bodyLgMedium">
+          {item.baseInfo.fromToken.symbol.toUpperCase()}
+        </SizableText>
+        <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
+        <SizableText size="$bodyLgMedium">
+          {item.baseInfo.toToken.symbol.toUpperCase()}
+        </SizableText>
+      </XStack>
     ),
     [item.baseInfo.fromToken.symbol, item.baseInfo.toToken.symbol],
   );
@@ -67,6 +77,7 @@ const SwapTxHistoryListCell = ({
   return (
     <ListItem
       onPress={onClickCell}
+      userSelect="none"
       renderAvatar={
         <SwapTxHistoryAvatar
           fromUri={item.baseInfo.fromToken.logoURI ?? ''}
@@ -77,16 +88,15 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text flex={1} primary={title} secondary={subContent} />
       <ListItem.Text
         align="right"
-        primary={
-          <SizableText size={16} color="$textSuccess">{`+${
-            item.baseInfo.toAmount
-          } ${item.baseInfo.toToken.symbol.toUpperCase()}`}</SizableText>
-        }
-        secondary={
-          <SizableText size={14} color="$textSubdued">{`-${
-            item.baseInfo.fromAmount
-          } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}</SizableText>
-        }
+        primary={`+${
+          item.baseInfo.toAmount
+        } ${item.baseInfo.toToken.symbol.toUpperCase()}`}
+        primaryTextProps={{
+          color: '$textSuccess',
+        }}
+        secondary={`-${
+          item.baseInfo.fromAmount
+        } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}
       />
     </ListItem>
   );

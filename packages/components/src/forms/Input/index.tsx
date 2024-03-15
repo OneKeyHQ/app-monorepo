@@ -17,13 +17,13 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSelectionColor, useThemeValue } from '../../hooks';
+import { useSelectionColor } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IKeyOfIcons } from '../../primitives';
+import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
@@ -41,7 +41,7 @@ export type IInputProps = {
   error?: boolean;
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
-  containerProps?: GetProps<typeof Group>;
+  containerProps?: IGroupProps;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'>;
 
