@@ -36,6 +36,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBDevice } from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -47,8 +49,6 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type { IDBDevice } from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -383,8 +383,7 @@ class ServiceHardware extends ServiceBase {
         const result = resp.data;
         // result.message = 'false';
 
-        const verified =
-          result.message === 'success' && result.data === connectId;
+        const verified = result.code === 0 && result.data === connectId;
 
         return {
           verified,
