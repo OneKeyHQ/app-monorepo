@@ -144,27 +144,41 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAvailableNetworkIdsForNamespace(
+    requiredNamespaces: Record<string, { chains?: string[] }>,
+    optionalNamespaces: Record<string, { chains?: string[] }> = {},
+    namespace: string,
+  ) {
+    const { chains } = requiredNamespaces[namespace] || {};
+    const { chains: optionalChains } = optionalNamespaces[namespace] || {};
+    const networkIds = (
+      await Promise.all(
+        [...(chains ?? []), ...(optionalChains ?? [])].map(
+          async (walletConnectChainId) =>
+            this.getChainData(walletConnectChainId),
+        ),
+      )
+    )
+      .map((n) => n?.networkId)
+      .filter(Boolean);
+    return Array.from(new Set(networkIds));
+  }
+
+  @backgroundMethod()
   async getSessionApprovalAccountInfo(
     proposal: Web3WalletTypes.SessionProposal,
   ) {
     const { requiredNamespaces, optionalNamespaces } = proposal.params;
     const promises = Object.keys(requiredNamespaces).map(
       async (namespace, index) => {
-        const { chains } = requiredNamespaces[namespace];
-        const { chains: optionalChains } = optionalNamespaces[namespace];
-        const networkIds = (
-          await Promise.all(
-            [...(chains ?? []), ...(optionalChains ?? [])].map(
-              async (walletConnectChainId) =>
-                this.getChainData(walletConnectChainId),
-            ),
-          )
-        )
-          .map((n) => n?.networkId)
-          .filter(Boolean);
+        const networkIds = await this.getAvailableNetworkIdsForNamespace(
+          requiredNamespaces,
+          optionalNamespaces,
+          namespace,
+        );
         return {
           accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
-          networkIds: Array.from(new Set(networkIds.filter(Boolean))),
+          networkIds,
         };
       },
     );
