@@ -79,7 +79,7 @@ export const DevSettingsSection = () => {
                   title="Clear Dapp Data"
                   testID="clear-dapp-data"
                   onPress={async () => {
-                    await backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
+                    await backgroundApiProxy.serviceE2E.clearDiscoveryPageData();
                     await dialog.close();
                   }}
                 />
@@ -87,7 +87,7 @@ export const DevSettingsSection = () => {
                   title="Clear Contacts Data"
                   testID="clear-contacts-data"
                   onPress={async () => {
-                    await backgroundApiProxy.serviceAddressBook.dangerClearDataForE2E();
+                    await backgroundApiProxy.serviceE2E.dangerClearDataForE2E();
                     await dialog.close();
                   }}
                 />
@@ -95,7 +95,7 @@ export const DevSettingsSection = () => {
                   title="Clear Wallets Data"
                   testID="clear-wallets-data"
                   onPress={async () => {
-                    await backgroundApiProxy.serviceAccount.clearWalletsAndAccounts();
+                    await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts();
                     await dialog.close();
                   }}
                 />
@@ -103,7 +103,7 @@ export const DevSettingsSection = () => {
                   title="Clear Password"
                   testID="clear-password"
                   onPress={() => {
-                    void backgroundApiProxy.servicePassword.resetPasswordSetStatus();
+                    void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
                     void dialog.close();
                   }}
                 />

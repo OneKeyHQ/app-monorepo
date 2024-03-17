@@ -134,7 +134,7 @@ const TabMe = () => {
           </Button>
           <Button
             onPress={() => {
-              void backgroundApiProxy.servicePassword.resetPasswordSetStatus();
+              void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
             }}
           >
             重置密码设置

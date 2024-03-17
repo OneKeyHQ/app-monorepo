@@ -77,33 +77,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearWalletsAndAccounts() {
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.Account,
-    });
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.Wallet,
-    });
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.Credential,
-    });
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.Address,
-    });
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.IndexedAccount,
-    });
-    await localDb.clearRecords({
-      name: ELocalDBStoreNames.Device,
-    });
-    await localDb.resetContext();
-
-    await this.backgroundApi.simpleDb.accountSelector.clearRawData();
-
-    appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
-  }
-
-  @backgroundMethod()
   async validateMnemonic(mnemonic: string): Promise<string> {
     ensureSensitiveTextEncoded(mnemonic);
     const realMnemonic = decodeSensitiveText({

@@ -156,16 +156,6 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dangerClearDataForE2E() {
-    const { simpleDb } = this.backgroundApi;
-    await simpleDb.addressBook.clearRawData();
-    await addressBookPersistAtom.set((prev) => ({
-      ...prev,
-      updateTimestamp: undefined,
-    }));
-  }
-
-  @backgroundMethod()
   async resetItems() {
     const verifyResult = await this.verifyHash(true);
     if (verifyResult) {

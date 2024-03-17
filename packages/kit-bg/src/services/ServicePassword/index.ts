@@ -246,13 +246,6 @@ export default class ServicePassword extends ServiceBase {
     return checkPasswordSet;
   }
 
-  @backgroundMethod()
-  async resetPasswordSetStatus(): Promise<void> {
-    await this.setPasswordSetStatus(false);
-    await localDb.resetPasswordSet();
-    await this.clearCachedPassword();
-  }
-
   async setPasswordSetStatus(isSet: boolean): Promise<void> {
     await passwordPersistAtom.set((v) => ({ ...v, isPasswordSet: isSet }));
   }

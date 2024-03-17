@@ -16,6 +16,7 @@ import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
@@ -125,6 +126,8 @@ class BackgroundApiProxy
   serviceAddressBook = this._createProxyService(
     'serviceAddressBook',
   ) as ServiceAddressBook;
+
+  serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 }
 
 export default BackgroundApiProxy;
