@@ -1,6 +1,6 @@
 import {
   backgroundClass,
-  backgroundMethod,
+  backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   EAppEventBusNames,
@@ -20,7 +20,7 @@ class ServiceE2E extends ServiceBase {
     super({ backgroundApi });
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async clearWalletsAndAccounts() {
     await localDb.clearRecords({
       name: ELocalDBStoreNames.Account,
@@ -47,7 +47,7 @@ class ServiceE2E extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async dangerClearDataForE2E() {
     const { simpleDb } = this.backgroundApi;
     await simpleDb.addressBook.clearRawData();
@@ -57,13 +57,13 @@ class ServiceE2E extends ServiceBase {
     }));
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async resetPasswordSetStatus(): Promise<void> {
     await passwordPersistAtom.set((v) => ({ ...v, isPasswordSet: false }));
     await localDb.resetPasswordSet();
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async clearDiscoveryPageData() {
     const { simpleDb } = this.backgroundApi;
     await Promise.all([
