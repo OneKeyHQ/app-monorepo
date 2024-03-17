@@ -84,9 +84,9 @@ export function FooterActions({
                 size: 'large',
               } as IButtonProps
             }
+            testID="page-footer-cancel"
             onPress={handleCancel}
             {...cancelButtonProps}
-            testID="footer-cancel"
           >
             {onCancelText || 'Cancel'}
           </Button>
@@ -101,7 +101,7 @@ export function FooterActions({
             }
             variant="primary"
             onPress={handleConfirm}
-            testID="footer-confirm"
+            testID="page-footer-confirm"
             {...confirmButtonProps}
           >
             {onConfirmText || 'Confirm'}
