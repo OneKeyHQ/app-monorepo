@@ -1,7 +1,6 @@
+import { IconButton } from '@onekeyhq/components';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-
-import { WalletOptionItem } from '../../pages/AccountSelectorStack/WalletDetails/WalletOptions/WalletOptionItem';
 
 import { showWalletRemoveDialog } from './WalletRemoveDialog';
 
@@ -10,7 +9,7 @@ function getTitleAndDescription({ wallet }: { wallet?: IDBWallet }) {
     return {
       title: 'Remove Device',
       description:
-        'Device removal will permanently delete its data. Data can be recovered with a hardware wallet and recovery phrase.',
+        'This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.',
     };
   }
 
@@ -25,9 +24,10 @@ export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
   const { title, description } = getTitleAndDescription({ wallet });
   const { config } = useAccountSelectorContextData();
   return (
-    <WalletOptionItem
+    <IconButton
+      title="Remove"
       icon="DeleteOutline"
-      label="Remove"
+      variant="tertiary"
       onPress={() => {
         showWalletRemoveDialog({
           config,

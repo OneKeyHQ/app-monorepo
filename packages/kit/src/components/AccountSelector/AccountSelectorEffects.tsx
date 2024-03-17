@@ -95,25 +95,6 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   }, [reloadActiveAccountInfo]);
 
   useEffect(() => {
-    const fn = () => {
-      void actions.current.updateSelectedAccount({
-        num,
-        builder: (v) => ({
-          ...v,
-          networkId: undefined,
-          deriveType: 'default',
-        }),
-      });
-    };
-    appEventBus.on(EAppEventBusNames.WalletClear, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletClear, fn);
-    };
-  }, [actions, num]);
-
-  useEffect(() => {
-    const fn = reloadActiveAccountInfo;
-
     const updateNetwork = (params: {
       networkId: string;
       sceneName: string;
@@ -130,11 +111,12 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
         });
       }
     };
-    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    // const fn = () => null;
+    appEventBus.on(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
     appEventBus.on(EAppEventBusNames.WalletUpdate, reloadActiveAccountInfo);
     appEventBus.on(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     return () => {
-      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, reloadActiveAccountInfo);
       appEventBus.off(EAppEventBusNames.WalletUpdate, reloadActiveAccountInfo);
       appEventBus.off(EAppEventBusNames.DAppNetworkUpdate, updateNetwork);
     };

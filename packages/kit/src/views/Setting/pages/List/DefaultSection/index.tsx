@@ -12,6 +12,7 @@ import {
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 const AddressBookItem = () => {
   const pick = useAddressBookList();
@@ -72,23 +73,31 @@ const LockNowButton = () => {
   );
 };
 
-export const DefaultSection = () => (
-  <YStack>
-    <LockNowButton />
-    <AddressBookItem />
-    <ListItem
-      icon="RepeatOutline"
-      title="Migration"
-      drillIn
-      onPress={() => {}}
-    />
-    {platformEnv.isNative ? (
+export const DefaultSection = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  return (
+    <YStack>
+      <LockNowButton />
+      <AddressBookItem />
       <ListItem
-        icon="OnekeyLiteOutline"
-        title="OneKey Lite"
+        icon="RepeatOutline"
+        title="Migration"
         drillIn
         onPress={() => {}}
-      />): null}
+      />
+      {platformEnv.isNative && (
+        <ListItem
+          icon="OnekeyLiteOutline"
+          title="OneKey Lite"
+          drillIn
+          onPress={() => {
+            navigation.pushModal(EModalRoutes.LiteCardModal, {
+              screen: ELiteCardRoutes.LiteCardHome,
+            });
+          }}
+        />
+      )}
       <ListItem
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
@@ -97,4 +106,4 @@ export const DefaultSection = () => (
       />
     </YStack>
   );
-;
+};

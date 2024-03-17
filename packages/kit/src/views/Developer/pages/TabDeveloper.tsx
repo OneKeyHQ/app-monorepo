@@ -12,13 +12,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { useMeasureTime } from '@onekeyhq/shared/src/modules3rdParty/metrics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
+import { StartTimePanel } from '../../Setting/pages/List/DevSettingsSection/StartTimePanel';
 import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const useStorage = platformEnv.isNative
@@ -60,13 +60,10 @@ function PartContainer({
   );
 }
 
-function StartTimePanel() {
-  const { jsBundleLoadedTime, fpTime } = useMeasureTime();
+function StartTimePanelContainer() {
   return (
     <PartContainer title="Startup Time(ms)">
-      <SizableText>Load Time: {jsBundleLoadedTime}</SizableText>
-      <SizableText>Render time: {fpTime - jsBundleLoadedTime}</SizableText>
-      <SizableText>Startup Time: {fpTime}</SizableText>
+      <StartTimePanel />
     </PartContainer>
   );
 }
@@ -85,7 +82,7 @@ const TabDeveloper = () => {
           flex={1}
           width="100%"
           paddingHorizontal="$5"
-          paddingBottom="$5"
+          contentContainerStyle={{ paddingBottom: '$5' }}
           gap="$5"
         >
           <PartContainer title="Components">
@@ -163,7 +160,7 @@ const TabDeveloper = () => {
               Async Import Test
             </Button>
           </PartContainer>
-          <StartTimePanel />
+          <StartTimePanelContainer />
         </ScrollView>
       </Page.Body>
     </Page>

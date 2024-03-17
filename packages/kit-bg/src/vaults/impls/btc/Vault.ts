@@ -86,6 +86,7 @@ export default class VaultBtc extends VaultBase {
       displayAddress: address,
       address,
       baseAddress: address,
+      isValid: true,
     };
   }
 
@@ -630,20 +631,23 @@ export default class VaultBtc extends VaultBase {
   async collectTxs(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
-    console.log(txids);
-    // const blockbook = await this.blockbook;
-    const lookup: {
-      [txid: string]: string; // rawTx string
-    } = {};
+    try {
+      const lookup: {
+        [txid: string]: string; // rawTx string
+      } = {};
 
-    // for (let i = 0, batchSize = 5; i < txids.length; i += batchSize) {
-    //   const batchTxids = txids.slice(i, i + batchSize);
-    //   const txs = await Promise.all(
-    //     batchTxids.map((txid) => blockbook.getRawTransaction(txid)),
-    //   );
-    //   batchTxids.forEach((txid, index) => (lookup[txid] = txs[index]));
-    // }
-    return lookup;
+      const txs = await this.backgroundApi.serviceSend.getRawTransactions({
+        networkId: this.networkId,
+        txids,
+      });
+
+      Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
+
+      return lookup;
+    } catch (e) {
+      console.error(e);
+      throw new OneKeyInternalError('Failed to get raw transactions.');
+    }
   }
 
   _collectUTXOsInfoByApi = memoizee(

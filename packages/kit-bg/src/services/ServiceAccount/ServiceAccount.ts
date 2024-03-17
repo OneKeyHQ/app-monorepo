@@ -48,6 +48,7 @@ import type {
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
   IDBDevice,
+  IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
@@ -109,6 +110,7 @@ class ServiceAccount extends ServiceBase {
       encodedText: mnemonic,
     });
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
+    // TODO check by wordlists first
     if (!validateMnemonic(realMnemonicFixed)) {
       throw new InvalidMnemonic();
     }
@@ -142,8 +144,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets() {
-    return localDb.getWallets();
+  async getWallets(options?: IDBGetWalletsParams) {
+    return localDb.getWallets(options);
   }
 
   @backgroundMethod()
@@ -161,8 +163,8 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHDAndHWWallets() {
-    const r = await this.getWallets();
+  async getHDAndHWWallets(options?: IDBGetWalletsParams) {
+    const r = await this.getWallets(options);
     const wallets = r.wallets.filter(
       (wallet) =>
         accountUtils.isHdWallet({ walletId: wallet.id }) ||
@@ -222,10 +224,12 @@ class ServiceAccount extends ServiceBase {
     walletId,
     indexedAccountId,
     skipDeviceCancel,
+    hideCheckingDeviceLoading,
   }: {
     walletId: string | undefined;
     indexedAccountId: string | undefined;
     skipDeviceCancel?: boolean;
+    hideCheckingDeviceLoading?: boolean;
   }) {
     if (!walletId) {
       return;
@@ -247,6 +251,7 @@ class ServiceAccount extends ServiceBase {
           indexedAccountId,
           deriveType: 'default', // TODO get global deriveType
           skipDeviceCancel,
+          hideCheckingDeviceLoading,
         });
       }
     }
@@ -261,6 +266,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
     deriveType,
     skipDeviceCancel,
+    hideCheckingDeviceLoading,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -268,6 +274,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined; // single add by indexedAccountId
     deriveType: IAccountDeriveTypes;
     skipDeviceCancel?: boolean;
+    hideCheckingDeviceLoading?: boolean;
     // names?: Array<string>;
     // purpose?: number;
     // skipRepeat?: boolean;
@@ -373,6 +380,7 @@ class ServiceAccount extends ServiceBase {
       {
         deviceParams,
         skipDeviceCancel,
+        hideCheckingDeviceLoading,
       },
     );
   }
@@ -566,6 +574,13 @@ class ServiceAccount extends ServiceBase {
       ];
     }
     const walletId = focusedWallet;
+    try {
+      await this.getWallet({ walletId });
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
+      return [];
+    }
     const { accounts } = await this.getIndexedAccountsOfWallet({
       walletId,
     });
@@ -694,14 +709,14 @@ class ServiceAccount extends ServiceBase {
           indexedAccountId,
         });
 
-        const realAccountId = accountUtils.buildHDAccountId({
+        const realDBAccountId = accountUtils.buildHDAccountId({
           walletId,
           index,
           template, // from networkId
           idSuffix,
           isUtxo: settings.isUtxo,
         });
-        return this.getAccount({ accountId: realAccountId, networkId });
+        return this.getAccount({ accountId: realDBAccountId, networkId });
       }),
     );
     return {
@@ -796,9 +811,11 @@ class ServiceAccount extends ServiceBase {
   async createHWHiddenWallet({
     walletId,
     skipDeviceCancel,
+    hideCheckingDeviceLoading,
   }: {
     walletId: string;
     skipDeviceCancel?: boolean;
+    hideCheckingDeviceLoading?: boolean;
   }) {
     const dbDevice = await this.getWalletDevice({ walletId });
     const { connectId } = dbDevice;
@@ -834,6 +851,7 @@ class ServiceAccount extends ServiceBase {
           dbDevice,
         },
         skipDeviceCancel,
+        hideCheckingDeviceLoading,
       },
     );
   }
@@ -851,13 +869,17 @@ class ServiceAccount extends ServiceBase {
           dbDevice: params.device as IDBDevice,
         },
         skipDeviceCancel: params.skipDeviceCancel,
+        hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
       },
     );
   }
 
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHWWalletParams) {
-    const { passphraseState } = params;
+    const { features, passphraseState } = params;
+    if (!features) {
+      throw new Error('createHWWalletBase ERROR: features is required');
+    }
     const result = await localDb.createHWWallet({
       ...params,
       passphraseState: passphraseState || '',
@@ -975,14 +997,11 @@ class ServiceAccount extends ServiceBase {
     if (!walletId) {
       throw new Error('walletId is required');
     }
-    const { isHardware, password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-      });
+    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+      walletId,
+    });
     const result = await localDb.removeWallet({
       walletId,
-      password,
-      isHardware,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;

@@ -10,6 +10,7 @@ import { Section } from '../Section';
 
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
+import { StartTimePanel } from './StartTimePanel';
 
 const { GITHUB_SHA } = process.env;
 export const DevSettingsSection = () => {
@@ -108,6 +109,15 @@ export const DevSettingsSection = () => {
                 />
               </YStack>
             ),
+          });
+        }}
+      />
+      <SectionPressItem
+        title="Startup Time"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Startup Time(ms)',
+            renderContent: <StartTimePanel />,
           });
         }}
       />

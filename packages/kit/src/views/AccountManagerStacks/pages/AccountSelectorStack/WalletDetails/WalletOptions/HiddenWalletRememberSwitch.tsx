@@ -14,11 +14,12 @@ export function HiddenWalletRememberSwitch({
   const [val, setVal] = useState(!wallet?.isTemp);
   return (
     <WalletOptionItem
-      icon="InfoCircleOutline"
-      label="Always Remember this Hidden Wallet."
+      label="Keep Accessible"
+      description="Hidden wallets clear on app close. Toggle to preserve."
       drillIn={false}
     >
       <Switch
+        size="small"
         value={val}
         onChange={async () => {
           if (!wallet?.id) {
@@ -39,15 +40,4 @@ export function HiddenWalletRememberSwitch({
       />
     </WalletOptionItem>
   );
-  // return (
-  //   <Stack flexDirection="row" alignItems="center" space="$2">
-  //     <Switch
-  //       value={val}
-  //       onChange={() => {
-  //         setVal(!val);
-  //       }}
-  //     />
-  //     <SizableText>Always Remember this Hidden Wallet. </SizableText>
-  //   </Stack>
-  // );
 }

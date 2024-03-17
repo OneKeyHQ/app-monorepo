@@ -3,37 +3,53 @@ import { SizableText, Stack, useMedia } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAccountSelectorFocusedWallet } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
-interface IWalletListItemProps extends IStackProps {
-  selected?: boolean;
-  walletAvatarProps?: IWalletAvatarProps;
-  walletName?: string;
+type IWalletListItemProps = {
+  isOthers?: boolean;
+  focusedWallet: IAccountSelectorFocusedWallet;
   wallet: IDBWallet | undefined;
-}
+  onWalletPress: (focusedWallet: IAccountSelectorFocusedWallet) => void;
+} & IStackProps &
+  Partial<IWalletAvatarProps>;
 
 export function WalletListItem({
-  selected,
-  walletAvatarProps,
   wallet,
-  walletName,
+  focusedWallet,
+  onWalletPress,
+  isOthers,
+  badge,
   ...rest
 }: IWalletListItemProps) {
   const media = useMedia();
+  let walletAvatarProps: IWalletAvatarProps = {
+    wallet,
+    status: 'default', // 'default' | 'connected';
+    badge,
+  };
+  let walletName = wallet?.name;
+  let selected = focusedWallet === wallet?.id;
+  let onPress = () => wallet?.id && onWalletPress(wallet?.id);
+  if (isOthers) {
+    walletName = 'Others';
+    selected = focusedWallet === '$$others';
+    walletAvatarProps = {
+      img: 'cardDividers',
+      wallet: undefined,
+    };
+    onPress = () => onWalletPress('$$others');
+  }
 
-  return (
+  const walletElement = (
     <Stack
+      role="button"
       alignItems="center"
-      mx="$2"
       p="$1"
       borderRadius="$3"
       style={{
         borderCurve: 'continuous',
       }}
       userSelect="none"
-      // hidden wallet use dark bg
-      // @ts-expect-error
-      bg={accountUtils.isHwHiddenWallet({ wallet }) ? '$bgInfo' : undefined}
       {...(selected
         ? {
             bg: '$bgActive',
@@ -46,7 +62,14 @@ export function WalletListItem({
               bg: '$bgActive',
             },
           })}
+      focusable
+      focusStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+      }}
       {...rest}
+      onPress={onPress}
     >
       {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
       {media.gtMd && (
@@ -62,4 +85,33 @@ export function WalletListItem({
       )}
     </Stack>
   );
+
+  const hiddenWallets = wallet?.hiddenWallets;
+  if (hiddenWallets && hiddenWallets.length > 0) {
+    return (
+      <Stack
+        borderRadius="$3"
+        borderWidth={1}
+        borderColor="$borderSubdued"
+        space="$3"
+        style={{
+          borderCurve: 'continuous',
+        }}
+      >
+        {walletElement}
+        {hiddenWallets.map((hiddenWallet, index) => (
+          <WalletListItem
+            wallet={hiddenWallet}
+            focusedWallet={focusedWallet}
+            onWalletPress={onWalletPress}
+            {...(media.md && {
+              badge: Number(index) + 1,
+            })}
+          />
+        ))}
+      </Stack>
+    );
+  }
+
+  return walletElement;
 }

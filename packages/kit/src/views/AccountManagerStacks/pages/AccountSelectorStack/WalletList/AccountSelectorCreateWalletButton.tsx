@@ -35,31 +35,39 @@ export function AccountSelectorCreateWalletButton() {
   }, [navigation]);
 
   return (
-    <Stack p="$1" alignItems="center" mt="$3">
+    <Stack p="$1" my="$2" alignItems="center">
       <ActionList
         placement="right-start"
         renderTrigger={
           <IconButton icon="PlusSmallOutline" testID="add-wallet" />
         }
         title="Add wallet"
-        items={[
+        sections={[
           {
-            label: 'Connect Hardware Wallet',
-            icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
-            onPress: handleConnectHardwareWalletPress,
-            testID: 'hardware-wallet',
+            items: [
+              {
+                label: 'Connect Hardware Wallet',
+                icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
+                onPress: handleConnectHardwareWalletPress,
+                testID: 'hardware-wallet',
+              },
+            ],
           },
           {
-            label: 'Create Recovery Phrase',
-            icon: 'PlusCircleOutline',
-            onPress: handleCreateWalletPress,
-            testID: 'create-wallet',
-          },
-          {
-            label: 'Import Recovery Phrase',
-            icon: 'ArrowBottomCircleOutline',
-            onPress: handleImportWalletPress,
-            testID: 'import-wallet',
+            items: [
+              {
+                label: 'Create Recovery Phrase',
+                icon: 'PlusCircleOutline',
+                onPress: handleCreateWalletPress,
+                testID: 'create-wallet',
+              },
+              {
+                label: 'Import Recovery Phrase',
+                icon: 'ArrowBottomCircleOutline',
+                onPress: handleImportWalletPress,
+                testID: 'import-wallet',
+              },
+            ],
           },
         ]}
       />

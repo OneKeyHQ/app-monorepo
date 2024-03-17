@@ -48,14 +48,10 @@ function OthersWalletItem({
   } = useSelectedAccount({ num });
   return (
     <WalletListItem
-      walletName="Others"
-      selected={focusedWallet === '$$others'}
+      isOthers
       wallet={undefined}
-      onPress={() => onWalletPress && onWalletPress('$$others')}
-      walletAvatarProps={{
-        img: 'cardDividers',
-        wallet: undefined,
-      }}
+      focusedWallet={focusedWallet}
+      onWalletPress={onWalletPress}
     />
   );
 }
@@ -68,7 +64,10 @@ export function WalletList({ num }: IWalletListProps) {
   const { selectedAccount } = useSelectedAccount({ num });
 
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
-    () => serviceAccount.getHDAndHWWallets(),
+    () =>
+      serviceAccount.getHDAndHWWallets({
+        nestedHiddenWallets: true,
+      }),
     [serviceAccount],
     {
       checkIsFocused: false,
@@ -118,29 +117,29 @@ export function WalletList({ num }: IWalletListProps) {
       )}
       {/* Primary wallets */}
       <ListView
-        py="$2"
+        p="$2"
         estimatedItemSize="$10"
         data={wallets}
         extraData={selectedAccount.focusedWallet}
         renderItem={({ item }: { item: IDBWallet }) => (
           <WalletListItem
             key={item.id}
-            walletName={item.name}
             wallet={item}
-            selected={item.id === selectedAccount.focusedWallet}
-            onPress={() => onWalletPress && onWalletPress(item.id)}
-            walletAvatarProps={{
-              wallet: item,
-              status: 'default', // 'default' | 'connected';
-            }}
+            focusedWallet={selectedAccount.focusedWallet}
+            onWalletPress={onWalletPress}
             testID={`wallet-${item.id}`}
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
-        ListFooterComponent={<AccountSelectorCreateWalletButton />}
       />
+      <AccountSelectorCreateWalletButton />
       {/* Others */}
-      <Stack py="$2" mb={bottom}>
+      <Stack
+        p="$2"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="$borderSubdued"
+        mb={bottom}
+      >
         <OthersWalletItem onWalletPress={onWalletPress} num={num} />
       </Stack>
     </Stack>
