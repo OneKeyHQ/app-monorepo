@@ -1028,7 +1028,7 @@ PODS:
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
-  - react-native-lite-card (1.0.3):
+  - react-native-lite-card (1.0.4):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1715,7 +1715,7 @@ SPEC CHECKSUMS:
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
   react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
-  react-native-lite-card: cad45547780afda43bfbb7c6d3ae51ca2d842ce0
+  react-native-lite-card: c6465103b1c627b08d26a46943a4a11225579f87
   react-native-metrix: b1aab1cb911f555b57812eed5d38c5942c6d99af
   react-native-mmkv: 9ae7ca3977e8ef48dbf7f066974eb844c20b5fd7
   react-native-netinfo: 48c5f79a84fbc3ba1d28a8b0d04adeda72885fa8
@@ -1765,9 +1765,9 @@ SPEC CHECKSUMS:
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
-  Yoga: e64aa65de36c0832d04e8c7bd614396c77a80047
+  Yoga: 13c8ef87792450193e117976337b8527b49e8c03
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
-COCOAPODS: 1.14.2
+COCOAPODS: 1.12.1

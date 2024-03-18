@@ -30,7 +30,7 @@
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
     "@onekeyfe/react-native-ble-plx": "3.0.0",
-    "@onekeyfe/react-native-lite-card": "1.0.3",
+    "@onekeyfe/react-native-lite-card": "1.0.4",
     "@onekeyfe/react-native-tab-page-view": "1.0.3",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",

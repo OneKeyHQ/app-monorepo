@@ -231,6 +231,11 @@ function DialogFrame({
       >
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
+          /* 
+            The original zIndex is 99999. 
+            We want it to be higher than the ToastViewportWrapperFrame with a zIndex of 100000 on iOS native.
+          */
+          zIndex={100001}
           animation="quick"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
