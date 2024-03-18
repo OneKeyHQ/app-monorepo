@@ -117,7 +117,7 @@ function MobileBrowser() {
               <DashboardContent onScroll={handleScroll} />
             </Stack>
           ) : null}
-          <Stack pt="$3">
+          <Stack flex={1} pt="$3" >
             <Freeze freeze={displayHomePage}>{content}</Freeze>
           </Stack>
           <Freeze freeze={!displayBottomBar}>
