@@ -383,8 +383,7 @@ class ServiceHardware extends ServiceBase {
         const result = resp.data;
         // result.message = 'false';
 
-        const verified =
-          result.message === 'success' && result.data === connectId;
+        const verified = result.code === 0 && result.data === connectId;
 
         return {
           verified,

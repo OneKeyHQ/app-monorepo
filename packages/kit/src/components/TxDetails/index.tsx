@@ -55,7 +55,7 @@ function TxDetails(props: ITxDetailsProps) {
                 flexWrap="wrap"
                 justifyContent="flex-end"
               >
-                {item.imgUrl && (
+                {item.imgUrl ? (
                   <Image
                     width="$5"
                     height="$5"
@@ -66,7 +66,7 @@ function TxDetails(props: ITxDetailsProps) {
                     borderRadius={3}
                     mr="$1.5"
                   />
-                )}
+                ) : null}
                 <DescriptionList.Item.Value
                   flex={item.imgUrl ? 0 : 1}
                   iconAfter={item.iconAfter}
@@ -84,13 +84,13 @@ function TxDetails(props: ITxDetailsProps) {
           ))}
         </DescriptionList>
       ))}
-      {isUTXO && (
+      {isUTXO ? (
         <Stack mt="$5" mx="$5">
           <Button size="medium" onPress={() => onViewUTXOsPress?.()}>
             {intl.formatMessage({ id: 'form__view_inputs_outputs' })}
           </Button>
         </Stack>
-      )}
+      ) : null}
     </Stack>
   );
 }

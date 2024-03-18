@@ -21,7 +21,7 @@ export function Tutorials({ list, ...rest }: ITutorialsProps & IStackProps) {
             mt: '$5',
           })}
         >
-          {iconName && (
+          {iconName ? (
             <Stack px="$0.5" mr="$4">
               <Icon
                 name={iconName}
@@ -30,7 +30,7 @@ export function Tutorials({ list, ...rest }: ITutorialsProps & IStackProps) {
                 size="$5"
               />
             </Stack>
-          )}
+          ) : null}
           <Stack flex={1}>
             <SizableText size="$bodyMd">{title}</SizableText>
             <SizableText size="$bodyMd" mt="$1" color="$textSubdued">
