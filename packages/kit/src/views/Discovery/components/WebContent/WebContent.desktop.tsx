@@ -186,7 +186,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   return (
     <>
       {webview}
-      {showBlockAccessView && blockAccessView}
+      {showBlockAccessView ? blockAccessView : null}
     </>
   );
 }

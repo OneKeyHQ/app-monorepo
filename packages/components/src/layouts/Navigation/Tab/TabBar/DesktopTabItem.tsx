@@ -39,15 +39,15 @@ export function DesktopTabItem(
       style={tabBarStyle as ViewStyle}
       {...rest}
     >
-      {icon && (
+      {icon ? (
         <Icon
           flexShrink={0}
           name={icon}
           color={selected ? '$iconActive' : '$iconSubdued'}
           size="$5"
         />
-      )}
-      {avatarSrc && (
+      ) : null}
+      {avatarSrc ? (
         <Image borderRadius="$1" size="$4.5" m="$px">
           <Image.Source src={avatarSrc} />
           <Image.Fallback>
@@ -58,8 +58,8 @@ export function DesktopTabItem(
             />
           </Image.Fallback>
         </Image>
-      )}
-      {label && (
+      ) : null}
+      {label ? (
         <SizableText
           flex={1}
           numberOfLines={1}
@@ -69,13 +69,13 @@ export function DesktopTabItem(
         >
           {label}
         </SizableText>
-      )}
-      {actionList && (
+      ) : null}
+      {actionList ? (
         <ActionList
           title="Action List"
           placement="right-start"
           renderTrigger={
-            selected && (
+            selected ? (
               <IconButton
                 size="small"
                 icon="DotHorOutline"
@@ -85,11 +85,11 @@ export function DesktopTabItem(
                 m={-3}
                 testID="browser-bar-options"
               />
-            )
+            ) : null
           }
           sections={actionList}
         />
-      )}
+      ) : null}
     </XStack>
   );
 }

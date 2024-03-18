@@ -91,7 +91,7 @@ const SortableSectionListGallery = () => {
                   console.log(`点击${(item as { index: number }).index}`),
               })}
             >
-              {isEditing && (
+              {isEditing ? (
                 <ListItem.IconButton
                   key="darg"
                   animation="quick"
@@ -103,7 +103,7 @@ const SortableSectionListGallery = () => {
                   icon="DragOutline"
                   onPressIn={drag}
                 />
-              )}
+              ) : null}
             </ListItem>
           </SwipeableCell>
         )}

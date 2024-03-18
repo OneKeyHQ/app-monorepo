@@ -40,14 +40,14 @@ export const DevSettingsSection = () => {
         title="Disable the dev mode"
         onPress={handleDevModeOnChange}
       />
-      {GITHUB_SHA && (
+      {GITHUB_SHA ? (
         <SectionPressItem
           title={`BuildHash: ${GITHUB_SHA}`}
           onPress={() => {
             copyText(GITHUB_SHA);
           }}
         />
-      )}
+      ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}

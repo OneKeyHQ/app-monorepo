@@ -135,7 +135,7 @@ export function QRCode({
       </Defs>
       <Rect fill={secondaryColor} height={size} width={size} />
       {dots}
-      {logo && (
+      {logo ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
             clipPath="url(#clip-wrapper)"
@@ -153,7 +153,7 @@ export function QRCode({
             />
           </G>
         </G>
-      )}
+      ) : null}
     </Svg>
   );
 }

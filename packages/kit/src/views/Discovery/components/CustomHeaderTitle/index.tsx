@@ -60,12 +60,12 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       >
         {displayUrl ? tab?.url : intl.formatMessage({ id: 'form__search' })}
       </SizableText>
-      {media.gtMd && (
+      {media.gtMd ? (
         <Shortcut>
           <Shortcut.Key>⌘</Shortcut.Key>
           <Shortcut.Key>T</Shortcut.Key>
         </Shortcut>
-      )}
+      ) : null}
     </XStack>
   );
 }

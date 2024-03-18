@@ -157,16 +157,18 @@ const FirmwareAuthenticationDialogContent = ({
                 color: '$textCaution',
               })}
             >
-              {result === 'unknown' && 'Verifying official firmware'}
-              {result === 'official' &&
-                'Your device is running official firmware'}
-              {result === 'unofficial' && 'Unofficial firmware detected!'}
-              {result === 'error' &&
-                'Unable to verify firmware: internet connection required'}
+              {result === 'unknown' ? 'Verifying official firmware' : null}
+              {result === 'official'
+                ? 'Your device is running official firmware'
+                : null}
+              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
+              {result === 'error'
+                ? 'Unable to verify firmware: internet connection required'
+                : null}
             </SizableText>
           </Stack>
         </Stack>
-        {result !== 'unknown' && (
+        {result !== 'unknown' ? (
           <Stack pt="$5">
             <Button
               $md={
@@ -194,13 +196,13 @@ const FirmwareAuthenticationDialogContent = ({
                 },
               })}
             >
-              {result === 'official' && 'Continue'}
-              {result === 'unofficial' && 'Contact OneKey Support'}
-              {result === 'error' && 'Retry'}
+              {result === 'official' ? 'Continue' : null}
+              {result === 'unofficial' ? 'Contact OneKey Support' : null}
+              {result === 'error' ? 'Retry' : null}
             </Button>
           </Stack>
-        )}
-        {result === 'error' && (
+        ) : null}
+        {result === 'error' ? (
           <Stack pt="$3">
             <Button
               variant="tertiary"
@@ -210,7 +212,7 @@ const FirmwareAuthenticationDialogContent = ({
               Continue Anyway
             </Button>
           </Stack>
-        )}
+        ) : null}
       </HeightTransition>
     </Stack>
   );

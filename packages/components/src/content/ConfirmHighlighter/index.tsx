@@ -23,7 +23,7 @@ export function ConfirmHighlighter({
   return (
     <Stack borderRadius={borderRadius} {...rest}>
       {children}
-      {highlight && (
+      {highlight ? (
         <MotiView
           from={{
             borderWidth: 0,
@@ -60,7 +60,7 @@ export function ConfirmHighlighter({
             },
           }}
         />
-      )}
+      ) : null}
     </Stack>
   );
 }

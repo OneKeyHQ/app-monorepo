@@ -164,7 +164,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             headerRight={renderHeaderRight}
           />
           <Page.Body>
-            {platformEnv.isNative && (
+            {platformEnv.isNative ? (
               <XStack
                 justifyContent="space-between"
                 px="$4"
@@ -174,7 +174,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
-            )}
+            ) : null}
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {

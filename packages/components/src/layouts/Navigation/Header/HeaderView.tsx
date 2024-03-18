@@ -70,7 +70,7 @@ function HeaderView({
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => (
       <XStack>
-        {!disableClose && (
+        {!disableClose ? (
           <HeaderBackButton
             canGoBack={!topStack}
             onPress={onBackCallback}
@@ -78,7 +78,7 @@ function HeaderView({
             isModelScreen={isModelScreen}
             {...props}
           />
-        )}
+        ) : null}
         {headerLeft?.({
           ...props,
           canGoBack: !topStack,
@@ -157,7 +157,7 @@ function HeaderView({
             ]}
           />
         </Stack>
-        {!!headerSearchBarOptions && (
+        {headerSearchBarOptions ? (
           <HeaderSearchBar
             autoFocus={headerSearchBarOptions?.autoFocus}
             placeholder={headerSearchBarOptions?.placeholder}
@@ -167,7 +167,7 @@ function HeaderView({
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
             isModalScreen={isModelScreen}
           />
-        )}
+        ) : null}
       </Stack>
     </DesktopDragZoneBox>
   );

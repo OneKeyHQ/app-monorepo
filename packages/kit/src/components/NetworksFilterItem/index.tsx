@@ -48,7 +48,7 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri && (
+      {networkImageUri ? (
         <Image
           height="$6"
           width="$6"
@@ -64,8 +64,8 @@ export function NetworksFilterItem({
             }}
           />
         </Image>
-      )}
-      {networkName && (
+      ) : null}
+      {networkName ? (
         <SizableText
           color={isSelected ? '$textOnColor' : '$textSubdued'}
           size="$bodyLgMedium"
@@ -75,7 +75,7 @@ export function NetworksFilterItem({
         >
           {networkName}
         </SizableText>
-      )}
+      ) : null}
     </XStack>
   );
 

@@ -61,7 +61,7 @@ export function WalletAvatar({
   return (
     <Stack w={size} h={size} justifyContent="center" alignItems="center">
       <WalletAvatarBase size={size} img={img} wallet={wallet} />
-      {status === 'connected' && (
+      {status === 'connected' ? (
         <Stack
           position="absolute"
           bottom={-2}
@@ -73,8 +73,8 @@ export function WalletAvatar({
         >
           <Stack borderRadius="$full" w="$2.5" h="$2.5" bg="$bgSuccessStrong" />
         </Stack>
-      )}
-      {badge && (
+      ) : null}
+      {badge ? (
         <Stack
           position="absolute"
           bottom={-3}
@@ -91,7 +91,7 @@ export function WalletAvatar({
             {badge}
           </SizableText>
         </Stack>
-      )}
+      ) : null}
     </Stack>
   );
 }

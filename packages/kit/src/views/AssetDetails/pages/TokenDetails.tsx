@@ -258,7 +258,7 @@ export function TokenDetails() {
         headerRight={headerRight}
       />
       <Page.Body>
-        {isBlocked && (
+        {isBlocked ? (
           <Alert
             icon="EyeOffOutline"
             fullBleed
@@ -270,7 +270,7 @@ export function TokenDetails() {
             }}
             mb="$5"
           />
-        )}
+        ) : null}
 
         {/* Overview */}
         <Stack px="$5" pb="$5">

@@ -98,10 +98,10 @@ function TokenListFooter(props: IProps) {
   return (
     <Stack>
       {tableLayout &&
-        (smallBalanceTokens.length > 0 || riskyTokens.length > 0) && (
-          <Divider mx="$5" my="$2" />
-        )}
-      {smallBalanceTokens.length > 0 && (
+      (smallBalanceTokens.length > 0 || riskyTokens.length > 0) ? (
+        <Divider mx="$5" my="$2" />
+      ) : null}
+      {smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <Stack
             p={tableLayout ? '$1' : '$1.5'}
@@ -129,8 +129,8 @@ function TokenListFooter(props: IProps) {
             {smallBalanceTokensFiatValue}
           </NumberSizeableText>
         </ListItem>
-      )}
-      {riskyTokens.length > 0 && (
+      ) : null}
+      {riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
           <Stack
             p={tableLayout ? '$1' : '$1.5'}
@@ -151,7 +151,7 @@ function TokenListFooter(props: IProps) {
             })}
           />
         </ListItem>
-      )}
+      ) : null}
     </Stack>
   );
 }

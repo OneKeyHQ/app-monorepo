@@ -45,7 +45,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
         }
       />
 
-      {tableLayout && (
+      {tableLayout ? (
         <XStack px="$5" py="$2" space="$3">
           <XStack
             flexGrow={1}
@@ -91,7 +91,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
             </SizableText>
           </XStack>
         </XStack>
-      )}
+      ) : null}
     </Stack>
   );
 }

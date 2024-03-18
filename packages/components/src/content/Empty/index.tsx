@@ -16,7 +16,7 @@ export function Empty(props: IEmptyProps) {
 
   return (
     <YStack p="$5" alignItems="center" justifyContent="center" {...rest}>
-      {icon && (
+      {icon ? (
         <Icon
           name={icon}
           size="$16"
@@ -24,24 +24,24 @@ export function Empty(props: IEmptyProps) {
           mb="$6"
           {...iconProps}
         />
-      )}
-      {(title || description) && (
+      ) : null}
+      {title || description ? (
         <YStack alignItems="center" maxWidth="$64">
-          {title && (
+          {title ? (
             <SizableText size="$headingXl" textAlign="center" mb="$2">
               {title}
             </SizableText>
-          )}
-          {description && (
+          ) : null}
+          {description ? (
             <SizableText size="$bodyLg" textAlign="center" color="$textSubdued">
               {description}
             </SizableText>
-          )}
+          ) : null}
         </YStack>
-      )}
-      {buttonProps && (
+      ) : null}
+      {buttonProps ? (
         <Button variant="primary" size="medium" mt="$6" {...buttonProps} />
-      )}
+      ) : null}
     </YStack>
   );
 }

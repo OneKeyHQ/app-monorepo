@@ -69,9 +69,9 @@ export function AppStateLockContainer({
   return (
     <>
       {isShowChildren ? children : null}
-      {!isLocked && <AppStateUpdater />}
+      {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
-        {isLocked && (
+        {isLocked ? (
           <AppStateLock
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
@@ -95,7 +95,7 @@ export function AppStateLockContainer({
               </Suspense>
             }
           />
-        )}
+        ) : null}
       </AnimatePresence>
     </>
   );

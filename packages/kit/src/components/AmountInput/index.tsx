@@ -115,9 +115,9 @@ export function AmountInput({
         >
           {valueProps.value || '0.00'}
         </NumberSizeableText>
-        {reversible && (
+        {reversible ? (
           <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
-        )}
+        ) : null}
       </>
     );
   }, [valueProps, currency, reversible]);
@@ -154,13 +154,13 @@ export function AmountInput({
       >
         <Stack>
           <Image height="$7" width="$7" borderRadius="$full">
-            {tokenSelectorTriggerProps?.selectedTokenImageUri && (
+            {tokenSelectorTriggerProps?.selectedTokenImageUri ? (
               <Image.Source
                 source={{
                   uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
                 }}
               />
-            )}
+            ) : null}
           </Image>
           <Stack
             position="absolute"
@@ -170,7 +170,7 @@ export function AmountInput({
             borderRadius="$full"
             bg="$bgApp"
           >
-            {tokenSelectorTriggerProps?.selectedNetworkImageUri && (
+            {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
               <Image height="$3" width="$3" borderRadius="$full">
                 <Image.Source
                   source={{
@@ -178,13 +178,13 @@ export function AmountInput({
                   }}
                 />
               </Image>
-            )}
+            ) : null}
           </Stack>
         </Stack>
         <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol || 'Select Token'}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress && (
+        {tokenSelectorTriggerProps?.onPress ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -192,7 +192,7 @@ export function AmountInput({
             mr="$-1"
             color="$iconSubdued"
           />
-        )}
+        ) : null}
       </XStack>
     );
   }, [
@@ -236,11 +236,11 @@ export function AmountInput({
             {balanceProps.value}
           </NumberSizeableText>
         </SizableText>
-        {enableMaxAmount && (
+        {enableMaxAmount ? (
           <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
             Max
           </SizableText>
-        )}
+        ) : null}
       </XStack>
     );
   }, [balanceProps, enableMaxAmount]);

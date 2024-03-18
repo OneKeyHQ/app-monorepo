@@ -69,7 +69,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
           />
         )
       )}
-      {label && (
+      {label ? (
         <SizableText
           size={size === 'small' ? '$bodyMd' : '$bodyLg'}
           ml={iconName ? '$2' : '$0'}
@@ -77,7 +77,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
         >
           {label}
         </SizableText>
-      )}
+      ) : null}
     </XStack>
   );
 });

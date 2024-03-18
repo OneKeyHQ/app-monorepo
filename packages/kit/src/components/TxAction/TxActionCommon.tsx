@@ -97,14 +97,14 @@ function TxActionCommonDescription({
           {description?.prefix}
         </SizableText>
       ) : null}
-      {description?.icon && (
+      {description?.icon ? (
         <Icon
           color="$iconSubdued"
           mr="$0.5"
           size="$4"
           name={description.icon}
         />
-      )}
+      ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
         {description?.children || '-'}
       </SizableText>
@@ -217,13 +217,13 @@ function TxActionCommonListView(
             flexBasis: 1,
           })}
         >
-          {showIcon && (
+          {showIcon ? (
             <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
-          )}
+          ) : null}
           <Stack>
             <TxActionCommonTitle title={title} tableLayout={tableLayout} />
             <XStack>
-              {tableLayout && timestamp && (
+              {tableLayout && timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
@@ -234,7 +234,7 @@ function TxActionCommonListView(
                     •
                   </SizableText>
                 </>
-              )}
+              ) : null}
               <TxActionCommonDescription
                 description={description}
                 tableLayout={tableLayout}
@@ -263,25 +263,25 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout && (
+        {tableLayout ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
             feeSymbol={feeSymbol}
             currencySymbol={currencySymbol}
           />
-        )}
+        ) : null}
       </XStack>
 
       {/* Actions */}
-      {pending && (
+      {pending ? (
         <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
             Speed Up
           </Button>
           <Button size="small">Cancel</Button>
         </XStack>
-      )}
+      ) : null}
     </ListItem>
   );
 }
@@ -317,19 +317,19 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           </XStack>
         }
       />
-      {target && (
+      {target ? (
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
         />
-      )}
+      ) : null}
 
-      {source && (
+      {source ? (
         <Container.Item
           title={source.title ?? intl.formatMessage({ id: 'content__from' })}
           content={source.content}
         />
-      )}
+      ) : null}
     </Container.Box>
   );
 }

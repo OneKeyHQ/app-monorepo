@@ -151,7 +151,7 @@ function DialogFrame({
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
       {/* leading icon */}
-      {icon && (
+      {icon ? (
         <Stack
           alignSelf="flex-start"
           p="$3"
@@ -162,23 +162,23 @@ function DialogFrame({
         >
           <Icon name={icon} size="$8" color={getColors().iconColor} />
         </Stack>
-      )}
+      ) : null}
 
       {/* title and description */}
-      {(title || description) && (
+      {title || description ? (
         <Stack p="$5" pr="$16">
-          {title && (
+          {title ? (
             <SizableText size="$headingXl" py="$px">
               {title}
             </SizableText>
-          )}
-          {description && (
+          ) : null}
+          {description ? (
             <SizableText size="$bodyLg" pt="$1.5">
               {description}
             </SizableText>
-          )}
+          ) : null}
         </Stack>
-      )}
+      ) : null}
 
       {/* close button */}
       <IconButton
@@ -247,7 +247,7 @@ function DialogFrame({
             borderCurve: 'continuous',
           }}
         >
-          {!disableDrag && <SheetGrabber />}
+          {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
         </Sheet.Frame>
       </Sheet>

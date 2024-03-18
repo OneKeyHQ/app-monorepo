@@ -23,14 +23,14 @@ export function WalletOptionItem({
 }) {
   return (
     <ListItem userSelect="none" {...rest}>
-      {icon && (
+      {icon ? (
         <Stack px="$2">
           <Icon name={icon} color={iconColor} />
         </Stack>
-      )}
+      ) : null}
       <ListItem.Text primary={label} secondary={description} flex={1} />
       {children}
-      {isLoading && <Spinner />}
+      {isLoading ? <Spinner /> : null}
     </ListItem>
   );
 }

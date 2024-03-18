@@ -43,11 +43,11 @@ export function TokenListItem({
             <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
               {tokenSymbol}
             </SizableText>
-            {tokenContrastAddress && (
+            {tokenContrastAddress ? (
               <SizableText size="$bodyMd" color="$textDisabled">
                 {tokenContrastAddress}
               </SizableText>
-            )}
+            ) : null}
           </XStack>
         }
       />

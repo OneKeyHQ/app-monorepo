@@ -128,7 +128,7 @@ function TokenSelector() {
         }
       />
       <Page.Body>
-        {networkName && <SectionList.SectionHeader title={networkName} />}
+        {networkName ? <SectionList.SectionHeader title={networkName} /> : null}
         <TokenListView onPressToken={handleTokenOnPress} />
       </Page.Body>
     </Page>

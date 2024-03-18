@@ -72,9 +72,9 @@ function TxHistoryListView(props: IProps) {
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextTx?.decodedTx.status !== EDecodedTxStatus.Pending && (
+            {nextTx?.decodedTx.status !== EDecodedTxStatus.Pending ? (
               <Stack mb="$5" />
-            )}
+            ) : null}
           </>
         );
       }
@@ -112,7 +112,7 @@ function TxHistoryListView(props: IProps) {
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextDate !== date && <Stack mb="$5" />}
+            {nextDate !== date ? <Stack mb="$5" /> : null}
           </>
         );
       }
@@ -126,7 +126,7 @@ function TxHistoryListView(props: IProps) {
             onPress={onPressHistory}
             tableLayout={tableLayout}
           />
-          {nextDate !== date && <Stack mb="$5" />}
+          {nextDate !== date ? <Stack mb="$5" /> : null}
         </>
       );
     },

@@ -43,7 +43,7 @@ function BaseSortableCell(
       <ScaleDecorator {...scaleProps}>
         <XStack w="100%" alignItems="center">
           <AnimatePresence exitBeforeEnter>
-            {isEditing && (
+            {isEditing ? (
               <IconButton
                 onPress={onDeletePress}
                 icon="MinusCircleSolid"
@@ -54,14 +54,14 @@ function BaseSortableCell(
                   scale: 0,
                 }}
               />
-            )}
+            ) : null}
           </AnimatePresence>
 
           <Stack ref={ref} flex={1} {...rest} />
 
           {/* Don't use `Stack.onLongPress` as it will only be called after `onPressOut` */}
           <AnimatePresence exitBeforeEnter>
-            {isEditing && (
+            {isEditing ? (
               <IconButton
                 icon="MenuOutline"
                 onPressIn={drag}
@@ -71,7 +71,7 @@ function BaseSortableCell(
                   scale: 0,
                 }}
               />
-            )}
+            ) : null}
           </AnimatePresence>
         </XStack>
       </ScaleDecorator>

@@ -165,7 +165,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       {...containerProps}
     >
       {/* left addon */}
-      {leftAddOnProps && (
+      {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
             size={size}
@@ -178,7 +178,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
             testID={leftAddOnProps.testID}
           />
         </Group.Item>
-      )}
+      ) : null}
 
       {/* input */}
       <Group.Item>
@@ -214,7 +214,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       </Group.Item>
 
       {/* left icon */}
-      {leftIconName && (
+      {leftIconName ? (
         <Icon
           position="absolute"
           name={leftIconName}
@@ -225,10 +225,10 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           color={disabled ? '$iconDisabled' : '$iconSubdued'}
           pointerEvents="none"
         />
-      )}
+      ) : null}
 
       {/* right elements */}
-      {addOns?.length && (
+      {addOns?.length ? (
         <Group.Item>
           <Group
             borderRadius={sharedStyles.borderRadius}
@@ -270,7 +270,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
             )}
           </Group>
         </Group.Item>
-      )}
+      ) : null}
     </Group>
   );
 }

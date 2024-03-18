@@ -53,7 +53,7 @@ export function HomeScreen() {
                       }}
                     />
                     <AnimatePresence>
-                      {selectedScreenIndex === index && (
+                      {selectedScreenIndex === index ? (
                         <Icon
                           position="absolute"
                           right="$1.5"
@@ -74,7 +74,7 @@ export function HomeScreen() {
                             scale: 0,
                           }}
                         />
-                      )}
+                      ) : null}
                     </AnimatePresence>
                   </XStack>
                 ))}

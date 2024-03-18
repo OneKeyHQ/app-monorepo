@@ -81,7 +81,7 @@ function TokenListItem(props: IProps) {
           flexBasis: 0,
         })}
       >
-        {withPrice && (
+        {withPrice ? (
           <XStack
             space="$2"
             alignItems="center"
@@ -90,12 +90,12 @@ function TokenListItem(props: IProps) {
               flexBasis: 0,
             })}
           >
-            {tableLayout && (
+            {tableLayout ? (
               <TokenPriceView $key={token.$key ?? ''} size="$bodyMd" />
-            )}
+            ) : null}
             <TokenPriceChangeView $key={token.$key ?? ''} size="$bodyMd" />
           </XStack>
-        )}
+        ) : null}
         <TokenValueView
           $key={token.$key ?? ''}
           size="$bodyLgMedium"

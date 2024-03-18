@@ -154,7 +154,7 @@ function BookmarkListModal() {
                   }),
               })}
             >
-              {isEditing && (
+              {isEditing ? (
                 <ListItem.IconButton
                   title="Remove"
                   key="remove"
@@ -179,7 +179,7 @@ function BookmarkListModal() {
                   }}
                   testID="action-list-item-rename"
                 />
-              )}
+              ) : null}
               <ListItem.Avatar
                 src={item.logo}
                 fallbackProps={{
@@ -197,7 +197,7 @@ function BookmarkListModal() {
                 }}
                 flex={1}
               />
-              {isEditing && (
+              {isEditing ? (
                 <XStack space="$6">
                   <ListItem.IconButton
                     title="Rename"
@@ -223,7 +223,7 @@ function BookmarkListModal() {
                     onPressIn={drag}
                   />
                 </XStack>
-              )}
+              ) : null}
             </ListItem>
           )}
         />

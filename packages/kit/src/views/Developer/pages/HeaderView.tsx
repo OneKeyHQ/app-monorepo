@@ -91,7 +91,7 @@ export default function HomePageHeaderView() {
         </AccountSelectorProviderMirror>
         <SizableText>Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
-        {headerHighMode && <SizableText py="$10">Very high</SizableText>}
+        {headerHighMode ? <SizableText py="$10">Very high</SizableText> : null}
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>

@@ -25,7 +25,7 @@ export function WalletDetailsHeader({
 }: IWalletDetailsHeaderProps) {
   return (
     <ListItem mt="$1.5" justifyContent="flex-end" {...rest}>
-      {editMode && editable && (
+      {editMode && editable ? (
         <XStack
           pr="$5"
           mr="$2"
@@ -36,7 +36,7 @@ export function WalletDetailsHeader({
           <WalletRemoveButton wallet={wallet} />
           <AboutDevice />
         </XStack>
-      )}
+      ) : null}
       {editable ? (
         <Button
           testID="AccountSelectorModal-EditButton"

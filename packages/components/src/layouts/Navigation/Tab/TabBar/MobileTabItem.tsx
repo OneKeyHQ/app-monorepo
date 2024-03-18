@@ -18,15 +18,15 @@ export function MobileTabItem(
   const { icon, label, selected, tabBarStyle, ...rest } = props;
   return (
     <YStack alignItems="center" py="$1.5" userSelect="none" {...rest}>
-      {icon && (
+      {icon ? (
         <Icon
           flexShrink={0}
           name={icon}
           color={selected ? '$iconActive' : '$iconSubdued'}
           size="$7"
         />
-      )}
-      {label && (
+      ) : null}
+      {label ? (
         <SizableText
           numberOfLines={1}
           mt="$0.5"
@@ -35,7 +35,7 @@ export function MobileTabItem(
         >
           {label}
         </SizableText>
-      )}
+      ) : null}
     </YStack>
   );
 }

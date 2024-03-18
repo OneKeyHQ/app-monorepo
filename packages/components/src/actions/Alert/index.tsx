@@ -137,12 +137,12 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
         </Stack>
       ) : null}
       <YStack flex={1} space="$1">
-        {title && <SizableText size="$bodyMd">{title}</SizableText>}
-        {description && (
+        {title ? <SizableText size="$bodyMd">{title}</SizableText> : null}
+        {description ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             {description}
           </SizableText>
-        )}
+        ) : null}
       </YStack>
       {action ? (
         <XStack space="$4" alignItems="center">

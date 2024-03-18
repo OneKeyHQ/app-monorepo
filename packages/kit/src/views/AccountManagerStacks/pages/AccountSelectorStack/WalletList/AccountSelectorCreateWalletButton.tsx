@@ -71,11 +71,11 @@ export function AccountSelectorCreateWalletButton() {
           },
         ]}
       />
-      {media.gtMd && (
+      {media.gtMd ? (
         <SizableText size="$bodySm" color="$textSubdued" mt="$1">
           Add wallet
         </SizableText>
-      )}
+      ) : null}
     </Stack>
   );
 }

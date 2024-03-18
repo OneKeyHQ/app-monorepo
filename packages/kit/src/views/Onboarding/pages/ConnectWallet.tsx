@@ -94,11 +94,11 @@ export function ConnectWallet() {
       <Page.Body>
         {wallets.map(({ title, data }) => (
           <Stack p="$5">
-            {title && (
+            {title ? (
               <Heading pb="$2.5" color="$textSubdued" size="$headingSm">
                 {title}
               </Heading>
-            )}
+            ) : null}
             <XStack flexWrap="wrap" mx="$-1">
               {data.map(({ name, logo }) => (
                 <Stack

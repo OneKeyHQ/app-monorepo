@@ -49,30 +49,32 @@ function ContainerBox(props: IProps) {
         borderRadius={12}
         {...contentProps}
       >
-        {children &&
-          (children instanceof Array ? children : [children]).map(
-            (child, index) => {
-              if (
-                child === true ||
-                child === false ||
-                child === null ||
-                child === undefined
-              )
-                return;
-              const { children: childChildren } = child.props;
-              return cloneElement(child, {
-                ...child.props,
-                key: index.toString(),
-                hasDivider: hasDivider
-                  ? index !==
-                    (children instanceof Array ? children : [children]).length -
-                      1
-                  : hasDivider,
+        {children
+          ? (children instanceof Array ? children : [children]).map(
+              (child, index) => {
+                if (
+                  child === true ||
+                  child === false ||
+                  child === null ||
+                  child === undefined
+                )
+                  return;
+                const { children: childChildren } = child.props;
+                return cloneElement(child, {
+                  ...child.props,
+                  key: index.toString(),
+                  hasDivider: hasDivider
+                    ? index !==
+                      (children instanceof Array ? children : [children])
+                        .length -
+                        1
+                    : hasDivider,
 
-                children: childChildren,
-              });
-            },
-          )}
+                  children: childChildren,
+                });
+              },
+            )
+          : null}
       </Group>
     </Stack>
   );
