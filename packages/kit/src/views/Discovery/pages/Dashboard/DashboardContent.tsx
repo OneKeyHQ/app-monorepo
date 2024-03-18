@@ -30,20 +30,27 @@ function DashboardContent({
   const {
     result: [bookmarksData, historiesData, homePageData] = [],
     run: refreshBrowserData,
-  } = usePromiseResult(async () => {
-    const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
-      generateIcon: true,
-      sliceCount: 8,
-    });
-    const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
-      generateIcon: true,
-      sliceCount: 8,
-    });
-    const homePageResponse =
-      await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+    isLoading,
+  } = usePromiseResult(
+    async () => {
+      const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
+      const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
+        generateIcon: true,
+        sliceCount: 8,
+      });
+      const homePageResponse =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
 
-    return Promise.all([bookmarks, histories, homePageResponse]);
-  }, []);
+      return Promise.all([bookmarks, histories, homePageResponse]);
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
@@ -84,6 +91,7 @@ function DashboardContent({
               });
             }
           }}
+          isLoading={isLoading}
         />
         <BookmarksAndHistoriesSection
           key="BookmarksAndHistoriesSection"
@@ -112,6 +120,7 @@ function DashboardContent({
               shouldPopNavigation: false,
             })
           }
+          isLoading={isLoading}
         />
       </>
     ),
@@ -122,6 +131,7 @@ function DashboardContent({
       handleOpenWebSite,
       navigation,
       homePageData,
+      isLoading,
     ],
   );
 
