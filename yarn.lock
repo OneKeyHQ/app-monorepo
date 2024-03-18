@@ -65,6 +65,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aptos-labs/aptos-client@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "@aptos-labs/aptos-client@npm:0.1.0"
+  dependencies:
+    axios: 1.6.2
+    got: ^11.8.6
+  checksum: afe2e3a2f18736ef6ddfdd059530a12b136d17ea79b5b80757721500620fa0d962de0e7863f15c95cbe127ba8be64b4733f79818a70a193967ec00d394dd1bcd
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:7.10.4, @babel/code-frame@npm:~7.10.4":
   version: 7.10.4
   resolution: "@babel/code-frame@npm:7.10.4"
@@ -6951,7 +6961,7 @@ __metadata:
     "@types/elliptic": ^6.4.14
     "@zondax/izari-filecoin": ^1.0.1
     algosdk: ^1.21.0
-    aptos: ^1.3.17
+    aptos: ^1.21.0
     axios-retry: ^3.4.0
     bchaddrjs: ^0.5.2
     bech32: ^2.0.0
@@ -9378,6 +9388,16 @@ __metadata:
     "@noble/hashes": ~1.1.1
     "@scure/base": ~1.1.0
   checksum: c4361406f092a45e511dc572c89f497af6665ad81cb3fd7bf78e6772f357f7ae885e129ef0b985cb3496a460b4811318f77bc61634d9b0a8446079a801b6003c
+  languageName: node
+  linkType: hard
+
+"@scure/bip39@npm:1.2.1":
+  version: 1.2.1
+  resolution: "@scure/bip39@npm:1.2.1"
+  dependencies:
+    "@noble/hashes": ~1.3.0
+    "@scure/base": ~1.1.0
+  checksum: c5bd6f1328fdbeae2dcdd891825b1610225310e5e62a4942714db51066866e4f7bef242c7b06a1b9dcc8043a4a13412cf5c5df76d3b10aa9e36b82e9b6e3eeaa
   languageName: node
   linkType: hard
 
@@ -12551,6 +12571,20 @@ __metadata:
   version: 2.0.0
   resolution: "aproba@npm:2.0.0"
   checksum: 5615cadcfb45289eea63f8afd064ab656006361020e1735112e346593856f87435e02d8dcc7ff0d11928bc7d425f27bc7c2a84f6c0b35ab0ff659c814c138a24
+  languageName: node
+  linkType: hard
+
+"aptos@npm:^1.21.0":
+  version: 1.21.0
+  resolution: "aptos@npm:1.21.0"
+  dependencies:
+    "@aptos-labs/aptos-client": ^0.1.0
+    "@noble/hashes": 1.3.3
+    "@scure/bip39": 1.2.1
+    eventemitter3: ^5.0.1
+    form-data: 4.0.0
+    tweetnacl: 1.0.3
+  checksum: 305350e1e311617ebcb668cff99ea9e4648b4e4cccb591c5cc55c5f1e9522a9795065302a3dd466d1c72e345cbc30b4d91a85efa442df2f5f9ec8a4f21b304d1
   languageName: node
   linkType: hard
 
