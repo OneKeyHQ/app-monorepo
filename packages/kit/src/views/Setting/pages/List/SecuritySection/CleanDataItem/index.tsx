@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   ActionList,
   Checkbox,
@@ -48,6 +50,7 @@ const ClearCacheOnAppContent = () => (
 );
 
 export const CleanDataItem = () => {
+  const intl = useIntl();
   const { copyText } = useClipboard();
   return (
     <ActionList
@@ -127,11 +130,11 @@ export const CleanDataItem = () => {
           destructive: true,
           onPress: () => {
             Dialog.show({
-              title: 'Erase all data',
+              title: intl.formatMessage({ id: 'action__reset' }),
               icon: 'ErrorOutline',
               tone: 'destructive',
               description:
-                'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "ERASE" to reset the App',
+                'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
               renderContent: (
                 <Dialog.Form
                   formProps={{
@@ -139,7 +142,12 @@ export const CleanDataItem = () => {
                   }}
                 >
                   <Dialog.FormField name="text">
-                    <Input autoFocus flex={1} testID="erase-data-input" />
+                    <Input
+                      autoFocus
+                      flex={1}
+                      testID="erase-data-input"
+                      placeholder={intl.formatMessage({ id: 'action__reset' })}
+                    />
                   </Dialog.FormField>
                 </Dialog.Form>
               ),
@@ -148,7 +156,7 @@ export const CleanDataItem = () => {
                   const { getValues } = getForm() || {};
                   if (getValues) {
                     const { text } = getValues();
-                    return text !== 'ERASE';
+                    return text !== 'RESET';
                   }
                   return true;
                 },
