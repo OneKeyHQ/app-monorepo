@@ -57,7 +57,7 @@ function NFTListItem(props: IProps) {
               <Icon name="ImageSquareWavesOutline" />
             </Image.Fallback>
           </Image>
-          {Number.parseInt(nft.amount, 10) > 1 && (
+          {Number.parseInt(nft.amount, 10) > 1 ? (
             <SizableText
               position="absolute"
               right="$0"
@@ -72,7 +72,7 @@ function NFTListItem(props: IProps) {
             >
               x{nft.amount}
             </SizableText>
-          )}
+          ) : null}
         </Stack>
       </Stack>
       <Stack mt="$2">

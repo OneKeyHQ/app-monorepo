@@ -227,7 +227,7 @@ function HistoryLoadingView({
               <Skeleton h="$3" w="$12" />
             </Stack>
           </Stack>
-          {tableLayout && (
+          {tableLayout ? (
             <Stack flexGrow={1} flexBasis={0}>
               <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
                 <Skeleton h={tableLayout ? '$3' : '$4'} w="$16" />
@@ -236,7 +236,7 @@ function HistoryLoadingView({
                 <Skeleton h="$3" w="$12" />
               </Stack>
             </Stack>
-          )}
+          ) : null}
         </ListItem>
       ))}
     </Stack>

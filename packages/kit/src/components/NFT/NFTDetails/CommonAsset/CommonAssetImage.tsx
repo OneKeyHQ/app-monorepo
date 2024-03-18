@@ -20,7 +20,7 @@ function CommonAssetImage(props: IProps) {
         }}
       />
 
-      {Number(nft.amount) > 1 && (
+      {Number(nft.amount) > 1 ? (
         <SizableText
           size="$bodyLgMedium"
           position="absolute"
@@ -35,7 +35,7 @@ function CommonAssetImage(props: IProps) {
         >
           {`x${nft.amount}`}
         </SizableText>
-      )}
+      ) : null}
     </>
   );
 }
